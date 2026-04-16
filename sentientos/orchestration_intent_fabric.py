@@ -102,6 +102,16 @@ _ORCHESTRATION_ATTENTION_RECOMMENDATIONS = {
     "insufficient_context",
 }
 
+_ORCHESTRATION_VENUE_MIX_CLASSES = {
+    "balanced_recent_venue_mix",
+    "internal_execution_heavy",
+    "codex_heavy",
+    "deep_research_heavy",
+    "operator_escalation_heavy",
+    "mixed_venue_stress",
+    "insufficient_history",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -840,6 +850,186 @@ def derive_orchestration_outcome_review(
             "executor_log": str((executor_log_path or Path(task_executor.LOG_PATH)).relative_to(root))
             if (executor_log_path or Path(task_executor.LOG_PATH)).is_relative_to(root)
             else str(executor_log_path or Path(task_executor.LOG_PATH)),
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "does_not_change_admission_or_execution_authority": True,
+            },
+        ),
+    }
+
+
+def derive_orchestration_venue_mix_review(
+    repo_root: Path,
+    *,
+    window_size: int = 10,
+) -> dict[str, Any]:
+    """Derive a bounded retrospective classifier over recent orchestration venue mix."""
+
+    root = repo_root.resolve()
+    intents = _read_jsonl(root / "glow/orchestration/orchestration_intents.jsonl")
+    handoffs = _read_jsonl(root / "glow/orchestration/orchestration_handoffs.jsonl")
+    codex_work_orders = _read_jsonl(root / "glow/orchestration/codex_work_orders.jsonl")
+    deep_research_work_orders = _read_jsonl(root / "glow/orchestration/deep_research_work_orders.jsonl")
+
+    intent_map: dict[str, dict[str, Any]] = {}
+    for row in intents:
+        intent_id = str(row.get("intent_id") or "")
+        if intent_id:
+            intent_map[intent_id] = row
+
+    scoped_handoffs: list[dict[str, Any]] = []
+    for handoff in handoffs:
+        intent_ref = handoff.get("intent_ref")
+        intent_ref_map = intent_ref if isinstance(intent_ref, Mapping) else {}
+        intent_id = str(intent_ref_map.get("intent_id") or "")
+        if intent_id and intent_id in intent_map:
+            scoped_handoffs.append(handoff)
+
+    recent_handoffs = scoped_handoffs[-max(0, window_size) :] if window_size > 0 else []
+    recent_intent_ids: set[str] = set()
+    venue_counts = {
+        "task_admission_executor": 0,
+        "codex_implementation": 0,
+        "deep_research_audit": 0,
+    }
+    operator_required_count = 0
+    blocked_count = 0
+
+    for handoff in recent_handoffs:
+        intent_ref = handoff.get("intent_ref")
+        intent_ref_map = intent_ref if isinstance(intent_ref, Mapping) else {}
+        details = handoff.get("details")
+        details_map = details if isinstance(details, Mapping) else {}
+        intent_id = str(intent_ref_map.get("intent_id") or "")
+        intent_kind = str(intent_ref_map.get("intent_kind") or "")
+        intent = intent_map.get(intent_id, {})
+        recent_intent_ids.add(intent_id)
+
+        if intent_kind == "internal_maintenance_execution":
+            venue_counts["task_admission_executor"] += 1
+        elif intent_kind == "codex_work_order":
+            venue_counts["codex_implementation"] += 1
+        elif intent_kind == "deep_research_work_order":
+            venue_counts["deep_research_audit"] += 1
+
+        handoff_outcome = str(handoff.get("handoff_outcome") or "")
+        required_authority_posture = str(details_map.get("required_authority_posture") or intent.get("required_authority_posture") or "")
+        escalation_classification = str(
+            intent.get("source_delegated_judgment", {}).get("escalation_classification")
+            if isinstance(intent.get("source_delegated_judgment"), Mapping)
+            else ""
+        )
+
+        if (
+            required_authority_posture in {"operator_priority_required", "insufficient_context_blocked"}
+            or handoff_outcome in {"blocked_by_operator_requirement", "blocked_by_insufficient_context"}
+            or intent_kind == "operator_review_request"
+            or escalation_classification in {"escalate_for_missing_context", "escalate_for_operator_priority"}
+        ):
+            operator_required_count += 1
+
+        if handoff_outcome in {
+            "blocked_by_admission",
+            "blocked_by_operator_requirement",
+            "blocked_by_insufficient_context",
+            "execution_target_unavailable",
+        }:
+            blocked_count += 1
+
+    records_considered = len(recent_handoffs)
+    total_primary_venue = sum(venue_counts.values())
+    internal_ratio = (venue_counts["task_admission_executor"] / total_primary_venue) if total_primary_venue else 0.0
+    codex_ratio = (venue_counts["codex_implementation"] / total_primary_venue) if total_primary_venue else 0.0
+    deep_ratio = (venue_counts["deep_research_audit"] / total_primary_venue) if total_primary_venue else 0.0
+    operator_ratio = (operator_required_count / records_considered) if records_considered else 0.0
+    blocked_ratio = (blocked_count / records_considered) if records_considered else 0.0
+
+    internal_heavy = venue_counts["task_admission_executor"] >= 2 and internal_ratio >= 0.6
+    codex_heavy = venue_counts["codex_implementation"] >= 2 and codex_ratio >= 0.6
+    deep_research_heavy = venue_counts["deep_research_audit"] >= 2 and deep_ratio >= 0.6
+    operator_heavy = operator_required_count >= 2 and operator_ratio >= 0.5
+    dominant_flags = [internal_heavy, codex_heavy, deep_research_heavy, operator_heavy]
+    heavy_pattern_count = sum(1 for flag in dominant_flags if flag)
+
+    classification = "insufficient_history"
+    if records_considered >= 3:
+        active_primary_venues = sum(1 for count in venue_counts.values() if count > 0)
+        balanced_primary_spread = (
+            active_primary_venues >= 2
+            and max(venue_counts.values()) - min(venue_counts.values()) <= 2
+            and not operator_heavy
+        )
+        if heavy_pattern_count >= 2:
+            classification = "mixed_venue_stress"
+        elif operator_heavy:
+            classification = "operator_escalation_heavy"
+        elif internal_heavy:
+            classification = "internal_execution_heavy"
+        elif codex_heavy:
+            classification = "codex_heavy"
+        elif deep_research_heavy:
+            classification = "deep_research_heavy"
+        elif balanced_primary_spread and blocked_ratio < 0.4:
+            classification = "balanced_recent_venue_mix"
+        else:
+            classification = "mixed_venue_stress"
+
+    if classification not in _ORCHESTRATION_VENUE_MIX_CLASSES:
+        classification = "mixed_venue_stress"
+
+    recent_codex_work_orders = sum(1 for row in codex_work_orders if str(row.get("source_intent_id") or "") in recent_intent_ids)
+    recent_deep_research_work_orders = sum(
+        1 for row in deep_research_work_orders if str(row.get("source_intent_id") or "") in recent_intent_ids
+    )
+    usage_balance = "balanced" if classification == "balanced_recent_venue_mix" else "skewed_or_stressed"
+    classification_basis = {
+        "heavy_flags": {
+            "internal_execution_heavy": internal_heavy,
+            "codex_heavy": codex_heavy,
+            "deep_research_heavy": deep_research_heavy,
+            "operator_escalation_heavy": operator_heavy,
+            "conflicting_heavy_patterns": heavy_pattern_count >= 2,
+        },
+        "ratios": {
+            "internal_ratio": round(internal_ratio, 4),
+            "codex_ratio": round(codex_ratio, 4),
+            "deep_research_ratio": round(deep_ratio, 4),
+            "operator_ratio": round(operator_ratio, 4),
+            "blocked_ratio": round(blocked_ratio, 4),
+        },
+    }
+
+    return {
+        "schema_version": "orchestration_venue_mix_review.v1",
+        "review_kind": "orchestration_venue_mix_retrospective",
+        "review_classification": classification,
+        "window_size": max(0, window_size),
+        "records_considered": records_considered,
+        "recent_venue_counts": venue_counts,
+        "recent_operator_and_blocked_counts": {
+            "operator_required_or_escalated": operator_required_count,
+            "blocked_handoffs": blocked_count,
+        },
+        "summary": {
+            "venue_usage_balance": usage_balance,
+            "diagnostic_summary": "bounded retrospective venue-mix review derived from existing orchestration artifacts only",
+            "classification_basis": classification_basis,
+        },
+        "artifacts_read": {
+            "intent_ledger": "glow/orchestration/orchestration_intents.jsonl",
+            "handoff_ledger": "glow/orchestration/orchestration_handoffs.jsonl",
+            "codex_staged_work_order_ledger": "glow/orchestration/codex_work_orders.jsonl",
+            "deep_research_staged_work_order_ledger": "glow/orchestration/deep_research_work_orders.jsonl",
+            "orchestration_result_resolution_surface": "sentientos.orchestration_intent_fabric.resolve_orchestration_result",
+        },
+        "evidence_counts": {
+            "recent_codex_work_orders": recent_codex_work_orders,
+            "recent_deep_research_work_orders": recent_deep_research_work_orders,
         },
         **_anti_sovereignty_payload(
             recommendation_only=True,

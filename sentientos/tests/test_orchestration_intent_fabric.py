@@ -14,6 +14,7 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_orchestration_outcome_review,
+    derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
     synthesize_orchestration_intent,
@@ -522,6 +523,67 @@ def _seed_orchestration_history(
     return executor_path
 
 
+def _seed_venue_mix_history(
+    tmp_path: Path,
+    *,
+    records: list[dict[str, object]],
+) -> None:
+    intent_rows: list[dict[str, object]] = []
+    handoff_rows: list[dict[str, object]] = []
+    codex_rows: list[dict[str, object]] = []
+    deep_rows: list[dict[str, object]] = []
+
+    for idx, record in enumerate(records):
+        intent_id = f"orh-venue-{idx}"
+        intent_kind = str(record.get("intent_kind") or "internal_maintenance_execution")
+        authority = str(record.get("required_authority_posture") or "no_additional_operator_approval_required")
+        requires_operator = bool(record.get("requires_operator_approval", authority != "no_additional_operator_approval_required"))
+        escalation = str(record.get("escalation_classification") or "")
+        handoff_outcome = str(record.get("handoff_outcome") or "staged_only")
+        intent_rows.append(
+            {
+                "schema_version": "orchestration_intent.v1",
+                "intent_id": intent_id,
+                "intent_kind": intent_kind,
+                "required_authority_posture": authority,
+                "requires_operator_approval": requires_operator,
+                "source_delegated_judgment": {"escalation_classification": escalation},
+            }
+        )
+        handoff_rows.append(
+            {
+                "schema_version": "orchestration_handoff.v1",
+                "handoff_outcome": handoff_outcome,
+                "intent_ref": {"intent_id": intent_id, "intent_kind": intent_kind},
+                "details": {
+                    "required_authority_posture": authority,
+                    "requires_operator_approval": requires_operator,
+                },
+            }
+        )
+        if intent_kind == "codex_work_order":
+            codex_rows.append(
+                {
+                    "schema_version": "codex_staged_work_order.v1",
+                    "source_intent_id": intent_id,
+                    "venue": "codex_implementation",
+                }
+            )
+        if intent_kind == "deep_research_work_order":
+            deep_rows.append(
+                {
+                    "schema_version": "deep_research_staged_work_order.v1",
+                    "source_intent_id": intent_id,
+                    "venue": "deep_research_audit",
+                }
+            )
+
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_intents.jsonl", intent_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoffs.jsonl", handoff_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/codex_work_orders.jsonl", codex_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/deep_research_work_orders.jsonl", deep_rows)
+
+
 def test_outcome_review_success_dominant_classifies_clean(tmp_path: Path) -> None:
     executor_log = _seed_orchestration_history(
         tmp_path,
@@ -656,6 +718,149 @@ def test_attention_recommendation_light_block_pattern_prefers_observe(tmp_path: 
     assert attention["operator_attention_recommendation"] in {"none", "observe"}
 
 
+def test_venue_mix_review_balanced_recent_use_classifies_balanced(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "balanced_recent_venue_mix"
+    assert review["recent_venue_counts"]["task_admission_executor"] == 2
+    assert review["recent_venue_counts"]["codex_implementation"] == 1
+    assert review["recent_venue_counts"]["deep_research_audit"] == 1
+
+
+def test_venue_mix_review_internal_heavy_classification(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "internal_execution_heavy"
+
+
+def test_venue_mix_review_codex_heavy_classification(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "codex_heavy"
+    assert review["evidence_counts"]["recent_codex_work_orders"] == 3
+
+
+def test_venue_mix_review_deep_research_heavy_classification(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "deep_research_heavy"
+    assert review["evidence_counts"]["recent_deep_research_work_orders"] == 3
+
+
+def test_venue_mix_review_operator_escalation_heavy_classification(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {
+                "intent_kind": "internal_maintenance_execution",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_approval_required",
+            },
+            {
+                "intent_kind": "operator_review_request",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_priority_required",
+                "escalation_classification": "escalate_for_operator_priority",
+            },
+            {
+                "intent_kind": "codex_work_order",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_approval_required",
+            },
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "operator_escalation_heavy"
+    assert review["recent_operator_and_blocked_counts"]["operator_required_or_escalated"] >= 3
+
+
+def test_venue_mix_review_conflicting_stress_classifies_mixed_stress(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {
+                "intent_kind": "internal_maintenance_execution",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_approval_required",
+            },
+            {
+                "intent_kind": "internal_maintenance_execution",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_approval_required",
+            },
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {
+                "intent_kind": "operator_review_request",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_priority_required",
+                "escalation_classification": "escalate_for_operator_priority",
+            },
+            {
+                "intent_kind": "operator_review_request",
+                "handoff_outcome": "blocked_by_operator_requirement",
+                "required_authority_posture": "operator_priority_required",
+                "escalation_classification": "escalate_for_operator_priority",
+            },
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "mixed_venue_stress"
+    assert review["summary"]["classification_basis"]["heavy_flags"]["conflicting_heavy_patterns"] is True
+
+
+def test_venue_mix_review_insufficient_history(tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only"},
+        ],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    assert review["review_classification"] == "insufficient_history"
+    assert review["records_considered"] == 2
+
+
 def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritative(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -687,6 +892,7 @@ def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritati
 
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     review = diagnostic["orchestration_handoff"]["outcome_review"]
+    venue_mix_review = diagnostic["orchestration_handoff"]["venue_mix_review"]
     attention = diagnostic["orchestration_handoff"]["attention_recommendation"]
 
     assert "review_classification" in review
@@ -695,6 +901,14 @@ def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritati
     assert review["non_authoritative"] is True
     assert review["decision_power"] == "none"
     assert review["does_not_change_admission_or_execution_authority"] is True
+    assert "review_classification" in venue_mix_review
+    assert "recent_venue_counts" in venue_mix_review
+    assert "recent_operator_and_blocked_counts" in venue_mix_review
+    assert venue_mix_review["diagnostic_only"] is True
+    assert venue_mix_review["non_authoritative"] is True
+    assert venue_mix_review["decision_power"] == "none"
+    assert venue_mix_review["review_only"] is True
+    assert venue_mix_review["does_not_change_admission_or_execution"] is True
     assert attention["operator_attention_recommendation"] in {
         "none",
         "observe",
@@ -733,6 +947,60 @@ def test_recent_history_review_to_attention_to_consumer_stays_non_authoritative(
     assert attention["does_not_change_admission_or_execution"] is True
 
 
+def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+        ],
+    )
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-venue-mix-consumer",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    venue_mix_review = diagnostic["orchestration_handoff"]["venue_mix_review"]
+    assert venue_mix_review["review_classification"] in {
+        "balanced_recent_venue_mix",
+        "internal_execution_heavy",
+        "codex_heavy",
+        "deep_research_heavy",
+        "operator_escalation_heavy",
+        "mixed_venue_stress",
+        "insufficient_history",
+    }
+    assert venue_mix_review["non_authoritative"] is True
+    assert venue_mix_review["diagnostic_only"] is True
+    assert venue_mix_review["decision_power"] == "none"
+    assert venue_mix_review["review_only"] is True
+
+
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     evidence = _base_evidence()
     evidence.update(
@@ -752,6 +1020,28 @@ def test_attention_recommendation_does_not_change_admission_or_execution_behavio
     after = admit_orchestration_intent(tmp_path, intent)
 
     assert attention["does_not_change_admission_or_execution"] is True
+    assert before["handoff_outcome"] == "admitted_to_execution_substrate"
+    assert after["handoff_outcome"] == "admitted_to_execution_substrate"
+
+
+def test_venue_mix_review_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert review["does_not_change_admission_or_execution"] is True
     assert before["handoff_outcome"] == "admitted_to_execution_substrate"
     assert after["handoff_outcome"] == "admitted_to_execution_substrate"
 
