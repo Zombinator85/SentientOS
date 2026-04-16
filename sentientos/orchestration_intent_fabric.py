@@ -155,6 +155,14 @@ _NEXT_MOVE_PROPOSAL_REVIEW_CLASSES = {
     "insufficient_history",
 }
 
+_HANDOFF_PACKET_STATUSES = {
+    "prepared",
+    "blocked_operator_required",
+    "blocked_insufficient_context",
+    "ready_for_external_trigger",
+    "ready_for_internal_trigger",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -446,6 +454,77 @@ def _next_move_proposal_id(
         separators=(",", ":"),
     )
     return f"nmp-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _handoff_packet_id(
+    *,
+    created_at: str,
+    source_proposal_id: str,
+    source_judgment_linkage_id: str,
+    target_venue: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "created_at": created_at,
+            "source_proposal_id": source_proposal_id,
+            "source_judgment_linkage_id": source_judgment_linkage_id,
+            "target_venue": target_venue,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"hpk-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _compact_handoff_task_brief(next_move_proposal: Mapping[str, Any], delegated_judgment: Mapping[str, Any]) -> str:
+    proposed = next_move_proposal.get("proposed_next_action")
+    proposed_map = proposed if isinstance(proposed, Mapping) else {}
+    work_class = str(delegated_judgment.get("work_class") or "operator_required")
+    venue = str(proposed_map.get("proposed_venue") or "insufficient_context")
+    posture = str(proposed_map.get("proposed_posture") or "hold")
+    executability = str(next_move_proposal.get("executability_classification") or "blocked_insufficient_context")
+    return f"{work_class}:{venue}:{posture}:{executability}"
+
+
+def _compact_handoff_rationale(
+    next_move_proposal: Mapping[str, Any],
+    delegated_judgment: Mapping[str, Any],
+) -> str:
+    proposal_basis = next_move_proposal.get("basis")
+    basis_map = proposal_basis if isinstance(proposal_basis, Mapping) else {}
+    compact_rationale = str(basis_map.get("compact_rationale") or "").strip()
+    if compact_rationale:
+        return compact_rationale
+    delegated_basis = delegated_judgment.get("basis")
+    delegated_basis_map = delegated_basis if isinstance(delegated_basis, Mapping) else {}
+    reasons = delegated_basis_map.get("signal_reasons")
+    if isinstance(reasons, list) and reasons:
+        return str(reasons[0])
+    return "bounded_handoff_packet_derived_from_existing_orchestration_signals"
+
+
+def _handoff_evidence_pointers(
+    delegated_judgment: Mapping[str, Any],
+) -> list[str]:
+    delegated_basis = delegated_judgment.get("basis")
+    delegated_basis_map = delegated_basis if isinstance(delegated_basis, Mapping) else {}
+    pointers = [
+        "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        "glow/orchestration/orchestration_handoffs.jsonl",
+        "glow/orchestration/orchestration_intents.jsonl",
+    ]
+    artifacts = delegated_basis_map.get("artifacts_read")
+    if isinstance(artifacts, Mapping):
+        for value in artifacts.values():
+            if isinstance(value, str) and value:
+                pointers.append(value)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for pointer in pointers:
+        if pointer not in seen:
+            ordered.append(pointer)
+            seen.add(pointer)
+    return ordered
 
 
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
@@ -1503,6 +1582,158 @@ def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     with ledger_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(proposal), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def synthesize_handoff_packet(
+    next_move_proposal: Mapping[str, Any],
+    delegated_judgment: Mapping[str, Any],
+    *,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Derive a compact venue-specific handoff packet from existing bounded orchestration signals."""
+
+    proposal_ref = next_move_proposal
+    proposed_action = proposal_ref.get("proposed_next_action")
+    proposed_action_map = proposed_action if isinstance(proposed_action, Mapping) else {}
+    operator_state_raw = proposal_ref.get("operator_escalation_requirement_state")
+    operator_state = operator_state_raw if isinstance(operator_state_raw, Mapping) else {}
+    source_judgment = proposal_ref.get("source_delegated_judgment")
+    source_judgment_map = source_judgment if isinstance(source_judgment, Mapping) else {}
+    target_venue = str(proposed_action_map.get("proposed_venue") or "insufficient_context")
+    proposed_posture = str(proposed_action_map.get("proposed_posture") or "hold")
+    executability = str(proposal_ref.get("executability_classification") or "blocked_insufficient_context")
+    requires_operator = bool(operator_state.get("requires_operator_or_escalation"))
+    escalation = str(operator_state.get("escalation_classification") or delegated_judgment.get("escalation_classification") or "")
+    source_judgment_linkage_id = str(source_judgment_map.get("source_judgment_linkage_id") or "")
+    recorded_at = created_at or _iso_utc_now()
+    proposal_id = str(proposal_ref.get("proposal_id") or "")
+
+    status = "prepared"
+    readiness = {
+        "staged_only": False,
+        "blocked": False,
+        "ready_for_internal_trigger": False,
+        "ready_for_external_trigger": False,
+    }
+    if executability == "blocked_insufficient_context":
+        status = "blocked_insufficient_context"
+        readiness["blocked"] = True
+    elif executability == "blocked_operator_required" or requires_operator:
+        status = "blocked_operator_required"
+        readiness["blocked"] = True
+    elif executability == "executable_now" and target_venue == "internal_direct_execution":
+        status = "ready_for_internal_trigger"
+        readiness["ready_for_internal_trigger"] = True
+    elif executability == "stageable_external_work_order" and target_venue in {"codex_implementation", "deep_research_audit"}:
+        status = "ready_for_external_trigger"
+        readiness["ready_for_external_trigger"] = True
+        readiness["staged_only"] = True
+    elif executability in {"no_action_recommended"}:
+        status = "prepared"
+    if status not in _HANDOFF_PACKET_STATUSES:
+        status = "blocked_insufficient_context"
+        readiness["blocked"] = True
+
+    common_payload = {
+        "target_venue": target_venue,
+        "expected_venue_class": "staged_external_work_order"
+        if target_venue in {"codex_implementation", "deep_research_audit"}
+        else "internal_task_admission_handoff"
+        if target_venue == "internal_direct_execution"
+        else "operator_or_context_hold",
+        "source_links": {
+            "next_move_proposal_id": proposal_id,
+            "source_judgment_linkage_id": source_judgment_linkage_id,
+        },
+        "operator_requirement_state": {
+            "requires_operator_or_escalation": requires_operator,
+            "attention_signal": str(operator_state.get("attention_signal") or ""),
+            "escalation_classification": escalation,
+        },
+    }
+
+    venue_payload: dict[str, Any]
+    if target_venue == "codex_implementation":
+        venue_payload = {
+            **common_payload,
+            "implementation_objective": _compact_handoff_task_brief(next_move_proposal, delegated_judgment),
+            "scope_constraints": [
+                "bounded_orchestration_body_only",
+                "no_direct_external_actuation",
+                "no_browser_mouse_keyboard_control",
+            ],
+            "staged_only_not_directly_invoked_here": True,
+        }
+    elif target_venue == "deep_research_audit":
+        venue_payload = {
+            **common_payload,
+            "audit_objective": _compact_handoff_task_brief(next_move_proposal, delegated_judgment),
+            "ambiguity_or_stress_basis": _compact_handoff_rationale(next_move_proposal, delegated_judgment),
+            "research_question_class": str(delegated_judgment.get("work_class") or "architectural_audit"),
+            "staged_only_not_directly_invoked_here": True,
+        }
+    elif target_venue == "internal_direct_execution":
+        venue_payload = {
+            **common_payload,
+            "internal_execution_brief": _compact_handoff_task_brief(next_move_proposal, delegated_judgment),
+            "executable_now_classification": executability == "executable_now",
+            "target_substrate": "task_admission_executor",
+            "required_admission_handoff_posture": "admit_before_execute",
+        }
+    else:
+        venue_payload = common_payload
+
+    packet = {
+        "schema_version": "orchestration_handoff_packet.v1",
+        "recorded_at": recorded_at,
+        "handoff_packet_id": _handoff_packet_id(
+            created_at=recorded_at,
+            source_proposal_id=proposal_id,
+            source_judgment_linkage_id=source_judgment_linkage_id,
+            target_venue=target_venue,
+        ),
+        "source_next_move_proposal_ref": {
+            "proposal_id": proposal_id,
+            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        },
+        "source_delegated_judgment_ref": {
+            "source_judgment_linkage_id": source_judgment_linkage_id,
+            "recommended_venue": str(delegated_judgment.get("recommended_venue") or ""),
+            "judgment_kind": str(delegated_judgment.get("recommendation_kind") or ""),
+        },
+        "target_venue": target_venue,
+        "proposed_posture": proposed_posture,
+        "executability_classification": executability,
+        "operator_escalation_requirement_state": dict(operator_state),
+        "compact_task_brief": _compact_handoff_task_brief(next_move_proposal, delegated_judgment),
+        "compact_rationale": _compact_handoff_rationale(next_move_proposal, delegated_judgment),
+        "artifact_references": _handoff_evidence_pointers(delegated_judgment),
+        "packet_status": status,
+        "readiness": readiness,
+        "venue_payload": venue_payload,
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "packet_only": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_invoke_external_tools": True,
+                "requires_operator_or_existing_trigger_path": True,
+            },
+        ),
+    }
+    return packet
+
+
+def append_handoff_packet_ledger(repo_root: Path, packet: Mapping[str, Any]) -> Path:
+    """Append one bounded handoff packet to the proof-visible packet ledger."""
+
+    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_handoff_packets.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(packet), sort_keys=True) + "\n")
     return ledger_path
 
 

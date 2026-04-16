@@ -13,6 +13,7 @@ from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
+    append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
@@ -26,6 +27,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_orchestration_result,
     synthesize_next_move_proposal,
+    synthesize_handoff_packet,
     synthesize_orchestration_intent,
 )
 
@@ -164,6 +166,8 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_attention_recommendation,
     )
     next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
+    handoff_packet = synthesize_handoff_packet(next_move_proposal, delegated_judgment)
+    handoff_packet_ledger_path = append_handoff_packet_ledger(root, handoff_packet)
     next_move_proposal_review = derive_next_move_proposal_review(root)
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
@@ -222,6 +226,14 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
             },
             "next_move_proposal_review": next_move_proposal_review,
+            "handoff_packet": {
+                **handoff_packet,
+                "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),
+                "staged_only": bool((handoff_packet.get("readiness") or {}).get("staged_only")),
+                "blocked": bool((handoff_packet.get("readiness") or {}).get("blocked")),
+                "ready_for_internal_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_internal_trigger")),
+                "ready_for_external_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_external_trigger")),
+            },
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,
         },

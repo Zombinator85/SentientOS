@@ -1,0 +1,1 @@
+{"schema_version":"orchestration_handoff_packet.v1","artifact_status":"initialized","notes":"append-only proof-visible handoff packet ledger for bounded next-move packet staging","non_authoritative":true,"diagnostic_only":true,"decision_power":"none","packet_only":true}
