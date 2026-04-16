@@ -145,6 +145,16 @@ _NEXT_MOVE_EXECUTABILITY = {
     "no_action_recommended",
 }
 
+_NEXT_MOVE_PROPOSAL_REVIEW_CLASSES = {
+    "coherent_recent_proposals",
+    "proposal_escalation_heavy",
+    "proposal_hold_heavy",
+    "proposal_insufficient_context_heavy",
+    "proposal_venue_thrash",
+    "mixed_proposal_stress",
+    "insufficient_history",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -1494,6 +1504,164 @@ def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any
     with ledger_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(proposal), sort_keys=True) + "\n")
     return ledger_path
+
+
+def derive_next_move_proposal_review(
+    repo_root: Path,
+    *,
+    window_size: int = 10,
+) -> dict[str, Any]:
+    """Derive a bounded retrospective review over recent next-move proposal behavior."""
+
+    root = repo_root.resolve()
+    proposals = _read_jsonl(root / "glow/orchestration/orchestration_next_move_proposals.jsonl")
+    recent = proposals[-max(0, window_size) :] if window_size > 0 else []
+
+    relation_counts = {posture: 0 for posture in _NEXT_VENUE_RELATIONS}
+    venue_counts = {
+        "internal_direct_execution": 0,
+        "codex_implementation": 0,
+        "deep_research_audit": 0,
+        "operator_decision_required": 0,
+        "insufficient_context": 0,
+    }
+    executability_counts = {name: 0 for name in _NEXT_MOVE_EXECUTABILITY}
+    escalation_count = 0
+    insufficient_context_count = 0
+    venue_switches = 0
+    valid_venue_transitions = 0
+    prev_venue = ""
+    unique_venues: set[str] = set()
+
+    for row in recent:
+        relation = str(row.get("relation_posture") or "insufficient_context")
+        if relation not in relation_counts:
+            relation = "insufficient_context"
+        relation_counts[relation] += 1
+
+        proposed_next_action = row.get("proposed_next_action")
+        proposed_next_action_map = proposed_next_action if isinstance(proposed_next_action, Mapping) else {}
+        venue = str(proposed_next_action_map.get("proposed_venue") or "insufficient_context")
+        if venue not in venue_counts:
+            venue = "insufficient_context"
+        venue_counts[venue] += 1
+        if venue != "insufficient_context":
+            unique_venues.add(venue)
+        if prev_venue and venue != "insufficient_context":
+            valid_venue_transitions += 1
+            if venue != prev_venue:
+                venue_switches += 1
+        if venue != "insufficient_context":
+            prev_venue = venue
+
+        executability = str(row.get("executability_classification") or "blocked_insufficient_context")
+        if executability not in executability_counts:
+            executability = "blocked_insufficient_context"
+        executability_counts[executability] += 1
+
+        operator_state = row.get("operator_escalation_requirement_state")
+        operator_state_map = operator_state if isinstance(operator_state, Mapping) else {}
+        if relation == "escalating" or bool(operator_state_map.get("requires_operator_or_escalation")):
+            escalation_count += 1
+        if relation == "insufficient_context" or executability == "blocked_insufficient_context":
+            insufficient_context_count += 1
+
+    records_considered = len(recent)
+    heavy_threshold = max(2, (records_considered + 1) // 2)
+    escalation_heavy = records_considered >= 3 and escalation_count >= heavy_threshold
+    hold_heavy = records_considered >= 3 and relation_counts["holding"] >= heavy_threshold
+    insufficient_context_heavy = records_considered >= 3 and insufficient_context_count >= heavy_threshold
+    venue_switch_ratio = (venue_switches / valid_venue_transitions) if valid_venue_transitions else 0.0
+    venue_thrash = (
+        records_considered >= 4
+        and valid_venue_transitions >= 3
+        and venue_switch_ratio >= 0.6
+        and len(unique_venues) >= 2
+    )
+    stress_flag_count = sum(1 for flag in (escalation_heavy, hold_heavy, insufficient_context_heavy, venue_thrash) if flag)
+
+    relation_supporting_coherence = relation_counts["affirming"] + relation_counts["nudging"]
+    executable_or_staged = executability_counts["executable_now"] + executability_counts["stageable_external_work_order"]
+    coherent = (
+        records_considered >= 3
+        and stress_flag_count == 0
+        and relation_supporting_coherence >= heavy_threshold
+        and executable_or_staged >= heavy_threshold
+    )
+
+    classification = "insufficient_history"
+    compact_reason = "insufficient_recent_next_move_proposal_history_for_reliable_retrospective_classification"
+    if records_considered >= 3:
+        if stress_flag_count >= 2:
+            classification = "mixed_proposal_stress"
+            compact_reason = "multiple_competing_stress_patterns_present_across_recent_next_move_proposals"
+        elif escalation_heavy:
+            classification = "proposal_escalation_heavy"
+            compact_reason = "escalation_signals_dominate_recent_next_move_proposals"
+        elif hold_heavy:
+            classification = "proposal_hold_heavy"
+            compact_reason = "holding_relation_posture_dominates_recent_next_move_proposals"
+        elif insufficient_context_heavy:
+            classification = "proposal_insufficient_context_heavy"
+            compact_reason = "insufficient_context_signals_dominate_recent_next_move_proposals"
+        elif venue_thrash:
+            classification = "proposal_venue_thrash"
+            compact_reason = "recent_next_move_proposals_switch_venues_frequently_without_stable_pattern"
+        elif coherent:
+            classification = "coherent_recent_proposals"
+            compact_reason = "recent_next_move_proposals_are_mostly_relation_consistent_and_executability_sane"
+        else:
+            classification = "mixed_proposal_stress"
+            compact_reason = "recent_next_move_proposals_are_neither_clearly_coherent_nor_singly_stressed"
+
+    if classification not in _NEXT_MOVE_PROPOSAL_REVIEW_CLASSES:
+        classification = "mixed_proposal_stress"
+        compact_reason = "unrecognized_next_move_proposal_review_classification_defaulted_to_mixed_proposal_stress"
+
+    return {
+        "schema_version": "next_move_proposal_review.v1",
+        "review_kind": "next_move_proposal_retrospective",
+        "review_classification": classification,
+        "window_size": max(0, window_size),
+        "records_considered": records_considered,
+        "recent_counts": {
+            "by_relation_posture": relation_counts,
+            "by_proposed_venue": venue_counts,
+            "by_executability_classification": executability_counts,
+            "escalation_or_operator_required": escalation_count,
+            "insufficient_context": insufficient_context_count,
+        },
+        "summary": {
+            "proposal_behavior_posture": "coherent" if classification == "coherent_recent_proposals" else "stressed_or_uncertain",
+            "compact_reason": compact_reason,
+            "diagnostic_summary": "bounded retrospective review derived from existing next-move proposal and orchestration signals only",
+        },
+        "condition_flags": {
+            "escalation_heavy": escalation_heavy,
+            "hold_heavy": hold_heavy,
+            "insufficient_context_heavy": insufficient_context_heavy,
+            "venue_thrash": venue_thrash,
+            "competing_stress_patterns": stress_flag_count >= 2,
+        },
+        "artifacts_read": {
+            "next_move_proposal_ledger": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+            "relation_posture_field": "relation_posture",
+            "proposed_next_action_field": "proposed_next_action.proposed_venue",
+            "executability_field": "executability_classification",
+            "operator_escalation_field": "operator_escalation_requirement_state.requires_operator_or_escalation",
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "decision_power": "none",
+                "non_authoritative": True,
+                "diagnostic_only": True,
+            },
+        ),
+    }
 
 
 def executable_handoff_map() -> dict[str, Any]:

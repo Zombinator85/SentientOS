@@ -15,6 +15,7 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_next_venue_recommendation,
+    derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
@@ -51,6 +52,27 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
+
+
+def _proposal_row(
+    *,
+    relation_posture: str,
+    venue: str,
+    executability: str,
+    requires_operator: bool = False,
+) -> dict[str, object]:
+    return {
+        "schema_version": "orchestration_next_move_proposal.v1",
+        "proposal_id": f"proposal-{relation_posture}-{venue}-{executability}",
+        "relation_posture": relation_posture,
+        "proposed_next_action": {"proposed_venue": venue, "proposed_posture": "hold"},
+        "executability_classification": executability,
+        "operator_escalation_requirement_state": {"requires_operator_or_escalation": requires_operator},
+        "proposal_only": True,
+        "diagnostic_only": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+    }
 
 
 def test_deep_research_judgment_translates_to_stageable_external_work_order() -> None:
@@ -1170,6 +1192,184 @@ def test_next_move_proposal_artifact_is_append_only_and_proof_visible(tmp_path: 
     assert second["proposal_id"] == "nmp-second"
 
 
+def test_next_move_proposal_review_classifies_coherent_recent_proposals(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(
+                relation_posture="affirming",
+                venue="internal_direct_execution",
+                executability="executable_now",
+            ),
+            _proposal_row(
+                relation_posture="affirming",
+                venue="internal_direct_execution",
+                executability="executable_now",
+            ),
+            _proposal_row(
+                relation_posture="nudging",
+                venue="codex_implementation",
+                executability="stageable_external_work_order",
+            ),
+            _proposal_row(
+                relation_posture="affirming",
+                venue="codex_implementation",
+                executability="stageable_external_work_order",
+            ),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+
+    assert review["review_classification"] == "coherent_recent_proposals"
+    assert review["summary"]["proposal_behavior_posture"] == "coherent"
+    assert review["review_only"] is True
+    assert review["non_authoritative"] is True
+
+
+def test_next_move_proposal_review_classifies_escalation_heavy(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="holding",
+                venue="codex_implementation",
+                executability="stageable_external_work_order",
+            ),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "proposal_escalation_heavy"
+
+
+def test_next_move_proposal_review_classifies_hold_heavy(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(relation_posture="holding", venue="internal_direct_execution", executability="no_action_recommended"),
+            _proposal_row(relation_posture="holding", venue="internal_direct_execution", executability="no_action_recommended"),
+            _proposal_row(relation_posture="holding", venue="codex_implementation", executability="no_action_recommended"),
+            _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "proposal_hold_heavy"
+
+
+def test_next_move_proposal_review_classifies_insufficient_context_heavy(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(
+                relation_posture="insufficient_context",
+                venue="insufficient_context",
+                executability="blocked_insufficient_context",
+            ),
+            _proposal_row(
+                relation_posture="insufficient_context",
+                venue="insufficient_context",
+                executability="blocked_insufficient_context",
+            ),
+            _proposal_row(
+                relation_posture="insufficient_context",
+                venue="insufficient_context",
+                executability="blocked_insufficient_context",
+            ),
+            _proposal_row(
+                relation_posture="holding",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "proposal_insufficient_context_heavy"
+
+
+def test_next_move_proposal_review_classifies_venue_thrash(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+            _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+            _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+            _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+            _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "proposal_venue_thrash"
+
+
+def test_next_move_proposal_review_classifies_mixed_stress(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="holding",
+                venue="internal_direct_execution",
+                executability="no_action_recommended",
+            ),
+            _proposal_row(
+                relation_posture="holding",
+                venue="internal_direct_execution",
+                executability="no_action_recommended",
+            ),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "mixed_proposal_stress"
+
+
+def test_next_move_proposal_review_classifies_insufficient_history(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+            _proposal_row(relation_posture="holding", venue="codex_implementation", executability="no_action_recommended"),
+        ],
+    )
+
+    review = derive_next_move_proposal_review(tmp_path)
+    assert review["review_classification"] == "insufficient_history"
+
+
 def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1349,6 +1549,84 @@ def test_next_move_proposal_flows_to_consumer_artifact_and_stays_non_authoritati
     assert persisted["proposal_id"] == proposal["proposal_id"]
 
 
+def test_next_move_proposal_review_flows_to_consumer_and_stays_non_authoritative(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        [
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="escalating",
+                venue="operator_decision_required",
+                executability="blocked_operator_required",
+                requires_operator=True,
+            ),
+            _proposal_row(
+                relation_posture="holding",
+                venue="codex_implementation",
+                executability="no_action_recommended",
+            ),
+        ],
+    )
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+        ],
+    )
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-next-move-review-consumer",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    review = diagnostic["orchestration_handoff"]["next_move_proposal_review"]
+
+    assert review["review_classification"] in {
+        "coherent_recent_proposals",
+        "proposal_escalation_heavy",
+        "proposal_hold_heavy",
+        "proposal_insufficient_context_heavy",
+        "proposal_venue_thrash",
+        "mixed_proposal_stress",
+        "insufficient_history",
+    }
+    assert review["recent_counts"]["escalation_or_operator_required"] >= 2
+    assert review["summary"]["compact_reason"]
+    assert review["diagnostic_only"] is True
+    assert review["non_authoritative"] is True
+    assert review["decision_power"] == "none"
+    assert review["review_only"] is True
+
+
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     evidence = _base_evidence()
     evidence.update(
@@ -1430,6 +1708,27 @@ def test_next_move_proposal_does_not_change_admission_or_execution_behavior(tmp_
     assert proposal["does_not_change_admission_or_execution"] is True
     assert proposal["does_not_execute_or_route_work"] is True
     assert proposal["does_not_override_delegated_judgment"] is True
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+
+def test_next_move_proposal_review_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    evidence = _base_evidence()
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    outcome_review = derive_orchestration_outcome_review(tmp_path)
+    venue_mix_review = derive_orchestration_venue_mix_review(tmp_path)
+    attention = derive_orchestration_attention_recommendation(outcome_review)
+    next_venue = derive_next_venue_recommendation(judgment, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(judgment, next_venue, outcome_review, venue_mix_review, attention)
+    append_next_move_proposal_ledger(tmp_path, proposal)
+    proposal_review = derive_next_move_proposal_review(tmp_path)
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert proposal_review["does_not_change_admission_or_execution"] is True
+    assert proposal_review["review_only"] is True
     assert before["handoff_outcome"] == "blocked_by_operator_requirement"
     assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
