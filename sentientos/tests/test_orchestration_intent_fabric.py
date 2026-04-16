@@ -13,6 +13,7 @@ from sentientos.orchestration_intent_fabric import (
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
@@ -947,6 +948,102 @@ def test_recent_history_review_to_attention_to_consumer_stays_non_authoritative(
     assert attention["does_not_change_admission_or_execution"] is True
 
 
+def test_next_venue_recommendation_prefers_internal_for_healthy_internal_pattern() -> None:
+    delegated = {"recommended_venue": "internal_direct_execution", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "internal_execution_heavy", "records_considered": 6}
+    attention = {"operator_attention_recommendation": "none"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_internal_execution"
+    assert recommendation["relation_to_delegated_judgment"] == "affirming"
+
+
+def test_next_venue_recommendation_prefers_codex_for_healthy_codex_pattern() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 5,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "balanced_recent_venue_mix", "records_considered": 5}
+    attention = {"operator_attention_recommendation": "none"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_codex_implementation"
+    assert recommendation["relation_to_delegated_judgment"] == "affirming"
+
+
+def test_next_venue_recommendation_prefers_deep_research_for_architecture_stress() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "mixed_orchestration_stress",
+        "records_considered": 7,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": True, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "deep_research_heavy", "records_considered": 7}
+    attention = {"operator_attention_recommendation": "review_mixed_orchestration_stress"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_deep_research_audit"
+    assert recommendation["relation_to_delegated_judgment"] == "nudging"
+
+
+def test_next_venue_recommendation_prefers_operator_decision_for_escalation_dominant_pattern() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "escalate_for_operator_priority"}
+    outcome_review = {
+        "review_classification": "handoff_block_heavy",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": True, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "operator_escalation_heavy", "records_considered": 6}
+    attention = {"operator_attention_recommendation": "inspect_handoff_blocks"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_operator_decision"
+    assert recommendation["relation_to_delegated_judgment"] == "escalating"
+
+
+def test_next_venue_recommendation_holds_for_stressed_mix_without_clear_correction_target() -> None:
+    delegated = {"recommended_venue": "deep_research_audit", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "mixed_orchestration_stress",
+        "records_considered": 5,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "mixed_venue_stress", "records_considered": 5}
+    attention = {"operator_attention_recommendation": "observe"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "hold_current_venue_mix"
+    assert recommendation["relation_to_delegated_judgment"] == "holding"
+
+
+def test_next_venue_recommendation_returns_insufficient_context_when_history_is_thin() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "insufficient_history",
+        "records_considered": 2,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "insufficient_history", "records_considered": 2}
+    attention = {"operator_attention_recommendation": "insufficient_context"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "insufficient_context"
+    assert recommendation["relation_to_delegated_judgment"] == "insufficient_context"
+
+
 def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1001,6 +1098,71 @@ def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_au
     assert venue_mix_review["review_only"] is True
 
 
+def test_next_venue_recommendation_flows_to_consumer_and_stays_non_authoritative(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+        ],
+    )
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-next-venue-consumer",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    next_venue = diagnostic["orchestration_handoff"]["next_venue_recommendation"]
+    delegated_venue = diagnostic["delegated_judgment"]["recommended_venue"]
+
+    assert next_venue["current_delegated_judgment_venue"] == delegated_venue
+    assert next_venue["next_venue_recommendation"] in {
+        "prefer_internal_execution",
+        "prefer_codex_implementation",
+        "prefer_deep_research_audit",
+        "prefer_operator_decision",
+        "hold_current_venue_mix",
+        "insufficient_context",
+    }
+    assert next_venue["relation_to_delegated_judgment"] in {
+        "affirming",
+        "nudging",
+        "holding",
+        "escalating",
+        "insufficient_context",
+    }
+    assert next_venue["diagnostic_only"] is True
+    assert next_venue["non_authoritative"] is True
+    assert next_venue["decision_power"] == "none"
+    assert next_venue["recommendation_only"] is True
+    assert next_venue["does_not_execute_or_route_work"] is True
+    assert next_venue["does_not_override_delegated_judgment"] is True
+
+
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     evidence = _base_evidence()
     evidence.update(
@@ -1044,6 +1206,25 @@ def test_venue_mix_review_does_not_change_admission_or_execution_behavior(tmp_pa
     assert review["does_not_change_admission_or_execution"] is True
     assert before["handoff_outcome"] == "admitted_to_execution_substrate"
     assert after["handoff_outcome"] == "admitted_to_execution_substrate"
+
+
+def test_next_venue_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    evidence = _base_evidence()
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    outcome_review = derive_orchestration_outcome_review(tmp_path)
+    venue_mix_review = derive_orchestration_venue_mix_review(tmp_path)
+    attention = derive_orchestration_attention_recommendation(outcome_review)
+    next_venue = derive_next_venue_recommendation(judgment, outcome_review, venue_mix_review, attention)
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert next_venue["does_not_change_admission_or_execution"] is True
+    assert next_venue["does_not_execute_or_route_work"] is True
+    assert next_venue["does_not_override_delegated_judgment"] is True
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
 
 def test_codex_staged_work_order_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:

@@ -16,6 +16,7 @@ from sentientos.orchestration_intent_fabric import (
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
@@ -146,6 +147,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     orchestration_outcome_review = derive_orchestration_outcome_review(root)
     orchestration_venue_mix_review = derive_orchestration_venue_mix_review(root)
     orchestration_attention_recommendation = derive_orchestration_attention_recommendation(orchestration_outcome_review)
+    next_venue_recommendation = derive_next_venue_recommendation(
+        delegated_judgment,
+        orchestration_outcome_review,
+        orchestration_venue_mix_review,
+        orchestration_attention_recommendation,
+    )
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
         orchestration_intent,
@@ -191,6 +198,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "outcome_review": orchestration_outcome_review,
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,
+            "next_venue_recommendation": next_venue_recommendation,
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,
         },
