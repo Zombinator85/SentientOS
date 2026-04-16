@@ -45,8 +45,34 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
         },
         "proof_visible_artifact": "glow/orchestration/orchestration_intents.jsonl",
         "handoff_artifact": "glow/orchestration/orchestration_handoffs.jsonl",
+        "handoff_packet_artifact": "glow/orchestration/orchestration_handoff_packets.jsonl",
         "codex_staged_work_order_artifact": "glow/orchestration/codex_work_orders.jsonl",
         "deep_research_staged_work_order_artifact": "glow/orchestration/deep_research_work_orders.jsonl",
+        "handoff_packet_substrate": {
+            "what_it_is": "a compact typed packet derived from next_move_proposal + delegated_judgment for operator/future-adapter pickup",
+            "how_it_differs": {
+                "from_delegated_judgment": "delegated judgment recommends venue/posture; packet binds that recommendation to a concrete venue-targeted handoff bundle",
+                "from_next_venue_recommendation": "next-venue recommendation is directional; packet is a proof-visible, venue-specific actionable handoff object",
+                "from_next_move_proposal": "next-move proposal frames posture/executability; packet packages compact brief, rationale, status, and evidence pointers",
+            },
+            "packetized_venues": [
+                "task_admission_executor (internal_direct_execution path)",
+                "codex_implementation",
+                "deep_research_audit",
+            ],
+            "packet_status_meaning": {
+                "prepared": "packet built but not trigger-ready",
+                "blocked_operator_required": "operator/escalation gate blocks trigger",
+                "blocked_insufficient_context": "context gap blocks honest trigger-readiness",
+                "ready_for_external_trigger": "staged external packet ready for explicit operator/adapter trigger only",
+                "ready_for_internal_trigger": "internal packet ready for existing admission trigger path only",
+            },
+            "explicitly_not": [
+                "direct Codex/Deep Research invocation",
+                "new execution or sovereign decision surface",
+                "automatic routing/execution without existing admission and operator pathways",
+            ],
+        },
         "codex_staged_venue_onboarding": {
             "status": "first_class_bounded_staged_venue",
             "venue": "codex_implementation",

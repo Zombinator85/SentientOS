@@ -10,6 +10,7 @@ import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
+    append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
@@ -20,6 +21,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
+    synthesize_handoff_packet,
     synthesize_next_move_proposal,
     synthesize_orchestration_intent,
 )
@@ -1549,6 +1551,147 @@ def test_next_move_proposal_flows_to_consumer_artifact_and_stays_non_authoritati
     assert persisted["proposal_id"] == proposal["proposal_id"]
 
 
+def test_codex_next_move_proposal_becomes_typed_staged_handoff_packet() -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 4,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "balanced_recent_venue_mix", "records_considered": 4}
+    attention = {"operator_attention_recommendation": "none"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    packet = synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+
+    assert packet["target_venue"] == "codex_implementation"
+    assert packet["packet_status"] == "ready_for_external_trigger"
+    assert packet["venue_payload"]["staged_only_not_directly_invoked_here"] is True
+    assert packet["readiness"]["staged_only"] is True
+    assert packet["does_not_execute_or_route_work"] is True
+
+
+def test_deep_research_next_move_proposal_becomes_typed_staged_handoff_packet() -> None:
+    delegated = synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True})
+    outcome_review = {
+        "review_classification": "mixed_orchestration_stress",
+        "records_considered": 4,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": True, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "deep_research_heavy", "records_considered": 4}
+    attention = {"operator_attention_recommendation": "review_mixed_orchestration_stress"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    packet = synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+
+    assert packet["target_venue"] == "deep_research_audit"
+    assert packet["packet_status"] == "ready_for_external_trigger"
+    assert packet["venue_payload"]["staged_only_not_directly_invoked_here"] is True
+    assert packet["readiness"]["ready_for_external_trigger"] is True
+    assert packet["does_not_invoke_external_tools"] is True
+
+
+def test_internal_execution_next_move_proposal_becomes_internal_handoff_packet_with_honest_readiness() -> None:
+    delegated = synthesize_delegated_judgment(
+        {
+            **_base_evidence(),
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 4,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "internal_execution_heavy", "records_considered": 4}
+    attention = {"operator_attention_recommendation": "none"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    packet = synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+
+    assert packet["target_venue"] == "internal_direct_execution"
+    assert packet["packet_status"] == "ready_for_internal_trigger"
+    assert packet["venue_payload"]["target_substrate"] == "task_admission_executor"
+    assert packet["readiness"]["ready_for_internal_trigger"] is True
+    assert packet["readiness"]["staged_only"] is False
+
+
+def test_operator_required_and_insufficient_context_packets_remain_honestly_blocked() -> None:
+    delegated_operator = synthesize_delegated_judgment(_base_evidence())
+    blocked_operator_proposal = {
+        "proposal_id": "proposal-blocked-operator",
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "escalate"},
+        "executability_classification": "blocked_operator_required",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "inspect_handoff_blocks",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-1"},
+    }
+    operator_packet = synthesize_handoff_packet(
+        blocked_operator_proposal,
+        delegated_operator,
+        created_at="2026-04-12T00:00:00Z",
+    )
+    assert operator_packet["packet_status"] == "blocked_operator_required"
+    assert operator_packet["readiness"]["blocked"] is True
+
+    delegated_missing = synthesize_delegated_judgment(
+        {**_base_evidence(), "records_considered": 0, "admission_sample_count": 0, "executor_sample_count": 0}
+    )
+    blocked_context_proposal = {
+        "proposal_id": "proposal-blocked-context",
+        "proposed_next_action": {"proposed_venue": "insufficient_context", "proposed_posture": "hold"},
+        "executability_classification": "blocked_insufficient_context",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "insufficient_context",
+            "escalation_classification": "escalate_for_missing_context",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-2"},
+    }
+    context_packet = synthesize_handoff_packet(
+        blocked_context_proposal,
+        delegated_missing,
+        created_at="2026-04-12T00:00:00Z",
+    )
+    assert context_packet["packet_status"] == "blocked_insufficient_context"
+    assert context_packet["readiness"]["blocked"] is True
+
+
+def test_handoff_packet_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    proposal = {
+        "proposal_id": "proposal-codex-packet-artifact",
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "none",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-artifact"},
+    }
+    packet = synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+    ledger_path = append_handoff_packet_ledger(tmp_path, packet)
+    append_handoff_packet_ledger(tmp_path, {**packet, "handoff_packet_id": "hpk-second"})
+
+    rows = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 2
+    first = json.loads(rows[0])
+    second = json.loads(rows[1])
+    assert first["packet_status"] == "ready_for_external_trigger"
+    assert first["target_venue"] == "codex_implementation"
+    assert second["handoff_packet_id"] == "hpk-second"
+
+
 def test_next_move_proposal_review_flows_to_consumer_and_stays_non_authoritative(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1625,6 +1768,60 @@ def test_next_move_proposal_review_flows_to_consumer_and_stays_non_authoritative
     assert review["non_authoritative"] is True
     assert review["decision_power"] == "none"
     assert review["review_only"] is True
+
+
+def test_handoff_packet_flows_to_diagnostic_consumer_and_stays_non_authoritative(monkeypatch, tmp_path: Path) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "deep_research_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+        ],
+    )
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-handoff-packet-consumer",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    packet = diagnostic["orchestration_handoff"]["handoff_packet"]
+
+    assert packet["target_venue"] in {"internal_direct_execution", "codex_implementation", "deep_research_audit", "operator_decision_required", "insufficient_context"}
+    assert packet["packet_status"] in {
+        "prepared",
+        "blocked_operator_required",
+        "blocked_insufficient_context",
+        "ready_for_external_trigger",
+        "ready_for_internal_trigger",
+    }
+    assert packet["ledger_path"] == "glow/orchestration/orchestration_handoff_packets.jsonl"
+    assert packet["packet_only"] is True
+    assert packet["diagnostic_only"] is True
+    assert packet["non_authoritative"] is True
+    assert packet["decision_power"] == "none"
+    assert packet["does_not_execute_or_route_work"] is True
+    assert packet["requires_operator_or_existing_trigger_path"] is True
 
 
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
