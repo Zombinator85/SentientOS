@@ -195,20 +195,64 @@ def codex_implementation_bounded_venue() -> dict[str, Any]:
         },
     }
 
+
+def deep_research_audit_bounded_venue() -> dict[str, Any]:
+    """Return the onboarded bounded venue scaffold payload for deep-research staged work orders."""
+
+    return {
+        "venue_id": "deep_research_audit",
+        "supported_intent_kinds": ["deep_research_work_order"],
+        "executability_classes": [
+            "stageable_external_work_order",
+            "blocked_operator_required",
+            "blocked_insufficient_context",
+        ],
+        "handoff_substrate": "glow/orchestration/deep_research_work_orders.jsonl",
+        "result_source": {
+            "surface": "glow/orchestration/deep_research_work_orders.jsonl",
+            "event": "deep_research_staged_work_order",
+            "status_values": [
+                "staged",
+                "blocked_operator_required",
+                "blocked_insufficient_context",
+                "cancelled",
+            ],
+        },
+        "required_linkage_fields": {
+            "intent_to_handoff": ["intent_id", "source_intent_id"],
+            "handoff_to_admission": ["details.deep_research_work_order_ref.work_order_id", "work_order_id"],
+            "admission_to_result": ["work_order_id", "source_intent_id"],
+        },
+        "review_attention_capabilities": {
+            "outcome_review_enabled": True,
+            "attention_recommendation_enabled": True,
+            "staged_lifecycle_visibility_enabled": True,
+        },
+        "anti_sovereignty_guarantees": {
+            "non_authoritative": True,
+            "decision_power": "none",
+            "staged_only": True,
+            "does_not_invoke_deep_research_directly": True,
+            "requires_external_tool_or_operator_trigger": True,
+            "does_not_replace_operator_authority": True,
+        },
+    }
+
+
 def next_bounded_venue_candidate_assessment() -> dict[str, Any]:
     """Provide the grounded next venue candidate assessment without onboarding it."""
 
     return {
-        "recommended_next_venue": "codex_implementation",
+        "recommended_next_venue": "deep_research_audit",
         "why_best_next": (
-            "it already has delegated-judgment recommendation coverage and typed orchestration intent/work-order "
+            "it now has delegated-judgment recommendation coverage and typed orchestration intent/work-order "
             "classification, so expansion can focus on bounded handoff/result linkage without changing constitutional authority posture"
         ),
         "already_present_prerequisites": [
-            "delegated_judgment_fabric emits recommended_venue=codex_implementation",
-            "orchestration_intent_fabric emits intent_kind=codex_work_order",
+            "delegated_judgment_fabric emits recommended_venue=deep_research_audit",
+            "orchestration_intent_fabric emits intent_kind=deep_research_work_order",
             "executability_classification=stageable_external_work_order keeps it non-executable in current pass",
-            "append-only intent and handoff ledgers already capture staged codex work-order artifacts",
+            "append-only intent and handoff ledgers now capture staged deep-research work-order artifacts",
         ],
         "largest_missing_prerequisite": (
             "a bounded, append-only external handoff admission/result substrate with stable linkage keys equivalent to "

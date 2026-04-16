@@ -68,7 +68,7 @@ _EXECUTION_RESULT_STATES = {
 }
 
 
-_CODEX_WORK_ORDER_STATUSES = {
+_STAGED_EXTERNAL_WORK_ORDER_STATUSES = {
     "staged",
     "blocked_operator_required",
     "blocked_insufficient_context",
@@ -76,7 +76,7 @@ _CODEX_WORK_ORDER_STATUSES = {
     "fulfilled_externally_unverified",
 }
 
-_CODEX_STAGED_LIFECYCLE_STATES = {
+_STAGED_EXTERNAL_LIFECYCLE_STATES = {
     "staged_cleanly",
     "blocked_operator_required",
     "blocked_insufficient_context",
@@ -355,7 +355,7 @@ def _default_admission_policy() -> task_admission.AdmissionPolicy:
     return task_admission.AdmissionPolicy(policy_version="orchestration_intent_handoff.v1")
 
 
-def _codex_work_order_id(intent: Mapping[str, Any], created_at: str) -> str:
+def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix: str) -> str:
     canonical = json.dumps(
         {
             "created_at": created_at,
@@ -365,7 +365,12 @@ def _codex_work_order_id(intent: Mapping[str, Any], created_at: str) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
-    return f"codex-wo-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+    return f"{prefix}-wo-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _source_judgment_linkage_id(source_map: Mapping[str, Any]) -> str:
+    canonical = json.dumps(dict(source_map), sort_keys=True, separators=(",", ":"))
+    return f"jdg-link-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
@@ -376,11 +381,23 @@ def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any
     return ledger_path
 
 
-def build_codex_staged_work_order(
+def append_deep_research_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
+    ledger_path = repo_root.resolve() / "glow/orchestration/deep_research_work_orders.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(work_order), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def _build_staged_external_work_order(
     intent: Mapping[str, Any],
     *,
     handoff_outcome: str,
     created_at: str | None = None,
+    venue: str,
+    schema_version: str,
+    work_order_prefix: str,
+    direct_invocation_boundary_key: str,
 ) -> dict[str, Any]:
     timestamp = created_at or _iso_utc_now()
     source = intent.get("source_delegated_judgment")
@@ -393,17 +410,18 @@ def build_codex_staged_work_order(
     else:
         status = "staged"
 
-    if status not in _CODEX_WORK_ORDER_STATUSES:
+    if status not in _STAGED_EXTERNAL_WORK_ORDER_STATUSES:
         status = "blocked_insufficient_context"
 
-    return {
-        "schema_version": "codex_staged_work_order.v1",
+    work_order = {
+        "schema_version": schema_version,
         "recorded_at": timestamp,
-        "venue": "codex_implementation",
-        "work_order_id": _codex_work_order_id(intent, timestamp),
+        "venue": venue,
+        "work_order_id": _staged_work_order_id(intent, timestamp, prefix=work_order_prefix),
         "source_intent_id": str(intent.get("intent_id") or ""),
         "source_intent_kind": str(intent.get("intent_kind") or ""),
         "source_judgment_linkage": {
+            "source_judgment_linkage_id": _source_judgment_linkage_id(source_map),
             "recommended_venue": str(source_map.get("recommended_venue") or ""),
             "judgment_kind": "execution_venue_recommendation",
             "escalation_classification": str(source_map.get("escalation_classification") or ""),
@@ -420,7 +438,6 @@ def build_codex_staged_work_order(
         "readiness_basis": dict(source_map.get("readiness_basis") or {}),
         "status": status,
         "staged_only": True,
-        "does_not_invoke_codex_directly": True,
         "requires_external_tool_or_operator_trigger": True,
         **_anti_sovereignty_payload(
             recommendation_only=False,
@@ -432,16 +449,57 @@ def build_codex_staged_work_order(
             },
         ),
     }
+    work_order[direct_invocation_boundary_key] = True
+    return work_order
 
 
-def resolve_codex_staged_work_order_lifecycle(
+def build_codex_staged_work_order(
+    intent: Mapping[str, Any],
+    *,
+    handoff_outcome: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    return _build_staged_external_work_order(
+        intent,
+        handoff_outcome=handoff_outcome,
+        created_at=created_at,
+        venue="codex_implementation",
+        schema_version="codex_staged_work_order.v1",
+        work_order_prefix="codex",
+        direct_invocation_boundary_key="does_not_invoke_codex_directly",
+    )
+
+
+def build_deep_research_staged_work_order(
+    intent: Mapping[str, Any],
+    *,
+    handoff_outcome: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    return _build_staged_external_work_order(
+        intent,
+        handoff_outcome=handoff_outcome,
+        created_at=created_at,
+        venue="deep_research_audit",
+        schema_version="deep_research_staged_work_order.v1",
+        work_order_prefix="deep-research",
+        direct_invocation_boundary_key="does_not_invoke_deep_research_directly",
+    )
+
+
+def _resolve_staged_external_work_order_lifecycle(
     repo_root: Path,
     intent: Mapping[str, Any],
     handoff: Mapping[str, Any],
+    *,
+    venue: str,
+    ledger_relative_path: str,
+    schema_version: str,
+    direct_invocation_boundary_key: str,
 ) -> dict[str, Any]:
     root = repo_root.resolve()
     intent_id = str(intent.get("intent_id") or "")
-    ledger_path = root / "glow/orchestration/codex_work_orders.jsonl"
+    ledger_path = root / ledger_relative_path
     records = _read_jsonl(ledger_path)
     linked = [row for row in records if str(row.get("source_intent_id") or "") == intent_id]
     latest = linked[-1] if linked else None
@@ -458,21 +516,20 @@ def resolve_codex_staged_work_order_lifecycle(
     else:
         lifecycle_state = "fragmented_unlinked_work_order_state"
 
-    if lifecycle_state not in _CODEX_STAGED_LIFECYCLE_STATES:
+    if lifecycle_state not in _STAGED_EXTERNAL_LIFECYCLE_STATES:
         lifecycle_state = "fragmented_unlinked_work_order_state"
 
-    return {
-        "schema_version": "codex_staged_lifecycle.v1",
+    lifecycle = {
+        "schema_version": schema_version,
         "intent_id": intent_id,
-        "venue": "codex_implementation",
+        "venue": venue,
         "lifecycle_state": lifecycle_state,
         "work_order_present": latest is not None,
         "work_order_id": str(latest.get("work_order_id") or "") if isinstance(latest, Mapping) else None,
         "work_order_status": str(latest.get("status") or "") if isinstance(latest, Mapping) else None,
-        "proof_artifact_path": "glow/orchestration/codex_work_orders.jsonl",
+        "proof_artifact_path": ledger_relative_path,
         "not_directly_executable_here": True,
         "staged_only": True,
-        "does_not_invoke_codex_directly": True,
         "requires_external_tool_or_operator_trigger": True,
         "operator_requirement_state": {
             "requires_operator_approval": bool(intent.get("requires_operator_approval")),
@@ -484,6 +541,40 @@ def resolve_codex_staged_work_order_lifecycle(
             does_not_change_admission_or_execution=True,
         ),
     }
+    lifecycle[direct_invocation_boundary_key] = True
+    return lifecycle
+
+
+def resolve_codex_staged_work_order_lifecycle(
+    repo_root: Path,
+    intent: Mapping[str, Any],
+    handoff: Mapping[str, Any],
+) -> dict[str, Any]:
+    return _resolve_staged_external_work_order_lifecycle(
+        repo_root,
+        intent,
+        handoff,
+        venue="codex_implementation",
+        ledger_relative_path="glow/orchestration/codex_work_orders.jsonl",
+        schema_version="codex_staged_lifecycle.v1",
+        direct_invocation_boundary_key="does_not_invoke_codex_directly",
+    )
+
+
+def resolve_deep_research_staged_work_order_lifecycle(
+    repo_root: Path,
+    intent: Mapping[str, Any],
+    handoff: Mapping[str, Any],
+) -> dict[str, Any]:
+    return _resolve_staged_external_work_order_lifecycle(
+        repo_root,
+        intent,
+        handoff,
+        venue="deep_research_audit",
+        ledger_relative_path="glow/orchestration/deep_research_work_orders.jsonl",
+        schema_version="deep_research_staged_lifecycle.v1",
+        direct_invocation_boundary_key="does_not_invoke_deep_research_directly",
+    )
 
 
 def append_orchestration_handoff_ledger(repo_root: Path, handoff: Mapping[str, Any]) -> Path:
@@ -596,8 +687,19 @@ def resolve_orchestration_result(
 
     intent_ref = dict(handoff.get("intent_ref") or {})
     codex_staged_lifecycle = None
+    deep_research_staged_lifecycle = None
     if str(intent_ref.get("intent_kind") or "") == "codex_work_order":
         codex_staged_lifecycle = resolve_codex_staged_work_order_lifecycle(
+            root,
+            {
+                "intent_id": str(intent_ref.get("intent_id") or ""),
+                "required_authority_posture": str(detail_map.get("required_authority_posture") or ""),
+                "requires_operator_approval": bool(detail_map.get("requires_operator_approval")),
+            },
+            handoff,
+        )
+    if str(intent_ref.get("intent_kind") or "") == "deep_research_work_order":
+        deep_research_staged_lifecycle = resolve_deep_research_staged_work_order_lifecycle(
             root,
             {
                 "intent_id": str(intent_ref.get("intent_id") or ""),
@@ -624,6 +726,7 @@ def resolve_orchestration_result(
             "task_result_rows_seen": len(task_result_rows),
         },
         "codex_staged_lifecycle": codex_staged_lifecycle,
+        "deep_research_staged_lifecycle": deep_research_staged_lifecycle,
     }
 
 
@@ -951,6 +1054,17 @@ def admit_orchestration_intent(
             "status": codex_work_order_record["status"],
             "staged_only": True,
             "does_not_invoke_codex_directly": True,
+            "requires_external_tool_or_operator_trigger": True,
+        }
+    if str(intent.get("intent_kind") or "") == "deep_research_work_order":
+        deep_research_work_order_record = build_deep_research_staged_work_order(intent, handoff_outcome=outcome)
+        deep_research_path = append_deep_research_work_order_ledger(root, deep_research_work_order_record)
+        details["deep_research_work_order_ref"] = {
+            "work_order_id": deep_research_work_order_record["work_order_id"],
+            "ledger_path": str(deep_research_path.relative_to(root)),
+            "status": deep_research_work_order_record["status"],
+            "staged_only": True,
+            "does_not_invoke_deep_research_directly": True,
             "requires_external_tool_or_operator_trigger": True,
         }
 

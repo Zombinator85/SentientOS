@@ -46,6 +46,7 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
         "proof_visible_artifact": "glow/orchestration/orchestration_intents.jsonl",
         "handoff_artifact": "glow/orchestration/orchestration_handoffs.jsonl",
         "codex_staged_work_order_artifact": "glow/orchestration/codex_work_orders.jsonl",
+        "deep_research_staged_work_order_artifact": "glow/orchestration/deep_research_work_orders.jsonl",
         "codex_staged_venue_onboarding": {
             "status": "first_class_bounded_staged_venue",
             "venue": "codex_implementation",
@@ -74,6 +75,44 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             ],
             "still_out_of_scope": [
                 "direct Codex invocation from this repository",
+                "browser or desktop automation",
+                "automatic completion claims without proof-visible external evidence",
+            ],
+        },
+        "deep_research_staged_venue_onboarding": {
+            "status": "first_class_bounded_staged_venue",
+            "venue": "deep_research_audit",
+            "constitutional_fields": [
+                "work_order_id",
+                "source_intent_id",
+                "source_judgment_linkage",
+                "operator_requirements",
+                "executability_classification",
+                "staged_only",
+                "does_not_invoke_deep_research_directly",
+                "requires_external_tool_or_operator_trigger",
+                "non_authoritative",
+                "decision_power=none",
+            ],
+            "lifecycle_states": [
+                "staged_cleanly",
+                "blocked_operator_required",
+                "blocked_insufficient_context",
+                "fragmented_unlinked_work_order_state",
+            ],
+            "still_missing_before_any_direct_deep_research_delegation": [
+                "an approved external transport/trigger path",
+                "admission parity for external execution",
+                "result attestation proving fulfillment beyond staged state",
+            ],
+            "comparison_to_codex_staged_venue": [
+                "both venues are stageable_external_work_order only in this pass",
+                "both venues carry stable work_order_id + source intent/judgment linkage",
+                "both venues expose append-only proof artifacts and staged lifecycle visibility",
+                "both venues remain non-sovereign and non-executable here",
+            ],
+            "still_out_of_scope": [
+                "direct Deep Research invocation from this repository",
                 "browser or desktop automation",
                 "automatic completion claims without proof-visible external evidence",
             ],
