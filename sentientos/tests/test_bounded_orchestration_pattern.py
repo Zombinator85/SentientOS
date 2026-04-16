@@ -3,6 +3,7 @@ from __future__ import annotations
 from sentientos.bounded_orchestration_pattern import (
     bounded_orchestration_layers,
     bounded_orchestration_venue_scaffold,
+    codex_implementation_bounded_venue,
     next_bounded_venue_candidate_assessment,
     validate_bounded_orchestration_venue,
 )
@@ -74,9 +75,18 @@ def test_scaffold_introduces_no_new_authority_or_execution_behavior() -> None:
     assert guarantees["does_not_change_admission_or_execution"] is True
 
 
-def test_next_candidate_assessment_is_staged_and_non_rollout() -> None:
+def test_next_candidate_assessment_tracks_codex_as_onboarded_next_venue() -> None:
     assessment = next_bounded_venue_candidate_assessment()
 
     assert assessment["recommended_next_venue"] == "codex_implementation"
-    assert assessment["not_implemented_in_this_pass"] is True
+    assert assessment["not_implemented_in_this_pass"] is False
     assert assessment["relative_difficulty_vs_current_internal_venue"] == "harder_than_internal_task_admission"
+
+
+def test_codex_onboarded_venue_payload_passes_scaffold_validation() -> None:
+    candidate = codex_implementation_bounded_venue()
+
+    assert candidate["venue_id"] == "codex_implementation"
+    assert "codex_work_order" in candidate["supported_intent_kinds"]
+    assert "stageable_external_work_order" in candidate["executability_classes"]
+    assert validate_bounded_orchestration_venue(candidate) == []
