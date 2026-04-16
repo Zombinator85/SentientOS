@@ -18,6 +18,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_attention_recommendation,
     derive_orchestration_outcome_review,
     executable_handoff_map,
+    resolve_codex_staged_work_order_lifecycle,
     resolve_orchestration_result,
     synthesize_orchestration_intent,
 )
@@ -38,6 +39,46 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             rows.append(payload)
     return rows
+
+
+def _codex_staged_venue_diagnostic(
+    repo_root: Path,
+    orchestration_intent: dict[str, Any],
+    handoff_result: dict[str, Any],
+    orchestration_result: dict[str, Any],
+) -> dict[str, Any] | None:
+    venue = str(orchestration_intent.get("source_delegated_judgment", {}).get("recommended_venue") or "")
+    if venue != "codex_implementation":
+        return None
+
+    lifecycle = orchestration_result.get("codex_staged_lifecycle")
+    lifecycle_map = lifecycle if isinstance(lifecycle, dict) else resolve_codex_staged_work_order_lifecycle(repo_root, orchestration_intent, handoff_result)
+    codex_ref = handoff_result.get("details", {}).get("codex_work_order_ref", {})
+    codex_ref_map = codex_ref if isinstance(codex_ref, dict) else {}
+
+    return {
+        "schema_version": "codex_staged_venue_diagnostic.v1",
+        "venue": "codex_implementation",
+        "staged_work_order_present": bool(codex_ref_map),
+        "staged_work_order_id": codex_ref_map.get("work_order_id"),
+        "proof_artifact": {
+            "ledger_path": codex_ref_map.get("ledger_path", "glow/orchestration/codex_work_orders.jsonl"),
+            "status": codex_ref_map.get("status"),
+        },
+        "operator_requirement_state": {
+            "required_authority_posture": str(orchestration_intent.get("required_authority_posture") or ""),
+            "requires_operator_approval": bool(orchestration_intent.get("requires_operator_approval")),
+            "escalation_classification": str(orchestration_intent.get("source_delegated_judgment", {}).get("escalation_classification") or ""),
+        },
+        "lifecycle_visibility": lifecycle_map,
+        "executability_visibility": {
+            "executability_classification": str(orchestration_intent.get("executability_classification") or ""),
+            "not_directly_executable_here": True,
+            "staged_only": True,
+            "does_not_invoke_codex_directly": True,
+        },
+        "observability_only": True,
+    }
 
 
 def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
@@ -93,6 +134,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     orchestration_result = resolve_orchestration_result(root, handoff_result)
     orchestration_outcome_review = derive_orchestration_outcome_review(root)
     orchestration_attention_recommendation = derive_orchestration_attention_recommendation(orchestration_outcome_review)
+    codex_staged_venue = _codex_staged_venue_diagnostic(root, orchestration_intent, handoff_result, orchestration_result)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -111,6 +153,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "execution_result": orchestration_result,
             "outcome_review": orchestration_outcome_review,
             "attention_recommendation": orchestration_attention_recommendation,
+            "codex_staged_venue": codex_staged_venue,
         },
         "actions": rows,
     }

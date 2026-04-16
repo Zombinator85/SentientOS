@@ -67,6 +67,22 @@ _EXECUTION_RESULT_STATES = {
     "handoff_not_admitted",
 }
 
+
+_CODEX_WORK_ORDER_STATUSES = {
+    "staged",
+    "blocked_operator_required",
+    "blocked_insufficient_context",
+    "cancelled",
+    "fulfilled_externally_unverified",
+}
+
+_CODEX_STAGED_LIFECYCLE_STATES = {
+    "staged_cleanly",
+    "blocked_operator_required",
+    "blocked_insufficient_context",
+    "fragmented_unlinked_work_order_state",
+}
+
 _ORCHESTRATION_REVIEW_CLASSES = {
     "clean_recent_orchestration",
     "handoff_block_heavy",
@@ -339,6 +355,137 @@ def _default_admission_policy() -> task_admission.AdmissionPolicy:
     return task_admission.AdmissionPolicy(policy_version="orchestration_intent_handoff.v1")
 
 
+def _codex_work_order_id(intent: Mapping[str, Any], created_at: str) -> str:
+    canonical = json.dumps(
+        {
+            "created_at": created_at,
+            "intent_id": str(intent.get("intent_id") or ""),
+            "source_judgment": dict(intent.get("source_delegated_judgment") or {}),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"codex-wo-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
+    ledger_path = repo_root.resolve() / "glow/orchestration/codex_work_orders.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(work_order), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def build_codex_staged_work_order(
+    intent: Mapping[str, Any],
+    *,
+    handoff_outcome: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    timestamp = created_at or _iso_utc_now()
+    source = intent.get("source_delegated_judgment")
+    source_map = source if isinstance(source, Mapping) else {}
+    posture = str(intent.get("required_authority_posture") or "insufficient_context_blocked")
+    if handoff_outcome == "blocked_by_operator_requirement":
+        status = "blocked_operator_required"
+    elif handoff_outcome == "blocked_by_insufficient_context":
+        status = "blocked_insufficient_context"
+    else:
+        status = "staged"
+
+    if status not in _CODEX_WORK_ORDER_STATUSES:
+        status = "blocked_insufficient_context"
+
+    return {
+        "schema_version": "codex_staged_work_order.v1",
+        "recorded_at": timestamp,
+        "venue": "codex_implementation",
+        "work_order_id": _codex_work_order_id(intent, timestamp),
+        "source_intent_id": str(intent.get("intent_id") or ""),
+        "source_intent_kind": str(intent.get("intent_kind") or ""),
+        "source_judgment_linkage": {
+            "recommended_venue": str(source_map.get("recommended_venue") or ""),
+            "judgment_kind": "execution_venue_recommendation",
+            "escalation_classification": str(source_map.get("escalation_classification") or ""),
+            "work_class": str(source_map.get("work_class") or ""),
+            "next_move_posture": str(source_map.get("next_move_posture") or "hold"),
+            "consolidation_expansion_posture": str(source_map.get("consolidation_expansion_posture") or "insufficient_context"),
+        },
+        "operator_requirements": {
+            "requires_operator_approval": bool(intent.get("requires_operator_approval")),
+            "required_authority_posture": posture,
+            "operator_escalation_classification": str(source_map.get("escalation_classification") or ""),
+        },
+        "executability_classification": str(intent.get("executability_classification") or "blocked_insufficient_context"),
+        "readiness_basis": dict(source_map.get("readiness_basis") or {}),
+        "status": status,
+        "staged_only": True,
+        "does_not_invoke_codex_directly": True,
+        "requires_external_tool_or_operator_trigger": True,
+        **_anti_sovereignty_payload(
+            recommendation_only=False,
+            diagnostic_only=False,
+            does_not_invoke_external_tools=True,
+            additional_fields={
+                "non_authoritative": True,
+                "decision_power": "none",
+            },
+        ),
+    }
+
+
+def resolve_codex_staged_work_order_lifecycle(
+    repo_root: Path,
+    intent: Mapping[str, Any],
+    handoff: Mapping[str, Any],
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    intent_id = str(intent.get("intent_id") or "")
+    ledger_path = root / "glow/orchestration/codex_work_orders.jsonl"
+    records = _read_jsonl(ledger_path)
+    linked = [row for row in records if str(row.get("source_intent_id") or "") == intent_id]
+    latest = linked[-1] if linked else None
+    handoff_outcome = str(handoff.get("handoff_outcome") or "")
+
+    if latest is None:
+        lifecycle_state = "fragmented_unlinked_work_order_state"
+    elif handoff_outcome == "blocked_by_operator_requirement":
+        lifecycle_state = "blocked_operator_required"
+    elif handoff_outcome == "blocked_by_insufficient_context":
+        lifecycle_state = "blocked_insufficient_context"
+    elif str(latest.get("status") or "") == "staged":
+        lifecycle_state = "staged_cleanly"
+    else:
+        lifecycle_state = "fragmented_unlinked_work_order_state"
+
+    if lifecycle_state not in _CODEX_STAGED_LIFECYCLE_STATES:
+        lifecycle_state = "fragmented_unlinked_work_order_state"
+
+    return {
+        "schema_version": "codex_staged_lifecycle.v1",
+        "intent_id": intent_id,
+        "venue": "codex_implementation",
+        "lifecycle_state": lifecycle_state,
+        "work_order_present": latest is not None,
+        "work_order_id": str(latest.get("work_order_id") or "") if isinstance(latest, Mapping) else None,
+        "work_order_status": str(latest.get("status") or "") if isinstance(latest, Mapping) else None,
+        "proof_artifact_path": "glow/orchestration/codex_work_orders.jsonl",
+        "not_directly_executable_here": True,
+        "staged_only": True,
+        "does_not_invoke_codex_directly": True,
+        "requires_external_tool_or_operator_trigger": True,
+        "operator_requirement_state": {
+            "requires_operator_approval": bool(intent.get("requires_operator_approval")),
+            "required_authority_posture": str(intent.get("required_authority_posture") or ""),
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+        ),
+    }
+
+
 def append_orchestration_handoff_ledger(repo_root: Path, handoff: Mapping[str, Any]) -> Path:
     ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_handoffs.jsonl"
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
@@ -447,10 +594,23 @@ def resolve_orchestration_result(
     if state not in _EXECUTION_RESULT_STATES:
         state = "execution_result_missing"
 
+    intent_ref = dict(handoff.get("intent_ref") or {})
+    codex_staged_lifecycle = None
+    if str(intent_ref.get("intent_kind") or "") == "codex_work_order":
+        codex_staged_lifecycle = resolve_codex_staged_work_order_lifecycle(
+            root,
+            {
+                "intent_id": str(intent_ref.get("intent_id") or ""),
+                "required_authority_posture": str(detail_map.get("required_authority_posture") or ""),
+                "requires_operator_approval": bool(detail_map.get("requires_operator_approval")),
+            },
+            handoff,
+        )
+
     return {
         "schema_version": "orchestration_result_resolution.v1",
         "resolved_at": _iso_utc_now(),
-        "intent_ref": dict(handoff.get("intent_ref") or {}),
+        "intent_ref": intent_ref,
         "handoff_outcome": handoff_outcome,
         "orchestration_result_state": state,
         "loop_closed": loop_closed,
@@ -463,6 +623,7 @@ def resolve_orchestration_result(
             "task_rows_seen": len(matching_rows),
             "task_result_rows_seen": len(task_result_rows),
         },
+        "codex_staged_lifecycle": codex_staged_lifecycle,
     }
 
 
@@ -744,16 +905,19 @@ def admit_orchestration_intent(
         "intent_kind": str(intent.get("intent_kind") or ""),
         "execution_target": execution_target,
         "executability_classification": executability,
+        "required_authority_posture": authority_posture,
+        "requires_operator_approval": bool(intent.get("requires_operator_approval")),
     }
 
     if missing_fields:
         outcome = "blocked_by_insufficient_context"
         details["missing_required_fields"] = missing_fields
+    elif executability == "blocked_operator_required" or authority_posture in {"operator_approval_required", "operator_priority_required"}:
+        outcome = "blocked_by_operator_requirement"
+    elif executability == "blocked_insufficient_context" or authority_posture == "insufficient_context_blocked":
+        outcome = "blocked_by_insufficient_context"
     elif executability != "executable_now":
         outcome = "staged_only"
-    elif authority_posture != "no_additional_operator_approval_required":
-        outcome = "blocked_by_operator_requirement"
-        details["required_authority_posture"] = authority_posture
     elif execution_target != "task_admission_executor":
         outcome = "execution_target_unavailable"
     else:
@@ -776,6 +940,19 @@ def admit_orchestration_intent(
 
     if outcome not in _HANDOFF_OUTCOMES:
         outcome = "blocked_by_insufficient_context"
+
+    codex_work_order_record = None
+    if str(intent.get("intent_kind") or "") == "codex_work_order":
+        codex_work_order_record = build_codex_staged_work_order(intent, handoff_outcome=outcome)
+        codex_path = append_codex_work_order_ledger(root, codex_work_order_record)
+        details["codex_work_order_ref"] = {
+            "work_order_id": codex_work_order_record["work_order_id"],
+            "ledger_path": str(codex_path.relative_to(root)),
+            "status": codex_work_order_record["status"],
+            "staged_only": True,
+            "does_not_invoke_codex_directly": True,
+            "requires_external_tool_or_operator_trigger": True,
+        }
 
     handoff_record = {
         "schema_version": "orchestration_handoff.v1",

@@ -153,6 +153,48 @@ def validate_bounded_orchestration_venue(candidate: Mapping[str, Any]) -> list[s
     return missing
 
 
+def codex_implementation_bounded_venue() -> dict[str, Any]:
+    """Return the onboarded bounded venue scaffold payload for codex staged work orders."""
+
+    return {
+        "venue_id": "codex_implementation",
+        "supported_intent_kinds": ["codex_work_order"],
+        "executability_classes": [
+            "stageable_external_work_order",
+            "blocked_operator_required",
+            "blocked_insufficient_context",
+        ],
+        "handoff_substrate": "glow/orchestration/codex_work_orders.jsonl",
+        "result_source": {
+            "surface": "glow/orchestration/codex_work_orders.jsonl",
+            "event": "codex_staged_work_order",
+            "status_values": [
+                "staged",
+                "blocked_operator_required",
+                "blocked_insufficient_context",
+                "cancelled",
+            ],
+        },
+        "required_linkage_fields": {
+            "intent_to_handoff": ["intent_id", "source_intent_id"],
+            "handoff_to_admission": ["details.codex_work_order_ref.work_order_id", "work_order_id"],
+            "admission_to_result": ["work_order_id", "source_intent_id"],
+        },
+        "review_attention_capabilities": {
+            "outcome_review_enabled": True,
+            "attention_recommendation_enabled": True,
+            "staged_lifecycle_visibility_enabled": True,
+        },
+        "anti_sovereignty_guarantees": {
+            "non_authoritative": True,
+            "decision_power": "none",
+            "staged_only": True,
+            "does_not_invoke_codex_directly": True,
+            "requires_external_tool_or_operator_trigger": True,
+            "does_not_replace_operator_authority": True,
+        },
+    }
+
 def next_bounded_venue_candidate_assessment() -> dict[str, Any]:
     """Provide the grounded next venue candidate assessment without onboarding it."""
 
@@ -176,5 +218,5 @@ def next_bounded_venue_candidate_assessment() -> dict[str, Any]:
         "difficulty_rationale": (
             "external venue rollout adds transport, admission parity, and downstream proof-linkage constraints absent in the current internal substrate"
         ),
-        "not_implemented_in_this_pass": True,
+        "not_implemented_in_this_pass": False,
     }

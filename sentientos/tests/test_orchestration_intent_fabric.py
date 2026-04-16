@@ -325,11 +325,13 @@ def test_external_venues_remain_staged_only_without_internal_admission(tmp_path:
     handoff = admit_orchestration_intent(tmp_path, intent)
 
     assert judgment["recommended_venue"] == "codex_implementation"
-    assert handoff["handoff_outcome"] == "staged_only"
+    assert handoff["handoff_outcome"] == "blocked_by_operator_requirement"
     assert "task_admission" not in handoff["details"]
+    assert handoff["details"]["codex_work_order_ref"]["staged_only"] is True
     resolution = resolve_orchestration_result(tmp_path, handoff)
     assert resolution["orchestration_result_state"] == "handoff_not_admitted"
     assert resolution["execution_task_ref"]["task_id"] is None
+    assert resolution["codex_staged_lifecycle"]["lifecycle_state"] == "blocked_operator_required"
 
 
 def test_blocked_handoff_does_not_fabricate_execution_attempt(monkeypatch, tmp_path: Path) -> None:
@@ -388,12 +390,11 @@ def test_scoped_lifecycle_diagnostic_surfaces_orchestration_handoff_and_ledger(m
     handoff = diagnostic["orchestration_handoff"]
     assert handoff["intent_ledger_path"] == "glow/orchestration/orchestration_intents.jsonl"
     assert handoff["handoff_result"]["ledger_path"] == "glow/orchestration/orchestration_handoffs.jsonl"
-    assert handoff["handoff_result"]["handoff_outcome"] == "staged_only"
+    assert handoff["handoff_result"]["handoff_outcome"] in {"blocked_by_operator_requirement", "blocked_by_insufficient_context", "staged_only"}
     assert handoff["execution_result"]["orchestration_result_state"] == "handoff_not_admitted"
     assert handoff["gap_map"]["stable_linkage_keys"]["execution_task_to_result"] == "task_id"
     assert handoff["intent"]["schema_version"] == "orchestration_intent.v1"
     assert handoff["executable_handoff_map"]["intent_kind_to_handoff"]["internal_maintenance_execution"]["handoff_path_status"] == "operational"
-
     ledger = tmp_path / handoff["intent_ledger_path"]
     row = json.loads(ledger.read_text(encoding="utf-8").splitlines()[-1])
     assert row["intent_id"] == handoff["intent"]["intent_id"]
@@ -425,7 +426,7 @@ def test_end_to_end_judgment_to_internal_handoff_and_staged_external_only(tmp_pa
     external_handoff = admit_orchestration_intent(tmp_path, external_intent)
 
     assert external_judgment["recommended_venue"] == "codex_implementation"
-    assert external_handoff["handoff_outcome"] == "staged_only"
+    assert external_handoff["handoff_outcome"] == "blocked_by_operator_requirement"
     assert "task_admission" not in external_handoff["details"]
     assert executable_handoff_map()["known_named_targets_without_handoff_path"] == [
         "mutation_router",
@@ -655,6 +656,10 @@ def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritati
         }
 
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
     _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
     _write_jsonl(
         tmp_path / "pulse/forge_events.jsonl",
@@ -736,3 +741,76 @@ def test_attention_recommendation_does_not_change_admission_or_execution_behavio
     assert attention["does_not_change_admission_or_execution"] is True
     assert before["handoff_outcome"] == "admitted_to_execution_substrate"
     assert after["handoff_outcome"] == "admitted_to_execution_substrate"
+
+
+def test_codex_staged_work_order_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+
+    assert handoff["details"]["codex_work_order_ref"]["ledger_path"] == "glow/orchestration/codex_work_orders.jsonl"
+    rows = (tmp_path / "glow/orchestration/codex_work_orders.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 1
+    work_order = json.loads(rows[0])
+    assert work_order["venue"] == "codex_implementation"
+    assert work_order["source_intent_id"] == intent["intent_id"]
+    assert work_order["status"] == "blocked_operator_required"
+    assert work_order["does_not_invoke_codex_directly"] is True
+    assert work_order["requires_external_tool_or_operator_trigger"] is True
+
+
+def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
+    handoff = admit_orchestration_intent(
+        tmp_path,
+        {
+            "intent_kind": "codex_work_order",
+            "execution_target": "no_execution_target_yet",
+            "executability_classification": "stageable_external_work_order",
+        },
+    )
+
+    assert handoff["handoff_outcome"] == "blocked_by_insufficient_context"
+    assert "codex_work_order_ref" in handoff["details"]
+    resolution = resolve_orchestration_result(tmp_path, handoff)
+    assert resolution["codex_staged_lifecycle"]["lifecycle_state"] == "blocked_insufficient_context"
+
+
+def test_end_to_end_codex_staged_venue_visibility_is_honest(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+
+    def _fake_resolver(_repo_root: Path, *, action_id: str, correlation_id: str) -> dict[str, object]:
+        return {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        }
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-codex-e2e",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+
+    assert diagnostic["delegated_judgment"]["recommended_venue"] == "codex_implementation"
+    handoff = diagnostic["orchestration_handoff"]
+    assert handoff["intent"]["intent_kind"] == "codex_work_order"
+    assert handoff["handoff_result"]["handoff_outcome"] in {"blocked_by_operator_requirement", "blocked_by_insufficient_context", "staged_only"}
+    assert handoff["execution_result"]["orchestration_result_state"] == "handoff_not_admitted"
+    codex_diag = handoff["codex_staged_venue"]
+    assert codex_diag is not None
+    assert codex_diag["proof_artifact"]["ledger_path"] == "glow/orchestration/codex_work_orders.jsonl"
+    assert codex_diag["lifecycle_visibility"]["lifecycle_state"] == "blocked_operator_required"
+    assert codex_diag["executability_visibility"]["not_directly_executable_here"] is True
