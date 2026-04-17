@@ -84,6 +84,7 @@ _STAGED_EXTERNAL_LIFECYCLE_STATES = {
     "fulfilled_externally_with_issues",
     "externally_declined",
     "externally_abandoned",
+    "externally_result_unusable",
     "fragmented_unlinked_work_order_state",
 }
 
@@ -918,6 +919,114 @@ def resolve_orchestration_result(
     }
 
 
+def _recent_external_fulfillment_summary(
+    repo_root: Path,
+    recent_intents: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Collect compact external fulfillment evidence linked to recent external intents."""
+
+    root = repo_root.resolve()
+    external_intents = [
+        row
+        for row in recent_intents
+        if str(row.get("intent_kind") or "") in {"codex_work_order", "deep_research_work_order"}
+    ]
+    linkage_ids = {
+        _source_judgment_linkage_id(row.get("source_delegated_judgment", {}))
+        for row in external_intents
+    }
+    linkage_ids.discard("")
+
+    packets = _read_jsonl(root / "glow/orchestration/orchestration_handoff_packets.jsonl")
+    receipts = _read_jsonl(root / "glow/orchestration/orchestration_fulfillment_receipts.jsonl")
+    recent_packets = [
+        row
+        for row in packets
+        if str((row.get("source_delegated_judgment_ref") or {}).get("source_judgment_linkage_id") or "") in linkage_ids
+        and str(row.get("target_venue") or "") in {"codex_implementation", "deep_research_audit"}
+    ]
+    packet_by_id = {
+        str(row.get("handoff_packet_id") or ""): row
+        for row in recent_packets
+        if str(row.get("handoff_packet_id") or "")
+    }
+    latest_receipt_by_packet: dict[str, dict[str, Any]] = {}
+    for row in receipts:
+        packet_id = str((row.get("source_handoff_packet_ref") or {}).get("handoff_packet_id") or "")
+        if packet_id and packet_id in packet_by_id and isinstance(row, Mapping):
+            latest_receipt_by_packet[packet_id] = dict(row)
+
+    by_kind = {
+        "fulfilled_externally": 0,
+        "fulfilled_externally_with_issues": 0,
+        "externally_declined": 0,
+        "externally_abandoned": 0,
+        "externally_result_unusable": 0,
+    }
+    by_venue = {
+        "codex_implementation": {
+            "healthy": 0,
+            "stressed": 0,
+            "blocked_or_unusable": 0,
+            "fulfilled_externally": 0,
+            "fulfilled_externally_with_issues": 0,
+            "externally_declined": 0,
+            "externally_abandoned": 0,
+            "externally_result_unusable": 0,
+        },
+        "deep_research_audit": {
+            "healthy": 0,
+            "stressed": 0,
+            "blocked_or_unusable": 0,
+            "fulfilled_externally": 0,
+            "fulfilled_externally_with_issues": 0,
+            "externally_declined": 0,
+            "externally_abandoned": 0,
+            "externally_result_unusable": 0,
+        },
+    }
+    for packet_id, receipt in latest_receipt_by_packet.items():
+        fulfillment_kind = str(receipt.get("fulfillment_kind") or "")
+        mapped_kind = {
+            "externally_completed": "fulfilled_externally",
+            "externally_completed_with_issues": "fulfilled_externally_with_issues",
+            "externally_declined": "externally_declined",
+            "externally_abandoned": "externally_abandoned",
+            "externally_result_unusable": "externally_result_unusable",
+        }.get(fulfillment_kind)
+        if not mapped_kind:
+            continue
+        by_kind[mapped_kind] += 1
+        venue = str(packet_by_id.get(packet_id, {}).get("target_venue") or "")
+        venue_bucket = by_venue.get(venue)
+        if venue_bucket is None:
+            continue
+        venue_bucket[mapped_kind] += 1
+        if mapped_kind == "fulfilled_externally":
+            venue_bucket["healthy"] += 1
+        elif mapped_kind == "fulfilled_externally_with_issues":
+            venue_bucket["stressed"] += 1
+        else:
+            venue_bucket["blocked_or_unusable"] += 1
+
+    healthy = by_kind["fulfilled_externally"]
+    stressed = by_kind["fulfilled_externally_with_issues"] + by_kind["externally_result_unusable"]
+    blocked_or_unusable = by_kind["externally_declined"] + by_kind["externally_abandoned"] + by_kind["externally_result_unusable"]
+
+    return {
+        "recent_external_intents_considered": len(external_intents),
+        "recent_external_packets_considered": len(recent_packets),
+        "receipts_linked": len(latest_receipt_by_packet),
+        "receipts_missing_for_recent_packets": max(0, len(recent_packets) - len(latest_receipt_by_packet)),
+        "by_kind": by_kind,
+        "by_venue": by_venue,
+        "healthy_receipt_count": healthy,
+        "stressed_receipt_count": stressed,
+        "blocked_or_unusable_receipt_count": blocked_or_unusable,
+        "has_external_feedback_signal": len(latest_receipt_by_packet) > 0,
+    }
+
+
 def derive_orchestration_outcome_review(
     repo_root: Path,
     *,
@@ -939,10 +1048,20 @@ def derive_orchestration_outcome_review(
             scoped_handoffs.append(handoff)
 
     recent_handoffs = scoped_handoffs[-max(0, window_size) :] if window_size > 0 else []
+    recent_intent_ids = {
+        str((row.get("intent_ref") or {}).get("intent_id") or "")
+        for row in recent_handoffs
+    }
+    recent_intents = [
+        row
+        for row in intents
+        if str(row.get("intent_id") or "") in recent_intent_ids
+    ]
     recent_resolutions = [
         resolve_orchestration_result(root, handoff, executor_log_path=executor_log_path)
         for handoff in recent_handoffs
     ]
+    external_summary = _recent_external_fulfillment_summary(root, recent_intents)
 
     outcome_counts = {
         "execution_succeeded": 0,
@@ -987,6 +1106,16 @@ def derive_orchestration_outcome_review(
     blocked_heavy = blocked_handoffs >= 2 and block_ratio >= 0.6
     failure_heavy = admitted_handoffs >= 3 and failure_count >= 2 and failure_ratio >= 0.5
     stall_heavy = admitted_handoffs >= 3 and pending_count >= 2 and pending_ratio >= 0.5
+    external_healthy = int(external_summary.get("healthy_receipt_count") or 0)
+    external_stressed = int(external_summary.get("stressed_receipt_count") or 0)
+    external_blocked_or_unusable = int(external_summary.get("blocked_or_unusable_receipt_count") or 0)
+    external_signal_present = bool(external_summary.get("has_external_feedback_signal"))
+    external_stress_heavy = external_signal_present and (external_stressed + external_blocked_or_unusable) >= 2 and (
+        external_stressed + external_blocked_or_unusable
+    ) >= external_healthy
+    external_healthy_support = external_signal_present and external_healthy >= 2 and (
+        external_stressed + external_blocked_or_unusable
+    ) == 0
 
     classification = "insufficient_history"
     if records_considered >= 3:
@@ -997,6 +1126,8 @@ def derive_orchestration_outcome_review(
         elif stall_heavy:
             classification = "pending_stall_pattern"
         elif success_count >= 2 and success_ratio >= 0.6:
+            classification = "clean_recent_orchestration"
+        elif external_healthy_support:
             classification = "clean_recent_orchestration"
         else:
             classification = "mixed_orchestration_stress"
@@ -1015,12 +1146,25 @@ def derive_orchestration_outcome_review(
             "blocked_heavy": blocked_heavy,
             "failure_heavy": failure_heavy,
             "stall_heavy": stall_heavy,
+            "external_feedback_signal_present": external_signal_present,
+            "external_stress_heavy": external_stress_heavy,
+            "external_healthy_support": external_healthy_support,
         },
+        "external_fulfillment_outcome_counts": dict(external_summary.get("by_kind") or {}),
         "summary": {
             "recent_pattern": "healthy_bounded_orchestration"
             if classification == "clean_recent_orchestration"
             else "orchestration_stress_or_uncertainty",
-            "diagnostic_summary": "bounded retrospective review derived from existing internal orchestration artifacts only",
+            "diagnostic_summary": "bounded retrospective review derived from internal orchestration artifacts plus external fulfillment receipt outcomes when linked",
+            "external_fulfillment_influence": {
+                "influenced_outcome_review": external_signal_present,
+                "influence_mode": "healthy_support"
+                if external_healthy_support
+                else ("stress_signal" if external_stress_heavy else ("present_no_strong_shift" if external_signal_present else "none")),
+                "healthy_receipt_count": external_healthy,
+                "stressed_receipt_count": external_stressed,
+                "blocked_or_unusable_receipt_count": external_blocked_or_unusable,
+            },
         },
         "artifacts_read": {
             "intent_ledger": "glow/orchestration/orchestration_intents.jsonl",
@@ -1028,6 +1172,8 @@ def derive_orchestration_outcome_review(
             "executor_log": str((executor_log_path or Path(task_executor.LOG_PATH)).relative_to(root))
             if (executor_log_path or Path(task_executor.LOG_PATH)).is_relative_to(root)
             else str(executor_log_path or Path(task_executor.LOG_PATH)),
+            "handoff_packet_ledger": "glow/orchestration/orchestration_handoff_packets.jsonl",
+            "fulfillment_receipt_ledger": "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
         },
         **_anti_sovereignty_payload(
             recommendation_only=True,
@@ -1119,6 +1265,13 @@ def derive_orchestration_venue_mix_review(
         }:
             blocked_count += 1
 
+    recent_intents = [
+        row
+        for row in intents
+        if str(row.get("intent_id") or "") in recent_intent_ids
+    ]
+    external_summary = _recent_external_fulfillment_summary(root, recent_intents)
+
     records_considered = len(recent_handoffs)
     total_primary_venue = sum(venue_counts.values())
     internal_ratio = (venue_counts["task_admission_executor"] / total_primary_venue) if total_primary_venue else 0.0
@@ -1131,6 +1284,13 @@ def derive_orchestration_venue_mix_review(
     codex_heavy = venue_counts["codex_implementation"] >= 2 and codex_ratio >= 0.6
     deep_research_heavy = venue_counts["deep_research_audit"] >= 2 and deep_ratio >= 0.6
     operator_heavy = operator_required_count >= 2 and operator_ratio >= 0.5
+    external_healthy = int(external_summary.get("healthy_receipt_count") or 0)
+    external_stressed = int(external_summary.get("stressed_receipt_count") or 0)
+    external_blocked_or_unusable = int(external_summary.get("blocked_or_unusable_receipt_count") or 0)
+    external_signal_present = bool(external_summary.get("has_external_feedback_signal"))
+    external_quality_stressed = external_signal_present and (external_stressed + external_blocked_or_unusable) >= 2 and (
+        external_stressed + external_blocked_or_unusable
+    ) > external_healthy
     dominant_flags = [internal_heavy, codex_heavy, deep_research_heavy, operator_heavy]
     heavy_pattern_count = sum(1 for flag in dominant_flags if flag)
 
@@ -1155,6 +1315,8 @@ def derive_orchestration_venue_mix_review(
         elif balanced_primary_spread and blocked_ratio < 0.4:
             classification = "balanced_recent_venue_mix"
         else:
+            classification = "mixed_venue_stress"
+        if classification in {"codex_heavy", "deep_research_heavy", "balanced_recent_venue_mix"} and external_quality_stressed:
             classification = "mixed_venue_stress"
 
     if classification not in _ORCHESTRATION_VENUE_MIX_CLASSES:
@@ -1196,6 +1358,15 @@ def derive_orchestration_venue_mix_review(
         "summary": {
             "venue_usage_balance": usage_balance,
             "diagnostic_summary": "bounded retrospective venue-mix review derived from existing orchestration artifacts only",
+            "external_fulfillment_influence": {
+                "influenced_venue_mix_review": external_signal_present,
+                "healthy_receipt_count": external_healthy,
+                "stressed_receipt_count": external_stressed,
+                "blocked_or_unusable_receipt_count": external_blocked_or_unusable,
+                "quality_signal": "stressed"
+                if external_quality_stressed
+                else ("healthy_or_mixed" if external_signal_present else "none"),
+            },
             "classification_basis": classification_basis,
         },
         "artifacts_read": {
@@ -1204,10 +1375,21 @@ def derive_orchestration_venue_mix_review(
             "codex_staged_work_order_ledger": "glow/orchestration/codex_work_orders.jsonl",
             "deep_research_staged_work_order_ledger": "glow/orchestration/deep_research_work_orders.jsonl",
             "orchestration_result_resolution_surface": "sentientos.orchestration_intent_fabric.resolve_orchestration_result",
+            "handoff_packet_ledger": "glow/orchestration/orchestration_handoff_packets.jsonl",
+            "fulfillment_receipt_ledger": "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
         },
         "evidence_counts": {
             "recent_codex_work_orders": recent_codex_work_orders,
             "recent_deep_research_work_orders": recent_deep_research_work_orders,
+        },
+        "external_fulfillment_contribution": {
+            "by_kind": dict(external_summary.get("by_kind") or {}),
+            "by_venue": dict(external_summary.get("by_venue") or {}),
+            "healthy_receipt_count": external_healthy,
+            "stressed_receipt_count": external_stressed,
+            "blocked_or_unusable_receipt_count": external_blocked_or_unusable,
+            "receipts_missing_for_recent_packets": int(external_summary.get("receipts_missing_for_recent_packets") or 0),
+            "signal_present": external_signal_present,
         },
         **_anti_sovereignty_payload(
             recommendation_only=True,
@@ -1334,6 +1516,48 @@ def derive_next_venue_recommendation(
     failure_heavy = bool((outcome_review.get("condition_flags") or {}).get("failure_heavy"))
     stall_heavy = bool((outcome_review.get("condition_flags") or {}).get("stall_heavy"))
     operator_heavy = venue_mix_classification == "operator_escalation_heavy"
+    external_contribution = venue_mix_review.get("external_fulfillment_contribution")
+    external_contribution_map = external_contribution if isinstance(external_contribution, Mapping) else {}
+    by_venue = external_contribution_map.get("by_venue")
+    by_venue_map = by_venue if isinstance(by_venue, Mapping) else {}
+
+    def _venue_external_health(venue: str) -> dict[str, int]:
+        venue_map = by_venue_map.get(venue)
+        venue_metrics = venue_map if isinstance(venue_map, Mapping) else {}
+        return {
+            "healthy": int(venue_metrics.get("healthy") or 0),
+            "stressed": int(venue_metrics.get("stressed") or 0),
+            "blocked_or_unusable": int(venue_metrics.get("blocked_or_unusable") or 0),
+            "fulfilled_externally": int(venue_metrics.get("fulfilled_externally") or 0),
+            "fulfilled_externally_with_issues": int(venue_metrics.get("fulfilled_externally_with_issues") or 0),
+            "externally_declined": int(venue_metrics.get("externally_declined") or 0),
+            "externally_abandoned": int(venue_metrics.get("externally_abandoned") or 0),
+            "externally_result_unusable": int(venue_metrics.get("externally_result_unusable") or 0),
+        }
+
+    codex_external = _venue_external_health("codex_implementation")
+    deep_external = _venue_external_health("deep_research_audit")
+    delegated_external = _venue_external_health(delegated_venue) if delegated_venue in {
+        "codex_implementation",
+        "deep_research_audit",
+    } else _venue_external_health("")
+    delegated_external_total = delegated_external["healthy"] + delegated_external["stressed"] + delegated_external["blocked_or_unusable"]
+    delegated_external_healthy_strong = delegated_external["healthy"] >= 2 and (
+        delegated_external["stressed"] + delegated_external["blocked_or_unusable"]
+    ) == 0
+    delegated_external_stressed = delegated_external_total >= 2 and (
+        delegated_external["stressed"] + delegated_external["blocked_or_unusable"]
+    ) >= delegated_external["healthy"]
+    external_signal_present = bool(external_contribution_map.get("signal_present"))
+    alternative_external_healthy = (
+        deep_external["healthy"] >= 2 and (deep_external["stressed"] + deep_external["blocked_or_unusable"]) == 0
+        if delegated_venue == "codex_implementation"
+        else (
+            codex_external["healthy"] >= 2 and (codex_external["stressed"] + codex_external["blocked_or_unusable"]) == 0
+            if delegated_venue == "deep_research_audit"
+            else False
+        )
+    )
 
     delegated_to_next = {
         "internal_direct_execution": "prefer_internal_execution",
@@ -1366,6 +1590,8 @@ def derive_next_venue_recommendation(
         }
         or venue_mix_classification == "mixed_venue_stress"
     )
+    external_feedback_affirming = delegated_external_healthy_strong
+    external_feedback_stressed = delegated_external_stressed
 
     if operator_escalation_dominant:
         recommendation = "prefer_operator_decision"
@@ -1383,6 +1609,18 @@ def derive_next_venue_recommendation(
         recommendation = "prefer_deep_research_audit"
         relation = "nudging"
         rationale = "recent_stress_or_architectural_ambiguity_pattern_nudges_toward_deep_research_audit"
+    elif delegated_venue in {"codex_implementation", "deep_research_audit"} and external_feedback_stressed and alternative_external_healthy:
+        recommendation = "prefer_deep_research_audit" if delegated_venue == "codex_implementation" else "prefer_codex_implementation"
+        relation = "nudging"
+        rationale = "recent_external_fulfillment_for_delegated_external_venue_is_stressed_while_alternative_external_venue_is_recently_healthy"
+    elif delegated_venue in {"codex_implementation", "deep_research_audit"} and external_feedback_stressed:
+        recommendation = "hold_current_venue_mix"
+        relation = "holding"
+        rationale = "recent_external_fulfillment_for_delegated_external_venue_is_stressed_without_a_clear_healthy_external_alternative"
+    elif delegated_venue in {"codex_implementation", "deep_research_audit"} and external_feedback_affirming:
+        recommendation = delegated_next if delegated_next is not None else "insufficient_context"
+        relation = "affirming"
+        rationale = "recent_external_fulfillment_for_delegated_external_venue_is_healthy_and_supports_affirmation"
     elif delegated_venue == "internal_direct_execution" and outcome_classification == "clean_recent_orchestration" and venue_mix_classification in {
         "balanced_recent_venue_mix",
         "internal_execution_heavy",
@@ -1443,6 +1681,14 @@ def derive_next_venue_recommendation(
             "orchestration_venue_mix_review": {
                 "review_classification": venue_mix_classification,
                 "records_considered": venue_mix_records,
+                "external_fulfillment_contribution": {
+                    "signal_present": external_signal_present,
+                    "delegated_external_venue_health": delegated_external,
+                    "codex_external_health": codex_external,
+                    "deep_research_external_health": deep_external,
+                    "external_feedback_affirming": external_feedback_affirming,
+                    "external_feedback_stressed": external_feedback_stressed,
+                },
             },
             "orchestration_operator_attention_recommendation": attention_signal,
             "rationale": rationale,
@@ -1452,6 +1698,7 @@ def derive_next_venue_recommendation(
                 "orchestration_outcome_review.review_classification",
                 "orchestration_outcome_review.condition_flags",
                 "orchestration_venue_mix_review.review_classification",
+                "orchestration_venue_mix_review.external_fulfillment_contribution",
                 "orchestration_operator_attention_recommendation.operator_attention_recommendation",
             ],
         },
@@ -1464,6 +1711,52 @@ def derive_next_venue_recommendation(
                 "does_not_override_delegated_judgment": True,
             },
         ),
+    }
+
+
+def derive_external_feedback_gap_map(
+    outcome_review: Mapping[str, Any],
+    venue_mix_review: Mapping[str, Any],
+    next_venue_recommendation: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return compact audit visibility for external fulfillment influence across review layers."""
+
+    outcome_influence = outcome_review.get("summary", {}).get("external_fulfillment_influence")
+    outcome_influence_map = outcome_influence if isinstance(outcome_influence, Mapping) else {}
+    venue_mix_influence = venue_mix_review.get("summary", {}).get("external_fulfillment_influence")
+    venue_mix_influence_map = venue_mix_influence if isinstance(venue_mix_influence, Mapping) else {}
+    next_basis = next_venue_recommendation.get("basis", {}).get("orchestration_venue_mix_review", {})
+    next_basis_map = next_basis if isinstance(next_basis, Mapping) else {}
+    next_external = next_basis_map.get("external_fulfillment_contribution")
+    next_external_map = next_external if isinstance(next_external, Mapping) else {}
+
+    return {
+        "schema_version": "orchestration_external_feedback_gap_map.v1",
+        "outcome_review": {
+            "external_fulfillment_influencing": bool(outcome_influence_map.get("influenced_outcome_review")),
+            "influence_mode": str(outcome_influence_map.get("influence_mode") or "none"),
+            "remaining_gap": "none"
+            if outcome_influence_map.get("influenced_outcome_review")
+            else "external_fulfillment_not_currently_visible_to_outcome_review",
+        },
+        "venue_mix_review": {
+            "external_fulfillment_influencing": bool(venue_mix_influence_map.get("influenced_venue_mix_review")),
+            "quality_signal": str(venue_mix_influence_map.get("quality_signal") or "none"),
+            "remaining_gap": "none"
+            if venue_mix_influence_map.get("influenced_venue_mix_review")
+            else "external_fulfillment_not_currently_visible_to_venue_mix_review",
+        },
+        "next_venue_recommendation": {
+            "external_fulfillment_influencing": bool(next_external_map.get("signal_present")),
+            "delegated_external_feedback_stressed": bool(next_external_map.get("external_feedback_stressed")),
+            "delegated_external_feedback_affirming": bool(next_external_map.get("external_feedback_affirming")),
+            "remaining_gap": "none"
+            if next_external_map.get("signal_present")
+            else "next_venue_recommendation_not_currently_using_external_fulfillment_history",
+        },
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
     }
 
 
@@ -1913,7 +2206,7 @@ def resolve_handoff_packet_fulfillment_lifecycle(
             "externally_completed_with_issues": "fulfilled_externally_with_issues",
             "externally_declined": "externally_declined",
             "externally_abandoned": "externally_abandoned",
-            "externally_result_unusable": "fulfilled_externally_with_issues",
+            "externally_result_unusable": "externally_result_unusable",
         }.get(fulfillment_kind, "fragmented_unlinked_work_order_state")
 
     if lifecycle_state not in _STAGED_EXTERNAL_LIFECYCLE_STATES:

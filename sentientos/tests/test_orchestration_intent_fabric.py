@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from importlib import reload
 import json
 from pathlib import Path
@@ -16,6 +17,7 @@ from sentientos.orchestration_intent_fabric import (
     ingest_external_fulfillment_receipt,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_external_feedback_gap_map,
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
@@ -641,6 +643,88 @@ def _seed_venue_mix_history(
     _write_jsonl(tmp_path / "glow/orchestration/deep_research_work_orders.jsonl", deep_rows)
 
 
+def _seed_external_feedback_history(
+    tmp_path: Path,
+    *,
+    external_venues: list[str],
+    fulfillment_kinds: list[str | None],
+) -> Path:
+    intent_rows: list[dict[str, object]] = []
+    handoff_rows: list[dict[str, object]] = []
+    packet_rows: list[dict[str, object]] = []
+    receipt_rows: list[dict[str, object]] = []
+    for idx, venue in enumerate(external_venues):
+        intent_id = f"orh-ext-{idx}"
+        delegated = {
+            "work_class": "external_tool_orchestration",
+            "recommended_venue": venue,
+            "next_move_posture": "hold",
+            "consolidation_expansion_posture": "consolidate",
+            "escalation_classification": "none",
+        }
+        linkage = {
+            "work_class": str(delegated["work_class"]),
+            "recommended_venue": str(delegated["recommended_venue"]),
+            "next_move_posture": str(delegated["next_move_posture"]),
+            "consolidation_expansion_posture": str(delegated["consolidation_expansion_posture"]),
+            "escalation_classification": str(delegated["escalation_classification"]),
+            "readiness_basis": {"orchestration_substitution_readiness": {}, "basis": {}},
+        }
+        linkage_id = f"jdg-link-{hashlib.sha256(json.dumps(linkage, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()[:16]}"
+        intent_kind = "codex_work_order" if venue == "codex_implementation" else "deep_research_work_order"
+        intent_rows.append(
+            {
+                "schema_version": "orchestration_intent.v1",
+                "intent_id": intent_id,
+                "intent_kind": intent_kind,
+                "source_delegated_judgment": linkage,
+                "required_authority_posture": "operator_approval_required",
+                "requires_operator_approval": True,
+            }
+        )
+        handoff_rows.append(
+            {
+                "schema_version": "orchestration_handoff.v1",
+                "handoff_outcome": "staged_only",
+                "intent_ref": {"intent_id": intent_id, "intent_kind": intent_kind},
+                "details": {"required_authority_posture": "operator_approval_required", "requires_operator_approval": True},
+            }
+        )
+        proposal_id = f"proposal-ext-{idx}"
+        packet_id = f"hpk-ext-{idx}"
+        packet_rows.append(
+            {
+                "schema_version": "orchestration_handoff_packet.v1",
+                "handoff_packet_id": packet_id,
+                "target_venue": venue,
+                "source_next_move_proposal_ref": {"proposal_id": proposal_id},
+                "source_delegated_judgment_ref": {
+                    "source_judgment_linkage_id": linkage_id
+                },
+                "packet_status": "ready_for_external_trigger",
+                "readiness": {"ready_for_external_trigger": True, "staged_only": True, "blocked": False},
+            }
+        )
+        kind = fulfillment_kinds[idx]
+        if kind:
+            receipt_rows.append(
+                {
+                    "schema_version": "orchestration_fulfillment_receipt.v1",
+                    "fulfillment_receipt_id": f"fr-ext-{idx}",
+                    "source_handoff_packet_ref": {"handoff_packet_id": packet_id},
+                    "source_venue": venue,
+                    "fulfillment_kind": kind,
+                }
+            )
+
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_intents.jsonl", intent_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoffs.jsonl", handoff_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl", packet_rows)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_fulfillment_receipts.jsonl", receipt_rows)
+    _write_jsonl(tmp_path / "logs/task_executor.jsonl", [])
+    return tmp_path / "logs/task_executor.jsonl"
+
+
 def test_outcome_review_success_dominant_classifies_clean(tmp_path: Path) -> None:
     executor_log = _seed_orchestration_history(
         tmp_path,
@@ -754,6 +838,36 @@ def test_outcome_review_insufficient_history_when_too_few_records(tmp_path: Path
     assert review["records_considered"] == 2
     attention = derive_orchestration_attention_recommendation(review)
     assert attention["operator_attention_recommendation"] == "insufficient_context"
+
+
+def test_outcome_review_uses_fulfilled_codex_receipts_as_external_healthy_support(tmp_path: Path) -> None:
+    executor_log = _seed_external_feedback_history(
+        tmp_path,
+        external_venues=["codex_implementation", "codex_implementation", "codex_implementation"],
+        fulfillment_kinds=["externally_completed", "externally_completed", "externally_completed"],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "clean_recent_orchestration"
+    assert review["condition_flags"]["external_feedback_signal_present"] is True
+    assert review["condition_flags"]["external_healthy_support"] is True
+    assert review["external_fulfillment_outcome_counts"]["fulfilled_externally"] == 3
+    assert review["summary"]["external_fulfillment_influence"]["influence_mode"] == "healthy_support"
+
+
+def test_outcome_review_marks_external_stress_for_unusable_or_declined_without_internal_failure_claim(tmp_path: Path) -> None:
+    executor_log = _seed_external_feedback_history(
+        tmp_path,
+        external_venues=["codex_implementation", "codex_implementation", "codex_implementation"],
+        fulfillment_kinds=["externally_result_unusable", "externally_declined", "externally_abandoned"],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "mixed_orchestration_stress"
+    assert review["condition_flags"]["external_feedback_signal_present"] is True
+    assert review["condition_flags"]["external_stress_heavy"] is True
+    assert review["recent_outcome_counts"]["execution_failed"] == 0
+    assert review["external_fulfillment_outcome_counts"]["externally_result_unusable"] == 1
 
 
 def test_attention_recommendation_light_block_pattern_prefers_observe(tmp_path: Path) -> None:
@@ -916,6 +1030,21 @@ def test_venue_mix_review_insufficient_history(tmp_path: Path) -> None:
     review = derive_orchestration_venue_mix_review(tmp_path)
     assert review["review_classification"] == "insufficient_history"
     assert review["records_considered"] == 2
+
+
+def test_venue_mix_review_includes_external_fulfillment_quality_contribution(tmp_path: Path) -> None:
+    _seed_external_feedback_history(
+        tmp_path,
+        external_venues=["deep_research_audit", "deep_research_audit", "deep_research_audit"],
+        fulfillment_kinds=["externally_completed", "externally_completed", "externally_completed_with_issues"],
+    )
+
+    review = derive_orchestration_venue_mix_review(tmp_path)
+    external = review["external_fulfillment_contribution"]
+    assert external["signal_present"] is True
+    assert external["by_venue"]["deep_research_audit"]["healthy"] == 2
+    assert external["by_venue"]["deep_research_audit"]["stressed"] == 1
+    assert review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
 
 
 def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritative(
@@ -1098,6 +1227,96 @@ def test_next_venue_recommendation_returns_insufficient_context_when_history_is_
 
     assert recommendation["next_venue_recommendation"] == "insufficient_context"
     assert recommendation["relation_to_delegated_judgment"] == "insufficient_context"
+
+
+def test_next_venue_recommendation_affirms_codex_when_external_fulfillment_is_healthy() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 5,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {
+        "review_classification": "codex_heavy",
+        "records_considered": 5,
+        "external_fulfillment_contribution": {
+            "signal_present": True,
+            "by_venue": {
+                "codex_implementation": {
+                    "healthy": 2,
+                    "stressed": 0,
+                    "blocked_or_unusable": 0,
+                    "fulfilled_externally": 2,
+                    "fulfilled_externally_with_issues": 0,
+                    "externally_declined": 0,
+                    "externally_abandoned": 0,
+                    "externally_result_unusable": 0,
+                },
+                "deep_research_audit": {
+                    "healthy": 0,
+                    "stressed": 0,
+                    "blocked_or_unusable": 0,
+                    "fulfilled_externally": 0,
+                    "fulfilled_externally_with_issues": 0,
+                    "externally_declined": 0,
+                    "externally_abandoned": 0,
+                    "externally_result_unusable": 0,
+                },
+            },
+        },
+    }
+    attention = {"operator_attention_recommendation": "none"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_codex_implementation"
+    assert recommendation["relation_to_delegated_judgment"] == "affirming"
+    assert recommendation["basis"]["orchestration_venue_mix_review"]["external_fulfillment_contribution"]["external_feedback_affirming"] is True
+
+
+def test_next_venue_recommendation_nudges_from_codex_when_external_fulfillment_is_stressed_and_deep_is_healthy() -> None:
+    delegated = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {
+        "review_classification": "mixed_orchestration_stress",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {
+        "review_classification": "mixed_venue_stress",
+        "records_considered": 6,
+        "external_fulfillment_contribution": {
+            "signal_present": True,
+            "by_venue": {
+                "codex_implementation": {
+                    "healthy": 0,
+                    "stressed": 1,
+                    "blocked_or_unusable": 1,
+                    "fulfilled_externally": 0,
+                    "fulfilled_externally_with_issues": 1,
+                    "externally_declined": 1,
+                    "externally_abandoned": 0,
+                    "externally_result_unusable": 0,
+                },
+                "deep_research_audit": {
+                    "healthy": 2,
+                    "stressed": 0,
+                    "blocked_or_unusable": 0,
+                    "fulfilled_externally": 2,
+                    "fulfilled_externally_with_issues": 0,
+                    "externally_declined": 0,
+                    "externally_abandoned": 0,
+                    "externally_result_unusable": 0,
+                },
+            },
+        },
+    }
+    attention = {"operator_attention_recommendation": "review_mixed_orchestration_stress"}
+
+    recommendation = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    assert recommendation["next_venue_recommendation"] == "prefer_deep_research_audit"
+    assert recommendation["relation_to_delegated_judgment"] == "nudging"
+    assert recommendation["does_not_override_delegated_judgment"] is True
 
 
 def test_next_move_proposal_affirming_for_healthy_internal_pattern() -> None:
@@ -2104,7 +2323,7 @@ def test_external_declined_abandoned_and_unusable_states_are_visible(tmp_path: P
         created_at="2026-04-12T00:05:00Z",
     )
     unusable = resolve_handoff_packet_fulfillment_lifecycle(tmp_path, packet)
-    assert unusable["lifecycle_state"] == "fulfilled_externally_with_issues"
+    assert unusable["lifecycle_state"] == "externally_result_unusable"
 
 
 def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
@@ -2309,9 +2528,45 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     second = build_scoped_lifecycle_diagnostic(tmp_path)
     codex_diag = second["orchestration_handoff"]["codex_staged_venue"]
     assert codex_diag is not None
+    outcome_review = second["orchestration_handoff"]["outcome_review"]
+    venue_mix_review = second["orchestration_handoff"]["venue_mix_review"]
+    next_venue = second["orchestration_handoff"]["next_venue_recommendation"]
+    feedback_visibility = second["orchestration_handoff"]["external_fulfillment_feedback_visibility"]
     packet_fulfillment = codex_diag["packet_fulfillment_visibility"]
     assert packet_fulfillment["fulfillment_received"] is True
     assert packet_fulfillment["lifecycle_state"] == "fulfilled_externally"
     assert packet_fulfillment["fulfillment_kind"] == "externally_completed"
     assert packet_fulfillment["receipt_artifact_path"] == "glow/orchestration/orchestration_fulfillment_receipts.jsonl"
     assert packet_fulfillment["does_not_imply_direct_repo_execution"] is True
+    assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
+    assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
+    assert feedback_visibility["outcome_review"]["external_fulfillment_influencing"] is True
+    assert feedback_visibility["venue_mix_review"]["external_fulfillment_influencing"] is True
+    assert next_venue["relation_to_delegated_judgment"] == "affirming"
+    assert feedback_visibility["non_authoritative"] is True
+
+
+def test_external_feedback_gap_map_reports_layer_influence_coherently() -> None:
+    outcome_review = {
+        "summary": {"external_fulfillment_influence": {"influenced_outcome_review": True, "influence_mode": "healthy_support"}}
+    }
+    venue_mix_review = {
+        "summary": {"external_fulfillment_influence": {"influenced_venue_mix_review": True, "quality_signal": "healthy_or_mixed"}}
+    }
+    next_venue = {
+        "basis": {
+            "orchestration_venue_mix_review": {
+                "external_fulfillment_contribution": {
+                    "signal_present": True,
+                    "external_feedback_stressed": False,
+                    "external_feedback_affirming": True,
+                }
+            }
+        }
+    }
+
+    gap_map = derive_external_feedback_gap_map(outcome_review, venue_mix_review, next_venue)
+    assert gap_map["outcome_review"]["remaining_gap"] == "none"
+    assert gap_map["venue_mix_review"]["remaining_gap"] == "none"
+    assert gap_map["next_venue_recommendation"]["remaining_gap"] == "none"
+    assert gap_map["diagnostic_only"] is True
