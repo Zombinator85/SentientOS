@@ -16,6 +16,7 @@ from sentientos.orchestration_intent_fabric import (
     append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
+    build_split_closure_map,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_external_feedback_gap_map,
@@ -28,6 +29,8 @@ from sentientos.orchestration_intent_fabric import (
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_handoff_packet_fulfillment_lifecycle,
     resolve_orchestration_result,
+    resolve_unified_orchestration_result,
+    resolve_unified_orchestration_result_surface,
     synthesize_next_move_proposal,
     synthesize_handoff_packet,
     synthesize_orchestration_intent,
@@ -178,6 +181,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
     handoff_packet = synthesize_handoff_packet(next_move_proposal, delegated_judgment)
     handoff_packet_ledger_path = append_handoff_packet_ledger(root, handoff_packet)
+    unified_result = resolve_unified_orchestration_result(
+        root,
+        handoff=handoff_result,
+        handoff_packet=handoff_packet,
+    )
+    unified_result_surface = resolve_unified_orchestration_result_surface(root)
     next_move_proposal_review = derive_next_move_proposal_review(root)
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
@@ -218,11 +227,14 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "delegated_judgment": delegated_judgment,
         "orchestration_handoff": {
             "gap_map": build_handoff_execution_gap_map(root),
+            "split_closure_map": build_split_closure_map(),
             "executable_handoff_map": executable_handoff_map(),
             "intent": orchestration_intent,
             "intent_ledger_path": str(orchestration_ledger_path.relative_to(root)),
             "handoff_result": handoff_result,
             "execution_result": orchestration_result,
+            "unified_result": unified_result,
+            "unified_result_surface": unified_result_surface,
             "outcome_review": orchestration_outcome_review,
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,

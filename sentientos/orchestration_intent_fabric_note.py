@@ -185,6 +185,33 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             ],
             "meaning": "handoff admission records substrate entry; orchestration result closure requires downstream task_result evidence.",
         },
+        "unified_orchestration_result": {
+            "what_it_is": "a bounded venue-aware resolver surface that normalizes internal execution closure and external fulfillment closure into one typed result shape",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result",
+            "inspectable_window_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result_surface",
+            "split_closure_audit_surface": "sentientos.orchestration_intent_fabric.build_split_closure_map",
+            "resolution_paths": ["internal_execution", "external_fulfillment"],
+            "result_classifications": [
+                "completed_successfully",
+                "completed_with_issues",
+                "declined_or_abandoned",
+                "failed_after_execution",
+                "blocked_before_execution",
+                "pending_or_unresolved",
+                "fragmented_result_history",
+            ],
+            "venue_honesty": [
+                "external_fulfillment remains explicitly receipt-based and does_not_imply_direct_repo_execution",
+                "internal_execution remains explicitly task_result-observed when complete",
+                "unification does not collapse fulfillment into fake direct execution success",
+            ],
+            "what_it_does_not_do": [
+                "does not add direct external actuation",
+                "does not add a new execution venue",
+                "does not change admission authority",
+                "does not create sovereign decision power",
+            ],
+        },
         "outcome_review": {
             "meaning": "bounded retrospective classification over recent internal orchestration outcomes, now with linked external fulfillment receipt influence for staged external venues.",
             "reads_existing_artifacts_only": [

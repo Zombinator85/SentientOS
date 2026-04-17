@@ -14,6 +14,7 @@ from sentientos.orchestration_intent_fabric import (
     append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
+    build_split_closure_map,
     ingest_external_fulfillment_receipt,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
@@ -24,6 +25,8 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
+    resolve_unified_orchestration_result,
+    resolve_unified_orchestration_result_surface,
     resolve_handoff_packet_fulfillment_lifecycle,
     synthesize_handoff_packet,
     synthesize_next_move_proposal,
@@ -2326,6 +2329,125 @@ def test_external_declined_abandoned_and_unusable_states_are_visible(tmp_path: P
     assert unusable["lifecycle_state"] == "externally_result_unusable"
 
 
+def test_unified_result_resolves_internal_execution_path(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    task_id = handoff["details"]["task_admission"]["task_id"]
+    _write_jsonl(
+        tmp_path / "logs/task_executor.jsonl",
+        [{"task_id": task_id, "event": "task_result", "status": "completed"}],
+    )
+
+    unified = resolve_unified_orchestration_result(
+        tmp_path,
+        handoff=handoff,
+        executor_log_path=tmp_path / "logs/task_executor.jsonl",
+    )
+
+    assert unified["resolution_path"] == "internal_execution"
+    assert unified["result_classification"] == "completed_successfully"
+    assert unified["path_honesty"]["task_result_observed"] is True
+    assert unified["path_honesty"]["fulfillment_receipt_observed"] is False
+
+
+def test_unified_result_resolves_external_codex_fulfillment_path(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(delegated, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed",
+        operator_or_adapter="operator:test",
+        summary_notes="done externally",
+    )
+
+    unified = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+    assert unified["resolution_path"] == "external_fulfillment"
+    assert unified["venue"] == "codex_implementation"
+    assert unified["result_classification"] == "completed_successfully"
+    assert unified["path_honesty"]["does_not_imply_direct_repo_execution"] is True
+    assert unified["path_honesty"]["fulfillment_receipt_observed"] is True
+
+
+def test_unified_result_resolves_external_deep_research_fulfillment_path(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True})
+    intent = synthesize_orchestration_intent(delegated, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_deep_research_audit",
+        outcome_classification="mixed_orchestration_stress",
+        venue_mix_classification="deep_research_heavy",
+        attention_signal="review_mixed_orchestration_stress",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed_with_issues",
+        operator_or_adapter="operator:test",
+        summary_notes="completed with caveats",
+    )
+
+    unified = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+    assert unified["resolution_path"] == "external_fulfillment"
+    assert unified["venue"] == "deep_research_audit"
+    assert unified["result_classification"] == "completed_with_issues"
+    assert unified["path_honesty"]["fulfillment_receipt_observed"] is True
+
+
+def test_unified_result_honestly_represents_declined_and_pending_and_fragmented(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(delegated, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    pending = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+    assert pending["result_classification"] == "pending_or_unresolved"
+
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_declined",
+        operator_or_adapter="operator:test",
+        summary_notes="declined",
+    )
+    declined = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+    assert declined["result_classification"] == "declined_or_abandoned"
+
+    fragmented = resolve_unified_orchestration_result(tmp_path, handoff=handoff)
+    assert fragmented["result_classification"] == "fragmented_result_history"
+    assert fragmented["evidence_presence"]["fragmented_linkage"] is True
+
+
 def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     judgment = synthesize_delegated_judgment(_base_evidence())
     intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
@@ -2352,6 +2474,9 @@ def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_p
     after = admit_orchestration_intent(tmp_path, intent)
     assert before["handoff_outcome"] == "blocked_by_operator_requirement"
     assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+    split_map = build_split_closure_map()
+    assert split_map["schema_version"] == "orchestration_split_closure_map.v1"
 
 
 def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
@@ -2528,6 +2653,8 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     second = build_scoped_lifecycle_diagnostic(tmp_path)
     codex_diag = second["orchestration_handoff"]["codex_staged_venue"]
     assert codex_diag is not None
+    unified = second["orchestration_handoff"]["unified_result"]
+    unified_surface = second["orchestration_handoff"]["unified_result_surface"]
     outcome_review = second["orchestration_handoff"]["outcome_review"]
     venue_mix_review = second["orchestration_handoff"]["venue_mix_review"]
     next_venue = second["orchestration_handoff"]["next_venue_recommendation"]
@@ -2538,6 +2665,12 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert packet_fulfillment["fulfillment_kind"] == "externally_completed"
     assert packet_fulfillment["receipt_artifact_path"] == "glow/orchestration/orchestration_fulfillment_receipts.jsonl"
     assert packet_fulfillment["does_not_imply_direct_repo_execution"] is True
+    assert unified["resolution_path"] == "external_fulfillment"
+    assert unified["result_classification"] == "completed_successfully"
+    assert unified["path_honesty"]["fulfillment_receipt_observed"] is True
+    assert unified["path_honesty"]["does_not_imply_direct_repo_execution"] is True
+    assert unified_surface["records_considered"] >= 1
+    assert unified_surface["resolution_path_counts"]["external_fulfillment"] >= 1
     assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
     assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
     assert feedback_visibility["outcome_review"]["external_fulfillment_influencing"] is True
