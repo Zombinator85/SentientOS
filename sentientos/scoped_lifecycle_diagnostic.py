@@ -18,6 +18,7 @@ from sentientos.orchestration_intent_fabric import (
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_external_feedback_gap_map,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
     derive_next_move_proposal_review,
@@ -162,6 +163,11 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_venue_mix_review,
         orchestration_attention_recommendation,
     )
+    external_feedback_gap_map = derive_external_feedback_gap_map(
+        orchestration_outcome_review,
+        orchestration_venue_mix_review,
+        next_venue_recommendation,
+    )
     next_move_proposal = synthesize_next_move_proposal(
         delegated_judgment,
         next_venue_recommendation,
@@ -221,6 +227,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,
             "next_venue_recommendation": next_venue_recommendation,
+            "external_fulfillment_feedback_visibility": external_feedback_gap_map,
             "next_move_proposal": {
                 **next_move_proposal,
                 "ledger_path": str(next_move_proposal_ledger_path.relative_to(root)),

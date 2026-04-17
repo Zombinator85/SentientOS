@@ -186,11 +186,13 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             "meaning": "handoff admission records substrate entry; orchestration result closure requires downstream task_result evidence.",
         },
         "outcome_review": {
-            "meaning": "bounded retrospective classification over recent internal orchestration outcomes.",
+            "meaning": "bounded retrospective classification over recent internal orchestration outcomes, now with linked external fulfillment receipt influence for staged external venues.",
             "reads_existing_artifacts_only": [
                 "glow/orchestration/orchestration_intents.jsonl",
                 "glow/orchestration/orchestration_handoffs.jsonl",
                 "logs/task_executor.jsonl task_result linkage",
+                "glow/orchestration/orchestration_handoff_packets.jsonl",
+                "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
             ],
             "classifications": [
                 "clean_recent_orchestration",
@@ -206,14 +208,23 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "direct external actuation",
                 "a new execution venue",
             ],
+            "external_fulfillment_mapping": {
+                "fulfilled_externally": "healthy support signal",
+                "fulfilled_externally_with_issues": "stressed support signal",
+                "externally_declined": "blocked external pressure signal",
+                "externally_abandoned": "blocked external pressure signal",
+                "externally_result_unusable": "failure-like external quality signal",
+            },
         },
         "venue_mix_review": {
-            "meaning": "bounded retrospective check of recent venue-selection mix (internal execution vs staged Codex vs staged Deep Research vs operator-heavy escalation states).",
+            "meaning": "bounded retrospective check of recent venue-selection mix (internal execution vs staged Codex vs staged Deep Research vs operator-heavy escalation states) with compact external fulfillment quality contribution.",
             "reads_existing_artifacts_only": [
                 "glow/orchestration/orchestration_intents.jsonl",
                 "glow/orchestration/orchestration_handoffs.jsonl",
                 "glow/orchestration/codex_work_orders.jsonl",
                 "glow/orchestration/deep_research_work_orders.jsonl",
+                "glow/orchestration/orchestration_handoff_packets.jsonl",
+                "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
                 "orchestration_result_resolution linkage surfaces",
             ],
             "classifications": [
@@ -230,6 +241,33 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "execution authority",
                 "a new venue",
                 "direct external actuation",
+            ],
+            "external_quality_bounding": [
+                "healthy external fulfillment contribution",
+                "stressed external fulfillment contribution",
+                "venue-heavy plus poor-fulfillment stress indicator",
+            ],
+        },
+        "next_venue_recommendation": {
+            "what_changed_in_this_pass": [
+                "uses bounded external fulfillment history from venue_mix_review.external_fulfillment_contribution",
+                "can affirm delegated Codex/Deep Research when that venue has healthy repeated external fulfillment",
+                "can nudge away or hold when delegated external venue has stressed/declined/abandoned/unusable recent outcomes",
+            ],
+            "safety_bounds": [
+                "does_not_override_delegated_judgment remains true",
+                "single bad receipt does not dominate; stress signals require repeated outcomes",
+                "staged-only packets without receipts remain explicitly distinct from fulfilled outcomes",
+            ],
+            "still_not_direct_execution": [
+                "no direct Codex/Deep Research actuation",
+                "no browser/mouse/keyboard control",
+                "no sovereign execution authority transfer",
+            ],
+            "still_missing_before_autonomous_external_delegation": [
+                "approved direct external trigger/adapter pathway",
+                "strong fulfillment attestation + verification policy with execution parity",
+                "governed autonomous retry/escalation policy that remains non-sovereign",
             ],
         },
         "operator_attention_recommendation": {
