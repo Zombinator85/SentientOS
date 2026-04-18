@@ -20,6 +20,7 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_external_feedback_gap_map,
+    derive_orchestration_trust_confidence_posture,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
     derive_unified_result_quality_review,
@@ -190,6 +191,22 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
     next_move_proposal_review = derive_next_move_proposal_review(root)
+    orchestration_trust_confidence_posture = derive_orchestration_trust_confidence_posture(
+        next_move_proposal_review,
+        orchestration_venue_mix_review,
+        orchestration_outcome_review,
+        unified_result_quality_review,
+        orchestration_attention_recommendation,
+    )
+    substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
+    substitution_readiness["trust_confidence_basis"] = {
+        "orchestration_trust_confidence_posture": str(
+            orchestration_trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history"
+        ),
+        "diagnostic_only": True,
+        "review_only": True,
+        "does_not_change_existing_readiness_logic": True,
+    }
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
         orchestration_intent,
@@ -226,7 +243,10 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "slice_stability": slice_stability,
         "slice_retrospective_integrity_review": retrospective_integrity_review,
         "slice_operator_attention_recommendation": operator_attention_recommendation,
-        "delegated_judgment": delegated_judgment,
+        "delegated_judgment": {
+            **delegated_judgment,
+            "orchestration_substitution_readiness": substitution_readiness,
+        },
         "orchestration_handoff": {
             "gap_map": build_handoff_execution_gap_map(root),
             "split_closure_map": build_split_closure_map(),
@@ -254,6 +274,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
             },
             "next_move_proposal_review": next_move_proposal_review,
+            "trust_confidence_posture": orchestration_trust_confidence_posture,
             "handoff_packet": {
                 **handoff_packet,
                 "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),

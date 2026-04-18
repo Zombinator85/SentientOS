@@ -192,6 +192,25 @@ _NEXT_MOVE_PROPOSAL_REVIEW_CLASSES = {
     "insufficient_history",
 }
 
+_ORCHESTRATION_TRUST_POSTURES = {
+    "trusted_for_bounded_use",
+    "caution_required",
+    "stressed_but_usable",
+    "fragmented_or_unreliable",
+    "insufficient_history",
+}
+
+_ORCHESTRATION_TRUST_PRESSURE_KINDS = {
+    "none",
+    "proposal_stress",
+    "venue_stress",
+    "result_quality_stress",
+    "escalation_operator_dependence",
+    "fragmentation",
+    "mixed_stress",
+    "insufficient_history",
+}
+
 _HANDOFF_PACKET_STATUSES = {
     "prepared",
     "blocked_operator_required",
@@ -2927,6 +2946,196 @@ def derive_next_move_proposal_review(
                 "decision_power": "none",
                 "non_authoritative": True,
                 "diagnostic_only": True,
+            },
+        ),
+    }
+
+
+def derive_orchestration_trust_confidence_posture(
+    next_move_proposal_review: Mapping[str, Any],
+    venue_mix_review: Mapping[str, Any],
+    outcome_review: Mapping[str, Any],
+    unified_result_quality_review: Mapping[str, Any],
+    operator_attention_recommendation: Mapping[str, Any],
+) -> dict[str, Any]:
+    """
+    Derive one compact orchestration trust/confidence posture from existing review surfaces only.
+
+    This is diagnostic-only and never grants authority, admission, or execution power.
+    """
+
+    proposal_classification = str(next_move_proposal_review.get("review_classification") or "insufficient_history")
+    venue_classification = str(venue_mix_review.get("review_classification") or "insufficient_history")
+    outcome_classification = str(outcome_review.get("review_classification") or "insufficient_history")
+    result_quality_classification = str(unified_result_quality_review.get("review_classification") or "insufficient_history")
+    attention = str(operator_attention_recommendation.get("operator_attention_recommendation") or "insufficient_context")
+
+    records_counts = {
+        "next_move_proposal_review": int(next_move_proposal_review.get("records_considered") or 0),
+        "orchestration_venue_mix_review": int(venue_mix_review.get("records_considered") or 0),
+        "orchestration_outcome_review": int(outcome_review.get("records_considered") or 0),
+        "unified_result_quality_review": int(unified_result_quality_review.get("records_considered") or 0),
+    }
+    minimum_records = min(records_counts.values()) if records_counts else 0
+    insufficient_history = minimum_records < 3
+
+    proposal_stress = proposal_classification in {
+        "proposal_escalation_heavy",
+        "proposal_hold_heavy",
+        "proposal_insufficient_context_heavy",
+        "proposal_venue_thrash",
+        "mixed_proposal_stress",
+    }
+    proposal_coherent = proposal_classification == "coherent_recent_proposals"
+
+    venue_stress = venue_classification in {
+        "operator_escalation_heavy",
+        "mixed_venue_stress",
+    }
+    venue_balanced = venue_classification == "balanced_recent_venue_mix"
+
+    result_quality_stress = result_quality_classification in {
+        "issues_heavy",
+        "abandonment_or_decline_heavy",
+        "mixed_result_stress",
+    }
+    result_quality_healthy = result_quality_classification == "healthy_recent_results"
+
+    fragmentation_flag = (
+        result_quality_classification == "fragmentation_heavy"
+        or outcome_classification == "mixed_orchestration_stress"
+        and bool((outcome_review.get("condition_flags") or {}).get("external_stress_heavy"))
+        and bool((unified_result_quality_review.get("condition_flags") or {}).get("fragmentation_heavy"))
+    )
+    outcome_stressed = outcome_classification in {
+        "handoff_block_heavy",
+        "execution_failure_heavy",
+        "pending_stall_pattern",
+        "mixed_orchestration_stress",
+    }
+    escalation_operator_dependence = (
+        attention in {"inspect_handoff_blocks", "inspect_execution_failures", "inspect_pending_stall", "insufficient_context"}
+        or proposal_classification == "proposal_escalation_heavy"
+        or venue_classification == "operator_escalation_heavy"
+    )
+
+    stress_components = {
+        "proposal_stress": proposal_stress,
+        "venue_stress": venue_stress,
+        "result_quality_stress": result_quality_stress or outcome_stressed,
+        "escalation_operator_dependence": escalation_operator_dependence,
+        "fragmentation": fragmentation_flag,
+    }
+    stress_count = sum(1 for active in stress_components.values() if active)
+    major_stress_count = sum(
+        1
+        for active in (
+            proposal_stress,
+            venue_stress,
+            result_quality_stress,
+            fragmentation_flag,
+        )
+        if active
+    )
+
+    posture = "insufficient_history"
+    compact_reason = "insufficient_recent_review_history_for_conservative_trust_posture"
+    primary_pressure = "insufficient_history"
+
+    if insufficient_history:
+        posture = "insufficient_history"
+        compact_reason = "insufficient_recent_review_history_for_conservative_trust_posture"
+        primary_pressure = "insufficient_history"
+    elif fragmentation_flag:
+        posture = "fragmented_or_unreliable"
+        compact_reason = "fragmentation_or_unreliable_linkage_signals_dominate_recent_orchestration_reviews"
+        primary_pressure = "fragmentation"
+    elif major_stress_count >= 3:
+        posture = "fragmented_or_unreliable"
+        compact_reason = "multiple_major_stress_signals_converge_across_proposal_venue_outcome_and_result_quality_reviews"
+        primary_pressure = "mixed_stress"
+    elif proposal_coherent and venue_balanced and result_quality_healthy and not escalation_operator_dependence:
+        posture = "trusted_for_bounded_use"
+        compact_reason = "recent_proposals_venues_and_unified_results_are_coherent_with_low_operator_dependence"
+        primary_pressure = "none"
+    elif stress_count >= 2:
+        posture = "stressed_but_usable"
+        compact_reason = "repeated_stress_patterns_present_but_recent_orchestration_remains_interpretable_for_bounded_use"
+        primary_pressure = "mixed_stress"
+    elif stress_count == 1 or outcome_classification in {"mixed_orchestration_stress", "handoff_block_heavy"}:
+        posture = "caution_required"
+        compact_reason = "some_stress_present_but_loop_remains_coherent_enough_for_conservative_bounded_use"
+        if proposal_stress:
+            primary_pressure = "proposal_stress"
+        elif venue_stress:
+            primary_pressure = "venue_stress"
+        elif result_quality_stress or outcome_stressed:
+            primary_pressure = "result_quality_stress"
+        elif escalation_operator_dependence:
+            primary_pressure = "escalation_operator_dependence"
+        else:
+            primary_pressure = "mixed_stress"
+    else:
+        posture = "caution_required"
+        compact_reason = "review_mix_is_non_fragmented_but_not_clean_enough_for_trusted_posture"
+        primary_pressure = "mixed_stress"
+
+    if posture not in _ORCHESTRATION_TRUST_POSTURES:
+        posture = "caution_required"
+    if primary_pressure not in _ORCHESTRATION_TRUST_PRESSURE_KINDS:
+        primary_pressure = "mixed_stress"
+
+    return {
+        "schema_version": "orchestration_trust_confidence_posture.v1",
+        "review_kind": "orchestration_trust_confidence_diagnostic",
+        "trust_confidence_posture": posture,
+        "window_considered": {
+            "records_considered_by_review": records_counts,
+            "minimum_records_considered": minimum_records,
+        },
+        "contributing_reviews": {
+            "next_move_proposal_review": {
+                "review_classification": proposal_classification,
+                "records_considered": records_counts["next_move_proposal_review"],
+            },
+            "orchestration_venue_mix_review": {
+                "review_classification": venue_classification,
+                "records_considered": records_counts["orchestration_venue_mix_review"],
+            },
+            "orchestration_outcome_review": {
+                "review_classification": outcome_classification,
+                "records_considered": records_counts["orchestration_outcome_review"],
+            },
+            "unified_result_quality_review": {
+                "review_classification": result_quality_classification,
+                "records_considered": records_counts["unified_result_quality_review"],
+            },
+            "operator_attention_recommendation": attention,
+        },
+        "pressure_summary": {
+            "primary_pressure": primary_pressure,
+            "stress_components": stress_components,
+            "compact_basis": compact_reason,
+        },
+        "summary": {
+            "diagnostic_summary": "bounded trust/confidence posture derived from existing orchestration review signals only",
+            "derived_from_existing_reviews_only": [
+                "next_move_proposal_review",
+                "orchestration_venue_mix_review",
+                "orchestration_outcome_review",
+                "unified_result_quality_review",
+                "orchestration_operator_attention_recommendation",
+            ],
+            "compact_rationale": compact_reason,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "decision_power": "none",
+                "non_authoritative": True,
             },
         ),
     }

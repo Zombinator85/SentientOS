@@ -22,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
+    derive_orchestration_trust_confidence_posture,
     derive_unified_result_quality_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
@@ -2566,6 +2567,70 @@ def test_unified_result_quality_review_does_not_change_admission_behavior(tmp_pa
     assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
 
+def test_orchestration_trust_confidence_classifies_trusted_for_bounded_use() -> None:
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "coherent_recent_proposals", "records_considered": 6},
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 6},
+        {"review_classification": "clean_recent_orchestration", "records_considered": 6, "condition_flags": {}},
+        {"review_classification": "healthy_recent_results", "records_considered": 6, "condition_flags": {}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    assert posture["trust_confidence_posture"] == "trusted_for_bounded_use"
+    assert posture["pressure_summary"]["primary_pressure"] == "none"
+
+
+def test_orchestration_trust_confidence_classifies_caution_required() -> None:
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "coherent_recent_proposals", "records_considered": 5},
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 5},
+        {"review_classification": "clean_recent_orchestration", "records_considered": 5, "condition_flags": {}},
+        {"review_classification": "mixed_result_stress", "records_considered": 5, "condition_flags": {}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    assert posture["trust_confidence_posture"] == "caution_required"
+    assert posture["pressure_summary"]["stress_components"]["result_quality_stress"] is True
+
+
+def test_orchestration_trust_confidence_classifies_stressed_but_usable() -> None:
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "proposal_escalation_heavy", "records_considered": 6},
+        {"review_classification": "mixed_venue_stress", "records_considered": 6},
+        {"review_classification": "clean_recent_orchestration", "records_considered": 6, "condition_flags": {}},
+        {"review_classification": "healthy_recent_results", "records_considered": 6, "condition_flags": {}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    assert posture["trust_confidence_posture"] == "stressed_but_usable"
+    assert posture["pressure_summary"]["primary_pressure"] == "mixed_stress"
+
+
+def test_orchestration_trust_confidence_classifies_fragmented_or_unreliable() -> None:
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "mixed_proposal_stress", "records_considered": 7},
+        {"review_classification": "mixed_venue_stress", "records_considered": 7},
+        {
+            "review_classification": "mixed_orchestration_stress",
+            "records_considered": 7,
+            "condition_flags": {"external_stress_heavy": True},
+        },
+        {"review_classification": "fragmentation_heavy", "records_considered": 7, "condition_flags": {"fragmentation_heavy": True}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+    )
+    assert posture["trust_confidence_posture"] == "fragmented_or_unreliable"
+    assert posture["pressure_summary"]["primary_pressure"] == "fragmentation"
+
+
+def test_orchestration_trust_confidence_classifies_insufficient_history() -> None:
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "coherent_recent_proposals", "records_considered": 2},
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 2},
+        {"review_classification": "clean_recent_orchestration", "records_considered": 2},
+        {"review_classification": "healthy_recent_results", "records_considered": 2},
+        {"operator_attention_recommendation": "none"},
+    )
+    assert posture["trust_confidence_posture"] == "insufficient_history"
+    assert posture["pressure_summary"]["primary_pressure"] == "insufficient_history"
+
+
 def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     judgment = synthesize_delegated_judgment(_base_evidence())
     intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
@@ -2798,10 +2863,38 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert unified_quality_review["summary"]["boundaries"]["preserves_resolution_path_honesty"] is True
     assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
     assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
+    trust_posture = second["orchestration_handoff"]["trust_confidence_posture"]
+    assert trust_posture["schema_version"] == "orchestration_trust_confidence_posture.v1"
+    assert trust_posture["diagnostic_only"] is True
+    assert trust_posture["non_authoritative"] is True
+    assert trust_posture["decision_power"] == "none"
     assert feedback_visibility["outcome_review"]["external_fulfillment_influencing"] is True
     assert feedback_visibility["venue_mix_review"]["external_fulfillment_influencing"] is True
     assert next_venue["relation_to_delegated_judgment"] == "affirming"
     assert feedback_visibility["non_authoritative"] is True
+    readiness_basis = second["delegated_judgment"]["orchestration_substitution_readiness"]["trust_confidence_basis"]
+    assert readiness_basis["orchestration_trust_confidence_posture"] == trust_posture["trust_confidence_posture"]
+    assert readiness_basis["does_not_change_existing_readiness_logic"] is True
+
+
+def test_orchestration_trust_confidence_posture_does_not_change_admission_behavior(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    posture = derive_orchestration_trust_confidence_posture(
+        {"review_classification": "mixed_proposal_stress", "records_considered": 5},
+        {"review_classification": "mixed_venue_stress", "records_considered": 5},
+        {"review_classification": "mixed_orchestration_stress", "records_considered": 5, "condition_flags": {}},
+        {"review_classification": "mixed_result_stress", "records_considered": 5, "condition_flags": {}},
+        {"operator_attention_recommendation": "inspect_execution_failures"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert posture["review_only"] is True
+    assert posture["diagnostic_only"] is True
+    assert posture["decision_power"] == "none"
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
 
 def test_external_feedback_gap_map_reports_layer_influence_coherently() -> None:
