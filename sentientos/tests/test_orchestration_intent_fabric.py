@@ -23,6 +23,10 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_external_feedback_gap_map,
+    derive_operator_adjusted_next_move_proposal_visibility,
+    derive_operator_adjusted_next_venue_recommendation,
+    derive_operator_resolution_feedback_gap_map,
+    derive_operator_resolution_influence,
     derive_packetization_gate,
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
@@ -36,6 +40,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_unified_orchestration_result,
     resolve_unified_orchestration_result_surface,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
     synthesize_next_move_proposal,
@@ -2335,6 +2340,168 @@ def test_operator_brief_lifecycle_visibility_tracks_received_resolution() -> Non
         assert after["does_not_imply_repo_execution"] is True
 
 
+def test_operator_approved_continue_can_relieve_operator_hold_without_execution_trigger() -> None:
+    proposal = {
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "none",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+    }
+    review = {"review_classification": "coherent_recent_proposals"}
+    trust = {"trust_confidence_posture": "caution_required", "pressure_summary": {"primary_pressure": "none"}}
+    attention = {"operator_attention_recommendation": "observe"}
+    influence = derive_operator_resolution_influence(
+        {"resolution_kind": "approved_continue", "operator_resolution_receipt_id": "orr-1"}
+    )
+
+    gate = derive_packetization_gate(proposal, review, trust, attention, influence)
+    assert gate["packetization_outcome"] == "packetization_allowed_with_caution"
+    assert gate["packetization_allowed"] is True
+    assert gate["does_not_change_admission_or_execution"] is True
+    assert gate["does_not_imply_execution"] is True
+
+
+def test_operator_supplied_context_can_relieve_insufficient_context_hold_conservatively() -> None:
+    proposal = {
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "none",
+            "escalation_classification": "no_escalation_needed",
+        },
+    }
+    review = {"review_classification": "proposal_insufficient_context_heavy"}
+    trust = {"trust_confidence_posture": "caution_required", "pressure_summary": {"primary_pressure": "none"}}
+    attention = {"operator_attention_recommendation": "insufficient_context"}
+    influence = derive_operator_resolution_influence(
+        {
+            "resolution_kind": "supplied_missing_context",
+            "updated_context_refs": ["docs/context.md#new"],
+            "operator_resolution_receipt_id": "orr-2",
+        }
+    )
+
+    gate = derive_packetization_gate(proposal, review, trust, attention, influence)
+    assert gate["packetization_outcome"] == "packetization_allowed_with_caution"
+    assert gate["operator_influence"]["operator_context_applied"] is True
+    assert gate["does_not_execute_or_route_work"] is True
+
+
+def test_operator_resolution_does_not_falsely_clear_fragmentation_hold() -> None:
+    proposal = {
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "operator_escalation_requirement_state": {"requires_operator_or_escalation": False},
+    }
+    review = {"review_classification": "coherent_recent_proposals"}
+    trust = {"trust_confidence_posture": "fragmented_or_unreliable", "pressure_summary": {"primary_pressure": "fragmentation"}}
+    attention = {"operator_attention_recommendation": "observe"}
+    influence = derive_operator_resolution_influence(
+        {"resolution_kind": "approved_continue", "operator_resolution_receipt_id": "orr-3"}
+    )
+
+    gate = derive_packetization_gate(proposal, review, trust, attention, influence)
+    assert gate["packetization_outcome"] == "packetization_hold_fragmentation"
+    assert gate["packetization_held"] is True
+
+
+def test_operator_decline_cancel_and_defer_preserve_hold() -> None:
+    proposal = {
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "none",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+    }
+    review = {"review_classification": "coherent_recent_proposals"}
+    trust = {"trust_confidence_posture": "caution_required", "pressure_summary": {"primary_pressure": "none"}}
+    attention = {"operator_attention_recommendation": "observe"}
+
+    declined = derive_packetization_gate(
+        proposal,
+        review,
+        trust,
+        attention,
+        derive_operator_resolution_influence({"resolution_kind": "declined"}),
+    )
+    cancelled = derive_packetization_gate(
+        proposal,
+        review,
+        trust,
+        attention,
+        derive_operator_resolution_influence({"resolution_kind": "cancelled"}),
+    )
+    deferred = derive_packetization_gate(
+        proposal,
+        review,
+        trust,
+        attention,
+        derive_operator_resolution_influence({"resolution_kind": "deferred"}),
+    )
+    assert declined["packetization_held"] is True
+    assert cancelled["packetization_held"] is True
+    assert deferred["packetization_held"] is True
+
+
+def test_operator_redirect_updates_current_venue_visibility_without_erasing_history() -> None:
+    next_venue = {
+        "next_venue_recommendation": "prefer_codex_implementation",
+        "relation_to_delegated_judgment": "affirming",
+    }
+    proposal = {
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "proposal_id": "proposal-redirect",
+    }
+    influence = derive_operator_resolution_influence(
+        {
+            "resolution_kind": "redirected_venue",
+            "redirected_venue": "deep_research_audit",
+            "operator_resolution_receipt_id": "orr-4",
+        }
+    )
+
+    adjusted_venue = derive_operator_adjusted_next_venue_recommendation(next_venue, influence)
+    adjusted_proposal = derive_operator_adjusted_next_move_proposal_visibility(proposal, influence)
+    assert adjusted_venue["original_next_venue_recommendation"] == "prefer_codex_implementation"
+    assert adjusted_venue["current_next_venue_recommendation"] == "prefer_deep_research_audit"
+    assert adjusted_proposal["operator_feedback"]["original_proposed_venue"] == "codex_implementation"
+    assert adjusted_proposal["operator_feedback"]["current_proposed_venue"] == "deep_research_audit"
+
+
+def test_latest_operator_resolution_for_proposal_is_resolved_from_ledger(tmp_path: Path) -> None:
+    brief = _operator_brief_for_receipt_flow()
+    append_operator_action_brief_ledger(tmp_path, brief)
+    ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="approved_continue",
+        operator_note="continue",
+        created_at="2026-04-12T00:01:00Z",
+    )
+    redirected = ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="redirected_venue",
+        operator_note="redirect",
+        redirected_venue="deep_research_audit",
+        created_at="2026-04-12T00:02:00Z",
+    )
+    latest = resolve_latest_operator_resolution_for_proposal(tmp_path, str(brief["source_next_move_proposal_ref"]["proposal_id"]))
+    assert latest is not None
+    assert latest["resolution_kind"] == "redirected_venue"
+    assert latest["operator_resolution_receipt_id"] == redirected["operator_resolution_receipt_id"]
+
+
 def test_handoff_packet_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
     delegated = synthesize_delegated_judgment(_base_evidence())
     proposal = {
@@ -2611,9 +2778,18 @@ def test_operator_resolution_end_to_end_updates_diagnostic_consumer_without_exec
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     gate = diagnostic["orchestration_handoff"]["packetization_gating"]
     brief_surface = diagnostic["orchestration_handoff"]["operator_action_brief"]
+    operator_influence = diagnostic["orchestration_handoff"]["operator_influence"]
+    proposal_visibility = diagnostic["orchestration_handoff"]["next_move_proposal"]["operator_feedback"]
+    next_venue_visibility = diagnostic["orchestration_handoff"]["next_venue_recommendation"]["operator_feedback"]
     handoff = diagnostic["orchestration_handoff"]["handoff_result"]
 
-    assert gate["packetization_held"] is True
+    assert gate["packetization_outcome"] in {
+        "packetization_allowed_with_caution",
+        "packetization_hold_operator_review",
+        "packetization_hold_insufficient_confidence",
+    }
+    assert gate["operator_influence"]["operator_influence_applied"] is True
+    assert gate["operator_influence"]["resolution_kind"] == "approved_continue"
     assert brief_surface["brief_produced"] is True
     assert brief_surface["operator_resolution_received"] is True
     assert brief_surface["resolution_kind"] == "approved_continue"
@@ -2622,6 +2798,10 @@ def test_operator_resolution_end_to_end_updates_diagnostic_consumer_without_exec
     assert brief_surface["awaiting_operator_input"] is False
     assert brief_surface["non_sovereign_boundaries"]["ingested_operator_outcome"] is True
     assert brief_surface["non_sovereign_boundaries"]["explicit_clarity"] == "ingested operator outcome, not repo execution"
+    assert operator_influence["operator_influence_state"] == "operator_approval_applied"
+    assert operator_influence["does_not_imply_execution"] is True
+    assert proposal_visibility["operator_influence_applied"] is True
+    assert next_venue_visibility["operator_influence_applied"] is True
     assert handoff["handoff_outcome"] in {"blocked_by_operator_requirement", "blocked_by_insufficient_context", "staged_only", "admitted_to_execution_substrate", "blocked_by_admission"}
     assert brief_surface["non_sovereign_boundaries"]["does_not_convert_hold_to_execution"] is True
 
@@ -3569,4 +3749,46 @@ def test_external_feedback_gap_map_reports_layer_influence_coherently() -> None:
     assert gap_map["outcome_review"]["remaining_gap"] == "none"
     assert gap_map["venue_mix_review"]["remaining_gap"] == "none"
     assert gap_map["next_venue_recommendation"]["remaining_gap"] == "none"
+    assert gap_map["diagnostic_only"] is True
+
+
+def test_operator_feedback_gap_map_reports_resolution_visibility_by_layer() -> None:
+    operator_influence = derive_operator_resolution_influence(
+        {
+            "resolution_kind": "supplied_missing_context",
+            "updated_context_refs": ["docs/context.md#operator"],
+            "operator_resolution_receipt_id": "orr-gap",
+        }
+    )
+    proposal = derive_operator_adjusted_next_move_proposal_visibility(
+        {"proposed_next_action": {"proposed_venue": "codex_implementation"}},
+        operator_influence,
+    )
+    next_venue = derive_operator_adjusted_next_venue_recommendation(
+        {
+            "next_venue_recommendation": "prefer_codex_implementation",
+            "relation_to_delegated_judgment": "affirming",
+        },
+        operator_influence,
+    )
+    gate = derive_packetization_gate(
+        {
+            "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+            "executability_classification": "stageable_external_work_order",
+            "relation_posture": "affirming",
+            "operator_escalation_requirement_state": {"requires_operator_or_escalation": False},
+        },
+        {"review_classification": "coherent_recent_proposals"},
+        {"trust_confidence_posture": "caution_required", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        operator_influence,
+    )
+    lifecycle = {"operator_resolution_received": True, "resolution_kind": "supplied_missing_context"}
+
+    gap_map = derive_operator_resolution_feedback_gap_map(proposal, gate, next_venue, lifecycle, operator_influence)
+    assert gap_map["next_move_proposal_visibility"]["remaining_gap"] == "none"
+    assert gap_map["packetization_gating"]["remaining_gap"] == "none"
+    assert gap_map["next_venue_recommendation"]["remaining_gap"] == "none"
+    assert gap_map["operator_brief_lifecycle_visibility"]["remaining_gap"] == "none"
+    assert gap_map["held_loop_static_after_operator_response"] is False
     assert gap_map["diagnostic_only"] is True

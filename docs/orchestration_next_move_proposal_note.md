@@ -118,6 +118,34 @@ It remains receipt-only (`ingested_operator_outcome`, `receipt_only`, `decision_
 does not self-authorize execution or bypass packetization/admission. Any follow-on action still
 requires existing trigger paths and authority surfaces.
 
+## Bounded operator-resolution feedback integration (non-executing)
+
+Operator resolutions are now also consumed as bounded feedback through a compact
+`operator_resolution_influence.v1` surface and reflected into:
+
+- packetization gating (`operator_influence`, bounded hold-relief paths)
+- next-move proposal visibility (`original_*` vs `current_*` proposal venue/posture visibility)
+- next-venue visibility (`original_next_venue_recommendation` vs `current_next_venue_recommendation`)
+
+Supported bounded effects:
+
+- `approved_continue` / `approved_with_constraints`: may relax operator-review hold to cautious packetization when other coherence requirements are already satisfied.
+- `supplied_missing_context`: may relax insufficient-context hold when context refs are present and fragmentation is not active.
+- `redirected_venue`: may change current bounded venue recommendation/proposal visibility while preserving original delegated recommendation history.
+- `declined` / `cancelled`: preserve or strengthen held/no-action posture.
+- `deferred`: preserves held posture with explicit operator-response visibility.
+
+Non-sovereign boundary invariants remain explicit on influenced surfaces:
+
+- `operator_influence_applied`
+- `does_not_imply_execution`
+- `does_not_override_admission`
+- `requires_existing_trigger_path_for_follow_on_action`
+- `historical_operator_resolution_preserved`
+
+What is still missing before any tighter delegated loop exists: no receipt-triggered execution,
+no admission bypass, no autonomous workflow sovereign, and no direct external actuation path.
+
 ## Next-move proposal review (retrospective only)
 
 `next_move_proposal_review.v1` provides a compact retrospective classifier over recent

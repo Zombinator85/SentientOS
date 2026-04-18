@@ -259,6 +259,15 @@ _OPERATOR_BRIEF_LIFECYCLE_STATES = {
     "fragmented_unlinked_operator_resolution",
 }
 
+_OPERATOR_INFLUENCE_STATES = {
+    "no_operator_influence_yet",
+    "operator_context_applied",
+    "operator_approval_applied",
+    "operator_redirect_applied",
+    "operator_decline_preserved_hold",
+    "operator_defer_preserved_hold",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -2401,6 +2410,134 @@ def derive_external_feedback_gap_map(
     }
 
 
+def resolve_latest_operator_resolution_for_proposal(
+    repo_root: Path,
+    proposal_id: str,
+) -> dict[str, Any] | None:
+    """Return the latest operator resolution receipt linked to a proposal, if any."""
+
+    if not proposal_id.strip():
+        return None
+    rows = _read_jsonl(repo_root.resolve() / "glow/orchestration/operator_resolution_receipts.jsonl")
+    linked = [
+        row
+        for row in rows
+        if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") == proposal_id
+    ]
+    latest = linked[-1] if linked else None
+    return dict(latest) if isinstance(latest, Mapping) else None
+
+
+def derive_operator_resolution_influence(
+    operator_resolution_receipt: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Derive compact bounded influence visibility from a linked operator resolution receipt."""
+
+    receipt_map = operator_resolution_receipt if isinstance(operator_resolution_receipt, Mapping) else {}
+    resolution_kind = str(receipt_map.get("resolution_kind") or "")
+    mapped_state = {
+        "approved_continue": "operator_approval_applied",
+        "approved_with_constraints": "operator_approval_applied",
+        "supplied_missing_context": "operator_context_applied",
+        "redirected_venue": "operator_redirect_applied",
+        "declined": "operator_decline_preserved_hold",
+        "cancelled": "operator_decline_preserved_hold",
+        "deferred": "operator_defer_preserved_hold",
+    }.get(resolution_kind, "no_operator_influence_yet")
+    if mapped_state not in _OPERATOR_INFLUENCE_STATES:
+        mapped_state = "no_operator_influence_yet"
+
+    redirected_venue_raw = str(receipt_map.get("redirected_venue") or "")
+    redirected_venue = (
+        redirected_venue_raw
+        if redirected_venue_raw
+        in {"internal_direct_execution", "codex_implementation", "deep_research_audit", "operator_decision_required"}
+        else None
+    )
+    context_refs = [
+        ref
+        for ref in receipt_map.get("updated_context_refs", [])
+        if isinstance(ref, str) and ref.strip()
+    ] if isinstance(receipt_map.get("updated_context_refs"), list) else []
+
+    influence = {
+        "schema_version": "operator_resolution_influence.v1",
+        "operator_influence_state": mapped_state,
+        "operator_influence_applied": mapped_state != "no_operator_influence_yet",
+        "resolution_kind": resolution_kind or None,
+        "resolution_receipt_id": str(receipt_map.get("operator_resolution_receipt_id") or "") or None,
+        "resolution_receipt_linked": bool(receipt_map),
+        "operator_context_refs_present": bool(context_refs),
+        "operator_context_refs_count": len(context_refs),
+        "operator_redirected_venue": redirected_venue,
+        "operator_redirect_applied": mapped_state == "operator_redirect_applied" and redirected_venue is not None,
+        "operator_approval_applied": mapped_state == "operator_approval_applied",
+        "operator_context_applied": mapped_state == "operator_context_applied" and bool(context_refs),
+        "operator_decline_or_cancel_preserves_hold": mapped_state == "operator_decline_preserved_hold",
+        "operator_defer_preserves_hold": mapped_state == "operator_defer_preserved_hold",
+        "compact_rationale": (
+            "operator_resolution_receipt_not_linked_to_current_proposal"
+            if not receipt_map
+            else f"operator_resolution_{resolution_kind}_is_visible_as_bounded_influence_only"
+        ),
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "does_not_imply_execution": True,
+                "does_not_override_admission": True,
+                "requires_existing_trigger_path_for_follow_on_action": True,
+                "historical_operator_resolution_preserved": True,
+            },
+        ),
+    }
+    return influence
+
+
+def derive_operator_resolution_feedback_gap_map(
+    next_move_proposal: Mapping[str, Any],
+    packetization_gate: Mapping[str, Any],
+    next_venue_recommendation: Mapping[str, Any],
+    operator_brief_lifecycle: Mapping[str, Any],
+    operator_influence: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return compact audit visibility for operator-resolution feedback integration coverage."""
+
+    influence_state = str(operator_influence.get("operator_influence_state") or "no_operator_influence_yet")
+    influence_applied = bool(operator_influence.get("operator_influence_applied"))
+    receipt_visible = bool(operator_brief_lifecycle.get("operator_resolution_received"))
+    proposal_feedback_visible = bool((next_move_proposal.get("operator_feedback") or {}).get("operator_influence_applied"))
+    gate_feedback_visible = bool((packetization_gate.get("operator_influence") or {}).get("operator_influence_applied"))
+    venue_feedback_visible = bool((next_venue_recommendation.get("operator_feedback") or {}).get("operator_influence_applied"))
+
+    return {
+        "schema_version": "orchestration_operator_feedback_gap_map.v1",
+        "next_move_proposal_visibility": {
+            "operator_resolution_visible": proposal_feedback_visible,
+            "remaining_gap": "none" if proposal_feedback_visible or not receipt_visible else "proposal_visibility_not_consuming_operator_resolution",
+        },
+        "packetization_gating": {
+            "operator_resolution_visible": gate_feedback_visible,
+            "remaining_gap": "none" if gate_feedback_visible or not receipt_visible else "packetization_gate_not_consuming_operator_resolution",
+        },
+        "next_venue_recommendation": {
+            "operator_resolution_visible": venue_feedback_visible,
+            "remaining_gap": "none" if venue_feedback_visible or not receipt_visible else "next_venue_recommendation_not_consuming_operator_resolution",
+        },
+        "operator_brief_lifecycle_visibility": {
+            "operator_resolution_received": receipt_visible,
+            "resolution_kind": operator_brief_lifecycle.get("resolution_kind"),
+            "influence_state": influence_state,
+            "remaining_gap": "none" if receipt_visible else "operator_resolution_not_yet_received",
+        },
+        "held_loop_static_after_operator_response": bool(receipt_visible and not influence_applied),
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
+    }
+
+
 def synthesize_next_move_proposal(
     delegated_judgment: Mapping[str, Any],
     next_venue_recommendation: Mapping[str, Any],
@@ -2543,6 +2680,96 @@ def synthesize_next_move_proposal(
     return proposal
 
 
+def derive_operator_adjusted_next_venue_recommendation(
+    next_venue_recommendation: Mapping[str, Any],
+    operator_influence: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Produce compact visibility showing operator influence on current venue recommendation."""
+
+    base = dict(next_venue_recommendation)
+    original_recommendation = str(base.get("next_venue_recommendation") or "insufficient_context")
+    original_relation = str(base.get("relation_to_delegated_judgment") or "insufficient_context")
+    redirected_venue = str(operator_influence.get("operator_redirected_venue") or "")
+    redirected_applied = bool(operator_influence.get("operator_redirect_applied"))
+    venue_to_recommendation = {
+        "internal_direct_execution": "prefer_internal_execution",
+        "codex_implementation": "prefer_codex_implementation",
+        "deep_research_audit": "prefer_deep_research_audit",
+        "operator_decision_required": "prefer_operator_decision",
+    }
+    redirected_recommendation = venue_to_recommendation.get(redirected_venue, original_recommendation)
+    current_recommendation = redirected_recommendation if redirected_applied else original_recommendation
+    current_relation = "nudging" if redirected_applied else original_relation
+    feedback = {
+        "operator_influence_state": str(operator_influence.get("operator_influence_state") or "no_operator_influence_yet"),
+        "operator_influence_applied": bool(operator_influence.get("operator_influence_applied")),
+        "resolution_kind": operator_influence.get("resolution_kind"),
+        "redirected_venue": redirected_venue or None,
+        "redirect_applied_to_next_venue_recommendation": redirected_applied,
+    }
+    return {
+        **base,
+        "operator_feedback": feedback,
+        "original_next_venue_recommendation": original_recommendation,
+        "current_next_venue_recommendation": current_recommendation,
+        "original_relation_to_delegated_judgment": original_relation,
+        "current_relation_to_delegated_judgment": current_relation,
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "does_not_imply_execution": True,
+                "does_not_override_admission": True,
+                "requires_existing_trigger_path_for_follow_on_action": True,
+                "historical_operator_resolution_preserved": True,
+            },
+        ),
+    }
+
+
+def derive_operator_adjusted_next_move_proposal_visibility(
+    next_move_proposal: Mapping[str, Any],
+    operator_influence: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Produce compact visibility showing operator influence on proposal hold/packetization posture."""
+
+    proposal = dict(next_move_proposal)
+    proposed_action = proposal.get("proposed_next_action")
+    proposed_action_map = dict(proposed_action) if isinstance(proposed_action, Mapping) else {}
+    original_venue = str(proposed_action_map.get("proposed_venue") or "insufficient_context")
+    redirected_venue = str(operator_influence.get("operator_redirected_venue") or "")
+    redirect_applied = bool(operator_influence.get("operator_redirect_applied"))
+    if redirect_applied:
+        proposed_action_map["proposed_venue"] = redirected_venue
+    feedback = {
+        "operator_influence_state": str(operator_influence.get("operator_influence_state") or "no_operator_influence_yet"),
+        "operator_influence_applied": bool(operator_influence.get("operator_influence_applied")),
+        "resolution_kind": operator_influence.get("resolution_kind"),
+        "resolution_receipt_id": operator_influence.get("resolution_receipt_id"),
+        "redirect_applied_to_proposed_venue": redirect_applied,
+        "original_proposed_venue": original_venue,
+        "current_proposed_venue": str(proposed_action_map.get("proposed_venue") or original_venue),
+    }
+    return {
+        **proposal,
+        "proposed_next_action": proposed_action_map,
+        "operator_feedback": feedback,
+        "original_proposed_next_action": proposed_action if isinstance(proposed_action, Mapping) else {},
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "does_not_imply_execution": True,
+                "does_not_override_admission": True,
+                "requires_existing_trigger_path_for_follow_on_action": True,
+                "historical_operator_resolution_preserved": True,
+            },
+        ),
+    }
+
+
 def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any]) -> Path:
     """Append one bounded next-move proposal to the proof-visible orchestration proposal ledger."""
 
@@ -2558,6 +2785,7 @@ def derive_packetization_gate(
     next_move_proposal_review: Mapping[str, Any],
     trust_confidence_posture: Mapping[str, Any],
     operator_attention_recommendation: Mapping[str, Any],
+    operator_resolution_influence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Derive one bounded packetization gate from existing orchestration-only signals.
@@ -2571,6 +2799,7 @@ def derive_packetization_gate(
     operator_state = operator_state_raw if isinstance(operator_state_raw, Mapping) else {}
     trust_pressure_raw = trust_confidence_posture.get("pressure_summary")
     trust_pressure = trust_pressure_raw if isinstance(trust_pressure_raw, Mapping) else {}
+    operator_influence_map = operator_resolution_influence if isinstance(operator_resolution_influence, Mapping) else {}
 
     posture = str(trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history")
     proposal_review_classification = str(next_move_proposal_review.get("review_classification") or "insufficient_history")
@@ -2585,6 +2814,12 @@ def derive_packetization_gate(
     requires_operator = bool(operator_state.get("requires_operator_or_escalation"))
     escalation_classification = str(operator_state.get("escalation_classification") or "")
     trust_primary_pressure = str(trust_pressure.get("primary_pressure") or "insufficient_history")
+    influence_state = str(operator_influence_map.get("operator_influence_state") or "no_operator_influence_yet")
+    operator_approval_applied = bool(operator_influence_map.get("operator_approval_applied"))
+    operator_context_applied = bool(operator_influence_map.get("operator_context_applied"))
+    operator_decline_preserved_hold = bool(operator_influence_map.get("operator_decline_or_cancel_preserves_hold"))
+    operator_defer_preserved_hold = bool(operator_influence_map.get("operator_defer_preserves_hold"))
+    operator_influence_active = bool(operator_influence_map.get("operator_influence_applied"))
 
     hold_operator_required = (
         requires_operator
@@ -2612,19 +2847,35 @@ def derive_packetization_gate(
         and proposed_posture in {"expand", "consolidate", "audit"}
         and proposal_review_classification == "coherent_recent_proposals"
     )
+    approval_can_relieve_operator_hold = operator_approval_applied and not hold_fragmentation
+    context_can_relieve_insufficient_hold = (
+        operator_context_applied
+        and not hold_fragmentation
+        and executability != "blocked_operator_required"
+    )
+    hold_operator_required_effective = hold_operator_required and not approval_can_relieve_operator_hold
+    hold_insufficient_confidence_effective = hold_insufficient_confidence and not context_can_relieve_insufficient_hold
+    if operator_decline_preserved_hold or operator_defer_preserved_hold:
+        hold_operator_required_effective = True
 
     outcome = "packetization_hold_insufficient_confidence"
     compact_rationale = "insufficient_confidence_or_context_requires_conservative_packetization_hold"
 
-    if hold_operator_required:
+    if hold_operator_required_effective:
         outcome = "packetization_hold_operator_review"
         compact_rationale = "operator_or_escalation_requirement_is_active_so_packetization_is_held"
     elif hold_fragmentation:
         outcome = "packetization_hold_fragmentation"
         compact_rationale = "trust_posture_is_fragmented_or_unreliable_so_packetization_is_held"
-    elif hold_insufficient_confidence:
+    elif hold_insufficient_confidence_effective:
         outcome = "packetization_hold_insufficient_confidence"
         compact_rationale = "insufficient_history_or_context_prevents_confident_packetization"
+    elif operator_approval_applied and coherent_execution_ready:
+        outcome = "packetization_allowed_with_caution"
+        compact_rationale = "operator_approval_visible_with_coherent_proposal_allows_bounded_packetization_caution"
+    elif operator_context_applied and coherent_execution_ready:
+        outcome = "packetization_allowed_with_caution"
+        compact_rationale = "operator_supplied_context_relieves_insufficient_context_hold_in_bounded_form"
     elif posture == "trusted_for_bounded_use" and coherent_execution_ready:
         outcome = "packetization_allowed"
         compact_rationale = "trusted_posture_with_coherent_proposal_allows_bounded_packetization"
@@ -2681,6 +2932,20 @@ def derive_packetization_gate(
             "proposed_posture": proposed_posture,
             "requires_operator_or_escalation": requires_operator,
         },
+        "operator_influence": {
+            "operator_influence_state": influence_state,
+            "operator_influence_applied": operator_influence_active,
+            "operator_approval_applied": operator_approval_applied,
+            "operator_context_applied": operator_context_applied,
+            "operator_decline_preserved_hold": operator_decline_preserved_hold,
+            "operator_defer_preserved_hold": operator_defer_preserved_hold,
+            "applied_relief_paths": {
+                "approval_relaxed_operator_hold": approval_can_relieve_operator_hold,
+                "context_relaxed_insufficient_context_hold": context_can_relieve_insufficient_hold,
+            },
+            "resolution_kind": operator_influence_map.get("resolution_kind"),
+            "resolution_receipt_id": operator_influence_map.get("resolution_receipt_id"),
+        },
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -2690,6 +2955,10 @@ def derive_packetization_gate(
                 "packetization_stage_only": True,
                 "does_not_execute_or_route_work": True,
                 "non_authoritative": True,
+                "does_not_imply_execution": True,
+                "does_not_override_admission": True,
+                "requires_existing_trigger_path_for_follow_on_action": True,
+                "historical_operator_resolution_preserved": True,
             },
         ),
     }
