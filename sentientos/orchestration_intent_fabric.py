@@ -140,6 +140,15 @@ _ORCHESTRATION_VENUE_MIX_CLASSES = {
     "insufficient_history",
 }
 
+_UNIFIED_RESULT_QUALITY_REVIEW_CLASSES = {
+    "healthy_recent_results",
+    "issues_heavy",
+    "abandonment_or_decline_heavy",
+    "fragmentation_heavy",
+    "mixed_result_stress",
+    "insufficient_history",
+}
+
 _NEXT_VENUE_RECOMMENDATIONS = {
     "prefer_internal_execution",
     "prefer_codex_implementation",
@@ -1391,6 +1400,156 @@ def resolve_unified_orchestration_result_surface(
             diagnostic_only=True,
             does_not_change_admission_or_execution=True,
             additional_fields={"resolver_only": True},
+        ),
+    }
+
+
+def derive_unified_result_quality_review(
+    repo_root: Path,
+    *,
+    window_size: int = 10,
+    executor_log_path: Path | None = None,
+) -> dict[str, Any]:
+    """Derive a compact retrospective quality classifier over recent unified orchestration results."""
+
+    unified_surface = resolve_unified_orchestration_result_surface(
+        repo_root,
+        window_size=window_size,
+        executor_log_path=executor_log_path,
+    )
+    records_considered = int(unified_surface.get("records_considered") or 0)
+    counts_raw = unified_surface.get("result_classification_counts")
+    counts_map = counts_raw if isinstance(counts_raw, Mapping) else {}
+    path_counts_raw = unified_surface.get("resolution_path_counts")
+    path_counts_map = path_counts_raw if isinstance(path_counts_raw, Mapping) else {}
+    fragmented_linkage_count = int(unified_surface.get("fragmented_linkage_count") or 0)
+
+    classification_counts = {name: int(counts_map.get(name) or 0) for name in _UNIFIED_RESULT_CLASSIFICATIONS}
+    resolution_path_counts = {name: int(path_counts_map.get(name) or 0) for name in _UNIFIED_RESULT_RESOLUTION_PATHS}
+
+    success_count = classification_counts["completed_successfully"]
+    issue_count = classification_counts["completed_with_issues"] + classification_counts["failed_after_execution"]
+    abandonment_count = classification_counts["declined_or_abandoned"]
+    fragmentation_count = classification_counts["fragmented_result_history"] + classification_counts["pending_or_unresolved"]
+    internal_count = resolution_path_counts["internal_execution"]
+    external_count = resolution_path_counts["external_fulfillment"]
+    path_total = internal_count + external_count
+
+    success_ratio = (success_count / records_considered) if records_considered else 0.0
+    issue_ratio = (issue_count / records_considered) if records_considered else 0.0
+    abandonment_ratio = (abandonment_count / records_considered) if records_considered else 0.0
+    fragmentation_ratio = (fragmentation_count / records_considered) if records_considered else 0.0
+    internal_ratio = (internal_count / path_total) if path_total else 0.0
+    external_ratio = (external_count / path_total) if path_total else 0.0
+
+    issue_heavy = issue_count >= 2 and issue_ratio >= 0.5
+    abandonment_heavy = abandonment_count >= 2 and abandonment_ratio >= 0.4
+    fragmentation_heavy = (fragmentation_count >= 2 and fragmentation_ratio >= 0.5) or (
+        fragmented_linkage_count >= 2 and fragmentation_ratio >= 0.4
+    )
+    stress_flag_count = sum(1 for flag in (issue_heavy, abandonment_heavy, fragmentation_heavy) if flag)
+    healthy_pattern = success_count >= 2 and success_ratio >= 0.6 and stress_flag_count == 0
+
+    classification = "insufficient_history"
+    if records_considered >= 3:
+        if stress_flag_count >= 2:
+            classification = "mixed_result_stress"
+        elif issue_heavy:
+            classification = "issues_heavy"
+        elif abandonment_heavy:
+            classification = "abandonment_or_decline_heavy"
+        elif fragmentation_heavy:
+            classification = "fragmentation_heavy"
+        elif healthy_pattern:
+            classification = "healthy_recent_results"
+        else:
+            classification = "mixed_result_stress"
+
+    if classification not in _UNIFIED_RESULT_QUALITY_REVIEW_CLASSES:
+        classification = "mixed_result_stress"
+
+    health_vs_stress = (
+        "healthy"
+        if classification == "healthy_recent_results"
+        else ("insufficient_evidence" if classification == "insufficient_history" else "stressed")
+    )
+
+    return {
+        "schema_version": "unified_result_quality_review.v1",
+        "review_kind": "unified_result_quality_retrospective",
+        "review_classification": classification,
+        "window_size": max(0, window_size),
+        "records_considered": records_considered,
+        "recent_unified_result_counts": classification_counts,
+        "recent_resolution_path_counts": resolution_path_counts,
+        "condition_flags": {
+            "issues_heavy": issue_heavy,
+            "abandonment_or_decline_heavy": abandonment_heavy,
+            "fragmentation_heavy": fragmentation_heavy,
+            "multiple_competing_stress_patterns": stress_flag_count >= 2,
+            "healthy_pattern": healthy_pattern,
+        },
+        "summary": {
+            "health_vs_stress": health_vs_stress,
+            "path_mix": {
+                "internal_execution_count": internal_count,
+                "external_fulfillment_count": external_count,
+                "internal_execution_ratio": round(internal_ratio, 4),
+                "external_fulfillment_ratio": round(external_ratio, 4),
+            },
+            "basis": {
+                "success_count": success_count,
+                "issue_count": issue_count,
+                "abandonment_or_decline_count": abandonment_count,
+                "fragmentation_or_unresolved_count": fragmentation_count,
+                "fragmented_linkage_count": fragmented_linkage_count,
+                "success_ratio": round(success_ratio, 4),
+                "issue_ratio": round(issue_ratio, 4),
+                "abandonment_or_decline_ratio": round(abandonment_ratio, 4),
+                "fragmentation_or_unresolved_ratio": round(fragmentation_ratio, 4),
+            },
+            "compact_reason": (
+                "recent unified results are mostly successful across available paths"
+                if classification == "healthy_recent_results"
+                else (
+                    "recent unified results show repeated issue/failure outcomes"
+                    if classification == "issues_heavy"
+                    else (
+                        "recent unified results show repeated decline/abandonment outcomes"
+                        if classification == "abandonment_or_decline_heavy"
+                        else (
+                            "recent unified results show repeated unresolved or fragmented closure"
+                            if classification == "fragmentation_heavy"
+                            else (
+                                "recent unified results show competing stress signatures"
+                                if classification == "mixed_result_stress"
+                                else "recent unified history is too small for a stable quality classification"
+                            )
+                        )
+                    )
+                )
+            ),
+            "boundaries": {
+                "review_only": True,
+                "diagnostic_only": True,
+                "decision_power": "none",
+                "non_authoritative": True,
+                "does_not_change_admission_or_execution_authority": True,
+                "does_not_add_or_invoke_any_new_venue": True,
+                "preserves_resolution_path_honesty": True,
+            },
+        },
+        "artifacts_read": {
+            "unified_result_surface": "resolve_unified_orchestration_result_surface",
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "does_not_change_admission_or_execution_authority": True,
+            },
         ),
     }
 
