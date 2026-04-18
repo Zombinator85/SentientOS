@@ -22,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_attention_recommendation,
     derive_packetization_gate,
     derive_external_feedback_gap_map,
+    derive_repacketization_gap_map,
     derive_operator_resolution_feedback_gap_map,
     derive_operator_resolution_influence,
     derive_operator_adjusted_next_move_proposal_visibility,
@@ -36,6 +37,8 @@ from sentientos.orchestration_intent_fabric import (
     resolve_codex_staged_work_order_lifecycle,
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_handoff_packet_history_for_proposal,
+    resolve_active_handoff_packet_candidate,
     resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
     resolve_orchestration_result,
@@ -43,6 +46,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_unified_orchestration_result_surface,
     synthesize_next_move_proposal,
     synthesize_handoff_packet,
+    synthesize_operator_refreshed_handoff_packet,
     synthesize_orchestration_intent,
     synthesize_operator_action_brief,
 )
@@ -237,6 +241,31 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_attention_recommendation,
         operator_influence,
     )
+    refreshed_handoff_packet = synthesize_operator_refreshed_handoff_packet(
+        adjusted_next_move_proposal,
+        delegated_judgment,
+        next_move_proposal_review,
+        orchestration_trust_confidence_posture,
+        orchestration_attention_recommendation,
+        linked_operator_receipt,
+        handoff_packet,
+    )
+    refreshed_handoff_packet_ledger_path = (
+        append_handoff_packet_ledger(root, refreshed_handoff_packet) if refreshed_handoff_packet is not None else None
+    )
+    effective_handoff_packet = refreshed_handoff_packet if refreshed_handoff_packet is not None else handoff_packet
+    packet_history = resolve_handoff_packet_history_for_proposal(root, str(next_move_proposal.get("proposal_id") or ""))
+    active_packet = resolve_active_handoff_packet_candidate(
+        root,
+        str(next_move_proposal.get("proposal_id") or ""),
+        operator_influence=operator_influence,
+    )
+    repacketization_gap_map = derive_repacketization_gap_map(
+        operator_brief_lifecycle,
+        operator_influence,
+        packet_history,
+        active_packet,
+    )
     operator_feedback_gap_map = derive_operator_resolution_feedback_gap_map(
         adjusted_next_move_proposal,
         packetization_gate,
@@ -244,7 +273,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         operator_brief_lifecycle,
         operator_influence,
     )
-    unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=handoff_packet)
+    unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=effective_handoff_packet)
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
     substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
@@ -261,7 +290,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_intent,
         handoff_result,
         orchestration_result,
-        handoff_packet,
+        effective_handoff_packet,
         venue="codex_implementation",
         lifecycle_key="codex_staged_lifecycle",
         handoff_ref_key="codex_work_order_ref",
@@ -275,7 +304,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_intent,
         handoff_result,
         orchestration_result,
-        handoff_packet,
+        effective_handoff_packet,
         venue="deep_research_audit",
         lifecycle_key="deep_research_staged_lifecycle",
         handoff_ref_key="deep_research_work_order_ref",
@@ -313,6 +342,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "next_venue_recommendation": adjusted_next_venue,
             "external_fulfillment_feedback_visibility": external_feedback_gap_map,
             "operator_resolution_feedback_gap_map": operator_feedback_gap_map,
+            "repacketization_gap_map": repacketization_gap_map,
             "next_move_proposal": {
                 **adjusted_next_move_proposal,
                 "ledger_path": str(next_move_proposal_ledger_path.relative_to(root)),
@@ -378,13 +408,31 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             },
             "operator_influence": operator_influence,
             "handoff_packet": {
-                **handoff_packet,
-                "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),
-                "staged_only": bool((handoff_packet.get("readiness") or {}).get("staged_only")),
-                "blocked": bool((handoff_packet.get("readiness") or {}).get("blocked")),
-                "ready_for_internal_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_internal_trigger")),
-                "ready_for_external_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_external_trigger")),
-                "fulfillment_visibility": resolve_handoff_packet_fulfillment_lifecycle(root, handoff_packet),
+                **effective_handoff_packet,
+                "ledger_path": str(handoff_packet_ledger_path.relative_to(root))
+                if refreshed_handoff_packet_ledger_path is None
+                else str(refreshed_handoff_packet_ledger_path.relative_to(root)),
+                "staged_only": bool((effective_handoff_packet.get("readiness") or {}).get("staged_only")),
+                "blocked": bool((effective_handoff_packet.get("readiness") or {}).get("blocked")),
+                "ready_for_internal_trigger": bool((effective_handoff_packet.get("readiness") or {}).get("ready_for_internal_trigger")),
+                "ready_for_external_trigger": bool((effective_handoff_packet.get("readiness") or {}).get("ready_for_external_trigger")),
+                "fulfillment_visibility": resolve_handoff_packet_fulfillment_lifecycle(root, effective_handoff_packet),
+                "repacketized_from_operator_feedback": refreshed_handoff_packet is not None,
+                "historical_packet_state_preserved": True,
+                "lineage_history": packet_history,
+                "active_packet_candidate": active_packet,
+                "initial_handoff_packet": {
+                    **handoff_packet,
+                    "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),
+                },
+                "refreshed_handoff_packet": None
+                if refreshed_handoff_packet is None
+                else {
+                    **refreshed_handoff_packet,
+                    "ledger_path": str(refreshed_handoff_packet_ledger_path.relative_to(root))
+                    if refreshed_handoff_packet_ledger_path is not None
+                    else None,
+                },
             },
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,

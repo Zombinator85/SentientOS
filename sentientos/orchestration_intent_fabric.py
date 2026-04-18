@@ -567,6 +567,8 @@ def _handoff_packet_id(
     source_proposal_id: str,
     source_judgment_linkage_id: str,
     target_venue: str,
+    supersedes_handoff_packet_id: str | None = None,
+    source_operator_resolution_receipt_id: str | None = None,
 ) -> str:
     canonical = json.dumps(
         {
@@ -574,6 +576,8 @@ def _handoff_packet_id(
             "source_proposal_id": source_proposal_id,
             "source_judgment_linkage_id": source_judgment_linkage_id,
             "target_venue": target_venue,
+            "supersedes_handoff_packet_id": supersedes_handoff_packet_id or "",
+            "source_operator_resolution_receipt_id": source_operator_resolution_receipt_id or "",
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -2538,6 +2542,224 @@ def derive_operator_resolution_feedback_gap_map(
     }
 
 
+def _refresh_reason_from_resolution_kind(resolution_kind: str) -> str:
+    return {
+        "approved_continue": "operator_approved_continue_refresh",
+        "approved_with_constraints": "operator_constraints_applied_refresh",
+        "supplied_missing_context": "operator_context_supplied_refresh",
+        "redirected_venue": "operator_redirected_venue_refresh",
+    }.get(resolution_kind, "operator_feedback_visibility_only")
+
+
+def _resolution_can_repacketize(resolution_kind: str) -> bool:
+    return resolution_kind in {
+        "approved_continue",
+        "approved_with_constraints",
+        "supplied_missing_context",
+        "redirected_venue",
+    }
+
+
+def resolve_handoff_packet_history_for_proposal(
+    repo_root: Path,
+    proposal_id: str,
+) -> dict[str, Any]:
+    """Resolve compact append-only handoff-packet history for one proposal id."""
+
+    rows = _read_jsonl(repo_root.resolve() / "glow/orchestration/orchestration_handoff_packets.jsonl")
+    linked = [
+        row
+        for row in rows
+        if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") == proposal_id
+    ]
+    superseded_by: dict[str, str] = {}
+    for row in linked:
+        row_id = str(row.get("handoff_packet_id") or "")
+        lineage = row.get("packet_lineage")
+        lineage_map = lineage if isinstance(lineage, Mapping) else {}
+        parent_id = str(lineage_map.get("supersedes_handoff_packet_id") or "")
+        if row_id and parent_id:
+            superseded_by[parent_id] = row_id
+
+    timeline: list[dict[str, Any]] = []
+    for row in linked:
+        row_id = str(row.get("handoff_packet_id") or "")
+        lineage = row.get("packet_lineage")
+        lineage_map = lineage if isinstance(lineage, Mapping) else {}
+        timeline.append(
+            {
+                "handoff_packet_id": row_id or None,
+                "recorded_at": str(row.get("recorded_at") or ""),
+                "packet_status": str(row.get("packet_status") or ""),
+                "target_venue": str(row.get("target_venue") or ""),
+                "supersedes_handoff_packet_id": str(lineage_map.get("supersedes_handoff_packet_id") or "") or None,
+                "superseded_by_handoff_packet_id": superseded_by.get(row_id),
+                "refresh_reason": str(lineage_map.get("refresh_reason") or "") or None,
+                "source_operator_resolution_receipt_id": str(lineage_map.get("source_operator_resolution_receipt_id") or "") or None,
+                "current_packet_candidate": bool(lineage_map.get("current_packet_candidate", True)),
+                "repacketized_from_operator_feedback": bool(row.get("repacketized_from_operator_feedback")),
+            }
+        )
+
+    active_packet_id: str | None = None
+    active_candidates = [
+        row
+        for row in timeline
+        if bool(row.get("current_packet_candidate")) and not row.get("superseded_by_handoff_packet_id")
+    ]
+    if active_candidates:
+        active_packet_id = str(active_candidates[-1].get("handoff_packet_id") or "") or None
+    elif timeline:
+        active_packet_id = str(timeline[-1].get("handoff_packet_id") or "") or None
+
+    return {
+        "schema_version": "handoff_packet_history.v1",
+        "proposal_id": proposal_id or None,
+        "history_count": len(timeline),
+        "timeline": timeline,
+        "active_handoff_packet_id": active_packet_id,
+        "append_only_history": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
+    }
+
+
+def synthesize_operator_refreshed_handoff_packet(
+    next_move_proposal: Mapping[str, Any],
+    delegated_judgment: Mapping[str, Any],
+    next_move_proposal_review: Mapping[str, Any],
+    trust_confidence_posture: Mapping[str, Any],
+    operator_attention_recommendation: Mapping[str, Any],
+    operator_resolution_receipt: Mapping[str, Any] | None,
+    latest_handoff_packet: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """
+    Synthesize a refreshed handoff packet when bounded operator feedback allows repacketization.
+
+    This function is append-only: it emits a new packet and never mutates prior packet rows.
+    """
+
+    receipt_map = operator_resolution_receipt if isinstance(operator_resolution_receipt, Mapping) else {}
+    resolution_kind = str(receipt_map.get("resolution_kind") or "")
+    if not _resolution_can_repacketize(resolution_kind):
+        return None
+
+    latest_packet_map = latest_handoff_packet if isinstance(latest_handoff_packet, Mapping) else {}
+    supersedes_id = str(latest_packet_map.get("handoff_packet_id") or "")
+    if not supersedes_id:
+        return None
+
+    latest_lineage = latest_packet_map.get("packet_lineage")
+    latest_lineage_map = latest_lineage if isinstance(latest_lineage, Mapping) else {}
+    previous_receipt_id = str(latest_lineage_map.get("source_operator_resolution_receipt_id") or "")
+    current_receipt_id = str(receipt_map.get("operator_resolution_receipt_id") or "")
+    if previous_receipt_id and current_receipt_id and previous_receipt_id == current_receipt_id:
+        return None
+
+    refresh_reason = _refresh_reason_from_resolution_kind(resolution_kind)
+    refreshed = synthesize_handoff_packet(
+        next_move_proposal,
+        delegated_judgment,
+        next_move_proposal_review,
+        trust_confidence_posture,
+        operator_attention_recommendation,
+        receipt_map,
+        supersedes_handoff_packet_id=supersedes_id,
+        refresh_reason=refresh_reason,
+        current_packet_candidate=True,
+    )
+    return refreshed
+
+
+def resolve_active_handoff_packet_candidate(
+    repo_root: Path,
+    proposal_id: str,
+    operator_influence: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve the current active handoff packet candidate with compact lineage visibility."""
+
+    history = resolve_handoff_packet_history_for_proposal(repo_root, proposal_id)
+    active_packet_id = str(history.get("active_handoff_packet_id") or "")
+    rows = _read_jsonl(repo_root.resolve() / "glow/orchestration/orchestration_handoff_packets.jsonl")
+    active_packet = next((row for row in reversed(rows) if str(row.get("handoff_packet_id") or "") == active_packet_id), None)
+    active_map = active_packet if isinstance(active_packet, Mapping) else {}
+    lineage = active_map.get("packet_lineage")
+    lineage_map = lineage if isinstance(lineage, Mapping) else {}
+    influence_map = operator_influence if isinstance(operator_influence, Mapping) else {}
+
+    return {
+        "schema_version": "active_handoff_packet_candidate.v1",
+        "proposal_id": proposal_id or None,
+        "active_handoff_packet_id": active_packet_id or None,
+        "active_packet_present": bool(active_map),
+        "is_refreshed_packet": bool(lineage_map.get("supersedes_handoff_packet_id")),
+        "current_packet_candidate": bool(lineage_map.get("current_packet_candidate", True)),
+        "active_packet_status": str(active_map.get("packet_status") or "") or None,
+        "active_target_venue": str(active_map.get("target_venue") or "") or None,
+        "lineage": {
+            "supersedes_handoff_packet_id": str(lineage_map.get("supersedes_handoff_packet_id") or "") or None,
+            "superseded_by_handoff_packet_id": None,
+            "refresh_reason": str(lineage_map.get("refresh_reason") or "") or None,
+            "source_operator_resolution_receipt_id": str(lineage_map.get("source_operator_resolution_receipt_id") or "") or None,
+            "history_count": int(history.get("history_count") or 0),
+        },
+        "operator_influence": {
+            "operator_influence_state": str(influence_map.get("operator_influence_state") or "no_operator_influence_yet"),
+            "operator_influence_applied": bool(influence_map.get("operator_influence_applied")),
+            "resolution_kind": influence_map.get("resolution_kind"),
+            "resolution_receipt_id": influence_map.get("resolution_receipt_id"),
+        },
+        "does_not_imply_execution": True,
+        "does_not_override_admission": True,
+        "requires_existing_trigger_path_for_follow_on_action": True,
+        "historical_packet_state_preserved": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
+    }
+
+
+def derive_repacketization_gap_map(
+    operator_brief_lifecycle: Mapping[str, Any],
+    operator_influence: Mapping[str, Any],
+    packet_history: Mapping[str, Any],
+    active_packet: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return compact visibility describing whether operator feedback can refresh current packet state."""
+
+    resolution_kind = str(operator_brief_lifecycle.get("resolution_kind") or "")
+    receipt_received = bool(operator_brief_lifecycle.get("operator_resolution_received"))
+    influence_applied = bool(operator_influence.get("operator_influence_applied"))
+    eligible_resolution = _resolution_can_repacketize(resolution_kind)
+    history_count = int(packet_history.get("history_count") or 0)
+    refreshed_visible = bool(active_packet.get("is_refreshed_packet"))
+
+    return {
+        "schema_version": "orchestration_repacketization_gap_map.v1",
+        "latest_usable_next_packet_artifact": "glow/orchestration/orchestration_handoff_packets.jsonl",
+        "operator_feedback_resolution_received": receipt_received,
+        "operator_feedback_influence_applied": influence_applied,
+        "operator_resolution_kind": resolution_kind or None,
+        "operator_resolution_can_repacketize": eligible_resolution,
+        "history": {
+            "handoff_packets_for_proposal": history_count,
+            "active_packet_is_refreshed": refreshed_visible,
+            "manual_reconstruction_required": bool(receipt_received and eligible_resolution and not refreshed_visible),
+        },
+        "lineage_semantics": {
+            "supersedes_handoff_packet_id_supported": True,
+            "superseded_by_handoff_packet_id_resolved": True,
+            "refresh_reason_supported": True,
+            "source_operator_resolution_receipt_id_supported": True,
+            "current_packet_candidate_supported": True,
+        },
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
+    }
+
+
 def synthesize_next_move_proposal(
     delegated_judgment: Mapping[str, Any],
     next_venue_recommendation: Mapping[str, Any],
@@ -2847,6 +3069,12 @@ def derive_packetization_gate(
         and proposed_posture in {"expand", "consolidate", "audit"}
         and proposal_review_classification == "coherent_recent_proposals"
     )
+    context_relief_execution_ready = (
+        operator_context_applied
+        and executability in {"executable_now", "stageable_external_work_order"}
+        and relation_posture in {"affirming", "nudging"}
+        and proposed_posture in {"expand", "consolidate", "audit"}
+    )
     approval_can_relieve_operator_hold = operator_approval_applied and not hold_fragmentation
     context_can_relieve_insufficient_hold = (
         operator_context_applied
@@ -2873,7 +3101,7 @@ def derive_packetization_gate(
     elif operator_approval_applied and coherent_execution_ready:
         outcome = "packetization_allowed_with_caution"
         compact_rationale = "operator_approval_visible_with_coherent_proposal_allows_bounded_packetization_caution"
-    elif operator_context_applied and coherent_execution_ready:
+    elif operator_context_applied and (coherent_execution_ready or context_relief_execution_ready):
         outcome = "packetization_allowed_with_caution"
         compact_rationale = "operator_supplied_context_relieves_insufficient_context_hold_in_bounded_form"
     elif posture == "trusted_for_bounded_use" and coherent_execution_ready:
@@ -3130,7 +3358,11 @@ def synthesize_handoff_packet(
     next_move_proposal_review: Mapping[str, Any] | None = None,
     trust_confidence_posture: Mapping[str, Any] | None = None,
     operator_attention_recommendation: Mapping[str, Any] | None = None,
+    operator_resolution_receipt: Mapping[str, Any] | None = None,
     *,
+    supersedes_handoff_packet_id: str | None = None,
+    refresh_reason: str | None = None,
+    current_packet_candidate: bool = True,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Derive a compact venue-specific handoff packet from existing bounded orchestration signals."""
@@ -3153,6 +3385,11 @@ def synthesize_handoff_packet(
     source_judgment_linkage_id = str(source_judgment_map.get("source_judgment_linkage_id") or "")
     recorded_at = created_at or _iso_utc_now()
     proposal_id = str(proposal_ref.get("proposal_id") or "")
+    source_operator_resolution_receipt_id = (
+        str((operator_resolution_receipt or {}).get("operator_resolution_receipt_id") or "")
+        if isinstance(operator_resolution_receipt, Mapping)
+        else ""
+    )
 
     status = "prepared"
     readiness = {
@@ -3305,15 +3542,32 @@ def synthesize_handoff_packet(
             source_proposal_id=proposal_id,
             source_judgment_linkage_id=source_judgment_linkage_id,
             target_venue=target_venue,
+            supersedes_handoff_packet_id=supersedes_handoff_packet_id,
+            source_operator_resolution_receipt_id=source_operator_resolution_receipt_id,
         ),
         "source_next_move_proposal_ref": {
             "proposal_id": proposal_id,
             "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
         },
+        "source_operator_resolution_ref": {
+            "operator_resolution_receipt_id": source_operator_resolution_receipt_id or None,
+            "operator_resolution_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl"
+            if source_operator_resolution_receipt_id
+            else None,
+        },
         "source_delegated_judgment_ref": {
             "source_judgment_linkage_id": source_judgment_linkage_id,
             "recommended_venue": str(delegated_judgment.get("recommended_venue") or ""),
             "judgment_kind": str(delegated_judgment.get("recommendation_kind") or ""),
+        },
+        "packet_lineage": {
+            "supersedes_handoff_packet_id": supersedes_handoff_packet_id.strip()
+            if isinstance(supersedes_handoff_packet_id, str) and supersedes_handoff_packet_id.strip()
+            else None,
+            "superseded_by_handoff_packet_id": None,
+            "refresh_reason": refresh_reason.strip() if isinstance(refresh_reason, str) and refresh_reason.strip() else None,
+            "source_operator_resolution_receipt_id": source_operator_resolution_receipt_id or None,
+            "current_packet_candidate": bool(current_packet_candidate),
         },
         "target_venue": target_venue,
         "proposed_posture": proposed_posture,
@@ -3335,6 +3589,11 @@ def synthesize_handoff_packet(
                 "does_not_execute_or_route_work": True,
                 "does_not_invoke_external_tools": True,
                 "requires_operator_or_existing_trigger_path": True,
+                "repacketized_from_operator_feedback": bool(source_operator_resolution_receipt_id),
+                "does_not_imply_execution": True,
+                "does_not_override_admission": True,
+                "requires_existing_trigger_path_for_follow_on_action": True,
+                "historical_packet_state_preserved": True,
             },
         ),
     }

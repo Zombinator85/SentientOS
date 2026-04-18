@@ -25,6 +25,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_external_feedback_gap_map,
     derive_operator_adjusted_next_move_proposal_visibility,
     derive_operator_adjusted_next_venue_recommendation,
+    derive_repacketization_gap_map,
     derive_operator_resolution_feedback_gap_map,
     derive_operator_resolution_influence,
     derive_packetization_gate,
@@ -40,9 +41,12 @@ from sentientos.orchestration_intent_fabric import (
     resolve_unified_orchestration_result,
     resolve_unified_orchestration_result_surface,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_handoff_packet_history_for_proposal,
     resolve_latest_operator_resolution_for_proposal,
+    resolve_active_handoff_packet_candidate,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
+    synthesize_operator_refreshed_handoff_packet,
     synthesize_next_move_proposal,
     synthesize_orchestration_intent,
 )
@@ -3791,4 +3795,214 @@ def test_operator_feedback_gap_map_reports_resolution_visibility_by_layer() -> N
     assert gap_map["next_venue_recommendation"]["remaining_gap"] == "none"
     assert gap_map["operator_brief_lifecycle_visibility"]["remaining_gap"] == "none"
     assert gap_map["held_loop_static_after_operator_response"] is False
-    assert gap_map["diagnostic_only"] is True
+
+
+@pytest.mark.parametrize(
+    ("resolution_kind", "expect_refresh"),
+    [
+        ("approved_continue", True),
+        ("approved_with_constraints", True),
+        ("supplied_missing_context", True),
+        ("redirected_venue", True),
+        ("declined", False),
+        ("cancelled", False),
+        ("deferred", False),
+    ],
+)
+def test_operator_resolution_refresh_rules_are_bounded(
+    tmp_path: Path,
+    resolution_kind: str,
+    expect_refresh: bool,
+) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    next_venue = {
+        "next_venue_recommendation": "prefer_codex_implementation",
+        "relation_to_delegated_judgment": "affirming",
+        "basis": {"rationale": "bounded test"},
+    }
+    proposal = synthesize_next_move_proposal(
+        delegated,
+        next_venue,
+        {"review_classification": "clean_recent_orchestration", "records_considered": 6},
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 6},
+        {"operator_attention_recommendation": "observe"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    packet = synthesize_handoff_packet(
+        proposal,
+        delegated,
+        {"review_classification": "coherent_recent_proposals"},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    receipt = {
+        "operator_resolution_receipt_id": f"orr-{resolution_kind}",
+        "resolution_kind": resolution_kind,
+        "redirected_venue": "deep_research_audit" if resolution_kind == "redirected_venue" else None,
+    }
+    adjusted_proposal = derive_operator_adjusted_next_move_proposal_visibility(
+        proposal,
+        derive_operator_resolution_influence(receipt),
+    )
+    refreshed = synthesize_operator_refreshed_handoff_packet(
+        adjusted_proposal,
+        delegated,
+        {"review_classification": "coherent_recent_proposals"},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        receipt,
+        packet,
+    )
+    if expect_refresh:
+        assert refreshed is not None
+        assert refreshed["packet_lineage"]["supersedes_handoff_packet_id"] == packet["handoff_packet_id"]
+        assert refreshed["packet_lineage"]["source_operator_resolution_receipt_id"] == receipt["operator_resolution_receipt_id"]
+        assert refreshed["historical_packet_state_preserved"] is True
+        if resolution_kind == "redirected_venue":
+            assert refreshed["target_venue"] == "deep_research_audit"
+    else:
+        assert refreshed is None
+
+
+def test_repacketized_history_and_active_packet_visibility_are_append_only(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    next_venue = {
+        "next_venue_recommendation": "prefer_codex_implementation",
+        "relation_to_delegated_judgment": "affirming",
+        "basis": {"rationale": "bounded test"},
+    }
+    proposal = synthesize_next_move_proposal(
+        delegated,
+        next_venue,
+        {"review_classification": "clean_recent_orchestration", "records_considered": 6},
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 6},
+        {"operator_attention_recommendation": "observe"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    original_packet = synthesize_handoff_packet(
+        proposal,
+        delegated,
+        {"review_classification": "coherent_recent_proposals"},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    append_handoff_packet_ledger(tmp_path, original_packet)
+    receipt = {
+        "operator_resolution_receipt_id": "orr-refresh",
+        "resolution_kind": "supplied_missing_context",
+        "updated_context_refs": ["docs/context.md#1"],
+    }
+    refreshed_packet = synthesize_operator_refreshed_handoff_packet(
+        derive_operator_adjusted_next_move_proposal_visibility(
+            proposal,
+            derive_operator_resolution_influence(receipt),
+        ),
+        delegated,
+        {"review_classification": "coherent_recent_proposals"},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        receipt,
+        original_packet,
+    )
+    assert refreshed_packet is not None
+    append_handoff_packet_ledger(tmp_path, refreshed_packet)
+
+    history = resolve_handoff_packet_history_for_proposal(tmp_path, str(proposal["proposal_id"]))
+    active = resolve_active_handoff_packet_candidate(
+        tmp_path,
+        str(proposal["proposal_id"]),
+        operator_influence=derive_operator_resolution_influence(receipt),
+    )
+
+    assert history["history_count"] == 2
+    assert history["timeline"][0]["handoff_packet_id"] == original_packet["handoff_packet_id"]
+    assert history["timeline"][0]["superseded_by_handoff_packet_id"] == refreshed_packet["handoff_packet_id"]
+    assert active["active_handoff_packet_id"] == refreshed_packet["handoff_packet_id"]
+    assert active["is_refreshed_packet"] is True
+    assert active["historical_packet_state_preserved"] is True
+    assert active["does_not_imply_execution"] is True
+
+
+def test_repacketization_gap_map_reports_manual_reconstruction_relief() -> None:
+    operator_influence = derive_operator_resolution_influence(
+        {
+            "resolution_kind": "approved_continue",
+            "operator_resolution_receipt_id": "orr-gap-refresh",
+        }
+    )
+    gap_map = derive_repacketization_gap_map(
+        {"operator_resolution_received": True, "resolution_kind": "approved_continue"},
+        operator_influence,
+        {"history_count": 2},
+        {"is_refreshed_packet": True},
+    )
+    assert gap_map["operator_resolution_can_repacketize"] is True
+    assert gap_map["history"]["manual_reconstruction_required"] is False
+    assert gap_map["lineage_semantics"]["superseded_by_handoff_packet_id_resolved"] is True
+
+
+def test_operator_repacketization_e2e_in_scoped_diagnostic(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(
+            {
+                **_base_evidence(),
+                "governance_ambiguity_signal": True,
+                "admission_denied_ratio": 0.9,
+                "executor_failure_ratio": 0.5,
+            }
+        ),
+    )
+    original_append = append_operator_action_brief_ledger
+
+    def _append_and_ingest(repo_root: Path, brief: dict[str, object]) -> Path:
+        ledger_path = original_append(repo_root, brief)
+        ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="approved_continue",
+            operator_note="operator approved continue",
+            created_at="2026-04-12T00:01:00Z",
+        )
+        return ledger_path
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.append_operator_action_brief_ledger", _append_and_ingest)
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-operator-repacketization-e2e",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    handoff_packet = diagnostic["orchestration_handoff"]["handoff_packet"]
+    active = handoff_packet["active_packet_candidate"]
+    history = handoff_packet["lineage_history"]
+    gap = diagnostic["orchestration_handoff"]["repacketization_gap_map"]
+
+    assert handoff_packet["repacketized_from_operator_feedback"] is True
+    assert handoff_packet["historical_packet_state_preserved"] is True
+    assert handoff_packet["initial_handoff_packet"]["handoff_packet_id"] != handoff_packet["handoff_packet_id"]
+    assert history["history_count"] >= 2
+    assert active["active_handoff_packet_id"] == handoff_packet["handoff_packet_id"]
+    assert diagnostic["orchestration_handoff"]["operator_action_brief"]["operator_resolution_received"] is True
+    assert gap["history"]["manual_reconstruction_required"] is False
+    assert handoff_packet["does_not_execute_or_route_work"] is True
+    assert gap["diagnostic_only"] is True
