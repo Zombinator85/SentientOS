@@ -32,6 +32,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_codex_staged_work_order_lifecycle,
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_operator_action_brief_lifecycle,
     resolve_orchestration_result,
     resolve_unified_orchestration_result,
     resolve_unified_orchestration_result_surface,
@@ -217,6 +218,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     operator_action_brief_ledger_path = (
         append_operator_action_brief_ledger(root, operator_action_brief) if operator_action_brief else None
     )
+    operator_brief_lifecycle = resolve_operator_action_brief_lifecycle(root, operator_action_brief)
     unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=handoff_packet)
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
@@ -310,11 +312,21 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             },
             "operator_action_brief": {
                 "brief_produced": operator_action_brief is not None,
-                "loop_held_pending_operator_intervention": bool(packetization_gate.get("packetization_held")),
+                "loop_held_pending_operator_intervention": bool(packetization_gate.get("packetization_held"))
+                and bool(operator_brief_lifecycle.get("awaiting_operator_input")),
                 "intervention_class": None if operator_action_brief is None else operator_action_brief.get("intervention_class"),
                 "target_venue_or_posture": None
                 if operator_action_brief is None
                 else operator_action_brief.get("target_venue_or_posture"),
+                "lifecycle_visibility": operator_brief_lifecycle,
+                "operator_resolution_received": bool(operator_brief_lifecycle.get("operator_resolution_received")),
+                "resolution_kind": operator_brief_lifecycle.get("resolution_kind"),
+                "resolution_receipt_artifact_linkage": {
+                    "ledger_path": operator_brief_lifecycle.get("receipt_artifact_path"),
+                    "operator_resolution_receipt_id": operator_brief_lifecycle.get("operator_resolution_receipt_id"),
+                },
+                "awaiting_operator_input": bool(operator_brief_lifecycle.get("awaiting_operator_input")),
+                "has_operator_guidance": bool(operator_brief_lifecycle.get("has_operator_guidance")),
                 "brief_artifact_linkage": None
                 if operator_action_brief_ledger_path is None
                 else {
@@ -327,6 +339,8 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "non_sovereign_boundaries": {
                     "non_authoritative": True,
                     "operator_guidance_only": True,
+                    "ingested_operator_outcome": bool(operator_brief_lifecycle.get("ingested_operator_outcome")),
+                    "explicit_clarity": "ingested operator outcome, not repo execution",
                     "does_not_override_packetization_gate": True,
                     "does_not_convert_hold_to_execution": True,
                     "does_not_execute_or_route_work": True,

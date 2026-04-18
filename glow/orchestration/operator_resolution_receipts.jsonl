@@ -1,0 +1,1 @@
+{"schema_version":"operator_resolution_receipt.v1","artifact_status":"initialized","notes":"append-only proof-visible operator resolution receipt ledger for held/escalated operator action briefs","non_authoritative":true,"diagnostic_only":true,"decision_power":"none","receipt_only":true,"ingested_operator_outcome":true,"does_not_imply_repo_self-authorization":true}
