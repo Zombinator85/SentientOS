@@ -19,6 +19,7 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_external_feedback_gap_map,
+    derive_packetization_gate,
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
@@ -1953,6 +1954,35 @@ def test_operator_required_and_insufficient_context_packets_remain_honestly_bloc
     assert context_packet["readiness"]["blocked"] is True
 
 
+def test_packetization_gate_can_hold_otherwise_stageable_packet_without_new_authority() -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    proposal = {
+        "proposal_id": "proposal-stageable-held-by-gate",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "expand"},
+        "executability_classification": "stageable_external_work_order",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "review_mixed_orchestration_stress",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-gated"},
+    }
+    packet = synthesize_handoff_packet(
+        proposal,
+        delegated,
+        {"review_classification": "mixed_proposal_stress", "records_considered": 6},
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "mixed_stress"}},
+        {"operator_attention_recommendation": "review_mixed_orchestration_stress"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    assert packet["packetization_gate"]["packetization_outcome"] == "packetization_hold_escalation_required"
+    assert packet["packet_status"] == "blocked_operator_required"
+    assert packet["readiness"]["blocked"] is True
+    assert packet["does_not_change_admission_or_execution"] is True
+    assert packet["decision_power"] == "none"
+
+
 def test_handoff_packet_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
     delegated = synthesize_delegated_judgment(_base_evidence())
     proposal = {
@@ -2631,6 +2661,103 @@ def test_orchestration_trust_confidence_classifies_insufficient_history() -> Non
     assert posture["pressure_summary"]["primary_pressure"] == "insufficient_history"
 
 
+def test_packetization_gate_allows_trusted_coherent_proposal() -> None:
+    proposal = {
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_posture": "expand"},
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "observe",
+            "escalation_classification": "no_escalation_needed",
+        },
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "coherent_recent_proposals", "records_considered": 6},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    assert gate["packetization_outcome"] == "packetization_allowed"
+    assert gate["packetization_allowed"] is True
+
+
+def test_packetization_gate_allows_with_caution_for_caution_posture() -> None:
+    proposal = {
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "nudging",
+        "proposed_next_action": {"proposed_posture": "audit"},
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "review_mixed_orchestration_stress",
+            "escalation_classification": "no_escalation_needed",
+        },
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "coherent_recent_proposals", "records_considered": 6},
+        {"trust_confidence_posture": "caution_required", "pressure_summary": {"primary_pressure": "mixed_stress"}},
+        {"operator_attention_recommendation": "review_mixed_orchestration_stress"},
+    )
+    assert gate["packetization_outcome"] == "packetization_allowed_with_caution"
+    assert gate["packetization_allowed"] is True
+
+
+def test_packetization_gate_holds_fragmented_posture() -> None:
+    proposal = {
+        "executability_classification": "stageable_external_work_order",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_posture": "expand"},
+        "operator_escalation_requirement_state": {"requires_operator_or_escalation": False},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "mixed_proposal_stress", "records_considered": 6},
+        {"trust_confidence_posture": "fragmented_or_unreliable", "pressure_summary": {"primary_pressure": "fragmentation"}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    assert gate["packetization_outcome"] == "packetization_hold_fragmentation"
+    assert gate["packetization_held"] is True
+
+
+def test_packetization_gate_holds_insufficient_history_or_context() -> None:
+    proposal = {
+        "executability_classification": "blocked_insufficient_context",
+        "relation_posture": "insufficient_context",
+        "proposed_next_action": {"proposed_posture": "hold"},
+        "operator_escalation_requirement_state": {"requires_operator_or_escalation": False},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "insufficient_history", "records_considered": 1},
+        {"trust_confidence_posture": "insufficient_history", "pressure_summary": {"primary_pressure": "insufficient_history"}},
+        {"operator_attention_recommendation": "insufficient_context"},
+    )
+    assert gate["packetization_outcome"] == "packetization_hold_insufficient_confidence"
+    assert gate["packetization_held"] is True
+
+
+def test_packetization_gate_holds_operator_required_paths() -> None:
+    proposal = {
+        "executability_classification": "blocked_operator_required",
+        "relation_posture": "escalating",
+        "proposed_next_action": {"proposed_posture": "escalate"},
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "inspect_handoff_blocks",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "proposal_escalation_heavy", "records_considered": 6},
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "mixed_stress"}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+    )
+    assert gate["packetization_outcome"] == "packetization_hold_operator_review"
+    assert gate["packetization_held"] is True
+
+
 def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     judgment = synthesize_delegated_judgment(_base_evidence())
     intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
@@ -2864,6 +2991,7 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
     assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
     trust_posture = second["orchestration_handoff"]["trust_confidence_posture"]
+    packetization_gating = second["orchestration_handoff"]["packetization_gating"]
     assert trust_posture["schema_version"] == "orchestration_trust_confidence_posture.v1"
     assert trust_posture["diagnostic_only"] is True
     assert trust_posture["non_authoritative"] is True
@@ -2872,6 +3000,17 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert feedback_visibility["venue_mix_review"]["external_fulfillment_influencing"] is True
     assert next_venue["relation_to_delegated_judgment"] == "affirming"
     assert feedback_visibility["non_authoritative"] is True
+    assert packetization_gating["schema_version"] == "orchestration_packetization_gate.v1"
+    assert packetization_gating["signal_snapshot"]["trust_confidence_posture"] == trust_posture["trust_confidence_posture"]
+    assert packetization_gating["packetization_outcome"] in {
+        "packetization_allowed",
+        "packetization_allowed_with_caution",
+        "packetization_hold_operator_review",
+        "packetization_hold_insufficient_confidence",
+        "packetization_hold_fragmentation",
+        "packetization_hold_escalation_required",
+    }
+    assert packetization_gating["non_sovereign_boundaries"]["does_not_execute_or_route_work"] is True
     readiness_basis = second["delegated_judgment"]["orchestration_substitution_readiness"]["trust_confidence_basis"]
     assert readiness_basis["orchestration_trust_confidence_posture"] == trust_posture["trust_confidence_posture"]
     assert readiness_basis["does_not_change_existing_readiness_logic"] is True

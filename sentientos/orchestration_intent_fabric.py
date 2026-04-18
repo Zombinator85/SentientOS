@@ -200,6 +200,15 @@ _ORCHESTRATION_TRUST_POSTURES = {
     "insufficient_history",
 }
 
+_PACKETIZATION_GATING_OUTCOMES = {
+    "packetization_allowed",
+    "packetization_allowed_with_caution",
+    "packetization_hold_operator_review",
+    "packetization_hold_insufficient_confidence",
+    "packetization_hold_fragmentation",
+    "packetization_hold_escalation_required",
+}
+
 _ORCHESTRATION_TRUST_PRESSURE_KINDS = {
     "none",
     "proposal_stress",
@@ -2475,15 +2484,163 @@ def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any
     return ledger_path
 
 
+def derive_packetization_gate(
+    next_move_proposal: Mapping[str, Any],
+    next_move_proposal_review: Mapping[str, Any],
+    trust_confidence_posture: Mapping[str, Any],
+    operator_attention_recommendation: Mapping[str, Any],
+) -> dict[str, Any]:
+    """
+    Derive one bounded packetization gate from existing orchestration-only signals.
+
+    This gate is non-sovereign and only governs whether packet preparation is ready vs held.
+    """
+
+    proposed_action = next_move_proposal.get("proposed_next_action")
+    proposed_action_map = proposed_action if isinstance(proposed_action, Mapping) else {}
+    operator_state_raw = next_move_proposal.get("operator_escalation_requirement_state")
+    operator_state = operator_state_raw if isinstance(operator_state_raw, Mapping) else {}
+    trust_pressure_raw = trust_confidence_posture.get("pressure_summary")
+    trust_pressure = trust_pressure_raw if isinstance(trust_pressure_raw, Mapping) else {}
+
+    posture = str(trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history")
+    proposal_review_classification = str(next_move_proposal_review.get("review_classification") or "insufficient_history")
+    attention_signal = str(
+        operator_attention_recommendation.get("operator_attention_recommendation")
+        or operator_state.get("attention_signal")
+        or "insufficient_context"
+    )
+    executability = str(next_move_proposal.get("executability_classification") or "blocked_insufficient_context")
+    relation_posture = str(next_move_proposal.get("relation_posture") or "insufficient_context")
+    proposed_posture = str(proposed_action_map.get("proposed_posture") or "hold")
+    requires_operator = bool(operator_state.get("requires_operator_or_escalation"))
+    escalation_classification = str(operator_state.get("escalation_classification") or "")
+    trust_primary_pressure = str(trust_pressure.get("primary_pressure") or "insufficient_history")
+
+    hold_operator_required = (
+        requires_operator
+        or executability == "blocked_operator_required"
+        or escalation_classification in {"escalate_for_missing_context", "escalate_for_operator_priority"}
+        or attention_signal in {"inspect_handoff_blocks", "inspect_execution_failures", "inspect_pending_stall"}
+    )
+    hold_fragmentation = posture == "fragmented_or_unreliable" or trust_primary_pressure == "fragmentation"
+    hold_insufficient_confidence = (
+        posture == "insufficient_history"
+        or executability == "blocked_insufficient_context"
+        or relation_posture == "insufficient_context"
+        or proposal_review_classification in {"proposal_insufficient_context_heavy", "insufficient_history"}
+        or attention_signal == "insufficient_context"
+    )
+    mixed_stress_signals = (
+        posture == "stressed_but_usable"
+        or proposal_review_classification in {"mixed_proposal_stress", "proposal_venue_thrash", "proposal_escalation_heavy"}
+        or attention_signal == "review_mixed_orchestration_stress"
+        or trust_primary_pressure in {"mixed_stress", "result_quality_stress", "escalation_operator_dependence"}
+    )
+    coherent_execution_ready = (
+        executability in {"executable_now", "stageable_external_work_order"}
+        and relation_posture in {"affirming", "nudging"}
+        and proposed_posture in {"expand", "consolidate", "audit"}
+        and proposal_review_classification == "coherent_recent_proposals"
+    )
+
+    outcome = "packetization_hold_insufficient_confidence"
+    compact_rationale = "insufficient_confidence_or_context_requires_conservative_packetization_hold"
+
+    if hold_operator_required:
+        outcome = "packetization_hold_operator_review"
+        compact_rationale = "operator_or_escalation_requirement_is_active_so_packetization_is_held"
+    elif hold_fragmentation:
+        outcome = "packetization_hold_fragmentation"
+        compact_rationale = "trust_posture_is_fragmented_or_unreliable_so_packetization_is_held"
+    elif hold_insufficient_confidence:
+        outcome = "packetization_hold_insufficient_confidence"
+        compact_rationale = "insufficient_history_or_context_prevents_confident_packetization"
+    elif posture == "trusted_for_bounded_use" and coherent_execution_ready:
+        outcome = "packetization_allowed"
+        compact_rationale = "trusted_posture_with_coherent_proposal_allows_bounded_packetization"
+    elif posture in {"caution_required", "stressed_but_usable"} and coherent_execution_ready and mixed_stress_signals:
+        outcome = "packetization_allowed_with_caution"
+        compact_rationale = "stress_is_present_but_coherence_is_sufficient_for_cautious_bounded_packetization"
+    elif posture == "stressed_but_usable" and mixed_stress_signals:
+        outcome = "packetization_hold_escalation_required"
+        compact_rationale = "stressed_posture_with_mixed_signals_requires_conservative_escalation_hold"
+    elif posture == "caution_required" and coherent_execution_ready:
+        outcome = "packetization_allowed_with_caution"
+        compact_rationale = "caution_posture_keeps_packetization_allowed_but_explicitly_bounded"
+    elif mixed_stress_signals:
+        outcome = "packetization_hold_escalation_required"
+        compact_rationale = "mixed_stress_signals_require_escalation_before_packetization"
+
+    if outcome not in _PACKETIZATION_GATING_OUTCOMES:
+        outcome = "packetization_hold_insufficient_confidence"
+        compact_rationale = "unrecognized_gate_outcome_defaulted_to_conservative_hold"
+
+    held = outcome.startswith("packetization_hold_")
+    return {
+        "schema_version": "orchestration_packetization_gate.v1",
+        "gate_kind": "next_move_packetization_gate",
+        "packetization_outcome": outcome,
+        "packetization_allowed": not held,
+        "packetization_held": held,
+        "summary": {
+            "compact_rationale": compact_rationale,
+            "signals_used": [
+                "orchestration_trust_confidence_posture",
+                "next_move_proposal",
+                "next_move_proposal_review",
+                "orchestration_operator_attention_recommendation",
+                "next_move_proposal.operator_escalation_requirement_state",
+            ],
+            "affects_only": [
+                "next_move_proposal_to_handoff_packet_preparation",
+                "packet_ready_vs_hold_marking",
+            ],
+            "explicitly_not": [
+                "direct_execution_authority",
+                "admission_policy_override",
+                "venue_recommendation_rewrite",
+                "sovereign_planning",
+            ],
+        },
+        "signal_snapshot": {
+            "trust_confidence_posture": posture,
+            "proposal_review_classification": proposal_review_classification,
+            "operator_attention_recommendation": attention_signal,
+            "executability_classification": executability,
+            "relation_posture": relation_posture,
+            "proposed_posture": proposed_posture,
+            "requires_operator_or_escalation": requires_operator,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "gate_only": True,
+                "packetization_stage_only": True,
+                "does_not_execute_or_route_work": True,
+                "non_authoritative": True,
+            },
+        ),
+    }
+
+
 def synthesize_handoff_packet(
     next_move_proposal: Mapping[str, Any],
     delegated_judgment: Mapping[str, Any],
+    next_move_proposal_review: Mapping[str, Any] | None = None,
+    trust_confidence_posture: Mapping[str, Any] | None = None,
+    operator_attention_recommendation: Mapping[str, Any] | None = None,
     *,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Derive a compact venue-specific handoff packet from existing bounded orchestration signals."""
 
     proposal_ref = next_move_proposal
+    proposal_review_map = next_move_proposal_review if isinstance(next_move_proposal_review, Mapping) else {}
+    trust_posture_map = trust_confidence_posture if isinstance(trust_confidence_posture, Mapping) else {}
+    attention_map = operator_attention_recommendation if isinstance(operator_attention_recommendation, Mapping) else {}
     proposed_action = proposal_ref.get("proposed_next_action")
     proposed_action_map = proposed_action if isinstance(proposed_action, Mapping) else {}
     operator_state_raw = proposal_ref.get("operator_escalation_requirement_state")
@@ -2524,6 +2681,74 @@ def synthesize_handoff_packet(
     if status not in _HANDOFF_PACKET_STATUSES:
         status = "blocked_insufficient_context"
         readiness["blocked"] = True
+
+    if proposal_review_map or trust_posture_map or attention_map:
+        packetization_gate = derive_packetization_gate(
+            proposal_ref,
+            proposal_review_map,
+            trust_posture_map,
+            attention_map,
+        )
+    else:
+        legacy_outcome = (
+            "packetization_hold_operator_review"
+            if status == "blocked_operator_required"
+            else "packetization_hold_insufficient_confidence"
+            if status == "blocked_insufficient_context"
+            else "packetization_allowed"
+        )
+        packetization_gate = {
+            "schema_version": "orchestration_packetization_gate.v1",
+            "gate_kind": "next_move_packetization_gate",
+            "packetization_outcome": legacy_outcome,
+            "packetization_allowed": not legacy_outcome.startswith("packetization_hold_"),
+            "packetization_held": legacy_outcome.startswith("packetization_hold_"),
+            "summary": {
+                "compact_rationale": "legacy_packetization_path_without_review_inputs_preserves_existing_status_mapping",
+                "signals_used": ["next_move_proposal.executability_classification"],
+                "affects_only": [
+                    "next_move_proposal_to_handoff_packet_preparation",
+                    "packet_ready_vs_hold_marking",
+                ],
+                "explicitly_not": [
+                    "direct_execution_authority",
+                    "admission_policy_override",
+                    "venue_recommendation_rewrite",
+                    "sovereign_planning",
+                ],
+            },
+            "signal_snapshot": {
+                "trust_confidence_posture": "unprovided",
+                "proposal_review_classification": "unprovided",
+                "operator_attention_recommendation": "unprovided",
+                "executability_classification": executability,
+                "relation_posture": str(proposal_ref.get("relation_posture") or "insufficient_context"),
+                "proposed_posture": proposed_posture,
+                "requires_operator_or_escalation": requires_operator,
+            },
+            **_anti_sovereignty_payload(
+                recommendation_only=True,
+                diagnostic_only=True,
+                does_not_change_admission_or_execution=True,
+                additional_fields={
+                    "gate_only": True,
+                    "packetization_stage_only": True,
+                    "does_not_execute_or_route_work": True,
+                    "non_authoritative": True,
+                },
+            ),
+        }
+    gate_outcome = str(packetization_gate.get("packetization_outcome") or "packetization_hold_insufficient_confidence")
+    if gate_outcome.startswith("packetization_hold_"):
+        status = (
+            "blocked_operator_required"
+            if gate_outcome in {"packetization_hold_operator_review", "packetization_hold_escalation_required"}
+            else "blocked_insufficient_context"
+        )
+        readiness["blocked"] = True
+        readiness["ready_for_internal_trigger"] = False
+        readiness["ready_for_external_trigger"] = False
+        readiness["staged_only"] = False
 
     common_payload = {
         "target_venue": target_venue,
@@ -2601,6 +2826,7 @@ def synthesize_handoff_packet(
         "artifact_references": _handoff_evidence_pointers(delegated_judgment),
         "packet_status": status,
         "readiness": readiness,
+        "packetization_gate": packetization_gate,
         "venue_payload": venue_payload,
         **_anti_sovereignty_payload(
             recommendation_only=True,
