@@ -237,6 +237,28 @@ _OPERATOR_INTERVENTION_CLASSES = {
     "manual_external_trigger_required",
 }
 
+_OPERATOR_RESOLUTION_KINDS = {
+    "approved_continue",
+    "approved_with_constraints",
+    "declined",
+    "deferred",
+    "supplied_missing_context",
+    "redirected_venue",
+    "cancelled",
+}
+
+_OPERATOR_BRIEF_LIFECYCLE_STATES = {
+    "brief_emitted",
+    "operator_resolution_received",
+    "operator_approved_continue",
+    "operator_approved_with_constraints",
+    "operator_declined",
+    "operator_deferred",
+    "operator_redirected",
+    "operator_supplied_missing_context",
+    "fragmented_unlinked_operator_resolution",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -588,6 +610,24 @@ def _fulfillment_receipt_id(
         separators=(",", ":"),
     )
     return f"frc-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _operator_resolution_receipt_id(
+    *,
+    created_at: str,
+    operator_action_brief_id: str,
+    resolution_kind: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "created_at": created_at,
+            "operator_action_brief_id": operator_action_brief_id,
+            "resolution_kind": resolution_kind,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"orr-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _compact_handoff_task_brief(next_move_proposal: Mapping[str, Any], delegated_judgment: Mapping[str, Any]) -> str:
@@ -3052,6 +3092,127 @@ def append_orchestration_fulfillment_receipt_ledger(repo_root: Path, receipt: Ma
     return ledger_path
 
 
+def append_operator_resolution_receipt_ledger(repo_root: Path, receipt: Mapping[str, Any]) -> Path:
+    """Append one bounded operator resolution receipt to the proof-visible receipt ledger."""
+
+    ledger_path = repo_root.resolve() / "glow/orchestration/operator_resolution_receipts.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(receipt), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def ingest_operator_resolution_receipt(
+    repo_root: Path,
+    *,
+    operator_action_brief_id: str,
+    resolution_kind: str,
+    operator_note: str,
+    updated_context_refs: list[str] | None = None,
+    redirected_venue: str | None = None,
+    operator_provenance: str = "human_operator",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """
+    Ingest one bounded operator resolution outcome for a held/escalated operator brief.
+
+    This path is receipt-only and preserves operator intervention as constitutional history.
+    """
+
+    root = repo_root.resolve()
+    if not operator_action_brief_id.strip():
+        raise ValueError("operator_action_brief_id is required")
+
+    if resolution_kind not in _OPERATOR_RESOLUTION_KINDS:
+        raise ValueError(f"unrecognized resolution_kind: {resolution_kind}")
+
+    briefs = _read_jsonl(root / "glow/orchestration/operator_action_briefs.jsonl")
+    matching_briefs = [row for row in briefs if str(row.get("operator_action_brief_id") or "") == operator_action_brief_id]
+    brief = matching_briefs[-1] if matching_briefs else None
+    if not isinstance(brief, Mapping):
+        raise ValueError(f"operator action brief not found: {operator_action_brief_id}")
+
+    source_proposal_ref = brief.get("source_next_move_proposal_ref")
+    source_proposal_ref_map = source_proposal_ref if isinstance(source_proposal_ref, Mapping) else {}
+    source_gate_ref = brief.get("source_packetization_gate_ref")
+    source_gate_ref_map = source_gate_ref if isinstance(source_gate_ref, Mapping) else {}
+
+    source_proposal_id = str(source_proposal_ref_map.get("proposal_id") or "")
+    gate_outcome = str(source_gate_ref_map.get("packetization_outcome") or "")
+    gate_kind = str(source_gate_ref_map.get("gate_kind") or "")
+    if not source_proposal_id:
+        raise ValueError(f"operator action brief malformed (missing source proposal linkage): {operator_action_brief_id}")
+    if not gate_outcome or not gate_kind:
+        raise ValueError(f"operator action brief malformed (missing packetization gate linkage): {operator_action_brief_id}")
+
+    target_venue_or_posture = str(brief.get("target_venue_or_posture") or "")
+    normalized_refs = [
+        ref.strip()
+        for ref in (updated_context_refs or [])
+        if isinstance(ref, str) and ref.strip()
+    ]
+    timestamp = created_at or _iso_utc_now()
+    resolution_state = {
+        "approved_continue": "operator_approved_continue",
+        "approved_with_constraints": "operator_approved_with_constraints",
+        "declined": "operator_declined",
+        "deferred": "operator_deferred",
+        "supplied_missing_context": "operator_supplied_missing_context",
+        "redirected_venue": "operator_redirected",
+        "cancelled": "operator_declined",
+    }[resolution_kind]
+
+    receipt = {
+        "schema_version": "operator_resolution_receipt.v1",
+        "ingested_at": timestamp,
+        "operator_resolution_receipt_id": _operator_resolution_receipt_id(
+            created_at=timestamp,
+            operator_action_brief_id=operator_action_brief_id,
+            resolution_kind=resolution_kind,
+        ),
+        "source_operator_action_brief_ref": {
+            "operator_action_brief_id": operator_action_brief_id,
+            "operator_action_brief_ledger_path": "glow/orchestration/operator_action_briefs.jsonl",
+        },
+        "source_next_move_proposal_ref": {
+            "proposal_id": source_proposal_id,
+            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+            "source_judgment_linkage_id": source_proposal_ref_map.get("source_judgment_linkage_id"),
+        },
+        "source_packetization_gate_ref": {
+            "gate_kind": gate_kind,
+            "packetization_outcome": gate_outcome,
+            "gate_schema_version": source_gate_ref_map.get("gate_schema_version"),
+        },
+        "resolution_kind": resolution_kind,
+        "resolution_lifecycle_state": resolution_state,
+        "operator_note": operator_note.strip() or "operator_resolution_ingested_without_additional_note",
+        "updated_context_refs": normalized_refs,
+        "redirected_venue": redirected_venue.strip() if isinstance(redirected_venue, str) and redirected_venue.strip() else None,
+        "target_venue_or_posture_hint": target_venue_or_posture or None,
+        "trust_confidence_posture": brief.get("trust_confidence_posture"),
+        "operator_provenance": operator_provenance.strip() or "human_operator",
+        "ingested_operator_outcome": True,
+        "explicit_clarity": "ingested operator outcome, not repo execution",
+        **_anti_sovereignty_payload(
+            recommendation_only=False,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "does_not_imply_repo_self-authorization": True,
+                "does_not_imply_repo_self_authorization": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+                "receipt_only": True,
+                "requires_existing_trigger_path_for_any_follow-on_action": True,
+                "requires_existing_trigger_path_for_any_follow_on_action": True,
+            },
+        ),
+    }
+    ledger_path = append_operator_resolution_receipt_ledger(root, receipt)
+    return {**receipt, "ledger_path": str(ledger_path.relative_to(root))}
+
+
 def ingest_external_fulfillment_receipt(
     repo_root: Path,
     *,
@@ -3205,6 +3366,67 @@ def resolve_handoff_packet_fulfillment_lifecycle(
         "decision_power": "none",
         "receipt_only": True,
         "requires_external_actor_or_operator": True,
+    }
+
+
+def resolve_operator_action_brief_lifecycle(
+    repo_root: Path,
+    operator_action_brief: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Resolve bounded lifecycle visibility for one operator action brief."""
+
+    root = repo_root.resolve()
+    brief_map = operator_action_brief if isinstance(operator_action_brief, Mapping) else {}
+    brief_id = str(brief_map.get("operator_action_brief_id") or "")
+    receipts = _read_jsonl(root / "glow/orchestration/operator_resolution_receipts.jsonl")
+    linked = [
+        row
+        for row in receipts
+        if str((row.get("source_operator_action_brief_ref") or {}).get("operator_action_brief_id") or "") == brief_id
+    ]
+    latest = linked[-1] if linked else None
+
+    lifecycle_state = "fragmented_unlinked_operator_resolution"
+    resolution_received = False
+    resolution_kind = None
+    receipt_id = None
+    if brief_id:
+        lifecycle_state = "brief_emitted"
+        if isinstance(latest, Mapping):
+            resolution_kind_value = str(latest.get("resolution_kind") or "")
+            lifecycle_state = {
+                "approved_continue": "operator_approved_continue",
+                "approved_with_constraints": "operator_approved_with_constraints",
+                "declined": "operator_declined",
+                "deferred": "operator_deferred",
+                "supplied_missing_context": "operator_supplied_missing_context",
+                "redirected_venue": "operator_redirected",
+                "cancelled": "operator_declined",
+            }.get(resolution_kind_value, "fragmented_unlinked_operator_resolution")
+            resolution_received = lifecycle_state != "fragmented_unlinked_operator_resolution"
+            resolution_kind = resolution_kind_value or None
+            receipt_id = str(latest.get("operator_resolution_receipt_id") or "") or None
+
+    if lifecycle_state not in _OPERATOR_BRIEF_LIFECYCLE_STATES:
+        lifecycle_state = "fragmented_unlinked_operator_resolution"
+
+    return {
+        "schema_version": "operator_action_brief_lifecycle.v1",
+        "operator_action_brief_id": brief_id or None,
+        "lifecycle_state": lifecycle_state,
+        "operator_resolution_received": resolution_received,
+        "resolution_kind": resolution_kind,
+        "operator_resolution_receipt_id": receipt_id,
+        "receipt_artifact_path": "glow/orchestration/operator_resolution_receipts.jsonl",
+        "ingested_operator_outcome": bool((latest or {}).get("ingested_operator_outcome")) if isinstance(latest, Mapping) else False,
+        "awaiting_operator_input": bool(brief_id) and not resolution_received,
+        "has_operator_guidance": resolution_received,
+        "operator_intervention_human_mediated": True,
+        "does_not_imply_repo_execution": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "receipt_only": True,
+        "requires_existing_trigger_path_for_any_follow-on_action": True,
     }
 
 

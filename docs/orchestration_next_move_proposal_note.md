@@ -80,6 +80,44 @@ The operator action brief explicitly does **not**:
 - execute, route, or invoke external tools directly
 - become a workflow engine or sovereign planner
 
+## Operator-resolution receipt (ingested operator outcome only)
+
+`operator_resolution_receipt.v1` records the operator's response to a held/escalated
+`operator_action_brief.v1` as append-only constitutional history in
+`glow/orchestration/operator_resolution_receipts.jsonl`.
+
+Operator brief vs operator resolution:
+
+- **Operator action brief** = what intervention class is requested by orchestration.
+- **Operator resolution receipt** = what the operator actually decided/returned.
+
+Bounded resolution kinds:
+
+- `approved_continue`
+- `approved_with_constraints`
+- `declined`
+- `deferred`
+- `supplied_missing_context`
+- `redirected_venue`
+- `cancelled`
+
+Bounded lifecycle visibility from brief to receipt:
+
+- `brief_emitted`
+- `operator_resolution_received`
+- `operator_approved_continue`
+- `operator_approved_with_constraints`
+- `operator_declined`
+- `operator_deferred`
+- `operator_redirected`
+- `operator_supplied_missing_context`
+- `fragmented_unlinked_operator_resolution`
+
+Resolution receipt ingestion means **operator guidance was ingested**, not that execution happened.
+It remains receipt-only (`ingested_operator_outcome`, `receipt_only`, `decision_power: none`) and
+does not self-authorize execution or bypass packetization/admission. Any follow-on action still
+requires existing trigger paths and authority surfaces.
+
 ## Next-move proposal review (retrospective only)
 
 `next_move_proposal_review.v1` provides a compact retrospective classifier over recent

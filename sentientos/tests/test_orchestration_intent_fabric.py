@@ -4,8 +4,10 @@ import hashlib
 from importlib import reload
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import control_plane
+import pytest
 import task_admission
 import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
@@ -17,6 +19,7 @@ from sentientos.orchestration_intent_fabric import (
     append_orchestration_intent_ledger,
     build_split_closure_map,
     ingest_external_fulfillment_receipt,
+    ingest_operator_resolution_receipt,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_external_feedback_gap_map,
@@ -33,6 +36,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_unified_orchestration_result,
     resolve_unified_orchestration_result_surface,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
     synthesize_next_move_proposal,
     synthesize_orchestration_intent,
@@ -115,6 +119,37 @@ def _external_handoff_packet(
         created_at="2026-04-12T00:00:00Z",
     )
     return synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+
+
+def _operator_brief_for_receipt_flow() -> dict[str, object]:
+    proposal = {
+        "proposal_id": "proposal-operator-receipt-flow",
+        "relation_posture": "escalating",
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "escalate"},
+        "executability_classification": "stageable_external_work_order",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "inspect_handoff_blocks",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-receipt-flow"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "proposal_escalation_heavy", "records_considered": 5},
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "mixed_stress"}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "mixed_stress"}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+        next_move_proposal_review={"review_classification": "proposal_escalation_heavy"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    assert brief is not None
+    return brief
 
 
 def _mock_unified_surface(
@@ -2181,6 +2216,125 @@ def test_operator_action_brief_artifact_is_append_only_and_proof_visible(tmp_pat
     assert ledger_path == tmp_path / "glow/orchestration/operator_action_briefs.jsonl"
 
 
+def test_operator_resolution_receipt_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    brief = _operator_brief_for_receipt_flow()
+    append_operator_action_brief_ledger(tmp_path, brief)
+    receipt_one = ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="approved_continue",
+        operator_note="approved after review",
+        updated_context_refs=["glow/orchestration/operator_action_briefs.jsonl#1"],
+        created_at="2026-04-12T00:01:00Z",
+    )
+    receipt_two = ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="declined",
+        operator_note="declined in later pass",
+        created_at="2026-04-12T00:02:00Z",
+    )
+
+    ledger_path = tmp_path / "glow/orchestration/operator_resolution_receipts.jsonl"
+    rows = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 2
+    first = json.loads(rows[0])
+    second = json.loads(rows[1])
+    assert first["operator_resolution_receipt_id"] == receipt_one["operator_resolution_receipt_id"]
+    assert first["resolution_kind"] == "approved_continue"
+    assert second["operator_resolution_receipt_id"] == receipt_two["operator_resolution_receipt_id"]
+    assert second["resolution_kind"] == "declined"
+
+
+def test_operator_resolution_ingestion_supports_multiple_resolution_kinds() -> None:
+    with TemporaryDirectory() as tmp_dir:
+        repo_root = Path(tmp_dir)
+        brief = _operator_brief_for_receipt_flow()
+        append_operator_action_brief_ledger(repo_root, brief)
+
+        supplied = ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="supplied_missing_context",
+            operator_note="added missing context",
+            updated_context_refs=["docs/context.md#section"],
+            created_at="2026-04-12T00:01:00Z",
+        )
+        declined = ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="declined",
+            operator_note="not approved",
+            created_at="2026-04-12T00:02:00Z",
+        )
+        redirected = ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="redirected_venue",
+            operator_note="use deep research instead",
+            redirected_venue="deep_research_audit",
+            created_at="2026-04-12T00:03:00Z",
+        )
+
+        assert supplied["resolution_kind"] == "supplied_missing_context"
+        assert supplied["resolution_lifecycle_state"] == "operator_supplied_missing_context"
+        assert supplied["ingested_operator_outcome"] is True
+        assert supplied["does_not_imply_repo_self-authorization"] is True
+        assert supplied["requires_existing_trigger_path_for_any_follow-on_action"] is True
+        assert declined["resolution_lifecycle_state"] == "operator_declined"
+        assert redirected["resolution_lifecycle_state"] == "operator_redirected"
+        assert redirected["redirected_venue"] == "deep_research_audit"
+
+
+def test_operator_resolution_ingestion_fails_closed_when_brief_missing_or_malformed(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="operator action brief not found"):
+        ingest_operator_resolution_receipt(
+            tmp_path,
+            operator_action_brief_id="oab-missing",
+            resolution_kind="approved_continue",
+            operator_note="missing",
+        )
+
+    malformed = {
+        "schema_version": "operator_action_brief.v1",
+        "operator_action_brief_id": "oab-malformed",
+        "source_next_move_proposal_ref": {},
+        "source_packetization_gate_ref": {},
+    }
+    append_operator_action_brief_ledger(tmp_path, malformed)
+    with pytest.raises(ValueError, match="malformed"):
+        ingest_operator_resolution_receipt(
+            tmp_path,
+            operator_action_brief_id="oab-malformed",
+            resolution_kind="approved_continue",
+            operator_note="should fail",
+        )
+
+
+def test_operator_brief_lifecycle_visibility_tracks_received_resolution() -> None:
+    with TemporaryDirectory() as tmp_dir:
+        repo_root = Path(tmp_dir)
+        brief = _operator_brief_for_receipt_flow()
+        append_operator_action_brief_ledger(repo_root, brief)
+        before = resolve_operator_action_brief_lifecycle(repo_root, brief)
+        ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="approved_continue",
+            operator_note="continue",
+            created_at="2026-04-12T00:01:00Z",
+        )
+        after = resolve_operator_action_brief_lifecycle(repo_root, brief)
+
+        assert before["lifecycle_state"] == "brief_emitted"
+        assert before["operator_resolution_received"] is False
+        assert before["awaiting_operator_input"] is True
+        assert after["lifecycle_state"] == "operator_approved_continue"
+        assert after["operator_resolution_received"] is True
+        assert after["has_operator_guidance"] is True
+        assert after["does_not_imply_repo_execution"] is True
+
+
 def test_handoff_packet_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
     delegated = synthesize_delegated_judgment(_base_evidence())
     proposal = {
@@ -2340,8 +2494,12 @@ def test_handoff_packet_flows_to_diagnostic_consumer_and_stays_non_authoritative
     assert packet["requires_operator_or_existing_trigger_path"] is True
     assert "brief_produced" in operator_brief_surface
     assert "loop_held_pending_operator_intervention" in operator_brief_surface
+    assert "lifecycle_visibility" in operator_brief_surface
+    assert "operator_resolution_received" in operator_brief_surface
+    assert operator_brief_surface["resolution_receipt_artifact_linkage"]["ledger_path"] == "glow/orchestration/operator_resolution_receipts.jsonl"
     assert operator_brief_surface["non_sovereign_boundaries"]["does_not_override_packetization_gate"] is True
     assert operator_brief_surface["non_sovereign_boundaries"]["does_not_convert_hold_to_execution"] is True
+    assert operator_brief_surface["non_sovereign_boundaries"]["explicit_clarity"] == "ingested operator outcome, not repo execution"
 
 
 def test_operator_brief_end_to_end_from_hold_to_diagnostic_surface(monkeypatch, tmp_path: Path) -> None:
@@ -2398,6 +2556,74 @@ def test_operator_brief_end_to_end_from_hold_to_diagnostic_surface(monkeypatch, 
     assert brief_surface["brief"]["does_not_override_packetization_gate"] is True
     assert brief_surface["brief"]["does_not_create_execution_path"] is True
     assert brief_surface["brief"]["non_authoritative"] is True
+    assert brief_surface["awaiting_operator_input"] is True
+    assert brief_surface["operator_resolution_received"] is False
+    assert brief_surface["lifecycle_visibility"]["lifecycle_state"] == "brief_emitted"
+
+
+def test_operator_resolution_end_to_end_updates_diagnostic_consumer_without_execution(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(
+            {
+                **_base_evidence(),
+                "governance_ambiguity_signal": True,
+                "admission_denied_ratio": 0.9,
+                "executor_failure_ratio": 0.5,
+            }
+        ),
+    )
+    original_append = append_operator_action_brief_ledger
+
+    def _append_and_ingest(repo_root: Path, brief: dict[str, object]) -> Path:
+        ledger_path = original_append(repo_root, brief)
+        ingest_operator_resolution_receipt(
+            repo_root,
+            operator_action_brief_id=str(brief["operator_action_brief_id"]),
+            resolution_kind="approved_continue",
+            operator_note="operator approved continue",
+            created_at="2026-04-12T00:01:00Z",
+        )
+        return ledger_path
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.append_operator_action_brief_ledger", _append_and_ingest)
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-operator-resolution-e2e",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    gate = diagnostic["orchestration_handoff"]["packetization_gating"]
+    brief_surface = diagnostic["orchestration_handoff"]["operator_action_brief"]
+    handoff = diagnostic["orchestration_handoff"]["handoff_result"]
+
+    assert gate["packetization_held"] is True
+    assert brief_surface["brief_produced"] is True
+    assert brief_surface["operator_resolution_received"] is True
+    assert brief_surface["resolution_kind"] == "approved_continue"
+    assert brief_surface["lifecycle_visibility"]["lifecycle_state"] == "operator_approved_continue"
+    assert brief_surface["has_operator_guidance"] is True
+    assert brief_surface["awaiting_operator_input"] is False
+    assert brief_surface["non_sovereign_boundaries"]["ingested_operator_outcome"] is True
+    assert brief_surface["non_sovereign_boundaries"]["explicit_clarity"] == "ingested operator outcome, not repo execution"
+    assert handoff["handoff_outcome"] in {"blocked_by_operator_requirement", "blocked_by_insufficient_context", "staged_only", "admitted_to_execution_substrate", "blocked_by_admission"}
+    assert brief_surface["non_sovereign_boundaries"]["does_not_convert_hold_to_execution"] is True
 
 
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
@@ -3046,6 +3272,31 @@ def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_p
 
     split_map = build_split_closure_map()
     assert split_map["schema_version"] == "orchestration_split_closure_map.v1"
+
+
+def test_operator_resolution_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+
+    brief = _operator_brief_for_receipt_flow()
+    append_operator_action_brief_ledger(tmp_path, brief)
+    receipt = ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="approved_continue",
+        operator_note="approved bounded continuation",
+        created_at="2026-04-12T00:01:00Z",
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert receipt["ingested_operator_outcome"] is True
+    assert receipt["does_not_change_admission_or_execution"] is True
+    assert receipt["decision_power"] == "none"
+    assert receipt["receipt_only"] is True
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
 
 def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
