@@ -22,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
+    derive_unified_result_quality_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
@@ -110,6 +111,39 @@ def _external_handoff_packet(
         created_at="2026-04-12T00:00:00Z",
     )
     return synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
+
+
+def _mock_unified_surface(
+    monkeypatch,
+    *,
+    counts: dict[str, int],
+    path_counts: dict[str, int] | None = None,
+    records_considered: int | None = None,
+    fragmented_linkage_count: int = 0,
+) -> None:
+    base_counts = {
+        "completed_successfully": 0,
+        "completed_with_issues": 0,
+        "declined_or_abandoned": 0,
+        "failed_after_execution": 0,
+        "blocked_before_execution": 0,
+        "pending_or_unresolved": 0,
+        "fragmented_result_history": 0,
+    }
+    base_counts.update(counts)
+    base_paths = {"internal_execution": 0, "external_fulfillment": 0}
+    if path_counts:
+        base_paths.update(path_counts)
+    total = sum(base_counts.values()) if records_considered is None else records_considered
+    monkeypatch.setattr(
+        "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result_surface",
+        lambda *_args, **_kwargs: {
+            "records_considered": total,
+            "result_classification_counts": base_counts,
+            "resolution_path_counts": base_paths,
+            "fragmented_linkage_count": fragmented_linkage_count,
+        },
+    )
 
 
 def test_deep_research_judgment_translates_to_stageable_external_work_order() -> None:
@@ -2448,6 +2482,90 @@ def test_unified_result_honestly_represents_declined_and_pending_and_fragmented(
     assert fragmented["evidence_presence"]["fragmented_linkage"] is True
 
 
+def test_unified_result_quality_review_classifies_healthy_recent_results(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"completed_successfully": 4, "completed_with_issues": 1},
+        path_counts={"internal_execution": 3, "external_fulfillment": 2},
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "healthy_recent_results"
+    assert review["summary"]["health_vs_stress"] == "healthy"
+
+
+def test_unified_result_quality_review_classifies_issues_heavy(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"completed_with_issues": 2, "failed_after_execution": 2, "completed_successfully": 1},
+        path_counts={"internal_execution": 2, "external_fulfillment": 3},
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "issues_heavy"
+    assert review["condition_flags"]["issues_heavy"] is True
+
+
+def test_unified_result_quality_review_classifies_abandonment_or_decline_heavy(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"declined_or_abandoned": 3, "completed_successfully": 1},
+        path_counts={"internal_execution": 1, "external_fulfillment": 3},
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "abandonment_or_decline_heavy"
+    assert review["condition_flags"]["abandonment_or_decline_heavy"] is True
+
+
+def test_unified_result_quality_review_classifies_fragmentation_heavy(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"pending_or_unresolved": 2, "fragmented_result_history": 1, "completed_successfully": 1},
+        path_counts={"internal_execution": 2, "external_fulfillment": 2},
+        fragmented_linkage_count=2,
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "fragmentation_heavy"
+    assert review["condition_flags"]["fragmentation_heavy"] is True
+
+
+def test_unified_result_quality_review_classifies_mixed_result_stress(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"completed_with_issues": 2, "failed_after_execution": 1, "declined_or_abandoned": 2},
+        path_counts={"internal_execution": 2, "external_fulfillment": 3},
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "mixed_result_stress"
+    assert review["condition_flags"]["multiple_competing_stress_patterns"] is True
+
+
+def test_unified_result_quality_review_classifies_insufficient_history(monkeypatch, tmp_path: Path) -> None:
+    _mock_unified_surface(
+        monkeypatch,
+        counts={"completed_successfully": 1, "completed_with_issues": 1},
+        path_counts={"internal_execution": 1, "external_fulfillment": 1},
+        records_considered=2,
+    )
+    review = derive_unified_result_quality_review(tmp_path)
+    assert review["review_classification"] == "insufficient_history"
+    assert review["summary"]["health_vs_stress"] == "insufficient_evidence"
+
+
+def test_unified_result_quality_review_does_not_change_admission_behavior(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+
+    review = derive_unified_result_quality_review(tmp_path)
+
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert review["non_authoritative"] is True
+    assert review["decision_power"] == "none"
+    assert review["does_not_change_admission_or_execution"] is True
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+
 def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     judgment = synthesize_delegated_judgment(_base_evidence())
     intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
@@ -2655,6 +2773,7 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert codex_diag is not None
     unified = second["orchestration_handoff"]["unified_result"]
     unified_surface = second["orchestration_handoff"]["unified_result_surface"]
+    unified_quality_review = second["orchestration_handoff"]["unified_result_quality_review"]
     outcome_review = second["orchestration_handoff"]["outcome_review"]
     venue_mix_review = second["orchestration_handoff"]["venue_mix_review"]
     next_venue = second["orchestration_handoff"]["next_venue_recommendation"]
@@ -2671,6 +2790,12 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert unified["path_honesty"]["does_not_imply_direct_repo_execution"] is True
     assert unified_surface["records_considered"] >= 1
     assert unified_surface["resolution_path_counts"]["external_fulfillment"] >= 1
+    assert unified_quality_review["review_kind"] == "unified_result_quality_retrospective"
+    assert unified_quality_review["recent_resolution_path_counts"]["external_fulfillment"] >= 1
+    assert unified_quality_review["diagnostic_only"] is True
+    assert unified_quality_review["non_authoritative"] is True
+    assert unified_quality_review["decision_power"] == "none"
+    assert unified_quality_review["summary"]["boundaries"]["preserves_resolution_path_honesty"] is True
     assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
     assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
     assert feedback_visibility["outcome_review"]["external_fulfillment_influencing"] is True

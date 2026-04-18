@@ -22,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_external_feedback_gap_map,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
+    derive_unified_result_quality_review,
     derive_next_move_proposal_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
@@ -187,6 +188,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         handoff_packet=handoff_packet,
     )
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
+    unified_result_quality_review = derive_unified_result_quality_review(root)
     next_move_proposal_review = derive_next_move_proposal_review(root)
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
@@ -235,6 +237,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "execution_result": orchestration_result,
             "unified_result": unified_result,
             "unified_result_surface": unified_result_surface,
+            "unified_result_quality_review": unified_result_quality_review,
             "outcome_review": orchestration_outcome_review,
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,

@@ -212,6 +212,36 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "does not create sovereign decision power",
             ],
         },
+        "unified_result_quality_review": {
+            "meaning": "bounded retrospective quality classification over recent unified orchestration results across internal and external resolution paths.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.derive_unified_result_quality_review",
+            "reads_from_unified_surface_only": [
+                "resolve_unified_orchestration_result_surface.result_classification_counts",
+                "resolve_unified_orchestration_result_surface.resolution_path_counts",
+                "resolve_unified_orchestration_result_surface.fragmented_linkage_count",
+                "unified result anti-sovereignty metadata already present in that surface",
+            ],
+            "classifications": [
+                "healthy_recent_results",
+                "issues_heavy",
+                "abandonment_or_decline_heavy",
+                "fragmentation_heavy",
+                "mixed_result_stress",
+                "insufficient_history",
+            ],
+            "preserves_internal_external_honesty": [
+                "uses one unified classification surface without forcing internal and external paths into fake equivalence",
+                "reports internal_execution vs external_fulfillment path mix directly in the summary basis",
+                "keeps external fulfillment explicitly receipt-based, not direct execution proof",
+            ],
+            "explicitly_not": [
+                "a new truth source",
+                "a new execution venue",
+                "admission or execution authority",
+                "direct external actuation",
+                "a sovereign decision layer",
+            ],
+        },
         "outcome_review": {
             "meaning": "bounded retrospective classification over recent internal orchestration outcomes, now with linked external fulfillment receipt influence for staged external venues.",
             "reads_existing_artifacts_only": [
