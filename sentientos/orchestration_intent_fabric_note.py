@@ -350,6 +350,37 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "a sovereign decision surface",
             ],
         },
+        "orchestration_trust_confidence_posture": {
+            "meaning": "compact diagnostic posture summarizing how trustworthy recent bounded orchestration behavior is for continued delegated bounded use.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.derive_orchestration_trust_confidence_posture",
+            "derived_from_existing_review_signals_only": [
+                "next_move_proposal_review",
+                "orchestration_venue_mix_review",
+                "orchestration_outcome_review",
+                "unified_result_quality_review",
+                "orchestration_operator_attention_recommendation",
+            ],
+            "values": [
+                "trusted_for_bounded_use",
+                "caution_required",
+                "stressed_but_usable",
+                "fragmented_or_unreliable",
+                "insufficient_history",
+            ],
+            "summary_surface": [
+                "contributing review classes",
+                "primary pressure category (proposal/venue/result-quality/escalation/fragmentation)",
+                "compact rationale",
+                "diagnostic_only and non_authoritative boundaries",
+            ],
+            "explicitly_not": [
+                "admission authority",
+                "execution authority",
+                "release-readiness override",
+                "a sovereign planner",
+                "direct external actuation",
+            ],
+        },
         "venues_still_staged_only": [
             "codex_implementation",
             "deep_research_audit",
