@@ -19,6 +19,7 @@ from sentientos.orchestration_intent_fabric import (
     build_split_closure_map,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_packetization_gate,
     derive_external_feedback_gap_map,
     derive_orchestration_trust_confidence_posture,
     derive_next_venue_recommendation,
@@ -181,14 +182,6 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_attention_recommendation,
     )
     next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
-    handoff_packet = synthesize_handoff_packet(next_move_proposal, delegated_judgment)
-    handoff_packet_ledger_path = append_handoff_packet_ledger(root, handoff_packet)
-    unified_result = resolve_unified_orchestration_result(
-        root,
-        handoff=handoff_result,
-        handoff_packet=handoff_packet,
-    )
-    unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
     next_move_proposal_review = derive_next_move_proposal_review(root)
     orchestration_trust_confidence_posture = derive_orchestration_trust_confidence_posture(
@@ -198,6 +191,23 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         unified_result_quality_review,
         orchestration_attention_recommendation,
     )
+    packetization_gate = derive_packetization_gate(
+        next_move_proposal,
+        next_move_proposal_review,
+        orchestration_trust_confidence_posture,
+        orchestration_attention_recommendation,
+    )
+    handoff_packet = synthesize_handoff_packet(
+        next_move_proposal,
+        delegated_judgment,
+        next_move_proposal_review,
+        orchestration_trust_confidence_posture,
+        orchestration_attention_recommendation,
+    )
+    handoff_packet_ledger_path = append_handoff_packet_ledger(root, handoff_packet)
+    unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=handoff_packet)
+    unified_result_surface = resolve_unified_orchestration_result_surface(root)
+    unified_result_quality_review = derive_unified_result_quality_review(root)
     substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
     substitution_readiness["trust_confidence_basis"] = {
         "orchestration_trust_confidence_posture": str(
@@ -275,6 +285,17 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             },
             "next_move_proposal_review": next_move_proposal_review,
             "trust_confidence_posture": orchestration_trust_confidence_posture,
+            "packetization_gating": {
+                **packetization_gate,
+                "packetization_allowed_or_caution": packetization_gate.get("packetization_outcome")
+                in {"packetization_allowed", "packetization_allowed_with_caution"},
+                "packetization_held_or_escalated": bool(packetization_gate.get("packetization_held")),
+                "non_sovereign_boundaries": {
+                    "non_authoritative": True,
+                    "does_not_execute_or_route_work": True,
+                    "does_not_override_kernel_or_governor": True,
+                },
+            },
             "handoff_packet": {
                 **handoff_packet,
                 "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),

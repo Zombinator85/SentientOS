@@ -381,6 +381,40 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "direct external actuation",
             ],
         },
+        "packetization_gating": {
+            "meaning": "bounded constitutional gate deciding whether a next-move proposal can be packetized now, packetized with caution, or held for explicit reasons.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.derive_packetization_gate",
+            "applies_only_to": [
+                "next_move_proposal_to_handoff_packet_preparation",
+                "handoff_packet_ready_vs_hold_marking",
+            ],
+            "derived_from_existing_signals_only": [
+                "orchestration_trust_confidence_posture",
+                "next_move_proposal",
+                "next_move_proposal_review",
+                "orchestration_operator_attention_recommendation",
+                "next_move_proposal.operator_escalation_requirement_state",
+            ],
+            "outcomes": [
+                "packetization_allowed",
+                "packetization_allowed_with_caution",
+                "packetization_hold_operator_review",
+                "packetization_hold_insufficient_confidence",
+                "packetization_hold_fragmentation",
+                "packetization_hold_escalation_required",
+            ],
+            "how_it_differs": {
+                "from_delegated_judgment": "delegated judgment recommends venue/posture; packetization gate only constrains packet staging readiness",
+                "from_next_move_proposal": "proposal describes suggested next action; packetization gate decides if packaging that suggestion is presently permitted",
+                "from_handoff_packet": "handoff packet carries staged payload; packetization gate is the bounded readiness/hold discipline embedded into that packet",
+            },
+            "explicitly_not": [
+                "direct execution authority",
+                "admission override",
+                "venue recommendation override",
+                "a sovereign planner",
+            ],
+        },
         "venues_still_staged_only": [
             "codex_implementation",
             "deep_research_audit",
