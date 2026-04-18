@@ -22,6 +22,10 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_attention_recommendation,
     derive_packetization_gate,
     derive_external_feedback_gap_map,
+    derive_operator_resolution_feedback_gap_map,
+    derive_operator_resolution_influence,
+    derive_operator_adjusted_next_move_proposal_visibility,
+    derive_operator_adjusted_next_venue_recommendation,
     derive_orchestration_trust_confidence_posture,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
@@ -32,6 +36,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_codex_staged_work_order_lifecycle,
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_handoff_packet_fulfillment_lifecycle,
+    resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
     resolve_orchestration_result,
     resolve_unified_orchestration_result,
@@ -219,6 +224,26 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         append_operator_action_brief_ledger(root, operator_action_brief) if operator_action_brief else None
     )
     operator_brief_lifecycle = resolve_operator_action_brief_lifecycle(root, operator_action_brief)
+    linked_operator_receipt = resolve_latest_operator_resolution_for_proposal(
+        root, str(next_move_proposal.get("proposal_id") or "")
+    )
+    operator_influence = derive_operator_resolution_influence(linked_operator_receipt)
+    adjusted_next_venue = derive_operator_adjusted_next_venue_recommendation(next_venue_recommendation, operator_influence)
+    adjusted_next_move_proposal = derive_operator_adjusted_next_move_proposal_visibility(next_move_proposal, operator_influence)
+    packetization_gate = derive_packetization_gate(
+        adjusted_next_move_proposal,
+        next_move_proposal_review,
+        orchestration_trust_confidence_posture,
+        orchestration_attention_recommendation,
+        operator_influence,
+    )
+    operator_feedback_gap_map = derive_operator_resolution_feedback_gap_map(
+        adjusted_next_move_proposal,
+        packetization_gate,
+        adjusted_next_venue,
+        operator_brief_lifecycle,
+        operator_influence,
+    )
     unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=handoff_packet)
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
@@ -285,16 +310,17 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "outcome_review": orchestration_outcome_review,
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,
-            "next_venue_recommendation": next_venue_recommendation,
+            "next_venue_recommendation": adjusted_next_venue,
             "external_fulfillment_feedback_visibility": external_feedback_gap_map,
+            "operator_resolution_feedback_gap_map": operator_feedback_gap_map,
             "next_move_proposal": {
-                **next_move_proposal,
+                **adjusted_next_move_proposal,
                 "ledger_path": str(next_move_proposal_ledger_path.relative_to(root)),
                 "current_delegated_judgment_venue": delegated_judgment.get("recommended_venue"),
-                "ready_for_internal_executable_handoff": next_move_proposal.get("executability_classification")
+                "ready_for_internal_executable_handoff": adjusted_next_move_proposal.get("executability_classification")
                 == "executable_now",
-                "staged_only": next_move_proposal.get("executability_classification") == "stageable_external_work_order",
-                "blocked_or_hold": next_move_proposal.get("executability_classification")
+                "staged_only": adjusted_next_move_proposal.get("executability_classification") == "stageable_external_work_order",
+                "blocked_or_hold": adjusted_next_move_proposal.get("executability_classification")
                 in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
             },
             "next_move_proposal_review": next_move_proposal_review,
@@ -308,6 +334,10 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "non_authoritative": True,
                     "does_not_execute_or_route_work": True,
                     "does_not_override_kernel_or_governor": True,
+                    "does_not_imply_execution": True,
+                    "does_not_override_admission": True,
+                    "requires_existing_trigger_path_for_follow_on_action": True,
+                    "historical_operator_resolution_preserved": True,
                 },
             },
             "operator_action_brief": {
@@ -346,6 +376,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "does_not_execute_or_route_work": True,
                 },
             },
+            "operator_influence": operator_influence,
             "handoff_packet": {
                 **handoff_packet,
                 "ledger_path": str(handoff_packet_ledger_path.relative_to(root)),
