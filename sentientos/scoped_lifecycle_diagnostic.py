@@ -15,6 +15,7 @@ from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
+    append_operator_action_brief_ledger,
     append_orchestration_intent_ledger,
     build_split_closure_map,
     build_handoff_execution_gap_map,
@@ -37,6 +38,7 @@ from sentientos.orchestration_intent_fabric import (
     synthesize_next_move_proposal,
     synthesize_handoff_packet,
     synthesize_orchestration_intent,
+    synthesize_operator_action_brief,
 )
 
 
@@ -205,6 +207,16 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_attention_recommendation,
     )
     handoff_packet_ledger_path = append_handoff_packet_ledger(root, handoff_packet)
+    operator_action_brief = synthesize_operator_action_brief(
+        next_move_proposal,
+        packetization_gate,
+        orchestration_trust_confidence_posture,
+        orchestration_attention_recommendation,
+        next_move_proposal_review=next_move_proposal_review,
+    )
+    operator_action_brief_ledger_path = (
+        append_operator_action_brief_ledger(root, operator_action_brief) if operator_action_brief else None
+    )
     unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=handoff_packet)
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
     unified_result_quality_review = derive_unified_result_quality_review(root)
@@ -294,6 +306,30 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "non_authoritative": True,
                     "does_not_execute_or_route_work": True,
                     "does_not_override_kernel_or_governor": True,
+                },
+            },
+            "operator_action_brief": {
+                "brief_produced": operator_action_brief is not None,
+                "loop_held_pending_operator_intervention": bool(packetization_gate.get("packetization_held")),
+                "intervention_class": None if operator_action_brief is None else operator_action_brief.get("intervention_class"),
+                "target_venue_or_posture": None
+                if operator_action_brief is None
+                else operator_action_brief.get("target_venue_or_posture"),
+                "brief_artifact_linkage": None
+                if operator_action_brief_ledger_path is None
+                else {
+                    "ledger_path": str(operator_action_brief_ledger_path.relative_to(root)),
+                    "operator_action_brief_id": operator_action_brief.get("operator_action_brief_id")
+                    if operator_action_brief
+                    else None,
+                },
+                "brief": operator_action_brief,
+                "non_sovereign_boundaries": {
+                    "non_authoritative": True,
+                    "operator_guidance_only": True,
+                    "does_not_override_packetization_gate": True,
+                    "does_not_convert_hold_to_execution": True,
+                    "does_not_execute_or_route_work": True,
                 },
             },
             "handoff_packet": {
