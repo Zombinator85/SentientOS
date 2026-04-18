@@ -13,6 +13,7 @@ from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
+    append_operator_action_brief_ledger,
     append_orchestration_intent_ledger,
     build_split_closure_map,
     ingest_external_fulfillment_receipt,
@@ -27,6 +28,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_unified_result_quality_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
+    synthesize_operator_action_brief,
     resolve_orchestration_result,
     resolve_unified_orchestration_result,
     resolve_unified_orchestration_result_surface,
@@ -1939,9 +1941,9 @@ def test_operator_required_and_insufficient_context_packets_remain_honestly_bloc
         "proposed_next_action": {"proposed_venue": "insufficient_context", "proposed_posture": "hold"},
         "executability_classification": "blocked_insufficient_context",
         "operator_escalation_requirement_state": {
-            "requires_operator_or_escalation": True,
+            "requires_operator_or_escalation": False,
             "attention_signal": "insufficient_context",
-            "escalation_classification": "escalate_for_missing_context",
+            "escalation_classification": "no_escalation_needed",
         },
         "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-2"},
     }
@@ -1981,6 +1983,202 @@ def test_packetization_gate_can_hold_otherwise_stageable_packet_without_new_auth
     assert packet["readiness"]["blocked"] is True
     assert packet["does_not_change_admission_or_execution"] is True
     assert packet["decision_power"] == "none"
+
+
+def test_operator_review_hold_produces_operator_action_brief_with_approve_class() -> None:
+    proposal = {
+        "proposal_id": "proposal-hold-operator-review",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_venue": "internal_direct_execution", "proposed_posture": "expand"},
+        "executability_classification": "executable_now",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "observe",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-operator-brief"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "coherent_recent_proposals", "records_considered": 5},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "observe"},
+        next_move_proposal_review={"review_classification": "coherent_recent_proposals"},
+        created_at="2026-04-12T00:00:00Z",
+    )
+
+    assert gate["packetization_outcome"] == "packetization_hold_operator_review"
+    assert brief is not None
+    assert brief["intervention_class"] == "approve_and_continue"
+    assert brief["source_packetization_gate_ref"]["packetization_outcome"] == "packetization_hold_operator_review"
+    assert brief["operator_guidance_only"] is True
+    assert brief["does_not_override_packetization_gate"] is True
+    assert brief["does_not_create_execution_path"] is True
+
+
+def test_insufficient_confidence_hold_produces_resolve_context_operator_brief() -> None:
+    proposal = {
+        "proposal_id": "proposal-hold-insufficient",
+        "relation_posture": "insufficient_context",
+        "proposed_next_action": {"proposed_venue": "insufficient_context", "proposed_posture": "hold"},
+        "executability_classification": "blocked_insufficient_context",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "insufficient_context",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-insufficient-brief"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "proposal_insufficient_context_heavy", "records_considered": 3},
+        {"trust_confidence_posture": "insufficient_history", "pressure_summary": {"primary_pressure": "insufficient_history"}},
+        {"operator_attention_recommendation": "insufficient_context"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "insufficient_history", "pressure_summary": {"primary_pressure": "insufficient_history"}},
+        {"operator_attention_recommendation": "insufficient_context"},
+        next_move_proposal_review={"review_classification": "proposal_insufficient_context_heavy"},
+    )
+
+    assert gate["packetization_outcome"] == "packetization_hold_insufficient_confidence"
+    assert brief is not None
+    assert brief["intervention_class"] == "resolve_insufficient_context"
+    assert brief["target_venue_or_posture"] == "insufficient_history"
+
+
+def test_fragmentation_hold_produces_review_fragmentation_operator_brief() -> None:
+    proposal = {
+        "proposal_id": "proposal-hold-fragmentation",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_venue": "internal_direct_execution", "proposed_posture": "expand"},
+        "executability_classification": "executable_now",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "observe",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-fragmentation-brief"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "coherent_recent_proposals", "records_considered": 6},
+        {"trust_confidence_posture": "fragmented_or_unreliable", "pressure_summary": {"primary_pressure": "fragmentation"}},
+        {"operator_attention_recommendation": "observe"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "fragmented_or_unreliable", "pressure_summary": {"primary_pressure": "fragmentation"}},
+        {"operator_attention_recommendation": "observe"},
+        next_move_proposal_review={"review_classification": "coherent_recent_proposals"},
+    )
+
+    assert gate["packetization_outcome"] == "packetization_hold_fragmentation"
+    assert brief is not None
+    assert brief["intervention_class"] == "review_fragmentation"
+    assert brief["target_venue_or_posture"] == "fragmented_or_unreliable"
+
+
+def test_stageable_external_hold_can_produce_manual_external_trigger_operator_brief() -> None:
+    proposal = {
+        "proposal_id": "proposal-hold-manual-external-trigger",
+        "relation_posture": "escalating",
+        "proposed_next_action": {"proposed_venue": "codex_implementation", "proposed_posture": "escalate"},
+        "executability_classification": "stageable_external_work_order",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": True,
+            "attention_signal": "inspect_handoff_blocks",
+            "escalation_classification": "escalate_for_operator_priority",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-manual-trigger"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "proposal_escalation_heavy", "records_considered": 7},
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "escalation_operator_dependence"}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "stressed_but_usable", "pressure_summary": {"primary_pressure": "escalation_operator_dependence"}},
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+        next_move_proposal_review={"review_classification": "proposal_escalation_heavy"},
+    )
+
+    assert gate["packetization_outcome"] == "packetization_hold_operator_review"
+    assert brief is not None
+    assert brief["intervention_class"] == "manual_external_trigger_required"
+    assert brief["target_venue_or_posture"] == "codex_implementation"
+    assert "manually_trigger_staged_external_venue" in brief["requested_operator_action"]
+
+
+def test_packetization_allowed_does_not_fabricate_operator_action_brief() -> None:
+    proposal = {
+        "proposal_id": "proposal-allowed-no-brief",
+        "relation_posture": "affirming",
+        "proposed_next_action": {"proposed_venue": "internal_direct_execution", "proposed_posture": "expand"},
+        "executability_classification": "executable_now",
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": False,
+            "attention_signal": "none",
+            "escalation_classification": "no_escalation_needed",
+        },
+        "source_delegated_judgment": {"source_judgment_linkage_id": "jdg-link-no-brief"},
+    }
+    gate = derive_packetization_gate(
+        proposal,
+        {"review_classification": "coherent_recent_proposals", "records_considered": 8},
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "none"},
+    )
+    brief = synthesize_operator_action_brief(
+        proposal,
+        gate,
+        {"trust_confidence_posture": "trusted_for_bounded_use", "pressure_summary": {"primary_pressure": "none"}},
+        {"operator_attention_recommendation": "none"},
+        next_move_proposal_review={"review_classification": "coherent_recent_proposals"},
+    )
+    assert gate["packetization_outcome"] == "packetization_allowed"
+    assert brief is None
+
+
+def test_operator_action_brief_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    brief_one = {
+        "schema_version": "operator_action_brief.v1",
+        "operator_action_brief_id": "oab-first",
+        "intervention_class": "resolve_insufficient_context",
+        "source_next_move_proposal_ref": {"proposal_id": "proposal-a"},
+        "source_packetization_gate_ref": {"packetization_outcome": "packetization_hold_insufficient_confidence"},
+        "operator_guidance_only": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+    }
+    brief_two = {
+        **brief_one,
+        "operator_action_brief_id": "oab-second",
+        "intervention_class": "review_fragmentation",
+        "source_next_move_proposal_ref": {"proposal_id": "proposal-b"},
+    }
+    ledger_path = append_operator_action_brief_ledger(tmp_path, brief_one)
+    append_operator_action_brief_ledger(tmp_path, brief_two)
+
+    rows = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 2
+    first = json.loads(rows[0])
+    second = json.loads(rows[1])
+    assert first["operator_action_brief_id"] == "oab-first"
+    assert second["operator_action_brief_id"] == "oab-second"
+    assert ledger_path == tmp_path / "glow/orchestration/operator_action_briefs.jsonl"
 
 
 def test_handoff_packet_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
@@ -2123,6 +2321,7 @@ def test_handoff_packet_flows_to_diagnostic_consumer_and_stays_non_authoritative
 
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     packet = diagnostic["orchestration_handoff"]["handoff_packet"]
+    operator_brief_surface = diagnostic["orchestration_handoff"]["operator_action_brief"]
 
     assert packet["target_venue"] in {"internal_direct_execution", "codex_implementation", "deep_research_audit", "operator_decision_required", "insufficient_context"}
     assert packet["packet_status"] in {
@@ -2139,6 +2338,66 @@ def test_handoff_packet_flows_to_diagnostic_consumer_and_stays_non_authoritative
     assert packet["decision_power"] == "none"
     assert packet["does_not_execute_or_route_work"] is True
     assert packet["requires_operator_or_existing_trigger_path"] is True
+    assert "brief_produced" in operator_brief_surface
+    assert "loop_held_pending_operator_intervention" in operator_brief_surface
+    assert operator_brief_surface["non_sovereign_boundaries"]["does_not_override_packetization_gate"] is True
+    assert operator_brief_surface["non_sovereign_boundaries"]["does_not_convert_hold_to_execution"] is True
+
+
+def test_operator_brief_end_to_end_from_hold_to_diagnostic_surface(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(
+            {
+                **_base_evidence(),
+                "governance_ambiguity_signal": True,
+                "admission_denied_ratio": 0.9,
+                "executor_failure_ratio": 0.5,
+            }
+        ),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-operator-brief-e2e",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    orchestration = diagnostic["orchestration_handoff"]
+    gate = orchestration["packetization_gating"]
+    brief_surface = orchestration["operator_action_brief"]
+
+    assert gate["packetization_held"] is True
+    assert brief_surface["brief_produced"] is True
+    assert brief_surface["loop_held_pending_operator_intervention"] is True
+    assert brief_surface["intervention_class"] in {
+        "approve_and_continue",
+        "review_fragmentation",
+        "resolve_insufficient_context",
+        "resolve_escalation_priority",
+        "inspect_recent_orchestration_stress",
+        "manual_external_trigger_required",
+    }
+    assert brief_surface["brief_artifact_linkage"]["ledger_path"] == "glow/orchestration/operator_action_briefs.jsonl"
+    assert brief_surface["brief"]["operator_guidance_only"] is True
+    assert brief_surface["brief"]["does_not_override_packetization_gate"] is True
+    assert brief_surface["brief"]["does_not_create_execution_path"] is True
+    assert brief_surface["brief"]["non_authoritative"] is True
 
 
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:

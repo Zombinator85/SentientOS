@@ -35,6 +35,51 @@ The proposal is explicitly non-sovereign and non-authoritative:
 
 It does not execute, route, or admit work by itself.
 
+## Packetization gate and operator action brief (held/escalated handoff preparation)
+
+`orchestration_packetization_gate.v1` remains the bounded gate for whether next-move packetization is:
+
+- `packetization_allowed`
+- `packetization_allowed_with_caution`
+- `packetization_hold_operator_review`
+- `packetization_hold_insufficient_confidence`
+- `packetization_hold_fragmentation`
+- `packetization_hold_escalation_required`
+
+When gate outcome is held/escalated, `operator_action_brief.v1` may be emitted as a compact
+operator guidance artifact (`glow/orchestration/operator_action_briefs.jsonl`) derived only from existing
+signals already present in orchestration state:
+
+- packetization gate outcome
+- trust/confidence posture
+- next-move proposal
+- operator-attention recommendation
+- next-move proposal review classification (where already derived)
+- existing operator/escalation requirement state
+
+Bounded intervention classes:
+
+- `approve_and_continue`
+- `review_fragmentation`
+- `resolve_insufficient_context`
+- `resolve_escalation_priority`
+- `inspect_recent_orchestration_stress`
+- `manual_external_trigger_required`
+
+The operator action brief is distinct from packetization and handoff packet artifacts:
+
+- packetization gate decides **allow/caution/hold** only
+- handoff packet carries venue/task payload only
+- operator action brief states **what human intervention type is needed next** when held
+
+The operator action brief explicitly does **not**:
+
+- override packetization outcomes
+- convert held packets into executable packets
+- add new venues, execution paths, or authority surfaces
+- execute, route, or invoke external tools directly
+- become a workflow engine or sovereign planner
+
 ## Next-move proposal review (retrospective only)
 
 `next_move_proposal_review.v1` provides a compact retrospective classifier over recent

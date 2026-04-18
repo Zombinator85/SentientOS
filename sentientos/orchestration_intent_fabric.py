@@ -228,6 +228,15 @@ _HANDOFF_PACKET_STATUSES = {
     "ready_for_internal_trigger",
 }
 
+_OPERATOR_INTERVENTION_CLASSES = {
+    "approve_and_continue",
+    "review_fragmentation",
+    "resolve_insufficient_context",
+    "resolve_escalation_priority",
+    "inspect_recent_orchestration_stress",
+    "manual_external_trigger_required",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -539,6 +548,26 @@ def _handoff_packet_id(
         separators=(",", ":"),
     )
     return f"hpk-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _operator_action_brief_id(
+    *,
+    source_proposal_id: str,
+    gate_outcome: str,
+    intervention_class: str,
+    target_hint: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "gate_outcome": gate_outcome,
+            "intervention_class": intervention_class,
+            "source_proposal_id": source_proposal_id,
+            "target_hint": target_hint,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"oab-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _fulfillment_receipt_id(
@@ -2624,6 +2653,166 @@ def derive_packetization_gate(
             },
         ),
     }
+
+
+def synthesize_operator_action_brief(
+    next_move_proposal: Mapping[str, Any],
+    packetization_gate: Mapping[str, Any],
+    trust_confidence_posture: Mapping[str, Any],
+    operator_attention_recommendation: Mapping[str, Any],
+    *,
+    next_move_proposal_review: Mapping[str, Any] | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any] | None:
+    """
+    Synthesize a compact operator action brief when packetization is held/escalated.
+
+    This is guidance-only, derived from existing orchestration signals, and never
+    grants authority or execution power.
+    """
+
+    gate_outcome = str(packetization_gate.get("packetization_outcome") or "packetization_hold_insufficient_confidence")
+    if gate_outcome not in {
+        "packetization_hold_operator_review",
+        "packetization_hold_insufficient_confidence",
+        "packetization_hold_fragmentation",
+        "packetization_hold_escalation_required",
+    }:
+        return None
+
+    proposal_id = str(next_move_proposal.get("proposal_id") or "")
+    proposed_action = next_move_proposal.get("proposed_next_action")
+    proposed_action_map = proposed_action if isinstance(proposed_action, Mapping) else {}
+    operator_state_raw = next_move_proposal.get("operator_escalation_requirement_state")
+    operator_state = operator_state_raw if isinstance(operator_state_raw, Mapping) else {}
+    source_proposal_ref = next_move_proposal.get("source_delegated_judgment")
+    source_proposal_ref_map = source_proposal_ref if isinstance(source_proposal_ref, Mapping) else {}
+    pressure_summary_raw = trust_confidence_posture.get("pressure_summary")
+    pressure_summary = pressure_summary_raw if isinstance(pressure_summary_raw, Mapping) else {}
+    review_map = next_move_proposal_review if isinstance(next_move_proposal_review, Mapping) else {}
+
+    executability = str(next_move_proposal.get("executability_classification") or "blocked_insufficient_context")
+    target_venue = str(proposed_action_map.get("proposed_venue") or "insufficient_context")
+    posture = str(trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history")
+    attention_signal = str(
+        operator_attention_recommendation.get("operator_attention_recommendation")
+        or operator_state.get("attention_signal")
+        or "insufficient_context"
+    )
+    escalation_classification = str(operator_state.get("escalation_classification") or "")
+    review_classification = str(review_map.get("review_classification") or "insufficient_history")
+    trust_pressure = str(pressure_summary.get("primary_pressure") or "insufficient_history")
+    requires_operator = bool(operator_state.get("requires_operator_or_escalation"))
+    relation_posture = str(next_move_proposal.get("relation_posture") or "insufficient_context")
+
+    intervention_class = "resolve_insufficient_context"
+    if gate_outcome == "packetization_hold_fragmentation":
+        intervention_class = "review_fragmentation"
+    elif gate_outcome == "packetization_hold_insufficient_confidence":
+        intervention_class = "resolve_insufficient_context"
+    elif gate_outcome == "packetization_hold_escalation_required":
+        intervention_class = (
+            "manual_external_trigger_required"
+            if executability == "stageable_external_work_order" and target_venue in {"codex_implementation", "deep_research_audit"}
+            else "resolve_escalation_priority"
+        )
+    elif gate_outcome == "packetization_hold_operator_review":
+        if executability == "stageable_external_work_order" and target_venue in {"codex_implementation", "deep_research_audit"}:
+            intervention_class = "manual_external_trigger_required"
+        elif escalation_classification == "escalate_for_operator_priority":
+            intervention_class = "resolve_escalation_priority"
+        elif attention_signal == "review_mixed_orchestration_stress":
+            intervention_class = "inspect_recent_orchestration_stress"
+        else:
+            intervention_class = "approve_and_continue"
+
+    if intervention_class not in _OPERATOR_INTERVENTION_CLASSES:
+        intervention_class = "resolve_insufficient_context"
+
+    target_posture: str | None = None
+    if intervention_class == "manual_external_trigger_required":
+        target_posture = target_venue if target_venue in {"codex_implementation", "deep_research_audit"} else None
+    elif intervention_class == "review_fragmentation":
+        target_posture = "fragmented_or_unreliable"
+    elif intervention_class == "resolve_insufficient_context":
+        target_posture = "insufficient_history"
+    elif intervention_class == "inspect_recent_orchestration_stress":
+        target_posture = "stressed_but_usable"
+
+    requested_action = {
+        "approve_and_continue": "confirm_operator_approval_for_existing_bounded_next_move_proposal",
+        "review_fragmentation": "review_fragmentation_and_relink_or_restate_missing_orchestration_artifacts",
+        "resolve_insufficient_context": "provide_missing_context_or_explicitly_hold_until_context_is_available",
+        "resolve_escalation_priority": "resolve_operator_priority_between_competing_escalation_or_hold_signals",
+        "inspect_recent_orchestration_stress": "inspect_recent_orchestration_stress_before_reattempting_packetization",
+        "manual_external_trigger_required": "manually_trigger_staged_external_venue_or_explicitly_decline",
+    }[intervention_class]
+    rationale_tokens = [
+        f"gate_outcome={gate_outcome}",
+        f"posture={posture}",
+        f"pressure={trust_pressure}",
+        f"executability={executability}",
+        f"relation_posture={relation_posture}",
+        f"attention={attention_signal}",
+        f"proposal_review={review_classification}",
+        f"requires_operator={str(requires_operator).lower()}",
+        f"escalation={escalation_classification or 'none'}",
+        f"target_venue={target_venue}",
+    ]
+    rationale = "; ".join(rationale_tokens)
+    recorded_at = created_at or _iso_utc_now()
+    target_hint = target_posture or target_venue or "none"
+
+    brief: dict[str, Any] = {
+        "schema_version": "operator_action_brief.v1",
+        "recorded_at": recorded_at,
+        "operator_action_brief_id": _operator_action_brief_id(
+            source_proposal_id=proposal_id,
+            gate_outcome=gate_outcome,
+            intervention_class=intervention_class,
+            target_hint=target_hint,
+        ),
+        "source_next_move_proposal_ref": {
+            "proposal_id": proposal_id or None,
+            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+            "source_judgment_linkage_id": str(source_proposal_ref_map.get("source_judgment_linkage_id") or "") or None,
+        },
+        "source_packetization_gate_ref": {
+            "gate_kind": str(packetization_gate.get("gate_kind") or "next_move_packetization_gate"),
+            "packetization_outcome": gate_outcome,
+            "gate_schema_version": str(packetization_gate.get("schema_version") or "orchestration_packetization_gate.v1"),
+        },
+        "trust_confidence_posture": posture,
+        "intervention_class": intervention_class,
+        "target_venue_or_posture": target_posture,
+        "evidence_summary": rationale,
+        "requested_operator_action": requested_action,
+        "loop_state": "held_pending_operator_intervention",
+        "operator_guidance_only": True,
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_invoke_external_tools=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "explicitly_not_a_workflow_engine": True,
+                "does_not_override_packetization_gate": True,
+                "does_not_create_execution_path": True,
+                "requires_existing_operator_authority_surface": True,
+            },
+        ),
+    }
+    return brief
+
+
+def append_operator_action_brief_ledger(repo_root: Path, brief: Mapping[str, Any]) -> Path:
+    """Append one bounded operator action brief to the proof-visible operator brief ledger."""
+
+    ledger_path = repo_root.resolve() / "glow/orchestration/operator_action_briefs.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(brief), sort_keys=True) + "\n")
+    return ledger_path
 
 
 def synthesize_handoff_packet(
