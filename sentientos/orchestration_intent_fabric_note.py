@@ -74,6 +74,34 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "automatic routing/execution without existing admission and operator pathways",
             ],
         },
+        "operator_feedback_repacketization": {
+            "what_it_is": "bounded refresh synthesis that emits a new current handoff packet when valid operator resolution changes packetization-relevant state.",
+            "eligible_resolution_kinds": [
+                "approved_continue",
+                "approved_with_constraints",
+                "supplied_missing_context",
+                "redirected_venue",
+            ],
+            "non_refresh_resolution_kinds": [
+                "declined",
+                "cancelled",
+                "deferred",
+            ],
+            "lineage_shape": [
+                "packet_lineage.supersedes_handoff_packet_id",
+                "packet_lineage.superseded_by_handoff_packet_id (resolved from append-only history)",
+                "packet_lineage.refresh_reason",
+                "packet_lineage.source_operator_resolution_receipt_id",
+                "packet_lineage.current_packet_candidate",
+            ],
+            "active_packet_surface": "sentientos.orchestration_intent_fabric.resolve_active_handoff_packet_candidate",
+            "what_it_does_not_do": [
+                "does not directly execute internal or external work",
+                "does not bypass packetization gate",
+                "does not override admission or operator authority boundaries",
+                "does not erase held history; original packet remains inspectable",
+            ],
+        },
         "fulfillment_receipt_substrate": {
             "what_it_is": "a compact typed ingestion record for externally reported outcomes of staged handoff packets",
             "how_it_differs_from_handoff_packet": "handoff packet stages work intent; fulfillment receipt records externally supplied outcome evidence after staging",
