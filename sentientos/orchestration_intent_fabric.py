@@ -229,6 +229,25 @@ _ORCHESTRATION_TRUST_PRESSURE_KINDS = {
     "insufficient_history",
 }
 
+_DELEGATED_OPERATION_READINESS_VERDICTS = {
+    "ready_for_bounded_supervised_operation",
+    "ready_with_caution",
+    "operator_review_required",
+    "temporarily_unfit_due_to_fragmentation",
+    "insufficient_history",
+}
+
+_DELEGATED_OPERATION_PRESSURE_SOURCES = {
+    "none",
+    "proposal_stress",
+    "packet_churn",
+    "venue_stress",
+    "result_quality_stress",
+    "fragmentation",
+    "operator_dependence",
+    "insufficient_history",
+}
+
 _HANDOFF_PACKET_STATUSES = {
     "prepared",
     "blocked_operator_required",
@@ -4500,6 +4519,185 @@ def derive_orchestration_trust_confidence_posture(
                 "review_only": True,
                 "decision_power": "none",
                 "non_authoritative": True,
+            },
+        ),
+    }
+
+
+def derive_delegated_operation_readiness_verdict(
+    trust_confidence_posture: Mapping[str, Any],
+    proposal_packet_continuity_review: Mapping[str, Any],
+    unified_result_quality_review: Mapping[str, Any],
+    packetization_gate: Mapping[str, Any],
+    operator_attention_recommendation: Mapping[str, Any],
+    *,
+    outcome_review: Mapping[str, Any] | None = None,
+    venue_mix_review: Mapping[str, Any] | None = None,
+    next_move_proposal_review: Mapping[str, Any] | None = None,
+    active_packet_visibility: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Derive a compact bounded readiness verdict for supervised delegated operation.
+
+    The verdict is diagnostic-only and derived from existing orchestration review
+    surfaces; it grants no authority and does not execute anything.
+    """
+
+    trust_posture = str(trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history")
+    trust_pressure = str((trust_confidence_posture.get("pressure_summary") or {}).get("primary_pressure") or "insufficient_history")
+    continuity_classification = str(
+        proposal_packet_continuity_review.get("review_classification") or "insufficient_history"
+    )
+    result_quality_classification = str(unified_result_quality_review.get("review_classification") or "insufficient_history")
+    packetization_outcome = str(packetization_gate.get("packetization_outcome") or "packetization_hold_insufficient_confidence")
+    packetization_allowed = bool(packetization_gate.get("packetization_allowed"))
+    attention = str(operator_attention_recommendation.get("operator_attention_recommendation") or "insufficient_context")
+    outcome_classification = str((outcome_review or {}).get("review_classification") or "insufficient_history")
+    venue_classification = str((venue_mix_review or {}).get("review_classification") or "insufficient_history")
+    proposal_classification = str((next_move_proposal_review or {}).get("review_classification") or "insufficient_history")
+
+    records_minimum = min(
+        int((trust_confidence_posture.get("window_considered") or {}).get("minimum_records_considered") or 0),
+        int(proposal_packet_continuity_review.get("records_considered") or 0),
+        int(unified_result_quality_review.get("records_considered") or 0),
+    )
+    insufficient_history = records_minimum < 3
+
+    fragmentation = (
+        trust_posture == "fragmented_or_unreliable"
+        or trust_pressure == "fragmentation"
+        or continuity_classification == "fragmented_continuity"
+        or result_quality_classification == "fragmentation_heavy"
+        or packetization_outcome == "packetization_hold_fragmentation"
+    )
+    operator_dependence = (
+        attention in {"inspect_handoff_blocks", "inspect_execution_failures", "inspect_pending_stall", "insufficient_context"}
+        or packetization_outcome in {"packetization_hold_operator_review", "packetization_hold_escalation_required"}
+        or proposal_classification == "proposal_escalation_heavy"
+        or venue_classification == "operator_escalation_heavy"
+    )
+    packet_churn = continuity_classification in {
+        "repacketization_churn",
+        "hold_heavy_continuity",
+        "redirect_heavy_continuity",
+    }
+    proposal_stress = proposal_classification in {
+        "proposal_hold_heavy",
+        "proposal_insufficient_context_heavy",
+        "proposal_venue_thrash",
+        "mixed_proposal_stress",
+    }
+    venue_stress = venue_classification == "mixed_venue_stress"
+    result_quality_stress = result_quality_classification in {
+        "issues_heavy",
+        "abandonment_or_decline_heavy",
+        "mixed_result_stress",
+    } or outcome_classification in {
+        "execution_failure_heavy",
+        "pending_stall_pattern",
+        "mixed_orchestration_stress",
+    }
+
+    if insufficient_history:
+        verdict = "insufficient_history"
+        rationale = "insufficient_recent_cross-review_evidence_for_bounded_readiness_verdict"
+    elif fragmentation:
+        verdict = "temporarily_unfit_due_to_fragmentation"
+        rationale = "fragmentation_signals_dominate_recent_continuity_trust_and_packetization_context"
+    elif operator_dependence:
+        verdict = "operator_review_required"
+        rationale = "operator_attention_or_escalation_pressure_is_currently_dominant"
+    elif (
+        trust_posture == "trusted_for_bounded_use"
+        and continuity_classification == "coherent_proposal_packet_continuity"
+        and result_quality_classification == "healthy_recent_results"
+        and packetization_allowed
+        and packetization_outcome == "packetization_allowed"
+        and attention in {"none", "observe"}
+    ):
+        verdict = "ready_for_bounded_supervised_operation"
+        rationale = "trusted_posture_coherent_continuity_and_healthy_results_support_bounded_supervised_continuation"
+    else:
+        verdict = "ready_with_caution"
+        rationale = "loop_is_operational_but_stress_signals_require_cautious_supervised_continuation"
+
+    dominant_pressure = "none"
+    if insufficient_history:
+        dominant_pressure = "insufficient_history"
+    elif fragmentation:
+        dominant_pressure = "fragmentation"
+    elif operator_dependence:
+        dominant_pressure = "operator_dependence"
+    elif packet_churn:
+        dominant_pressure = "packet_churn"
+    elif proposal_stress:
+        dominant_pressure = "proposal_stress"
+    elif venue_stress:
+        dominant_pressure = "venue_stress"
+    elif result_quality_stress:
+        dominant_pressure = "result_quality_stress"
+
+    if verdict not in _DELEGATED_OPERATION_READINESS_VERDICTS:
+        verdict = "insufficient_history"
+        rationale = "readiness_verdict_defaulted_due_to_unrecognized_state"
+    if dominant_pressure not in _DELEGATED_OPERATION_PRESSURE_SOURCES:
+        dominant_pressure = "insufficient_history"
+
+    active_packet_map = active_packet_visibility if isinstance(active_packet_visibility, Mapping) else {}
+    packet_context = {
+        "packetization_outcome": packetization_outcome,
+        "packetization_allowed": packetization_allowed,
+        "packetization_held": bool(packetization_gate.get("packetization_held")),
+        "active_packet_visibility": {
+            "active_packet_candidate_present": bool(active_packet_map),
+            "active_packet_status": str(active_packet_map.get("status") or "none"),
+            "active_packet_target_venue": str(active_packet_map.get("target_venue") or "none"),
+        },
+    }
+
+    return {
+        "schema_version": "delegated_operation_readiness_verdict.v1",
+        "readiness_kind": "bounded_supervised_operation_readiness",
+        "readiness_verdict": verdict,
+        "contributing_review_classes": {
+            "trust_confidence_posture": trust_posture,
+            "proposal_packet_continuity_review": continuity_classification,
+            "unified_result_quality_review": result_quality_classification,
+            "orchestration_outcome_review": outcome_classification,
+            "orchestration_venue_mix_review": venue_classification,
+            "next_move_proposal_review": proposal_classification,
+            "operator_attention_recommendation": attention,
+            "packetization_gate_outcome": packetization_outcome,
+        },
+        "dominant_pressure_source": dominant_pressure,
+        "summary": {
+            "compact_rationale": rationale,
+            "pressure_flags": {
+                "proposal_stress": proposal_stress,
+                "packet_churn": packet_churn,
+                "venue_stress": venue_stress,
+                "result_quality_stress": result_quality_stress,
+                "fragmentation": fragmentation,
+                "operator_dependence": operator_dependence,
+            },
+            "packetization_posture_context": packet_context,
+            "conservative_readiness_only": True,
+            "boundaries": {
+                "diagnostic_only": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+                "readiness_only": True,
+            },
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "readiness_only": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+                "does_not_execute_or_route_work": True,
             },
         ),
     }

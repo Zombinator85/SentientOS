@@ -31,6 +31,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_trust_confidence_posture,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
+    derive_delegated_operation_readiness_verdict,
     derive_unified_result_quality_review,
     derive_next_move_proposal_review,
     derive_orchestration_venue_mix_review,
@@ -263,6 +264,17 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         str(next_move_proposal.get("proposal_id") or ""),
         operator_influence=operator_influence,
     )
+    delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
+        orchestration_trust_confidence_posture,
+        proposal_packet_continuity_review,
+        unified_result_quality_review,
+        packetization_gate,
+        orchestration_attention_recommendation,
+        outcome_review=orchestration_outcome_review,
+        venue_mix_review=orchestration_venue_mix_review,
+        next_move_proposal_review=next_move_proposal_review,
+        active_packet_visibility=active_packet,
+    )
     repacketization_gap_map = derive_repacketization_gap_map(
         operator_brief_lifecycle,
         operator_influence,
@@ -283,6 +295,9 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     substitution_readiness["trust_confidence_basis"] = {
         "orchestration_trust_confidence_posture": str(
             orchestration_trust_confidence_posture.get("trust_confidence_posture") or "insufficient_history"
+        ),
+        "delegated_operation_readiness_verdict": str(
+            delegated_operation_readiness.get("readiness_verdict") or "insufficient_history"
         ),
         "diagnostic_only": True,
         "review_only": True,
@@ -359,6 +374,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "next_move_proposal_review": next_move_proposal_review,
             "proposal_packet_continuity_review": proposal_packet_continuity_review,
             "trust_confidence_posture": orchestration_trust_confidence_posture,
+            "delegated_operation_readiness": delegated_operation_readiness,
             "packetization_gating": {
                 **packetization_gate,
                 "packetization_allowed_or_caution": packetization_gate.get("packetization_outcome")

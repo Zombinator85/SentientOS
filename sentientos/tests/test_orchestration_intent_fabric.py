@@ -33,6 +33,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_next_venue_recommendation,
     derive_next_move_proposal_review,
     derive_orchestration_outcome_review,
+    derive_delegated_operation_readiness_verdict,
     derive_orchestration_trust_confidence_posture,
     derive_unified_result_quality_review,
     derive_orchestration_venue_mix_review,
@@ -3513,6 +3514,118 @@ def test_orchestration_trust_confidence_classifies_insufficient_history() -> Non
     assert posture["pressure_summary"]["primary_pressure"] == "insufficient_history"
 
 
+def test_delegated_operation_readiness_classifies_ready_for_bounded_supervised_operation() -> None:
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "trusted_for_bounded_use",
+            "pressure_summary": {"primary_pressure": "none"},
+            "window_considered": {"minimum_records_considered": 6},
+        },
+        {"review_classification": "coherent_proposal_packet_continuity", "records_considered": 6},
+        {"review_classification": "healthy_recent_results", "records_considered": 6},
+        {"packetization_outcome": "packetization_allowed", "packetization_allowed": True, "packetization_held": False},
+        {"operator_attention_recommendation": "observe"},
+        outcome_review={"review_classification": "clean_recent_orchestration"},
+        venue_mix_review={"review_classification": "balanced_recent_venue_mix"},
+        next_move_proposal_review={"review_classification": "coherent_recent_proposals"},
+        active_packet_visibility={"status": "ready_for_external_trigger", "target_venue": "codex_implementation"},
+    )
+    assert readiness["readiness_verdict"] == "ready_for_bounded_supervised_operation"
+    assert readiness["dominant_pressure_source"] == "none"
+
+
+def test_delegated_operation_readiness_classifies_ready_with_caution() -> None:
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "caution_required",
+            "pressure_summary": {"primary_pressure": "proposal_stress"},
+            "window_considered": {"minimum_records_considered": 5},
+        },
+        {"review_classification": "coherent_proposal_packet_continuity", "records_considered": 5},
+        {"review_classification": "mixed_result_stress", "records_considered": 5},
+        {
+            "packetization_outcome": "packetization_allowed_with_caution",
+            "packetization_allowed": True,
+            "packetization_held": False,
+        },
+        {"operator_attention_recommendation": "review_mixed_orchestration_stress"},
+        outcome_review={"review_classification": "mixed_orchestration_stress"},
+        venue_mix_review={"review_classification": "balanced_recent_venue_mix"},
+        next_move_proposal_review={"review_classification": "mixed_proposal_stress"},
+    )
+    assert readiness["readiness_verdict"] == "ready_with_caution"
+    assert readiness["dominant_pressure_source"] == "proposal_stress"
+
+
+def test_delegated_operation_readiness_classifies_operator_review_required() -> None:
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "stressed_but_usable",
+            "pressure_summary": {"primary_pressure": "escalation_operator_dependence"},
+            "window_considered": {"minimum_records_considered": 6},
+        },
+        {"review_classification": "hold_heavy_continuity", "records_considered": 6},
+        {"review_classification": "healthy_recent_results", "records_considered": 6},
+        {
+            "packetization_outcome": "packetization_hold_operator_review",
+            "packetization_allowed": False,
+            "packetization_held": True,
+        },
+        {"operator_attention_recommendation": "inspect_handoff_blocks"},
+        outcome_review={"review_classification": "handoff_block_heavy"},
+        venue_mix_review={"review_classification": "operator_escalation_heavy"},
+        next_move_proposal_review={"review_classification": "proposal_escalation_heavy"},
+    )
+    assert readiness["readiness_verdict"] == "operator_review_required"
+    assert readiness["dominant_pressure_source"] == "operator_dependence"
+
+
+def test_delegated_operation_readiness_classifies_temporarily_unfit_due_to_fragmentation() -> None:
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "fragmented_or_unreliable",
+            "pressure_summary": {"primary_pressure": "fragmentation"},
+            "window_considered": {"minimum_records_considered": 6},
+        },
+        {"review_classification": "fragmented_continuity", "records_considered": 6},
+        {"review_classification": "fragmentation_heavy", "records_considered": 6},
+        {
+            "packetization_outcome": "packetization_hold_fragmentation",
+            "packetization_allowed": False,
+            "packetization_held": True,
+        },
+        {"operator_attention_recommendation": "review_mixed_orchestration_stress"},
+        outcome_review={"review_classification": "mixed_orchestration_stress"},
+        venue_mix_review={"review_classification": "mixed_venue_stress"},
+        next_move_proposal_review={"review_classification": "mixed_proposal_stress"},
+    )
+    assert readiness["readiness_verdict"] == "temporarily_unfit_due_to_fragmentation"
+    assert readiness["dominant_pressure_source"] == "fragmentation"
+
+
+def test_delegated_operation_readiness_classifies_insufficient_history() -> None:
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "insufficient_history",
+            "pressure_summary": {"primary_pressure": "insufficient_history"},
+            "window_considered": {"minimum_records_considered": 2},
+        },
+        {"review_classification": "insufficient_history", "records_considered": 2},
+        {"review_classification": "insufficient_history", "records_considered": 2},
+        {
+            "packetization_outcome": "packetization_hold_insufficient_confidence",
+            "packetization_allowed": False,
+            "packetization_held": True,
+        },
+        {"operator_attention_recommendation": "insufficient_context"},
+        outcome_review={"review_classification": "insufficient_history"},
+        venue_mix_review={"review_classification": "insufficient_history"},
+        next_move_proposal_review={"review_classification": "insufficient_history"},
+    )
+    assert readiness["readiness_verdict"] == "insufficient_history"
+    assert readiness["dominant_pressure_source"] == "insufficient_history"
+
+
 def test_packetization_gate_allows_trusted_coherent_proposal() -> None:
     proposal = {
         "executability_classification": "stageable_external_work_order",
@@ -3868,6 +3981,7 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert outcome_review["summary"]["external_fulfillment_influence"]["influenced_outcome_review"] is True
     assert venue_mix_review["summary"]["external_fulfillment_influence"]["influenced_venue_mix_review"] is True
     trust_posture = second["orchestration_handoff"]["trust_confidence_posture"]
+    readiness = second["orchestration_handoff"]["delegated_operation_readiness"]
     packetization_gating = second["orchestration_handoff"]["packetization_gating"]
     assert trust_posture["schema_version"] == "orchestration_trust_confidence_posture.v1"
     assert trust_posture["diagnostic_only"] is True
@@ -3890,7 +4004,12 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert packetization_gating["non_sovereign_boundaries"]["does_not_execute_or_route_work"] is True
     readiness_basis = second["delegated_judgment"]["orchestration_substitution_readiness"]["trust_confidence_basis"]
     assert readiness_basis["orchestration_trust_confidence_posture"] == trust_posture["trust_confidence_posture"]
+    assert readiness_basis["delegated_operation_readiness_verdict"] == readiness["readiness_verdict"]
     assert readiness_basis["does_not_change_existing_readiness_logic"] is True
+    assert readiness["schema_version"] == "delegated_operation_readiness_verdict.v1"
+    assert readiness["summary"]["boundaries"]["diagnostic_only"] is True
+    assert readiness["summary"]["boundaries"]["decision_power"] == "none"
+    assert readiness["does_not_execute_or_route_work"] is True
 
 
 def test_orchestration_trust_confidence_posture_does_not_change_admission_behavior(tmp_path: Path) -> None:
@@ -3909,6 +4028,32 @@ def test_orchestration_trust_confidence_posture_does_not_change_admission_behavi
     assert posture["review_only"] is True
     assert posture["diagnostic_only"] is True
     assert posture["decision_power"] == "none"
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+
+def test_delegated_operation_readiness_does_not_change_admission_behavior(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    readiness = derive_delegated_operation_readiness_verdict(
+        {
+            "trust_confidence_posture": "caution_required",
+            "pressure_summary": {"primary_pressure": "result_quality_stress"},
+            "window_considered": {"minimum_records_considered": 5},
+        },
+        {"review_classification": "coherent_proposal_packet_continuity", "records_considered": 5},
+        {"review_classification": "mixed_result_stress", "records_considered": 5},
+        {"packetization_outcome": "packetization_allowed_with_caution", "packetization_allowed": True, "packetization_held": False},
+        {"operator_attention_recommendation": "observe"},
+        outcome_review={"review_classification": "mixed_orchestration_stress"},
+        venue_mix_review={"review_classification": "balanced_recent_venue_mix"},
+        next_move_proposal_review={"review_classification": "coherent_recent_proposals"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert readiness["summary"]["boundaries"]["non_authoritative"] is True
+    assert readiness["summary"]["boundaries"]["decision_power"] == "none"
     assert before["handoff_outcome"] == "blocked_by_operator_requirement"
     assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 
