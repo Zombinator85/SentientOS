@@ -48,6 +48,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
     resolve_current_orchestration_watchpoint,
+    resolve_watchpoint_satisfaction,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
     synthesize_operator_refreshed_handoff_packet,
@@ -4255,6 +4256,175 @@ def test_orchestration_watchpoint_reports_no_watchpoint_needed_for_completed_ite
     assert watchpoint["wake_condition_summary"]["loop_activity"] == "not_waiting"
 
 
+def test_watchpoint_satisfaction_marks_operator_resolution_satisfied(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-operator"},
+        packetization_gate={"packetization_outcome": "packetization_hold_operator_review", "packetization_allowed": False},
+        operator_brief_lifecycle={
+            "operator_action_brief_id": "brief-1",
+            "awaiting_operator_input": True,
+        },
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        operator_brief_lifecycle={"operator_resolution_received": True, "operator_resolution_receipt_id": "orr-1"},
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_satisfied"
+    assert satisfaction["satisfied_by_actor"] == "operator"
+
+
+def test_watchpoint_satisfaction_marks_internal_result_satisfied(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-int"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-int",
+            "active_packet_status": "ready_for_internal_trigger",
+            "active_target_venue": "internal_direct_execution",
+        },
+        unified_result={
+            "result_classification": "pending_or_unresolved",
+            "resolution_path": "internal_execution",
+            "resolution_state": "handoff_admitted_pending_result",
+        },
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        unified_result={
+            "resolution_path": "internal_execution",
+            "result_classification": "completed_successfully",
+            "evidence_presence": {"task_result_observed": True},
+        },
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_satisfied"
+    assert satisfaction["satisfied_by_signal_type"] == "internal_execution_result"
+
+
+def test_watchpoint_satisfaction_marks_external_receipt_satisfied(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-ext"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-ext",
+            "active_packet_status": "prepared",
+            "active_target_venue": "codex_implementation",
+        },
+        unified_result={"result_classification": "pending_or_unresolved", "resolution_path": "external_fulfillment"},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        unified_result={
+            "resolution_path": "external_fulfillment",
+            "evidence_presence": {"fulfillment_receipt_observed": True},
+            "result_classification": "completed_successfully",
+        },
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_satisfied"
+    assert satisfaction["satisfied_by_actor"] == "external_actor"
+
+
+def test_watchpoint_satisfaction_keeps_packetization_relief_pending_when_hold_unchanged(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-hold"},
+        packetization_gate={"packetization_outcome": "packetization_hold_fragmentation", "packetization_allowed": False},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        packetization_gate={"packetization_outcome": "packetization_hold_fragmentation", "packetization_held": True},
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_pending"
+    assert satisfaction["wake_readiness_summary"]["ready_for_re_evaluation"] is False
+
+
+def test_watchpoint_satisfaction_marks_fragmented_when_linkage_missing(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-ext"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-ext",
+            "active_packet_status": "prepared",
+            "active_target_venue": "codex_implementation",
+        },
+        unified_result={"result_classification": "pending_or_unresolved", "resolution_path": "external_fulfillment"},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    fragmented_state = {
+        **state,
+        "source_linkage": {
+            **dict(state.get("source_linkage") or {}),
+            "active_packet_ref": {"handoff_packet_id": None},
+        },
+    }
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=fragmented_state,
+        current_orchestration_watchpoint=watchpoint,
+        unified_result={"resolution_path": "external_fulfillment", "evidence_presence": {"fulfillment_receipt_observed": False}},
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_fragmented"
+
+
+def test_watchpoint_satisfaction_marks_stale_when_watchpoint_mismatches_state(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-operator"},
+        packetization_gate={"packetization_outcome": "packetization_hold_operator_review", "packetization_allowed": False},
+        operator_brief_lifecycle={"awaiting_operator_input": True},
+    )
+    stale_watchpoint = {
+        **resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state),
+        "watchpoint_class": "await_external_fulfillment_receipt",
+    }
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=stale_watchpoint,
+    )
+    assert satisfaction["satisfaction_status"] == "watchpoint_stale"
+
+
+def test_watchpoint_satisfaction_reports_no_active_watchpoint(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={
+            "orchestration_result_id": "oru-complete-watchpoint-satisfaction",
+            "result_classification": "completed_successfully",
+            "resolution_path": "external_fulfillment",
+        },
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+    )
+    assert satisfaction["satisfaction_status"] == "no_active_watchpoint"
+    assert satisfaction["satisfied_by_actor"] == "none"
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4289,6 +4459,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     current_state = diagnostic["orchestration_handoff"]["current_orchestration_state"]
     current_watchpoint = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint"]
+    current_watchpoint_satisfaction = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_satisfaction"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -4316,11 +4487,31 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_watchpoint["wake_condition_summary"]["decision_power"] == "none"
     assert current_watchpoint["does_not_schedule_or_trigger_events"] is True
+    assert current_watchpoint_satisfaction["schema_version"] == "current_orchestration_watchpoint_satisfaction.v1"
+    assert current_watchpoint_satisfaction["satisfaction_status"] in {
+        "watchpoint_pending",
+        "watchpoint_satisfied",
+        "watchpoint_stale",
+        "watchpoint_fragmented",
+        "no_active_watchpoint",
+    }
+    assert current_watchpoint_satisfaction["wake_readiness_summary"]["wake_readiness_only"] is True
+    assert current_watchpoint_satisfaction["does_not_schedule_or_trigger_events"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
+    assert current_watchpoint_summary["satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
+    assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["watchpoint_satisfaction_status"] in {
+        "watchpoint_pending",
+        "watchpoint_satisfied",
+        "watchpoint_stale",
+        "watchpoint_fragmented",
+        "no_active_watchpoint",
+        "not_supplied",
+    }
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
