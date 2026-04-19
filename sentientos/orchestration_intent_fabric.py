@@ -248,6 +248,35 @@ _DELEGATED_OPERATION_PRESSURE_SOURCES = {
     "insufficient_history",
 }
 
+_CURRENT_ORCHESTRATION_SUPERVISORY_STATES = {
+    "ready_to_packetize",
+    "packet_ready_for_internal_trigger",
+    "packet_ready_for_external_trigger",
+    "waiting_for_operator_resolution",
+    "waiting_for_external_fulfillment",
+    "waiting_for_internal_result",
+    "held_due_to_fragmentation",
+    "held_due_to_insufficient_confidence",
+    "no_active_orchestration_item",
+    "completed_recently_no_current_item",
+}
+
+_CURRENT_ORCHESTRATION_STATE_FOCUS = {
+    "proposal",
+    "packet",
+    "operator_brief",
+    "internal_execution",
+    "external_fulfillment",
+    "completed_or_idle",
+}
+
+_CURRENT_ORCHESTRATION_AWAITING_ACTORS = {
+    "none",
+    "operator",
+    "internal_substrate",
+    "external_actor",
+}
+
 _HANDOFF_PACKET_STATUSES = {
     "prepared",
     "blocked_operator_required",
@@ -3986,6 +4015,282 @@ def resolve_operator_action_brief_lifecycle(
     }
 
 
+def _current_orchestration_state_id(
+    *,
+    supervisory_state: str,
+    proposal_id: str,
+    handoff_packet_id: str,
+    operator_action_brief_id: str,
+    operator_resolution_receipt_id: str,
+    orchestration_result_id: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "supervisory_state": supervisory_state,
+                "proposal_id": proposal_id,
+                "handoff_packet_id": handoff_packet_id,
+                "operator_action_brief_id": operator_action_brief_id,
+                "operator_resolution_receipt_id": operator_resolution_receipt_id,
+                "orchestration_result_id": orchestration_result_id,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"ocs-{digest.hexdigest()[:16]}"
+
+
+def resolve_current_orchestration_state(
+    repo_root: Path,
+    *,
+    current_proposal: Mapping[str, Any] | None = None,
+    active_packet_visibility: Mapping[str, Any] | None = None,
+    operator_brief_lifecycle: Mapping[str, Any] | None = None,
+    packetization_gate: Mapping[str, Any] | None = None,
+    unified_result: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve one bounded, inspectable current-state surface for orchestration."""
+
+    root = repo_root.resolve()
+    proposal_map = current_proposal if isinstance(current_proposal, Mapping) else {}
+    gate_map = packetization_gate if isinstance(packetization_gate, Mapping) else {}
+    brief_map = operator_brief_lifecycle if isinstance(operator_brief_lifecycle, Mapping) else {}
+    active_packet_map = active_packet_visibility if isinstance(active_packet_visibility, Mapping) else {}
+    unified_map = unified_result if isinstance(unified_result, Mapping) else {}
+
+    if not proposal_map:
+        proposals = _read_jsonl(root / "glow/orchestration/orchestration_next_move_proposals.jsonl")
+        proposal_map = proposals[-1] if proposals else {}
+    if not active_packet_map:
+        proposal_id_for_active = str(proposal_map.get("proposal_id") or "")
+        active_packet_map = (
+            resolve_active_handoff_packet_candidate(root, proposal_id_for_active)
+            if proposal_id_for_active
+            else {}
+        )
+    if not brief_map:
+        briefs = _read_jsonl(root / "glow/orchestration/operator_action_briefs.jsonl")
+        brief_row = briefs[-1] if briefs else {}
+        brief_map = resolve_operator_action_brief_lifecycle(root, brief_row)
+    if not gate_map:
+        gates = _read_jsonl(root / "glow/orchestration/orchestration_packetization_gates.jsonl")
+        gate_map = gates[-1] if gates else {}
+
+    packet_status = str(active_packet_map.get("active_packet_status") or "")
+    active_target_venue = str(active_packet_map.get("active_target_venue") or "")
+    packet_present = bool(active_packet_map.get("active_packet_present"))
+    handoff_packet_id = str(active_packet_map.get("active_handoff_packet_id") or "")
+
+    packet_row: Mapping[str, Any] | None = None
+    if packet_present and handoff_packet_id:
+        packet_rows = _read_jsonl(root / "glow/orchestration/orchestration_handoff_packets.jsonl")
+        packet_row = next(
+            (row for row in reversed(packet_rows) if str(row.get("handoff_packet_id") or "") == handoff_packet_id),
+            None,
+        )
+
+    fulfillment = (
+        resolve_handoff_packet_fulfillment_lifecycle(root, packet_row)
+        if isinstance(packet_row, Mapping)
+        else {}
+    )
+    if not unified_map and isinstance(packet_row, Mapping):
+        handoffs = _read_jsonl(root / "glow/orchestration/orchestration_handoffs.jsonl")
+        handoff_row = handoffs[-1] if handoffs else {}
+        unified_map = resolve_unified_orchestration_result(root, handoff=handoff_row, handoff_packet=packet_row)
+
+    proposal_id = str(proposal_map.get("proposal_id") or "")
+    brief_id = str(brief_map.get("operator_action_brief_id") or "")
+    brief_waiting = bool(brief_map.get("awaiting_operator_input"))
+    operator_receipt_id = str(brief_map.get("operator_resolution_receipt_id") or "")
+    packetization_outcome = str(gate_map.get("packetization_outcome") or "")
+    packetization_allowed = bool(gate_map.get("packetization_allowed"))
+    unified_result_id = str(unified_map.get("orchestration_result_id") or "")
+    unified_result_classification = str(unified_map.get("result_classification") or "")
+    unified_resolution_path = str(unified_map.get("resolution_path") or "none")
+    unified_resolution_state = str(unified_map.get("resolution_state") or "")
+    fulfillment_received = bool(fulfillment.get("fulfillment_received"))
+    has_pending_external_fulfillment = bool(
+        packet_present
+        and active_target_venue in {"codex_implementation", "deep_research_audit"}
+        and not fulfillment_received
+    )
+
+    supervisory_state = "no_active_orchestration_item"
+    state_focus = "completed_or_idle"
+    current_resolution_path = "none"
+    awaiting_actor = "none"
+    rationale = "no_current_proposal_packet_or_wait_condition_visible"
+    wait_condition = "none"
+
+    if brief_waiting:
+        supervisory_state = "waiting_for_operator_resolution"
+        state_focus = "operator_brief"
+        current_resolution_path = "operator_resolution"
+        awaiting_actor = "operator"
+        rationale = "operator_action_brief_is_emitted_and_resolution_receipt_is_not_yet_ingested"
+        wait_condition = "operator_resolution_receipt_pending"
+    elif packetization_outcome == "packetization_hold_fragmentation":
+        supervisory_state = "held_due_to_fragmentation"
+        state_focus = "proposal"
+        current_resolution_path = "packetization"
+        awaiting_actor = "operator"
+        rationale = "packetization_gate_reports_fragmentation_hold"
+        wait_condition = "fragmentation_hold"
+    elif packetization_outcome in {
+        "packetization_hold_insufficient_confidence",
+        "packetization_hold_operator_review",
+        "packetization_hold_escalation_required",
+    }:
+        supervisory_state = "held_due_to_insufficient_confidence"
+        state_focus = "proposal"
+        current_resolution_path = "packetization"
+        awaiting_actor = "operator"
+        rationale = "packetization_gate_reports_hold_due_to_low_confidence_or_required_review"
+        wait_condition = "packetization_hold"
+    elif packet_present and active_target_venue in {"codex_implementation", "deep_research_audit"}:
+        if fulfillment_received:
+            supervisory_state = "completed_recently_no_current_item"
+            state_focus = "completed_or_idle"
+            current_resolution_path = "external_fulfillment"
+            awaiting_actor = "none"
+            rationale = "active_external_packet_has_fulfillment_receipt"
+            wait_condition = "none"
+        elif packet_status == "ready_for_external_trigger":
+            supervisory_state = "packet_ready_for_external_trigger"
+            state_focus = "packet"
+            current_resolution_path = "external_fulfillment"
+            awaiting_actor = "external_actor"
+            rationale = "active_external_packet_is_ready_for_external_trigger_and_has_no_fulfillment_receipt"
+            wait_condition = "external_trigger_pending"
+        else:
+            supervisory_state = "waiting_for_external_fulfillment"
+            state_focus = "external_fulfillment"
+            current_resolution_path = "external_fulfillment"
+            awaiting_actor = "external_actor"
+            rationale = "active_external_packet_is_staged_without_fulfillment_receipt"
+            wait_condition = "external_fulfillment_receipt_pending"
+    elif packet_present and packet_status == "ready_for_internal_trigger":
+        pending_internal_state = unified_resolution_state in {
+            "handoff_admitted_pending_result",
+            "execution_still_pending",
+            "execution_result_missing",
+        }
+        if pending_internal_state:
+            supervisory_state = "waiting_for_internal_result"
+            state_focus = "internal_execution"
+            current_resolution_path = "internal_execution"
+            awaiting_actor = "internal_substrate"
+            rationale = "internal_handoff_is_admitted_or_observed_without_closed_result_state"
+            wait_condition = "internal_result_pending"
+        else:
+            supervisory_state = "packet_ready_for_internal_trigger"
+            state_focus = "packet"
+            current_resolution_path = "internal_execution"
+            awaiting_actor = "internal_substrate"
+            rationale = "active_internal_packet_is_ready_for_internal_trigger"
+            wait_condition = "internal_trigger_pending"
+    elif proposal_id and packetization_allowed and not packet_present:
+        supervisory_state = "ready_to_packetize"
+        state_focus = "proposal"
+        current_resolution_path = "packetization"
+        awaiting_actor = "none"
+        rationale = "proposal_exists_and_packetization_is_allowed_without_active_packet"
+        wait_condition = "packetization_step_pending"
+    elif not proposal_id and not packet_present and unified_result_classification in {
+        "completed_successfully",
+        "completed_with_issues",
+        "declined_or_abandoned",
+        "failed_after_execution",
+    }:
+        supervisory_state = "completed_recently_no_current_item"
+        state_focus = "completed_or_idle"
+        current_resolution_path = unified_resolution_path if unified_resolution_path else "none"
+        awaiting_actor = "none"
+        rationale = "recent_unified_result_is_completed_and_no_current_proposal_or_packet_is_visible"
+        wait_condition = "none"
+
+    if supervisory_state not in _CURRENT_ORCHESTRATION_SUPERVISORY_STATES:
+        supervisory_state = "no_active_orchestration_item"
+    if state_focus not in _CURRENT_ORCHESTRATION_STATE_FOCUS:
+        state_focus = "completed_or_idle"
+    if awaiting_actor not in _CURRENT_ORCHESTRATION_AWAITING_ACTORS:
+        awaiting_actor = "none"
+
+    return {
+        "schema_version": "current_orchestration_state.v1",
+        "resolved_at": _iso_utc_now(),
+        "current_orchestration_state_id": _current_orchestration_state_id(
+            supervisory_state=supervisory_state,
+            proposal_id=proposal_id,
+            handoff_packet_id=handoff_packet_id,
+            operator_action_brief_id=brief_id,
+            operator_resolution_receipt_id=operator_receipt_id,
+            orchestration_result_id=unified_result_id,
+        ),
+        "current_supervisory_state": supervisory_state,
+        "state_focus": state_focus,
+        "current_resolution_path": current_resolution_path,
+        "awaiting_actor": awaiting_actor,
+        "wait_condition": wait_condition,
+        "has_active_packet": packet_present,
+        "has_pending_operator_brief": brief_waiting,
+        "has_pending_external_fulfillment": has_pending_external_fulfillment,
+        "source_linkage": {
+            "current_proposal_ref": {
+                "proposal_id": proposal_id or None,
+                "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+            },
+            "active_packet_ref": {
+                "handoff_packet_id": handoff_packet_id or None,
+                "handoff_packet_ledger_path": "glow/orchestration/orchestration_handoff_packets.jsonl",
+                "target_venue": active_target_venue or None,
+                "packet_status": packet_status or None,
+            },
+            "operator_brief_ref": {
+                "operator_action_brief_id": brief_id or None,
+                "operator_resolution_receipt_id": operator_receipt_id or None,
+                "operator_brief_ledger_path": "glow/orchestration/operator_action_briefs.jsonl",
+                "operator_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl",
+            },
+            "unified_result_ref": {
+                "orchestration_result_id": unified_result_id or None,
+                "resolution_path": unified_resolution_path or None,
+                "unified_result_surface_path": "glow/orchestration/orchestration_unified_results.jsonl",
+            },
+            "packetization_gate_ref": {
+                "packetization_outcome": packetization_outcome or None,
+                "packetization_allowed": packetization_allowed,
+                "packetization_gate_ledger_path": "glow/orchestration/orchestration_packetization_gates.jsonl",
+            },
+        },
+        "basis": {
+            "compact_rationale": rationale,
+            "derived_from_existing_surfaces_only": [
+                "orchestration_next_move_proposals",
+                "orchestration_packetization_gates",
+                "orchestration_handoff_packets",
+                "operator_action_briefs",
+                "operator_resolution_receipts",
+                "orchestration_fulfillment_receipts",
+                "orchestration_unified_results",
+            ],
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "non_sovereign_current_state_only": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_plan_or_create_new_goals": True,
+                "workflow_engine": False,
+            },
+        ),
+    }
+
+
 def derive_next_move_proposal_review(
     repo_root: Path,
     *,
@@ -4535,6 +4840,7 @@ def derive_delegated_operation_readiness_verdict(
     venue_mix_review: Mapping[str, Any] | None = None,
     next_move_proposal_review: Mapping[str, Any] | None = None,
     active_packet_visibility: Mapping[str, Any] | None = None,
+    current_orchestration_state: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Derive a compact bounded readiness verdict for supervised delegated operation.
@@ -4644,6 +4950,7 @@ def derive_delegated_operation_readiness_verdict(
         dominant_pressure = "insufficient_history"
 
     active_packet_map = active_packet_visibility if isinstance(active_packet_visibility, Mapping) else {}
+    current_state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
     packet_context = {
         "packetization_outcome": packetization_outcome,
         "packetization_allowed": packetization_allowed,
@@ -4681,6 +4988,13 @@ def derive_delegated_operation_readiness_verdict(
                 "operator_dependence": operator_dependence,
             },
             "packetization_posture_context": packet_context,
+            "current_orchestration_state_basis": {
+                "current_supervisory_state": str(current_state_map.get("current_supervisory_state") or "not_supplied"),
+                "state_focus": str(current_state_map.get("state_focus") or "not_supplied"),
+                "awaiting_actor": str(current_state_map.get("awaiting_actor") or "not_supplied"),
+                "basis_only": True,
+                "does_not_change_verdict_logic": True,
+            },
             "conservative_readiness_only": True,
             "boundaries": {
                 "diagnostic_only": True,

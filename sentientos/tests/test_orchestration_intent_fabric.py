@@ -46,6 +46,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_handoff_packet_history_for_proposal,
     resolve_latest_operator_resolution_for_proposal,
     resolve_active_handoff_packet_candidate,
+    resolve_current_orchestration_state,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
     synthesize_operator_refreshed_handoff_packet,
@@ -4010,6 +4011,194 @@ def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibil
     assert readiness["summary"]["boundaries"]["diagnostic_only"] is True
     assert readiness["summary"]["boundaries"]["decision_power"] == "none"
     assert readiness["does_not_execute_or_route_work"] is True
+
+
+def test_current_orchestration_state_ready_to_packetize_when_allowed_without_packet(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-ready"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={"result_classification": "pending_or_unresolved", "resolution_path": "internal_execution"},
+    )
+    assert state["current_supervisory_state"] == "ready_to_packetize"
+    assert state["state_focus"] == "proposal"
+    assert state["awaiting_actor"] == "none"
+
+
+def test_current_orchestration_state_waiting_for_internal_result_with_pending_internal_packet(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-internal"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-int",
+            "active_packet_status": "ready_for_internal_trigger",
+            "active_target_venue": "internal_direct_execution",
+        },
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={
+            "orchestration_result_id": "oru-pending",
+            "resolution_path": "internal_execution",
+            "resolution_state": "handoff_admitted_pending_result",
+            "result_classification": "pending_or_unresolved",
+        },
+    )
+    assert state["current_supervisory_state"] == "waiting_for_internal_result"
+    assert state["state_focus"] == "internal_execution"
+    assert state["awaiting_actor"] == "internal_substrate"
+
+
+def test_current_orchestration_state_waiting_for_external_fulfillment_when_staged_packet_unfulfilled(tmp_path: Path) -> None:
+    proposal_id = "proposal-ext"
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl",
+        [
+            _packet_row(
+                proposal_id=proposal_id,
+                packet_id="packet-ext",
+                status="prepared",
+                venue="codex_implementation",
+                gate_outcome="packetization_allowed",
+            )
+        ],
+    )
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": proposal_id},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-ext",
+            "active_packet_status": "prepared",
+            "active_target_venue": "codex_implementation",
+        },
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={"result_classification": "pending_or_unresolved", "resolution_path": "external_fulfillment"},
+    )
+    assert state["current_supervisory_state"] == "waiting_for_external_fulfillment"
+    assert state["state_focus"] == "external_fulfillment"
+    assert state["awaiting_actor"] == "external_actor"
+
+
+def test_current_orchestration_state_waiting_for_operator_resolution_when_brief_unresolved(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-operator"},
+        packetization_gate={
+            "packetization_outcome": "packetization_hold_operator_review",
+            "packetization_allowed": False,
+        },
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={
+            "operator_action_brief_id": "brief-1",
+            "awaiting_operator_input": True,
+            "operator_resolution_received": False,
+        },
+    )
+    assert state["current_supervisory_state"] == "waiting_for_operator_resolution"
+    assert state["state_focus"] == "operator_brief"
+    assert state["awaiting_actor"] == "operator"
+
+
+def test_current_orchestration_state_reports_fragmentation_hold(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-hold"},
+        packetization_gate={
+            "packetization_outcome": "packetization_hold_fragmentation",
+            "packetization_allowed": False,
+        },
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+    )
+    assert state["current_supervisory_state"] == "held_due_to_fragmentation"
+    assert state["state_focus"] == "proposal"
+
+
+def test_current_orchestration_state_reports_completed_without_active_item(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={
+            "orchestration_result_id": "oru-complete",
+            "result_classification": "completed_successfully",
+            "resolution_path": "external_fulfillment",
+        },
+    )
+    assert state["current_supervisory_state"] == "completed_recently_no_current_item"
+    assert state["state_focus"] == "completed_or_idle"
+    assert state["awaiting_actor"] == "none"
+
+
+def test_current_orchestration_state_reports_no_active_item_when_no_evidence(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={},
+    )
+    assert state["current_supervisory_state"] == "no_active_orchestration_item"
+    assert state["state_focus"] == "completed_or_idle"
+    assert state["awaiting_actor"] == "none"
+
+
+def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+
+    def _fake_resolver(_repo_root: Path, *, action_id: str, correlation_id: str) -> dict[str, object]:
+        return {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        }
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-current-state-consumer",
+            }
+        ],
+    )
+
+    before_intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, before_intent)
+    before = admit_orchestration_intent(tmp_path, before_intent)
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    current_state = diagnostic["orchestration_handoff"]["current_orchestration_state"]
+    readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
+
+    after = admit_orchestration_intent(tmp_path, before_intent)
+    assert current_state["schema_version"] == "current_orchestration_state.v1"
+    assert current_state["state_focus"] in {
+        "proposal",
+        "packet",
+        "operator_brief",
+        "internal_execution",
+        "external_fulfillment",
+        "completed_or_idle",
+    }
+    assert current_state["awaiting_actor"] in {"none", "operator", "internal_substrate", "external_actor"}
+    assert current_state["non_authoritative"] is True
+    assert current_state["does_not_execute_or_route_work"] is True
+    assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
+    assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
+    assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
 def test_orchestration_trust_confidence_posture_does_not_change_admission_behavior(tmp_path: Path) -> None:
