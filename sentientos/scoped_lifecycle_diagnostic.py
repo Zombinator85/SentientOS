@@ -41,6 +41,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_handoff_packet_fulfillment_lifecycle,
     resolve_handoff_packet_history_for_proposal,
     resolve_active_handoff_packet_candidate,
+    resolve_current_orchestration_state,
     resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
     resolve_orchestration_result,
@@ -264,17 +265,6 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         str(next_move_proposal.get("proposal_id") or ""),
         operator_influence=operator_influence,
     )
-    delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
-        orchestration_trust_confidence_posture,
-        proposal_packet_continuity_review,
-        unified_result_quality_review,
-        packetization_gate,
-        orchestration_attention_recommendation,
-        outcome_review=orchestration_outcome_review,
-        venue_mix_review=orchestration_venue_mix_review,
-        next_move_proposal_review=next_move_proposal_review,
-        active_packet_visibility=active_packet,
-    )
     repacketization_gap_map = derive_repacketization_gap_map(
         operator_brief_lifecycle,
         operator_influence,
@@ -290,6 +280,26 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     )
     unified_result = resolve_unified_orchestration_result(root, handoff=handoff_result, handoff_packet=effective_handoff_packet)
     unified_result_surface = resolve_unified_orchestration_result_surface(root)
+    current_orchestration_state = resolve_current_orchestration_state(
+        root,
+        current_proposal=adjusted_next_move_proposal,
+        active_packet_visibility=active_packet,
+        operator_brief_lifecycle=operator_brief_lifecycle,
+        packetization_gate=packetization_gate,
+        unified_result=unified_result,
+    )
+    delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
+        orchestration_trust_confidence_posture,
+        proposal_packet_continuity_review,
+        unified_result_quality_review,
+        packetization_gate,
+        orchestration_attention_recommendation,
+        outcome_review=orchestration_outcome_review,
+        venue_mix_review=orchestration_venue_mix_review,
+        next_move_proposal_review=next_move_proposal_review,
+        active_packet_visibility=active_packet,
+        current_orchestration_state=current_orchestration_state,
+    )
     unified_result_quality_review = derive_unified_result_quality_review(root)
     substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
     substitution_readiness["trust_confidence_basis"] = {
@@ -375,6 +385,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "proposal_packet_continuity_review": proposal_packet_continuity_review,
             "trust_confidence_posture": orchestration_trust_confidence_posture,
             "delegated_operation_readiness": delegated_operation_readiness,
+            "current_orchestration_state": current_orchestration_state,
             "packetization_gating": {
                 **packetization_gate,
                 "packetization_allowed_or_caution": packetization_gate.get("packetization_outcome")

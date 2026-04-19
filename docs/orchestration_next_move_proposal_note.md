@@ -171,3 +171,43 @@ Bounded review classifications:
 The review is descriptive and diagnostic. It does **not** plan, execute, admit, route, or
 authorize work; it remains `diagnostic_only`, `non_authoritative`, `decision_power: none`,
 and `review_only`.
+
+## Current orchestration state (bounded present-tense resolver)
+
+`current_orchestration_state.v1` is a compact, machine-readable **current-state** surface that
+collapses existing orchestration artifacts into one present-tense answer for:
+
+- current active orchestration item linkage
+- current wait condition / awaiting actor
+- current bounded supervisory state
+
+It is derived only from already-existing surfaces:
+
+- next-move proposal visibility
+- packetization gate outcome
+- active handoff packet candidate + packet fulfillment lifecycle
+- operator action brief lifecycle
+- unified orchestration result linkage
+
+Bounded supervisory values:
+
+- `ready_to_packetize`
+- `packet_ready_for_internal_trigger`
+- `packet_ready_for_external_trigger`
+- `waiting_for_operator_resolution`
+- `waiting_for_external_fulfillment`
+- `waiting_for_internal_result`
+- `held_due_to_fragmentation`
+- `held_due_to_insufficient_confidence`
+- `no_active_orchestration_item`
+- `completed_recently_no_current_item`
+
+This differs from trust/readiness layers:
+
+- **trust posture** = retrospective confidence pressure classification
+- **readiness verdict** = bounded readiness posture over recent reviews
+- **current orchestration state** = present-tense legibility of what loop state is active now
+
+It does **not** add authority, execution, planning, new goals, new venues, or workflow sovereignty.
+It remains explicit current-state visibility only (`non_authoritative`, `diagnostic_only`,
+`decision_power: none`, `does_not_execute_or_route_work`).
