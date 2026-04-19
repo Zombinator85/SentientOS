@@ -409,6 +409,43 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "direct external actuation",
             ],
         },
+        "proposal_packet_continuity_review": {
+            "meaning": "compact retrospective classifier indicating whether recent next-move proposals are converting into coherent active packet lineage or drifting through repeated holds/redirects/repacketization churn.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.derive_proposal_packet_continuity_review",
+            "derived_from_existing_artifacts_only": [
+                "orchestration_next_move_proposals.jsonl",
+                "orchestration_handoff_packets.jsonl",
+                "operator_action_briefs.jsonl",
+                "operator_resolution_receipts.jsonl",
+                "resolve_active_handoff_packet_candidate",
+            ],
+            "reads_fields": [
+                "source_next_move_proposal_ref.proposal_id",
+                "source_packetization_gate_ref.packetization_outcome",
+                "packet_lineage.supersedes_handoff_packet_id",
+                "packet_lineage.current_packet_candidate",
+                "packet_lineage.refresh_reason",
+                "resolution_kind",
+            ],
+            "values": [
+                "coherent_proposal_packet_continuity",
+                "hold_heavy_continuity",
+                "redirect_heavy_continuity",
+                "repacketization_churn",
+                "fragmented_continuity",
+                "insufficient_history",
+            ],
+            "how_it_differs": {
+                "from_unified_result_quality_review": "continuity review diagnoses proposal->packet lineage coherence before/alongside execution or fulfillment quality outcomes",
+                "from_trust_confidence_posture": "trust posture synthesizes multiple review surfaces; continuity review is one bounded lineage-specific retrospective signal",
+            },
+            "explicitly_not": [
+                "planner authority",
+                "packetization gate override",
+                "admission or execution control",
+                "new venue routing or actuation",
+            ],
+        },
         "packetization_gating": {
             "meaning": "bounded constitutional gate deciding whether a next-move proposal can be packetized now, packetized with caution, or held for explicit reasons.",
             "machine_surface": "sentientos.orchestration_intent_fabric.derive_packetization_gate",

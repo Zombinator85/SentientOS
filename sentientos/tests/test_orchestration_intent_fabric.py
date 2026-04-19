@@ -22,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     ingest_operator_resolution_receipt,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
+    derive_proposal_packet_continuity_review,
     derive_external_feedback_gap_map,
     derive_operator_adjusted_next_move_proposal_visibility,
     derive_operator_adjusted_next_venue_recommendation,
@@ -99,6 +100,39 @@ def _proposal_row(
         "diagnostic_only": True,
         "non_authoritative": True,
         "decision_power": "none",
+    }
+
+
+def _packet_row(
+    *,
+    proposal_id: str,
+    packet_id: str,
+    status: str = "ready_for_external_trigger",
+    venue: str = "codex_implementation",
+    gate_outcome: str = "packetization_allowed",
+    supersedes: str | None = None,
+    refresh_reason: str | None = None,
+    current_candidate: bool = True,
+    repacketized: bool = False,
+) -> dict[str, object]:
+    return {
+        "schema_version": "orchestration_handoff_packet.v1",
+        "handoff_packet_id": packet_id,
+        "recorded_at": "2026-04-12T00:00:00Z",
+        "packet_status": status,
+        "target_venue": venue,
+        "source_next_move_proposal_ref": {"proposal_id": proposal_id},
+        "source_packetization_gate_ref": {"packetization_outcome": gate_outcome},
+        "packet_lineage": {
+            "supersedes_handoff_packet_id": supersedes,
+            "refresh_reason": refresh_reason,
+            "source_operator_resolution_receipt_id": None,
+            "current_packet_candidate": current_candidate,
+        },
+        "repacketized_from_operator_feedback": repacketized,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "diagnostic_only": True,
     }
 
 
@@ -1704,6 +1738,155 @@ def test_next_move_proposal_review_classifies_insufficient_history(tmp_path: Pat
 
     review = derive_next_move_proposal_review(tmp_path)
     assert review["review_classification"] == "insufficient_history"
+
+
+def test_proposal_packet_continuity_classifies_coherent(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="nudging", venue="deep_research_audit", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+    ]
+    packets = [
+        _packet_row(proposal_id=str(proposals[0]["proposal_id"]), packet_id="packet-coherent-1"),
+        _packet_row(proposal_id=str(proposals[1]["proposal_id"]), packet_id="packet-coherent-2", venue="deep_research_audit"),
+        _packet_row(proposal_id=str(proposals[2]["proposal_id"]), packet_id="packet-coherent-3", venue="internal_direct_execution"),
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl", packets)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "coherent_proposal_packet_continuity"
+    assert review["summary"]["stable_active_packet_usually_emerges"] is True
+
+
+def test_proposal_packet_continuity_classifies_hold_heavy(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="holding", venue="operator_decision_required", executability="blocked_operator_required"),
+        _proposal_row(relation_posture="holding", venue="operator_decision_required", executability="blocked_operator_required"),
+        _proposal_row(relation_posture="holding", venue="operator_decision_required", executability="blocked_operator_required"),
+    ]
+    briefs = [
+        {
+            "source_next_move_proposal_ref": {"proposal_id": str(proposals[0]["proposal_id"])},
+            "source_packetization_gate_ref": {"packetization_outcome": "packetization_hold_operator_review"},
+        },
+        {
+            "source_next_move_proposal_ref": {"proposal_id": str(proposals[1]["proposal_id"])},
+            "source_packetization_gate_ref": {"packetization_outcome": "packetization_hold_insufficient_confidence"},
+        },
+        {
+            "source_next_move_proposal_ref": {"proposal_id": str(proposals[2]["proposal_id"])},
+            "source_packetization_gate_ref": {"packetization_outcome": "packetization_hold_fragmentation"},
+        },
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+    _write_jsonl(tmp_path / "glow/orchestration/operator_action_briefs.jsonl", briefs)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "hold_heavy_continuity"
+    assert review["continuity_counts"]["hold_related_count"] >= 3
+
+
+def test_proposal_packet_continuity_classifies_redirect_heavy(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="escalating", venue="codex_implementation", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="escalating", venue="deep_research_audit", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="escalating", venue="internal_direct_execution", executability="executable_now"),
+    ]
+    packets = [
+        _packet_row(
+            proposal_id=str(proposals[0]["proposal_id"]),
+            packet_id="packet-redirect-1",
+            refresh_reason="operator_redirected_venue_refresh",
+        ),
+        _packet_row(
+            proposal_id=str(proposals[1]["proposal_id"]),
+            packet_id="packet-redirect-2",
+            refresh_reason="operator_redirected_venue_refresh",
+        ),
+        _packet_row(proposal_id=str(proposals[2]["proposal_id"]), packet_id="packet-redirect-3"),
+    ]
+    receipts = [
+        {"source_next_move_proposal_ref": {"proposal_id": str(proposals[0]["proposal_id"])}, "resolution_kind": "redirected_venue"},
+        {"source_next_move_proposal_ref": {"proposal_id": str(proposals[1]["proposal_id"])}, "resolution_kind": "redirected_venue"},
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl", packets)
+    _write_jsonl(tmp_path / "glow/orchestration/operator_resolution_receipts.jsonl", receipts)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "redirect_heavy_continuity"
+    assert review["continuity_counts"]["redirect_related_count"] >= 2
+
+
+def test_proposal_packet_continuity_classifies_repacketization_churn(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="affirming", venue="deep_research_audit", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+    ]
+    packets = [
+        _packet_row(
+            proposal_id=str(proposals[0]["proposal_id"]),
+            packet_id="packet-churn-1",
+            supersedes="packet-churn-0",
+            repacketized=True,
+            current_candidate=False,
+        ),
+        _packet_row(
+            proposal_id=str(proposals[1]["proposal_id"]),
+            packet_id="packet-churn-2",
+            supersedes="packet-churn-1",
+            repacketized=True,
+            current_candidate=False,
+        ),
+        _packet_row(
+            proposal_id=str(proposals[2]["proposal_id"]),
+            packet_id="packet-churn-3",
+            supersedes="packet-churn-2",
+            repacketized=True,
+            current_candidate=False,
+        ),
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl", packets)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "repacketization_churn"
+    assert review["summary"]["stable_active_packet_usually_emerges"] is False
+
+
+def test_proposal_packet_continuity_classifies_fragmented(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="nudging", venue="deep_research_audit", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="affirming", venue="internal_direct_execution", executability="executable_now"),
+    ]
+    packets = [
+        _packet_row(
+            proposal_id=str(proposals[0]["proposal_id"]),
+            packet_id="packet-frag-1",
+            supersedes="missing-parent-packet",
+        ),
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl", packets)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "fragmented_continuity"
+    assert review["continuity_counts"]["broken_lineage_count"] >= 1
+
+
+def test_proposal_packet_continuity_classifies_insufficient_history(tmp_path: Path) -> None:
+    proposals = [
+        _proposal_row(relation_posture="affirming", venue="codex_implementation", executability="stageable_external_work_order"),
+        _proposal_row(relation_posture="affirming", venue="deep_research_audit", executability="stageable_external_work_order"),
+    ]
+    _write_jsonl(tmp_path / "glow/orchestration/orchestration_next_move_proposals.jsonl", proposals)
+
+    review = derive_proposal_packet_continuity_review(tmp_path)
+    assert review["review_classification"] == "insufficient_history"
+    assert review["summary"]["boundaries"]["non_authoritative"] is True
 
 
 def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
@@ -3996,6 +4179,7 @@ def test_operator_repacketization_e2e_in_scoped_diagnostic(monkeypatch, tmp_path
     active = handoff_packet["active_packet_candidate"]
     history = handoff_packet["lineage_history"]
     gap = diagnostic["orchestration_handoff"]["repacketization_gap_map"]
+    continuity = diagnostic["orchestration_handoff"]["proposal_packet_continuity_review"]
 
     assert handoff_packet["repacketized_from_operator_feedback"] is True
     assert handoff_packet["historical_packet_state_preserved"] is True
@@ -4006,3 +4190,13 @@ def test_operator_repacketization_e2e_in_scoped_diagnostic(monkeypatch, tmp_path
     assert gap["history"]["manual_reconstruction_required"] is False
     assert handoff_packet["does_not_execute_or_route_work"] is True
     assert gap["diagnostic_only"] is True
+    assert continuity["review_classification"] in {
+        "coherent_proposal_packet_continuity",
+        "hold_heavy_continuity",
+        "redirect_heavy_continuity",
+        "repacketization_churn",
+        "fragmented_continuity",
+        "insufficient_history",
+    }
+    assert continuity["summary"]["boundaries"]["decision_power"] == "none"
+    assert continuity["summary"]["boundaries"]["non_authoritative"] is True

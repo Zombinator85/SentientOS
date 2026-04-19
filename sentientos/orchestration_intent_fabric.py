@@ -192,6 +192,15 @@ _NEXT_MOVE_PROPOSAL_REVIEW_CLASSES = {
     "insufficient_history",
 }
 
+_PROPOSAL_PACKET_CONTINUITY_CLASSES = {
+    "coherent_proposal_packet_continuity",
+    "hold_heavy_continuity",
+    "redirect_heavy_continuity",
+    "repacketization_churn",
+    "fragmented_continuity",
+    "insufficient_history",
+}
+
 _ORCHESTRATION_TRUST_POSTURES = {
     "trusted_for_bounded_use",
     "caution_required",
@@ -4116,12 +4125,194 @@ def derive_next_move_proposal_review(
     }
 
 
+def derive_proposal_packet_continuity_review(
+    repo_root: Path,
+    *,
+    window_size: int = 10,
+) -> dict[str, Any]:
+    """Derive a bounded retrospective continuity classifier from proposal->packet lineage artifacts only."""
+
+    root = repo_root.resolve()
+    proposals = _read_jsonl(root / "glow/orchestration/orchestration_next_move_proposals.jsonl")
+    packets = _read_jsonl(root / "glow/orchestration/orchestration_handoff_packets.jsonl")
+    briefs = _read_jsonl(root / "glow/orchestration/operator_action_briefs.jsonl")
+    operator_receipts = _read_jsonl(root / "glow/orchestration/operator_resolution_receipts.jsonl")
+    recent = proposals[-max(0, window_size) :] if window_size > 0 else []
+    recent_proposal_ids = [str(row.get("proposal_id") or "") for row in recent if str(row.get("proposal_id") or "")]
+    proposal_id_set = set(recent_proposal_ids)
+    records_considered = len(recent_proposal_ids)
+
+    linked_packets = [
+        row
+        for row in packets
+        if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") in proposal_id_set
+    ]
+    linked_briefs = [
+        row
+        for row in briefs
+        if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") in proposal_id_set
+    ]
+    linked_receipts = [
+        row
+        for row in operator_receipts
+        if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") in proposal_id_set
+    ]
+
+    hold_related_count = 0
+    for row in linked_packets + linked_briefs:
+        packetization_outcome = str((row.get("source_packetization_gate_ref") or {}).get("packetization_outcome") or "")
+        if packetization_outcome.startswith("packetization_hold_"):
+            hold_related_count += 1
+
+    redirect_receipt_count = sum(1 for row in linked_receipts if str(row.get("resolution_kind") or "") == "redirected_venue")
+    redirect_refresh_count = 0
+    repacketization_count = 0
+    broken_lineage_count = 0
+    stable_active_packet_count = 0
+    for proposal_id in recent_proposal_ids:
+        proposal_packets = [
+            row
+            for row in linked_packets
+            if str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") == proposal_id
+        ]
+        packet_ids = {str(row.get("handoff_packet_id") or "") for row in proposal_packets if str(row.get("handoff_packet_id") or "")}
+        current_candidates = 0
+        for row in proposal_packets:
+            lineage_map = row.get("packet_lineage") if isinstance(row.get("packet_lineage"), Mapping) else {}
+            supersedes_id = str(lineage_map.get("supersedes_handoff_packet_id") or "")
+            if supersedes_id:
+                repacketization_count += 1
+                if supersedes_id not in packet_ids:
+                    broken_lineage_count += 1
+            if bool(row.get("repacketized_from_operator_feedback")):
+                repacketization_count += 1
+            refresh_reason = str(lineage_map.get("refresh_reason") or "")
+            if refresh_reason == "operator_redirected_venue_refresh":
+                redirect_refresh_count += 1
+            if bool(lineage_map.get("current_packet_candidate", True)):
+                current_candidates += 1
+        if current_candidates > 1:
+            broken_lineage_count += 1
+
+        active = resolve_active_handoff_packet_candidate(root, proposal_id)
+        active_present = bool(active.get("active_packet_present"))
+        active_id = str(active.get("active_handoff_packet_id") or "")
+        if proposal_packets and (not active_present or not active_id):
+            broken_lineage_count += 1
+        if active_present and active.get("current_packet_candidate") and active_id:
+            stable_active_packet_count += 1
+
+    redirect_related_count = redirect_receipt_count + redirect_refresh_count
+    recent_packet_count = len(linked_packets)
+    proposals_with_packets = sum(
+        1
+        for proposal_id in recent_proposal_ids
+        if any(str((row.get("source_next_move_proposal_ref") or {}).get("proposal_id") or "") == proposal_id for row in linked_packets)
+    )
+    stable_emergence_ratio = (stable_active_packet_count / proposals_with_packets) if proposals_with_packets else 0.0
+    stable_active_packet_usually_emerges = proposals_with_packets > 0 and stable_emergence_ratio >= 0.67
+
+    hold_heavy = hold_related_count >= max(2, (records_considered + 1) // 2)
+    redirect_heavy = redirect_related_count >= max(2, (records_considered + 1) // 2)
+    churn_heavy = repacketization_count >= max(3, records_considered) and not stable_active_packet_usually_emerges
+    fragmented = broken_lineage_count > 0 or (
+        records_considered >= 3 and recent_packet_count > 0 and not stable_active_packet_usually_emerges
+    )
+    coherent = (
+        records_considered >= 3
+        and recent_packet_count >= 2
+        and hold_related_count <= 1
+        and redirect_related_count <= 1
+        and repacketization_count <= max(1, records_considered // 2)
+        and broken_lineage_count == 0
+        and stable_active_packet_usually_emerges
+    )
+
+    classification = "insufficient_history"
+    compact_reason = "insufficient_recent_proposal_packet_history_for_reliable_continuity_review"
+    if records_considered >= 3:
+        if churn_heavy:
+            classification = "repacketization_churn"
+            compact_reason = "repeated_repacketization_without_consistent_stable_active_packet_emergence"
+        elif fragmented:
+            classification = "fragmented_continuity"
+            compact_reason = "proposal_packet_linkage_or_active_candidate_resolution_is_fragmented"
+        elif hold_heavy:
+            classification = "hold_heavy_continuity"
+            compact_reason = "packetization_hold_outcomes_repeat_across_recent_proposal_to_packet_flow"
+        elif redirect_heavy:
+            classification = "redirect_heavy_continuity"
+            compact_reason = "redirect_linked_operator_or_lineage_signals_repeat_across_recent_packets"
+        elif coherent:
+            classification = "coherent_proposal_packet_continuity"
+            compact_reason = "recent_proposals_usually_resolve_to_stable_active_packets_with_low_hold_redirect_churn"
+        else:
+            classification = "fragmented_continuity"
+            compact_reason = "proposal_to_packet_continuity_is_not_yet_coherently_stable"
+
+    if classification not in _PROPOSAL_PACKET_CONTINUITY_CLASSES:
+        classification = "fragmented_continuity"
+        compact_reason = "unrecognized_continuity_classification_defaulted_to_fragmented_continuity"
+
+    return {
+        "schema_version": "proposal_packet_continuity_review.v1",
+        "review_kind": "proposal_packet_continuity_retrospective",
+        "review_classification": classification,
+        "window_size": max(0, window_size),
+        "records_considered": records_considered,
+        "continuity_counts": {
+            "recent_proposal_count": records_considered,
+            "recent_packet_count": recent_packet_count,
+            "repacketization_count": repacketization_count,
+            "redirect_related_count": redirect_related_count,
+            "hold_related_count": hold_related_count,
+            "broken_lineage_count": broken_lineage_count,
+            "stable_active_packet_count": stable_active_packet_count,
+            "proposals_with_packets": proposals_with_packets,
+        },
+        "summary": {
+            "stable_active_packet_usually_emerges": stable_active_packet_usually_emerges,
+            "stable_active_packet_emergence_ratio": round(stable_emergence_ratio, 4),
+            "compact_reason": compact_reason,
+            "diagnostic_summary": "bounded retrospective continuity review derived from existing proposal/packet/operator lineage artifacts only",
+            "boundaries": {
+                "diagnostic_only": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+                "review_only": True,
+            },
+        },
+        "artifacts_read": {
+            "next_move_proposal_ledger": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+            "handoff_packet_ledger": "glow/orchestration/orchestration_handoff_packets.jsonl",
+            "operator_action_brief_ledger": "glow/orchestration/operator_action_briefs.jsonl",
+            "operator_resolution_receipt_ledger": "glow/orchestration/operator_resolution_receipts.jsonl",
+            "packetization_gate_outcomes_from": [
+                "handoff_packet.source_packetization_gate_ref.packetization_outcome",
+                "operator_action_brief.source_packetization_gate_ref.packetization_outcome",
+            ],
+            "active_packet_candidate_resolver": "resolve_active_handoff_packet_candidate",
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+            },
+        ),
+    }
+
+
 def derive_orchestration_trust_confidence_posture(
     next_move_proposal_review: Mapping[str, Any],
     venue_mix_review: Mapping[str, Any],
     outcome_review: Mapping[str, Any],
     unified_result_quality_review: Mapping[str, Any],
     operator_attention_recommendation: Mapping[str, Any],
+    proposal_packet_continuity_review: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Derive one compact orchestration trust/confidence posture from existing review surfaces only.
@@ -4134,6 +4325,8 @@ def derive_orchestration_trust_confidence_posture(
     outcome_classification = str(outcome_review.get("review_classification") or "insufficient_history")
     result_quality_classification = str(unified_result_quality_review.get("review_classification") or "insufficient_history")
     attention = str(operator_attention_recommendation.get("operator_attention_recommendation") or "insufficient_context")
+    continuity_map = proposal_packet_continuity_review if isinstance(proposal_packet_continuity_review, Mapping) else {}
+    continuity_classification = str(continuity_map.get("review_classification") or "insufficient_history")
 
     records_counts = {
         "next_move_proposal_review": int(next_move_proposal_review.get("records_considered") or 0),
@@ -4276,6 +4469,11 @@ def derive_orchestration_trust_confidence_posture(
                 "records_considered": records_counts["unified_result_quality_review"],
             },
             "operator_attention_recommendation": attention,
+            "proposal_packet_continuity_review": {
+                "review_classification": continuity_classification,
+                "records_considered": int(continuity_map.get("records_considered") or 0),
+                "bounded_basis_only": True,
+            },
         },
         "pressure_summary": {
             "primary_pressure": primary_pressure,
@@ -4290,6 +4488,7 @@ def derive_orchestration_trust_confidence_posture(
                 "orchestration_outcome_review",
                 "unified_result_quality_review",
                 "orchestration_operator_attention_recommendation",
+                "proposal_packet_continuity_review",
             ],
             "compact_rationale": compact_reason,
         },
