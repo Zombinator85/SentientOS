@@ -442,6 +442,37 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "new venue routing",
             ],
         },
+        "current_orchestration_watchpoint": {
+            "meaning": "compact present-tense wake-condition object describing the specific next condition that would let bounded orchestration advance.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_watchpoint",
+            "derived_from_current_state_surfaces_only": [
+                "resolve_current_orchestration_state",
+                "active_handoff_packet_visibility",
+                "operator_action_brief_lifecycle",
+                "packetization_gate",
+                "unified_orchestration_result",
+                "current proposal presence/absence",
+            ],
+            "watchpoint_classes": [
+                "await_operator_resolution",
+                "await_internal_execution_result",
+                "await_external_fulfillment_receipt",
+                "await_packetization_relief",
+                "await_new_proposal",
+                "no_watchpoint_needed",
+            ],
+            "how_it_differs": {
+                "from_current_orchestration_state": "current state classifies what the loop is currently doing; watchpoint classifies what concrete event/artifact would let it advance next.",
+                "from_delegated_operation_readiness": "readiness is a bounded fit verdict over retrospective + present signals; watchpoint is a narrow current-state wake dependency only.",
+            },
+            "explicitly_not": [
+                "an event engine or scheduler",
+                "execution/admission authority",
+                "new venue routing",
+                "direct external actuation",
+                "a sovereign decision layer",
+            ],
+        },
         "proposal_packet_continuity_review": {
             "meaning": "compact retrospective classifier indicating whether recent next-move proposals are converting into coherent active packet lineage or drifting through repeated holds/redirects/repacketization churn.",
             "machine_surface": "sentientos.orchestration_intent_fabric.derive_proposal_packet_continuity_review",

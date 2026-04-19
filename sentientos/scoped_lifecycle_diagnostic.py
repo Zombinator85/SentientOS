@@ -42,6 +42,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_handoff_packet_history_for_proposal,
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
+    resolve_current_orchestration_watchpoint,
     resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
     resolve_orchestration_result,
@@ -288,6 +289,15 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         packetization_gate=packetization_gate,
         unified_result=unified_result,
     )
+    current_orchestration_watchpoint = resolve_current_orchestration_watchpoint(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_proposal=adjusted_next_move_proposal,
+        active_packet_visibility=active_packet,
+        operator_brief_lifecycle=operator_brief_lifecycle,
+        packetization_gate=packetization_gate,
+        unified_result=unified_result,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -298,7 +308,10 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         venue_mix_review=orchestration_venue_mix_review,
         next_move_proposal_review=next_move_proposal_review,
         active_packet_visibility=active_packet,
-        current_orchestration_state=current_orchestration_state,
+        current_orchestration_state={
+            **current_orchestration_state,
+            "current_watchpoint": current_orchestration_watchpoint,
+        },
     )
     unified_result_quality_review = derive_unified_result_quality_review(root)
     substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
@@ -386,6 +399,21 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "trust_confidence_posture": orchestration_trust_confidence_posture,
             "delegated_operation_readiness": delegated_operation_readiness,
             "current_orchestration_state": current_orchestration_state,
+            "current_orchestration_watchpoint": current_orchestration_watchpoint,
+            "current_orchestration_watchpoint_summary": {
+                "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
+                "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
+                "expected_actor": current_orchestration_watchpoint.get("expected_actor"),
+                "expected_signal_type": current_orchestration_watchpoint.get("expected_signal_type"),
+                "compact_rationale": (current_orchestration_watchpoint.get("basis") or {}).get("compact_rationale"),
+                "non_sovereign_boundaries": {
+                    "diagnostic_only": True,
+                    "non_authoritative": True,
+                    "decision_power": "none",
+                    "watchpoint_only": True,
+                    "does_not_execute_or_route_work": True,
+                },
+            },
             "packetization_gating": {
                 **packetization_gate,
                 "packetization_allowed_or_caution": packetization_gate.get("packetization_outcome")
