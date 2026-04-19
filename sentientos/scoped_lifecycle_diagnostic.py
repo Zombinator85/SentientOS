@@ -43,6 +43,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
     resolve_current_orchestration_watchpoint,
+    resolve_re_evaluation_trigger_recommendation,
     resolve_watchpoint_satisfaction,
     resolve_latest_operator_resolution_for_proposal,
     resolve_operator_action_brief_lifecycle,
@@ -309,6 +310,17 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         current_proposal=adjusted_next_move_proposal,
         active_packet_visibility=active_packet,
     )
+    re_evaluation_trigger_recommendation = resolve_re_evaluation_trigger_recommendation(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        operator_brief_lifecycle=operator_brief_lifecycle,
+        unified_result=unified_result,
+        packetization_gate=packetization_gate,
+        current_proposal=adjusted_next_move_proposal,
+        active_packet_visibility=active_packet,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -323,6 +335,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             **current_orchestration_state,
             "current_watchpoint": current_orchestration_watchpoint,
             "current_watchpoint_satisfaction": current_watchpoint_satisfaction,
+            "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation,
         },
     )
     unified_result_quality_review = derive_unified_result_quality_review(root)
@@ -413,25 +426,31 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_state": current_orchestration_state,
             "current_orchestration_watchpoint": current_orchestration_watchpoint,
             "current_orchestration_watchpoint_satisfaction": current_watchpoint_satisfaction,
+            "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
+                "watchpoint_satisfaction_status": current_watchpoint_satisfaction.get("satisfaction_status"),
                 "expected_actor": current_orchestration_watchpoint.get("expected_actor"),
                 "expected_signal_type": current_orchestration_watchpoint.get("expected_signal_type"),
                 "satisfaction_status": current_watchpoint_satisfaction.get("satisfaction_status"),
                 "satisfied_by_actor": current_watchpoint_satisfaction.get("satisfied_by_actor"),
                 "satisfied_by_signal_type": current_watchpoint_satisfaction.get("satisfied_by_signal_type"),
+                "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation.get("recommendation"),
+                "re_evaluation_expected_actor": re_evaluation_trigger_recommendation.get("expected_actor"),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
                 "compact_rationale": (current_orchestration_watchpoint.get("basis") or {}).get("compact_rationale"),
                 "satisfaction_rationale": (current_watchpoint_satisfaction.get("basis") or {}).get("compact_rationale"),
+                "re_evaluation_rationale": (re_evaluation_trigger_recommendation.get("basis") or {}).get("compact_rationale"),
                 "non_sovereign_boundaries": {
                     "diagnostic_only": True,
                     "non_authoritative": True,
                     "decision_power": "none",
                     "watchpoint_only": True,
                     "wake_readiness_only": True,
+                    "re_entry_recommendation_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
