@@ -21,6 +21,7 @@ from sentientos.orchestration_intent_fabric import (
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_packetization_gate,
+    derive_proposal_packet_continuity_review,
     derive_external_feedback_gap_map,
     derive_repacketization_gap_map,
     derive_operator_resolution_feedback_gap_map,
@@ -196,12 +197,14 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
     unified_result_quality_review = derive_unified_result_quality_review(root)
     next_move_proposal_review = derive_next_move_proposal_review(root)
+    proposal_packet_continuity_review = derive_proposal_packet_continuity_review(root)
     orchestration_trust_confidence_posture = derive_orchestration_trust_confidence_posture(
         next_move_proposal_review,
         orchestration_venue_mix_review,
         orchestration_outcome_review,
         unified_result_quality_review,
         orchestration_attention_recommendation,
+        proposal_packet_continuity_review,
     )
     packetization_gate = derive_packetization_gate(
         next_move_proposal,
@@ -354,6 +357,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
             },
             "next_move_proposal_review": next_move_proposal_review,
+            "proposal_packet_continuity_review": proposal_packet_continuity_review,
             "trust_confidence_posture": orchestration_trust_confidence_posture,
             "packetization_gating": {
                 **packetization_gate,
