@@ -48,6 +48,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
     resolve_current_orchestration_watchpoint,
+    resolve_re_evaluation_trigger_recommendation,
     resolve_watchpoint_satisfaction,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
@@ -4425,6 +4426,130 @@ def test_watchpoint_satisfaction_reports_no_active_watchpoint(tmp_path: Path) ->
     assert satisfaction["satisfied_by_actor"] == "none"
 
 
+def test_re_evaluation_trigger_operator_resolution_recommends_packet_synthesis(tmp_path: Path) -> None:
+    state = {"current_orchestration_state_id": "ocs-re-eval-operator", "current_supervisory_state": "waiting_for_operator_resolution"}
+    watchpoint = {
+        "orchestration_watchpoint_id": "owp-re-eval-operator",
+        "watchpoint_class": "await_operator_resolution",
+        "expected_actor": "operator",
+        "expected_signal_type": "operator_resolution_receipt",
+    }
+    satisfaction = {
+        "watchpoint_satisfaction_id": "wps-re-eval-operator",
+        "satisfaction_status": "watchpoint_satisfied",
+    }
+    trigger = resolve_re_evaluation_trigger_recommendation(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        operator_brief_lifecycle={"resolution_kind": "approved_with_constraints"},
+    )
+    assert trigger["recommendation"] == "rerun_packet_synthesis"
+    assert trigger["expected_actor"] == "orchestration_body"
+
+
+def test_re_evaluation_trigger_internal_result_recommends_judgment_rerun(tmp_path: Path) -> None:
+    state = {
+        "current_orchestration_state_id": "ocs-re-eval-internal",
+        "current_supervisory_state": "waiting_for_internal_result",
+        "current_resolution_path": "internal_execution",
+    }
+    watchpoint = {
+        "orchestration_watchpoint_id": "owp-re-eval-internal",
+        "watchpoint_class": "await_internal_execution_result",
+        "expected_actor": "internal_substrate",
+        "expected_signal_type": "internal_execution_result",
+    }
+    satisfaction = {
+        "watchpoint_satisfaction_id": "wps-re-eval-internal",
+        "satisfaction_status": "watchpoint_satisfied",
+    }
+    trigger = resolve_re_evaluation_trigger_recommendation(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        unified_result={"resolution_path": "internal_execution"},
+    )
+    assert trigger["recommendation"] == "rerun_delegated_judgment"
+
+
+def test_re_evaluation_trigger_external_result_recommends_judgment_rerun(tmp_path: Path) -> None:
+    state = {
+        "current_orchestration_state_id": "ocs-re-eval-external",
+        "current_supervisory_state": "waiting_for_external_fulfillment",
+        "current_resolution_path": "external_fulfillment",
+    }
+    watchpoint = {
+        "orchestration_watchpoint_id": "owp-re-eval-external",
+        "watchpoint_class": "await_external_fulfillment_receipt",
+        "expected_actor": "external_actor",
+        "expected_signal_type": "external_fulfillment_receipt",
+    }
+    satisfaction = {
+        "watchpoint_satisfaction_id": "wps-re-eval-external",
+        "satisfaction_status": "watchpoint_satisfied",
+    }
+    trigger = resolve_re_evaluation_trigger_recommendation(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        unified_result={"resolution_path": "external_fulfillment"},
+    )
+    assert trigger["recommendation"] == "rerun_delegated_judgment"
+
+
+def test_re_evaluation_trigger_fragmented_context_holds_for_manual_review(tmp_path: Path) -> None:
+    state = {"current_orchestration_state_id": "ocs-re-eval-fragmented", "current_supervisory_state": "waiting_for_external_fulfillment"}
+    watchpoint = {
+        "orchestration_watchpoint_id": "owp-re-eval-fragmented",
+        "watchpoint_class": "await_external_fulfillment_receipt",
+        "expected_actor": "external_actor",
+        "expected_signal_type": "external_fulfillment_receipt",
+    }
+    satisfaction = {"watchpoint_satisfaction_id": "wps-re-eval-fragmented", "satisfaction_status": "watchpoint_fragmented"}
+    trigger = resolve_re_evaluation_trigger_recommendation(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+    )
+    assert trigger["recommendation"] == "hold_for_manual_review"
+    assert trigger["expected_actor"] == "operator"
+
+
+def test_re_evaluation_trigger_no_active_watchpoint_needs_no_re_evaluation(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": None},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={
+            "orchestration_result_id": "oru-re-eval-none",
+            "result_classification": "completed_successfully",
+            "resolution_path": "external_fulfillment",
+        },
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    satisfaction = resolve_watchpoint_satisfaction(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+    )
+    trigger = resolve_re_evaluation_trigger_recommendation(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+    )
+    assert watchpoint["watchpoint_class"] == "no_watchpoint_needed"
+    assert trigger["recommendation"] == "no_re_evaluation_needed"
+    assert trigger["expected_actor"] == "none"
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4460,6 +4585,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     current_state = diagnostic["orchestration_handoff"]["current_orchestration_state"]
     current_watchpoint = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint"]
     current_watchpoint_satisfaction = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_satisfaction"]
+    re_evaluation_trigger = diagnostic["orchestration_handoff"]["re_evaluation_trigger_recommendation"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -4497,10 +4623,25 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_watchpoint_satisfaction["wake_readiness_summary"]["wake_readiness_only"] is True
     assert current_watchpoint_satisfaction["does_not_schedule_or_trigger_events"] is True
+    assert re_evaluation_trigger["schema_version"] == "orchestration_re_evaluation_trigger.v1"
+    assert re_evaluation_trigger["recommendation"] in {
+        "rerun_delegated_judgment",
+        "rerun_packetization_gate",
+        "rerun_packet_synthesis",
+        "clear_wait_and_continue_current_packet",
+        "hold_for_manual_review",
+        "no_re_evaluation_needed",
+    }
+    assert re_evaluation_trigger["expected_actor"] in {"orchestration_body", "operator", "none"}
+    assert re_evaluation_trigger["re_entry_summary"]["non_sovereign_boundaries"]["decision_power"] == "none"
+    assert re_evaluation_trigger["re_entry_recommendation_only"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
-    assert current_watchpoint_summary["satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
+    assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
+    assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
+    assert current_watchpoint_summary["re_evaluation_expected_actor"] == re_evaluation_trigger["expected_actor"]
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
@@ -4512,6 +4653,12 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
         "no_active_watchpoint",
         "not_supplied",
     }
+    assert (
+        readiness["summary"]["current_orchestration_state_basis"]["re_evaluation_recommendation_basis"][
+            "does_not_change_verdict_logic"
+        ]
+        is True
+    )
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 

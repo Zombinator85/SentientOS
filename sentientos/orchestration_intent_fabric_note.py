@@ -511,6 +511,37 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "a sovereign decision layer",
             ],
         },
+        "re_evaluation_trigger_recommendation": {
+            "meaning": "bounded re-entry recommendation that says how the loop should re-enter evaluation once watchpoint context is satisfied, stale, fragmented, or absent.",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_re_evaluation_trigger_recommendation",
+            "derived_from_existing_current_state_watchpoint_surfaces_only": [
+                "resolve_current_orchestration_state",
+                "resolve_current_orchestration_watchpoint",
+                "resolve_watchpoint_satisfaction",
+                "operator_action_brief_lifecycle",
+                "packetization_gate",
+                "active_handoff_packet_visibility",
+            ],
+            "trigger_values": [
+                "rerun_delegated_judgment",
+                "rerun_packetization_gate",
+                "rerun_packet_synthesis",
+                "clear_wait_and_continue_current_packet",
+                "hold_for_manual_review",
+                "no_re_evaluation_needed",
+            ],
+            "how_it_differs": {
+                "from_watchpoint_satisfaction": "watchpoint satisfaction says whether the wait condition is met; re-evaluation trigger recommendation says what bounded re-entry action is most conservative next.",
+                "from_current_orchestration_watchpoint": "watchpoint defines the waited-for condition; re-evaluation trigger recommendation defines post-wake re-entry posture only.",
+            },
+            "explicitly_not": [
+                "a scheduler or autonomous planner",
+                "direct execution of recommended action",
+                "admission authority",
+                "execution authority",
+                "new venue creation or routing",
+            ],
+        },
         "proposal_packet_continuity_review": {
             "meaning": "compact retrospective classifier indicating whether recent next-move proposals are converting into coherent active packet lineage or drifting through repeated holds/redirects/repacketization churn.",
             "machine_surface": "sentientos.orchestration_intent_fabric.derive_proposal_packet_continuity_review",
