@@ -277,6 +277,29 @@ _CURRENT_ORCHESTRATION_AWAITING_ACTORS = {
     "external_actor",
 }
 
+_ORCHESTRATION_WATCHPOINT_CLASSES = {
+    "await_operator_resolution",
+    "await_internal_execution_result",
+    "await_external_fulfillment_receipt",
+    "await_packetization_relief",
+    "await_new_proposal",
+    "no_watchpoint_needed",
+}
+
+_ORCHESTRATION_WATCHPOINT_EXPECTED_ACTORS = {
+    "none",
+    "operator",
+    "internal_substrate",
+    "external_actor",
+    "orchestration_body",
+}
+
+_ORCHESTRATION_WATCHPOINT_ACTIVITY = {
+    "actively_blocked",
+    "passively_awaiting",
+    "not_waiting",
+}
+
 _HANDOFF_PACKET_STATUSES = {
     "prepared",
     "blocked_operator_required",
@@ -4041,6 +4064,28 @@ def _current_orchestration_state_id(
     return f"ocs-{digest.hexdigest()[:16]}"
 
 
+def _orchestration_watchpoint_id(
+    *,
+    current_orchestration_state_id: str,
+    watchpoint_class: str,
+    expected_actor: str,
+    expected_signal_type: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "current_orchestration_state_id": current_orchestration_state_id,
+                "watchpoint_class": watchpoint_class,
+                "expected_actor": expected_actor,
+                "expected_signal_type": expected_signal_type,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"owp-{digest.hexdigest()[:16]}"
+
+
 def resolve_current_orchestration_state(
     repo_root: Path,
     *,
@@ -4257,6 +4302,7 @@ def resolve_current_orchestration_state(
             "unified_result_ref": {
                 "orchestration_result_id": unified_result_id or None,
                 "resolution_path": unified_resolution_path or None,
+                "result_classification": unified_result_classification or None,
                 "unified_result_surface_path": "glow/orchestration/orchestration_unified_results.jsonl",
             },
             "packetization_gate_ref": {
@@ -4286,6 +4332,154 @@ def resolve_current_orchestration_state(
                 "does_not_execute_or_route_work": True,
                 "does_not_plan_or_create_new_goals": True,
                 "workflow_engine": False,
+            },
+        ),
+    }
+
+
+def resolve_current_orchestration_watchpoint(
+    repo_root: Path,
+    *,
+    current_orchestration_state: Mapping[str, Any] | None = None,
+    current_proposal: Mapping[str, Any] | None = None,
+    active_packet_visibility: Mapping[str, Any] | None = None,
+    operator_brief_lifecycle: Mapping[str, Any] | None = None,
+    packetization_gate: Mapping[str, Any] | None = None,
+    unified_result: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve one compact, present-tense wake-condition watchpoint for bounded orchestration."""
+
+    state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    if not state_map:
+        state_map = resolve_current_orchestration_state(
+            repo_root,
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+            operator_brief_lifecycle=operator_brief_lifecycle,
+            packetization_gate=packetization_gate,
+            unified_result=unified_result,
+        )
+
+    state_class = str(state_map.get("current_supervisory_state") or "no_active_orchestration_item")
+    proposal_id = str(((state_map.get("source_linkage") or {}).get("current_proposal_ref") or {}).get("proposal_id") or "")
+    active_packet_id = str(((state_map.get("source_linkage") or {}).get("active_packet_ref") or {}).get("handoff_packet_id") or "")
+    unified_result_class = str(((state_map.get("source_linkage") or {}).get("unified_result_ref") or {}).get("result_classification") or "")
+
+    watchpoint_class = "no_watchpoint_needed"
+    expected_actor = "none"
+    expected_signal_type = "none"
+    wake_condition = "no_specific_wake_condition_required_from_current_state"
+    rationale = "current_state_does_not_indicate_a_concrete_pending_dependency"
+    loop_activity = "not_waiting"
+
+    if state_class == "waiting_for_operator_resolution":
+        watchpoint_class = "await_operator_resolution"
+        expected_actor = "operator"
+        expected_signal_type = "operator_resolution_receipt"
+        wake_condition = "ingest_operator_resolution_receipt_for_current_operator_action_brief"
+        rationale = "current_state_reports_waiting_for_operator_resolution"
+        loop_activity = "actively_blocked"
+    elif state_class == "waiting_for_internal_result":
+        watchpoint_class = "await_internal_execution_result"
+        expected_actor = "internal_substrate"
+        expected_signal_type = "internal_execution_result"
+        wake_condition = "observe_closed_internal_execution_result_for_active_handoff"
+        rationale = "current_state_reports_waiting_for_internal_result"
+        loop_activity = "actively_blocked"
+    elif state_class == "waiting_for_external_fulfillment":
+        watchpoint_class = "await_external_fulfillment_receipt"
+        expected_actor = "external_actor"
+        expected_signal_type = "external_fulfillment_receipt"
+        wake_condition = "ingest_external_fulfillment_receipt_for_active_staged_external_packet"
+        rationale = "current_state_reports_waiting_for_external_fulfillment"
+        loop_activity = "actively_blocked"
+    elif state_class in {"held_due_to_fragmentation", "held_due_to_insufficient_confidence"}:
+        watchpoint_class = "await_packetization_relief"
+        expected_actor = "orchestration_body"
+        expected_signal_type = "packetization_gate_relief_signal"
+        wake_condition = "derive_non_held_packetization_outcome_from_existing_orchestration_surfaces"
+        rationale = "current_state_reports_packetization_hold_pressure"
+        loop_activity = "actively_blocked"
+    elif state_class == "no_active_orchestration_item" and not proposal_id and not active_packet_id:
+        watchpoint_class = "await_new_proposal"
+        expected_actor = "orchestration_body"
+        expected_signal_type = "next_move_proposal"
+        wake_condition = "derive_next_move_proposal_from_existing_delegated_judgment_and_review_surfaces"
+        rationale = "current_state_reports_no_active_item_without_visible_proposal_or_packet"
+        loop_activity = "passively_awaiting"
+    elif state_class == "completed_recently_no_current_item":
+        if unified_result_class in {
+            "completed_successfully",
+            "completed_with_issues",
+            "declined_or_abandoned",
+            "failed_after_execution",
+        }:
+            watchpoint_class = "no_watchpoint_needed"
+            expected_actor = "none"
+            expected_signal_type = "none"
+            wake_condition = "recent_completion_visible_without_current_wait_dependency"
+            rationale = "current_state_reports_completed_recently_no_current_item"
+            loop_activity = "not_waiting"
+        else:
+            watchpoint_class = "await_new_proposal"
+            expected_actor = "orchestration_body"
+            expected_signal_type = "next_move_proposal"
+            wake_condition = "derive_next_move_proposal_when_loop_re-enters_active_state"
+            rationale = "completed_state_visible_without_finalized_completion_classification"
+            loop_activity = "passively_awaiting"
+
+    if watchpoint_class not in _ORCHESTRATION_WATCHPOINT_CLASSES:
+        watchpoint_class = "no_watchpoint_needed"
+    if expected_actor not in _ORCHESTRATION_WATCHPOINT_EXPECTED_ACTORS:
+        expected_actor = "none"
+    if loop_activity not in _ORCHESTRATION_WATCHPOINT_ACTIVITY:
+        loop_activity = "not_waiting"
+
+    current_state_id = str(state_map.get("current_orchestration_state_id") or "")
+    return {
+        "schema_version": "current_orchestration_watchpoint.v1",
+        "resolved_at": _iso_utc_now(),
+        "orchestration_watchpoint_id": _orchestration_watchpoint_id(
+            current_orchestration_state_id=current_state_id,
+            watchpoint_class=watchpoint_class,
+            expected_actor=expected_actor,
+            expected_signal_type=expected_signal_type,
+        ),
+        "watchpoint_class": watchpoint_class,
+        "expected_actor": expected_actor,
+        "expected_signal_type": expected_signal_type,
+        "wake_condition": wake_condition,
+        "basis": {
+            "compact_rationale": rationale,
+            "current_state_class": state_class,
+            "loop_activity": loop_activity,
+            "source_current_orchestration_state_ref": {
+                "current_orchestration_state_id": current_state_id or None,
+                "current_state_schema_version": str(state_map.get("schema_version") or "current_orchestration_state.v1"),
+                "current_state_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_state",
+            },
+        },
+        "wake_condition_summary": {
+            "current_state_class": state_class,
+            "expected_actor": expected_actor,
+            "expected_signal_type": expected_signal_type,
+            "loop_activity": loop_activity,
+            "diagnostic_only": True,
+            "non_authoritative": True,
+            "decision_power": "none",
+            "watchpoint_only": True,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "watchpoint_only": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+                "does_not_schedule_or_trigger_events": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_create_new_authority_surface": True,
             },
         ),
     }
@@ -4951,6 +5145,11 @@ def derive_delegated_operation_readiness_verdict(
 
     active_packet_map = active_packet_visibility if isinstance(active_packet_visibility, Mapping) else {}
     current_state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    current_watchpoint_map = (
+        current_state_map.get("current_watchpoint")
+        if isinstance(current_state_map.get("current_watchpoint"), Mapping)
+        else {}
+    )
     packet_context = {
         "packetization_outcome": packetization_outcome,
         "packetization_allowed": packetization_allowed,
@@ -4992,6 +5191,12 @@ def derive_delegated_operation_readiness_verdict(
                 "current_supervisory_state": str(current_state_map.get("current_supervisory_state") or "not_supplied"),
                 "state_focus": str(current_state_map.get("state_focus") or "not_supplied"),
                 "awaiting_actor": str(current_state_map.get("awaiting_actor") or "not_supplied"),
+                "watchpoint_basis": {
+                    "watchpoint_class": str(current_watchpoint_map.get("watchpoint_class") or "not_supplied"),
+                    "expected_actor": str(current_watchpoint_map.get("expected_actor") or "not_supplied"),
+                    "expected_signal_type": str(current_watchpoint_map.get("expected_signal_type") or "not_supplied"),
+                    "basis_only": True,
+                },
                 "basis_only": True,
                 "does_not_change_verdict_logic": True,
             },

@@ -47,6 +47,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_latest_operator_resolution_for_proposal,
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
+    resolve_current_orchestration_watchpoint,
     resolve_operator_action_brief_lifecycle,
     synthesize_handoff_packet,
     synthesize_operator_refreshed_handoff_packet,
@@ -4148,6 +4149,112 @@ def test_current_orchestration_state_reports_no_active_item_when_no_evidence(tmp
     assert state["awaiting_actor"] == "none"
 
 
+def test_orchestration_watchpoint_awaits_operator_resolution_from_current_state(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-operator"},
+        packetization_gate={"packetization_outcome": "packetization_hold_operator_review", "packetization_allowed": False},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": True},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "await_operator_resolution"
+    assert watchpoint["expected_actor"] == "operator"
+    assert watchpoint["expected_signal_type"] == "operator_resolution_receipt"
+    assert watchpoint["wake_condition_summary"]["loop_activity"] == "actively_blocked"
+
+
+def test_orchestration_watchpoint_awaits_internal_execution_result(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-internal"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-int",
+            "active_packet_status": "ready_for_internal_trigger",
+            "active_target_venue": "internal_direct_execution",
+        },
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={"resolution_state": "handoff_admitted_pending_result", "result_classification": "pending_or_unresolved"},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "await_internal_execution_result"
+    assert watchpoint["expected_actor"] == "internal_substrate"
+    assert watchpoint["expected_signal_type"] == "internal_execution_result"
+
+
+def test_orchestration_watchpoint_awaits_external_fulfillment_receipt(tmp_path: Path) -> None:
+    proposal_id = "proposal-ext-watchpoint"
+    _write_jsonl(
+        tmp_path / "glow/orchestration/orchestration_handoff_packets.jsonl",
+        [_packet_row(proposal_id=proposal_id, packet_id="packet-ext-watchpoint", status="prepared", venue="codex_implementation")],
+    )
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": proposal_id},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={
+            "active_packet_present": True,
+            "active_handoff_packet_id": "packet-ext-watchpoint",
+            "active_packet_status": "prepared",
+            "active_target_venue": "codex_implementation",
+        },
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={"result_classification": "pending_or_unresolved", "resolution_path": "external_fulfillment"},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "await_external_fulfillment_receipt"
+    assert watchpoint["expected_actor"] == "external_actor"
+    assert watchpoint["expected_signal_type"] == "external_fulfillment_receipt"
+
+
+def test_orchestration_watchpoint_awaits_packetization_relief_for_held_state(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={"proposal_id": "proposal-hold"},
+        packetization_gate={"packetization_outcome": "packetization_hold_fragmentation", "packetization_allowed": False},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "await_packetization_relief"
+    assert watchpoint["expected_actor"] == "orchestration_body"
+    assert watchpoint["wake_condition_summary"]["loop_activity"] == "actively_blocked"
+
+
+def test_orchestration_watchpoint_awaits_new_proposal_when_no_active_item(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={},
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "await_new_proposal"
+    assert watchpoint["expected_actor"] == "orchestration_body"
+    assert watchpoint["expected_signal_type"] == "next_move_proposal"
+
+
+def test_orchestration_watchpoint_reports_no_watchpoint_needed_for_completed_item(tmp_path: Path) -> None:
+    state = resolve_current_orchestration_state(
+        tmp_path,
+        current_proposal={},
+        active_packet_visibility={"active_packet_present": False},
+        operator_brief_lifecycle={"awaiting_operator_input": False},
+        unified_result={
+            "orchestration_result_id": "oru-complete-watchpoint",
+            "result_classification": "completed_successfully",
+            "resolution_path": "external_fulfillment",
+        },
+    )
+    watchpoint = resolve_current_orchestration_watchpoint(tmp_path, current_orchestration_state=state)
+    assert watchpoint["watchpoint_class"] == "no_watchpoint_needed"
+    assert watchpoint["expected_actor"] == "none"
+    assert watchpoint["wake_condition_summary"]["loop_activity"] == "not_waiting"
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4181,6 +4288,8 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
 
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     current_state = diagnostic["orchestration_handoff"]["current_orchestration_state"]
+    current_watchpoint = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint"]
+    current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
     after = admit_orchestration_intent(tmp_path, before_intent)
@@ -4196,8 +4305,22 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_state["awaiting_actor"] in {"none", "operator", "internal_substrate", "external_actor"}
     assert current_state["non_authoritative"] is True
     assert current_state["does_not_execute_or_route_work"] is True
+    assert current_watchpoint["schema_version"] == "current_orchestration_watchpoint.v1"
+    assert current_watchpoint["watchpoint_class"] in {
+        "await_operator_resolution",
+        "await_internal_execution_result",
+        "await_external_fulfillment_receipt",
+        "await_packetization_relief",
+        "await_new_proposal",
+        "no_watchpoint_needed",
+    }
+    assert current_watchpoint["wake_condition_summary"]["decision_power"] == "none"
+    assert current_watchpoint["does_not_schedule_or_trigger_events"] is True
+    assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
+    assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
