@@ -29,6 +29,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_operator_adjusted_next_move_proposal_visibility,
     derive_operator_adjusted_next_venue_recommendation,
     derive_orchestration_trust_confidence_posture,
+    resolve_current_resumed_operation_readiness_verdict,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
     derive_delegated_operation_readiness_verdict,
@@ -334,6 +335,18 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         packetization_gate=packetization_gate,
         unified_result=unified_result,
     )
+    current_resumed_operation_readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        packetization_gate=packetization_gate,
+        active_packet_visibility=active_packet,
+        current_proposal=adjusted_next_move_proposal,
+        operator_resolution_influence=operator_influence,
+        unified_result=unified_result,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -344,12 +357,14 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         venue_mix_review=orchestration_venue_mix_review,
         next_move_proposal_review=next_move_proposal_review,
         active_packet_visibility=active_packet,
-        current_orchestration_state={
-            **current_orchestration_state,
-            "current_watchpoint": current_orchestration_watchpoint,
-            "current_watchpoint_satisfaction": current_watchpoint_satisfaction,
-            "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation,
-        },
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        current_proposal=adjusted_next_move_proposal,
+        operator_resolution_influence=operator_influence,
+        unified_result=unified_result,
     )
     unified_result_quality_review = derive_unified_result_quality_review(root)
     substitution_readiness = dict(delegated_judgment.get("orchestration_substitution_readiness") or {})
@@ -441,6 +456,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_watchpoint_satisfaction": current_watchpoint_satisfaction,
             "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation,
             "current_orchestration_resumption_candidate": current_orchestration_resumption_candidate,
+            "current_resumed_operation_readiness": current_resumed_operation_readiness,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -454,6 +470,9 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "re_evaluation_expected_actor": re_evaluation_trigger_recommendation.get("expected_actor"),
                 "current_resumption_candidate_mode": current_orchestration_resumption_candidate.get("bounded_resume_mode"),
                 "current_resumption_continuity_posture": current_orchestration_resumption_candidate.get("continuity_posture"),
+                "current_resumed_operation_readiness_verdict": current_resumed_operation_readiness.get(
+                    "resumed_operation_readiness_verdict"
+                ),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
@@ -469,6 +488,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "wake_readiness_only": True,
                     "re_entry_recommendation_only": True,
                     "resumption_candidate_only": True,
+                    "resumption_readiness_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
