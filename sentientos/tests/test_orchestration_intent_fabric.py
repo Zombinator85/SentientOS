@@ -47,6 +47,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_latest_operator_resolution_for_proposal,
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
+    resolve_current_resumed_operation_readiness_verdict,
     resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint,
     resolve_re_evaluation_trigger_recommendation,
@@ -3537,6 +3538,7 @@ def test_delegated_operation_readiness_classifies_ready_for_bounded_supervised_o
     )
     assert readiness["readiness_verdict"] == "ready_for_bounded_supervised_operation"
     assert readiness["dominant_pressure_source"] == "none"
+    assert readiness["current_resumed_operation_readiness"]["basis"]["derived_from_existing_surfaces_only"]
 
 
 def test_delegated_operation_readiness_classifies_ready_with_caution() -> None:
@@ -4729,6 +4731,120 @@ def test_current_resumption_candidate_no_active_watchpoint_case_remains_no_resum
     assert candidate["resume_ready"] is False
 
 
+def test_current_resumed_operation_readiness_ready_to_proceed_case() -> None:
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "held_due_to_fragmentation"},
+        current_orchestration_watchpoint={"watchpoint_class": "await_packetization_relief"},
+        watchpoint_satisfaction={"satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={"recommendation": "clear_wait_and_continue_current_packet"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "resumption_candidate",
+            "resume_ready": True,
+            "continuity_posture": "continue_current_active_packet",
+        },
+        delegated_operation_readiness={"readiness_verdict": "ready_for_bounded_supervised_operation"},
+        packetization_gate={"packetization_outcome": "packetization_allowed", "packetization_allowed": True},
+        active_packet_visibility={"handoff_packet_id": "pkt-ready"},
+    )
+    assert readiness["resumed_operation_readiness_verdict"] == "ready_to_proceed"
+    assert readiness["basis"]["based_on"]["continuity_confidence"] is True
+
+
+def test_current_resumed_operation_readiness_proceed_with_caution_case() -> None:
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "waiting_for_external_fulfillment"},
+        current_orchestration_watchpoint={"watchpoint_class": "await_external_fulfillment_receipt"},
+        watchpoint_satisfaction={"satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={"recommendation": "rerun_delegated_judgment"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "resumption_candidate",
+            "resume_ready": True,
+            "continuity_posture": "recompute_from_proposal_level_state",
+        },
+        delegated_operation_readiness={"readiness_verdict": "ready_with_caution"},
+        packetization_gate={"packetization_outcome": "packetization_allowed_with_caution", "packetization_allowed": True},
+        current_proposal={"proposal_id": "prop-caution"},
+    )
+    assert readiness["resumed_operation_readiness_verdict"] == "proceed_with_caution"
+    assert readiness["basis"]["based_on"]["continuity_confidence"] is True
+
+
+def test_current_resumed_operation_readiness_stale_or_fragmented_context_holds() -> None:
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "waiting_for_external_fulfillment"},
+        current_orchestration_watchpoint={"watchpoint_class": "await_external_fulfillment_receipt"},
+        watchpoint_satisfaction={"satisfaction_status": "watchpoint_fragmented"},
+        re_evaluation_trigger_recommendation={"recommendation": "hold_for_manual_review"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "manual_review_hold",
+            "resume_ready": False,
+            "continuity_posture": "none",
+        },
+        delegated_operation_readiness={"readiness_verdict": "temporarily_unfit_due_to_fragmentation"},
+    )
+    assert readiness["resumed_operation_readiness_verdict"] == "hold_for_operator_review"
+    assert readiness["basis"]["based_on"]["stale_or_fragmented_wake_context"] is True
+
+
+def test_current_resumed_operation_readiness_unresolved_operator_influence_holds() -> None:
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "waiting_for_operator_resolution"},
+        current_orchestration_watchpoint={"watchpoint_class": "await_operator_resolution"},
+        watchpoint_satisfaction={"satisfaction_status": "watchpoint_pending"},
+        re_evaluation_trigger_recommendation={"recommendation": "rerun_packet_synthesis"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "resumption_candidate",
+            "resume_ready": True,
+            "continuity_posture": "refresh_packet_from_current_proposal_state",
+        },
+        delegated_operation_readiness={"readiness_verdict": "operator_review_required"},
+        current_proposal={"proposal_id": "prop-operator-hold"},
+        operator_resolution_influence={"operator_influence_state": "operator_defer_preserved_hold"},
+    )
+    assert readiness["resumed_operation_readiness_verdict"] == "hold_for_operator_review"
+    assert readiness["basis"]["based_on"]["unresolved_operator_influence"] is True
+
+
+def test_current_resumed_operation_readiness_no_active_watchpoint_or_resume_is_not_ready() -> None:
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "completed_recently_no_current_item"},
+        current_orchestration_watchpoint={"watchpoint_class": "no_watchpoint_needed"},
+        watchpoint_satisfaction={"satisfaction_status": "no_active_watchpoint"},
+        re_evaluation_trigger_recommendation={"recommendation": "no_re_evaluation_needed"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "no_resume_candidate",
+            "resume_ready": False,
+            "continuity_posture": "none",
+        },
+    )
+    assert readiness["resumed_operation_readiness_verdict"] == "not_ready"
+    assert readiness["basis"]["based_on"]["continuity_confidence"] is False
+
+
+def test_current_resumed_operation_readiness_surface_is_non_authoritative_and_non_executing(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        current_orchestration_state={"current_supervisory_state": "no_active_orchestration_item"},
+        current_orchestration_watchpoint={"watchpoint_class": "no_watchpoint_needed"},
+        watchpoint_satisfaction={"satisfaction_status": "no_active_watchpoint"},
+        re_evaluation_trigger_recommendation={"recommendation": "no_re_evaluation_needed"},
+        current_orchestration_resumption_candidate={
+            "resumption_candidate_class": "no_resume_candidate",
+            "resume_ready": False,
+            "continuity_posture": "none",
+        },
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert readiness["non_authoritative"] is True
+    assert readiness["non_executing"] is True
+    assert readiness["decision_power"] == "none"
+    assert readiness["does_not_execute_or_route_work"] is True
+    assert before["handoff_outcome"] == after["handoff_outcome"]
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4766,6 +4882,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     current_watchpoint_satisfaction = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_satisfaction"]
     re_evaluation_trigger = diagnostic["orchestration_handoff"]["re_evaluation_trigger_recommendation"]
     current_resumption_candidate = diagnostic["orchestration_handoff"]["current_orchestration_resumption_candidate"]
+    resumed_readiness = diagnostic["orchestration_handoff"]["current_resumed_operation_readiness"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -4832,16 +4949,31 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_resumption_candidate["resumption_summary"]["non_executing"] is True
     assert current_resumption_candidate["does_not_execute_or_route_work"] is True
+    assert resumed_readiness["schema_version"] == "current_resumed_operation_readiness_verdict.v1"
+    assert resumed_readiness["resumed_operation_readiness_verdict"] in {
+        "ready_to_proceed",
+        "proceed_with_caution",
+        "hold_for_operator_review",
+        "not_ready",
+    }
+    assert resumed_readiness["non_authoritative"] is True
+    assert resumed_readiness["non_executing"] is True
+    assert resumed_readiness["does_not_imply_permission_to_execute"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
     assert current_watchpoint_summary["re_evaluation_expected_actor"] == re_evaluation_trigger["expected_actor"]
     assert current_watchpoint_summary["current_resumption_candidate_mode"] == current_resumption_candidate["bounded_resume_mode"]
     assert current_watchpoint_summary["current_resumption_continuity_posture"] == current_resumption_candidate["continuity_posture"]
+    assert (
+        current_watchpoint_summary["current_resumed_operation_readiness_verdict"]
+        == resumed_readiness["resumed_operation_readiness_verdict"]
+    )
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_candidate_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_readiness_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
