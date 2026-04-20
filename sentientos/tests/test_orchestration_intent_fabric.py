@@ -47,6 +47,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_latest_operator_resolution_for_proposal,
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
+    resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint,
     resolve_re_evaluation_trigger_recommendation,
     resolve_watchpoint_satisfaction,
@@ -4550,6 +4551,184 @@ def test_re_evaluation_trigger_no_active_watchpoint_needs_no_re_evaluation(tmp_p
     assert trigger["expected_actor"] == "none"
 
 
+def test_current_resumption_candidate_is_derived_from_existing_surfaces(tmp_path: Path) -> None:
+    state = {
+        "current_orchestration_state_id": "ocs-derived",
+        "current_supervisory_state": "waiting_for_operator_resolution",
+        "current_resolution_path": "operator_review",
+        "source_linkage": {
+            "current_proposal_ref": {"proposal_id": "prop-derived"},
+            "active_packet_ref": {"handoff_packet_id": "pkt-derived"},
+            "operator_brief_ref": {"operator_resolution_receipt_id": "orr-derived"},
+            "unified_result_ref": {"orchestration_result_id": "oru-derived"},
+        },
+    }
+    watchpoint = {"orchestration_watchpoint_id": "owp-derived", "watchpoint_class": "await_operator_resolution"}
+    satisfaction = {"watchpoint_satisfaction_id": "wps-derived", "satisfaction_status": "watchpoint_satisfied"}
+    trigger = {
+        "re_evaluation_trigger_id": "ret-derived",
+        "recommendation": "rerun_packet_synthesis",
+        "expected_actor": "orchestration_body",
+    }
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        re_evaluation_trigger_recommendation=trigger,
+    )
+    assert candidate["source_lineage"]["current_orchestration_state_ref"]["current_orchestration_state_id"] == "ocs-derived"
+    assert candidate["source_lineage"]["current_orchestration_watchpoint_ref"]["orchestration_watchpoint_id"] == "owp-derived"
+    assert candidate["source_lineage"]["watchpoint_satisfaction_ref"]["watchpoint_satisfaction_id"] == "wps-derived"
+    assert candidate["source_lineage"]["re_evaluation_trigger_ref"]["re_evaluation_trigger_id"] == "ret-derived"
+    assert candidate["bounded_resume_mode"] == trigger["recommendation"]
+    assert candidate["resumption_candidate_only"] is True
+    assert candidate["non_executing"] is True
+    assert candidate["does_not_execute_or_route_work"] is True
+
+
+def test_current_resumption_candidate_operator_resolution_wake_prefers_packet_refresh(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-operator",
+            "current_supervisory_state": "waiting_for_operator_resolution",
+            "source_linkage": {"operator_brief_ref": {"operator_resolution_receipt_id": "orr-operator"}},
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-operator",
+            "watchpoint_class": "await_operator_resolution",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-operator", "satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-operator",
+            "recommendation": "rerun_packet_synthesis",
+            "expected_actor": "orchestration_body",
+        },
+    )
+    assert candidate["bounded_resume_mode"] == "rerun_packet_synthesis"
+    assert candidate["continuity_posture"] == "refresh_packet_from_current_proposal_state"
+    assert candidate["operator_influence_in_path"] is True
+
+
+def test_current_resumption_candidate_internal_result_wake_uses_existing_unified_result_path(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-internal",
+            "current_supervisory_state": "waiting_for_internal_result",
+            "source_linkage": {"unified_result_ref": {"orchestration_result_id": "oru-internal"}},
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-internal",
+            "watchpoint_class": "await_internal_execution_result",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-internal", "satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-internal",
+            "recommendation": "rerun_delegated_judgment",
+            "expected_actor": "orchestration_body",
+        },
+    )
+    assert candidate["bounded_resume_mode"] == "rerun_delegated_judgment"
+    assert candidate["continuity_posture"] == "recompute_from_proposal_level_state"
+    assert candidate["source_lineage"]["unified_result_ref"]["orchestration_result_id"] == "oru-internal"
+
+
+def test_current_resumption_candidate_external_result_wake_uses_existing_unified_result_path(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-external",
+            "current_supervisory_state": "waiting_for_external_fulfillment",
+            "source_linkage": {"unified_result_ref": {"orchestration_result_id": "oru-external"}},
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-external",
+            "watchpoint_class": "await_external_fulfillment_receipt",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-external", "satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-external",
+            "recommendation": "rerun_delegated_judgment",
+            "expected_actor": "orchestration_body",
+        },
+    )
+    assert candidate["bounded_resume_mode"] == "rerun_delegated_judgment"
+    assert candidate["continuity_posture"] == "recompute_from_proposal_level_state"
+    assert candidate["source_lineage"]["unified_result_ref"]["orchestration_result_id"] == "oru-external"
+
+
+def test_current_resumption_candidate_continue_current_packet_continuity_case(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-continue",
+            "current_supervisory_state": "held_due_to_fragmentation",
+            "source_linkage": {"active_packet_ref": {"handoff_packet_id": "pkt-continue"}},
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-continue",
+            "watchpoint_class": "await_packetization_relief",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-continue", "satisfaction_status": "watchpoint_satisfied"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-continue",
+            "recommendation": "clear_wait_and_continue_current_packet",
+            "expected_actor": "orchestration_body",
+        },
+    )
+    assert candidate["bounded_resume_mode"] == "clear_wait_and_continue_current_packet"
+    assert candidate["continuity_posture"] == "continue_current_active_packet"
+    assert candidate["resume_ready"] is True
+
+
+def test_current_resumption_candidate_fragmented_or_stale_context_holds_for_manual_review(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-hold",
+            "current_supervisory_state": "waiting_for_external_fulfillment",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-hold",
+            "watchpoint_class": "await_external_fulfillment_receipt",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-hold", "satisfaction_status": "watchpoint_fragmented"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-hold",
+            "recommendation": "hold_for_manual_review",
+            "expected_actor": "operator",
+        },
+    )
+    assert candidate["resumption_candidate_class"] == "manual_review_hold"
+    assert candidate["bounded_resume_mode"] == "hold_for_manual_review"
+    assert candidate["resume_ready"] is False
+
+
+def test_current_resumption_candidate_no_active_watchpoint_case_remains_no_resume(tmp_path: Path) -> None:
+    candidate = resolve_current_orchestration_resumption_candidate(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-resume-none",
+            "current_supervisory_state": "completed_recently_no_current_item",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-resume-none",
+            "watchpoint_class": "no_watchpoint_needed",
+        },
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-resume-none", "satisfaction_status": "no_active_watchpoint"},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resume-none",
+            "recommendation": "no_re_evaluation_needed",
+            "expected_actor": "none",
+        },
+    )
+    assert candidate["resumption_candidate_class"] == "no_resume_candidate"
+    assert candidate["bounded_resume_mode"] == "no_re_evaluation_needed"
+    assert candidate["resume_ready"] is False
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4586,6 +4765,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     current_watchpoint = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint"]
     current_watchpoint_satisfaction = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_satisfaction"]
     re_evaluation_trigger = diagnostic["orchestration_handoff"]["re_evaluation_trigger_recommendation"]
+    current_resumption_candidate = diagnostic["orchestration_handoff"]["current_orchestration_resumption_candidate"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -4635,13 +4815,33 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert re_evaluation_trigger["expected_actor"] in {"orchestration_body", "operator", "none"}
     assert re_evaluation_trigger["re_entry_summary"]["non_sovereign_boundaries"]["decision_power"] == "none"
     assert re_evaluation_trigger["re_entry_recommendation_only"] is True
+    assert current_resumption_candidate["schema_version"] == "current_orchestration_resumption_candidate.v1"
+    assert current_resumption_candidate["bounded_resume_mode"] in {
+        "rerun_delegated_judgment",
+        "rerun_packetization_gate",
+        "rerun_packet_synthesis",
+        "clear_wait_and_continue_current_packet",
+        "hold_for_manual_review",
+        "no_re_evaluation_needed",
+    }
+    assert current_resumption_candidate["continuity_posture"] in {
+        "continue_current_active_packet",
+        "refresh_packet_from_current_proposal_state",
+        "recompute_from_proposal_level_state",
+        "none",
+    }
+    assert current_resumption_candidate["resumption_summary"]["non_executing"] is True
+    assert current_resumption_candidate["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
     assert current_watchpoint_summary["re_evaluation_expected_actor"] == re_evaluation_trigger["expected_actor"]
+    assert current_watchpoint_summary["current_resumption_candidate_mode"] == current_resumption_candidate["bounded_resume_mode"]
+    assert current_watchpoint_summary["current_resumption_continuity_posture"] == current_resumption_candidate["continuity_posture"]
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_candidate_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
