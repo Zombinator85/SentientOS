@@ -42,6 +42,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_handoff_packet_history_for_proposal,
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
+    resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint,
     resolve_re_evaluation_trigger_recommendation,
     resolve_watchpoint_satisfaction,
@@ -321,6 +322,18 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         current_proposal=adjusted_next_move_proposal,
         active_packet_visibility=active_packet,
     )
+    current_orchestration_resumption_candidate = resolve_current_orchestration_resumption_candidate(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_proposal=adjusted_next_move_proposal,
+        active_packet_visibility=active_packet,
+        operator_brief_lifecycle=operator_brief_lifecycle,
+        packetization_gate=packetization_gate,
+        unified_result=unified_result,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -427,6 +440,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_watchpoint": current_orchestration_watchpoint,
             "current_orchestration_watchpoint_satisfaction": current_watchpoint_satisfaction,
             "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation,
+            "current_orchestration_resumption_candidate": current_orchestration_resumption_candidate,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -438,12 +452,15 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "satisfied_by_signal_type": current_watchpoint_satisfaction.get("satisfied_by_signal_type"),
                 "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation.get("recommendation"),
                 "re_evaluation_expected_actor": re_evaluation_trigger_recommendation.get("expected_actor"),
+                "current_resumption_candidate_mode": current_orchestration_resumption_candidate.get("bounded_resume_mode"),
+                "current_resumption_continuity_posture": current_orchestration_resumption_candidate.get("continuity_posture"),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
                 "compact_rationale": (current_orchestration_watchpoint.get("basis") or {}).get("compact_rationale"),
                 "satisfaction_rationale": (current_watchpoint_satisfaction.get("basis") or {}).get("compact_rationale"),
                 "re_evaluation_rationale": (re_evaluation_trigger_recommendation.get("basis") or {}).get("compact_rationale"),
+                "resumption_rationale": (current_orchestration_resumption_candidate.get("basis") or {}).get("compact_rationale"),
                 "non_sovereign_boundaries": {
                     "diagnostic_only": True,
                     "non_authoritative": True,
@@ -451,6 +468,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "watchpoint_only": True,
                     "wake_readiness_only": True,
                     "re_entry_recommendation_only": True,
+                    "resumption_candidate_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
