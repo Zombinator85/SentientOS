@@ -6041,6 +6041,18 @@ def derive_proposal_packet_continuity_review(
         classification = "fragmented_continuity"
         compact_reason = "unrecognized_continuity_classification_defaulted_to_fragmented_continuity"
 
+    stabilized_into_one_active_packet = (
+        records_considered >= 3
+        and proposals_with_packets > 0
+        and stable_active_packet_usually_emerges
+        and not fragmented
+        and not churn_heavy
+    )
+    holds_materially_shaped_recent_path = hold_heavy
+    redirects_materially_shaped_recent_path = redirect_heavy
+    repacketization_prevented_stable_continuity = churn_heavy
+    linkage_fragmentation_present = fragmented
+
     return {
         "schema_version": "proposal_packet_continuity_review.v1",
         "review_kind": "proposal_packet_continuity_retrospective",
@@ -6062,6 +6074,20 @@ def derive_proposal_packet_continuity_review(
             "stable_active_packet_emergence_ratio": round(stable_emergence_ratio, 4),
             "compact_reason": compact_reason,
             "diagnostic_summary": "bounded retrospective continuity review derived from existing proposal/packet/operator lineage artifacts only",
+            "continuity_signals": {
+                "stabilized_into_one_active_packet": stabilized_into_one_active_packet,
+                "holds_materially_shaped_recent_path": holds_materially_shaped_recent_path,
+                "redirects_materially_shaped_recent_path": redirects_materially_shaped_recent_path,
+                "repacketization_prevented_stable_continuity": repacketization_prevented_stable_continuity,
+                "lineage_fragmentation_present": linkage_fragmentation_present,
+            },
+            "continuity_basis": {
+                "proposal_to_packet_linkage_basis": "source_next_move_proposal_ref.proposal_id",
+                "active_packet_basis": "resolve_active_handoff_packet_candidate",
+                "lineage_basis": "packet_lineage.supersedes_handoff_packet_id + packet_lineage.current_packet_candidate",
+                "packetization_gate_basis": "source_packetization_gate_ref.packetization_outcome",
+                "operator_redirect_basis": "operator_resolution_receipts.resolution_kind=redirected_venue and packet_lineage.refresh_reason",
+            },
             "boundaries": {
                 "diagnostic_only": True,
                 "non_authoritative": True,
