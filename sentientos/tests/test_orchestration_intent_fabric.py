@@ -1765,6 +1765,9 @@ def test_proposal_packet_continuity_classifies_coherent(tmp_path: Path) -> None:
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "coherent_proposal_packet_continuity"
     assert review["summary"]["stable_active_packet_usually_emerges"] is True
+    assert review["summary"]["continuity_signals"]["stabilized_into_one_active_packet"] is True
+    assert review["summary"]["continuity_signals"]["holds_materially_shaped_recent_path"] is False
+    assert review["summary"]["boundaries"]["diagnostic_only"] is True
 
 
 def test_proposal_packet_continuity_classifies_hold_heavy(tmp_path: Path) -> None:
@@ -1793,6 +1796,7 @@ def test_proposal_packet_continuity_classifies_hold_heavy(tmp_path: Path) -> Non
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "hold_heavy_continuity"
     assert review["continuity_counts"]["hold_related_count"] >= 3
+    assert review["summary"]["continuity_signals"]["holds_materially_shaped_recent_path"] is True
 
 
 def test_proposal_packet_continuity_classifies_redirect_heavy(tmp_path: Path) -> None:
@@ -1825,6 +1829,7 @@ def test_proposal_packet_continuity_classifies_redirect_heavy(tmp_path: Path) ->
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "redirect_heavy_continuity"
     assert review["continuity_counts"]["redirect_related_count"] >= 2
+    assert review["summary"]["continuity_signals"]["redirects_materially_shaped_recent_path"] is True
 
 
 def test_proposal_packet_continuity_classifies_repacketization_churn(tmp_path: Path) -> None:
@@ -1862,6 +1867,7 @@ def test_proposal_packet_continuity_classifies_repacketization_churn(tmp_path: P
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "repacketization_churn"
     assert review["summary"]["stable_active_packet_usually_emerges"] is False
+    assert review["summary"]["continuity_signals"]["repacketization_prevented_stable_continuity"] is True
 
 
 def test_proposal_packet_continuity_classifies_fragmented(tmp_path: Path) -> None:
@@ -1883,6 +1889,7 @@ def test_proposal_packet_continuity_classifies_fragmented(tmp_path: Path) -> Non
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "fragmented_continuity"
     assert review["continuity_counts"]["broken_lineage_count"] >= 1
+    assert review["summary"]["continuity_signals"]["lineage_fragmentation_present"] is True
 
 
 def test_proposal_packet_continuity_classifies_insufficient_history(tmp_path: Path) -> None:
@@ -1895,6 +1902,9 @@ def test_proposal_packet_continuity_classifies_insufficient_history(tmp_path: Pa
     review = derive_proposal_packet_continuity_review(tmp_path)
     assert review["review_classification"] == "insufficient_history"
     assert review["summary"]["boundaries"]["non_authoritative"] is True
+    assert review["artifacts_read"]["active_packet_candidate_resolver"] == "resolve_active_handoff_packet_candidate"
+    assert review["summary"]["continuity_basis"]["packetization_gate_basis"] == "source_packetization_gate_ref.packetization_outcome"
+    assert review["decision_power"] == "none"
 
 
 def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
@@ -5484,3 +5494,5 @@ def test_operator_repacketization_e2e_in_scoped_diagnostic(monkeypatch, tmp_path
     }
     assert continuity["summary"]["boundaries"]["decision_power"] == "none"
     assert continuity["summary"]["boundaries"]["non_authoritative"] is True
+    assert "continuity_signals" in continuity["summary"]
+    assert continuity["does_not_execute_or_route_work"] is True

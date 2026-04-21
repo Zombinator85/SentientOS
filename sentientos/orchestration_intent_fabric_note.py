@@ -671,6 +671,15 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "fragmented_continuity",
                 "insufficient_history",
             ],
+            "summary_signals": [
+                "stable_active_packet_usually_emerges",
+                "continuity_signals.stabilized_into_one_active_packet",
+                "continuity_signals.holds_materially_shaped_recent_path",
+                "continuity_signals.redirects_materially_shaped_recent_path",
+                "continuity_signals.repacketization_prevented_stable_continuity",
+                "continuity_signals.lineage_fragmentation_present",
+                "continuity_basis.*",
+            ],
             "how_it_differs": {
                 "from_unified_result_quality_review": "continuity review diagnoses proposal->packet lineage coherence before/alongside execution or fulfillment quality outcomes",
                 "from_trust_confidence_posture": "trust posture synthesizes multiple review surfaces; continuity review is one bounded lineage-specific retrospective signal",
