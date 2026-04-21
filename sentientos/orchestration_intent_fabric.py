@@ -6490,6 +6490,7 @@ def derive_proposal_packet_continuity_review(
             diagnostic_only=True,
             does_not_change_admission_or_execution=True,
             additional_fields={
+                "does_not_execute_or_route_work": True,
                 "review_only": True,
                 "non_authoritative": True,
                 "decision_power": "none",
