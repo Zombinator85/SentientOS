@@ -32,6 +32,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_resumed_operation_readiness_verdict,
     resolve_current_orchestration_pressure_signal,
     resolve_current_re_evaluation_basis_brief,
+    resolve_current_orchestration_next_move_brief,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_watchpoint_brief,
     derive_next_venue_recommendation,
@@ -412,6 +413,23 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         operator_resolution_influence=operator_influence,
         unified_result=unified_result,
     )
+    current_orchestration_next_move_brief = resolve_current_orchestration_next_move_brief(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_re_evaluation_basis_brief=current_re_evaluation_basis_brief,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        current_resumed_operation_readiness=current_resumed_operation_readiness,
+        current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
+        current_orchestration_watchpoint_brief=current_orchestration_watchpoint_brief,
+        current_orchestration_pressure_signal=current_orchestration_pressure_signal,
+        active_packet_visibility=active_packet,
+        current_proposal=adjusted_next_move_proposal,
+        operator_resolution_influence=operator_influence,
+        unified_result=unified_result,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -526,6 +544,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_pressure_signal": current_orchestration_pressure_signal,
             "current_orchestration_wake_readiness_detector": current_orchestration_wake_readiness_detector,
             "current_re_evaluation_basis_brief": current_re_evaluation_basis_brief,
+            "current_orchestration_next_move_brief": current_orchestration_next_move_brief,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -561,6 +580,11 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "current_re_evaluation_basis_classification": current_re_evaluation_basis_brief.get("basis_classification"),
                 "current_re_evaluation_basis_primary_driver": current_re_evaluation_basis_brief.get("primary_driver"),
                 "current_re_evaluation_basis_posture": current_re_evaluation_basis_brief.get("posture"),
+                "current_next_move_classification": current_orchestration_next_move_brief.get("next_move_classification"),
+                "current_next_move_posture": current_orchestration_next_move_brief.get("next_move_posture"),
+                "current_next_move_continues_existing_packet": current_orchestration_next_move_brief.get(
+                    "continues_existing_packet"
+                ),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
@@ -581,6 +605,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "pressure_signal_only": True,
                     "wake_readiness_detector_only": True,
                     "re_evaluation_basis_brief_only": True,
+                    "current_orchestration_next_move_brief_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },

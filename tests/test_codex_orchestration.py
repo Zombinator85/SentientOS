@@ -6,7 +6,10 @@ from codex.orchestrator import StrategyOrchestrator
 from codex.strategy import CodexStrategy, StrategyPlan, configure_strategy_root
 from integration_memory import configure_integration_root
 from sentientos import scoped_lifecycle_diagnostic
-from sentientos.orchestration_intent_fabric import resolve_current_re_evaluation_basis_brief
+from sentientos.orchestration_intent_fabric import (
+    resolve_current_orchestration_next_move_brief,
+    resolve_current_re_evaluation_basis_brief,
+)
 
 
 def _strategy(
@@ -276,6 +279,74 @@ def _resolve_basis(
     )
 
 
+def _resolve_next_move(
+    tmp_path: Path,
+    *,
+    watchpoint_class: str,
+    satisfaction_status: str,
+    recommendation: str,
+    basis_classification: str,
+    readiness_verdict: str = "ready_to_proceed",
+    wake_classification: str = "wake_ready",
+    pressure_classification: str = "stable_or_low_pressure",
+    wait_kind: str = "awaiting_internal_result_closure",
+    active_packet_available: bool = False,
+    operator_influence_state: str = "no_operator_influence_yet",
+) -> dict[str, object]:
+    return resolve_current_orchestration_next_move_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "state-1",
+            "current_resolution_path": "none",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "watch-1",
+            "watchpoint_class": watchpoint_class,
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "sat-1",
+            "satisfaction_status": satisfaction_status,
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-1",
+            "recommendation": recommendation,
+            "expected_actor": "orchestration_body",
+        },
+        current_re_evaluation_basis_brief={
+            "basis_classification": basis_classification,
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "cand-1",
+            "resume_ready": True,
+        },
+        current_resumed_operation_readiness={
+            "resumed_operation_readiness_verdict": readiness_verdict,
+        },
+        current_orchestration_wake_readiness_detector={
+            "wake_readiness_classification": wake_classification,
+            "result_posture": "informational_only",
+        },
+        current_orchestration_watchpoint_brief={
+            "wait_kind": wait_kind,
+        },
+        current_orchestration_pressure_signal={
+            "pressure_classification": pressure_classification,
+        },
+        active_packet_visibility={
+            "active_packet_available": active_packet_available,
+        },
+        current_proposal={
+            "proposal_id": "proposal-1",
+        },
+        operator_resolution_influence={
+            "operator_influence_state": operator_influence_state,
+        },
+        unified_result={
+            "resolution_path": "none",
+        },
+    )
+
+
 def test_current_re_evaluation_basis_brief_classifications(tmp_path: Path) -> None:
     satisfaction = _resolve_basis(
         tmp_path,
@@ -356,3 +427,91 @@ def test_current_re_evaluation_basis_brief_is_non_authoritative(tmp_path: Path) 
 def test_current_re_evaluation_basis_brief_surface_is_in_scoped_lifecycle_diagnostic() -> None:
     source = inspect.getsource(scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic)
     assert "current_re_evaluation_basis_brief" in source
+
+
+def test_current_orchestration_next_move_brief_classifications(tmp_path: Path) -> None:
+    delegated = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_new_proposal",
+        satisfaction_status="watchpoint_satisfied",
+        recommendation="rerun_delegated_judgment",
+        basis_classification="satisfaction_driven_re_evaluation",
+    )
+    assert delegated["next_move_classification"] == "rerun_delegated_judgment_next"
+
+    gate = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_operator_resolution",
+        satisfaction_status="watchpoint_satisfied",
+        recommendation="rerun_packetization_gate",
+        basis_classification="operator_resolution_driven_re_evaluation",
+        operator_influence_state="operator_resolution_applied",
+    )
+    assert gate["next_move_classification"] == "rerun_packetization_gate_next"
+
+    synthesis = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_operator_resolution",
+        satisfaction_status="watchpoint_satisfied",
+        recommendation="rerun_packet_synthesis",
+        basis_classification="operator_resolution_driven_re_evaluation",
+        operator_influence_state="operator_resolution_applied",
+    )
+    assert synthesis["next_move_classification"] == "rerun_packet_synthesis_next"
+
+    continue_packet = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_internal_execution_result",
+        satisfaction_status="watchpoint_satisfied",
+        recommendation="clear_wait_and_continue_current_packet",
+        basis_classification="satisfaction_driven_re_evaluation",
+        active_packet_available=True,
+    )
+    assert continue_packet["next_move_classification"] == "continue_current_packet_next"
+    assert continue_packet["continues_existing_packet"] is True
+
+    hold = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_operator_resolution",
+        satisfaction_status="watchpoint_pending",
+        recommendation="hold_for_manual_review",
+        basis_classification="continuity_uncertainty_driven_re_evaluation",
+        readiness_verdict="hold_for_operator_review",
+        wake_classification="wake_blocked_pending_operator",
+        pressure_classification="hold_pressure",
+        wait_kind="awaiting_operator_resolution",
+    )
+    assert hold["next_move_classification"] == "hold_for_operator_review_next"
+    assert hold["next_move_posture"] == "blocked"
+
+    no_next = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="no_watchpoint_needed",
+        satisfaction_status="no_active_watchpoint",
+        recommendation="no_re_evaluation_needed",
+        basis_classification="no_current_re_evaluation_basis",
+        readiness_verdict="not_ready",
+        wake_classification="wake_not_applicable",
+    )
+    assert no_next["next_move_classification"] == "no_current_next_move"
+
+
+def test_current_orchestration_next_move_brief_is_derived_and_non_authoritative(tmp_path: Path) -> None:
+    brief = _resolve_next_move(
+        tmp_path,
+        watchpoint_class="await_new_proposal",
+        satisfaction_status="watchpoint_satisfied",
+        recommendation="rerun_delegated_judgment",
+        basis_classification="satisfaction_driven_re_evaluation",
+    )
+    assert brief.get("decision_power") == "none"
+    boundaries = brief.get("boundaries", {})
+    assert boundaries.get("non_authoritative") is True
+    assert boundaries.get("non_executing") is True
+    assert boundaries.get("does_not_execute_or_route_work") is True
+    assert brief.get("basis", {}).get("historical_honesty", {}).get("derived_from_existing_surfaces_only") is True
+
+
+def test_current_orchestration_next_move_brief_surface_is_in_scoped_lifecycle_diagnostic() -> None:
+    source = inspect.getsource(scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic)
+    assert "current_orchestration_next_move_brief" in source

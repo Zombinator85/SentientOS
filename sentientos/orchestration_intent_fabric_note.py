@@ -213,6 +213,24 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             ],
             "meaning": "handoff admission records substrate entry; orchestration result closure requires downstream task_result evidence.",
         },
+        "current_orchestration_next_move_brief": {
+            "what_it_is": "a compact observational-only resolver summarizing the currently implied bounded next move from existing re-evaluation/wake/resumption/readiness surfaces",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_next_move_brief",
+            "classifications": [
+                "rerun_delegated_judgment_next",
+                "rerun_packetization_gate_next",
+                "rerun_packet_synthesis_next",
+                "continue_current_packet_next",
+                "hold_for_operator_review_next",
+                "no_current_next_move",
+            ],
+            "strict_boundaries": [
+                "non-sovereign, non-authoritative, non-executing",
+                "informational brief only; never a scheduler/planner/execution venue",
+                "derived from existing trigger/basis/wake/resumption/readiness surfaces only",
+                "does not create a new mutable truth source or authority layer",
+            ],
+        },
         "unified_orchestration_result": {
             "what_it_is": "a bounded venue-aware resolver surface that normalizes internal execution closure and external fulfillment closure into one typed result shape",
             "machine_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result",
