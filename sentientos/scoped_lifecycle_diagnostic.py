@@ -34,6 +34,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_re_evaluation_basis_brief,
     resolve_current_orchestration_next_move_brief,
     resolve_current_orchestration_handoff_packet_brief,
+    resolve_current_operator_facing_orchestration_brief,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_watchpoint_brief,
     derive_next_venue_recommendation,
@@ -449,6 +450,26 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         operator_resolution_influence=operator_influence,
         unified_result=unified_result,
     )
+    current_operator_facing_orchestration_brief = resolve_current_operator_facing_orchestration_brief(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        current_orchestration_watchpoint_brief=current_orchestration_watchpoint_brief,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_re_evaluation_basis_brief=current_re_evaluation_basis_brief,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        current_resumed_operation_readiness=current_resumed_operation_readiness,
+        current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
+        current_orchestration_pressure_signal=current_orchestration_pressure_signal,
+        current_orchestration_next_move_brief=current_orchestration_next_move_brief,
+        current_orchestration_handoff_packet_brief=current_orchestration_handoff_packet_brief,
+        operator_action_brief_visibility=operator_brief_lifecycle,
+        operator_resolution_influence=operator_influence,
+        active_packet_visibility=active_packet,
+        current_proposal=adjusted_next_move_proposal,
+        unified_result=unified_result,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -565,6 +586,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_re_evaluation_basis_brief": current_re_evaluation_basis_brief,
             "current_orchestration_next_move_brief": current_orchestration_next_move_brief,
             "current_orchestration_handoff_packet_brief": current_orchestration_handoff_packet_brief,
+            "current_operator_facing_orchestration_brief": current_operator_facing_orchestration_brief,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -614,6 +636,13 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "current_handoff_packet_refreshed_packet_implied": current_orchestration_handoff_packet_brief.get(
                     "refreshed_packet_implied"
                 ),
+                "current_operator_facing_classification": current_operator_facing_orchestration_brief.get(
+                    "operator_facing_classification"
+                ),
+                "current_operator_facing_loop_posture": current_operator_facing_orchestration_brief.get("loop_posture"),
+                "current_operator_facing_informational_only": current_operator_facing_orchestration_brief.get(
+                    "informational_only"
+                ),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
@@ -636,6 +665,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "re_evaluation_basis_brief_only": True,
                     "current_orchestration_next_move_brief_only": True,
                     "current_orchestration_handoff_packet_brief_only": True,
+                    "current_operator_facing_orchestration_brief_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
