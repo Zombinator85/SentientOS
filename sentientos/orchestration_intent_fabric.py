@@ -263,6 +263,26 @@ _CURRENT_WATCHPOINT_BRIEF_WAIT_KINDS = {
     "no_active_watchpoint",
 }
 
+_CURRENT_ORCHESTRATION_PRESSURE_CLASSES = {
+    "stable_or_low_pressure",
+    "hold_pressure",
+    "redirect_pressure",
+    "repacketization_pressure",
+    "fragmentation_pressure",
+    "mixed_pressure",
+    "insufficient_signal",
+}
+
+_CURRENT_ORCHESTRATION_PRESSURE_DRIVERS = {
+    "none",
+    "repeated_holds_or_manual_review",
+    "repeated_redirects_or_reroutes",
+    "repeated_packet_refresh_or_supersession",
+    "fragmented_linkage_or_stale_context",
+    "mixed_or_competing",
+    "insufficient_signal",
+}
+
 _CURRENT_ORCHESTRATION_SUPERVISORY_STATES = {
     "ready_to_packetize",
     "packet_ready_for_internal_trigger",
@@ -4232,6 +4252,32 @@ def _watchpoint_brief_id(
     return f"owb-{digest.hexdigest()[:16]}"
 
 
+def _current_orchestration_pressure_id(
+    *,
+    current_orchestration_state_id: str,
+    orchestration_watchpoint_id: str,
+    watchpoint_satisfaction_id: str,
+    re_evaluation_trigger_id: str,
+    orchestration_resumption_candidate_id: str,
+    pressure_classification: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "current_orchestration_state_id": current_orchestration_state_id,
+                "orchestration_watchpoint_id": orchestration_watchpoint_id,
+                "watchpoint_satisfaction_id": watchpoint_satisfaction_id,
+                "re_evaluation_trigger_id": re_evaluation_trigger_id,
+                "orchestration_resumption_candidate_id": orchestration_resumption_candidate_id,
+                "pressure_classification": pressure_classification,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"ops-{digest.hexdigest()[:16]}"
+
+
 def resolve_current_orchestration_state(
     repo_root: Path,
     *,
@@ -5749,6 +5795,339 @@ def resolve_current_orchestration_watchpoint_brief(
                 "does_not_execute_or_route_work": True,
                 "does_not_create_new_orchestration_layer": True,
                 "does_not_create_new_authority_surface": True,
+            },
+        ),
+    }
+
+
+def resolve_current_orchestration_pressure_signal(
+    repo_root: Path,
+    *,
+    current_orchestration_state: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint: Mapping[str, Any] | None = None,
+    watchpoint_satisfaction: Mapping[str, Any] | None = None,
+    re_evaluation_trigger_recommendation: Mapping[str, Any] | None = None,
+    current_orchestration_resumption_candidate: Mapping[str, Any] | None = None,
+    current_resumed_operation_readiness: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint_brief: Mapping[str, Any] | None = None,
+    proposal_packet_continuity_review: Mapping[str, Any] | None = None,
+    active_packet_visibility: Mapping[str, Any] | None = None,
+    current_proposal: Mapping[str, Any] | None = None,
+    operator_resolution_influence: Mapping[str, Any] | None = None,
+    unified_result: Mapping[str, Any] | None = None,
+    trust_confidence_posture: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve one bounded, non-executing current orchestration pressure signal from existing surfaces only."""
+
+    root = repo_root.resolve()
+    state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    if not state_map:
+        state_map = resolve_current_orchestration_state(
+            root,
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+            operator_brief_lifecycle={},
+            packetization_gate={},
+            unified_result=unified_result,
+        )
+    watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
+    if not watchpoint_map:
+        watchpoint_map = resolve_current_orchestration_watchpoint(
+            root,
+            current_orchestration_state=state_map,
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+            operator_brief_lifecycle={},
+            packetization_gate={},
+            unified_result=unified_result,
+        )
+    satisfaction_map = watchpoint_satisfaction if isinstance(watchpoint_satisfaction, Mapping) else {}
+    if not satisfaction_map:
+        satisfaction_map = resolve_watchpoint_satisfaction(
+            root,
+            current_orchestration_state=state_map,
+            current_orchestration_watchpoint=watchpoint_map,
+            operator_brief_lifecycle={},
+            unified_result=unified_result,
+            packetization_gate={},
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+        )
+    trigger_map = re_evaluation_trigger_recommendation if isinstance(re_evaluation_trigger_recommendation, Mapping) else {}
+    if not trigger_map:
+        trigger_map = resolve_re_evaluation_trigger_recommendation(
+            root,
+            current_orchestration_state=state_map,
+            current_orchestration_watchpoint=watchpoint_map,
+            watchpoint_satisfaction=satisfaction_map,
+            operator_brief_lifecycle={},
+            unified_result=unified_result,
+            packetization_gate={},
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+        )
+    candidate_map = (
+        current_orchestration_resumption_candidate if isinstance(current_orchestration_resumption_candidate, Mapping) else {}
+    )
+    if not candidate_map:
+        candidate_map = resolve_current_orchestration_resumption_candidate(
+            root,
+            current_orchestration_state=state_map,
+            current_orchestration_watchpoint=watchpoint_map,
+            watchpoint_satisfaction=satisfaction_map,
+            re_evaluation_trigger_recommendation=trigger_map,
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+            operator_brief_lifecycle={},
+            packetization_gate={},
+            unified_result=unified_result,
+        )
+    readiness_map = current_resumed_operation_readiness if isinstance(current_resumed_operation_readiness, Mapping) else {}
+    if not readiness_map:
+        readiness_map = resolve_current_resumed_operation_readiness_verdict(
+            current_orchestration_state=state_map,
+            current_orchestration_watchpoint=watchpoint_map,
+            watchpoint_satisfaction=satisfaction_map,
+            re_evaluation_trigger_recommendation=trigger_map,
+            current_orchestration_resumption_candidate=candidate_map,
+            packetization_gate={},
+            active_packet_visibility=active_packet_visibility,
+            current_proposal=current_proposal,
+            operator_resolution_influence=operator_resolution_influence,
+            unified_result=unified_result,
+        )
+    watchpoint_brief_map = (
+        current_orchestration_watchpoint_brief if isinstance(current_orchestration_watchpoint_brief, Mapping) else {}
+    )
+    if not watchpoint_brief_map:
+        watchpoint_brief_map = resolve_current_orchestration_watchpoint_brief(
+            root,
+            current_orchestration_state=state_map,
+            current_orchestration_watchpoint=watchpoint_map,
+            watchpoint_satisfaction=satisfaction_map,
+            re_evaluation_trigger_recommendation=trigger_map,
+            current_orchestration_resumption_candidate=candidate_map,
+            current_resumed_operation_readiness=readiness_map,
+            current_proposal=current_proposal,
+            active_packet_visibility=active_packet_visibility,
+            operator_brief_lifecycle={},
+            packetization_gate={},
+            unified_result=unified_result,
+        )
+    continuity_map = proposal_packet_continuity_review if isinstance(proposal_packet_continuity_review, Mapping) else {}
+    influence_map = operator_resolution_influence if isinstance(operator_resolution_influence, Mapping) else {}
+    trust_map = trust_confidence_posture if isinstance(trust_confidence_posture, Mapping) else {}
+
+    watchpoint_class = str(watchpoint_map.get("watchpoint_class") or "no_watchpoint_needed")
+    satisfaction_status = str(satisfaction_map.get("satisfaction_status") or "watchpoint_pending")
+    trigger_recommendation = str(trigger_map.get("recommendation") or "no_re_evaluation_needed")
+    candidate_class = str(candidate_map.get("resumption_candidate_class") or "no_resume_candidate")
+    readiness_verdict = str(readiness_map.get("resumed_operation_readiness_verdict") or "not_ready")
+    wait_kind = str(watchpoint_brief_map.get("wait_kind") or "continuity_uncertain")
+    continuity_class = str(continuity_map.get("review_classification") or "insufficient_history")
+    continuity_counts_map = continuity_map.get("continuity_counts")
+    continuity_counts = continuity_counts_map if isinstance(continuity_counts_map, Mapping) else {}
+    records_considered = int(continuity_map.get("records_considered") or 0)
+    trust_posture = str(trust_map.get("trust_confidence_posture") or "insufficient_history")
+    operator_influence_state = str(influence_map.get("operator_influence_state") or "no_operator_influence_yet")
+
+    hold_signals = [
+        watchpoint_class == "await_operator_resolution",
+        wait_kind == "awaiting_operator_resolution",
+        trigger_recommendation == "hold_for_manual_review",
+        candidate_class == "manual_review_hold",
+        readiness_verdict == "hold_for_operator_review",
+        continuity_class == "hold_heavy_continuity",
+        operator_influence_state in {"operator_decline_preserved_hold", "operator_defer_preserved_hold"},
+    ]
+    redirect_signals = [
+        continuity_class == "redirect_heavy_continuity",
+        operator_influence_state == "operator_redirect_applied",
+    ]
+    repacketization_count = int(continuity_counts.get("repacketization_count") or 0)
+    repacketization_signals = [
+        continuity_class == "repacketization_churn",
+        repacketization_count >= max(3, records_considered),
+    ]
+    fragmentation_signals = [
+        continuity_class == "fragmented_continuity",
+        satisfaction_status in {"watchpoint_fragmented", "watchpoint_stale"},
+        wait_kind == "continuity_uncertain" and trigger_recommendation == "hold_for_manual_review",
+        int(continuity_counts.get("broken_lineage_count") or 0) > 0,
+    ]
+
+    hold_count = sum(1 for signal in hold_signals if signal)
+    redirect_count = sum(1 for signal in redirect_signals if signal)
+    repacketization_count_signals = sum(1 for signal in repacketization_signals if signal)
+    fragmentation_count = sum(1 for signal in fragmentation_signals if signal)
+    signal_support_count = sum(
+        1
+        for val in (
+            hold_count > 0,
+            redirect_count > 0,
+            repacketization_count_signals > 0,
+            fragmentation_count > 0,
+            continuity_class not in {"", "insufficient_history"},
+            watchpoint_class != "no_watchpoint_needed" or satisfaction_status != "no_active_watchpoint",
+            trust_posture not in {"", "insufficient_history"},
+        )
+        if val
+    )
+
+    stable_like = (
+        continuity_class == "coherent_proposal_packet_continuity"
+        and watchpoint_class in {"no_watchpoint_needed", "await_internal_execution_result", "await_external_fulfillment_receipt"}
+        and satisfaction_status in {"watchpoint_pending", "watchpoint_satisfied", "no_active_watchpoint"}
+        and trigger_recommendation != "hold_for_manual_review"
+        and candidate_class != "manual_review_hold"
+        and readiness_verdict != "hold_for_operator_review"
+    )
+    pressure_sources = {
+        "hold": hold_count >= 2,
+        "redirect": redirect_count >= 1,
+        "repacketization": repacketization_count_signals >= 1,
+        "fragmentation": fragmentation_count >= 1,
+    }
+    active_pressure_kinds = [kind for kind, active in pressure_sources.items() if active]
+    mixed_pressure = len(active_pressure_kinds) >= 2 and (
+        pressure_sources["redirect"]
+        or pressure_sources["repacketization"]
+        or (pressure_sources["hold"] and not pressure_sources["fragmentation"])
+    )
+
+    if signal_support_count < 2:
+        classification = "insufficient_signal"
+        primary_driver = "insufficient_signal"
+        conservative = True
+        rationale = "bounded_current_surfaces_do_not_offer_enough_signal_to_classify_pressure_honestly"
+    elif mixed_pressure:
+        classification = "mixed_pressure"
+        primary_driver = "mixed_or_competing"
+        conservative = True
+        rationale = "multiple_pressure_patterns_are_simultaneously_visible_in_current_orchestration_surfaces"
+    elif pressure_sources["fragmentation"]:
+        classification = "fragmentation_pressure"
+        primary_driver = "fragmented_linkage_or_stale_context"
+        conservative = True
+        rationale = "stale_or_fragmented_context_signals_dominate_current_orchestration_pressure_view"
+    elif pressure_sources["repacketization"]:
+        classification = "repacketization_pressure"
+        primary_driver = "repeated_packet_refresh_or_supersession"
+        conservative = True
+        rationale = "repacketization_or_supersession_churn_signals_dominate_current_orchestration_pressure_view"
+    elif pressure_sources["redirect"]:
+        classification = "redirect_pressure"
+        primary_driver = "repeated_redirects_or_reroutes"
+        conservative = False
+        rationale = "redirect_or_reroute_signals_are_material_in_current_orchestration_pressure_view"
+    elif pressure_sources["hold"]:
+        classification = "hold_pressure"
+        primary_driver = "repeated_holds_or_manual_review"
+        conservative = True
+        rationale = "hold_or_manual_review_signals_materially_shape_current_orchestration_posture"
+    elif stable_like:
+        classification = "stable_or_low_pressure"
+        primary_driver = "none"
+        conservative = False
+        rationale = "current_orchestration_surfaces_indicate_stable_or_low_pressure_continuity"
+    else:
+        classification = "insufficient_signal"
+        primary_driver = "insufficient_signal"
+        conservative = True
+        rationale = "current_signals_do_not_support_a_single_meaningful_pressure_classification"
+
+    if classification not in _CURRENT_ORCHESTRATION_PRESSURE_CLASSES:
+        classification = "insufficient_signal"
+    if primary_driver not in _CURRENT_ORCHESTRATION_PRESSURE_DRIVERS:
+        primary_driver = "insufficient_signal"
+
+    resumed_work_plausible = bool(candidate_map.get("resume_ready")) and readiness_verdict in {
+        "ready_to_proceed",
+        "proceed_with_caution",
+    }
+    informational_strength = "strongly_conservative" if conservative else "mostly_informational"
+    if classification == "stable_or_low_pressure":
+        informational_strength = "mostly_informational"
+    elif classification == "insufficient_signal":
+        informational_strength = "strongly_conservative"
+
+    state_id = str(state_map.get("current_orchestration_state_id") or "")
+    watchpoint_id = str(watchpoint_map.get("orchestration_watchpoint_id") or "")
+    satisfaction_id = str(satisfaction_map.get("watchpoint_satisfaction_id") or "")
+    trigger_id = str(trigger_map.get("re_evaluation_trigger_id") or "")
+    candidate_id = str(candidate_map.get("orchestration_resumption_candidate_id") or "")
+
+    return {
+        "schema_version": "current_orchestration_pressure_signal.v1",
+        "resolved_at": _iso_utc_now(),
+        "current_orchestration_pressure_signal_id": _current_orchestration_pressure_id(
+            current_orchestration_state_id=state_id,
+            orchestration_watchpoint_id=watchpoint_id,
+            watchpoint_satisfaction_id=satisfaction_id,
+            re_evaluation_trigger_id=trigger_id,
+            orchestration_resumption_candidate_id=candidate_id,
+            pressure_classification=classification,
+        ),
+        "pressure_classification": classification,
+        "primary_pressure_driver": primary_driver,
+        "resumed_work_plausible_despite_pressure": resumed_work_plausible,
+        "signal_posture": informational_strength,
+        "basis": {
+            "compact_rationale": rationale,
+            "pressure_evidence": {
+                "hold_signal_count": hold_count,
+                "redirect_signal_count": redirect_count,
+                "repacketization_signal_count": repacketization_count_signals,
+                "fragmentation_signal_count": fragmentation_count,
+                "continuity_review_classification": continuity_class,
+                "watchpoint_class": watchpoint_class,
+                "watchpoint_satisfaction_status": satisfaction_status,
+                "re_evaluation_recommendation": trigger_recommendation,
+                "resumption_candidate_class": candidate_class,
+                "resumed_operation_readiness_verdict": readiness_verdict,
+                "watchpoint_wait_kind": wait_kind,
+                "operator_influence_state": operator_influence_state,
+                "trust_confidence_posture": trust_posture,
+            },
+            "derived_from_existing_surfaces_only": [
+                "resolve_current_orchestration_state",
+                "resolve_current_orchestration_watchpoint",
+                "resolve_watchpoint_satisfaction",
+                "resolve_re_evaluation_trigger_recommendation",
+                "resolve_current_orchestration_resumption_candidate",
+                "resolve_current_resumed_operation_readiness_verdict",
+                "resolve_current_orchestration_watchpoint_brief",
+                "derive_proposal_packet_continuity_review",
+                "resolve_active_handoff_packet_candidate",
+                "current proposal visibility",
+                "derive_operator_resolution_influence",
+                "resolve_unified_orchestration_result",
+                "derive_orchestration_trust_confidence_posture",
+            ],
+        },
+        "boundaries": {
+            "non_sovereign": True,
+            "non_authoritative": True,
+            "non_executing": True,
+            "diagnostic_only": True,
+            "decision_power": "none",
+            "informational_observability_only": True,
+            "does_not_plan_or_schedule": True,
+            "does_not_execute_or_route_work": True,
+            "does_not_create_new_truth_source": True,
+            "does_not_imply_permission_to_execute": True,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "pressure_signal_only": True,
+                "non_executing": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_create_new_orchestration_layer": True,
+                "does_not_create_new_authority_surface": True,
+                "does_not_plan_or_schedule": True,
             },
         ),
     }

@@ -48,6 +48,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_active_handoff_packet_candidate,
     resolve_current_orchestration_state,
     resolve_current_resumed_operation_readiness_verdict,
+    resolve_current_orchestration_pressure_signal,
     resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint_brief,
     resolve_current_orchestration_watchpoint,
@@ -4989,6 +4990,194 @@ def test_current_orchestration_watchpoint_brief_is_derived_only_and_non_executin
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
+def test_current_orchestration_pressure_signal_is_derived_only_and_non_executing(tmp_path: Path) -> None:
+    intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    pressure = resolve_current_orchestration_pressure_signal(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-pressure-derived",
+            "current_supervisory_state": "waiting_for_operator_resolution",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-pressure-derived",
+            "watchpoint_class": "await_operator_resolution",
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "wps-pressure-derived",
+            "satisfaction_status": "watchpoint_pending",
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-pressure-derived",
+            "recommendation": "hold_for_manual_review",
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "orc-pressure-derived",
+            "resumption_candidate_class": "manual_review_hold",
+            "resume_ready": False,
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "hold_for_operator_review"},
+        current_orchestration_watchpoint_brief={"wait_kind": "awaiting_operator_resolution"},
+        proposal_packet_continuity_review={"review_classification": "hold_heavy_continuity", "records_considered": 5},
+        operator_resolution_influence={"operator_influence_state": "operator_defer_preserved_hold"},
+        trust_confidence_posture={"trust_confidence_posture": "stressed_but_usable"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert pressure["pressure_classification"] == "hold_pressure"
+    assert pressure["basis"]["derived_from_existing_surfaces_only"]
+    assert pressure["boundaries"]["non_authoritative"] is True
+    assert pressure["boundaries"]["non_executing"] is True
+    assert pressure["pressure_signal_only"] is True
+    assert pressure["does_not_execute_or_route_work"] is True
+    assert before["handoff_outcome"] == after["handoff_outcome"]
+
+
+@pytest.mark.parametrize(
+    ("continuity_class", "watchpoint_class", "satisfaction_status", "trigger", "candidate_class", "wait_kind", "influence_state", "readiness_verdict", "counts", "expected"),
+    [
+        (
+            "coherent_proposal_packet_continuity",
+            "no_watchpoint_needed",
+            "no_active_watchpoint",
+            "no_re_evaluation_needed",
+            "no_resume_candidate",
+            "no_active_watchpoint",
+            "no_operator_influence_yet",
+            "not_ready",
+            {"repacketization_count": 0, "broken_lineage_count": 0},
+            "stable_or_low_pressure",
+        ),
+        (
+            "hold_heavy_continuity",
+            "await_operator_resolution",
+            "watchpoint_pending",
+            "hold_for_manual_review",
+            "manual_review_hold",
+            "awaiting_operator_resolution",
+            "operator_defer_preserved_hold",
+            "hold_for_operator_review",
+            {"repacketization_count": 0, "broken_lineage_count": 0},
+            "hold_pressure",
+        ),
+        (
+            "redirect_heavy_continuity",
+            "await_packetization_relief",
+            "watchpoint_satisfied",
+            "rerun_packet_synthesis",
+            "resumption_candidate",
+            "continuity_uncertain",
+            "operator_redirect_applied",
+            "proceed_with_caution",
+            {"repacketization_count": 0, "broken_lineage_count": 0},
+            "redirect_pressure",
+        ),
+        (
+            "repacketization_churn",
+            "await_packetization_relief",
+            "watchpoint_satisfied",
+            "rerun_packetization_gate",
+            "resumption_candidate",
+            "continuity_uncertain",
+            "no_operator_influence_yet",
+            "not_ready",
+            {"repacketization_count": 6, "broken_lineage_count": 0},
+            "repacketization_pressure",
+        ),
+        (
+            "fragmented_continuity",
+            "await_external_fulfillment_receipt",
+            "watchpoint_fragmented",
+            "hold_for_manual_review",
+            "manual_review_hold",
+            "continuity_uncertain",
+            "no_operator_influence_yet",
+            "hold_for_operator_review",
+            {"repacketization_count": 0, "broken_lineage_count": 1},
+            "fragmentation_pressure",
+        ),
+        (
+            "hold_heavy_continuity",
+            "await_operator_resolution",
+            "watchpoint_stale",
+            "hold_for_manual_review",
+            "manual_review_hold",
+            "continuity_uncertain",
+            "operator_redirect_applied",
+            "hold_for_operator_review",
+            {"repacketization_count": 5, "broken_lineage_count": 1},
+            "mixed_pressure",
+        ),
+    ],
+)
+def test_current_orchestration_pressure_signal_classifications(
+    tmp_path: Path,
+    continuity_class: str,
+    watchpoint_class: str,
+    satisfaction_status: str,
+    trigger: str,
+    candidate_class: str,
+    wait_kind: str,
+    influence_state: str,
+    readiness_verdict: str,
+    counts: dict[str, int],
+    expected: str,
+) -> None:
+    pressure = resolve_current_orchestration_pressure_signal(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-pressure-cases",
+            "current_supervisory_state": "waiting_for_operator_resolution"
+            if watchpoint_class == "await_operator_resolution"
+            else "waiting_for_external_fulfillment",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-pressure-cases",
+            "watchpoint_class": watchpoint_class,
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "wps-pressure-cases",
+            "satisfaction_status": satisfaction_status,
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-pressure-cases",
+            "recommendation": trigger,
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "orc-pressure-cases",
+            "resumption_candidate_class": candidate_class,
+            "resume_ready": expected in {"stable_or_low_pressure", "redirect_pressure"},
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": readiness_verdict},
+        current_orchestration_watchpoint_brief={"wait_kind": wait_kind},
+        proposal_packet_continuity_review={
+            "review_classification": continuity_class,
+            "records_considered": 6,
+            "continuity_counts": counts,
+        },
+        operator_resolution_influence={"operator_influence_state": influence_state},
+        trust_confidence_posture={"trust_confidence_posture": "stressed_but_usable"},
+    )
+    assert pressure["pressure_classification"] == expected
+    assert pressure["boundaries"]["does_not_plan_or_schedule"] is True
+    assert pressure["boundaries"]["does_not_imply_permission_to_execute"] is True
+
+
+def test_current_orchestration_pressure_signal_insufficient_signal_case(tmp_path: Path) -> None:
+    pressure = resolve_current_orchestration_pressure_signal(
+        tmp_path,
+        current_orchestration_state={"current_orchestration_state_id": "ocs-pressure-insufficient"},
+        current_orchestration_watchpoint={"orchestration_watchpoint_id": "owp-pressure-insufficient"},
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-pressure-insufficient"},
+        re_evaluation_trigger_recommendation={"re_evaluation_trigger_id": "ret-pressure-insufficient"},
+        current_orchestration_resumption_candidate={"orchestration_resumption_candidate_id": "orc-pressure-insufficient"},
+        proposal_packet_continuity_review={"review_classification": "insufficient_history", "records_considered": 0},
+    )
+    assert pressure["pressure_classification"] == "insufficient_signal"
+    assert pressure["primary_pressure_driver"] == "insufficient_signal"
+    assert pressure["signal_posture"] == "strongly_conservative"
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -5028,6 +5217,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     current_resumption_candidate = diagnostic["orchestration_handoff"]["current_orchestration_resumption_candidate"]
     resumed_readiness = diagnostic["orchestration_handoff"]["current_resumed_operation_readiness"]
     current_watchpoint_brief = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_brief"]
+    current_pressure = diagnostic["orchestration_handoff"]["current_orchestration_pressure_signal"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -5116,6 +5306,27 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_watchpoint_brief["watchpoint_posture"]["satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_brief["brief_boundaries"]["non_sovereign"] is True
     assert current_watchpoint_brief["does_not_execute_or_route_work"] is True
+    assert current_pressure["schema_version"] == "current_orchestration_pressure_signal.v1"
+    assert current_pressure["pressure_classification"] in {
+        "stable_or_low_pressure",
+        "hold_pressure",
+        "redirect_pressure",
+        "repacketization_pressure",
+        "fragmentation_pressure",
+        "mixed_pressure",
+        "insufficient_signal",
+    }
+    assert current_pressure["primary_pressure_driver"] in {
+        "none",
+        "repeated_holds_or_manual_review",
+        "repeated_redirects_or_reroutes",
+        "repeated_packet_refresh_or_supersession",
+        "fragmented_linkage_or_stale_context",
+        "mixed_or_competing",
+        "insufficient_signal",
+    }
+    assert current_pressure["boundaries"]["non_authoritative"] is True
+    assert current_pressure["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
@@ -5135,12 +5346,19 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
         current_watchpoint_summary["watchpoint_brief_resumed_work_currently_possible"]
         == current_watchpoint_brief["watchpoint_posture"]["resumed_work_currently_possible"]
     )
+    assert current_watchpoint_summary["current_pressure_classification"] == current_pressure["pressure_classification"]
+    assert current_watchpoint_summary["current_pressure_primary_driver"] == current_pressure["primary_pressure_driver"]
+    assert (
+        current_watchpoint_summary["current_pressure_resumed_work_plausible"]
+        == current_pressure["resumed_work_plausible_despite_pressure"]
+    )
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_candidate_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_brief_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["pressure_signal_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True

@@ -30,6 +30,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_operator_adjusted_next_venue_recommendation,
     derive_orchestration_trust_confidence_posture,
     resolve_current_resumed_operation_readiness_verdict,
+    resolve_current_orchestration_pressure_signal,
     resolve_current_orchestration_watchpoint_brief,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
@@ -362,6 +363,22 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         packetization_gate=packetization_gate,
         unified_result=unified_result,
     )
+    current_orchestration_pressure_signal = resolve_current_orchestration_pressure_signal(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        current_resumed_operation_readiness=current_resumed_operation_readiness,
+        current_orchestration_watchpoint_brief=current_orchestration_watchpoint_brief,
+        proposal_packet_continuity_review=proposal_packet_continuity_review,
+        active_packet_visibility=active_packet,
+        current_proposal=adjusted_next_move_proposal,
+        operator_resolution_influence=operator_influence,
+        unified_result=unified_result,
+        trust_confidence_posture=orchestration_trust_confidence_posture,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -473,6 +490,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_resumption_candidate": current_orchestration_resumption_candidate,
             "current_resumed_operation_readiness": current_resumed_operation_readiness,
             "current_orchestration_watchpoint_brief": current_orchestration_watchpoint_brief,
+            "current_orchestration_pressure_signal": current_orchestration_pressure_signal,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -496,6 +514,11 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "watchpoint_brief_resumed_work_currently_possible": (
                     current_orchestration_watchpoint_brief.get("watchpoint_posture") or {}
                 ).get("resumed_work_currently_possible"),
+                "current_pressure_classification": current_orchestration_pressure_signal.get("pressure_classification"),
+                "current_pressure_primary_driver": current_orchestration_pressure_signal.get("primary_pressure_driver"),
+                "current_pressure_resumed_work_plausible": current_orchestration_pressure_signal.get(
+                    "resumed_work_plausible_despite_pressure"
+                ),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
@@ -513,6 +536,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "resumption_candidate_only": True,
                     "resumption_readiness_only": True,
                     "watchpoint_brief_only": True,
+                    "pressure_signal_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
