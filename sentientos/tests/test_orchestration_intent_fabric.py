@@ -49,6 +49,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_state,
     resolve_current_resumed_operation_readiness_verdict,
     resolve_current_orchestration_resumption_candidate,
+    resolve_current_orchestration_watchpoint_brief,
     resolve_current_orchestration_watchpoint,
     resolve_re_evaluation_trigger_recommendation,
     resolve_watchpoint_satisfaction,
@@ -4845,6 +4846,139 @@ def test_current_resumed_operation_readiness_surface_is_non_authoritative_and_no
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
+@pytest.mark.parametrize(
+    ("watchpoint_class", "satisfaction_status", "expected_wait_kind"),
+    [
+        ("await_operator_resolution", "watchpoint_pending", "awaiting_operator_resolution"),
+        ("await_external_fulfillment_receipt", "watchpoint_pending", "awaiting_external_fulfillment"),
+        ("await_internal_execution_result", "watchpoint_pending", "awaiting_internal_result_closure"),
+        ("await_external_fulfillment_receipt", "watchpoint_fragmented", "continuity_uncertain"),
+        ("no_watchpoint_needed", "no_active_watchpoint", "no_active_watchpoint"),
+    ],
+)
+def test_current_orchestration_watchpoint_brief_wait_kind_cases(
+    tmp_path: Path,
+    watchpoint_class: str,
+    satisfaction_status: str,
+    expected_wait_kind: str,
+) -> None:
+    brief = resolve_current_orchestration_watchpoint_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": f"ocs-brief-{watchpoint_class}",
+            "current_supervisory_state": "waiting_for_external_fulfillment",
+            "source_linkage": {
+                "active_packet_ref": {"handoff_packet_id": "pkt-brief"},
+                "current_proposal_ref": {"proposal_id": "prop-brief"},
+                "operator_brief_ref": {"operator_resolution_receipt_id": "orr-brief"},
+                "unified_result_ref": {"orchestration_result_id": "oru-brief"},
+            },
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": f"owp-brief-{watchpoint_class}",
+            "watchpoint_class": watchpoint_class,
+            "wake_condition": "bounded_test_wait_condition",
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": f"wps-brief-{watchpoint_class}",
+            "satisfaction_status": satisfaction_status,
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": f"ret-brief-{watchpoint_class}",
+            "recommendation": "hold_for_manual_review" if satisfaction_status == "watchpoint_fragmented" else "no_re_evaluation_needed",
+            "expected_actor": "operator" if satisfaction_status == "watchpoint_fragmented" else "none",
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": f"orc-brief-{watchpoint_class}",
+            "bounded_resume_mode": "no_re_evaluation_needed",
+            "resume_ready": False,
+        },
+        current_resumed_operation_readiness={
+            "resumed_operation_readiness_verdict": "hold_for_operator_review"
+            if satisfaction_status == "watchpoint_fragmented"
+            else "not_ready",
+        },
+    )
+    assert brief["wait_kind"] == expected_wait_kind
+
+
+def test_current_orchestration_watchpoint_brief_satisfaction_already_present_and_resume_possible(tmp_path: Path) -> None:
+    brief = resolve_current_orchestration_watchpoint_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-brief-satisfied",
+            "current_supervisory_state": "waiting_for_external_fulfillment",
+            "source_linkage": {"active_packet_ref": {"handoff_packet_id": "pkt-brief-satisfied"}},
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-brief-satisfied",
+            "watchpoint_class": "await_external_fulfillment_receipt",
+            "wake_condition": "ingest_external_fulfillment_receipt_for_active_staged_external_packet",
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "wps-brief-satisfied",
+            "satisfaction_status": "watchpoint_satisfied",
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-brief-satisfied",
+            "recommendation": "rerun_delegated_judgment",
+            "expected_actor": "orchestration_body",
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "orc-brief-satisfied",
+            "bounded_resume_mode": "rerun_delegated_judgment",
+            "resume_ready": True,
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "ready_to_proceed"},
+    )
+    assert brief["wait_kind"] == "continuity_uncertain"
+    assert brief["watchpoint_posture"]["satisfaction_already_present"] is True
+    assert brief["watchpoint_posture"]["resumed_work_currently_possible"] is True
+    assert brief["watchpoint_posture"]["informational_only"] is True
+    assert brief["watchpoint_posture"]["requires_conservative_hold"] is False
+    assert brief["satisfying_condition_under_existing_logic"] == "current_watchpoint_satisfaction_surface_already_reports_satisfied"
+
+
+def test_current_orchestration_watchpoint_brief_is_derived_only_and_non_executing(tmp_path: Path) -> None:
+    intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    brief = resolve_current_orchestration_watchpoint_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-brief-boundary",
+            "current_supervisory_state": "waiting_for_operator_resolution",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-brief-boundary",
+            "watchpoint_class": "await_operator_resolution",
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "wps-brief-boundary",
+            "satisfaction_status": "watchpoint_pending",
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-brief-boundary",
+            "recommendation": "no_re_evaluation_needed",
+            "expected_actor": "none",
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "orc-brief-boundary",
+            "bounded_resume_mode": "no_re_evaluation_needed",
+            "resume_ready": False,
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "not_ready"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert brief["basis"]["derived_from_existing_surfaces_only"]
+    assert brief["watchpoint_brief_only"] is True
+    assert brief["non_authoritative"] is True
+    assert brief["non_executing"] is True
+    assert brief["does_not_execute_or_route_work"] is True
+    assert brief["brief_boundaries"]["does_not_create_new_truth_source"] is True
+    assert before["handoff_outcome"] == after["handoff_outcome"]
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -4883,6 +5017,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     re_evaluation_trigger = diagnostic["orchestration_handoff"]["re_evaluation_trigger_recommendation"]
     current_resumption_candidate = diagnostic["orchestration_handoff"]["current_orchestration_resumption_candidate"]
     resumed_readiness = diagnostic["orchestration_handoff"]["current_resumed_operation_readiness"]
+    current_watchpoint_brief = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_brief"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -4959,6 +5094,18 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert resumed_readiness["non_authoritative"] is True
     assert resumed_readiness["non_executing"] is True
     assert resumed_readiness["does_not_imply_permission_to_execute"] is True
+    assert current_watchpoint_brief["schema_version"] == "current_orchestration_watchpoint_brief.v1"
+    assert current_watchpoint_brief["wait_kind"] in {
+        "awaiting_external_fulfillment",
+        "awaiting_operator_resolution",
+        "awaiting_internal_result_closure",
+        "continuity_uncertain",
+        "no_active_watchpoint",
+    }
+    assert current_watchpoint_brief["watchpoint_posture"]["watchpoint_class"] == current_watchpoint["watchpoint_class"]
+    assert current_watchpoint_brief["watchpoint_posture"]["satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
+    assert current_watchpoint_brief["brief_boundaries"]["non_sovereign"] is True
+    assert current_watchpoint_brief["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
@@ -4969,11 +5116,21 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
         current_watchpoint_summary["current_resumed_operation_readiness_verdict"]
         == resumed_readiness["resumed_operation_readiness_verdict"]
     )
+    assert current_watchpoint_summary["current_watchpoint_wait_kind"] == current_watchpoint_brief["wait_kind"]
+    assert (
+        current_watchpoint_summary["watchpoint_brief_requires_conservative_hold"]
+        == current_watchpoint_brief["watchpoint_posture"]["requires_conservative_hold"]
+    )
+    assert (
+        current_watchpoint_summary["watchpoint_brief_resumed_work_currently_possible"]
+        == current_watchpoint_brief["watchpoint_posture"]["resumed_work_currently_possible"]
+    )
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_candidate_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_readiness_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_brief_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
