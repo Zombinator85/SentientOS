@@ -49,6 +49,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_state,
     resolve_current_resumed_operation_readiness_verdict,
     resolve_current_orchestration_pressure_signal,
+    resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint_brief,
     resolve_current_orchestration_watchpoint,
@@ -5178,6 +5179,169 @@ def test_current_orchestration_pressure_signal_insufficient_signal_case(tmp_path
     assert pressure["signal_posture"] == "strongly_conservative"
 
 
+@pytest.mark.parametrize(
+    (
+        "watchpoint_class",
+        "satisfaction_status",
+        "trigger",
+        "candidate_class",
+        "resume_ready",
+        "readiness_verdict",
+        "pressure_classification",
+        "wait_kind",
+        "influence_state",
+        "expected",
+    ),
+    [
+        (
+            "await_external_fulfillment_receipt",
+            "watchpoint_satisfied",
+            "rerun_delegated_judgment",
+            "resumption_candidate",
+            True,
+            "ready_to_proceed",
+            "stable_or_low_pressure",
+            "continuity_uncertain",
+            "no_operator_influence_yet",
+            "wake_ready",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "watchpoint_satisfied",
+            "rerun_delegated_judgment",
+            "resumption_candidate",
+            True,
+            "proceed_with_caution",
+            "redirect_pressure",
+            "continuity_uncertain",
+            "no_operator_influence_yet",
+            "wake_ready_with_caution",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "watchpoint_fragmented",
+            "hold_for_manual_review",
+            "manual_review_hold",
+            False,
+            "hold_for_operator_review",
+            "fragmentation_pressure",
+            "continuity_uncertain",
+            "no_operator_influence_yet",
+            "wake_blocked_by_fragmentation",
+        ),
+        (
+            "await_operator_resolution",
+            "watchpoint_pending",
+            "hold_for_manual_review",
+            "manual_review_hold",
+            False,
+            "hold_for_operator_review",
+            "hold_pressure",
+            "awaiting_operator_resolution",
+            "operator_defer_preserved_hold",
+            "wake_blocked_pending_operator",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "watchpoint_pending",
+            "rerun_delegated_judgment",
+            "resumption_candidate",
+            False,
+            "not_ready",
+            "stable_or_low_pressure",
+            "awaiting_external_fulfillment",
+            "no_operator_influence_yet",
+            "not_wake_ready",
+        ),
+        (
+            "no_watchpoint_needed",
+            "no_active_watchpoint",
+            "no_re_evaluation_needed",
+            "no_resume_candidate",
+            False,
+            "not_ready",
+            "stable_or_low_pressure",
+            "no_active_watchpoint",
+            "no_operator_influence_yet",
+            "wake_not_applicable",
+        ),
+    ],
+)
+def test_current_orchestration_wake_readiness_detector_classifications(
+    tmp_path: Path,
+    watchpoint_class: str,
+    satisfaction_status: str,
+    trigger: str,
+    candidate_class: str,
+    resume_ready: bool,
+    readiness_verdict: str,
+    pressure_classification: str,
+    wait_kind: str,
+    influence_state: str,
+    expected: str,
+) -> None:
+    detector = resolve_current_orchestration_wake_readiness_detector(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "ocs-wake-case",
+            "current_supervisory_state": "waiting_for_operator_resolution"
+            if watchpoint_class == "await_operator_resolution"
+            else "waiting_for_external_fulfillment",
+        },
+        current_orchestration_watchpoint={
+            "orchestration_watchpoint_id": "owp-wake-case",
+            "watchpoint_class": watchpoint_class,
+        },
+        watchpoint_satisfaction={
+            "watchpoint_satisfaction_id": "wps-wake-case",
+            "satisfaction_status": satisfaction_status,
+        },
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-wake-case",
+            "recommendation": trigger,
+        },
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "orc-wake-case",
+            "resumption_candidate_class": candidate_class,
+            "resume_ready": resume_ready,
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": readiness_verdict},
+        current_orchestration_watchpoint_brief={
+            "wait_kind": wait_kind,
+            "watchpoint_posture": {"requires_conservative_hold": expected.startswith("wake_blocked_")},
+        },
+        current_orchestration_pressure_signal={"pressure_classification": pressure_classification},
+        operator_resolution_influence={"operator_influence_state": influence_state},
+    )
+    assert detector["wake_readiness_classification"] == expected
+    assert detector["basis"]["derived_from_existing_surfaces_only"]
+    assert detector["boundaries"]["does_not_imply_permission_to_execute"] is True
+
+
+def test_current_orchestration_wake_readiness_detector_is_non_authoritative_and_non_executing(tmp_path: Path) -> None:
+    intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    detector = resolve_current_orchestration_wake_readiness_detector(
+        tmp_path,
+        current_orchestration_state={"current_orchestration_state_id": "ocs-wake-boundary"},
+        current_orchestration_watchpoint={"orchestration_watchpoint_id": "owp-wake-boundary"},
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "wps-wake-boundary"},
+        re_evaluation_trigger_recommendation={"re_evaluation_trigger_id": "ret-wake-boundary"},
+        current_orchestration_resumption_candidate={"orchestration_resumption_candidate_id": "orc-wake-boundary"},
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "not_ready"},
+        current_orchestration_watchpoint_brief={"wait_kind": "continuity_uncertain"},
+        current_orchestration_pressure_signal={"pressure_classification": "insufficient_signal"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert detector["wake_readiness_detector_only"] is True
+    assert detector["non_authoritative"] is True
+    assert detector["non_executing"] is True
+    assert detector["does_not_execute_or_route_work"] is True
+    assert detector["boundaries"]["does_not_create_new_truth_source"] is True
+    assert before["handoff_outcome"] == after["handoff_outcome"]
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -5218,6 +5382,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     resumed_readiness = diagnostic["orchestration_handoff"]["current_resumed_operation_readiness"]
     current_watchpoint_brief = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_brief"]
     current_pressure = diagnostic["orchestration_handoff"]["current_orchestration_pressure_signal"]
+    current_wake_readiness = diagnostic["orchestration_handoff"]["current_orchestration_wake_readiness_detector"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -5327,6 +5492,17 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_pressure["boundaries"]["non_authoritative"] is True
     assert current_pressure["does_not_execute_or_route_work"] is True
+    assert current_wake_readiness["schema_version"] == "current_orchestration_wake_readiness_detector.v1"
+    assert current_wake_readiness["wake_readiness_classification"] in {
+        "wake_ready",
+        "wake_ready_with_caution",
+        "not_wake_ready",
+        "wake_blocked_by_fragmentation",
+        "wake_blocked_pending_operator",
+        "wake_not_applicable",
+    }
+    assert current_wake_readiness["boundaries"]["non_authoritative"] is True
+    assert current_wake_readiness["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
@@ -5352,6 +5528,11 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
         current_watchpoint_summary["current_pressure_resumed_work_plausible"]
         == current_pressure["resumed_work_plausible_despite_pressure"]
     )
+    assert (
+        current_watchpoint_summary["current_wake_readiness_classification"]
+        == current_wake_readiness["wake_readiness_classification"]
+    )
+    assert current_watchpoint_summary["current_wake_readiness_posture"] == current_wake_readiness["result_posture"]
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
@@ -5359,6 +5540,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_brief_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["pressure_signal_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_detector_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
