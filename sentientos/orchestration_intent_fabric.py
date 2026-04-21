@@ -283,6 +283,20 @@ _CURRENT_ORCHESTRATION_PRESSURE_DRIVERS = {
     "insufficient_signal",
 }
 
+_CURRENT_WAKE_READINESS_CLASSIFICATIONS = {
+    "wake_ready",
+    "wake_ready_with_caution",
+    "not_wake_ready",
+    "wake_blocked_by_fragmentation",
+    "wake_blocked_pending_operator",
+    "wake_not_applicable",
+}
+
+_CURRENT_WAKE_READINESS_POSTURES = {
+    "informational_only",
+    "strongly_blocked",
+}
+
 _CURRENT_ORCHESTRATION_SUPERVISORY_STATES = {
     "ready_to_packetize",
     "packet_ready_for_internal_trigger",
@@ -4278,6 +4292,32 @@ def _current_orchestration_pressure_id(
     return f"ops-{digest.hexdigest()[:16]}"
 
 
+def _current_wake_readiness_detector_id(
+    *,
+    current_orchestration_state_id: str,
+    orchestration_watchpoint_id: str,
+    watchpoint_satisfaction_id: str,
+    re_evaluation_trigger_id: str,
+    orchestration_resumption_candidate_id: str,
+    wake_readiness_classification: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "current_orchestration_state_id": current_orchestration_state_id,
+                "orchestration_watchpoint_id": orchestration_watchpoint_id,
+                "watchpoint_satisfaction_id": watchpoint_satisfaction_id,
+                "re_evaluation_trigger_id": re_evaluation_trigger_id,
+                "orchestration_resumption_candidate_id": orchestration_resumption_candidate_id,
+                "wake_readiness_classification": wake_readiness_classification,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"owr-{digest.hexdigest()[:16]}"
+
+
 def resolve_current_orchestration_state(
     repo_root: Path,
     *,
@@ -6128,6 +6168,182 @@ def resolve_current_orchestration_pressure_signal(
                 "does_not_create_new_orchestration_layer": True,
                 "does_not_create_new_authority_surface": True,
                 "does_not_plan_or_schedule": True,
+            },
+        ),
+    }
+
+
+def resolve_current_orchestration_wake_readiness_detector(
+    repo_root: Path,
+    *,
+    current_orchestration_state: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint: Mapping[str, Any] | None = None,
+    watchpoint_satisfaction: Mapping[str, Any] | None = None,
+    re_evaluation_trigger_recommendation: Mapping[str, Any] | None = None,
+    current_orchestration_resumption_candidate: Mapping[str, Any] | None = None,
+    current_resumed_operation_readiness: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint_brief: Mapping[str, Any] | None = None,
+    current_orchestration_pressure_signal: Mapping[str, Any] | None = None,
+    active_packet_visibility: Mapping[str, Any] | None = None,
+    current_proposal: Mapping[str, Any] | None = None,
+    operator_resolution_influence: Mapping[str, Any] | None = None,
+    unified_result: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve a bounded, non-executing wake-readiness classification for the current watchpoint posture."""
+
+    state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
+    satisfaction_map = watchpoint_satisfaction if isinstance(watchpoint_satisfaction, Mapping) else {}
+    trigger_map = re_evaluation_trigger_recommendation if isinstance(re_evaluation_trigger_recommendation, Mapping) else {}
+    candidate_map = (
+        current_orchestration_resumption_candidate
+        if isinstance(current_orchestration_resumption_candidate, Mapping)
+        else {}
+    )
+    readiness_map = current_resumed_operation_readiness if isinstance(current_resumed_operation_readiness, Mapping) else {}
+    watchpoint_brief_map = (
+        current_orchestration_watchpoint_brief if isinstance(current_orchestration_watchpoint_brief, Mapping) else {}
+    )
+    pressure_map = (
+        current_orchestration_pressure_signal if isinstance(current_orchestration_pressure_signal, Mapping) else {}
+    )
+    influence_map = operator_resolution_influence if isinstance(operator_resolution_influence, Mapping) else {}
+
+    watchpoint_class = str(watchpoint_map.get("watchpoint_class") or "no_watchpoint_needed")
+    satisfaction_status = str(satisfaction_map.get("satisfaction_status") or "watchpoint_pending")
+    trigger_recommendation = str(trigger_map.get("recommendation") or "no_re_evaluation_needed")
+    readiness_verdict = str(readiness_map.get("resumed_operation_readiness_verdict") or "not_ready")
+    pressure_classification = str(pressure_map.get("pressure_classification") or "insufficient_signal")
+    wait_kind = str(watchpoint_brief_map.get("wait_kind") or "continuity_uncertain")
+    operator_influence_state = str(influence_map.get("operator_influence_state") or "no_operator_influence_yet")
+
+    watchpoint_satisfied = satisfaction_status == "watchpoint_satisfied"
+    resumption_materially_available = bool(candidate_map.get("resume_ready")) and (
+        readiness_verdict in {"ready_to_proceed", "proceed_with_caution"}
+    )
+    no_active_watchpoint = watchpoint_class == "no_watchpoint_needed" or satisfaction_status == "no_active_watchpoint"
+    no_meaningful_resume = (
+        str(candidate_map.get("resumption_candidate_class") or "no_resume_candidate") == "no_resume_candidate"
+        or trigger_recommendation == "no_re_evaluation_needed"
+    )
+    fragmentation_block = (
+        satisfaction_status in {"watchpoint_fragmented", "watchpoint_stale"}
+        or pressure_classification in {"fragmentation_pressure", "mixed_pressure"}
+    )
+    operator_block = (
+        (watchpoint_class == "await_operator_resolution" and not watchpoint_satisfied)
+        or readiness_verdict == "hold_for_operator_review"
+        or trigger_recommendation == "hold_for_manual_review"
+        or operator_influence_state in {"operator_decline_preserved_hold", "operator_defer_preserved_hold"}
+    )
+    caution_posture = readiness_verdict == "proceed_with_caution" or pressure_classification in {
+        "hold_pressure",
+        "redirect_pressure",
+        "repacketization_pressure",
+    }
+    conservative_hold = bool((watchpoint_brief_map.get("watchpoint_posture") or {}).get("requires_conservative_hold"))
+
+    if no_active_watchpoint and no_meaningful_resume:
+        classification = "wake_not_applicable"
+        rationale = "no_active_watchpoint_or_meaningful_resumption_is_visible_in_current_orchestration_surfaces"
+        posture = "informational_only"
+    elif fragmentation_block:
+        classification = "wake_blocked_by_fragmentation"
+        rationale = "stale_or_fragmented_watchpoint_context_blocks_honest_wake_readiness"
+        posture = "strongly_blocked"
+    elif operator_block:
+        classification = "wake_blocked_pending_operator"
+        rationale = "operator_dependency_or_manual_review_hold_blocks_current_wake_readiness"
+        posture = "strongly_blocked"
+    elif watchpoint_satisfied and resumption_materially_available and not conservative_hold and not caution_posture:
+        classification = "wake_ready"
+        rationale = "watchpoint_is_satisfied_and_resumption_surfaces_support_bounded_ready_re-entry"
+        posture = "informational_only"
+    elif watchpoint_satisfied and resumption_materially_available:
+        classification = "wake_ready_with_caution"
+        rationale = "watchpoint_is_satisfied_but_current_readiness_or_pressure_posture_requires_caution"
+        posture = "informational_only"
+    else:
+        classification = "not_wake_ready"
+        rationale = "current_watchpoint_and_resumption_surfaces_do_not_yet_support_bounded_wake_readiness"
+        posture = "informational_only"
+
+    if classification not in _CURRENT_WAKE_READINESS_CLASSIFICATIONS:
+        classification = "not_wake_ready"
+    if posture not in _CURRENT_WAKE_READINESS_POSTURES:
+        posture = "informational_only"
+
+    state_id = str(state_map.get("current_orchestration_state_id") or "")
+    watchpoint_id = str(watchpoint_map.get("orchestration_watchpoint_id") or "")
+    satisfaction_id = str(satisfaction_map.get("watchpoint_satisfaction_id") or "")
+    trigger_id = str(trigger_map.get("re_evaluation_trigger_id") or "")
+    candidate_id = str(candidate_map.get("orchestration_resumption_candidate_id") or "")
+
+    return {
+        "schema_version": "current_orchestration_wake_readiness_detector.v1",
+        "resolved_at": _iso_utc_now(),
+        "current_orchestration_wake_readiness_detector_id": _current_wake_readiness_detector_id(
+            current_orchestration_state_id=state_id,
+            orchestration_watchpoint_id=watchpoint_id,
+            watchpoint_satisfaction_id=satisfaction_id,
+            re_evaluation_trigger_id=trigger_id,
+            orchestration_resumption_candidate_id=candidate_id,
+            wake_readiness_classification=classification,
+        ),
+        "wake_readiness_classification": classification,
+        "watchpoint_satisfaction_present": watchpoint_satisfied,
+        "resumption_materially_available": resumption_materially_available,
+        "result_posture": posture,
+        "basis": {
+            "compact_rationale": rationale,
+            "wake_evidence": {
+                "watchpoint_class": watchpoint_class,
+                "watchpoint_satisfaction_status": satisfaction_status,
+                "re_evaluation_recommendation": trigger_recommendation,
+                "resumed_operation_readiness_verdict": readiness_verdict,
+                "watchpoint_wait_kind": wait_kind,
+                "pressure_classification": pressure_classification,
+                "operator_influence_state": operator_influence_state,
+                "conservative_hold": conservative_hold,
+            },
+            "derived_from_existing_surfaces_only": [
+                "resolve_current_orchestration_state",
+                "resolve_current_orchestration_watchpoint",
+                "resolve_watchpoint_satisfaction",
+                "resolve_re_evaluation_trigger_recommendation",
+                "resolve_current_orchestration_resumption_candidate",
+                "resolve_current_resumed_operation_readiness_verdict",
+                "resolve_current_orchestration_watchpoint_brief",
+                "resolve_current_orchestration_pressure_signal",
+                "resolve_active_handoff_packet_candidate",
+                "current proposal visibility",
+                "operator-resolution visibility",
+                "resolve_unified_orchestration_result",
+            ],
+        },
+        "boundaries": {
+            "non_sovereign": True,
+            "non_authoritative": True,
+            "non_executing": True,
+            "diagnostic_only": True,
+            "decision_power": "none",
+            "informational_observability_only": posture == "informational_only",
+            "strongly_blocked_interpretation": posture == "strongly_blocked",
+            "does_not_plan_or_schedule": True,
+            "does_not_execute_or_route_work": True,
+            "does_not_create_new_truth_source": True,
+            "does_not_imply_permission_to_execute": True,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "wake_readiness_detector_only": True,
+                "non_executing": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_create_new_orchestration_layer": True,
+                "does_not_create_new_authority_surface": True,
             },
         ),
     }
