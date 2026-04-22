@@ -39,6 +39,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_closure_brief,
     resolve_current_orchestration_coherence_brief,
     resolve_current_orchestration_digest,
+    resolve_current_orchestration_transition_brief,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_watchpoint_brief,
     derive_next_venue_recommendation,
@@ -561,6 +562,27 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         current_orchestration_closure_brief=current_orchestration_closure_brief,
         current_orchestration_coherence_brief=current_orchestration_coherence_brief,
     )
+    current_orchestration_transition_brief = resolve_current_orchestration_transition_brief(
+        root,
+        current_orchestration_state=current_orchestration_state,
+        current_orchestration_watchpoint=current_orchestration_watchpoint,
+        current_orchestration_watchpoint_brief=current_orchestration_watchpoint_brief,
+        watchpoint_satisfaction=current_watchpoint_satisfaction,
+        re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_re_evaluation_basis_brief=current_re_evaluation_basis_brief,
+        current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
+        current_resumed_operation_readiness=current_resumed_operation_readiness,
+        current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
+        current_orchestration_pressure_signal=current_orchestration_pressure_signal,
+        proposal_packet_continuity_review=proposal_packet_continuity_review,
+        current_orchestration_next_move_brief=current_orchestration_next_move_brief,
+        current_orchestration_handoff_packet_brief=current_orchestration_handoff_packet_brief,
+        current_operator_facing_orchestration_brief=current_operator_facing_orchestration_brief,
+        current_orchestration_resolution_path_brief=current_orchestration_resolution_path_brief,
+        current_orchestration_closure_brief=current_orchestration_closure_brief,
+        current_orchestration_coherence_brief=current_orchestration_coherence_brief,
+        current_orchestration_digest=current_orchestration_digest,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -682,6 +704,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_closure_brief": current_orchestration_closure_brief,
             "current_orchestration_coherence_brief": current_orchestration_coherence_brief,
             "current_orchestration_digest": current_orchestration_digest,
+            "current_orchestration_transition_brief": current_orchestration_transition_brief,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -765,6 +788,11 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "current_digest_overall_picture_posture": current_orchestration_digest.get("overall_picture_posture"),
                 "current_digest_resumed_bounded_motion": current_orchestration_digest.get("resumed_bounded_motion"),
                 "current_digest_posture": current_orchestration_digest.get("digest_posture"),
+                "current_transition_classification": current_orchestration_transition_brief.get("transition_classification"),
+                "current_transition_posture": current_orchestration_transition_brief.get("transition_posture"),
+                "current_transition_resumed_bounded_motion": current_orchestration_transition_brief.get(
+                    "resumed_bounded_motion"
+                ),
                 "ready_for_re_evaluation": (current_watchpoint_satisfaction.get("wake_readiness_summary") or {}).get(
                     "ready_for_re_evaluation"
                 ),
@@ -792,6 +820,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "current_orchestration_closure_brief_only": True,
                     "current_orchestration_coherence_brief_only": True,
                     "current_orchestration_digest_only": True,
+                    "current_orchestration_transition_brief_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
