@@ -412,6 +412,27 @@ _CURRENT_ORCHESTRATION_COHERENCE_POSTURES = {
     "conservative_caution",
 }
 
+_CURRENT_ORCHESTRATION_DIGEST_CLASSIFICATIONS = {
+    "mature_current_picture",
+    "cautionary_current_picture",
+    "fragmented_current_picture",
+    "contradictory_current_picture",
+    "minimal_current_picture",
+}
+
+_CURRENT_ORCHESTRATION_DIGEST_ALIGNMENT = {
+    "aligned",
+    "cautionary",
+    "fragmented",
+    "contradictory",
+}
+
+_CURRENT_ORCHESTRATION_DIGEST_RESUMED_MOTION = {
+    "plausible",
+    "blocked",
+    "not_applicable",
+}
+
 _CURRENT_ORCHESTRATION_SUPERVISORY_STATES = {
     "ready_to_packetize",
     "packet_ready_for_internal_trigger",
@@ -4615,6 +4636,32 @@ def _current_orchestration_coherence_brief_id(
     return f"ocoh-{digest.hexdigest()[:16]}"
 
 
+def _current_orchestration_digest_id(
+    *,
+    current_orchestration_state_id: str,
+    orchestration_watchpoint_id: str,
+    watchpoint_satisfaction_id: str,
+    re_evaluation_trigger_id: str,
+    orchestration_resumption_candidate_id: str,
+    digest_classification: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "current_orchestration_state_id": current_orchestration_state_id,
+                "orchestration_watchpoint_id": orchestration_watchpoint_id,
+                "watchpoint_satisfaction_id": watchpoint_satisfaction_id,
+                "re_evaluation_trigger_id": re_evaluation_trigger_id,
+                "orchestration_resumption_candidate_id": orchestration_resumption_candidate_id,
+                "digest_classification": digest_classification,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"ocd-{digest.hexdigest()[:16]}"
+
+
 def resolve_current_orchestration_state(
     repo_root: Path,
     *,
@@ -8616,6 +8663,319 @@ def resolve_current_orchestration_coherence_brief(
             does_not_change_admission_or_execution=True,
             additional_fields={
                 "current_orchestration_coherence_brief_only": True,
+                "non_executing": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_create_new_authority_surface": True,
+            },
+        ),
+    }
+
+
+def resolve_current_orchestration_digest(
+    repo_root: Path,
+    *,
+    current_orchestration_state: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint_brief: Mapping[str, Any] | None = None,
+    watchpoint_satisfaction: Mapping[str, Any] | None = None,
+    re_evaluation_trigger_recommendation: Mapping[str, Any] | None = None,
+    current_re_evaluation_basis_brief: Mapping[str, Any] | None = None,
+    current_orchestration_resumption_candidate: Mapping[str, Any] | None = None,
+    current_resumed_operation_readiness: Mapping[str, Any] | None = None,
+    current_orchestration_wake_readiness_detector: Mapping[str, Any] | None = None,
+    current_orchestration_pressure_signal: Mapping[str, Any] | None = None,
+    proposal_packet_continuity_review: Mapping[str, Any] | None = None,
+    current_orchestration_next_move_brief: Mapping[str, Any] | None = None,
+    current_orchestration_handoff_packet_brief: Mapping[str, Any] | None = None,
+    current_operator_facing_orchestration_brief: Mapping[str, Any] | None = None,
+    current_orchestration_resolution_path_brief: Mapping[str, Any] | None = None,
+    current_orchestration_closure_brief: Mapping[str, Any] | None = None,
+    current_orchestration_coherence_brief: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve one bounded, observational digest for the current orchestration picture."""
+
+    _ = repo_root.resolve()
+    state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
+    watchpoint_brief_map = (
+        current_orchestration_watchpoint_brief if isinstance(current_orchestration_watchpoint_brief, Mapping) else {}
+    )
+    satisfaction_map = watchpoint_satisfaction if isinstance(watchpoint_satisfaction, Mapping) else {}
+    trigger_map = re_evaluation_trigger_recommendation if isinstance(re_evaluation_trigger_recommendation, Mapping) else {}
+    basis_map = current_re_evaluation_basis_brief if isinstance(current_re_evaluation_basis_brief, Mapping) else {}
+    candidate_map = (
+        current_orchestration_resumption_candidate
+        if isinstance(current_orchestration_resumption_candidate, Mapping)
+        else {}
+    )
+    readiness_map = current_resumed_operation_readiness if isinstance(current_resumed_operation_readiness, Mapping) else {}
+    wake_map = (
+        current_orchestration_wake_readiness_detector
+        if isinstance(current_orchestration_wake_readiness_detector, Mapping)
+        else {}
+    )
+    pressure_map = (
+        current_orchestration_pressure_signal if isinstance(current_orchestration_pressure_signal, Mapping) else {}
+    )
+    continuity_map = (
+        proposal_packet_continuity_review if isinstance(proposal_packet_continuity_review, Mapping) else {}
+    )
+    next_move_map = (
+        current_orchestration_next_move_brief if isinstance(current_orchestration_next_move_brief, Mapping) else {}
+    )
+    handoff_brief_map = (
+        current_orchestration_handoff_packet_brief
+        if isinstance(current_orchestration_handoff_packet_brief, Mapping)
+        else {}
+    )
+    operator_map = (
+        current_operator_facing_orchestration_brief
+        if isinstance(current_operator_facing_orchestration_brief, Mapping)
+        else {}
+    )
+    path_map = (
+        current_orchestration_resolution_path_brief
+        if isinstance(current_orchestration_resolution_path_brief, Mapping)
+        else {}
+    )
+    closure_map = (
+        current_orchestration_closure_brief if isinstance(current_orchestration_closure_brief, Mapping) else {}
+    )
+    coherence_map = (
+        current_orchestration_coherence_brief if isinstance(current_orchestration_coherence_brief, Mapping) else {}
+    )
+
+    state_class = str(state_map.get("current_supervisory_state") or "no_active_orchestration_item")
+    watchpoint_class = str(watchpoint_map.get("watchpoint_class") or "no_watchpoint_needed")
+    wait_kind = str(watchpoint_brief_map.get("wait_kind") or "no_active_watchpoint")
+    satisfaction_status = str(satisfaction_map.get("satisfaction_status") or "no_active_watchpoint")
+    recommendation = str(trigger_map.get("recommendation") or "no_re_evaluation_needed")
+    basis_classification = str(basis_map.get("basis_classification") or "no_current_re_evaluation_basis")
+    resume_mode = str(candidate_map.get("bounded_resume_mode") or "no_re_evaluation_needed")
+    readiness_verdict = str(readiness_map.get("resumed_operation_readiness_verdict") or "not_ready")
+    wake_classification = str(wake_map.get("wake_readiness_classification") or "not_wake_ready")
+    pressure_classification = str(pressure_map.get("pressure_classification") or "insufficient_signal")
+    continuity_classification = str(continuity_map.get("review_classification") or "insufficient_history")
+    next_move_classification = str(next_move_map.get("next_move_classification") or "no_current_next_move")
+    handoff_classification = str(
+        handoff_brief_map.get("handoff_packet_brief_classification") or "no_current_packet_brief"
+    )
+    operator_classification = str(
+        operator_map.get("operator_facing_classification") or "operator_attention_not_currently_needed"
+    )
+    operator_loop_posture = str(operator_map.get("loop_posture") or "informational")
+    path_classification = str(path_map.get("resolution_path_classification") or "no_current_resolution_path")
+    closure_classification = str(closure_map.get("closure_classification") or "no_current_closure_posture")
+    coherence_classification = str(coherence_map.get("coherence_classification") or "insufficient_current_signal")
+
+    evidence_count = sum(
+        1
+        for present in (
+            state_class != "no_active_orchestration_item",
+            watchpoint_class != "no_watchpoint_needed",
+            satisfaction_status != "no_active_watchpoint",
+            recommendation != "no_re_evaluation_needed",
+            wake_classification != "not_wake_ready",
+            pressure_classification != "insufficient_signal",
+            continuity_classification != "insufficient_history",
+            next_move_classification != "no_current_next_move",
+            path_classification != "no_current_resolution_path",
+            closure_classification != "no_current_closure_posture",
+            coherence_classification != "insufficient_current_signal",
+        )
+        if present
+    )
+
+    contradictory = (
+        coherence_classification == "materially_contradictory"
+        or (
+            path_classification == "completed_or_no_active_path"
+            and closure_classification
+            in {
+                "closure_pending_on_operator_resolution",
+                "closure_pending_on_internal_result",
+                "closure_pending_on_external_fulfillment",
+                "closure_pending_on_packet_continuity",
+            }
+        )
+        or (
+            closure_classification == "closure_already_satisfied"
+            and next_move_classification != "no_current_next_move"
+        )
+    )
+    fragmented = (
+        coherence_classification == "fragmentation_dominant"
+        or pressure_classification == "fragmentation_pressure"
+        or continuity_classification in {"fragmented_continuity", "insufficient_history"}
+        or path_classification == "fragmented_path"
+        or closure_classification == "closure_blocked_by_fragmentation"
+        or satisfaction_status in {"watchpoint_fragmented", "watchpoint_stale"}
+        or wait_kind == "continuity_uncertain"
+        or handoff_classification == "packet_continuity_uncertain"
+    )
+    cautionary = (
+        recommendation == "hold_for_manual_review"
+        or readiness_verdict in {"hold_for_operator_review", "not_ready"}
+        or wake_classification in {"wake_ready_with_caution", "wake_blocked_pending_operator"}
+        or pressure_classification in {"hold_pressure", "redirect_pressure", "repacketization_pressure", "mixed_pressure"}
+        or operator_loop_posture == "cautionary"
+        or next_move_classification in {"hold_for_operator_review_next", "rerun_packetization_gate_next", "rerun_packet_synthesis_next"}
+        or closure_classification
+        in {
+            "closure_pending_on_operator_resolution",
+            "closure_pending_on_internal_result",
+            "closure_pending_on_external_fulfillment",
+            "closure_pending_on_packet_continuity",
+        }
+        or coherence_classification == "strained_but_coherent"
+    )
+    aligned = (
+        coherence_classification == "coherent_current_picture"
+        and not cautionary
+        and not fragmented
+        and not contradictory
+        and recommendation in {"clear_wait_and_continue_current_packet", "rerun_delegated_judgment", "no_re_evaluation_needed"}
+        and next_move_classification in {"continue_current_packet_next", "rerun_delegated_judgment_next", "no_current_next_move"}
+    )
+
+    if contradictory:
+        classification = "contradictory_current_picture"
+        picture_posture = "contradictory"
+        rationale = "neighboring_current_surfaces_materially_disagree_and_should_not_be_flattened"
+    elif fragmented:
+        classification = "fragmented_current_picture"
+        picture_posture = "fragmented"
+        rationale = "fragmentation_or_continuity_uncertainty_materially_dominates_the_current_picture"
+    elif evidence_count <= 3:
+        classification = "minimal_current_picture"
+        picture_posture = "cautionary"
+        rationale = "current_evidence_is_sparse_so_only_a_minimal_honest_picture_is_supported"
+    elif aligned and evidence_count >= 8:
+        classification = "mature_current_picture"
+        picture_posture = "aligned"
+        rationale = "neighboring_current_surfaces_are_rich_and_cleanly_aligned"
+    else:
+        classification = "cautionary_current_picture"
+        picture_posture = "cautionary"
+        rationale = "current_picture_is_mostly_aligned_but_material_caution_signals_remain"
+
+    if classification not in _CURRENT_ORCHESTRATION_DIGEST_CLASSIFICATIONS:
+        classification = "minimal_current_picture"
+    if picture_posture not in _CURRENT_ORCHESTRATION_DIGEST_ALIGNMENT:
+        picture_posture = "cautionary"
+
+    resumed_bounded_motion = "not_applicable"
+    if wake_classification in {"wake_not_applicable"} and recommendation == "no_re_evaluation_needed":
+        resumed_bounded_motion = "not_applicable"
+    elif (
+        wake_classification in {"wake_ready", "wake_ready_with_caution"}
+        and readiness_verdict in {"ready_to_proceed", "proceed_with_caution"}
+        and recommendation in {"clear_wait_and_continue_current_packet", "rerun_delegated_judgment"}
+    ):
+        resumed_bounded_motion = "plausible"
+    else:
+        resumed_bounded_motion = "blocked"
+    if resumed_bounded_motion not in _CURRENT_ORCHESTRATION_DIGEST_RESUMED_MOTION:
+        resumed_bounded_motion = "blocked"
+
+    digest_posture = (
+        "informational_only" if classification == "mature_current_picture" else "conservative_caution"
+    )
+    state_id = str(state_map.get("current_orchestration_state_id") or "")
+    watchpoint_id = str(watchpoint_map.get("orchestration_watchpoint_id") or "")
+    satisfaction_id = str(satisfaction_map.get("watchpoint_satisfaction_id") or "")
+    trigger_id = str(trigger_map.get("re_evaluation_trigger_id") or "")
+    candidate_id = str(candidate_map.get("orchestration_resumption_candidate_id") or "")
+
+    return {
+        "schema_version": "current_orchestration_digest.v1",
+        "resolved_at": _iso_utc_now(),
+        "current_orchestration_digest_id": _current_orchestration_digest_id(
+            current_orchestration_state_id=state_id,
+            orchestration_watchpoint_id=watchpoint_id,
+            watchpoint_satisfaction_id=satisfaction_id,
+            re_evaluation_trigger_id=trigger_id,
+            orchestration_resumption_candidate_id=candidate_id,
+            digest_classification=classification,
+        ),
+        "digest_classification": classification,
+        "overall_picture_posture": picture_posture,
+        "resumed_bounded_motion": resumed_bounded_motion,
+        "digest_posture": digest_posture,
+        "informational_only": digest_posture == "informational_only",
+        "conservatively_cautionary": digest_posture == "conservative_caution",
+        "bounded_summary": {
+            "current_path": path_classification,
+            "current_next_move": next_move_classification,
+            "current_closure_posture": closure_classification,
+            "current_coherence_posture": coherence_classification,
+            "current_operator_facing_posture": operator_classification,
+        },
+        "basis": {
+            "compact_rationale": rationale,
+            "basis_evidence": {
+                "current_supervisory_state": state_class,
+                "watchpoint_class": watchpoint_class,
+                "watchpoint_wait_kind": wait_kind,
+                "watchpoint_satisfaction_status": satisfaction_status,
+                "re_evaluation_recommendation": recommendation,
+                "re_evaluation_basis_classification": basis_classification,
+                "resumption_mode": resume_mode,
+                "resumed_operation_readiness_verdict": readiness_verdict,
+                "wake_readiness_classification": wake_classification,
+                "pressure_classification": pressure_classification,
+                "proposal_packet_continuity_classification": continuity_classification,
+                "current_next_move_classification": next_move_classification,
+                "current_handoff_packet_brief_classification": handoff_classification,
+                "current_operator_facing_classification": operator_classification,
+                "current_resolution_path_classification": path_classification,
+                "current_closure_classification": closure_classification,
+                "current_coherence_classification": coherence_classification,
+                "evidence_count": evidence_count,
+            },
+            "surface_linkage": {
+                "current_orchestration_state_surface": "resolve_current_orchestration_state",
+                "current_orchestration_watchpoint_surface": "resolve_current_orchestration_watchpoint",
+                "current_orchestration_watchpoint_brief_surface": "resolve_current_orchestration_watchpoint_brief",
+                "watchpoint_satisfaction_surface": "resolve_watchpoint_satisfaction",
+                "re_evaluation_trigger_surface": "resolve_re_evaluation_trigger_recommendation",
+                "current_re_evaluation_basis_brief_surface": "resolve_current_re_evaluation_basis_brief",
+                "current_orchestration_resumption_candidate_surface": "resolve_current_orchestration_resumption_candidate",
+                "current_resumed_operation_readiness_surface": "resolve_current_resumed_operation_readiness_verdict",
+                "current_orchestration_wake_readiness_detector_surface": "resolve_current_orchestration_wake_readiness_detector",
+                "current_orchestration_pressure_signal_surface": "resolve_current_orchestration_pressure_signal",
+                "proposal_packet_continuity_review_surface": "derive_proposal_packet_continuity_review",
+                "current_orchestration_next_move_brief_surface": "resolve_current_orchestration_next_move_brief",
+                "current_orchestration_handoff_packet_brief_surface": "resolve_current_orchestration_handoff_packet_brief",
+                "current_operator_facing_orchestration_brief_surface": "resolve_current_operator_facing_orchestration_brief",
+                "current_orchestration_resolution_path_brief_surface": "resolve_current_orchestration_resolution_path_brief",
+                "current_orchestration_closure_brief_surface": "resolve_current_orchestration_closure_brief",
+                "current_orchestration_coherence_brief_surface": "resolve_current_orchestration_coherence_brief",
+            },
+            "historical_honesty": {
+                "no_new_truth_source": True,
+                "derived_from_existing_surfaces_only": True,
+                "does_not_flatten_material_ambiguity_into_fake_clarity": True,
+            },
+        },
+        "boundaries": {
+            "non_sovereign": True,
+            "non_authoritative": True,
+            "non_executing": True,
+            "diagnostic_only": True,
+            "decision_power": "none",
+            "does_not_plan_or_schedule": True,
+            "does_not_execute_or_route_work": True,
+            "does_not_create_new_truth_source": True,
+            "does_not_create_new_orchestration_layer": True,
+            "does_not_imply_permission_to_execute": True,
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "current_orchestration_digest_only": True,
                 "non_executing": True,
                 "does_not_execute_or_route_work": True,
                 "does_not_create_new_authority_surface": True,
