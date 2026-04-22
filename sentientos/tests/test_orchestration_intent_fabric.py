@@ -51,6 +51,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_pressure_signal,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_handoff_packet_brief,
+    resolve_current_orchestration_resolution_path_brief,
     resolve_current_operator_facing_orchestration_brief,
     resolve_current_orchestration_resumption_candidate,
     resolve_current_orchestration_watchpoint_brief,
@@ -5581,6 +5582,211 @@ def test_current_operator_facing_orchestration_brief_is_derived_only_non_authori
     assert before["handoff_outcome"] == after["handoff_outcome"]
 
 
+@pytest.mark.parametrize(
+    ("watchpoint_class", "state_focus", "next_move_classification", "handoff_packet_brief_classification", "operator_facing_classification", "unified_resolution_path", "satisfaction_status", "wait_kind", "pressure_classification", "expected"),
+    [
+        (
+            "await_new_proposal",
+            "proposal",
+            "rerun_delegated_judgment_next",
+            "packet_not_currently_material",
+            "operator_attention_not_currently_needed",
+            "none",
+            "watchpoint_pending",
+            "awaiting_internal_result_closure",
+            "stable_or_low_pressure",
+            "proposal_centered_path",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "packet",
+            "continue_current_packet_next",
+            "continuing_active_packet",
+            "operator_attention_not_currently_needed",
+            "external_fulfillment",
+            "watchpoint_pending",
+            "awaiting_external_fulfillment",
+            "stable_or_low_pressure",
+            "packet_centered_path",
+        ),
+        (
+            "await_operator_resolution",
+            "operator_brief",
+            "hold_for_operator_review_next",
+            "packetization_gate_pending",
+            "operator_should_review_hold",
+            "none",
+            "watchpoint_pending",
+            "awaiting_operator_resolution",
+            "hold_pressure",
+            "operator_resolution_path",
+        ),
+        (
+            "await_internal_execution_result",
+            "internal_execution",
+            "continue_current_packet_next",
+            "continuing_active_packet",
+            "operator_attention_not_currently_needed",
+            "internal_execution",
+            "watchpoint_pending",
+            "awaiting_internal_result_closure",
+            "stable_or_low_pressure",
+            "internal_result_path",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "external_fulfillment",
+            "continue_current_packet_next",
+            "continuing_active_packet",
+            "operator_attention_not_currently_needed",
+            "external_fulfillment",
+            "watchpoint_pending",
+            "awaiting_external_fulfillment",
+            "stable_or_low_pressure",
+            "external_fulfillment_path",
+        ),
+        (
+            "no_watchpoint_needed",
+            "completed_or_idle",
+            "no_current_next_move",
+            "no_current_packet_brief",
+            "operator_should_confirm_no_current_action",
+            "external_fulfillment",
+            "no_active_watchpoint",
+            "no_active_watchpoint",
+            "stable_or_low_pressure",
+            "completed_or_no_active_path",
+        ),
+        (
+            "await_external_fulfillment_receipt",
+            "packet",
+            "rerun_packet_synthesis_next",
+            "packet_continuity_uncertain",
+            "operator_should_review_fragmentation",
+            "external_fulfillment",
+            "watchpoint_fragmented",
+            "continuity_uncertain",
+            "fragmentation_pressure",
+            "fragmented_path",
+        ),
+        (
+            "no_watchpoint_needed",
+            "completed_or_idle",
+            "no_current_next_move",
+            "no_current_packet_brief",
+            "operator_attention_not_currently_needed",
+            "none",
+            "no_active_watchpoint",
+            "no_active_watchpoint",
+            "stable_or_low_pressure",
+            "no_current_resolution_path",
+        ),
+    ],
+)
+def test_current_orchestration_resolution_path_brief_classification_cases(
+    tmp_path: Path,
+    watchpoint_class: str,
+    state_focus: str,
+    next_move_classification: str,
+    handoff_packet_brief_classification: str,
+    operator_facing_classification: str,
+    unified_resolution_path: str,
+    satisfaction_status: str,
+    wait_kind: str,
+    pressure_classification: str,
+    expected: str,
+) -> None:
+    brief = resolve_current_orchestration_resolution_path_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "cos-resolution-path",
+            "current_supervisory_state": "completed_recently_no_current_item"
+            if expected == "completed_or_no_active_path"
+            else ("no_active_orchestration_item" if expected == "no_current_resolution_path" else "waiting_for_external_fulfillment"),
+            "state_focus": state_focus,
+            "current_resolution_path": unified_resolution_path,
+        },
+        current_orchestration_watchpoint={"orchestration_watchpoint_id": "cow-resolution-path", "watchpoint_class": watchpoint_class},
+        current_orchestration_watchpoint_brief={"wait_kind": wait_kind},
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "cws-resolution-path", "satisfaction_status": satisfaction_status},
+        re_evaluation_trigger_recommendation={
+            "re_evaluation_trigger_id": "ret-resolution-path",
+            "recommendation": "no_re_evaluation_needed"
+            if expected in {"completed_or_no_active_path", "no_current_resolution_path"}
+            else "clear_wait_and_continue_current_packet",
+        },
+        current_re_evaluation_basis_brief={"basis_classification": "satisfaction_driven_re_evaluation"},
+        current_orchestration_resumption_candidate={
+            "orchestration_resumption_candidate_id": "crc-resolution-path",
+            "resume_ready": expected not in {"completed_or_no_active_path", "no_current_resolution_path"},
+        },
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "ready_to_proceed"},
+        current_orchestration_wake_readiness_detector={"wake_readiness_classification": "wake_ready"},
+        current_orchestration_pressure_signal={"pressure_classification": pressure_classification},
+        current_orchestration_next_move_brief={"next_move_classification": next_move_classification},
+        current_orchestration_handoff_packet_brief={"handoff_packet_brief_classification": handoff_packet_brief_classification},
+        current_operator_facing_orchestration_brief={
+            "operator_facing_classification": operator_facing_classification,
+            "loop_posture": "blocked" if operator_facing_classification == "operator_should_review_hold" else "informational",
+        },
+        active_packet_visibility={"active_packet_available": expected in {"packet_centered_path", "internal_result_path", "external_fulfillment_path"}},
+        operator_action_brief_visibility={"lifecycle_state": "brief_emitted" if expected == "operator_resolution_path" else "brief_not_emitted"},
+        operator_resolution_influence={"operator_influence_state": "no_operator_influence_yet"},
+        internal_execution_result_visibility={
+            "resolution_state": "execution_still_pending" if expected == "internal_result_path" else "not_supplied",
+            "task_result_visible": expected == "internal_result_path",
+        },
+        external_fulfillment_receipt_visibility={"fulfillment_received": expected == "external_fulfillment_path"},
+        unified_result={
+            "resolution_path": unified_resolution_path,
+            "result_classification": "completed_successfully" if expected == "completed_or_no_active_path" else "pending_or_unresolved",
+        },
+    )
+    assert brief["resolution_path_classification"] == expected
+
+
+def test_current_orchestration_resolution_path_brief_is_derived_only_non_authoritative_and_non_executing(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    brief = resolve_current_orchestration_resolution_path_brief(
+        tmp_path,
+        current_orchestration_state={
+            "current_orchestration_state_id": "cos-resolution-boundary",
+            "current_supervisory_state": "waiting_for_operator_resolution",
+            "state_focus": "operator_brief",
+            "current_resolution_path": "operator_resolution",
+        },
+        current_orchestration_watchpoint={"orchestration_watchpoint_id": "cow-resolution-boundary", "watchpoint_class": "await_operator_resolution"},
+        current_orchestration_watchpoint_brief={"wait_kind": "awaiting_operator_resolution"},
+        watchpoint_satisfaction={"watchpoint_satisfaction_id": "cws-resolution-boundary", "satisfaction_status": "watchpoint_pending"},
+        re_evaluation_trigger_recommendation={"re_evaluation_trigger_id": "ret-resolution-boundary", "recommendation": "hold_for_manual_review"},
+        current_re_evaluation_basis_brief={"basis_classification": "operator_resolution_driven_re_evaluation"},
+        current_orchestration_resumption_candidate={"orchestration_resumption_candidate_id": "crc-resolution-boundary", "resume_ready": False},
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": "hold_for_operator_review"},
+        current_orchestration_wake_readiness_detector={"wake_readiness_classification": "wake_blocked_pending_operator"},
+        current_orchestration_pressure_signal={"pressure_classification": "hold_pressure"},
+        current_orchestration_next_move_brief={"next_move_classification": "hold_for_operator_review_next"},
+        current_orchestration_handoff_packet_brief={"handoff_packet_brief_classification": "packetization_gate_pending"},
+        current_operator_facing_orchestration_brief={"operator_facing_classification": "operator_should_review_hold", "loop_posture": "blocked"},
+        active_packet_visibility={"active_packet_available": False},
+        operator_action_brief_visibility={"lifecycle_state": "brief_emitted"},
+        operator_resolution_influence={"operator_influence_state": "no_operator_influence_yet"},
+        internal_execution_result_visibility={"resolution_state": "not_supplied"},
+        external_fulfillment_receipt_visibility={"fulfillment_received": False},
+        unified_result={"resolution_path": "none", "result_classification": "pending_or_unresolved"},
+    )
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert brief["basis"]["historical_honesty"]["derived_from_existing_surfaces_only"] is True
+    assert brief["current_orchestration_resolution_path_brief_only"] is True
+    assert brief["boundaries"]["non_authoritative"] is True
+    assert brief["boundaries"]["non_executing"] is True
+    assert brief["does_not_execute_or_route_work"] is True
+    assert brief["decision_power"] == "none"
+    assert before["handoff_outcome"] == after["handoff_outcome"]
+
+
 def test_current_orchestration_state_surface_is_present_in_consumer_and_non_authoritative(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
 
@@ -5626,6 +5832,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     current_next_move = diagnostic["orchestration_handoff"]["current_orchestration_next_move_brief"]
     current_handoff_packet_brief = diagnostic["orchestration_handoff"]["current_orchestration_handoff_packet_brief"]
     current_operator_facing = diagnostic["orchestration_handoff"]["current_operator_facing_orchestration_brief"]
+    current_resolution_path_brief = diagnostic["orchestration_handoff"]["current_orchestration_resolution_path_brief"]
     current_watchpoint_summary = diagnostic["orchestration_handoff"]["current_orchestration_watchpoint_summary"]
     readiness = diagnostic["orchestration_handoff"]["delegated_operation_readiness"]
 
@@ -5771,6 +5978,21 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_operator_facing["loop_posture"] in {"blocked", "cautionary", "informational"}
     assert current_operator_facing["boundaries"]["non_authoritative"] is True
     assert current_operator_facing["does_not_execute_or_route_work"] is True
+    assert current_resolution_path_brief["schema_version"] == "current_orchestration_resolution_path_brief.v1"
+    assert current_resolution_path_brief["resolution_path_classification"] in {
+        "proposal_centered_path",
+        "packet_centered_path",
+        "operator_resolution_path",
+        "internal_result_path",
+        "external_fulfillment_path",
+        "completed_or_no_active_path",
+        "fragmented_path",
+        "no_current_resolution_path",
+    }
+    assert current_resolution_path_brief["centered_on"] in {"proposal", "packet", "operator", "result_or_fulfillment", "none"}
+    assert current_resolution_path_brief["path_posture"] in {"blocked", "cautionary", "informational"}
+    assert current_resolution_path_brief["boundaries"]["non_authoritative"] is True
+    assert current_resolution_path_brief["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
@@ -5822,6 +6044,16 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
         current_watchpoint_summary["current_operator_facing_informational_only"]
         == current_operator_facing["informational_only"]
     )
+    assert (
+        current_watchpoint_summary["current_resolution_path_classification"]
+        == current_resolution_path_brief["resolution_path_classification"]
+    )
+    assert current_watchpoint_summary["current_resolution_path_centered_on"] == current_resolution_path_brief["centered_on"]
+    assert current_watchpoint_summary["current_resolution_path_posture"] == current_resolution_path_brief["path_posture"]
+    assert (
+        current_watchpoint_summary["current_resolution_path_chain_active"]
+        == current_resolution_path_brief["wake_resumption_next_move_chain_materially_active"]
+    )
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
@@ -5834,6 +6066,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_watchpoint_summary["non_sovereign_boundaries"]["current_orchestration_next_move_brief_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["current_orchestration_handoff_packet_brief_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["current_operator_facing_orchestration_brief_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["current_orchestration_resolution_path_brief_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["basis_only"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["does_not_change_verdict_logic"] is True
     assert readiness["summary"]["current_orchestration_state_basis"]["watchpoint_basis"]["basis_only"] is True
