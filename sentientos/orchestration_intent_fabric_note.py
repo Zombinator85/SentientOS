@@ -346,6 +346,32 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "does not imply permission to execute",
             ],
         },
+        "current_orchestration_coherence_brief": {
+            "what_it_is": "a compact observational-only resolver that classifies whether the current orchestration picture is coherent, strained-but-coherent, fragmentation-dominant, materially contradictory, or too weakly grounded",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_coherence_brief",
+            "classifications": [
+                "coherent_current_picture",
+                "strained_but_coherent",
+                "fragmentation_dominant",
+                "materially_contradictory",
+                "insufficient_current_signal",
+            ],
+            "derived_from_existing_surfaces_only": [
+                "current orchestration state/watchpoint/watchpoint brief/satisfaction",
+                "re-evaluation trigger + current re-evaluation basis brief",
+                "current resumption candidate + resumed readiness",
+                "current wake-readiness detector + pressure signal",
+                "proposal-packet continuity review",
+                "current orchestration next-move brief + handoff packet brief + operator-facing brief + resolution-path brief + closure brief",
+                "active handoff packet visibility + operator-resolution visibility + unified result visibility",
+            ],
+            "strict_boundaries": [
+                "non-sovereign, non-authoritative, non-executing",
+                "informational/coherence posture only; not a scheduler/planner/decision engine",
+                "does not create a new truth source, mutable store, or orchestration layer",
+                "does not imply permission to execute",
+            ],
+        },
         "unified_orchestration_result": {
             "what_it_is": "a bounded venue-aware resolver surface that normalizes internal execution closure and external fulfillment closure into one typed result shape",
             "machine_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result",
