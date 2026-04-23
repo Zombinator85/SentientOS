@@ -425,6 +425,32 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "does not imply permission to execute",
             ],
         },
+        "current_orchestration_export_packet": {
+            "what_it_is": "a bounded observational-only export compression surface that packages the mature current orchestration picture for compact downstream inspection",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_export_packet",
+            "classifications": [
+                "export_packet_ready",
+                "export_packet_cautionary",
+                "export_packet_fragmented",
+                "export_packet_contradicted",
+                "export_packet_minimal",
+            ],
+            "derived_from_existing_surfaces_only": [
+                "current orchestration state/watchpoint/watchpoint brief/satisfaction",
+                "re-evaluation trigger + current re-evaluation basis brief",
+                "current resumption candidate + resumed readiness",
+                "current wake-readiness detector + pressure signal",
+                "proposal-packet continuity review",
+                "current orchestration next-move brief + handoff packet brief + operator-facing brief + resolution-path brief + closure brief + coherence brief",
+                "current orchestration digest + transition brief",
+            ],
+            "strict_boundaries": [
+                "non-sovereign, non-authoritative, non-executing",
+                "export compression only; not a scheduler/planner/decision engine/execution venue",
+                "does not create a new truth source or mutable orchestration store",
+                "does not imply permission to execute",
+            ],
+        },
         "unified_orchestration_result": {
             "what_it_is": "a bounded venue-aware resolver surface that normalizes internal execution closure and external fulfillment closure into one typed result shape",
             "machine_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result",
