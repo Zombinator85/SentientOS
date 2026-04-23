@@ -707,19 +707,30 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_transition_brief": current_orchestration_transition_brief,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
+                "current_watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
                 "watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
                 "watchpoint_satisfaction_status": current_watchpoint_satisfaction.get("satisfaction_status"),
+                "current_watchpoint_satisfaction_status": current_watchpoint_satisfaction.get("satisfaction_status"),
                 "expected_actor": current_orchestration_watchpoint.get("expected_actor"),
                 "expected_signal_type": current_orchestration_watchpoint.get("expected_signal_type"),
+                "current_watchpoint_expected_actor": current_orchestration_watchpoint.get("expected_actor"),
+                "current_watchpoint_expected_signal_type": current_orchestration_watchpoint.get("expected_signal_type"),
                 "satisfaction_status": current_watchpoint_satisfaction.get("satisfaction_status"),
                 "satisfied_by_actor": current_watchpoint_satisfaction.get("satisfied_by_actor"),
                 "satisfied_by_signal_type": current_watchpoint_satisfaction.get("satisfied_by_signal_type"),
                 "re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation.get("recommendation"),
+                "current_re_evaluation_trigger_recommendation": re_evaluation_trigger_recommendation.get("recommendation"),
                 "re_evaluation_expected_actor": re_evaluation_trigger_recommendation.get("expected_actor"),
                 "current_resumption_candidate_mode": current_orchestration_resumption_candidate.get("bounded_resume_mode"),
                 "current_resumption_continuity_posture": current_orchestration_resumption_candidate.get("continuity_posture"),
+                "current_resumption_candidate_continuity_posture": current_orchestration_resumption_candidate.get(
+                    "continuity_posture"
+                ),
                 "current_resumed_operation_readiness_verdict": current_resumed_operation_readiness.get(
                     "resumed_operation_readiness_verdict"
+                ),
+                "current_resumed_operation_readiness_id": current_resumed_operation_readiness.get(
+                    "current_resumed_operation_readiness_id"
                 ),
                 "current_watchpoint_wait_kind": current_orchestration_watchpoint_brief.get("wait_kind"),
                 "watchpoint_brief_requires_conservative_hold": (
@@ -740,6 +751,9 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "current_re_evaluation_basis_classification": current_re_evaluation_basis_brief.get("basis_classification"),
                 "current_re_evaluation_basis_primary_driver": current_re_evaluation_basis_brief.get("primary_driver"),
                 "current_re_evaluation_basis_posture": current_re_evaluation_basis_brief.get("posture"),
+                "current_next_move_brief_classification": current_orchestration_next_move_brief.get(
+                    "next_move_classification"
+                ),
                 "current_next_move_classification": current_orchestration_next_move_brief.get("next_move_classification"),
                 "current_next_move_posture": current_orchestration_next_move_brief.get("next_move_posture"),
                 "current_next_move_continues_existing_packet": current_orchestration_next_move_brief.get(
@@ -809,6 +823,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "re_entry_recommendation_only": True,
                     "resumption_candidate_only": True,
                     "resumption_readiness_only": True,
+                    "current_resumed_operation_readiness_only": True,
                     "watchpoint_brief_only": True,
                     "pressure_signal_only": True,
                     "wake_readiness_detector_only": True,

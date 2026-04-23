@@ -610,6 +610,26 @@ def _anti_sovereignty_payload(
     return payload
 
 
+def _normalized_current_surface_boundaries(
+    *,
+    does_not_schedule_or_trigger_events: bool = False,
+    does_not_create_new_orchestration_layer: bool = True,
+) -> dict[str, Any]:
+    return {
+        "non_sovereign": True,
+        "non_authoritative": True,
+        "non_executing": True,
+        "diagnostic_only": True,
+        "decision_power": "none",
+        "does_not_plan_or_schedule": True,
+        "does_not_execute_or_route_work": True,
+        "does_not_create_new_truth_source": True,
+        "does_not_create_new_orchestration_layer": does_not_create_new_orchestration_layer,
+        "does_not_imply_permission_to_execute": True,
+        "does_not_schedule_or_trigger_events": does_not_schedule_or_trigger_events,
+    }
+
+
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -4476,6 +4496,32 @@ def _current_wake_readiness_detector_id(
     return f"owr-{digest.hexdigest()[:16]}"
 
 
+def _current_resumed_operation_readiness_id(
+    *,
+    current_orchestration_state_id: str,
+    orchestration_watchpoint_id: str,
+    watchpoint_satisfaction_id: str,
+    re_evaluation_trigger_id: str,
+    orchestration_resumption_candidate_id: str,
+    resumed_operation_readiness_verdict: str,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "current_orchestration_state_id": current_orchestration_state_id,
+                "orchestration_watchpoint_id": orchestration_watchpoint_id,
+                "watchpoint_satisfaction_id": watchpoint_satisfaction_id,
+                "re_evaluation_trigger_id": re_evaluation_trigger_id,
+                "orchestration_resumption_candidate_id": orchestration_resumption_candidate_id,
+                "resumed_operation_readiness_verdict": resumed_operation_readiness_verdict,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    return f"ord-{digest.hexdigest()[:16]}"
+
+
 def _current_re_evaluation_basis_brief_id(
     *,
     current_orchestration_state_id: str,
@@ -4947,6 +4993,7 @@ def resolve_current_orchestration_state(
                 "orchestration_unified_results",
             ],
         },
+        "boundaries": _normalized_current_surface_boundaries(),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -5093,6 +5140,7 @@ def resolve_current_orchestration_watchpoint(
             "decision_power": "none",
             "watchpoint_only": True,
         },
+        "boundaries": _normalized_current_surface_boundaries(does_not_schedule_or_trigger_events=True),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -5323,6 +5371,7 @@ def resolve_watchpoint_satisfaction(
             "decision_power": "none",
             "wake_readiness_only": True,
         },
+        "boundaries": _normalized_current_surface_boundaries(does_not_schedule_or_trigger_events=True),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -5528,6 +5577,7 @@ def resolve_re_evaluation_trigger_recommendation(
                 "re_entry_recommendation_only": True,
             },
         },
+        "boundaries": _normalized_current_surface_boundaries(does_not_schedule_or_trigger_events=True),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -5764,6 +5814,7 @@ def resolve_current_orchestration_resumption_candidate(
             "decision_power": "none",
             "non_executing": True,
         },
+        "boundaries": _normalized_current_surface_boundaries(does_not_schedule_or_trigger_events=True),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
@@ -5878,6 +5929,12 @@ def resolve_current_resumed_operation_readiness_verdict(
         or watchpoint_class == "no_watchpoint_needed"
     )
 
+    state_id = str(state_map.get("current_orchestration_state_id") or "")
+    watchpoint_id = str(watchpoint_map.get("orchestration_watchpoint_id") or "")
+    satisfaction_id = str(satisfaction_map.get("watchpoint_satisfaction_id") or "")
+    trigger_id = str(trigger_map.get("re_evaluation_trigger_id") or "")
+    candidate_id = str(candidate_map.get("orchestration_resumption_candidate_id") or "")
+
     if explicit_manual_review_hold or stale_or_fragmented_wake_context or unresolved_operator_influence:
         verdict = "hold_for_operator_review"
         rationale = "wake_context_or_operator_resolution_state_requires_operator_review_before_resumed_continuation"
@@ -5903,6 +5960,14 @@ def resolve_current_resumed_operation_readiness_verdict(
 
     return {
         "schema_version": "current_resumed_operation_readiness_verdict.v1",
+        "current_resumed_operation_readiness_id": _current_resumed_operation_readiness_id(
+            current_orchestration_state_id=state_id,
+            orchestration_watchpoint_id=watchpoint_id,
+            watchpoint_satisfaction_id=satisfaction_id,
+            re_evaluation_trigger_id=trigger_id,
+            orchestration_resumption_candidate_id=candidate_id,
+            resumed_operation_readiness_verdict=verdict,
+        ),
         "readiness_kind": "bounded_resumed_operation_readiness",
         "resumed_operation_readiness_verdict": verdict,
         "basis": {
@@ -5941,6 +6006,24 @@ def resolve_current_resumed_operation_readiness_verdict(
                 "resolve_unified_orchestration_result",
             ],
         },
+        "source_linkage": {
+            "current_orchestration_state_ref": {
+                "current_orchestration_state_id": state_id or None,
+            },
+            "current_orchestration_watchpoint_ref": {
+                "orchestration_watchpoint_id": watchpoint_id or None,
+            },
+            "watchpoint_satisfaction_ref": {
+                "watchpoint_satisfaction_id": satisfaction_id or None,
+            },
+            "re_evaluation_trigger_ref": {
+                "re_evaluation_trigger_id": trigger_id or None,
+            },
+            "current_orchestration_resumption_candidate_ref": {
+                "orchestration_resumption_candidate_id": candidate_id or None,
+            },
+        },
+        "boundaries": _normalized_current_surface_boundaries(does_not_schedule_or_trigger_events=True),
         **_anti_sovereignty_payload(
             recommendation_only=True,
             diagnostic_only=True,
