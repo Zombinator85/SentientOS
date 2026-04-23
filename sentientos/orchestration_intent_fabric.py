@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 import task_admission
 import task_executor
+from sentientos import orchestration_internal_adapters
 
 _INTENT_KINDS = {
     "internal_maintenance_execution",
@@ -847,50 +848,15 @@ def _validate_handoff_minimum_fields(intent: Mapping[str, Any]) -> list[str]:
 
 
 def _build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.Task:
-    source = intent.get("source_delegated_judgment")
-    source_mapping = source if isinstance(source, Mapping) else {}
-    return task_executor.Task(
-        task_id=f"orh-{str(intent.get('intent_id') or 'missing')}",
-        objective="orchestration_intent_internal_maintenance_handoff",
-        constraints=(
-            "bounded_orchestration_handoff_only",
-            "no_external_tool_direct_invocation",
-            "admission_required_before_execution",
-        ),
-        steps=(
-            task_executor.Step(
-                step_id=1,
-                kind="noop",
-                payload=task_executor.NoopPayload(
-                    note=json.dumps(
-                        {
-                            "intent_kind": intent.get("intent_kind"),
-                            "recommended_venue": source_mapping.get("recommended_venue"),
-                            "executability_classification": intent.get("executability_classification"),
-                        },
-                        sort_keys=True,
-                    ),
-                ),
-            ),
-        ),
-        allow_epr=False,
-        required_privileges=("orchestration_intent_handoff",),
-    )
+    return orchestration_internal_adapters.build_internal_maintenance_task(intent)
 
 
 def _default_admission_context() -> task_admission.AdmissionContext:
-    return task_admission.AdmissionContext(
-        actor="orchestration_intent_fabric",
-        mode="autonomous",
-        node_id="sentientos_orchestration_handoff",
-        vow_digest=None,
-        doctrine_digest=None,
-        now_utc_iso=_iso_utc_now(),
-    )
+    return orchestration_internal_adapters.default_admission_context(_iso_utc_now())
 
 
 def _default_admission_policy() -> task_admission.AdmissionPolicy:
-    return task_admission.AdmissionPolicy(policy_version="orchestration_intent_handoff.v1")
+    return orchestration_internal_adapters.default_admission_policy()
 
 
 def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix: str) -> str:
@@ -1344,14 +1310,17 @@ def resolve_orchestration_result(
 ) -> dict[str, Any]:
     root = repo_root.resolve()
     handoff_outcome = str(handoff.get("handoff_outcome") or "")
+    log_path = executor_log_path or Path(task_executor.LOG_PATH)
+    linkage = orchestration_internal_adapters.resolve_task_executor_result_linkage(
+        handoff=handoff,
+        executor_log_path=log_path,
+        read_jsonl=_read_jsonl,
+    )
+    task_id = str(linkage.get("task_id") or "")
+    matching_rows = list(linkage.get("task_rows") or [])
+    task_result_rows = list(linkage.get("task_result_rows") or [])
     details = handoff.get("details")
     detail_map = details if isinstance(details, Mapping) else {}
-    task_admission_details = detail_map.get("task_admission")
-    admission_map = task_admission_details if isinstance(task_admission_details, Mapping) else {}
-    task_id = str(admission_map.get("task_id") or "")
-    log_path = executor_log_path or Path(task_executor.LOG_PATH)
-    matching_rows = [row for row in _read_jsonl(log_path) if str(row.get("task_id") or "") == task_id]
-    task_result_rows = [row for row in matching_rows if str(row.get("event") or "") == "task_result"]
 
     state = "handoff_not_admitted"
     execution_observed = False
@@ -11266,22 +11235,14 @@ def admit_orchestration_intent(
     elif execution_target != "task_admission_executor":
         outcome = "execution_target_unavailable"
     else:
-        ctx = admission_context or _default_admission_context()
-        policy = admission_policy or _default_admission_policy()
-        task = _build_internal_maintenance_task(intent)
-        decision = task_admission.admit(task, ctx, policy)
-        task_admission._log_admission_event(decision, task, ctx, policy)
-        details["task_admission"] = {
-            "task_id": task.task_id,
-            "allowed": decision.allowed,
-            "reason": decision.reason,
-            "policy_version": decision.policy_version,
-            "constraints": decision.constraints,
-            "log_path": str(task_admission._resolve_admission_log_path().relative_to(root))
-            if task_admission._resolve_admission_log_path().is_relative_to(root)
-            else str(task_admission._resolve_admission_log_path()),
-        }
-        outcome = "admitted_to_execution_substrate" if decision.allowed else "blocked_by_admission"
+        details["task_admission"] = orchestration_internal_adapters.admit_internal_maintenance_intent(
+            intent=intent,
+            root=root,
+            admission_context=admission_context,
+            admission_policy=admission_policy,
+            now_utc_iso=_iso_utc_now(),
+        )
+        outcome = "admitted_to_execution_substrate" if bool(details["task_admission"].get("allowed")) else "blocked_by_admission"
 
     if outcome not in _HANDOFF_OUTCOMES:
         outcome = "blocked_by_insufficient_context"
