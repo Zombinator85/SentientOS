@@ -211,3 +211,31 @@ This differs from trust/readiness layers:
 It does **not** add authority, execution, planning, new goals, new venues, or workflow sovereignty.
 It remains explicit current-state visibility only (`non_authoritative`, `diagnostic_only`,
 `decision_power: none`, `does_not_execute_or_route_work`).
+
+## Current handoff acceptance posture (observational compression only)
+
+`current_orchestration_handoff_acceptance_posture.v1` is a narrow, derived resolver that summarizes
+the **current handoff acceptance posture** for the current orchestration export packet in light of the
+current export-packet consumer receipt.
+
+It is computed only from existing surfaces (no new truth source), including:
+
+- `current_orchestration_export_packet`
+- `current_orchestration_export_packet_consumer_receipt`
+- neighboring current surfaces (`digest`, `coherence`, `transition`, `closure`, `next_move`,
+  `handoff_packet_brief`, `operator_facing_brief`, `resolution_path_brief`, `pressure_signal`,
+  `resumed_operation_readiness`, `wake_readiness_detector`)
+
+Bounded posture classes:
+
+- `handoff_acceptance_clear`
+- `handoff_acceptance_cautionary`
+- `handoff_acceptance_fragmented`
+- `handoff_acceptance_contradicted`
+- `handoff_acceptance_minimal`
+- `no_current_handoff_acceptance_posture`
+
+This resolver is observational-only (`non_sovereign`, `non_authoritative`, `non_executing`,
+`diagnostic_only`, `decision_power: none`). It does not schedule, plan, execute, admit, route,
+or authorize downstream work; it only compresses current acceptance legibility with explicit linkage
+back to the export packet and consumer receipt surfaces.

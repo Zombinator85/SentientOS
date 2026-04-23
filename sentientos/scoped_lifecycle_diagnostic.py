@@ -41,6 +41,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_digest,
     resolve_current_orchestration_export_packet,
     resolve_current_orchestration_export_packet_consumer_receipt,
+    resolve_current_orchestration_handoff_acceptance_posture,
     resolve_current_orchestration_transition_brief,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_watchpoint_brief,
@@ -624,6 +625,22 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
         )
     )
+    current_orchestration_handoff_acceptance_posture = resolve_current_orchestration_handoff_acceptance_posture(
+        root,
+        current_orchestration_export_packet=current_orchestration_export_packet,
+        current_orchestration_export_packet_consumer_receipt=current_orchestration_export_packet_consumer_receipt,
+        current_orchestration_digest=current_orchestration_digest,
+        current_orchestration_coherence_brief=current_orchestration_coherence_brief,
+        current_orchestration_transition_brief=current_orchestration_transition_brief,
+        current_orchestration_closure_brief=current_orchestration_closure_brief,
+        current_orchestration_next_move_brief=current_orchestration_next_move_brief,
+        current_orchestration_handoff_packet_brief=current_orchestration_handoff_packet_brief,
+        current_operator_facing_orchestration_brief=current_operator_facing_orchestration_brief,
+        current_orchestration_resolution_path_brief=current_orchestration_resolution_path_brief,
+        current_orchestration_pressure_signal=current_orchestration_pressure_signal,
+        current_resumed_operation_readiness=current_resumed_operation_readiness,
+        current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
+    )
     delegated_operation_readiness = derive_delegated_operation_readiness_verdict(
         orchestration_trust_confidence_posture,
         proposal_packet_continuity_review,
@@ -748,6 +765,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "current_orchestration_transition_brief": current_orchestration_transition_brief,
             "current_orchestration_export_packet": current_orchestration_export_packet,
             "current_orchestration_export_packet_consumer_receipt": current_orchestration_export_packet_consumer_receipt,
+            "current_orchestration_handoff_acceptance_posture": current_orchestration_handoff_acceptance_posture,
             "current_orchestration_watchpoint_summary": {
                 "current_orchestration_state": current_orchestration_state.get("current_supervisory_state"),
                 "current_watchpoint_class": current_orchestration_watchpoint.get("watchpoint_class"),
@@ -862,6 +880,15 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                         "consumable_as_bounded_observational_packet"
                     )
                 ),
+                "current_handoff_acceptance_classification": current_orchestration_handoff_acceptance_posture.get(
+                    "handoff_acceptance_classification"
+                ),
+                "current_handoff_acceptance_align_cleanly": current_orchestration_handoff_acceptance_posture.get(
+                    "export_packet_and_consumer_receipt_align_cleanly"
+                ),
+                "current_handoff_acceptance_posture_supported": current_orchestration_handoff_acceptance_posture.get(
+                    "bounded_downstream_acceptance_posture_supported"
+                ),
                 "current_transition_classification": current_orchestration_transition_brief.get("transition_classification"),
                 "current_transition_posture": current_orchestration_transition_brief.get("transition_posture"),
                 "current_transition_resumed_bounded_motion": current_orchestration_transition_brief.get(
@@ -898,6 +925,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                     "current_orchestration_transition_brief_only": True,
                     "current_orchestration_export_packet_only": True,
                     "current_orchestration_export_packet_consumer_receipt_only": True,
+                    "current_orchestration_handoff_acceptance_posture_only": True,
                     "does_not_execute_or_route_work": True,
                 },
             },
