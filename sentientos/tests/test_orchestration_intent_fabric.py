@@ -6701,6 +6701,8 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_state["awaiting_actor"] in {"none", "operator", "internal_substrate", "external_actor"}
     assert current_state["non_authoritative"] is True
     assert current_state["does_not_execute_or_route_work"] is True
+    assert current_state["boundaries"]["non_authoritative"] is True
+    assert current_state["boundaries"]["does_not_execute_or_route_work"] is True
     assert current_watchpoint["schema_version"] == "current_orchestration_watchpoint.v1"
     assert current_watchpoint["watchpoint_class"] in {
         "await_operator_resolution",
@@ -6712,6 +6714,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_watchpoint["wake_condition_summary"]["decision_power"] == "none"
     assert current_watchpoint["does_not_schedule_or_trigger_events"] is True
+    assert current_watchpoint["boundaries"]["does_not_schedule_or_trigger_events"] is True
     assert current_watchpoint_satisfaction["schema_version"] == "current_orchestration_watchpoint_satisfaction.v1"
     assert current_watchpoint_satisfaction["satisfaction_status"] in {
         "watchpoint_pending",
@@ -6722,6 +6725,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_watchpoint_satisfaction["wake_readiness_summary"]["wake_readiness_only"] is True
     assert current_watchpoint_satisfaction["does_not_schedule_or_trigger_events"] is True
+    assert current_watchpoint_satisfaction["boundaries"]["does_not_schedule_or_trigger_events"] is True
     assert re_evaluation_trigger["schema_version"] == "orchestration_re_evaluation_trigger.v1"
     assert re_evaluation_trigger["recommendation"] in {
         "rerun_delegated_judgment",
@@ -6734,6 +6738,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert re_evaluation_trigger["expected_actor"] in {"orchestration_body", "operator", "none"}
     assert re_evaluation_trigger["re_entry_summary"]["non_sovereign_boundaries"]["decision_power"] == "none"
     assert re_evaluation_trigger["re_entry_recommendation_only"] is True
+    assert re_evaluation_trigger["boundaries"]["does_not_schedule_or_trigger_events"] is True
     assert current_resumption_candidate["schema_version"] == "current_orchestration_resumption_candidate.v1"
     assert current_resumption_candidate["bounded_resume_mode"] in {
         "rerun_delegated_judgment",
@@ -6751,7 +6756,9 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     }
     assert current_resumption_candidate["resumption_summary"]["non_executing"] is True
     assert current_resumption_candidate["does_not_execute_or_route_work"] is True
+    assert current_resumption_candidate["boundaries"]["does_not_schedule_or_trigger_events"] is True
     assert resumed_readiness["schema_version"] == "current_resumed_operation_readiness_verdict.v1"
+    assert resumed_readiness["current_resumed_operation_readiness_id"].startswith("ord-")
     assert resumed_readiness["resumed_operation_readiness_verdict"] in {
         "ready_to_proceed",
         "proceed_with_caution",
@@ -6761,6 +6768,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert resumed_readiness["non_authoritative"] is True
     assert resumed_readiness["non_executing"] is True
     assert resumed_readiness["does_not_imply_permission_to_execute"] is True
+    assert resumed_readiness["boundaries"]["does_not_schedule_or_trigger_events"] is True
     assert current_watchpoint_brief["schema_version"] == "current_orchestration_watchpoint_brief.v1"
     assert current_watchpoint_brief["wait_kind"] in {
         "awaiting_external_fulfillment",
@@ -6892,15 +6900,28 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_digest["boundaries"]["non_authoritative"] is True
     assert current_digest["does_not_execute_or_route_work"] is True
     assert current_watchpoint_summary["watchpoint_class"] == current_watchpoint["watchpoint_class"]
+    assert current_watchpoint_summary["current_watchpoint_class"] == current_watchpoint["watchpoint_class"]
     assert current_watchpoint_summary["watchpoint_satisfaction_status"] == current_watchpoint_satisfaction["satisfaction_status"]
+    assert (
+        current_watchpoint_summary["current_watchpoint_satisfaction_status"]
+        == current_watchpoint_satisfaction["satisfaction_status"]
+    )
     assert current_watchpoint_summary["re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
+    assert current_watchpoint_summary["current_re_evaluation_trigger_recommendation"] == re_evaluation_trigger["recommendation"]
     assert current_watchpoint_summary["re_evaluation_expected_actor"] == re_evaluation_trigger["expected_actor"]
     assert current_watchpoint_summary["current_resumption_candidate_mode"] == current_resumption_candidate["bounded_resume_mode"]
     assert current_watchpoint_summary["current_resumption_continuity_posture"] == current_resumption_candidate["continuity_posture"]
     assert (
+        current_watchpoint_summary["current_resumption_candidate_continuity_posture"]
+        == current_resumption_candidate["continuity_posture"]
+    )
+    assert (
         current_watchpoint_summary["current_resumed_operation_readiness_verdict"]
         == resumed_readiness["resumed_operation_readiness_verdict"]
     )
+    assert current_watchpoint_summary["current_resumed_operation_readiness_id"] == resumed_readiness[
+        "current_resumed_operation_readiness_id"
+    ]
     assert current_watchpoint_summary["current_watchpoint_wait_kind"] == current_watchpoint_brief["wait_kind"]
     assert (
         current_watchpoint_summary["watchpoint_brief_requires_conservative_hold"]
@@ -6924,6 +6945,10 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert (
         current_watchpoint_summary["current_handoff_packet_brief_classification"]
         == current_handoff_packet_brief["handoff_packet_brief_classification"]
+    )
+    assert (
+        current_watchpoint_summary["current_next_move_brief_classification"]
+        == current_next_move["next_move_classification"]
     )
     assert (
         current_watchpoint_summary["current_handoff_packet_continues_active_packet"]
@@ -6994,6 +7019,7 @@ def test_current_orchestration_state_surface_is_present_in_consumer_and_non_auth
     assert current_watchpoint_summary["non_sovereign_boundaries"]["re_entry_recommendation_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_candidate_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["resumption_readiness_only"] is True
+    assert current_watchpoint_summary["non_sovereign_boundaries"]["current_resumed_operation_readiness_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["watchpoint_brief_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["pressure_signal_only"] is True
     assert current_watchpoint_summary["non_sovereign_boundaries"]["wake_readiness_detector_only"] is True
