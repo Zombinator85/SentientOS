@@ -451,6 +451,30 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "does not imply permission to execute",
             ],
         },
+        "current_orchestration_export_packet_consumer_receipt": {
+            "what_it_is": "a narrow observational-only consumer receipt that characterizes how a bounded downstream consumer would currently receive the current orchestration export packet under non-authoritative semantics",
+            "machine_surface": "sentientos.orchestration_intent_fabric.resolve_current_orchestration_export_packet_consumer_receipt",
+            "classifications": [
+                "receipt_structurally_consumable",
+                "receipt_consumable_with_caution",
+                "receipt_fragmented",
+                "receipt_contradicted",
+                "receipt_minimal",
+                "no_current_receipt_needed",
+            ],
+            "derived_from_existing_surfaces_only": [
+                "current orchestration export packet",
+                "current orchestration digest + coherence brief + transition brief + closure brief",
+                "current orchestration next-move brief + handoff packet brief + operator-facing brief + resolution-path brief",
+                "current orchestration pressure signal + resumed readiness + wake-readiness detector",
+            ],
+            "strict_boundaries": [
+                "non-sovereign, non-authoritative, non-executing",
+                "receipt and consumability characterization only; not downstream action planning or execution",
+                "does not create a new truth source, mutable store, scheduler, or orchestration layer",
+                "does not imply permission to execute",
+            ],
+        },
         "unified_orchestration_result": {
             "what_it_is": "a bounded venue-aware resolver surface that normalizes internal execution closure and external fulfillment closure into one typed result shape",
             "machine_surface": "sentientos.orchestration_intent_fabric.resolve_unified_orchestration_result",

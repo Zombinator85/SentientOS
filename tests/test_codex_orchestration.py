@@ -7,6 +7,7 @@ from codex.strategy import CodexStrategy, StrategyPlan, configure_strategy_root
 from integration_memory import configure_integration_root
 from sentientos import scoped_lifecycle_diagnostic
 from sentientos.orchestration_intent_fabric import (
+    resolve_current_orchestration_export_packet_consumer_receipt,
     resolve_current_orchestration_next_move_brief,
     resolve_current_re_evaluation_basis_brief,
 )
@@ -515,3 +516,138 @@ def test_current_orchestration_next_move_brief_is_derived_and_non_authoritative(
 def test_current_orchestration_next_move_brief_surface_is_in_scoped_lifecycle_diagnostic() -> None:
     source = inspect.getsource(scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic)
     assert "current_orchestration_next_move_brief" in source
+
+
+def _resolve_export_packet_consumer_receipt(
+    tmp_path: Path,
+    *,
+    export_packet_classification: str,
+    export_packet_maturity_posture: str,
+    export_packet_suitable: bool = True,
+    digest_classification: str = "mature_current_picture",
+    coherence_classification: str = "coherent_current_picture",
+    transition_classification: str = "poised_for_resumed_progress",
+    closure_classification: str = "closure_pending_on_internal_result",
+    next_move_classification: str = "continue_current_packet_next",
+    handoff_classification: str = "packet_ready_for_continuation",
+    operator_loop_posture: str = "informational",
+    path_classification: str = "path_following_current_watchpoint",
+    pressure_classification: str = "stable_or_low_pressure",
+    resumed_readiness_verdict: str = "ready_to_proceed",
+    wake_classification: str = "wake_ready",
+    include_basis: bool = True,
+) -> dict[str, object]:
+    export_packet: dict[str, object] = {
+        "current_orchestration_export_packet_id": "oep-test-1",
+        "export_packet_classification": export_packet_classification,
+        "export_packet_maturity_posture": export_packet_maturity_posture,
+        "suitable_for_bounded_downstream_inspection": export_packet_suitable,
+    }
+    if include_basis:
+        export_packet["basis"] = {"basis_evidence": {"current_orchestration_state_id": "state-1"}}
+    return resolve_current_orchestration_export_packet_consumer_receipt(
+        tmp_path,
+        current_orchestration_export_packet=export_packet,
+        current_orchestration_digest={"digest_classification": digest_classification},
+        current_orchestration_coherence_brief={"coherence_classification": coherence_classification},
+        current_orchestration_transition_brief={"transition_classification": transition_classification},
+        current_orchestration_closure_brief={"closure_classification": closure_classification},
+        current_orchestration_next_move_brief={"next_move_classification": next_move_classification},
+        current_orchestration_handoff_packet_brief={"handoff_packet_brief_classification": handoff_classification},
+        current_operator_facing_orchestration_brief={"loop_posture": operator_loop_posture},
+        current_orchestration_resolution_path_brief={"resolution_path_classification": path_classification},
+        current_orchestration_pressure_signal={"pressure_classification": pressure_classification},
+        current_resumed_operation_readiness={"resumed_operation_readiness_verdict": resumed_readiness_verdict},
+        current_orchestration_wake_readiness_detector={"wake_readiness_classification": wake_classification},
+    )
+
+
+def test_current_orchestration_export_packet_consumer_receipt_classifications(tmp_path: Path) -> None:
+    structurally_consumable = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_ready",
+        export_packet_maturity_posture="mature",
+    )
+    assert structurally_consumable["receipt_classification"] == "receipt_structurally_consumable"
+
+    cautionary = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_cautionary",
+        export_packet_maturity_posture="cautionary",
+        operator_loop_posture="cautionary",
+        wake_classification="wake_ready_with_caution",
+        resumed_readiness_verdict="hold_for_operator_review",
+    )
+    assert cautionary["receipt_classification"] == "receipt_consumable_with_caution"
+
+    fragmented = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_fragmented",
+        export_packet_maturity_posture="fragmented",
+        pressure_classification="fragmentation_pressure",
+        handoff_classification="packet_continuity_uncertain",
+        path_classification="fragmented_path",
+    )
+    assert fragmented["receipt_classification"] == "receipt_fragmented"
+    assert fragmented["consumable_as_bounded_observational_packet"] is False
+
+    contradicted = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_contradicted",
+        export_packet_maturity_posture="contradicted",
+        digest_classification="contradictory_current_picture",
+        coherence_classification="materially_contradictory",
+        transition_classification="transition_contradicted",
+    )
+    assert contradicted["receipt_classification"] == "receipt_contradicted"
+    assert contradicted["consumable_as_bounded_observational_packet"] is False
+
+    minimal = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_minimal",
+        export_packet_maturity_posture="minimal",
+        digest_classification="mature_current_picture",
+        coherence_classification="coherent_current_picture",
+        transition_classification="poised_for_result_closure",
+    )
+    assert minimal["receipt_classification"] == "receipt_minimal"
+
+    no_receipt_needed = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_minimal",
+        export_packet_maturity_posture="minimal",
+        digest_classification="minimal_current_picture",
+        coherence_classification="insufficient_current_signal",
+        transition_classification="transition_uncertain",
+        closure_classification="no_current_closure_posture",
+        next_move_classification="no_current_next_move",
+        handoff_classification="no_current_packet_brief",
+        path_classification="no_current_resolution_path",
+        pressure_classification="insufficient_signal",
+        resumed_readiness_verdict="not_ready",
+        wake_classification="not_wake_ready",
+    )
+    assert no_receipt_needed["receipt_classification"] == "no_current_receipt_needed"
+    assert no_receipt_needed["consumable_as_bounded_observational_packet"] is False
+
+
+def test_current_orchestration_export_packet_consumer_receipt_is_derived_non_authoritative_and_linked(tmp_path: Path) -> None:
+    receipt = _resolve_export_packet_consumer_receipt(
+        tmp_path,
+        export_packet_classification="export_packet_ready",
+        export_packet_maturity_posture="mature",
+    )
+    assert receipt["source_current_orchestration_export_packet_ref"]["current_orchestration_export_packet_id"] == "oep-test-1"
+    assert receipt["linkage_to_underlying_current_surfaces_present"] is True
+    assert receipt["linkage_to_underlying_current_surfaces_sufficient"] is True
+    boundaries = receipt.get("boundaries", {})
+    assert boundaries.get("non_authoritative") is True
+    assert boundaries.get("non_executing") is True
+    assert boundaries.get("does_not_execute_or_route_work") is True
+    assert receipt.get("decision_power") == "none"
+    assert receipt.get("basis", {}).get("historical_honesty", {}).get("derived_from_existing_surfaces_only") is True
+
+
+def test_current_orchestration_export_packet_consumer_receipt_surface_is_in_scoped_lifecycle_diagnostic() -> None:
+    source = inspect.getsource(scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic)
+    assert "current_orchestration_export_packet_consumer_receipt" in source
