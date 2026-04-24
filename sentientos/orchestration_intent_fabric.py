@@ -653,9 +653,27 @@ def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _stable_prefixed_id(prefix: str, payload: Mapping[str, Any]) -> str:
+    canonical = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"))
+    return f"{prefix}-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _append_jsonl_ledger(repo_root: Path, relative_path: str, payload: Mapping[str, Any]) -> Path:
+    ledger_path = repo_root.resolve() / relative_path
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(payload), sort_keys=True) + "\n")
+    return ledger_path
+
+
 def _intent_id(source_judgment: Mapping[str, Any], created_at: str) -> str:
-    canonical = json.dumps({"created_at": created_at, "source_judgment": source_judgment}, sort_keys=True, separators=(",", ":"))
-    return f"orh-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+    return _stable_prefixed_id(
+        "orh",
+        {
+            "created_at": created_at,
+            "source_judgment": source_judgment,
+        },
+    )
 
 
 def _classify_authority_posture(judgment: Mapping[str, Any]) -> str:
@@ -801,11 +819,7 @@ def synthesize_orchestration_intent(
 def append_orchestration_intent_ledger(repo_root: Path, intent: Mapping[str, Any]) -> Path:
     """Append one orchestration intent to the proof-visible handoff ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_intents.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(intent), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_intents.jsonl", intent)
 
 
 def _validate_handoff_minimum_fields(intent: Mapping[str, Any]) -> list[str]:
@@ -844,21 +858,18 @@ def _default_admission_policy() -> task_admission.AdmissionPolicy:
 
 
 def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix: str) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        f"{prefix}-wo",
         {
             "created_at": created_at,
             "intent_id": str(intent.get("intent_id") or ""),
             "source_judgment": dict(intent.get("source_delegated_judgment") or {}),
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"{prefix}-wo-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _source_judgment_linkage_id(source_map: Mapping[str, Any]) -> str:
-    canonical = json.dumps(dict(source_map), sort_keys=True, separators=(",", ":"))
-    return f"jdg-link-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+    return _stable_prefixed_id("jdg-link", source_map)
 
 
 def _next_move_proposal_id(
@@ -869,7 +880,8 @@ def _next_move_proposal_id(
     proposed_venue: str,
     proposed_intent_kind: str,
 ) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        "nmp",
         {
             "created_at": created_at,
             "source_linkage_id": source_linkage_id,
@@ -877,10 +889,7 @@ def _next_move_proposal_id(
             "proposed_venue": proposed_venue,
             "proposed_intent_kind": proposed_intent_kind,
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"nmp-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _handoff_packet_id(
@@ -892,7 +901,8 @@ def _handoff_packet_id(
     supersedes_handoff_packet_id: str | None = None,
     source_operator_resolution_receipt_id: str | None = None,
 ) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        "hpk",
         {
             "created_at": created_at,
             "source_proposal_id": source_proposal_id,
@@ -901,10 +911,7 @@ def _handoff_packet_id(
             "supersedes_handoff_packet_id": supersedes_handoff_packet_id or "",
             "source_operator_resolution_receipt_id": source_operator_resolution_receipt_id or "",
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"hpk-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _operator_action_brief_id(
@@ -914,17 +921,15 @@ def _operator_action_brief_id(
     intervention_class: str,
     target_hint: str,
 ) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        "oab",
         {
             "gate_outcome": gate_outcome,
             "intervention_class": intervention_class,
             "source_proposal_id": source_proposal_id,
             "target_hint": target_hint,
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"oab-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _fulfillment_receipt_id(
@@ -934,17 +939,15 @@ def _fulfillment_receipt_id(
     venue: str,
     fulfillment_kind: str,
 ) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        "frc",
         {
             "created_at": created_at,
             "handoff_packet_id": handoff_packet_id,
             "venue": venue,
             "fulfillment_kind": fulfillment_kind,
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"frc-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _operator_resolution_receipt_id(
@@ -953,16 +956,14 @@ def _operator_resolution_receipt_id(
     operator_action_brief_id: str,
     resolution_kind: str,
 ) -> str:
-    canonical = json.dumps(
+    return _stable_prefixed_id(
+        "orr",
         {
             "created_at": created_at,
             "operator_action_brief_id": operator_action_brief_id,
             "resolution_kind": resolution_kind,
         },
-        sort_keys=True,
-        separators=(",", ":"),
     )
-    return f"orr-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _compact_handoff_task_brief(next_move_proposal: Mapping[str, Any], delegated_judgment: Mapping[str, Any]) -> str:
@@ -1017,19 +1018,11 @@ def _handoff_evidence_pointers(
 
 
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
-    ledger_path = repo_root.resolve() / "glow/orchestration/codex_work_orders.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(work_order), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/codex_work_orders.jsonl", work_order)
 
 
 def append_deep_research_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
-    ledger_path = repo_root.resolve() / "glow/orchestration/deep_research_work_orders.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(work_order), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/deep_research_work_orders.jsonl", work_order)
 
 
 def _build_staged_external_work_order(
@@ -1223,11 +1216,7 @@ def resolve_deep_research_staged_work_order_lifecycle(
 
 
 def append_orchestration_handoff_ledger(repo_root: Path, handoff: Mapping[str, Any]) -> Path:
-    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_handoffs.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(handoff), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_handoffs.jsonl", handoff)
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -3142,11 +3131,7 @@ def derive_operator_adjusted_next_move_proposal_visibility(
 def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any]) -> Path:
     """Append one bounded next-move proposal to the proof-visible orchestration proposal ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_next_move_proposals.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(proposal), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_next_move_proposals.jsonl", proposal)
 
 
 def derive_packetization_gate(
@@ -3492,11 +3477,7 @@ def synthesize_operator_action_brief(
 def append_operator_action_brief_ledger(repo_root: Path, brief: Mapping[str, Any]) -> Path:
     """Append one bounded operator action brief to the proof-visible operator brief ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/operator_action_briefs.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(brief), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/operator_action_briefs.jsonl", brief)
 
 
 def synthesize_handoff_packet(
@@ -3750,31 +3731,19 @@ def synthesize_handoff_packet(
 def append_handoff_packet_ledger(repo_root: Path, packet: Mapping[str, Any]) -> Path:
     """Append one bounded handoff packet to the proof-visible packet ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_handoff_packets.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(packet), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_handoff_packets.jsonl", packet)
 
 
 def append_orchestration_fulfillment_receipt_ledger(repo_root: Path, receipt: Mapping[str, Any]) -> Path:
     """Append one bounded fulfillment receipt to the proof-visible receipt ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_fulfillment_receipts.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(receipt), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_fulfillment_receipts.jsonl", receipt)
 
 
 def append_operator_resolution_receipt_ledger(repo_root: Path, receipt: Mapping[str, Any]) -> Path:
     """Append one bounded operator resolution receipt to the proof-visible receipt ledger."""
 
-    ledger_path = repo_root.resolve() / "glow/orchestration/operator_resolution_receipts.jsonl"
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(receipt), sort_keys=True) + "\n")
-    return ledger_path
+    return _append_jsonl_ledger(repo_root, "glow/orchestration/operator_resolution_receipts.jsonl", receipt)
 
 
 def ingest_operator_resolution_receipt(
