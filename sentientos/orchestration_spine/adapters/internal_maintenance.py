@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Internal-maintenance adapter primitives for orchestration handoff.
+
+This module is adapter-owned and substrate-specific. It shapes maintenance tasks
+and default admission inputs, while kernel authority decisions remain in
+``sentientos.orchestration_intent_fabric``.
+"""
+
 import json
 from pathlib import Path
 from typing import Any, Callable, Mapping

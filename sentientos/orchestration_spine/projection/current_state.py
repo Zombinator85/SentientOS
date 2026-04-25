@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Current-state orchestration projections.
+
+This module is projection-owned: it derives observational-only current-state
+surfaces from inputs supplied by the orchestration kernel/facade. It must not
+introduce new authority decisions, mutable truth stores, or execution side effects.
+"""
+
 import hashlib
 import json
 from datetime import datetime, timezone
