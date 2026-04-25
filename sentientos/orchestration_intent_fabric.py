@@ -8,9 +8,8 @@ from typing import Any, Mapping
 
 import task_admission
 import task_executor
-from sentientos import orchestration_current_projection
-from sentientos import orchestration_internal_adapters
-from sentientos import orchestration_projection_policy
+from sentientos.orchestration_spine.adapters import internal_maintenance
+from sentientos.orchestration_spine.projection import current_state, policy_helpers
 
 _INTENT_KINDS = {
     "internal_maintenance_execution",
@@ -846,15 +845,15 @@ def _validate_handoff_minimum_fields(intent: Mapping[str, Any]) -> list[str]:
 
 
 def _build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.Task:
-    return orchestration_internal_adapters.build_internal_maintenance_task(intent)
+    return internal_maintenance.build_internal_maintenance_task(intent)
 
 
 def _default_admission_context() -> task_admission.AdmissionContext:
-    return orchestration_internal_adapters.default_admission_context(_iso_utc_now())
+    return internal_maintenance.default_admission_context(_iso_utc_now())
 
 
 def _default_admission_policy() -> task_admission.AdmissionPolicy:
-    return orchestration_internal_adapters.default_admission_policy()
+    return internal_maintenance.default_admission_policy()
 
 
 def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix: str) -> str:
@@ -1284,7 +1283,7 @@ def resolve_orchestration_result(
     root = repo_root.resolve()
     handoff_outcome = str(handoff.get("handoff_outcome") or "")
     log_path = executor_log_path or Path(task_executor.LOG_PATH)
-    linkage = orchestration_internal_adapters.resolve_task_executor_result_linkage(
+    linkage = internal_maintenance.resolve_task_executor_result_linkage(
         handoff=handoff,
         executor_log_path=log_path,
         read_jsonl=_read_jsonl,
@@ -2375,7 +2374,7 @@ def derive_orchestration_attention_recommendation(
     outcome_review: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Derive bounded operator-attention recommendation from orchestration outcome review only."""
-    projection = orchestration_projection_policy.derive_attention_projection(
+    projection = policy_helpers.derive_attention_projection(
         outcome_review,
         allowed_recommendations=_ORCHESTRATION_ATTENTION_RECOMMENDATIONS,
     )
@@ -2420,7 +2419,7 @@ def derive_next_venue_recommendation(
     attention_recommendation: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Derive a bounded next-venue recommendation from existing orchestration signals only."""
-    projection = orchestration_projection_policy.derive_next_venue_projection(
+    projection = policy_helpers.derive_next_venue_projection(
         delegated_judgment,
         outcome_review,
         venue_mix_review,
@@ -5409,7 +5408,7 @@ def resolve_current_orchestration_resumption_candidate(
     packetization_gate: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return orchestration_current_projection.resolve_current_orchestration_resumption_candidate_projection(
+    return current_state.resolve_current_orchestration_resumption_candidate_projection(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         normalized_current_surface_boundaries_builder=_normalized_current_surface_boundaries,
@@ -5448,7 +5447,7 @@ def resolve_current_resumed_operation_readiness_verdict(
     operator_resolution_influence: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return orchestration_current_projection.resolve_current_resumed_operation_readiness_verdict_projection(
+    return current_state.resolve_current_resumed_operation_readiness_verdict_projection(
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         normalized_current_surface_boundaries_builder=_normalized_current_surface_boundaries,
         current_resumed_operation_readiness_id_builder=_current_resumed_operation_readiness_id,
@@ -5484,7 +5483,7 @@ def resolve_current_orchestration_watchpoint_brief(
 ) -> dict[str, Any]:
     """Resolve one compact, non-executing brief for the current orchestration wait posture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_watchpoint_brief_projection(
+    return current_state.resolve_current_orchestration_watchpoint_brief_projection(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         iso_utc_now=_iso_utc_now,
@@ -5530,7 +5529,7 @@ def resolve_current_orchestration_pressure_signal(
 ) -> dict[str, Any]:
     """Resolve one bounded, non-executing current orchestration pressure signal from existing surfaces only."""
 
-    return orchestration_current_projection.resolve_current_orchestration_pressure_signal_projection(
+    return current_state.resolve_current_orchestration_pressure_signal_projection(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         iso_utc_now=_iso_utc_now,
@@ -5576,7 +5575,7 @@ def resolve_current_orchestration_wake_readiness_detector(
     operator_resolution_influence: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return orchestration_current_projection.resolve_current_orchestration_wake_readiness_detector_projection(
+    return current_state.resolve_current_orchestration_wake_readiness_detector_projection(
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_wake_readiness_detector_id_builder=_current_wake_readiness_detector_id,
         iso_utc_now=_iso_utc_now,
@@ -5616,7 +5615,7 @@ def resolve_current_re_evaluation_basis_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, non-executing brief for why the current re-evaluation recommendation exists."""
 
-    return orchestration_current_projection.resolve_current_re_evaluation_basis_brief_projection(
+    return current_state.resolve_current_re_evaluation_basis_brief_projection(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         iso_utc_now=_iso_utc_now,
@@ -5885,7 +5884,7 @@ def resolve_current_orchestration_handoff_packet_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, non-executing brief for current orchestration handoff packet posture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_handoff_packet_brief_projection(
+    return current_state.resolve_current_orchestration_handoff_packet_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
         _current_handoff_packet_brief_id=_current_handoff_packet_brief_id,
@@ -5929,7 +5928,7 @@ def resolve_current_operator_facing_orchestration_brief(
 ) -> dict[str, Any]:
     """Resolve one compact, derived operator-facing orchestration brief for current understanding only."""
 
-    return orchestration_current_projection.resolve_current_operator_facing_orchestration_brief_projection(
+    return current_state.resolve_current_operator_facing_orchestration_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
         _current_operator_facing_brief_id=_current_operator_facing_brief_id,
@@ -5978,7 +5977,7 @@ def resolve_current_orchestration_resolution_path_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational brief describing the current orchestration resolution-path center of gravity."""
 
-    return orchestration_current_projection.resolve_current_orchestration_resolution_path_brief_projection(
+    return current_state.resolve_current_orchestration_resolution_path_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
         _current_orchestration_resolution_path_brief_id=_current_orchestration_resolution_path_brief_id,
@@ -6031,7 +6030,7 @@ def resolve_current_orchestration_closure_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational brief for current orchestration closure posture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_closure_brief_projection(
+    return current_state.resolve_current_orchestration_closure_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
         _current_orchestration_closure_brief_id=_current_orchestration_closure_brief_id,
@@ -6085,7 +6084,7 @@ def resolve_current_orchestration_coherence_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational coherence brief for the current orchestration picture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_coherence_brief(
+    return current_state.resolve_current_orchestration_coherence_brief(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_orchestration_state=current_orchestration_state,
@@ -6133,7 +6132,7 @@ def resolve_current_orchestration_digest(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational digest for the current orchestration picture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_digest(
+    return current_state.resolve_current_orchestration_digest(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_orchestration_state=current_orchestration_state,
@@ -6180,7 +6179,7 @@ def resolve_current_orchestration_transition_brief(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational transition brief for current orchestration posture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_transition_brief(
+    return current_state.resolve_current_orchestration_transition_brief(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_orchestration_state=current_orchestration_state,
@@ -6526,7 +6525,7 @@ def resolve_current_orchestration_export_packet_consumer_receipt(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational-only receipt describing current export-packet consumability."""
 
-    return orchestration_current_projection.resolve_current_orchestration_export_packet_consumer_receipt(
+    return current_state.resolve_current_orchestration_export_packet_consumer_receipt(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_orchestration_export_packet=current_orchestration_export_packet,
@@ -6563,7 +6562,7 @@ def resolve_current_orchestration_handoff_acceptance_posture(
 ) -> dict[str, Any]:
     """Resolve one bounded, observational-only current handoff acceptance posture."""
 
-    return orchestration_current_projection.resolve_current_orchestration_handoff_acceptance_posture(
+    return current_state.resolve_current_orchestration_handoff_acceptance_posture(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,
         current_orchestration_export_packet=current_orchestration_export_packet,
@@ -7467,7 +7466,7 @@ def admit_orchestration_intent(
     elif execution_target != "task_admission_executor":
         outcome = "execution_target_unavailable"
     else:
-        details["task_admission"] = orchestration_internal_adapters.admit_internal_maintenance_intent(
+        details["task_admission"] = internal_maintenance.admit_internal_maintenance_intent(
             intent=intent,
             root=root,
             admission_context=admission_context,
