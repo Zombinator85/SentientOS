@@ -5,12 +5,14 @@ from importlib import reload
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from copy import deepcopy
 
 import control_plane
 import pytest
 import task_admission
 import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
+from sentientos import orchestration_internal_adapters
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
@@ -4960,7 +4962,17 @@ def test_current_orchestration_watchpoint_brief_satisfaction_already_present_and
 
 
 def test_current_orchestration_watchpoint_brief_is_derived_only_and_non_executing(tmp_path: Path) -> None:
-    intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    internal_ready_evidence = {
+        **_base_evidence(),
+        "admission_denied_ratio": 0.75,
+        "admission_sample_count": 8,
+        "executor_failure_ratio": 0.4,
+        "executor_sample_count": 8,
+    }
+    intent = synthesize_orchestration_intent(
+        synthesize_delegated_judgment(internal_ready_evidence),
+        created_at="2026-04-12T00:00:00Z",
+    )
     append_orchestration_intent_ledger(tmp_path, intent)
     before = admit_orchestration_intent(tmp_path, intent)
     brief = resolve_current_orchestration_watchpoint_brief(
@@ -5000,7 +5012,17 @@ def test_current_orchestration_watchpoint_brief_is_derived_only_and_non_executin
 
 
 def test_current_orchestration_pressure_signal_is_derived_only_and_non_executing(tmp_path: Path) -> None:
-    intent = synthesize_orchestration_intent(synthesize_delegated_judgment(_base_evidence()), created_at="2026-04-12T00:00:00Z")
+    internal_ready_evidence = {
+        **_base_evidence(),
+        "admission_denied_ratio": 0.75,
+        "admission_sample_count": 8,
+        "executor_failure_ratio": 0.4,
+        "executor_sample_count": 8,
+    }
+    intent = synthesize_orchestration_intent(
+        synthesize_delegated_judgment(internal_ready_evidence),
+        created_at="2026-04-12T00:00:00Z",
+    )
     append_orchestration_intent_ledger(tmp_path, intent)
     before = admit_orchestration_intent(tmp_path, intent)
     pressure = resolve_current_orchestration_pressure_signal(
@@ -7587,3 +7609,115 @@ def test_operator_repacketization_e2e_in_scoped_diagnostic(monkeypatch, tmp_path
     assert continuity["summary"]["boundaries"]["non_authoritative"] is True
     assert "continuity_signals" in continuity["summary"]
     assert continuity["does_not_execute_or_route_work"] is True
+
+
+def test_contract_internal_lifecycle_identity_and_linkage_stays_continuous(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(task_executor, "LOG_PATH", str(tmp_path / "logs" / "task_executor.jsonl"))
+
+    internal_ready_evidence = {
+        **_base_evidence(),
+        "admission_denied_ratio": 0.75,
+        "admission_sample_count": 8,
+        "executor_failure_ratio": 0.4,
+        "executor_sample_count": 8,
+    }
+    intent = synthesize_orchestration_intent(
+        synthesize_delegated_judgment(internal_ready_evidence),
+        created_at="2026-04-12T00:00:00Z",
+    )
+    append_orchestration_intent_ledger(tmp_path, intent)
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    assert handoff["handoff_outcome"] == "admitted_to_execution_substrate"
+
+    task_id = str(handoff["details"]["task_admission"]["task_id"])
+    _write_jsonl(
+        tmp_path / "logs" / "task_executor.jsonl",
+        [{"task_id": task_id, "event": "task_result", "status": "completed"}],
+    )
+
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    unified = resolve_unified_orchestration_result(
+        tmp_path,
+        handoff=handoff,
+        executor_log_path=Path(task_executor.LOG_PATH),
+    )
+
+    assert handoff["intent_ref"]["intent_id"] == intent["intent_id"]
+    assert resolution["intent_ref"]["intent_id"] == intent["intent_id"]
+    assert unified["source_intent_ref"]["intent_id"] == intent["intent_id"]
+    assert unified["source_linkage"]["handoff_outcome"] == handoff["handoff_outcome"]
+    assert unified["resolution_path"] == "internal_execution"
+    assert unified["result_classification"] == "completed_successfully"
+    assert unified["evidence_presence"]["proof_linkage_present"] is True
+    assert unified["decision_power"] == "none"
+    assert unified["non_authoritative"] is True
+
+
+def test_contract_projection_outputs_are_observational_and_do_not_mutate_inputs() -> None:
+    outcome_review = {
+        "review_classification": "execution_failure_heavy",
+        "records_considered": 7,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": True, "stall_heavy": False},
+        "recent_outcome_counts": {"handoff_not_admitted": 0, "execution_failed": 4},
+    }
+    before = deepcopy(outcome_review)
+    attention = derive_orchestration_attention_recommendation(outcome_review)
+
+    assert outcome_review == before
+    assert attention["non_authoritative"] is True
+    assert attention["decision_power"] == "none"
+    assert attention["does_not_change_admission_or_execution"] is True
+
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    delegated_before = deepcopy(delegated)
+    next_venue = derive_next_venue_recommendation(
+        delegated,
+        outcome_review,
+        {"review_classification": "balanced_recent_venue_mix", "records_considered": 7},
+        attention,
+    )
+
+    assert delegated == delegated_before
+    assert next_venue["non_authoritative"] is True
+    assert next_venue["decision_power"] == "none"
+    assert next_venue["does_not_change_admission_or_execution"] is True
+
+
+def test_contract_adapter_linkage_stays_raw_and_kernel_keeps_result_semantics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(task_executor, "LOG_PATH", str(tmp_path / "logs" / "task_executor.jsonl"))
+
+    internal_ready_evidence = {
+        **_base_evidence(),
+        "admission_denied_ratio": 0.75,
+        "admission_sample_count": 8,
+        "executor_failure_ratio": 0.4,
+        "executor_sample_count": 8,
+    }
+    intent = synthesize_orchestration_intent(
+        synthesize_delegated_judgment(internal_ready_evidence),
+        created_at="2026-04-12T00:00:00Z",
+    )
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    task_id = str(handoff["details"]["task_admission"]["task_id"])
+    _write_jsonl(
+        tmp_path / "logs" / "task_executor.jsonl",
+        [{"task_id": task_id, "event": "task_result", "status": "unknown_status_from_substrate"}],
+    )
+
+    handoff_before = deepcopy(handoff)
+    linkage = orchestration_internal_adapters.resolve_task_executor_result_linkage(
+        handoff=handoff,
+        executor_log_path=tmp_path / "logs" / "task_executor.jsonl",
+        read_jsonl=lambda path: [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()],
+    )
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+
+    assert handoff == handoff_before
+    assert len(linkage["task_result_rows"]) == 1
+    assert linkage["task_result_rows"][0]["status"] == "unknown_status_from_substrate"
+    assert resolution["orchestration_result_state"] == "execution_result_missing"
+    assert resolution["loop_closed"] is False
