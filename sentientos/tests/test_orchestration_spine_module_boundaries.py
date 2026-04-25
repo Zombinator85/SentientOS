@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from sentientos import orchestration_internal_adapters
+from sentientos import orchestration_projection_policy
+from sentientos.orchestration_spine.adapters import internal_maintenance
+from sentientos.orchestration_spine.projection import policy_helpers
+
+
+def test_projection_policy_compatibility_shim_exports_same_callable() -> None:
+    assert orchestration_projection_policy.derive_attention_projection is policy_helpers.derive_attention_projection
+
+
+def test_internal_adapter_compatibility_shim_exports_same_callable() -> None:
+    assert orchestration_internal_adapters.build_internal_maintenance_task is internal_maintenance.build_internal_maintenance_task
