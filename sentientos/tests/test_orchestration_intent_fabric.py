@@ -12,7 +12,7 @@ import pytest
 import task_admission
 import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
-from sentientos import orchestration_internal_adapters
+from sentientos.orchestration_spine.adapters import internal_maintenance
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
@@ -7709,7 +7709,7 @@ def test_contract_adapter_linkage_stays_raw_and_kernel_keeps_result_semantics(
     )
 
     handoff_before = deepcopy(handoff)
-    linkage = orchestration_internal_adapters.resolve_task_executor_result_linkage(
+    linkage = internal_maintenance.resolve_task_executor_result_linkage(
         handoff=handoff,
         executor_log_path=tmp_path / "logs" / "task_executor.jsonl",
         read_jsonl=lambda path: [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()],

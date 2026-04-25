@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from sentientos import orchestration_projection_policy
+from sentientos.orchestration_spine.projection import policy_helpers
 
 
 def test_attention_projection_mixed_light_block_observe() -> None:
-    projection = orchestration_projection_policy.derive_attention_projection(
+    projection = policy_helpers.derive_attention_projection(
         {
             "review_classification": "mixed_orchestration_stress",
             "records_considered": 4,
@@ -26,7 +26,7 @@ def test_attention_projection_mixed_light_block_observe() -> None:
 
 
 def test_next_venue_projection_escalates_operator() -> None:
-    projection = orchestration_projection_policy.derive_next_venue_projection(
+    projection = policy_helpers.derive_next_venue_projection(
         {"recommended_venue": "operator_decision_required", "escalation_classification": ""},
         {"review_classification": "clean_recent_orchestration", "records_considered": 8, "condition_flags": {}},
         {"review_classification": "balanced_recent_venue_mix", "records_considered": 8},
@@ -47,7 +47,7 @@ def test_next_venue_projection_escalates_operator() -> None:
 
 
 def test_next_venue_projection_affirms_internal() -> None:
-    projection = orchestration_projection_policy.derive_next_venue_projection(
+    projection = policy_helpers.derive_next_venue_projection(
         {"recommended_venue": "internal_direct_execution", "escalation_classification": ""},
         {
             "review_classification": "clean_recent_orchestration",
