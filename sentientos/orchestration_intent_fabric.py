@@ -353,6 +353,11 @@ _CURRENT_ORCHESTRATION_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS = {
     "no_current_packet_brief",
 }
 
+_CURRENT_ORCHESTRATION_HANDOFF_PACKET_BRIEF_POSTURES = {
+    "informational_only",
+    "conservative_or_uncertain",
+}
+
 _CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_CLASSIFICATIONS = {
     "operator_attention_not_currently_needed",
     "operator_should_review_hold",
@@ -360,6 +365,12 @@ _CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_CLASSIFICATIONS = {
     "operator_should_review_packet_refresh_context",
     "operator_should_review_redirect_or_constraint_path",
     "operator_should_confirm_no_current_action",
+}
+
+_CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_POSTURES = {
+    "informational",
+    "cautionary",
+    "blocked",
 }
 
 _CURRENT_ORCHESTRATION_RESOLUTION_PATH_BRIEF_CLASSIFICATIONS = {
@@ -379,6 +390,12 @@ _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CENTERS = {
     "operator",
     "result_or_fulfillment",
     "none",
+}
+
+_CURRENT_ORCHESTRATION_RESOLUTION_PATH_POSTURES = {
+    "informational",
+    "cautionary",
+    "blocked",
 }
 
 _CURRENT_ORCHESTRATION_CLOSURE_BRIEF_CLASSIFICATIONS = {
@@ -5879,36 +5896,40 @@ def resolve_current_orchestration_handoff_packet_brief(
     current_orchestration_pressure_signal: Mapping[str, Any] | None = None,
     current_orchestration_wake_readiness_detector: Mapping[str, Any] | None = None,
     re_evaluation_trigger_recommendation: Mapping[str, Any] | None = None,
+    current_re_evaluation_basis_brief: Mapping[str, Any] | None = None,
     current_orchestration_resumption_candidate: Mapping[str, Any] | None = None,
     current_resumed_operation_readiness: Mapping[str, Any] | None = None,
     current_orchestration_next_move_brief: Mapping[str, Any] | None = None,
     active_packet_visibility: Mapping[str, Any] | None = None,
     current_proposal: Mapping[str, Any] | None = None,
     packetization_gate: Mapping[str, Any] | None = None,
+    operator_resolution_influence: Mapping[str, Any] | None = None,
     proposal_packet_continuity_review: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve one bounded, non-executing brief for current orchestration handoff packet posture."""
+    _ = proposal_packet_continuity_review
 
     return current_state.resolve_current_orchestration_handoff_packet_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
-        _current_handoff_packet_brief_id=_current_handoff_packet_brief_id,
-        _CURRENT_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS=_CURRENT_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS,
-        _CURRENT_HANDOFF_PACKET_BRIEF_POSTURES=_CURRENT_HANDOFF_PACKET_BRIEF_POSTURES,
+        _current_handoff_packet_brief_id=_current_orchestration_handoff_packet_brief_id,
+        _CURRENT_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS=_CURRENT_ORCHESTRATION_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS,
+        _CURRENT_HANDOFF_PACKET_BRIEF_POSTURES=_CURRENT_ORCHESTRATION_HANDOFF_PACKET_BRIEF_POSTURES,
         current_orchestration_state=current_orchestration_state,
         current_orchestration_watchpoint=current_orchestration_watchpoint,
         watchpoint_satisfaction=watchpoint_satisfaction,
         current_orchestration_pressure_signal=current_orchestration_pressure_signal,
         current_orchestration_wake_readiness_detector=current_orchestration_wake_readiness_detector,
         re_evaluation_trigger_recommendation=re_evaluation_trigger_recommendation,
+        current_re_evaluation_basis_brief=current_re_evaluation_basis_brief,
         current_orchestration_resumption_candidate=current_orchestration_resumption_candidate,
         current_resumed_operation_readiness=current_resumed_operation_readiness,
         current_orchestration_next_move_brief=current_orchestration_next_move_brief,
         active_packet_visibility=active_packet_visibility,
         current_proposal=current_proposal,
         packetization_gate=packetization_gate,
-        proposal_packet_continuity_review=proposal_packet_continuity_review,
+        operator_resolution_influence=operator_resolution_influence,
         unified_result=unified_result,
     )
 
@@ -5930,6 +5951,7 @@ def resolve_current_operator_facing_orchestration_brief(
     active_packet_visibility: Mapping[str, Any] | None = None,
     operator_action_brief_visibility: Mapping[str, Any] | None = None,
     operator_resolution_influence: Mapping[str, Any] | None = None,
+    current_proposal: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve one compact, derived operator-facing orchestration brief for current understanding only."""
@@ -5937,9 +5959,9 @@ def resolve_current_operator_facing_orchestration_brief(
     return current_state.resolve_current_operator_facing_orchestration_brief_projection(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
-        _current_operator_facing_brief_id=_current_operator_facing_brief_id,
-        _CURRENT_OPERATOR_FACING_CLASSIFICATIONS=_CURRENT_OPERATOR_FACING_CLASSIFICATIONS,
-        _CURRENT_OPERATOR_LOOP_POSTURES=_CURRENT_OPERATOR_LOOP_POSTURES,
+        _current_operator_facing_brief_id=_current_operator_facing_orchestration_brief_id,
+        _CURRENT_OPERATOR_FACING_CLASSIFICATIONS=_CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_CLASSIFICATIONS,
+        _CURRENT_OPERATOR_LOOP_POSTURES=_CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_POSTURES,
         current_orchestration_state=current_orchestration_state,
         current_orchestration_watchpoint=current_orchestration_watchpoint,
         current_orchestration_watchpoint_brief=current_orchestration_watchpoint_brief,
@@ -5955,6 +5977,7 @@ def resolve_current_operator_facing_orchestration_brief(
         active_packet_visibility=active_packet_visibility,
         operator_action_brief_visibility=operator_action_brief_visibility,
         operator_resolution_influence=operator_resolution_influence,
+        current_proposal=current_proposal,
         unified_result=unified_result,
     )
 
@@ -5987,7 +6010,8 @@ def resolve_current_orchestration_resolution_path_brief(
         repo_root,
         _anti_sovereignty_payload=_anti_sovereignty_payload,
         _current_orchestration_resolution_path_brief_id=_current_orchestration_resolution_path_brief_id,
-        _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CLASSIFICATIONS=_CURRENT_ORCHESTRATION_RESOLUTION_PATH_CLASSIFICATIONS,
+        _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CLASSIFICATIONS=_CURRENT_ORCHESTRATION_RESOLUTION_PATH_BRIEF_CLASSIFICATIONS,
+        _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CENTERS=_CURRENT_ORCHESTRATION_RESOLUTION_PATH_CENTERS,
         _CURRENT_ORCHESTRATION_RESOLUTION_PATH_POSTURES=_CURRENT_ORCHESTRATION_RESOLUTION_PATH_POSTURES,
         current_orchestration_state=current_orchestration_state,
         current_orchestration_watchpoint=current_orchestration_watchpoint,

@@ -2938,6 +2938,7 @@ def resolve_current_orchestration_handoff_packet_brief_projection(
     """Resolve one bounded, non-executing brief for current orchestration handoff packet posture."""
 
     _ = repo_root.resolve()
+    _ = _CURRENT_HANDOFF_PACKET_BRIEF_POSTURES
     state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
     watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
     satisfaction_map = watchpoint_satisfaction if isinstance(watchpoint_satisfaction, Mapping) else {}
@@ -3049,7 +3050,7 @@ def resolve_current_orchestration_handoff_packet_brief_projection(
         rationale = "active_packet_is_visible_but_current_surfaces_do_not_honestly_support_stronger_packet_continuity_claims"
         conservative_or_uncertain = True
 
-    if classification not in _CURRENT_ORCHESTRATION_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS:
+    if classification not in _CURRENT_HANDOFF_PACKET_BRIEF_CLASSIFICATIONS:
         classification = "packet_continuity_uncertain"
         conservative_or_uncertain = True
 
@@ -3069,7 +3070,7 @@ def resolve_current_orchestration_handoff_packet_brief_projection(
     return {
         "schema_version": "current_orchestration_handoff_packet_brief.v1",
         "resolved_at": _iso_utc_now(),
-        "current_orchestration_handoff_packet_brief_id": _current_orchestration_handoff_packet_brief_id(
+        "current_orchestration_handoff_packet_brief_id": _current_handoff_packet_brief_id(
             current_orchestration_state_id=state_id,
             orchestration_watchpoint_id=watchpoint_id,
             watchpoint_satisfaction_id=satisfaction_id,
@@ -3185,6 +3186,7 @@ def resolve_current_operator_facing_orchestration_brief_projection(
     """Resolve one compact, derived operator-facing orchestration brief for current understanding only."""
 
     _ = repo_root.resolve()
+    _ = _CURRENT_OPERATOR_LOOP_POSTURES
     state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
     watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
     watchpoint_brief_map = (
@@ -3299,7 +3301,7 @@ def resolve_current_operator_facing_orchestration_brief_projection(
         classification = "operator_attention_not_currently_needed"
         rationale = "current_surfaces_do_not_show_meaningful_operator_dependency_for_the_current_path"
 
-    if classification not in _CURRENT_OPERATOR_FACING_ORCHESTRATION_BRIEF_CLASSIFICATIONS:
+    if classification not in _CURRENT_OPERATOR_FACING_CLASSIFICATIONS:
         classification = "operator_should_review_hold"
 
     loop_posture = "informational"
@@ -3331,7 +3333,7 @@ def resolve_current_operator_facing_orchestration_brief_projection(
     return {
         "schema_version": "current_operator_facing_orchestration_brief.v1",
         "resolved_at": _iso_utc_now(),
-        "current_operator_facing_orchestration_brief_id": _current_operator_facing_orchestration_brief_id(
+        "current_operator_facing_orchestration_brief_id": _current_operator_facing_brief_id(
             current_orchestration_state_id=state_id,
             orchestration_watchpoint_id=watchpoint_id,
             watchpoint_satisfaction_id=satisfaction_id,
@@ -3424,6 +3426,7 @@ def resolve_current_orchestration_resolution_path_brief_projection(
     _anti_sovereignty_payload: Callable[..., dict[str, Any]],
     _current_orchestration_resolution_path_brief_id: Callable[..., str],
     _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CLASSIFICATIONS: set[str],
+    _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CENTERS: set[str],
     _CURRENT_ORCHESTRATION_RESOLUTION_PATH_POSTURES: set[str],
     *,
     current_orchestration_state: Mapping[str, Any] | None = None,
@@ -3449,6 +3452,7 @@ def resolve_current_orchestration_resolution_path_brief_projection(
     """Resolve one bounded, observational brief describing the current orchestration resolution-path center of gravity."""
 
     _ = repo_root.resolve()
+    _ = _CURRENT_ORCHESTRATION_RESOLUTION_PATH_POSTURES
     state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
     watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
     watchpoint_brief_map = (
@@ -3632,7 +3636,7 @@ def resolve_current_orchestration_resolution_path_brief_projection(
         centered_on = "none"
         rationale = "current_surfaces_do_not_support_a_stronger_honest_resolution_path_center"
 
-    if classification not in _CURRENT_ORCHESTRATION_RESOLUTION_PATH_BRIEF_CLASSIFICATIONS:
+    if classification not in _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CLASSIFICATIONS:
         classification = "fragmented_path"
     if centered_on not in _CURRENT_ORCHESTRATION_RESOLUTION_PATH_CENTERS:
         centered_on = "none"
@@ -4348,4 +4352,3 @@ def resolve_current_re_evaluation_basis_brief_projection(
             },
         ),
     }
-
