@@ -11,6 +11,12 @@ import task_executor
 from sentientos.orchestration_spine.adapters import internal_maintenance
 from sentientos.orchestration_spine.projection import current_state, policy_helpers
 
+# Kernel/facade inventory (Phase 11 bounded normalization):
+# - Kernel authority surfaces in this module own intent admission, handoff, and resolution.
+# - Projection and adapter helpers are consumed from ``sentientos.orchestration_spine.*``.
+# - Legacy shim modules remain for external compatibility; internal orchestration code
+#   should prefer canonical orchestration_spine import paths.
+
 _INTENT_KINDS = {
     "internal_maintenance_execution",
     "codex_work_order",
