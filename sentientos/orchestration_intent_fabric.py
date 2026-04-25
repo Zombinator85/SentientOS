@@ -1,5 +1,29 @@
 from __future__ import annotations
 
+"""Orchestration authority kernel/facade for the bounded orchestration spine.
+
+Phase 12 boundary inventory (code-near):
+- Kernel authority responsibilities (must remain here):
+  - Canonical identity + linkage invariants for intents/proposals/packets/receipts.
+  - Admission legality + executability gating for handoff into existing substrates.
+  - Closure semantics for internal execution and externally reported fulfillment.
+  - Anti-sovereignty guarantees and non-authoritative payload boundaries.
+- Facade compatibility wrappers (owned here, delegated implementation elsewhere):
+  - Wrapper resolvers that forward to ``sentientos.orchestration_spine.projection``
+    while preserving canonical schema constants and anti-sovereignty payload shape.
+  - Wrapper helpers that forward internal-maintenance substrate specifics to
+    ``sentientos.orchestration_spine.adapters.internal_maintenance``.
+- Injected boundary primitives consumed by projection/adapter modules:
+  - Immutable classification sets and id builders.
+  - ``_anti_sovereignty_payload`` + ``_normalized_current_surface_boundaries``.
+  - Ledger read/write utilities used to keep append-only evidence consistent.
+
+Dependency direction invariant:
+``orchestration_intent_fabric (kernel/facade) -> orchestration_spine.projection|adapters``.
+Projection modules are observational/derived only; adapters are substrate-specific
+helpers only. Neither layer owns authority mutation, admission law, or closure truth.
+"""
+
 import hashlib
 import json
 from datetime import datetime, timezone
@@ -11,11 +35,23 @@ import task_executor
 from sentientos.orchestration_spine.adapters import internal_maintenance
 from sentientos.orchestration_spine.projection import current_state, policy_helpers
 
-# Kernel/facade inventory (Phase 11 bounded normalization):
-# - Kernel authority surfaces in this module own intent admission, handoff, and resolution.
-# - Projection and adapter helpers are consumed from ``sentientos.orchestration_spine.*``.
-# - Legacy shim modules remain for external compatibility; internal orchestration code
-#   should prefer canonical orchestration_spine import paths.
+# Phase 12 inventory anchors (intentionally concise and code-near).
+_KERNEL_AUTHORITY_OWNERSHIP = (
+    "canonical identity and linkage invariants",
+    "executability/admission legality and handoff authority",
+    "closure semantics and result resolution truth",
+    "anti-sovereignty guarantees and non-authoritative boundaries",
+)
+_FACADE_COMPATIBILITY_OWNERSHIP = (
+    "projection wrapper entry points with canonical schema constants",
+    "internal-maintenance adapter wrapper entry points",
+    "legacy import continuity for orchestration callers",
+)
+_INJECTED_BOUNDARY_PRIMITIVE_OWNERSHIP = (
+    "classification sets and id builders injected into projection/adapters",
+    "anti-sovereignty payload + normalized-current-boundary builders",
+    "append-only ledger utilities for proof-visible orchestration history",
+)
 
 _INTENT_KINDS = {
     "internal_maintenance_execution",
@@ -868,14 +904,17 @@ def _validate_handoff_minimum_fields(intent: Mapping[str, Any]) -> list[str]:
 
 
 def _build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.Task:
+    """Kernel-owned facade wrapper for substrate-specific maintenance task shaping."""
     return internal_maintenance.build_internal_maintenance_task(intent)
 
 
 def _default_admission_context() -> task_admission.AdmissionContext:
+    """Kernel-owned facade wrapper for adapter-provided default admission context."""
     return internal_maintenance.default_admission_context(_iso_utc_now())
 
 
 def _default_admission_policy() -> task_admission.AdmissionPolicy:
+    """Kernel-owned facade wrapper for adapter-provided default admission policy."""
     return internal_maintenance.default_admission_policy()
 
 
@@ -2396,7 +2435,7 @@ def derive_orchestration_venue_mix_review(
 def derive_orchestration_attention_recommendation(
     outcome_review: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Derive bounded operator-attention recommendation from orchestration outcome review only."""
+    """Facade wrapper over policy projection; kernel still owns anti-sovereignty envelope."""
     projection = policy_helpers.derive_attention_projection(
         outcome_review,
         allowed_recommendations=_ORCHESTRATION_ATTENTION_RECOMMENDATIONS,
@@ -2441,7 +2480,7 @@ def derive_next_venue_recommendation(
     venue_mix_review: Mapping[str, Any],
     attention_recommendation: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Derive a bounded next-venue recommendation from existing orchestration signals only."""
+    """Facade wrapper over policy projection; kernel remains schema/invariant owner."""
     projection = policy_helpers.derive_next_venue_projection(
         delegated_judgment,
         outcome_review,
@@ -5431,6 +5470,7 @@ def resolve_current_orchestration_resumption_candidate(
     packetization_gate: Mapping[str, Any] | None = None,
     unified_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Facade compatibility wrapper for current-state projection computation."""
     return current_state.resolve_current_orchestration_resumption_candidate_projection(
         repo_root,
         anti_sovereignty_payload_builder=_anti_sovereignty_payload,

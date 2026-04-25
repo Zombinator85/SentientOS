@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+"""Policy projection helpers for bounded orchestration recommendations.
+
+These helpers compute derived recommendation projections only. Kernel callers
+remain responsible for canonical schema shaping and anti-sovereignty envelopes.
+"""
+
 from typing import Any, Mapping
 
 
