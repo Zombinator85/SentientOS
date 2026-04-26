@@ -4,9 +4,16 @@ from __future__ import annotations
 
 These helpers compute derived recommendation projections only. Kernel callers
 remain responsible for canonical schema shaping and anti-sovereignty envelopes.
+They must not own venue authority, admission authority, lifecycle truth, or
+execution routing.
 """
 
 from typing import Any, Mapping
+
+POLICY_PROJECTION_FAMILY_RECOMMENDATION = (
+    "derive_attention_projection",
+    "derive_next_venue_projection",
+)
 
 
 def derive_attention_projection(

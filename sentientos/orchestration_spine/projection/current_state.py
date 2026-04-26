@@ -5,6 +5,18 @@ from __future__ import annotations
 This module is projection-owned: it derives observational-only current-state
 surfaces from inputs supplied by the orchestration kernel/facade. It must not
 introduce new authority decisions, mutable truth stores, or execution side effects.
+
+Projection families in this module (documentation-only):
+- current-state/current-brief projections: summarize the active orchestration
+  picture from kernel-provided evidence surfaces.
+- current-picture compression projections: condense many current-state inputs
+  into bounded digests/briefs without claiming new authority.
+- export/receipt/acceptance projections: derive bounded handoff consumability
+  posture from existing export and current-picture surfaces.
+
+Kernel ownership boundary reminder:
+- identity/linkage/legality/closure/anti-sovereignty remain kernel authority.
+- projections here remain derived, non-authoritative, and non-executing.
 """
 
 import hashlib
@@ -30,6 +42,29 @@ _CURRENT_ORCHESTRATION_HANDOFF_ACCEPTANCE_POSTURE_CLASSIFICATIONS = {
     "handoff_acceptance_minimal",
     "no_current_handoff_acceptance_posture",
 }
+
+# Projection-family inventory helpers (naming/clarity only; no behavior impact).
+CURRENT_STATE_PROJECTION_FAMILY_CURRENT_BRIEFS = (
+    "resolve_current_orchestration_resumption_candidate_projection",
+    "resolve_current_resumed_operation_readiness_verdict_projection",
+    "resolve_current_orchestration_watchpoint_brief_projection",
+    "resolve_current_orchestration_pressure_signal_projection",
+    "resolve_current_orchestration_wake_readiness_detector_projection",
+    "resolve_current_operator_facing_orchestration_brief_projection",
+    "resolve_current_orchestration_resolution_path_brief_projection",
+    "resolve_current_orchestration_closure_brief_projection",
+    "resolve_current_re_evaluation_basis_brief_projection",
+)
+CURRENT_STATE_PROJECTION_FAMILY_PICTURE_COMPRESSION = (
+    "resolve_current_orchestration_coherence_brief",
+    "resolve_current_orchestration_digest",
+    "resolve_current_orchestration_transition_brief",
+    "resolve_current_orchestration_handoff_packet_brief_projection",
+)
+CURRENT_STATE_PROJECTION_FAMILY_EXPORT_ACCEPTANCE = (
+    "resolve_current_orchestration_export_packet_consumer_receipt",
+    "resolve_current_orchestration_handoff_acceptance_posture",
+)
 
 
 def _iso_utc_now() -> str:
