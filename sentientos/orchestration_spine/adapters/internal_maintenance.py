@@ -5,6 +5,14 @@ from __future__ import annotations
 This module is adapter-owned and substrate-specific. It shapes maintenance tasks
 and default admission inputs, while kernel authority decisions remain in
 ``sentientos.orchestration_intent_fabric``.
+
+Adapter responsibility groups in this module:
+- maintenance task materialization into ``task_executor.Task`` payloads
+- admission/log handshake helpers for ``task_admission`` substrate calls
+- task-executor result linkage helpers over raw jsonl substrate evidence
+
+These helpers must never redefine canonical intent identity, legal/illegal
+meaning, linkage authority, or closure semantics; those remain kernel-owned.
 """
 
 import json
@@ -14,8 +22,23 @@ from typing import Any, Callable, Mapping
 import task_admission
 import task_executor
 
+ADAPTER_GROUP_MAINTENANCE_TASK_MATERIALIZATION = "maintenance_task_materialization"
+ADAPTER_GROUP_ADMISSION_HANDSHAKE = "admission_log_handshake"
+ADAPTER_GROUP_EXECUTOR_RESULT_LINKAGE = "executor_result_linkage"
+ADAPTER_GROUPS = (
+    ADAPTER_GROUP_MAINTENANCE_TASK_MATERIALIZATION,
+    ADAPTER_GROUP_ADMISSION_HANDSHAKE,
+    ADAPTER_GROUP_EXECUTOR_RESULT_LINKAGE,
+)
+
 
 def build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.Task:
+    """Materialize bounded internal-maintenance work into executor substrate shape.
+
+    Consumes already-derived orchestration intent evidence and emits a concrete
+    ``task_executor.Task`` compatible payload. This adapter does not decide
+    authority, legitimacy, or lifecycle outcomes.
+    """
     source = intent.get("source_delegated_judgment")
     source_mapping = source if isinstance(source, Mapping) else {}
     return task_executor.Task(
@@ -48,6 +71,11 @@ def build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.
 
 
 def default_admission_context(now_utc_iso: str) -> task_admission.AdmissionContext:
+    """Provide adapter-local default admission context for substrate invocation.
+
+    This is wiring convenience for ``task_admission``; canonical actor/identity
+    authority still resides in the orchestration kernel/facade contract.
+    """
     return task_admission.AdmissionContext(
         actor="orchestration_intent_fabric",
         mode="autonomous",
@@ -59,6 +87,7 @@ def default_admission_context(now_utc_iso: str) -> task_admission.AdmissionConte
 
 
 def default_admission_policy() -> task_admission.AdmissionPolicy:
+    """Return the bounded admission policy handle used for handoff calls."""
     return task_admission.AdmissionPolicy(policy_version="orchestration_intent_handoff.v1")
 
 
@@ -70,6 +99,11 @@ def admit_internal_maintenance_intent(
     admission_policy: task_admission.AdmissionPolicy | None,
     now_utc_iso: str,
 ) -> dict[str, Any]:
+    """Bridge internal-maintenance intent into admission substrate + log evidence.
+
+    Shapes substrate call arguments, performs admission invocation/logging, and
+    returns a normalized evidence map for upstream orchestration reporting.
+    """
     ctx = admission_context or default_admission_context(now_utc_iso)
     policy = admission_policy or default_admission_policy()
     task = build_internal_maintenance_task(intent)
@@ -92,6 +126,11 @@ def resolve_task_executor_result_linkage(
     executor_log_path: Path,
     read_jsonl: Callable[[Path], list[dict[str, Any]]],
 ) -> dict[str, Any]:
+    """Resolve executor-side evidence rows linked to an admitted handoff task.
+
+    Consumes handoff details plus raw executor jsonl rows and returns linkage
+    evidence only; it does not establish canonical linkage semantics.
+    """
     details = handoff.get("details")
     detail_map = details if isinstance(details, Mapping) else {}
     task_admission_details = detail_map.get("task_admission")
@@ -104,3 +143,16 @@ def resolve_task_executor_result_linkage(
         "task_rows": matching_rows,
         "task_result_rows": task_result_rows,
     }
+
+
+__all__ = [
+    "ADAPTER_GROUP_MAINTENANCE_TASK_MATERIALIZATION",
+    "ADAPTER_GROUP_ADMISSION_HANDSHAKE",
+    "ADAPTER_GROUP_EXECUTOR_RESULT_LINKAGE",
+    "ADAPTER_GROUPS",
+    "build_internal_maintenance_task",
+    "default_admission_context",
+    "default_admission_policy",
+    "admit_internal_maintenance_intent",
+    "resolve_task_executor_result_linkage",
+]
