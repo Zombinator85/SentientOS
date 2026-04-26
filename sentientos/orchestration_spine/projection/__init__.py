@@ -5,8 +5,27 @@ from __future__ import annotations
 These modules derive summaries/recommendations from already-materialized
 orchestration evidence. They must not own admission authority, execution routing,
 or canonical lifecycle truth.
+
+Projection family inventory (documentation-only):
+- ``current_state`` current-state/current-brief projections, including current
+  picture compression plus export/receipt/acceptance projections.
+- ``policy_helpers`` policy/recommendation projections that derive bounded
+  guidance from kernel-supplied review surfaces.
 """
 
 from . import current_state, policy_helpers
 
-__all__ = ["current_state", "policy_helpers"]
+PROJECTION_FAMILY_CURRENT_STATE = "current_state"
+PROJECTION_FAMILY_POLICY = "policy"
+PROJECTION_FAMILIES = (
+    PROJECTION_FAMILY_CURRENT_STATE,
+    PROJECTION_FAMILY_POLICY,
+)
+
+__all__ = [
+    "current_state",
+    "policy_helpers",
+    "PROJECTION_FAMILY_CURRENT_STATE",
+    "PROJECTION_FAMILY_POLICY",
+    "PROJECTION_FAMILIES",
+]
