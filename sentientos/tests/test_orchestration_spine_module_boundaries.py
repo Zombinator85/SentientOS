@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from sentientos import orchestration_internal_adapters
 from sentientos import orchestration_projection_policy
-from sentientos.orchestration_spine.adapters import internal_maintenance
+from sentientos.orchestration_spine.adapters import (
+    ADAPTER_FAMILIES,
+    ADAPTER_FAMILY_INTERNAL_MAINTENANCE,
+    internal_maintenance,
+)
 from sentientos.orchestration_spine.projection import (
     PROJECTION_FAMILIES,
     PROJECTION_FAMILY_CURRENT_STATE,
@@ -26,3 +30,13 @@ def test_projection_module_exposes_documented_family_inventory() -> None:
     assert PROJECTION_FAMILY_POLICY == "policy"
     assert "resolve_current_orchestration_digest" in current_state.CURRENT_STATE_PROJECTION_FAMILY_PICTURE_COMPRESSION
     assert "derive_next_venue_projection" in policy_helpers.POLICY_PROJECTION_FAMILY_RECOMMENDATION
+
+
+def test_adapter_module_exposes_documented_family_inventory() -> None:
+    assert ADAPTER_FAMILIES == (ADAPTER_FAMILY_INTERNAL_MAINTENANCE,)
+    assert ADAPTER_FAMILY_INTERNAL_MAINTENANCE == "internal_maintenance"
+    assert internal_maintenance.ADAPTER_GROUPS == (
+        internal_maintenance.ADAPTER_GROUP_MAINTENANCE_TASK_MATERIALIZATION,
+        internal_maintenance.ADAPTER_GROUP_ADMISSION_HANDSHAKE,
+        internal_maintenance.ADAPTER_GROUP_EXECUTOR_RESULT_LINKAGE,
+    )
