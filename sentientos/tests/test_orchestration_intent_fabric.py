@@ -11,6 +11,7 @@ import control_plane
 import pytest
 import task_admission
 import task_executor
+import sentientos.orchestration_intent_fabric as orchestration_intent_fabric
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
 from sentientos.orchestration_spine.adapters import internal_maintenance
 from sentientos.orchestration_intent_fabric import (
@@ -8173,3 +8174,206 @@ def test_contract_adapter_linkage_stays_raw_and_kernel_keeps_result_semantics(
     assert linkage["task_result_rows"][0]["status"] == "unknown_status_from_substrate"
     assert resolution["orchestration_result_state"] == "execution_result_missing"
     assert resolution["loop_closed"] is False
+
+
+def test_contract_facade_adapter_wrapper_is_thin_delegate_without_input_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    intent = {
+        "intent_id": "intent-contract-thin-adapter",
+        "intent_kind": "internal_maintenance_execution",
+        "source_delegated_judgment": {"recommended_venue": "internal_direct_execution"},
+    }
+    intent_before = deepcopy(intent)
+    captured: dict[str, object] = {}
+
+    sentinel_task = task_executor.Task(
+        task_id="t-contract-thin-adapter",
+        objective="contract facade adapter wrapper test",
+    )
+
+    def _fake_build_internal_maintenance_task(arg: object) -> task_executor.Task:
+        captured["arg"] = arg
+        return sentinel_task
+
+    monkeypatch.setattr(
+        orchestration_intent_fabric._INTERNAL_MAINTENANCE_ADAPTER,
+        "build_internal_maintenance_task",
+        _fake_build_internal_maintenance_task,
+    )
+
+    task = orchestration_intent_fabric._build_internal_maintenance_task(intent)
+
+    assert task is sentinel_task
+    assert captured["arg"] is intent
+    assert intent == intent_before
+
+
+def test_contract_facade_policy_wrapper_delegates_with_kernel_allowed_sets_and_keeps_inputs_stable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delegated_judgment = {"recommended_venue": "codex_implementation", "escalation_classification": "none"}
+    outcome_review = {"review_classification": "clean_recent_orchestration", "records_considered": 8}
+    venue_mix_review = {"review_classification": "balanced_recent_venue_mix", "records_considered": 8}
+    attention_recommendation = {"operator_attention_recommendation": "none"}
+    before = deepcopy((delegated_judgment, outcome_review, venue_mix_review, attention_recommendation))
+    captured: dict[str, object] = {}
+
+    def _fake_derive_next_venue_projection(
+        delegated: object,
+        outcome: object,
+        venue_mix: object,
+        attention: object,
+        *,
+        allowed_recommendations: set[str],
+        allowed_relations: set[str],
+    ) -> dict[str, object]:
+        captured["args"] = (delegated, outcome, venue_mix, attention)
+        captured["allowed_recommendations"] = allowed_recommendations
+        captured["allowed_relations"] = allowed_relations
+        return {
+            "delegated_venue": "codex_implementation",
+            "escalation_classification": "none",
+            "next_venue_recommendation": "prefer_codex_implementation",
+            "relation_to_delegated_judgment": "affirming",
+            "attention_signal": "none",
+            "outcome_classification": "clean_recent_orchestration",
+            "venue_mix_classification": "balanced_recent_venue_mix",
+            "outcome_records": 8,
+            "venue_mix_records": 8,
+            "blocked_heavy": False,
+            "failure_heavy": False,
+            "stall_heavy": False,
+            "external_signal_present": False,
+            "delegated_external": {},
+            "codex_external": {},
+            "deep_external": {},
+            "external_feedback_affirming": False,
+            "external_feedback_stressed": False,
+            "rationale": "contract projection sentinel",
+        }
+
+    monkeypatch.setattr(
+        orchestration_intent_fabric._POLICY_PROJECTIONS,
+        "derive_next_venue_projection",
+        _fake_derive_next_venue_projection,
+    )
+
+    recommendation = derive_next_venue_recommendation(
+        delegated_judgment,
+        outcome_review,
+        venue_mix_review,
+        attention_recommendation,
+    )
+
+    assert captured["args"] == (delegated_judgment, outcome_review, venue_mix_review, attention_recommendation)
+    assert captured["allowed_recommendations"] == orchestration_intent_fabric._NEXT_VENUE_RECOMMENDATIONS
+    assert captured["allowed_relations"] == orchestration_intent_fabric._NEXT_VENUE_RELATIONS
+    assert recommendation["schema_version"] == "next_venue_recommendation.v1"
+    assert recommendation["next_venue_recommendation"] == "prefer_codex_implementation"
+    assert recommendation["relation_to_delegated_judgment"] == "affirming"
+    assert recommendation["non_authoritative"] is True
+    assert recommendation["decision_power"] == "none"
+    assert recommendation["recommendation_only"] is True
+    assert (delegated_judgment, outcome_review, venue_mix_review, attention_recommendation) == before
+
+
+def test_contract_facade_current_export_wrapper_injects_kernel_boundary_builder_after_delegation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_export_packet_projection(repo_root: Path, **kwargs: object) -> dict[str, object]:
+        captured["repo_root"] = repo_root
+        anti_builder = kwargs["anti_sovereignty_payload_builder"]
+        payload = anti_builder(diagnostic_only=True, recommendation_only=True)
+        return {
+            "schema_version": "current_orchestration_export_packet.v1",
+            "export_packet_classification": "bounded_observational_packet",
+            **payload,
+        }
+
+    monkeypatch.setattr(
+        orchestration_intent_fabric._CURRENT_STATE_PROJECTIONS,
+        "resolve_current_orchestration_export_packet_projection",
+        _fake_export_packet_projection,
+    )
+
+    result = resolve_current_orchestration_export_packet(tmp_path)
+
+    assert captured["repo_root"] == tmp_path
+    assert result["schema_version"] == "current_orchestration_export_packet.v1"
+    assert result["export_packet_classification"] == "bounded_observational_packet"
+    assert result["non_authoritative"] is True
+    assert result["decision_power"] == "none"
+    assert result["recommendation_only"] is True
+
+
+def test_contract_facade_current_receipt_wrapper_does_not_mutate_inputs_and_preserves_boundaries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    export_packet = {"export_packet_id": "exp-contract-1", "non_authoritative": True}
+    digest = {"digest_id": "dig-contract-1"}
+    coherence = {"coherence_id": "coh-contract-1"}
+    transition = {"transition_id": "trn-contract-1"}
+    closure = {"closure_id": "cls-contract-1"}
+    next_move = {"next_move_id": "nxt-contract-1"}
+    handoff = {"handoff_id": "hnd-contract-1"}
+    operator = {"operator_id": "opr-contract-1"}
+    resolution = {"resolution_id": "res-contract-1"}
+    pressure = {"pressure_id": "prs-contract-1"}
+    readiness = {"readiness_id": "rdy-contract-1"}
+    wake = {"wake_id": "wak-contract-1"}
+    before = deepcopy(
+        (export_packet, digest, coherence, transition, closure, next_move, handoff, operator, resolution, pressure, readiness, wake)
+    )
+
+    def _fake_consumer_receipt(repo_root: Path, **kwargs: object) -> dict[str, object]:
+        anti_builder = kwargs["anti_sovereignty_payload_builder"]
+        return {
+            "schema_version": "current_orchestration_export_packet_consumer_receipt.v1",
+            "receipt_status": "consumable_with_caution",
+            **anti_builder(diagnostic_only=True, recommendation_only=True),
+        }
+
+    monkeypatch.setattr(
+        orchestration_intent_fabric._CURRENT_STATE_PROJECTIONS,
+        "resolve_current_orchestration_export_packet_consumer_receipt",
+        _fake_consumer_receipt,
+    )
+
+    receipt = resolve_current_orchestration_export_packet_consumer_receipt(
+        tmp_path,
+        current_orchestration_export_packet=export_packet,
+        current_orchestration_digest=digest,
+        current_orchestration_coherence_brief=coherence,
+        current_orchestration_transition_brief=transition,
+        current_orchestration_closure_brief=closure,
+        current_orchestration_next_move_brief=next_move,
+        current_orchestration_handoff_packet_brief=handoff,
+        current_operator_facing_orchestration_brief=operator,
+        current_orchestration_resolution_path_brief=resolution,
+        current_orchestration_pressure_signal=pressure,
+        current_resumed_operation_readiness=readiness,
+        current_orchestration_wake_readiness_detector=wake,
+    )
+
+    assert receipt["schema_version"] == "current_orchestration_export_packet_consumer_receipt.v1"
+    assert receipt["receipt_status"] == "consumable_with_caution"
+    assert receipt["non_authoritative"] is True
+    assert receipt["decision_power"] == "none"
+    assert receipt["recommendation_only"] is True
+    assert (
+        export_packet,
+        digest,
+        coherence,
+        transition,
+        closure,
+        next_move,
+        handoff,
+        operator,
+        resolution,
+        pressure,
+        readiness,
+        wake,
+    ) == before
