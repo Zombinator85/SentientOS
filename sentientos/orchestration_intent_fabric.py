@@ -1,27 +1,24 @@
 from __future__ import annotations
 
-"""Orchestration authority kernel/facade for the bounded orchestration spine.
+"""Orchestration authority facade for the bounded orchestration spine.
 
-Phase 12 boundary inventory (code-near):
-- Kernel authority responsibilities (must remain here):
-  - Canonical identity + linkage invariants for intents/proposals/packets/receipts.
-  - Admission legality + executability gating for handoff into existing substrates.
-  - Closure semantics for internal execution and externally reported fulfillment.
-  - Anti-sovereignty guarantees and non-authoritative payload boundaries.
-- Facade compatibility wrappers (owned here, delegated implementation elsewhere):
-  - Wrapper resolvers that forward to ``sentientos.orchestration_spine.projection``
-    while preserving canonical schema constants and anti-sovereignty payload shape.
-  - Wrapper helpers that forward internal-maintenance substrate specifics to
-    ``sentientos.orchestration_spine.adapters.internal_maintenance``.
-- Injected boundary primitives consumed by projection/adapter modules:
-  - Immutable classification sets and id builders.
-  - ``_anti_sovereignty_payload`` + ``_normalized_current_surface_boundaries``.
-  - Ledger read/write utilities used to keep append-only evidence consistent.
+Phase 21 facade consolidation inventory (code-near):
+- Stable public authority API (owned here):
+  - Intent/proposal/packet synthesis surfaces and admission entry points.
+  - Unified result, watchpoint, readiness, and current-state resolution surfaces.
+  - Append-only orchestration ledgers and compatibility public wrappers.
+- Kernel-owned boundary/injection surface (defined here, consumed by kernel modules):
+  - Immutable classification sets and deterministic id builders.
+  - Anti-sovereignty payload builders and normalized boundary descriptors.
+  - Ledger io primitives and lightweight adapter/projection wrapper hooks.
+- Facade-owned record/ledger assembly (owned here):
+  - Evidence assembly for handoff/work-order/operator/fulfillment ledgers.
+  - Canonical schema envelopes and compatibility shaping around kernel outcomes.
 
 Dependency direction invariant:
-``orchestration_intent_fabric (kernel/facade) -> orchestration_spine.projection|adapters``.
-Projection modules are observational/derived only; adapters are substrate-specific
-helpers only. Neither layer owns authority mutation, admission law, or closure truth.
+``orchestration_intent_fabric (facade) -> orchestration_spine.kernel|projection|adapters``.
+Kernel modules own authority law and truth resolution. Projection/adapters remain
+observational/substrate helpers and must not become new authority sources.
 """
 
 import hashlib
@@ -66,6 +63,38 @@ _INJECTED_BOUNDARY_PRIMITIVE_OWNERSHIP = (
     "classification sets and id builders injected into projection/adapters",
     "anti-sovereignty payload + normalized-current-boundary builders",
     "append-only ledger utilities for proof-visible orchestration history",
+)
+_FACADE_LEDGER_ASSEMBLY_OWNERSHIP = (
+    "handoff/work-order packet and receipt assembly",
+    "append-only orchestration ledger envelope shaping",
+    "compatibility-safe record linkage for proof-visible artifacts",
+)
+
+# Phase 21 explicit inventory anchors for file ownership readability.
+_STABLE_PUBLIC_AUTHORITY_API = (
+    "synthesize_orchestration_intent",
+    "admit_orchestration_intent",
+    "resolve_unified_orchestration_result",
+    "resolve_unified_orchestration_result_surface",
+    "resolve_current_orchestration_state",
+    "resolve_current_orchestration_export_packet",
+    "derive_packetization_gate",
+    "synthesize_next_move_proposal",
+    "synthesize_handoff_packet",
+)
+_KERNEL_BOUNDARY_INJECTION_PRIMITIVES = (
+    "_anti_sovereignty_payload",
+    "_normalized_current_surface_boundaries",
+    "_stable_prefixed_id",
+    "_append_jsonl_ledger",
+    "_read_jsonl",
+)
+_FACADE_COMPATIBILITY_WRAPPERS = (
+    "_translate_kind",
+    "_source_judgment_linkage",
+    "_build_internal_maintenance_task",
+    "_default_admission_context",
+    "_default_admission_policy",
 )
 
 _INTENT_KINDS = {
@@ -679,6 +708,9 @@ _OPERATOR_INFLUENCE_STATES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Kernel-boundary injection primitives (consumed by kernel/projection/adapters)
+# ---------------------------------------------------------------------------
 def _anti_sovereignty_payload(
     *,
     recommendation_only: bool,
@@ -757,6 +789,9 @@ def _source_judgment_linkage(judgment: Mapping[str, Any]) -> dict[str, Any]:
     return _source_judgment_linkage_kernel(judgment)
 
 
+# ---------------------------------------------------------------------------
+# Stable public authority API: core intent and admission entry points
+# ---------------------------------------------------------------------------
 def synthesize_orchestration_intent(
     delegated_judgment: Mapping[str, Any],
     *,
@@ -962,6 +997,9 @@ def _handoff_evidence_pointers(
     return ordered
 
 
+# ---------------------------------------------------------------------------
+# Facade-owned ledger/record assembly: staged external work-order lifecycle
+# ---------------------------------------------------------------------------
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
     return _append_jsonl_ledger(repo_root, "glow/orchestration/codex_work_orders.jsonl", work_order)
 
@@ -1371,6 +1409,9 @@ def build_split_closure_map() -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Stable public authority API: unified result + projection compatibility surfaces
+# ---------------------------------------------------------------------------
 def resolve_unified_orchestration_result(
     repo_root: Path,
     *,
@@ -6564,6 +6605,9 @@ def executable_handoff_map() -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Stable public authority API: execution admission boundary
+# ---------------------------------------------------------------------------
 def admit_orchestration_intent(
     repo_root: Path,
     intent: Mapping[str, Any],
