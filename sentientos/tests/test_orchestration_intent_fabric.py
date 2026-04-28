@@ -2512,6 +2512,64 @@ def test_operator_resolution_ingestion_supports_multiple_resolution_kinds() -> N
         assert redirected["redirected_venue"] == "deep_research_audit"
 
 
+def test_compact_ref_normalization_is_deterministic_and_input_immutable() -> None:
+    raw_refs = [
+        "  docs/context.md#alpha  ",
+        "",
+        "   ",
+        "glow/orchestration/operator_action_briefs.jsonl#2",
+        " docs/context.md#alpha ",
+    ]
+    original = list(raw_refs)
+
+    normalized_once = orchestration_intent_fabric._normalized_compact_string_refs(raw_refs)
+    normalized_twice = orchestration_intent_fabric._normalized_compact_string_refs(raw_refs)
+
+    assert normalized_once == normalized_twice
+    assert normalized_once == [
+        "docs/context.md#alpha",
+        "glow/orchestration/operator_action_briefs.jsonl#2",
+        "docs/context.md#alpha",
+    ]
+    assert raw_refs == original
+
+
+def test_operator_resolution_receipt_compact_ref_assembly_is_mechanical_only(tmp_path: Path) -> None:
+    brief = _operator_brief_for_receipt_flow()
+    append_operator_action_brief_ledger(tmp_path, brief)
+    updated_context_refs = [
+        " docs/context.md#section ",
+        "",
+        "  ",
+        "glow/orchestration/operator_action_briefs.jsonl#3 ",
+    ]
+    original_refs = list(updated_context_refs)
+
+    receipt = ingest_operator_resolution_receipt(
+        tmp_path,
+        operator_action_brief_id=str(brief["operator_action_brief_id"]),
+        resolution_kind="approved_with_constraints",
+        operator_note="bounded continuation with constraints",
+        updated_context_refs=updated_context_refs,
+        created_at="2026-04-12T00:07:00Z",
+    )
+
+    assert updated_context_refs == original_refs
+    assert receipt["updated_context_refs"] == [
+        "docs/context.md#section",
+        "glow/orchestration/operator_action_briefs.jsonl#3",
+    ]
+    assert receipt["source_operator_action_brief_ref"]["operator_action_brief_ledger_path"] == (
+        "glow/orchestration/operator_action_briefs.jsonl"
+    )
+    assert receipt["source_next_move_proposal_ref"]["proposal_ledger_path"] == (
+        "glow/orchestration/orchestration_next_move_proposals.jsonl"
+    )
+    assert receipt["non_authoritative"] is True
+    assert receipt["decision_power"] == "none"
+    assert receipt["does_not_change_admission_or_execution"] is True
+
+
 def test_operator_resolution_ingestion_fails_closed_when_brief_missing_or_malformed(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="operator action brief not found"):
         ingest_operator_resolution_receipt(
@@ -3218,6 +3276,93 @@ def test_staged_deep_research_packet_can_ingest_externally_completed_receipt(tmp
     assert receipt["fulfillment_kind"] == "externally_completed"
     assert receipt["ingested_external_outcome"] is True
     assert receipt["does_not_imply_direct_repo_execution"] is True
+
+
+def test_external_receipt_normalization_cannot_upgrade_declined_lifecycle_or_acceptance(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(delegated, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    noisy_refs = [
+        " acceptance:closed ",
+        "closure:completed",
+        " glow/orchestration/orchestration_handoff_packets.jsonl#1 ",
+    ]
+    original_refs = list(noisy_refs)
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_declined",
+        operator_or_adapter="operator:test",
+        summary_notes="declined despite optimistic-looking refs",
+        evidence_refs=noisy_refs,
+        created_at="2026-04-12T00:06:00Z",
+    )
+
+    lifecycle = resolve_handoff_packet_fulfillment_lifecycle(tmp_path, packet)
+    unified = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+    acceptance = resolve_current_orchestration_handoff_acceptance_posture(
+        tmp_path,
+        current_orchestration_export_packet_consumer_receipt={
+            "bounded_receipt_classification": "linkage_observed_only",
+            "closure_state": "closure_pending",
+            "resolution_path": "external_fulfillment",
+            "path_honesty": {"fulfillment_receipt_observed": True},
+        },
+    )
+
+    assert noisy_refs == original_refs
+    assert lifecycle["lifecycle_state"] == "externally_declined"
+    assert unified["result_classification"] == "declined_or_abandoned"
+    assert unified["resolution_path"] == "external_fulfillment"
+    assert acceptance["boundaries"]["decision_power"] == "none"
+    assert acceptance["handoff_acceptance_classification"] in {
+        "no_current_handoff_acceptance_posture",
+        "handoff_acceptance_pending",
+        "handoff_acceptance_cautionary",
+        "handoff_acceptance_contradicted",
+        "handoff_acceptance_fragmented",
+    }
+
+
+def test_external_receipt_envelope_preserves_kernel_owned_non_authoritative_truth(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(delegated, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    receipt = ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed_with_issues",
+        operator_or_adapter="adapter:codex",
+        summary_notes="completed externally with caveats",
+        evidence_refs=[" artifacts/codex_patch.diff "],
+        created_at="2026-04-12T00:08:00Z",
+    )
+    unified = resolve_unified_orchestration_result(tmp_path, handoff=handoff, handoff_packet=packet)
+
+    assert receipt["evidence_refs"] == ["artifacts/codex_patch.diff"]
+    assert receipt["non_authoritative"] is True
+    assert receipt["decision_power"] == "none"
+    assert receipt["does_not_invoke_external_tools"] is True
+    assert receipt["does_not_imply_direct_repo_execution"] is True
+    assert unified["resolution_path"] == "external_fulfillment"
+    assert unified["result_classification"] == "completed_with_issues"
+    assert unified["path_honesty"]["does_not_imply_direct_repo_execution"] is True
 
 
 def test_fulfillment_ingestion_fails_closed_when_packet_linkage_missing(tmp_path: Path) -> None:
