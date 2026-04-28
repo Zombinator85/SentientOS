@@ -70,26 +70,22 @@ _FACADE_LEDGER_ASSEMBLY_OWNERSHIP = (
     "compatibility-safe record linkage for proof-visible artifacts",
 )
 
-# Phase 23 bounded inventory anchors for the remaining facade-owned ledger zone.
-# These constants are documentary only; they do not introduce new execution paths.
-_FACADE_LEDGER_ASSEMBLY_CATEGORIES = {
-    # Stable facade record surfaces that intentionally remain public here.
-    "facade_owned_record_assembly": (
-        "staged external work-order envelopes",
-        "handoff packet envelopes and packet lineage shape",
-        "operator/external fulfillment receipt envelopes",
-        "append-only ledger write wrappers for proof artifacts",
+# Phase 25 bounded future-split readiness inventory for facade-owned ledger assembly.
+# Documentary-only constants: they classify split readiness and add no execution path.
+_FACADE_LEDGER_ASSEMBLY_READINESS = {
+    "future_split_ready_mechanical": (
+        "_normalized_compact_string_refs helper (string trimming/filter only)",
+        "_handoff_evidence_pointers pointer deduplication/order preservation helper",
     ),
-    # Assembly that must remain adjacent to kernel authority outcomes.
-    "authority_adjacent_assembly": (
-        "admission->handoff outcome records emitted from kernel decisions",
-        "lifecycle/result wrappers keyed by kernel-owned classifications",
-        "bounded anti-sovereignty envelope shaping around kernel truths",
+    "facade_adjacent_but_not_split_ready": (
+        "handoff packet envelope shaping linked to public facade schema stability",
+        "external/operator receipt envelope shaping with anti-sovereignty annotations",
+        "staged external work-order lifecycle record shaping and ledger linkage",
     ),
-    # Purely mechanical glue that may be split later without semantic changes.
-    "mechanical_split_candidates": (
-        "compact string-ref normalization for receipt evidence/context refs",
-        "artifact pointer deduplication/ordering helpers",
+    "should_remain_facade_owned": (
+        "append_*_ledger wrappers that preserve stable proof-artifact public paths",
+        "public compatibility envelope/schema shaping around kernel-owned outcomes",
+        "facade-exposed append-only artifact linkage expected by orchestration callers",
     ),
 }
 
@@ -1033,6 +1029,9 @@ def _normalized_compact_string_refs(values: list[str] | None) -> list[str]:
 # ---------------------------------------------------------------------------
 # Facade-owned ledger/record assembly: staged external work-order lifecycle
 # ---------------------------------------------------------------------------
+# Split-readiness note (Phase 25):
+# - build_*_staged_work_order helpers are currently facade-adjacent-but-not-split-ready
+#   because they are part of stable public record shape and ledger linkage behavior.
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
     return _append_jsonl_ledger(repo_root, "glow/orchestration/codex_work_orders.jsonl", work_order)
 
@@ -3170,6 +3169,9 @@ def synthesize_handoff_packet(
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """Derive a compact venue-specific handoff packet from existing bounded orchestration signals."""
+    # Split-readiness note (Phase 25):
+    # this remains facade-adjacent-but-not-split-ready because packet envelope fields
+    # are part of the stable facade public shape expected by downstream callers.
 
     proposal_ref = next_move_proposal
     proposal_review_map = next_move_proposal_review if isinstance(next_move_proposal_review, Mapping) else {}
@@ -3406,6 +3408,9 @@ def synthesize_handoff_packet(
 
 def append_handoff_packet_ledger(repo_root: Path, packet: Mapping[str, Any]) -> Path:
     """Append one bounded handoff packet to the proof-visible packet ledger."""
+    # Split-readiness note (Phase 25):
+    # append_*_ledger wrappers should remain facade-owned to keep public artifact paths
+    # stable and avoid introducing a second truth source for orchestration history.
 
     return _append_jsonl_ledger(repo_root, "glow/orchestration/orchestration_handoff_packets.jsonl", packet)
 
@@ -3438,6 +3443,9 @@ def ingest_operator_resolution_receipt(
 
     This path is receipt-only and preserves operator intervention as constitutional history.
     """
+    # Split-readiness note (Phase 25):
+    # receipt envelope assembly remains facade-adjacent-but-not-split-ready due to
+    # public-shape compatibility and anti-sovereignty disclosure expectations.
 
     root = repo_root.resolve()
     if not operator_action_brief_id.strip():
@@ -3545,6 +3553,9 @@ def ingest_external_fulfillment_receipt(
 
     This path is receipt-only and never executes external work directly.
     """
+    # Split-readiness note (Phase 25):
+    # receipt envelope assembly remains facade-adjacent-but-not-split-ready due to
+    # public-shape compatibility and anti-sovereignty disclosure expectations.
 
     root = repo_root.resolve()
     packets = _read_jsonl(root / "glow/orchestration/orchestration_handoff_packets.jsonl")
