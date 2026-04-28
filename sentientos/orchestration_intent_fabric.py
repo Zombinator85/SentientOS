@@ -70,6 +70,29 @@ _FACADE_LEDGER_ASSEMBLY_OWNERSHIP = (
     "compatibility-safe record linkage for proof-visible artifacts",
 )
 
+# Phase 23 bounded inventory anchors for the remaining facade-owned ledger zone.
+# These constants are documentary only; they do not introduce new execution paths.
+_FACADE_LEDGER_ASSEMBLY_CATEGORIES = {
+    # Stable facade record surfaces that intentionally remain public here.
+    "facade_owned_record_assembly": (
+        "staged external work-order envelopes",
+        "handoff packet envelopes and packet lineage shape",
+        "operator/external fulfillment receipt envelopes",
+        "append-only ledger write wrappers for proof artifacts",
+    ),
+    # Assembly that must remain adjacent to kernel authority outcomes.
+    "authority_adjacent_assembly": (
+        "admission->handoff outcome records emitted from kernel decisions",
+        "lifecycle/result wrappers keyed by kernel-owned classifications",
+        "bounded anti-sovereignty envelope shaping around kernel truths",
+    ),
+    # Purely mechanical glue that may be split later without semantic changes.
+    "mechanical_split_candidates": (
+        "compact string-ref normalization for receipt evidence/context refs",
+        "artifact pointer deduplication/ordering helpers",
+    ),
+}
+
 # Phase 21 explicit inventory anchors for file ownership readability.
 _STABLE_PUBLIC_AUTHORITY_API = (
     "synthesize_orchestration_intent",
@@ -995,6 +1018,16 @@ def _handoff_evidence_pointers(
             ordered.append(pointer)
             seen.add(pointer)
     return ordered
+
+
+def _normalized_compact_string_refs(values: list[str] | None) -> list[str]:
+    """Normalize optional free-form refs into compact, non-empty string rows."""
+
+    return [
+        value.strip()
+        for value in (values or [])
+        if isinstance(value, str) and value.strip()
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -3433,11 +3466,8 @@ def ingest_operator_resolution_receipt(
         raise ValueError(f"operator action brief malformed (missing packetization gate linkage): {operator_action_brief_id}")
 
     target_venue_or_posture = str(brief.get("target_venue_or_posture") or "")
-    normalized_refs = [
-        ref.strip()
-        for ref in (updated_context_refs or [])
-        if isinstance(ref, str) and ref.strip()
-    ]
+    # Mechanical assembly only: compact refs preserve append-only readability.
+    normalized_refs = _normalized_compact_string_refs(updated_context_refs)
     timestamp = created_at or _iso_utc_now()
     resolution_state = {
         "approved_continue": "operator_approved_continue",
@@ -3537,11 +3567,8 @@ def ingest_external_fulfillment_receipt(
         raise ValueError(f"unrecognized fulfillment_kind: {fulfillment_kind}")
 
     timestamp = created_at or _iso_utc_now()
-    compact_refs = [
-        ref.strip()
-        for ref in (evidence_refs or [])
-        if isinstance(ref, str) and ref.strip()
-    ]
+    # Mechanical assembly only: compact refs preserve append-only readability.
+    compact_refs = _normalized_compact_string_refs(evidence_refs)
     operator_state = packet.get("operator_escalation_requirement_state")
     operator_state_map = operator_state if isinstance(operator_state, Mapping) else {}
     source_judgment_ref = packet.get("source_delegated_judgment_ref")
@@ -6651,6 +6678,8 @@ def admit_orchestration_intent(
             "requires_external_tool_or_operator_trigger": True,
         }
 
+    # Authority-adjacent assembly: kernel owns `outcome` truth; facade only persists
+    # compatibility-safe envelope/linkage into append-only handoff history.
     handoff_record = {
         "schema_version": "orchestration_handoff.v1",
         "recorded_at": _iso_utc_now(),
