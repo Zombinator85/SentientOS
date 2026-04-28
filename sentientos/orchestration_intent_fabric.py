@@ -30,6 +30,7 @@ from typing import Any, Mapping
 import task_admission
 import task_executor
 from sentientos.orchestration_spine.adapters import internal_maintenance
+from sentientos.orchestration_spine import facade_mechanical_assembly
 from sentientos.orchestration_spine.kernel import (
     derive_packetization_gate_kernel,
     resolve_admission_handoff_outcome_kernel,
@@ -46,6 +47,7 @@ from sentientos.orchestration_spine.projection import current_state, policy_help
 _INTERNAL_MAINTENANCE_ADAPTER = internal_maintenance
 _CURRENT_STATE_PROJECTIONS = current_state
 _POLICY_PROJECTIONS = policy_helpers
+_FACADE_MECHANICAL_ASSEMBLY = facade_mechanical_assembly
 
 # Phase 12 inventory anchors (intentionally concise and code-near).
 _KERNEL_AUTHORITY_OWNERSHIP = (
@@ -995,35 +997,13 @@ def _compact_handoff_rationale(
 def _handoff_evidence_pointers(
     delegated_judgment: Mapping[str, Any],
 ) -> list[str]:
-    delegated_basis = delegated_judgment.get("basis")
-    delegated_basis_map = delegated_basis if isinstance(delegated_basis, Mapping) else {}
-    pointers = [
-        "glow/orchestration/orchestration_next_move_proposals.jsonl",
-        "glow/orchestration/orchestration_handoffs.jsonl",
-        "glow/orchestration/orchestration_intents.jsonl",
-    ]
-    artifacts = delegated_basis_map.get("artifacts_read")
-    if isinstance(artifacts, Mapping):
-        for value in artifacts.values():
-            if isinstance(value, str) and value:
-                pointers.append(value)
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for pointer in pointers:
-        if pointer not in seen:
-            ordered.append(pointer)
-            seen.add(pointer)
-    return ordered
+    return _FACADE_MECHANICAL_ASSEMBLY.handoff_evidence_pointers(delegated_judgment)
 
 
 def _normalized_compact_string_refs(values: list[str] | None) -> list[str]:
     """Normalize optional free-form refs into compact, non-empty string rows."""
 
-    return [
-        value.strip()
-        for value in (values or [])
-        if isinstance(value, str) and value.strip()
-    ]
+    return _FACADE_MECHANICAL_ASSEMBLY.normalized_compact_string_refs(values)
 
 
 # ---------------------------------------------------------------------------
