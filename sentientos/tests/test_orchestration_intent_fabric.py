@@ -54,6 +54,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_pressure_signal,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_handoff_packet_brief,
+    resolve_current_orchestration_next_move_brief,
     resolve_current_orchestration_resolution_path_brief,
     resolve_current_orchestration_closure_brief,
     resolve_current_orchestration_coherence_brief,
