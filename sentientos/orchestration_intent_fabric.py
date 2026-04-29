@@ -97,6 +97,26 @@ _FACADE_LEDGER_ASSEMBLY_READINESS = {
     ),
 }
 
+# Phase 28 bounded inventory: remaining facade-owned envelope/linkage shaping zone.
+# Documentary-only classification to keep future split planning explicit without
+# introducing any new execution path, semantics, or authority surface.
+_FACADE_ENVELOPE_LINKAGE_SHAPING_PHASE28 = {
+    "should_remain_facade_owned_envelope": (
+        "append_*_ledger wrappers that preserve stable public artifact paths",
+        "compatibility/public envelope shaping around kernel-owned outcomes",
+        "anti-sovereignty/non-authoritative disclosure envelope on facade return payloads",
+    ),
+    "authority_adjacent_linkage_shaping": (
+        "handoff packet/source proposal/linkage reference shaping for append-only records",
+        "receipt/operator-resolution linkage refs that expose kernel truth without re-owning it",
+        "current-state/watchpoint source_linkage shaping for compatibility-safe observation surfaces",
+    ),
+    "future_consolidation_candidate": (
+        "small mechanical source_*_ref map normalization blocks in packet/receipt assemblers",
+        "repeated facade-only compatibility envelope notes near packet/receipt assembly wrappers",
+    ),
+}
+
 # Phase 21 explicit inventory anchors for file ownership readability.
 _STABLE_PUBLIC_AUTHORITY_API = (
     "synthesize_orchestration_intent",
