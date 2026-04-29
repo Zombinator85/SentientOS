@@ -43,6 +43,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_export_packet_consumer_receipt,
     resolve_current_orchestration_handoff_acceptance_posture,
     resolve_current_orchestration_transition_brief,
+    resolve_current_orchestration_bundle,
     resolve_current_orchestration_wake_readiness_detector,
     resolve_current_orchestration_watchpoint_brief,
     derive_next_venue_recommendation,

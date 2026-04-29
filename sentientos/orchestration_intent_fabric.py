@@ -5771,6 +5771,40 @@ def resolve_current_orchestration_handoff_acceptance_posture(
     )
 
 
+
+
+def resolve_current_orchestration_bundle(
+    repo_root: Path,
+    **shared_inputs: Any,
+) -> dict[str, Any]:
+    """Facade compatibility wrapper for centralized projection-owned current orchestration bundle."""
+
+    return _CURRENT_STATE_PROJECTIONS.resolve_current_orchestration_bundle_projection(
+        repo_root,
+        resolve_current_orchestration_state=resolve_current_orchestration_state,
+        resolve_current_orchestration_watchpoint=resolve_current_orchestration_watchpoint,
+        resolve_watchpoint_satisfaction=resolve_watchpoint_satisfaction,
+        resolve_re_evaluation_trigger_recommendation=resolve_re_evaluation_trigger_recommendation,
+        resolve_current_orchestration_resumption_candidate=resolve_current_orchestration_resumption_candidate,
+        resolve_current_resumed_operation_readiness_verdict=resolve_current_resumed_operation_readiness_verdict,
+        resolve_current_orchestration_watchpoint_brief=resolve_current_orchestration_watchpoint_brief,
+        resolve_current_orchestration_pressure_signal=resolve_current_orchestration_pressure_signal,
+        resolve_current_orchestration_wake_readiness_detector=resolve_current_orchestration_wake_readiness_detector,
+        resolve_current_re_evaluation_basis_brief=resolve_current_re_evaluation_basis_brief,
+        resolve_current_orchestration_next_move_brief=resolve_current_orchestration_next_move_brief,
+        resolve_current_orchestration_handoff_packet_brief=resolve_current_orchestration_handoff_packet_brief,
+        resolve_current_operator_facing_orchestration_brief=resolve_current_operator_facing_orchestration_brief,
+        resolve_current_orchestration_resolution_path_brief=resolve_current_orchestration_resolution_path_brief,
+        resolve_current_orchestration_closure_brief=resolve_current_orchestration_closure_brief,
+        resolve_current_orchestration_coherence_brief=resolve_current_orchestration_coherence_brief,
+        resolve_current_orchestration_digest=resolve_current_orchestration_digest,
+        resolve_current_orchestration_transition_brief=resolve_current_orchestration_transition_brief,
+        resolve_current_orchestration_export_packet=resolve_current_orchestration_export_packet,
+        resolve_current_orchestration_export_packet_consumer_receipt=resolve_current_orchestration_export_packet_consumer_receipt,
+        resolve_current_orchestration_handoff_acceptance_posture=resolve_current_orchestration_handoff_acceptance_posture,
+        **shared_inputs,
+    )
+
 def derive_next_move_proposal_review(
     repo_root: Path,
     *,

@@ -4940,3 +4940,78 @@ def resolve_current_orchestration_export_packet_projection(
             },
         ),
     }
+
+
+
+def resolve_current_orchestration_bundle_projection(
+    repo_root: Path,
+    *,
+    resolve_current_orchestration_state: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_watchpoint: Callable[..., dict[str, Any]],
+    resolve_watchpoint_satisfaction: Callable[..., dict[str, Any]],
+    resolve_re_evaluation_trigger_recommendation: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_resumption_candidate: Callable[..., dict[str, Any]],
+    resolve_current_resumed_operation_readiness_verdict: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_watchpoint_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_pressure_signal: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_wake_readiness_detector: Callable[..., dict[str, Any]],
+    resolve_current_re_evaluation_basis_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_next_move_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_handoff_packet_brief: Callable[..., dict[str, Any]],
+    resolve_current_operator_facing_orchestration_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_resolution_path_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_closure_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_coherence_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_digest: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_transition_brief: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_export_packet: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_export_packet_consumer_receipt: Callable[..., dict[str, Any]],
+    resolve_current_orchestration_handoff_acceptance_posture: Callable[..., dict[str, Any]],
+    **shared_inputs: Any,
+) -> dict[str, Any]:
+    """Build centralized current-orchestration bundle in stable observational order."""
+
+    state = resolve_current_orchestration_state(repo_root, **shared_inputs)
+    watchpoint = resolve_current_orchestration_watchpoint(repo_root, current_orchestration_state=state, **shared_inputs)
+    satisfaction = resolve_watchpoint_satisfaction(
+        repo_root,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        **shared_inputs,
+    )
+    re_eval = resolve_re_evaluation_trigger_recommendation(
+        repo_root,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        **shared_inputs,
+    )
+    resumption = resolve_current_orchestration_resumption_candidate(
+        repo_root,
+        current_orchestration_state=state,
+        current_orchestration_watchpoint=watchpoint,
+        watchpoint_satisfaction=satisfaction,
+        re_evaluation_trigger_recommendation=re_eval,
+        **shared_inputs,
+    )
+    readiness = resolve_current_resumed_operation_readiness_verdict(
+        repo_root,
+        current_orchestration_resumption_candidate=resumption,
+        **shared_inputs,
+    )
+    watchpoint_brief = resolve_current_orchestration_watchpoint_brief(repo_root,current_orchestration_watchpoint=watchpoint,watchpoint_satisfaction=satisfaction,**shared_inputs)
+    pressure = resolve_current_orchestration_pressure_signal(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,**shared_inputs)
+    wake = resolve_current_orchestration_wake_readiness_detector(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_pressure_signal=pressure,**shared_inputs)
+    basis = resolve_current_re_evaluation_basis_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_pressure_signal=pressure,current_orchestration_wake_readiness_detector=wake,**shared_inputs)
+    next_move = resolve_current_orchestration_next_move_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,**shared_inputs)
+    handoff = resolve_current_orchestration_handoff_packet_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,**shared_inputs)
+    operator = resolve_current_operator_facing_orchestration_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,**shared_inputs)
+    resolution = resolve_current_orchestration_resolution_path_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,**shared_inputs)
+    closure = resolve_current_orchestration_closure_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,**shared_inputs)
+    coherence = resolve_current_orchestration_coherence_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_closure_brief=closure,**shared_inputs)
+    digest = resolve_current_orchestration_digest(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_closure_brief=closure,current_orchestration_coherence_brief=coherence,**shared_inputs)
+    transition = resolve_current_orchestration_transition_brief(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_closure_brief=closure,current_orchestration_coherence_brief=coherence,current_orchestration_digest=digest,**shared_inputs)
+    export_packet = resolve_current_orchestration_export_packet(repo_root,current_orchestration_state=state,current_orchestration_watchpoint=watchpoint,current_orchestration_watchpoint_brief=watchpoint_brief,watchpoint_satisfaction=satisfaction,re_evaluation_trigger_recommendation=re_eval,current_re_evaluation_basis_brief=basis,current_orchestration_resumption_candidate=resumption,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,current_orchestration_pressure_signal=pressure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_closure_brief=closure,current_orchestration_coherence_brief=coherence,current_orchestration_digest=digest,current_orchestration_transition_brief=transition,**shared_inputs)
+    receipt = resolve_current_orchestration_export_packet_consumer_receipt(repo_root,current_orchestration_export_packet=export_packet,current_orchestration_digest=digest,current_orchestration_coherence_brief=coherence,current_orchestration_transition_brief=transition,current_orchestration_closure_brief=closure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_pressure_signal=pressure,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,**shared_inputs)
+    acceptance = resolve_current_orchestration_handoff_acceptance_posture(repo_root,current_orchestration_export_packet=export_packet,current_orchestration_export_packet_consumer_receipt=receipt,current_orchestration_digest=digest,current_orchestration_coherence_brief=coherence,current_orchestration_transition_brief=transition,current_orchestration_closure_brief=closure,current_orchestration_next_move_brief=next_move,current_orchestration_handoff_packet_brief=handoff,current_operator_facing_orchestration_brief=operator,current_orchestration_resolution_path_brief=resolution,current_orchestration_pressure_signal=pressure,current_resumed_operation_readiness=readiness,current_orchestration_wake_readiness_detector=wake,**shared_inputs)
+    return {"current_orchestration_state": state, "current_orchestration_watchpoint": watchpoint, "watchpoint_satisfaction": satisfaction, "re_evaluation_trigger_recommendation": re_eval, "current_orchestration_resumption_candidate": resumption, "current_resumed_operation_readiness": readiness, "current_orchestration_watchpoint_brief": watchpoint_brief, "current_orchestration_pressure_signal": pressure, "current_orchestration_wake_readiness_detector": wake, "current_re_evaluation_basis_brief": basis, "current_orchestration_next_move_brief": next_move, "current_orchestration_handoff_packet_brief": handoff, "current_operator_facing_orchestration_brief": operator, "current_orchestration_resolution_path_brief": resolution, "current_orchestration_closure_brief": closure, "current_orchestration_coherence_brief": coherence, "current_orchestration_digest": digest, "current_orchestration_transition_brief": transition, "current_orchestration_export_packet": export_packet, "current_orchestration_export_packet_consumer_receipt": receipt, "current_orchestration_handoff_acceptance_posture": acceptance}
