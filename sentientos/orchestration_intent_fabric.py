@@ -78,6 +78,12 @@ _FACADE_LEDGER_ASSEMBLY_READINESS = {
     "future_split_ready_mechanical": (
         "_normalized_compact_string_refs helper (string trimming/filter only)",
         "_handoff_evidence_pointers pointer deduplication/order preservation helper",
+        "_staged_work_order_id deterministic id payload builder",
+        "_fulfillment_receipt_id deterministic id payload builder",
+        "_operator_resolution_receipt_id deterministic id payload builder",
+        "_build_staged_external_work_order status-classification branch",
+        "_resolve_staged_external_work_order_lifecycle lifecycle-state classification branch",
+        "ingest_operator_resolution_receipt resolution lifecycle-state mapping",
     ),
     "facade_adjacent_but_not_split_ready": (
         "handoff packet envelope shaping linked to public facade schema stability",
@@ -859,13 +865,11 @@ def _default_admission_policy() -> task_admission.AdmissionPolicy:
 
 
 def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix: str) -> str:
-    return _stable_prefixed_id(
-        f"{prefix}-wo",
-        {
-            "created_at": created_at,
-            "intent_id": str(intent.get("intent_id") or ""),
-            "source_judgment": dict(intent.get("source_delegated_judgment") or {}),
-        },
+    return _FACADE_MECHANICAL_ASSEMBLY.staged_work_order_id(
+        intent,
+        created_at,
+        prefix=prefix,
+        stable_prefixed_id=_stable_prefixed_id,
     )
 
 
@@ -940,14 +944,12 @@ def _fulfillment_receipt_id(
     venue: str,
     fulfillment_kind: str,
 ) -> str:
-    return _stable_prefixed_id(
-        "frc",
-        {
-            "created_at": created_at,
-            "handoff_packet_id": handoff_packet_id,
-            "venue": venue,
-            "fulfillment_kind": fulfillment_kind,
-        },
+    return _FACADE_MECHANICAL_ASSEMBLY.fulfillment_receipt_id(
+        created_at=created_at,
+        handoff_packet_id=handoff_packet_id,
+        venue=venue,
+        fulfillment_kind=fulfillment_kind,
+        stable_prefixed_id=_stable_prefixed_id,
     )
 
 
@@ -957,13 +959,11 @@ def _operator_resolution_receipt_id(
     operator_action_brief_id: str,
     resolution_kind: str,
 ) -> str:
-    return _stable_prefixed_id(
-        "orr",
-        {
-            "created_at": created_at,
-            "operator_action_brief_id": operator_action_brief_id,
-            "resolution_kind": resolution_kind,
-        },
+    return _FACADE_MECHANICAL_ASSEMBLY.operator_resolution_receipt_id(
+        created_at=created_at,
+        operator_action_brief_id=operator_action_brief_id,
+        resolution_kind=resolution_kind,
+        stable_prefixed_id=_stable_prefixed_id,
     )
 
 
@@ -1034,15 +1034,10 @@ def _build_staged_external_work_order(
     source = intent.get("source_delegated_judgment")
     source_map = source if isinstance(source, Mapping) else {}
     posture = str(intent.get("required_authority_posture") or "insufficient_context_blocked")
-    if handoff_outcome == "blocked_by_operator_requirement":
-        status = "blocked_operator_required"
-    elif handoff_outcome == "blocked_by_insufficient_context":
-        status = "blocked_insufficient_context"
-    else:
-        status = "staged"
-
-    if status not in _STAGED_EXTERNAL_WORK_ORDER_STATUSES:
-        status = "blocked_insufficient_context"
+    status = _FACADE_MECHANICAL_ASSEMBLY.staged_external_work_order_status(
+        handoff_outcome,
+        staged_external_work_order_statuses=_STAGED_EXTERNAL_WORK_ORDER_STATUSES,
+    )
 
     work_order = {
         "schema_version": schema_version,
@@ -1135,22 +1130,13 @@ def _resolve_staged_external_work_order_lifecycle(
     linked = [row for row in records if str(row.get("source_intent_id") or "") == intent_id]
     latest = linked[-1] if linked else None
     handoff_outcome = str(handoff.get("handoff_outcome") or "")
-
-    if latest is None:
-        lifecycle_state = "fragmented_unlinked_work_order_state"
-    elif handoff_outcome == "blocked_by_operator_requirement":
-        lifecycle_state = "blocked_operator_required"
-    elif handoff_outcome == "blocked_by_insufficient_context":
-        lifecycle_state = "blocked_insufficient_context"
-    elif str(latest.get("status") or "") == "staged":
-        lifecycle_state = "staged_cleanly"
-    elif str(latest.get("status") or "") == "fulfilled_externally_unverified":
-        lifecycle_state = "fulfilled_externally_with_issues"
-    else:
-        lifecycle_state = "fragmented_unlinked_work_order_state"
-
-    if lifecycle_state not in _STAGED_EXTERNAL_LIFECYCLE_STATES:
-        lifecycle_state = "fragmented_unlinked_work_order_state"
+    latest_status = str(latest.get("status") or "") if isinstance(latest, Mapping) else ""
+    lifecycle_state = _FACADE_MECHANICAL_ASSEMBLY.staged_external_work_order_lifecycle_state(
+        handoff_outcome=handoff_outcome,
+        latest_work_order_status=latest_status,
+        work_order_present=latest is not None,
+        staged_external_lifecycle_states=_STAGED_EXTERNAL_LIFECYCLE_STATES,
+    )
 
     lifecycle = {
         "schema_version": schema_version,
@@ -3457,15 +3443,7 @@ def ingest_operator_resolution_receipt(
     # Mechanical assembly only: compact refs preserve append-only readability.
     normalized_refs = _normalized_compact_string_refs(updated_context_refs)
     timestamp = created_at or _iso_utc_now()
-    resolution_state = {
-        "approved_continue": "operator_approved_continue",
-        "approved_with_constraints": "operator_approved_with_constraints",
-        "declined": "operator_declined",
-        "deferred": "operator_deferred",
-        "supplied_missing_context": "operator_supplied_missing_context",
-        "redirected_venue": "operator_redirected",
-        "cancelled": "operator_declined",
-    }[resolution_kind]
+    resolution_state = _FACADE_MECHANICAL_ASSEMBLY.operator_resolution_lifecycle_state(resolution_kind)
 
     receipt = {
         "schema_version": "operator_resolution_receipt.v1",
