@@ -13,7 +13,9 @@ from sentientos.orchestration_spine.projection import (
     PROJECTION_FAMILY_POLICY,
     current_state,
     policy_helpers,
+    resolve_current_orchestration_bundle_projection,
 )
+from sentientos.orchestration_intent_fabric import resolve_current_orchestration_bundle
 
 
 def test_projection_policy_compatibility_shim_exports_same_callable() -> None:
@@ -29,7 +31,13 @@ def test_projection_module_exposes_documented_family_inventory() -> None:
     assert PROJECTION_FAMILY_CURRENT_STATE == "current_state"
     assert PROJECTION_FAMILY_POLICY == "policy"
     assert "resolve_current_orchestration_digest" in current_state.CURRENT_STATE_PROJECTION_FAMILY_PICTURE_COMPRESSION
+    assert resolve_current_orchestration_bundle_projection is current_state.resolve_current_orchestration_bundle_projection
     assert "derive_next_venue_projection" in policy_helpers.POLICY_PROJECTION_FAMILY_RECOMMENDATION
+
+
+def test_bundle_exports_available_from_projection_and_facade() -> None:
+    assert callable(resolve_current_orchestration_bundle_projection)
+    assert callable(resolve_current_orchestration_bundle)
 
 
 def test_adapter_module_exposes_documented_family_inventory() -> None:

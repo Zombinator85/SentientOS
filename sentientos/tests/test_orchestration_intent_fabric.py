@@ -62,6 +62,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_current_orchestration_export_packet,
     resolve_current_orchestration_export_packet_consumer_receipt,
     resolve_current_orchestration_handoff_acceptance_posture,
+    resolve_current_orchestration_bundle,
     resolve_current_orchestration_transition_brief,
     resolve_current_operator_facing_orchestration_brief,
     resolve_current_orchestration_resumption_candidate,
@@ -251,6 +252,76 @@ def _mock_unified_surface(
             "fragmented_linkage_count": fragmented_linkage_count,
         },
     )
+
+
+def test_current_orchestration_bundle_contract_matrix_shape() -> None:
+    bundle = resolve_current_orchestration_bundle(Path("."))
+    required_keys = {
+        "current_orchestration_state",
+        "current_orchestration_watchpoint",
+        "watchpoint_satisfaction",
+        "current_orchestration_watchpoint_satisfaction",
+        "re_evaluation_trigger_recommendation",
+        "current_orchestration_resumption_candidate",
+        "current_resumed_operation_readiness",
+        "current_orchestration_watchpoint_brief",
+        "current_orchestration_pressure_signal",
+        "current_orchestration_wake_readiness_detector",
+        "current_re_evaluation_basis_brief",
+        "current_orchestration_next_move_brief",
+        "current_orchestration_handoff_packet_brief",
+        "current_operator_facing_orchestration_brief",
+        "current_orchestration_resolution_path_brief",
+        "current_orchestration_closure_brief",
+        "current_orchestration_coherence_brief",
+        "current_orchestration_digest",
+        "current_orchestration_transition_brief",
+        "current_orchestration_export_packet",
+        "current_orchestration_export_packet_consumer_receipt",
+        "current_orchestration_handoff_acceptance_posture",
+        "current_orchestration_watchpoint_summary",
+    }
+    assert required_keys.issubset(bundle.keys())
+    assert bundle["watchpoint_satisfaction"] == bundle["current_orchestration_watchpoint_satisfaction"]
+    assert bundle["current_orchestration_watchpoint_summary"] == bundle["current_orchestration_watchpoint_brief"]
+
+
+def test_scoped_diagnostic_reads_current_orchestration_bundle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sentinel = {"bundle_contract": "phase30"}
+
+    def _fake_bundle(*_args, **_kwargs):
+        return {
+            "current_orchestration_state": sentinel,
+            "current_orchestration_watchpoint": {},
+            "watchpoint_satisfaction": {},
+            "current_orchestration_watchpoint_satisfaction": {},
+            "re_evaluation_trigger_recommendation": {},
+            "current_orchestration_resumption_candidate": {},
+            "current_resumed_operation_readiness": {},
+            "current_orchestration_watchpoint_brief": {},
+            "current_orchestration_pressure_signal": {},
+            "current_orchestration_wake_readiness_detector": {},
+            "current_re_evaluation_basis_brief": {},
+            "current_orchestration_next_move_brief": {},
+            "current_orchestration_handoff_packet_brief": {},
+            "current_operator_facing_orchestration_brief": {},
+            "current_orchestration_resolution_path_brief": {},
+            "current_orchestration_closure_brief": {},
+            "current_orchestration_coherence_brief": {},
+            "current_orchestration_digest": {},
+            "current_orchestration_transition_brief": {},
+            "current_orchestration_export_packet": {},
+            "current_orchestration_export_packet_consumer_receipt": {},
+            "current_orchestration_handoff_acceptance_posture": {},
+            "current_orchestration_watchpoint_summary": {},
+        }
+
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_current_orchestration_bundle",
+        _fake_bundle,
+    )
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    assert diagnostic["orchestration_handoff"]["current_orchestration_state"] == sentinel
 
 
 def test_deep_research_judgment_translates_to_stageable_external_work_order() -> None:
