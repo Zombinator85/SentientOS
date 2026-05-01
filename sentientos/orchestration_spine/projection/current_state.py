@@ -5346,5 +5346,5 @@ def resolve_current_orchestration_bundle_projection(
         "current_orchestration_export_packet": export_packet,
         "current_orchestration_export_packet_consumer_receipt": receipt,
         "current_orchestration_handoff_acceptance_posture": acceptance,
+        "current_orchestration_watchpoint_summary": watchpoint_brief,
     }
-
