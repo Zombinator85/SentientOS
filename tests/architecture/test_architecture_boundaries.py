@@ -388,3 +388,36 @@ def test_phase43_embodiment_fusion_manifest_contract() -> None:
     assert layer["no_direct_hardware_access"] is True
     assert layer["no_direct_memory_write"] is True
     assert layer["no_action_trigger"] is True
+
+def test_phase44_embodiment_ingress_manifest_and_import_boundaries() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_ingress"]
+    assert layer["proposal_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_direct_memory_write"] is True
+    text = (ROOT / "sentientos/embodiment_ingress.py").read_text(encoding="utf-8")
+    banned = [
+        "import task_executor",
+        "import task_admission",
+        "import control_plane",
+        "import memory_manager",
+        "import mic_bridge",
+        "import feedback",
+        "import vision_tracker",
+        "import multimodal_tracker",
+        "import screen_awareness",
+    ]
+    for marker in banned:
+        assert marker not in text
+
+
+def test_phase44_no_new_direct_sink_mutation_in_perception_fusion_ingress() -> None:
+    for rel in [
+        "sentientos/embodiment_fusion.py",
+        "sentientos/embodiment_ingress.py",
+        "sentientos/perception_api.py",
+    ]:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "append_memory(" not in text
+        assert "task_executor" not in text
+        assert "task_admission" not in text

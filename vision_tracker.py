@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Optional
 from logging_config import get_log_path
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_vision_observation
+from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress
 
 HEADLESS = is_headless()
 
@@ -162,6 +164,7 @@ class FaceEmotionTracker:
     def log_result(self, data: Dict[str, Any]) -> None:
         payload = normalize_vision_observation(faces=data.get("faces", []), timestamp=float(data.get("timestamp", time.time())))
         _ = emit_legacy_perception_telemetry("vision", payload, source_module="vision_tracker", privacy_class="restricted", legacy_quarantine=True, quarantine_risk="biometric_emotion")
+        _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
 

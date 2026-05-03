@@ -21,6 +21,8 @@ import importlib
 import os
 from pathlib import Path
 from sentientos.perception_api import build_feedback_observation, emit_legacy_perception_telemetry
+from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import json
 import uuid
@@ -109,6 +111,7 @@ class FeedbackManager:
                 action_id = uuid.uuid4().hex
                 observation = build_feedback_observation(user=user_id, emotion=rule.emotion, value=value, action=rule.action, timestamp=ts)
                 _ = emit_legacy_perception_telemetry("feedback", observation, source_module="feedback", can_trigger_actions=True, legacy_quarantine=True, quarantine_risk="action_side_effects")
+                _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
                 entry = {"id": action_id, "time": ts, **observation}
                 self.history.append(entry)
                 self.log_path.parent.mkdir(parents=True, exist_ok=True)

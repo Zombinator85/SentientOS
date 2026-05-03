@@ -35,6 +35,8 @@ if is_headless():
 
 from memory_manager import append_memory
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_audio_observation
+from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress
 
 
 class MicResult(TypedDict):
@@ -124,6 +126,7 @@ def recognize_from_mic(save_audio: bool = True) -> MicResult:
 
     _obs = normalize_audio_observation(message=text, source="mic", audio_file=str(audio_path) if audio_path else None, emotion_features=features)
     _ = emit_legacy_perception_telemetry("audio", _obs, source_module="mic_bridge", can_write_memory=True, legacy_quarantine=True, quarantine_risk="memory_write")
+    _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
     return {
         "message": text,
         "source": "mic",
@@ -170,6 +173,7 @@ def recognize_from_file(path: str) -> MicResult:
 
     _obs = normalize_audio_observation(message=text, source="file", audio_file=path, emotion_features=features)
     _ = emit_legacy_perception_telemetry("audio", _obs, source_module="mic_bridge", can_write_memory=True, legacy_quarantine=True, quarantine_risk="memory_write")
+    _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
     return {
         "message": text,
         "source": "file",
