@@ -7,27 +7,26 @@ import argparse
 import json
 import os
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-import attestation
-import relationship_log as rl
+from sentientos.ritual_api import add_attestation, ritual_attestations_history, ritual_events_history
 def cmd_attest(args) -> None:
     user = args.user or os.getenv("USER", "anon")
-    attestation.add(args.event, user, comment=args.comment or "", quote=args.quote or "")
+    add_attestation(args.event, user, comment=args.comment or "", quote=args.quote or "")
     print("Attestation recorded")
 
 
 def cmd_export(args) -> None:
     user = args.user
-    events = rl.history(user if user != "all" else None, limit=100000)
-    attest = attestation.history(None, limit=100000)
+    events = ritual_events_history(user if user != "all" else None, limit=100000)
+    attest = ritual_attestations_history(None, limit=100000)
     data = {"events": events, "attestations": attest}
     print(json.dumps(data, indent=2))
 
 
 def cmd_timeline(args) -> None:
-    events = rl.history(args.user if args.user else None, limit=1000)
+    events = ritual_events_history(args.user if args.user else None, limit=1000)
     for e in events:
         print(f"{e.get('time')} {e.get('event')} by {e.get('user')}")
-        atts = attestation.history(e.get("id"), limit=100)
+        atts = ritual_attestations_history(e.get("id"), limit=100)
         for a in atts:
             c = a.get("comment", "")
             print(f"  witness {a.get('user')}: {c}")

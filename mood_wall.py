@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import ledger
+from sentientos.dashboard_api import log_mood_blessing
 from sentientos.ledger_api import append_audit_record
 try:
     import requests  # type: ignore[import-untyped]  # HTTP client optional
@@ -59,7 +59,7 @@ def top_moods(events: List[Dict[str, object]]) -> Dict[str, int]:
 
 def bless_mood(mood: str, user: str, message: str = "") -> Dict[str, str]:
     phrase = message or f"{user} blesses {mood}"
-    return ledger.log_mood_blessing(user, "public", {mood: 1.0}, phrase)
+    return log_mood_blessing(user, mood, phrase)
 
 
 def sync_wall(peer_log: Path) -> int:
