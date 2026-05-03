@@ -100,6 +100,28 @@
         "sentientos.authority_surface",
         "sentientos.introspection.spine"
       ]
+    },
+    "embodiment_fusion": {
+      "module_globs": [
+        "sentientos/embodiment_fusion.py"
+      ],
+      "classification": "canonical_derived_fusion",
+      "derived_only": true,
+      "non_authoritative": true,
+      "no_direct_hardware_access": true,
+      "no_direct_memory_write": true,
+      "no_action_trigger": true,
+      "forbidden_import_patterns": [
+        "control_plane",
+        "task_admission",
+        "task_executor",
+        "sentientos.authority_surface",
+        "feedback",
+        "screen_awareness",
+        "vision_tracker",
+        "mic_bridge",
+        "multimodal_tracker"
+      ]
     }
   },
   "protected_sinks": {

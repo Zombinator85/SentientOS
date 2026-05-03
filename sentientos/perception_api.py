@@ -126,6 +126,22 @@ def build_feedback_observation(*, user: int, emotion: str, value: float, action:
     return {"timestamp": float(timestamp or time.time()), "user": user, "emotion": emotion, "value": value, "action": action, "action_approved": False}
 
 
+def normalize_perception_correlation_id(event: Mapping[str, Any]) -> str | None:
+    value = event.get("correlation_id")
+    if value is None and isinstance(event.get("observation"), Mapping):
+        value = event["observation"].get("correlation_id")
+    return str(value) if value not in (None, "") else None
+
+
+def normalize_perception_risk_flags(event: Mapping[str, Any]) -> dict[str, bool]:
+    modality = str(event.get("modality", ""))
+    return {
+        "can_trigger_actions": bool(event.get("can_trigger_actions", False)),
+        "can_write_memory": bool(event.get("can_write_memory", False)),
+        "biometric_or_emotion_sensitive": modality in {"audio", "vision", "feedback", "multimodal", "gaze"},
+    }
+
+
 def quarantine_legacy_perception_event(modality: str, observation: Mapping[str, Any], *, source: str, risk: str) -> dict[str, Any]:
     return build_pulse_compatible_perception_event(modality, observation, source_module=source, legacy_quarantine=True, quarantine_risk=risk)
 
@@ -143,4 +159,6 @@ __all__ = [
     "normalize_multimodal_observation",
     "build_feedback_observation",
     "quarantine_legacy_perception_event",
+    "normalize_perception_correlation_id",
+    "normalize_perception_risk_flags",
 ]
