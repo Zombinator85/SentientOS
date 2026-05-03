@@ -14,7 +14,10 @@ Projection family inventory (documentation-only):
 """
 
 from . import current_state, policy_helpers
-from .current_state import resolve_current_orchestration_bundle_projection
+from .current_state import (
+    build_current_orchestration_diagnostic_summary_projection,
+    resolve_current_orchestration_bundle_projection,
+)
 
 PROJECTION_FAMILY_CURRENT_STATE = "current_state"
 PROJECTION_FAMILY_POLICY = "policy"
@@ -30,4 +33,5 @@ __all__ = [
     "PROJECTION_FAMILY_POLICY",
     "PROJECTION_FAMILIES",
     "resolve_current_orchestration_bundle_projection",
+    "build_current_orchestration_diagnostic_summary_projection",
 ]

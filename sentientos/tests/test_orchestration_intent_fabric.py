@@ -283,7 +283,8 @@ def test_current_orchestration_bundle_contract_matrix_shape() -> None:
     }
     assert required_keys.issubset(bundle.keys())
     assert bundle["watchpoint_satisfaction"] == bundle["current_orchestration_watchpoint_satisfaction"]
-    assert bundle["current_orchestration_watchpoint_summary"] == bundle["current_orchestration_watchpoint_brief"]
+    assert bundle["current_orchestration_watchpoint_brief_summary"] == bundle["current_orchestration_watchpoint_brief"]
+    assert bundle["current_orchestration_watchpoint_summary"]["current_watchpoint_class"] == bundle["current_orchestration_watchpoint"].get("watchpoint_class")
 
 
 def test_scoped_diagnostic_reads_current_orchestration_bundle(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
