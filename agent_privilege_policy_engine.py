@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
 
-from cathedral_const import log_json
+from sentientos.formal_logging import log_json
 
 LOG_PATH = get_log_path("privilege_policy.jsonl", "PRIVILEGE_POLICY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
