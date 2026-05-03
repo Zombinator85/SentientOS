@@ -4943,6 +4943,129 @@ def resolve_current_orchestration_export_packet_projection(
 
 
 
+
+def build_current_orchestration_diagnostic_summary_projection(
+    *,
+    current_orchestration_state: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint: Mapping[str, Any] | None = None,
+    watchpoint_satisfaction: Mapping[str, Any] | None = None,
+    re_evaluation_trigger_recommendation: Mapping[str, Any] | None = None,
+    current_orchestration_resumption_candidate: Mapping[str, Any] | None = None,
+    current_resumed_operation_readiness: Mapping[str, Any] | None = None,
+    current_orchestration_watchpoint_brief: Mapping[str, Any] | None = None,
+    current_orchestration_pressure_signal: Mapping[str, Any] | None = None,
+    current_orchestration_wake_readiness_detector: Mapping[str, Any] | None = None,
+    current_re_evaluation_basis_brief: Mapping[str, Any] | None = None,
+    current_orchestration_next_move_brief: Mapping[str, Any] | None = None,
+    current_orchestration_handoff_packet_brief: Mapping[str, Any] | None = None,
+    current_operator_facing_orchestration_brief: Mapping[str, Any] | None = None,
+    current_orchestration_resolution_path_brief: Mapping[str, Any] | None = None,
+    current_orchestration_closure_brief: Mapping[str, Any] | None = None,
+    current_orchestration_coherence_brief: Mapping[str, Any] | None = None,
+    current_orchestration_digest: Mapping[str, Any] | None = None,
+    current_orchestration_transition_brief: Mapping[str, Any] | None = None,
+    current_orchestration_export_packet: Mapping[str, Any] | None = None,
+    current_orchestration_export_packet_consumer_receipt: Mapping[str, Any] | None = None,
+    current_orchestration_handoff_acceptance_posture: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    state_map = current_orchestration_state if isinstance(current_orchestration_state, Mapping) else {}
+    watchpoint_map = current_orchestration_watchpoint if isinstance(current_orchestration_watchpoint, Mapping) else {}
+    satisfaction_map = watchpoint_satisfaction if isinstance(watchpoint_satisfaction, Mapping) else {}
+    reevaluation_map = re_evaluation_trigger_recommendation if isinstance(re_evaluation_trigger_recommendation, Mapping) else {}
+    resumption_map = current_orchestration_resumption_candidate if isinstance(current_orchestration_resumption_candidate, Mapping) else {}
+    readiness_map = current_resumed_operation_readiness if isinstance(current_resumed_operation_readiness, Mapping) else {}
+    watchpoint_brief_map = current_orchestration_watchpoint_brief if isinstance(current_orchestration_watchpoint_brief, Mapping) else {}
+    pressure_map = current_orchestration_pressure_signal if isinstance(current_orchestration_pressure_signal, Mapping) else {}
+    wake_map = current_orchestration_wake_readiness_detector if isinstance(current_orchestration_wake_readiness_detector, Mapping) else {}
+    basis_map = current_re_evaluation_basis_brief if isinstance(current_re_evaluation_basis_brief, Mapping) else {}
+    next_move_map = current_orchestration_next_move_brief if isinstance(current_orchestration_next_move_brief, Mapping) else {}
+    handoff_map = current_orchestration_handoff_packet_brief if isinstance(current_orchestration_handoff_packet_brief, Mapping) else {}
+    operator_map = current_operator_facing_orchestration_brief if isinstance(current_operator_facing_orchestration_brief, Mapping) else {}
+    resolution_map = current_orchestration_resolution_path_brief if isinstance(current_orchestration_resolution_path_brief, Mapping) else {}
+    closure_map = current_orchestration_closure_brief if isinstance(current_orchestration_closure_brief, Mapping) else {}
+    coherence_map = current_orchestration_coherence_brief if isinstance(current_orchestration_coherence_brief, Mapping) else {}
+    digest_map = current_orchestration_digest if isinstance(current_orchestration_digest, Mapping) else {}
+    transition_map = current_orchestration_transition_brief if isinstance(current_orchestration_transition_brief, Mapping) else {}
+    export_packet_map = current_orchestration_export_packet if isinstance(current_orchestration_export_packet, Mapping) else {}
+    receipt_map = current_orchestration_export_packet_consumer_receipt if isinstance(current_orchestration_export_packet_consumer_receipt, Mapping) else {}
+    acceptance_map = current_orchestration_handoff_acceptance_posture if isinstance(current_orchestration_handoff_acceptance_posture, Mapping) else {}
+
+    return {
+        "current_orchestration_state": state_map.get("current_supervisory_state"),
+        "current_watchpoint_class": watchpoint_map.get("watchpoint_class"),
+        "watchpoint_class": watchpoint_map.get("watchpoint_class"),
+        "watchpoint_satisfaction_status": satisfaction_map.get("satisfaction_status"),
+        "current_watchpoint_satisfaction_status": satisfaction_map.get("satisfaction_status"),
+        "expected_actor": watchpoint_map.get("expected_actor"),
+        "expected_signal_type": watchpoint_map.get("expected_signal_type"),
+        "current_watchpoint_expected_actor": watchpoint_map.get("expected_actor"),
+        "current_watchpoint_expected_signal_type": watchpoint_map.get("expected_signal_type"),
+        "satisfaction_status": satisfaction_map.get("satisfaction_status"),
+        "satisfied_by_actor": satisfaction_map.get("satisfied_by_actor"),
+        "satisfied_by_signal_type": satisfaction_map.get("satisfied_by_signal_type"),
+        "re_evaluation_trigger_recommendation": reevaluation_map.get("recommendation"),
+        "current_re_evaluation_trigger_recommendation": reevaluation_map.get("recommendation"),
+        "re_evaluation_expected_actor": reevaluation_map.get("expected_actor"),
+        "current_resumption_candidate_mode": resumption_map.get("bounded_resume_mode"),
+        "current_resumption_continuity_posture": resumption_map.get("continuity_posture"),
+        "current_resumption_candidate_continuity_posture": resumption_map.get("continuity_posture"),
+        "current_resumed_operation_readiness_verdict": readiness_map.get("resumed_operation_readiness_verdict"),
+        "current_resumed_operation_readiness_id": readiness_map.get("current_resumed_operation_readiness_id"),
+        "current_watchpoint_wait_kind": watchpoint_brief_map.get("wait_kind"),
+        "watchpoint_brief_requires_conservative_hold": (watchpoint_brief_map.get("watchpoint_posture") or {}).get("requires_conservative_hold"),
+        "watchpoint_brief_resumed_work_currently_possible": (watchpoint_brief_map.get("watchpoint_posture") or {}).get("resumed_work_currently_possible"),
+        "current_pressure_classification": pressure_map.get("pressure_classification"),
+        "current_pressure_primary_driver": pressure_map.get("primary_pressure_driver"),
+        "current_pressure_resumed_work_plausible": pressure_map.get("resumed_work_plausible_despite_pressure"),
+        "current_wake_readiness_classification": wake_map.get("wake_readiness_classification"),
+        "current_wake_readiness_posture": wake_map.get("result_posture"),
+        "current_re_evaluation_basis_classification": basis_map.get("basis_classification"),
+        "current_re_evaluation_basis_primary_driver": basis_map.get("primary_driver"),
+        "current_re_evaluation_basis_posture": basis_map.get("posture"),
+        "current_next_move_brief_classification": next_move_map.get("next_move_classification"),
+        "current_next_move_classification": next_move_map.get("next_move_classification"),
+        "current_next_move_posture": next_move_map.get("next_move_posture"),
+        "current_next_move_continues_existing_packet": next_move_map.get("continues_existing_packet"),
+        "current_handoff_packet_brief_classification": handoff_map.get("handoff_packet_brief_classification"),
+        "current_handoff_packet_continues_active_packet": handoff_map.get("continues_active_packet"),
+        "current_handoff_packet_refreshed_packet_implied": handoff_map.get("refreshed_packet_implied"),
+        "current_operator_facing_classification": operator_map.get("operator_facing_classification"),
+        "current_operator_facing_loop_posture": operator_map.get("loop_posture"),
+        "current_operator_facing_informational_only": operator_map.get("informational_only"),
+        "current_resolution_path_classification": resolution_map.get("resolution_path_classification"),
+        "current_resolution_path_centered_on": resolution_map.get("centered_on"),
+        "current_resolution_path_posture": resolution_map.get("path_posture"),
+        "current_resolution_path_chain_active": resolution_map.get("wake_resumption_next_move_chain_materially_active"),
+        "current_closure_classification": closure_map.get("closure_classification"),
+        "current_closure_primary_waiting_on": closure_map.get("closure_primary_waiting_on"),
+        "current_closure_posture": closure_map.get("closure_posture"),
+        "current_closure_chain_reachable": closure_map.get("wake_resumption_next_move_chain_points_to_reachable_closure"),
+        "current_coherence_classification": coherence_map.get("coherence_classification"),
+        "current_coherence_posture": coherence_map.get("coherence_posture"),
+        "current_coherence_cross_surface_aligned": (coherence_map.get("cross_surface_alignment") or {}).get("continuity_pressure_wake_next_move_path_closure_aligned"),
+        "current_digest_classification": digest_map.get("digest_classification"),
+        "current_digest_overall_picture_posture": digest_map.get("overall_picture_posture"),
+        "current_digest_resumed_bounded_motion": digest_map.get("resumed_bounded_motion"),
+        "current_digest_posture": digest_map.get("digest_posture"),
+        "current_export_packet_classification": export_packet_map.get("export_packet_classification"),
+        "current_export_packet_maturity_posture": export_packet_map.get("export_packet_maturity_posture"),
+        "current_export_packet_suitable_for_bounded_downstream_inspection": export_packet_map.get("suitable_for_bounded_downstream_inspection"),
+        "current_export_packet_consumer_receipt_classification": receipt_map.get("receipt_classification"),
+        "current_export_packet_consumer_receipt_consumable_observationally": receipt_map.get("consumable_as_bounded_observational_packet"),
+        "current_handoff_acceptance_classification": acceptance_map.get("handoff_acceptance_classification"),
+        "current_handoff_acceptance_align_cleanly": acceptance_map.get("export_packet_and_consumer_receipt_align_cleanly"),
+        "current_handoff_acceptance_posture_supported": acceptance_map.get("bounded_downstream_acceptance_posture_supported"),
+        "current_transition_classification": transition_map.get("transition_classification"),
+        "current_transition_posture": transition_map.get("transition_posture"),
+        "current_transition_resumed_bounded_motion": transition_map.get("resumed_bounded_motion"),
+        "ready_for_re_evaluation": (satisfaction_map.get("wake_readiness_summary") or {}).get("ready_for_re_evaluation"),
+        "compact_rationale": (watchpoint_map.get("basis") or {}).get("compact_rationale"),
+        "satisfaction_rationale": (satisfaction_map.get("basis") or {}).get("compact_rationale"),
+        "re_evaluation_rationale": (reevaluation_map.get("basis") or {}).get("compact_rationale"),
+        "resumption_rationale": (resumption_map.get("basis") or {}).get("compact_rationale"),
+        "non_sovereign_boundaries": {"diagnostic_only": True,"non_authoritative": True,"decision_power": "none","watchpoint_only": True,"wake_readiness_only": True,"re_entry_recommendation_only": True,"resumption_candidate_only": True,"resumption_readiness_only": True,"current_resumed_operation_readiness_only": True,"watchpoint_brief_only": True,"pressure_signal_only": True,"wake_readiness_detector_only": True,"re_evaluation_basis_brief_only": True,"current_orchestration_next_move_brief_only": True,"current_orchestration_handoff_packet_brief_only": True,"current_operator_facing_orchestration_brief_only": True,"current_orchestration_resolution_path_brief_only": True,"current_orchestration_closure_brief_only": True,"current_orchestration_coherence_brief_only": True,"current_orchestration_digest_only": True,"current_orchestration_transition_brief_only": True,"current_orchestration_export_packet_only": True,"current_orchestration_export_packet_consumer_receipt_only": True,"current_orchestration_handoff_acceptance_posture_only": True,"does_not_execute_or_route_work": True},
+    }
+
 def resolve_current_orchestration_bundle_projection(
     repo_root: Path,
     *,
@@ -5346,5 +5469,28 @@ def resolve_current_orchestration_bundle_projection(
         "current_orchestration_export_packet": export_packet,
         "current_orchestration_export_packet_consumer_receipt": receipt,
         "current_orchestration_handoff_acceptance_posture": acceptance,
-        "current_orchestration_watchpoint_summary": watchpoint_brief,
+        "current_orchestration_watchpoint_summary": build_current_orchestration_diagnostic_summary_projection(
+            current_orchestration_state=state,
+            current_orchestration_watchpoint=watchpoint,
+            watchpoint_satisfaction=satisfaction,
+            re_evaluation_trigger_recommendation=re_eval,
+            current_orchestration_resumption_candidate=resumption,
+            current_resumed_operation_readiness=readiness,
+            current_orchestration_watchpoint_brief=watchpoint_brief,
+            current_orchestration_pressure_signal=pressure,
+            current_orchestration_wake_readiness_detector=wake,
+            current_re_evaluation_basis_brief=basis,
+            current_orchestration_next_move_brief=next_move,
+            current_orchestration_handoff_packet_brief=handoff,
+            current_operator_facing_orchestration_brief=operator,
+            current_orchestration_resolution_path_brief=resolution,
+            current_orchestration_closure_brief=closure,
+            current_orchestration_coherence_brief=coherence,
+            current_orchestration_digest=digest,
+            current_orchestration_transition_brief=transition,
+            current_orchestration_export_packet=export_packet,
+            current_orchestration_export_packet_consumer_receipt=receipt,
+            current_orchestration_handoff_acceptance_posture=acceptance,
+        ),
+        "current_orchestration_watchpoint_brief_summary": watchpoint_brief,
     }
