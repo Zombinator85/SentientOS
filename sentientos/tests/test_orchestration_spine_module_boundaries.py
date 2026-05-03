@@ -83,3 +83,32 @@ def test_facade_mechanical_assembly_reference_payloads_preserve_compatibility_ke
         "operator_resolution_receipt_id": "rec-1",
         "operator_resolution_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl",
     }
+
+
+def test_orchestration_projection_and_adapters_avoid_forbidden_authority_imports() -> None:
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    targets = {
+        "sentientos/orchestration_spine/projection": {"control_plane", "task_admission", "task_executor", "sentientos.authority_surface", "sentientos.introspection.spine"},
+        "sentientos/orchestration_spine/adapters": {"sentientos.authority_surface", "sentientos.introspection.spine"},
+    }
+
+    violations: list[str] = []
+    for rel_dir, forbidden in targets.items():
+        for path in (root / rel_dir).rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    mods = [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    mods = [node.module or ""]
+                else:
+                    continue
+                for mod in mods:
+                    for blocked in forbidden:
+                        if mod == blocked or mod.startswith(blocked + "."):
+                            violations.append(f"{path.relative_to(root).as_posix()} imports {mod} (forbidden {blocked})")
+
+    assert not violations, "Orchestration spine boundary regression:\n" + "\n".join(sorted(violations))
