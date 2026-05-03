@@ -251,9 +251,9 @@
     {
       "file": "mic_bridge.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy microphone memory-write risk and optional raw audio retention; pulse-compatible telemetry bridge added via sentientos.perception_api",
+      "detail": "legacy microphone memory-write risk and optional raw audio retention; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy",
       "severity": "high",
-      "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
+      "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress; move default to proposal_only after downstream admission path readiness",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     },
@@ -278,9 +278,9 @@
     {
       "file": "feedback.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy feedback action-capable side effects and action logs; pulse-compatible telemetry bridge added via sentientos.perception_api",
+      "detail": "legacy feedback action-capable side effects and action logs; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy",
       "severity": "high",
-      "remediation": "preserve quarantine and separate action execution from observation telemetry; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
+      "remediation": "preserve quarantine and separate action execution from observation telemetry; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress; move default to proposal_only after operator-approved action admission path exists",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     }

@@ -1,12 +1,17 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+import os
 LEGACY_PERCEPTION_QUARANTINE = True
 PULSE_COMPATIBLE_TELEMETRY = True
 PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = True
 CAN_WRITE_MEMORY = False
+EMBODIMENT_INGRESS_GATE_MODE = os.getenv("EMBODIMENT_INGRESS_GATE_MODE", "compatibility_legacy")
+INGRESS_GATE_PRESENT = True
+INGRESS_GATE_PROPOSAL_ONLY_SUPPORTED = True
+LEGACY_DIRECT_ACTION_REQUIRES_EXPLICIT_MODE = True
 MIGRATION_TARGET = "sentientos.perception_api"
 NON_AUTHORITY_RATIONALE = "Feedback triggers side-effect actions; telemetry observation shaping is routed through sentientos.perception_api while action risk remains explicit."
 
@@ -18,11 +23,14 @@ import json
 import time
 from dataclasses import dataclass, field
 import importlib
-import os
 from pathlib import Path
 from sentientos.perception_api import build_feedback_observation, emit_legacy_perception_telemetry
 from sentientos.embodiment_fusion import build_embodiment_snapshot
-from sentientos.embodiment_ingress import evaluate_embodiment_ingress
+from sentientos.embodiment_ingress import (
+    evaluate_embodiment_ingress,
+    mark_legacy_direct_effect_preserved,
+    should_allow_legacy_feedback_action,
+)
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import json
 import uuid
@@ -106,13 +114,19 @@ class FeedbackManager:
                     continue
                 self.last_trigger[key] = ts
                 action = self.actions.get(rule.action)
-                if action:
+                legacy_action_allowed = should_allow_legacy_feedback_action(EMBODIMENT_INGRESS_GATE_MODE)
+                if action and legacy_action_allowed:
                     action(rule, user_id, value)
                 action_id = uuid.uuid4().hex
                 observation = build_feedback_observation(user=user_id, emotion=rule.emotion, value=value, action=rule.action, timestamp=ts)
                 _ = emit_legacy_perception_telemetry("feedback", observation, source_module="feedback", can_trigger_actions=True, legacy_quarantine=True, quarantine_risk="action_side_effects")
-                _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
+                _ingress = mark_legacy_direct_effect_preserved(
+                    evaluate_embodiment_ingress(build_embodiment_snapshot([_])),
+                    effect_type="feedback_action",
+                    mode=EMBODIMENT_INGRESS_GATE_MODE,
+                )
                 entry = {"id": action_id, "time": ts, **observation}
+                entry["ingress_receipt"] = _ingress
                 self.history.append(entry)
                 self.log_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(self.log_path, "a", encoding="utf-8") as f:
