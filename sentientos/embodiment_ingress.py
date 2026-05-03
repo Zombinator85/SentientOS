@@ -132,6 +132,26 @@ def evaluate_embodiment_ingress(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     return receipt
 
 
+
+def should_allow_legacy_retention_write(mode: str) -> bool:
+    return mode == "compatibility_legacy"
+
+
+def build_retention_ingress_candidate(snapshot: Mapping[str, Any], *, retention_surface: str, source_refs: Sequence[str] | None = None) -> dict[str, Any]:
+    return {
+        "candidate_type": "retention",
+        "candidate_ref": embodiment_ingress_receipt_ref(snapshot, salt=f"retention:{retention_surface}"),
+        "retention_surface": retention_surface,
+        "source_refs": list(source_refs or []),
+        "requires_review": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+    }
+
+
+def mark_legacy_direct_retention_preserved(receipt: Mapping[str, Any], *, retention_surface: str, mode: str) -> dict[str, Any]:
+    return mark_legacy_direct_effect_preserved(receipt, effect_type=f"retention:{retention_surface}", mode=mode)
+
 def should_allow_legacy_memory_write(mode: str) -> bool:
     return mode == "compatibility_legacy"
 
@@ -160,4 +180,7 @@ __all__ = [
     "should_allow_legacy_memory_write",
     "should_allow_legacy_feedback_action",
     "mark_legacy_direct_effect_preserved",
+    "should_allow_legacy_retention_write",
+    "build_retention_ingress_candidate",
+    "mark_legacy_direct_retention_preserved",
 ]

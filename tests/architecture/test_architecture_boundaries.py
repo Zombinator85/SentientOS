@@ -442,3 +442,20 @@ def test_phase44_no_new_direct_sink_mutation_in_perception_fusion_ingress() -> N
         assert "append_memory(" not in text
         assert "task_executor" not in text
         assert "task_admission" not in text
+
+
+def test_phase46_retention_gate_markers_visible_for_legacy_retention_modules() -> None:
+    for rel in ("screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "EMBODIMENT_RETENTION_GATE_PRESENT = True" in text
+        assert "EMBODIMENT_RETENTION_GATE_DEFAULT_MODE = \"compatibility_legacy\"" in text
+        assert "EMBODIMENT_RETENTION_GATE_PROPOSAL_ONLY_SUPPORTED = True" in text
+        assert "LEGACY_DIRECT_RETENTION_REQUIRES_EXPLICIT_MODE = True" in text
+
+
+def test_phase46_known_violations_manifest_visibility_for_retention_gates() -> None:
+    rows = {row["file"]: row for row in _manifest()["known_violations"]}
+    for rel in ("screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        assert rel in rows
+        assert "retention gate mode" in rows[rel]["detail"]
+        assert "proposal_only" in rows[rel]["detail"]

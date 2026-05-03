@@ -7,6 +7,10 @@ PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = False
 CAN_WRITE_MEMORY = False
+EMBODIMENT_RETENTION_GATE_PRESENT = True
+EMBODIMENT_RETENTION_GATE_DEFAULT_MODE = "compatibility_legacy"
+EMBODIMENT_RETENTION_GATE_PROPOSAL_ONLY_SUPPORTED = True
+LEGACY_DIRECT_RETENTION_REQUIRES_EXPLICIT_MODE = True
 MIGRATION_TARGET = "sentientos.perception_api"
 NON_AUTHORITY_RATIONALE = "Legacy perception surface emits telemetry only; migration routes shaping through sentientos.perception_api."
 
@@ -54,7 +58,7 @@ from screen_awareness import ScreenAwareness
 from vision_tracker import FaceEmotionTracker
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_multimodal_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
-from sentientos.embodiment_ingress import evaluate_embodiment_ingress
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 
 class VoiceObservation(TypedDict, total=False):
@@ -152,21 +156,38 @@ class MultiModalEmotionTracker:
                     journal=self.journal,
                 )
         self.memory = PersonaMemory()
+        self.ingress_gate_mode = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE
 
-    def _log(self, person_id: int, entry: LogEntry) -> None:
+    def _log(self, person_id: int, entry: LogEntry, *, ingress_gate_mode: Optional[str] = None) -> dict[str, Any]:
         path = self.log_dir / f"{person_id}.jsonl"
         payload = normalize_multimodal_observation(timestamp=float(entry.get("timestamp", time.time())), vision=entry.get("vision", {}), voice=entry.get("voice", {}), scene=entry.get("scene"), screen=entry.get("screen"))
         _ = emit_legacy_perception_telemetry("multimodal", payload, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        mode = ingress_gate_mode or self.ingress_gate_mode
+        _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="multimodal_person", source_refs=list(payload.get("source_modalities", [])))
+        _ingress["retention_gate_mode"] = mode
+        _ingress["retention_risk"] = "fusion_direct_writes"
+        if should_allow_legacy_retention_write(mode):
+            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="multimodal_person", mode=mode)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        return _ingress
 
-    def _log_environment(self, entry: Dict[str, Any]) -> None:
-        try:
-            with open(self.environment_log, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+    def _log_environment(self, entry: Dict[str, Any], *, ingress_gate_mode: Optional[str] = None) -> dict[str, Any]:
+        mode = ingress_gate_mode or self.ingress_gate_mode
+        event = emit_legacy_perception_telemetry("multimodal", entry, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
+        ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([event]))
+        ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([event]), retention_surface="multimodal_environment", source_refs=list(entry.keys()))
+        ingress["retention_gate_mode"] = mode
+        ingress["retention_risk"] = "fusion_direct_writes"
+        if should_allow_legacy_retention_write(mode):
+            ingress = mark_legacy_direct_retention_preserved(ingress, retention_surface="multimodal_environment", mode=mode)
+            try:
+                with open(self.environment_log, "a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+        return ingress
 
     def _record_journal(self, tags: List[str], note: str, extra: Optional[Dict[str, Any]] = None) -> None:
         try:
