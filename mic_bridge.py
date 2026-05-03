@@ -42,6 +42,7 @@ from sentientos.perception_api import emit_legacy_perception_telemetry, normaliz
 from sentientos.embodiment_fusion import build_embodiment_snapshot
 from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, mark_legacy_direct_effect_preserved, should_allow_legacy_memory_write
+from sentientos.embodiment_proposals import record_blocked_embodiment_effect
 
 
 class MicResult(TypedDict):
@@ -56,7 +57,7 @@ AUDIO_DIR = get_log_path("audio", "AUDIO_LOG_DIR")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIMENT_INGRESS_GATE_MODE) -> MicResult:
+def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIMENT_INGRESS_GATE_MODE, embodiment_proposal_recorder=None) -> MicResult:
     """Capture a single phrase from the default microphone."""
     if sr is None:
         if is_headless():
@@ -136,6 +137,17 @@ def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIM
             emotion_features=features,
             emotion_breakdown={"audio": audio_emotions, "text": text_vec},
         )
+    elif text:
+        _proposal = record_blocked_embodiment_effect(
+            source_module="mic_bridge",
+            gate_mode=mode,
+            blocked_effect_type="memory_write",
+            ingress_receipt=ingress_receipt,
+            candidate_payload_summary={"source": "mic", "message": text[:240]},
+            rationale=["proposal_only blocked legacy direct memory append"],
+            append_proposal=embodiment_proposal_recorder,
+        )
+        ingress_receipt["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
     return {
         "message": text,
         "source": "mic",
@@ -146,7 +158,7 @@ def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIM
     }
 
 
-def recognize_from_file(path: str, ingress_gate_mode: str = EMBODIMENT_INGRESS_GATE_MODE) -> MicResult:
+def recognize_from_file(path: str, ingress_gate_mode: str = EMBODIMENT_INGRESS_GATE_MODE, embodiment_proposal_recorder=None) -> MicResult:
     """Recognize speech from a WAV file."""
     if sr is None:
         return {
@@ -187,6 +199,17 @@ def recognize_from_file(path: str, ingress_gate_mode: str = EMBODIMENT_INGRESS_G
             emotion_features=features,
             emotion_breakdown={"audio": audio_emotions, "text": text_vec},
         )
+    elif text:
+        _proposal = record_blocked_embodiment_effect(
+            source_module="mic_bridge",
+            gate_mode=mode,
+            blocked_effect_type="memory_write",
+            ingress_receipt=ingress_receipt,
+            candidate_payload_summary={"source": "file", "audio_file": path, "message": text[:240]},
+            rationale=["proposal_only blocked legacy direct memory append"],
+            append_proposal=embodiment_proposal_recorder,
+        )
+        ingress_receipt["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
     return {
         "message": text,
         "source": "file",

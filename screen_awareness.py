@@ -34,6 +34,7 @@ from sentientos.perception_api import emit_legacy_perception_telemetry, normaliz
 from sentientos.embodiment_fusion import build_embodiment_snapshot
 from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
+from sentientos.embodiment_proposals import record_blocked_embodiment_effect
 
 try:  # pragma: no cover - optional dependency
     import mss  # type: ignore[import-untyped]
@@ -122,7 +123,7 @@ class ScreenAwareness:
         )
         return snapshot
 
-    def _log_snapshot(self, snapshot: ScreenSnapshot, *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE) -> dict[str, object]:
+    def _log_snapshot(self, snapshot: ScreenSnapshot, *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE, embodiment_proposal_recorder=None) -> dict[str, object]:
         payload = normalize_screen_observation(timestamp=snapshot.timestamp, text=snapshot.text, ocr_confidence=snapshot.ocr_confidence, width=snapshot.width, height=snapshot.height)
         _ = emit_legacy_perception_telemetry("screen", payload, source_module="screen_awareness", legacy_quarantine=True, quarantine_risk="ocr_privacy")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
@@ -137,6 +138,17 @@ class ScreenAwareness:
                     handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")
             except Exception:
                 pass
+        else:
+            _proposal = record_blocked_embodiment_effect(
+                source_module="screen_awareness",
+                gate_mode=mode,
+                blocked_effect_type="retention:screen_ocr",
+                ingress_receipt=_ingress,
+                candidate_payload_summary={"retention_surface": "screen_ocr"},
+                rationale=["proposal_only blocked legacy direct retention write"],
+                append_proposal=embodiment_proposal_recorder,
+            )
+            _ingress["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
         return _ingress
 
     def _record_journal(self, snapshot: ScreenSnapshot) -> None:

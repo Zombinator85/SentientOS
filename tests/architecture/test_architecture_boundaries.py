@@ -473,3 +473,29 @@ def test_phase47_manifest_mentions_gate_modes_for_legacy_modules() -> None:
         detail = rows[rel]["detail"]
         assert "proposal_only" in detail
         assert "compatibility_legacy" in detail
+
+def test_phase48_embodiment_proposals_layer_declared_and_non_authoritative() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_proposals"]
+    assert layer["append_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_admission_execution"] is True
+
+
+def test_phase48_embodiment_proposals_import_boundary() -> None:
+    text = (ROOT / "sentientos/embodiment_proposals.py").read_text(encoding="utf-8")
+    for forbidden in ("task_executor", "task_admission", "control_plane", "authority_surface", "memory_manager", "mic_bridge", "vision_tracker", "screen_awareness", "multimodal_tracker"):
+        assert forbidden not in text
+
+
+def test_phase48_legacy_modules_wire_proposal_recording() -> None:
+    for rel in ("mic_bridge.py", "feedback.py", "screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "record_blocked_embodiment_effect" in text
+
+
+def test_phase48_manifest_known_violations_include_proposal_visibility() -> None:
+    manifest = _manifest()
+    rows = {r["file"]: r for r in manifest["known_violations"]}
+    for rel in ("mic_bridge.py", "feedback.py", "screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        assert "proposal_only now records blocked-effect proposals" in rows[rel]["detail"]
