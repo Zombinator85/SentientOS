@@ -10,8 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Optional
 
-from control_plane.enums import Decision, ReasonCode, RequestType
-from control_plane.records import AuthorizationError, AuthorizationRecord
+from sentientos.control_api import require_authorization_for_request_types
 from avatar_state import AvatarStateEmitter, resolve_mode
 from speech_emitter import DEFAULT_BASE_STATE, SpeechEmitter, _coerce_viseme_timeline
 from speech_log import append_speech_log, build_speech_log_entry
@@ -115,9 +114,9 @@ class SpeechToAvatarBridge:
         mode: Optional[str] = None,
         metadata: Mapping[str, Any] | None = None,
         started_at: Any | None = None,
-        authorization: AuthorizationRecord | None = None,
+        authorization: Any | None = None,
     ) -> MutableMapping[str, Any]:
-        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
+        _ensure_authorization(authorization, {"avatar_emission", "speech_tts"})
         started_value = self._started_at(started_at) if phrase.strip() else None
         self._last_started_at = started_value
         muted_value = self._should_mute(muted, mode)
@@ -167,9 +166,9 @@ class SpeechToAvatarBridge:
         return payload
 
     def emit_idle(
-        self, *, log: bool = True, authorization: AuthorizationRecord | None = None
+        self, *, log: bool = True, authorization: Any | None = None
     ) -> MutableMapping[str, Any]:
-        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
+        _ensure_authorization(authorization, {"avatar_emission", "speech_tts"})
         self._last_started_at = None
         payload = self.speech_emitter.emit_idle(authorization=authorization)
         if log:
@@ -229,9 +228,9 @@ class SpeechToAvatarBridge:
         append_speech_log(entry, log_path=log_target, max_entries=self.max_log_entries)
 
     def handle_event(
-        self, speech_event: Mapping[str, Any], *, authorization: AuthorizationRecord | None = None
+        self, speech_event: Mapping[str, Any], *, authorization: Any | None = None
     ) -> MutableMapping[str, Any]:
-        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
+        _ensure_authorization(authorization, {"avatar_emission", "speech_tts"})
         status = str(speech_event.get("status") or speech_event.get("event") or "start").lower()
         phrase = str(speech_event.get("text") or speech_event.get("utterance") or "")
         viseme_source = speech_event.get("visemes") or speech_event.get("viseme_path") or speech_event.get("viseme_json")
@@ -274,10 +273,10 @@ class SpeechToAvatarBridge:
         metadata: Mapping[str, Any] | None = None,
         started_at: Any | None = None,
         voice: Optional[str] = None,
-        authorization: AuthorizationRecord | None = None,
+        authorization: Any | None = None,
     ) -> MutableMapping[str, Any]:
         """Speak a phrase through the TTS backend while syncing avatar state."""
-        _ensure_authorization(authorization, {RequestType.SPEECH_TTS})
+        _ensure_authorization(authorization, {"speech_tts"})
         started_value = self._started_at(started_at) if phrase.strip() else None
         start_payload = self.emit_phrase(
             phrase,
@@ -316,13 +315,8 @@ class SpeechToAvatarBridge:
 __all__ = ["SpeechToAvatarBridge", "TtsAudioPlayer"]
 
 
-def _ensure_authorization(
-    authorization: AuthorizationRecord | None, allowed_types: set[RequestType]
-) -> AuthorizationRecord:
-    if authorization is None:
-        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
-    if authorization.decision != Decision.ALLOW:
-        raise AuthorizationError(authorization.reason.value)
-    if authorization.request_type not in allowed_types:
-        raise AuthorizationError(ReasonCode.INVALID_AUTHORIZATION.value)
-    return authorization
+def _ensure_authorization(authorization: Any | None, allowed_types: set[str]) -> Any:
+    return require_authorization_for_request_types(
+        authorization,
+        allowed_request_types=allowed_types,
+    )

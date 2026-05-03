@@ -174,3 +174,23 @@ def test_phase34_migrated_modules_avoid_direct_append_writes_to_canonical_sinks(
         assert '.open("a"' not in text
         assert "Path.write_text(" not in text or rel == "blessing_recap_cli.py"
 
+
+
+def test_phase35_migrated_modules_use_public_control_facade() -> None:
+    speech_text = (ROOT / "speech_to_avatar_bridge.py").read_text(encoding="utf-8")
+    assert "from sentientos.control_api import require_authorization_for_request_types" in speech_text
+    assert "from control_plane.enums" not in speech_text
+    assert "from control_plane.records" not in speech_text
+
+    patch_agent_text = (ROOT / "autonomous_self_patching_agent.py").read_text(encoding="utf-8")
+    assert "from sentientos.control_api import require_self_patch_apply_authority" in patch_agent_text
+    assert "import task_executor" not in patch_agent_text
+
+
+def test_phase35_control_facade_public_contract_is_narrow() -> None:
+    facade_text = (ROOT / "sentientos/control_api.py").read_text(encoding="utf-8")
+    assert "__all__" in facade_text
+    assert "AdmissionToken" not in facade_text
+    assert "AuthorizationRecord" not in facade_text
+    assert "def require_authorization_for_request_types" in facade_text
+    assert "def require_self_patch_apply_authority" in facade_text
