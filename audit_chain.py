@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
-from cathedral_const import validate_log_entry
+from sentientos.formal_logging import validate_log_entry
 
 @dataclass
 class AuditEntry:

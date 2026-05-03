@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from logging_config import get_log_path
-from cathedral_wounds_dashboard import gather_integrity_issues, parse_contributors
+from sentientos.integrity_metrics import gather_integrity_issues, parse_contributors
 
 """Generate a healing sprint ledger with community metrics."""
 
