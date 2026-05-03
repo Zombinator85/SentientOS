@@ -365,3 +365,26 @@ def test_phase42_perception_api_import_purity_against_authority_surfaces() -> No
     ]
     for token in forbidden:
         assert token not in text
+
+def test_phase43_embodiment_fusion_forbidden_imports() -> None:
+    manifest = _manifest()
+    forbidden = set(manifest["layer_definitions"]["embodiment_fusion"]["forbidden_import_patterns"])
+    path = ROOT / "sentientos/embodiment_fusion.py"
+    violations: list[str] = []
+    for mod, symbol in _imports(path):
+        imp = f"{mod}.{symbol}" if symbol else mod
+        for token in forbidden:
+            if mod == token or mod.startswith(token) or imp == token:
+                violations.append(f"{imp} matches forbidden pattern {token}")
+    assert not violations, "Embodiment fusion forbidden imports found: " + "; ".join(sorted(violations))
+
+
+def test_phase43_embodiment_fusion_manifest_contract() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_fusion"]
+    assert layer["classification"] == "canonical_derived_fusion"
+    assert layer["derived_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_direct_hardware_access"] is True
+    assert layer["no_direct_memory_write"] is True
+    assert layer["no_action_trigger"] is True
