@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
 
-from control_plane.enums import ReasonCode, RequestType
-from control_plane.records import AuthorizationError, AuthorizationRecord
+from typing import Any
+from sentientos.control_api import require_authorization_for_request_types
 from avatar_state import AvatarStateEmitter
 
 DEFAULT_BASE_STATE: Dict[str, Any] = {
@@ -78,7 +78,7 @@ class SpeechEmitter:
         started_at: float | None = None,
         muted: bool = False,
         metadata: Mapping[str, Any] | None = None,
-        authorization: AuthorizationRecord | None = None,
+        authorization: Any | None = None,
     ) -> Dict[str, Any]:
         _require_avatar_authorization(authorization)
         spoken = phrase.strip()
@@ -107,7 +107,7 @@ class SpeechEmitter:
             payload["metadata"] = dict(metadata)
         return self.avatar_state_emitter.emit(payload)
 
-    def emit_idle(self, *, authorization: AuthorizationRecord | None = None) -> Dict[str, Any]:
+    def emit_idle(self, *, authorization: Any | None = None) -> Dict[str, Any]:
         _require_avatar_authorization(authorization)
         payload: Dict[str, Any] = {
             **DEFAULT_BASE_STATE,
@@ -124,7 +124,7 @@ class SpeechEmitter:
         return self.avatar_state_emitter.emit(payload)
 
     def emit_from_tts(
-        self, speech: Mapping[str, Any], *, authorization: AuthorizationRecord | None = None
+        self, speech: Mapping[str, Any], *, authorization: Any | None = None
     ) -> Dict[str, Any]:
         phrase = str(speech.get("text", speech.get("utterance", "")))
         viseme_source = speech.get("visemes") or speech.get("viseme_path") or speech.get("viseme_json")
@@ -144,8 +144,8 @@ class SpeechEmitter:
 __all__ = ["SpeechEmitter", "DEFAULT_VISEME_DURATION"]
 
 
-def _require_avatar_authorization(authorization: AuthorizationRecord | None) -> AuthorizationRecord:
-    if authorization is None:
-        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
-    authorization.require(RequestType.AVATAR_EMISSION)
-    return authorization
+def _require_avatar_authorization(authorization: Any | None) -> Any:
+    return require_authorization_for_request_types(
+        authorization,
+        allowed_request_types=("avatar_emission",),
+    )

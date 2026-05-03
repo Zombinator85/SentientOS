@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_39_repository_boundary_remediation_mega_wave",
+  "generated_for_phase": "phase_40_repository_boundary_remediation_mega_wave_ii",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -185,39 +185,6 @@
       "tests/"
     ]
   },
-  "known_violations": [
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "autonomous_self_patching_agent.py",
-      "detail": "matches forbidden pattern",
-      "severity": "medium",
-      "phase": "phase_39",
-      "remediation": "Planned for later boundary waves; tracked as explicit legacy coupling."
-    },
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "self_patcher.py",
-      "detail": "matches forbidden pattern",
-      "severity": "medium",
-      "phase": "phase_39",
-      "remediation": "Planned for later boundary waves; tracked as explicit legacy coupling."
-    },
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "speech_emitter.py",
-      "detail": "matches forbidden pattern",
-      "severity": "medium",
-      "phase": "phase_39",
-      "remediation": "Planned for later boundary waves; tracked as explicit legacy coupling."
-    },
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "tts_test.py",
-      "detail": "matches forbidden pattern",
-      "severity": "medium",
-      "phase": "phase_39",
-      "remediation": "Planned for later boundary waves; tracked as explicit legacy coupling."
-    }
-  ],
+  "known_violations": [],
   "inventory_mode_rules": []
 }

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from control_plane import Decision, RequestType, admit_request
+from sentientos.control_api import admit_tts_request
 from avatar_state import AvatarStateEmitter
 from speech_emitter import DEFAULT_BASE_STATE, SpeechEmitter
 from speech_log import get_recent_speech
@@ -63,15 +63,14 @@ def main() -> None:
     if args.no_avatar:
         bridge.forward_avatar = False
 
-    admission = admit_request(
-        request_type=RequestType.SPEECH_TTS,
+    admission = admit_tts_request(
         requester_id="demo-cli",
         intent_hash=args.phrase,
         context_hash="tts-demo",
         policy_version="v1-static",
         metadata={"approved_by": "demo-operator"},
     )
-    if admission.decision is Decision.DENY:
+    if getattr(admission.decision, "name", str(admission.decision)) == "DENY":
         raise SystemExit(f"Control Plane denied TTS request: {admission.reason.value}")
 
     viseme_payload = _load_visemes(args.visemes)

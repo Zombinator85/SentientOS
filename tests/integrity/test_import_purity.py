@@ -81,4 +81,4 @@ def test_architecture_boundary_manifest_exists_and_parses() -> None:
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["version"] == 1
-    assert manifest["known_violations"]
+    assert isinstance(manifest["known_violations"], list)

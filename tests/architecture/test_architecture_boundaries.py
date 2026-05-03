@@ -279,3 +279,24 @@ def test_phase39_self_patching_agent_has_governance_annotation_markers() -> None
         "NON_SOVEREIGNTY",
     ):
         assert marker in text
+
+
+def test_phase40_selected_approved_autonomy_files_have_parseable_annotations() -> None:
+    required_markers = (
+        "GOVERNANCE_ANNOTATION",
+        "ADMISSION_SURFACE",
+        "CONSENT_BOUNDARY",
+        "PROVENANCE_BOUNDARY",
+        "SIMULATION_ONLY",
+        "NON_SOVEREIGNTY",
+        "CALLER_TRIGGERED_OR_BOUNDED_RUNTIME",
+    )
+    for rel in (
+        "daemon_autonomy_supervisor.py",
+        "avatar_autonomous_ritual_scheduler.py",
+        "agent_privilege_policy_engine.py",
+        "sentientos/forge_daemon.py",
+    ):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for marker in required_markers:
+            assert marker in text, f"{rel} missing {marker}"
