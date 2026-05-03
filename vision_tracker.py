@@ -2,6 +2,7 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 LEGACY_PERCEPTION_QUARANTINE = True
+PULSE_COMPATIBLE_TELEMETRY = True
 PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = False
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from logging_config import get_log_path
 from utils import is_headless
-from sentientos.perception_api import normalize_vision_observation, build_perception_event
+from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_vision_observation
 
 HEADLESS = is_headless()
 
@@ -160,7 +161,7 @@ class FaceEmotionTracker:
 
     def log_result(self, data: Dict[str, Any]) -> None:
         payload = normalize_vision_observation(faces=data.get("faces", []), timestamp=float(data.get("timestamp", time.time())))
-        _ = build_perception_event("vision", payload, source="vision_tracker", privacy="biometric")
+        _ = emit_legacy_perception_telemetry("vision", payload, source_module="vision_tracker", privacy_class="restricted", legacy_quarantine=True, quarantine_risk="biometric_emotion")
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
 

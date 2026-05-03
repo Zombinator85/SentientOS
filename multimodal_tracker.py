@@ -2,6 +2,7 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 LEGACY_PERCEPTION_QUARANTINE = True
+PULSE_COMPATIBLE_TELEMETRY = True
 PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = False
@@ -51,7 +52,7 @@ from perception_journal import PerceptionJournal
 from scene_recognizer import ObjectRecognitionModule
 from screen_awareness import ScreenAwareness
 from vision_tracker import FaceEmotionTracker
-from sentientos.perception_api import normalize_multimodal_observation, build_perception_event
+from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_multimodal_observation
 
 
 class VoiceObservation(TypedDict, total=False):
@@ -153,7 +154,7 @@ class MultiModalEmotionTracker:
     def _log(self, person_id: int, entry: LogEntry) -> None:
         path = self.log_dir / f"{person_id}.jsonl"
         payload = normalize_multimodal_observation(timestamp=float(entry.get("timestamp", time.time())), vision=entry.get("vision", {}), voice=entry.get("voice", {}), scene=entry.get("scene"), screen=entry.get("screen"))
-        _ = build_perception_event("multimodal", payload, source="multimodal_tracker")
+        _ = emit_legacy_perception_telemetry("multimodal", payload, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
