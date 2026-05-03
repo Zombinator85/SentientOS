@@ -1,15 +1,19 @@
 """Continuous screen awareness module with optional OCR summarisation."""
+from __future__ import annotations
 LEGACY_PERCEPTION_QUARANTINE = True
 PULSE_COMPATIBLE_TELEMETRY = True
 PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = False
 CAN_WRITE_MEMORY = False
+EMBODIMENT_RETENTION_GATE_PRESENT = True
+EMBODIMENT_RETENTION_GATE_DEFAULT_MODE = "compatibility_legacy"
+EMBODIMENT_RETENTION_GATE_PROPOSAL_ONLY_SUPPORTED = True
+LEGACY_DIRECT_RETENTION_REQUIRES_EXPLICIT_MODE = True
 MIGRATION_TARGET = "sentientos.perception_api"
 NON_AUTHORITY_RATIONALE = "Legacy perception surface emits telemetry only; migration routes shaping through sentientos.perception_api."
 
 
-from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
@@ -28,7 +32,7 @@ from perception_journal import PerceptionJournal
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_screen_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
-from sentientos.embodiment_ingress import evaluate_embodiment_ingress
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 try:  # pragma: no cover - optional dependency
     import mss  # type: ignore[import-untyped]
@@ -117,15 +121,21 @@ class ScreenAwareness:
         )
         return snapshot
 
-    def _log_snapshot(self, snapshot: ScreenSnapshot) -> None:
+    def _log_snapshot(self, snapshot: ScreenSnapshot, *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE) -> dict[str, object]:
         payload = normalize_screen_observation(timestamp=snapshot.timestamp, text=snapshot.text, ocr_confidence=snapshot.ocr_confidence, width=snapshot.width, height=snapshot.height)
         _ = emit_legacy_perception_telemetry("screen", payload, source_module="screen_awareness", legacy_quarantine=True, quarantine_risk="ocr_privacy")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
-        try:
-            with self.log_path.open("a", encoding="utf-8") as handle:
-                handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="screen_ocr", source_refs=["screen", "ocr"])
+        _ingress["retention_gate_mode"] = ingress_gate_mode
+        _ingress["retention_risk"] = "ocr_privacy"
+        if should_allow_legacy_retention_write(ingress_gate_mode):
+            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="screen_ocr", mode=ingress_gate_mode)
+            try:
+                with self.log_path.open("a", encoding="utf-8") as handle:
+                    handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+        return _ingress
 
     def _record_journal(self, snapshot: ScreenSnapshot) -> None:
         if not self.journal:
@@ -141,7 +151,7 @@ class ScreenAwareness:
         except Exception:
             pass
 
-    def capture_once(self) -> Optional[ScreenSnapshot]:
+    def capture_once(self, *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE) -> Optional[ScreenSnapshot]:
         snapshot = self._capture()
         if snapshot is None:
             return None
@@ -150,7 +160,7 @@ class ScreenAwareness:
         if snapshot.text.strip() == self._last_text.strip():
             return None
         self._last_text = snapshot.text
-        self._log_snapshot(snapshot)
+        _ = self._log_snapshot(snapshot, ingress_gate_mode=ingress_gate_mode)
         self._record_journal(snapshot)
         return snapshot
 

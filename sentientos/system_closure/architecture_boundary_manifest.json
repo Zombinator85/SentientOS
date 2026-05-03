@@ -242,7 +242,7 @@
     {
       "file": "screen_awareness.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy OCR privacy risk and direct jsonl write; routed shaping via sentientos.perception_api; pulse-compatible telemetry bridge added via sentientos.perception_api",
+      "detail": "legacy OCR privacy risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes",
       "severity": "medium",
       "remediation": "maintain quarantine markers and migrate write path to pulse adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
@@ -260,7 +260,7 @@
     {
       "file": "vision_tracker.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy vision biometric/emotion direct jsonl write risk; pulse-compatible telemetry bridge added via sentientos.perception_api",
+      "detail": "legacy vision/emotion biometric risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes",
       "severity": "high",
       "remediation": "preserve quarantine and migrate publication to canonical perception bus adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "pulse_bus",
@@ -269,7 +269,7 @@
     {
       "file": "multimodal_tracker.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy multimodal fusion direct per-person/environment jsonl writes; pulse-compatible telemetry bridge added via sentientos.perception_api",
+      "detail": "legacy multimodal fusion direct-write risk for per-person and environment logs; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes",
       "severity": "medium",
       "remediation": "preserve quarantine and route fusion emission to perception bus envelopes; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",

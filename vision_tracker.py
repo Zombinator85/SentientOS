@@ -7,6 +7,10 @@ PERCEPTION_AUTHORITY = "none"
 RAW_RETENTION_DEFAULT = False
 CAN_TRIGGER_ACTIONS = False
 CAN_WRITE_MEMORY = False
+EMBODIMENT_RETENTION_GATE_PRESENT = True
+EMBODIMENT_RETENTION_GATE_DEFAULT_MODE = "compatibility_legacy"
+EMBODIMENT_RETENTION_GATE_PROPOSAL_ONLY_SUPPORTED = True
+LEGACY_DIRECT_RETENTION_REQUIRES_EXPLICIT_MODE = True
 MIGRATION_TARGET = "sentientos.perception_api"
 NON_AUTHORITY_RATIONALE = "Legacy perception surface emits telemetry only; migration routes shaping through sentientos.perception_api."
 
@@ -22,7 +26,7 @@ from logging_config import get_log_path
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_vision_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
-from sentientos.embodiment_ingress import evaluate_embodiment_ingress
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 HEADLESS = is_headless()
 
@@ -161,12 +165,18 @@ class FaceEmotionTracker:
                 )
         return {"timestamp": ts, "faces": faces}
 
-    def log_result(self, data: Dict[str, Any]) -> None:
+    def log_result(self, data: Dict[str, Any], *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE) -> dict[str, Any]:
         payload = normalize_vision_observation(faces=data.get("faces", []), timestamp=float(data.get("timestamp", time.time())))
         _ = emit_legacy_perception_telemetry("vision", payload, source_module="vision_tracker", privacy_class="restricted", legacy_quarantine=True, quarantine_risk="biometric_emotion")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
+        _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="vision_emotion", source_refs=["vision", "emotion"])
+        _ingress["retention_gate_mode"] = ingress_gate_mode
+        _ingress["retention_risk"] = "biometric_emotion"
+        if should_allow_legacy_retention_write(ingress_gate_mode):
+            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="vision_emotion", mode=ingress_gate_mode)
+            with open(self.log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload) + "\n")
+        return _ingress
 
     def update_voice_sentiment(self, face_id: int, sentiment: Dict[str, float]) -> None:
         """Optionally update emotional history and feedback from voice sentiment."""
