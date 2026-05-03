@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_36_formal_core_symbolic_import_purification_wave",
+  "generated_for_phase": "phase_37_ledger_core_purification_wave",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -163,13 +163,6 @@
       "remediation": "migrate read path to projection API"
     },
     {
-      "rule": "formal_symbolic_import",
-      "file": "ledger.py",
-      "detail": "imports cathedral_const and presence_ledger",
-      "severity": "high",
-      "remediation": "remove symbolic coupling from formal sink"
-    },
-    {
       "rule": "world_forbidden_import",
       "file": "resonite_guest_agent_consent_feedback_wizard.py",
       "detail": "imports presence_ledger",
@@ -186,7 +179,6 @@
   ],
   "inventory_mode_rules": [
     "expressive_forbidden_import",
-    "formal_symbolic_import",
     "autonomy_naming_missing_annotation"
   ]
 }

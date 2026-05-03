@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from presence_analytics import load_entries, presence_metrics
-from cathedral_const import PUBLIC_LOG, log_json
+from sentientos.formal_logging import PUBLIC_LOG, log_json
 from log_utils import append_json
 
 class _DoctrineProxy:
@@ -428,8 +428,8 @@ def streamlit_widget(st_module: Any) -> None:
     sup = summarize_log(get_log_path("support_log.jsonl"))
     fed = summarize_log(get_log_path("federation_log.jsonl"))
     music = summarize_log(get_log_path("music_log.jsonl"))
-    import presence_ledger as pl
-    priv = pl.recent_privilege_attempts()
+    from sentientos.presence_api import recent_privilege_attempts
+    priv = recent_privilege_attempts()
     st_module.write(
         f"Support blessings: {sup['count']} • Federation blessings: {fed['count']}"
         f" • Music events: {music['count']}"
