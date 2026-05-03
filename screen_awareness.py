@@ -32,6 +32,7 @@ from perception_journal import PerceptionJournal
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_screen_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 try:  # pragma: no cover - optional dependency
@@ -126,10 +127,11 @@ class ScreenAwareness:
         _ = emit_legacy_perception_telemetry("screen", payload, source_module="screen_awareness", legacy_quarantine=True, quarantine_risk="ocr_privacy")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
         _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="screen_ocr", source_refs=["screen", "ocr"])
-        _ingress["retention_gate_mode"] = ingress_gate_mode
+        mode = resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE)
+        _ingress["retention_gate_mode"] = mode
         _ingress["retention_risk"] = "ocr_privacy"
-        if should_allow_legacy_retention_write(ingress_gate_mode):
-            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="screen_ocr", mode=ingress_gate_mode)
+        if should_allow_legacy_retention_write(mode):
+            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="screen_ocr", mode=resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE))
             try:
                 with self.log_path.open("a", encoding="utf-8") as handle:
                     handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")
@@ -160,7 +162,7 @@ class ScreenAwareness:
         if snapshot.text.strip() == self._last_text.strip():
             return None
         self._last_text = snapshot.text
-        _ = self._log_snapshot(snapshot, ingress_gate_mode=ingress_gate_mode)
+        _ = self._log_snapshot(snapshot, ingress_gate_mode=resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE))
         self._record_journal(snapshot)
         return snapshot
 

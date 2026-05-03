@@ -58,6 +58,7 @@ from screen_awareness import ScreenAwareness
 from vision_tracker import FaceEmotionTracker
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_multimodal_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 
@@ -163,7 +164,7 @@ class MultiModalEmotionTracker:
         payload = normalize_multimodal_observation(timestamp=float(entry.get("timestamp", time.time())), vision=entry.get("vision", {}), voice=entry.get("voice", {}), scene=entry.get("scene"), screen=entry.get("screen"))
         _ = emit_legacy_perception_telemetry("multimodal", payload, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
-        mode = ingress_gate_mode or self.ingress_gate_mode
+        mode = resolve_embodiment_gate_mode(ingress_gate_mode or self.ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE)
         _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="multimodal_person", source_refs=list(payload.get("source_modalities", [])))
         _ingress["retention_gate_mode"] = mode
         _ingress["retention_risk"] = "fusion_direct_writes"
@@ -174,7 +175,7 @@ class MultiModalEmotionTracker:
         return _ingress
 
     def _log_environment(self, entry: Dict[str, Any], *, ingress_gate_mode: Optional[str] = None) -> dict[str, Any]:
-        mode = ingress_gate_mode or self.ingress_gate_mode
+        mode = resolve_embodiment_gate_mode(ingress_gate_mode or self.ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE)
         event = emit_legacy_perception_telemetry("multimodal", entry, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
         ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([event]))
         ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([event]), retention_surface="multimodal_environment", source_refs=list(entry.keys()))

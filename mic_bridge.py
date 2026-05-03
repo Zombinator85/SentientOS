@@ -40,6 +40,7 @@ if is_headless():
 from memory_manager import append_memory
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_audio_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, mark_legacy_direct_effect_preserved, should_allow_legacy_memory_write
 
 
@@ -117,6 +118,7 @@ def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIM
             text = None
 
     ingress_receipt = None
+    mode = resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_INGRESS_GATE_MODE)
     if text:
         text_vec = eu.text_sentiment(text)
         audio_emotions = emotions
@@ -124,8 +126,8 @@ def recognize_from_mic(save_audio: bool = True, ingress_gate_mode: str = EMBODIM
         emotions = fused
     _obs = normalize_audio_observation(message=text, source="mic", audio_file=str(audio_path) if audio_path else None, emotion_features=features)
     _ = emit_legacy_perception_telemetry("audio", _obs, source_module="mic_bridge", can_write_memory=True, legacy_quarantine=True, quarantine_risk="memory_write")
-    ingress_receipt = mark_legacy_direct_effect_preserved(evaluate_embodiment_ingress(build_embodiment_snapshot([_])), effect_type="memory_write", mode=ingress_gate_mode)
-    if text and should_allow_legacy_memory_write(ingress_gate_mode):
+    ingress_receipt = mark_legacy_direct_effect_preserved(evaluate_embodiment_ingress(build_embodiment_snapshot([_])), effect_type="memory_write", mode=mode)
+    if text and should_allow_legacy_memory_write(mode):
         append_memory(
             text,
             tags=["voice", "input"],
@@ -167,6 +169,7 @@ def recognize_from_file(path: str, ingress_gate_mode: str = EMBODIMENT_INGRESS_G
         pass
 
     ingress_receipt = None
+    mode = resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_INGRESS_GATE_MODE)
     if text:
         text_vec = eu.text_sentiment(text)
         audio_emotions = emotions
@@ -174,8 +177,8 @@ def recognize_from_file(path: str, ingress_gate_mode: str = EMBODIMENT_INGRESS_G
         emotions = fused
     _obs = normalize_audio_observation(message=text, source="file", audio_file=path, emotion_features=features)
     _ = emit_legacy_perception_telemetry("audio", _obs, source_module="mic_bridge", can_write_memory=True, legacy_quarantine=True, quarantine_risk="memory_write")
-    ingress_receipt = mark_legacy_direct_effect_preserved(evaluate_embodiment_ingress(build_embodiment_snapshot([_])), effect_type="memory_write", mode=ingress_gate_mode)
-    if text and should_allow_legacy_memory_write(ingress_gate_mode):
+    ingress_receipt = mark_legacy_direct_effect_preserved(evaluate_embodiment_ingress(build_embodiment_snapshot([_])), effect_type="memory_write", mode=mode)
+    if text and should_allow_legacy_memory_write(mode):
         append_memory(
             text,
             tags=["voice", "input"],

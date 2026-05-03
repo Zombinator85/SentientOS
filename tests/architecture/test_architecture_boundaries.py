@@ -459,3 +459,17 @@ def test_phase46_known_violations_manifest_visibility_for_retention_gates() -> N
         assert rel in rows
         assert "retention gate mode" in rows[rel]["detail"]
         assert "proposal_only" in rows[rel]["detail"]
+
+def test_phase47_legacy_modules_use_centralized_gate_policy() -> None:
+    for rel in ("mic_bridge.py", "feedback.py", "screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "resolve_embodiment_gate_mode" in text
+
+
+def test_phase47_manifest_mentions_gate_modes_for_legacy_modules() -> None:
+    manifest = _manifest()
+    rows = {row["file"]: row for row in manifest["known_violations"] if row["rule"] == "legacy_perception_quarantine"}
+    for rel in ("mic_bridge.py", "feedback.py", "screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
+        detail = rows[rel]["detail"]
+        assert "proposal_only" in detail
+        assert "compatibility_legacy" in detail

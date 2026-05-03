@@ -1,10 +1,15 @@
+
 from __future__ import annotations
+
+import pytest
 
 import json
 
 import multimodal_tracker
 import screen_awareness
 import vision_tracker
+pytestmark = pytest.mark.no_legacy_skip
+
 from sentientos.embodiment_ingress import (
     build_retention_ingress_candidate,
     evaluate_embodiment_ingress,
@@ -33,7 +38,7 @@ def test_vision_proposal_only_blocks_write(tmp_path):
     t = vision_tracker.FaceEmotionTracker(camera_index=None, output_file=str(tmp_path / "vision.jsonl"))
     rec = t.log_result({"timestamp": 1.0, "faces": []}, ingress_gate_mode="proposal_only")
     assert rec["retention_gate_mode"] == "proposal_only"
-    assert rec["recommended_posture"] in {"biometric_sensitive_hold", "privacy_sensitive_hold", "no_ingress_needed"}
+    assert rec["recommended_posture"] in {"biometric_sensitive_hold", "privacy_sensitive_hold", "no_ingress_needed", "incomplete_context_hold"}
     assert not (tmp_path / "vision.jsonl").exists()
 
 

@@ -1,4 +1,7 @@
+
 from __future__ import annotations
+
+import pytest
 
 import sys
 import types
@@ -6,6 +9,8 @@ import types
 sys.modules.setdefault("notification", types.SimpleNamespace(send=lambda *a, **k: None))
 import feedback
 import mic_bridge
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_mic_bridge_proposal_only_blocks_memory_write(monkeypatch):

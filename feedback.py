@@ -26,6 +26,7 @@ import importlib
 from pathlib import Path
 from sentientos.perception_api import build_feedback_observation, emit_legacy_perception_telemetry
 from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import (
     evaluate_embodiment_ingress,
     mark_legacy_direct_effect_preserved,
@@ -114,7 +115,8 @@ class FeedbackManager:
                     continue
                 self.last_trigger[key] = ts
                 action = self.actions.get(rule.action)
-                legacy_action_allowed = should_allow_legacy_feedback_action(EMBODIMENT_INGRESS_GATE_MODE)
+                mode = resolve_embodiment_gate_mode(None, default_mode=EMBODIMENT_INGRESS_GATE_MODE)
+                legacy_action_allowed = should_allow_legacy_feedback_action(mode)
                 if action and legacy_action_allowed:
                     action(rule, user_id, value)
                 action_id = uuid.uuid4().hex
@@ -123,7 +125,7 @@ class FeedbackManager:
                 _ingress = mark_legacy_direct_effect_preserved(
                     evaluate_embodiment_ingress(build_embodiment_snapshot([_])),
                     effect_type="feedback_action",
-                    mode=EMBODIMENT_INGRESS_GATE_MODE,
+                    mode=mode,
                 )
                 entry = {"id": action_id, "time": ts, **observation}
                 entry["ingress_receipt"] = _ingress

@@ -26,6 +26,7 @@ from logging_config import get_log_path
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_vision_observation
 from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
 
 HEADLESS = is_headless()
@@ -170,10 +171,11 @@ class FaceEmotionTracker:
         _ = emit_legacy_perception_telemetry("vision", payload, source_module="vision_tracker", privacy_class="restricted", legacy_quarantine=True, quarantine_risk="biometric_emotion")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
         _ingress["retention_candidate"] = build_retention_ingress_candidate(build_embodiment_snapshot([_]), retention_surface="vision_emotion", source_refs=["vision", "emotion"])
-        _ingress["retention_gate_mode"] = ingress_gate_mode
+        mode = resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE)
+        _ingress["retention_gate_mode"] = mode
         _ingress["retention_risk"] = "biometric_emotion"
-        if should_allow_legacy_retention_write(ingress_gate_mode):
-            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="vision_emotion", mode=ingress_gate_mode)
+        if should_allow_legacy_retention_write(mode):
+            _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="vision_emotion", mode=resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE))
             with open(self.log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload) + "\n")
         return _ingress
