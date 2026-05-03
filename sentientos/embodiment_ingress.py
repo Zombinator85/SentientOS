@@ -9,6 +9,8 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from sentientos.embodiment_gate_policy import gate_mode_receipt_fields, is_compatibility_legacy_mode, normalize_embodiment_gate_mode
+
 SCHEMA_VERSION = "embodiment.ingress.v1"
 
 
@@ -26,9 +28,11 @@ def embodiment_ingress_receipt_ref(snapshot: Mapping[str, Any], *, salt: str = "
 def classify_embodied_pressure(snapshot: Mapping[str, Any]) -> list[str]:
     classes: list[str] = []
     modalities = set(snapshot.get("modalities_present", []))
-    if "audio" in modalities or snapshot.get("current_audio_context", {}).get("message"):
+    audio_ctx = snapshot.get("current_audio_context") if isinstance(snapshot.get("current_audio_context"), Mapping) else {}
+    if "audio" in modalities or audio_ctx.get("message"):
         classes.append("memory_write_pressure")
-    if "feedback" in modalities:
+    feedback_ctx = snapshot.get("current_feedback_context") if isinstance(snapshot.get("current_feedback_context"), Mapping) else {}
+    if "feedback" in modalities or feedback_ctx.get("action"):
         classes.append("feedback_action_pressure")
     if "vision" in modalities:
         classes.append("biometric_emotion_pressure")
@@ -134,7 +138,7 @@ def evaluate_embodiment_ingress(snapshot: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def should_allow_legacy_retention_write(mode: str) -> bool:
-    return mode == "compatibility_legacy"
+    return is_compatibility_legacy_mode(mode)
 
 
 def build_retention_ingress_candidate(snapshot: Mapping[str, Any], *, retention_surface: str, source_refs: Sequence[str] | None = None) -> dict[str, Any]:
@@ -153,19 +157,18 @@ def mark_legacy_direct_retention_preserved(receipt: Mapping[str, Any], *, retent
     return mark_legacy_direct_effect_preserved(receipt, effect_type=f"retention:{retention_surface}", mode=mode)
 
 def should_allow_legacy_memory_write(mode: str) -> bool:
-    return mode == "compatibility_legacy"
+    return is_compatibility_legacy_mode(mode)
 
 
 def should_allow_legacy_feedback_action(mode: str) -> bool:
-    return mode == "compatibility_legacy"
+    return is_compatibility_legacy_mode(mode)
 
 
 def mark_legacy_direct_effect_preserved(receipt: Mapping[str, Any], *, effect_type: str, mode: str) -> dict[str, Any]:
     marked = dict(receipt)
-    marked["ingress_gate_mode"] = mode
+    normalized = normalize_embodiment_gate_mode(mode)
+    marked.update(gate_mode_receipt_fields(normalized))
     marked["legacy_direct_effect"] = effect_type
-    marked["legacy_direct_effect_preserved"] = mode == "compatibility_legacy"
-    marked["transition_state"] = "legacy_fallback" if mode == "compatibility_legacy" else "proposal_only"
     return marked
 
 
