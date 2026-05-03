@@ -6,10 +6,11 @@ control-plane and task-admission authority semantics.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from control_plane.enums import Decision, ReasonCode, RequestType
 from control_plane.records import AuthorizationError
+from control_plane import admit_request
 import task_executor
 
 
@@ -49,7 +50,30 @@ def require_self_patch_apply_authority(admission_token: Any, authorization: Any)
         raise AuthorizationError("admission token fingerprint missing") from exc
 
 
+def admit_tts_request(*, requester_id: str, intent_hash: str, context_hash: str, policy_version: str, metadata: Mapping[str, Any] | None = None) -> Any:
+    return admit_request(
+        request_type=RequestType.SPEECH_TTS,
+        requester_id=requester_id,
+        intent_hash=intent_hash,
+        context_hash=context_hash,
+        policy_version=policy_version,
+        metadata=dict(metadata or {}),
+    )
+
+
+def canonicalize_admission_provenance(provenance: Any) -> dict[str, Any]:
+    return task_executor.canonicalise_provenance(provenance)
+
+
+def require_request_fingerprint_match(admission_token: Any, request_fingerprint: Any | None) -> None:
+    if request_fingerprint is not None and request_fingerprint.value != admission_token.request_fingerprint.value:
+        raise AuthorizationError("request fingerprint mismatch for self-healing apply")
+
+
 __all__ = [
     "require_authorization_for_request_types",
     "require_self_patch_apply_authority",
+    "admit_tts_request",
+    "canonicalize_admission_provenance",
+    "require_request_fingerprint_match",
 ]

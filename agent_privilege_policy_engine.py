@@ -1,6 +1,15 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
+
+GOVERNANCE_ANNOTATION = "phase40_boundary_governance_annotation"
+ADMISSION_SURFACE = "caller-invoked entrypoints and bounded process lifecycle"
+CONSENT_BOUNDARY = "explicit operator/config invocation; no unilateral sovereignty"
+PROVENANCE_BOUNDARY = "append-only logs and existing canonical records"
+SIMULATION_ONLY = False
+NON_SOVEREIGNTY = "name is descriptive legacy; authority remains policy-gated and bounded"
+CALLER_TRIGGERED_OR_BOUNDED_RUNTIME = "bounded-runtime"
+
 """Agent Privilege Policy Engine
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.

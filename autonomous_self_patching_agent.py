@@ -1,7 +1,7 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-from control_plane.records import AuthorizationError
+from sentientos.control_api import AuthorizationError
 from sentientos.control_api import require_self_patch_apply_authority
 
 """Autonomous Self-Patching Agent
