@@ -132,6 +132,23 @@ def evaluate_embodiment_ingress(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     return receipt
 
 
+def should_allow_legacy_memory_write(mode: str) -> bool:
+    return mode == "compatibility_legacy"
+
+
+def should_allow_legacy_feedback_action(mode: str) -> bool:
+    return mode == "compatibility_legacy"
+
+
+def mark_legacy_direct_effect_preserved(receipt: Mapping[str, Any], *, effect_type: str, mode: str) -> dict[str, Any]:
+    marked = dict(receipt)
+    marked["ingress_gate_mode"] = mode
+    marked["legacy_direct_effect"] = effect_type
+    marked["legacy_direct_effect_preserved"] = mode == "compatibility_legacy"
+    marked["transition_state"] = "legacy_fallback" if mode == "compatibility_legacy" else "proposal_only"
+    return marked
+
+
 __all__ = [
     "evaluate_embodiment_ingress",
     "classify_embodied_pressure",
@@ -140,4 +157,7 @@ __all__ = [
     "build_operator_attention_candidate",
     "resolve_embodiment_ingress_posture",
     "embodiment_ingress_receipt_ref",
+    "should_allow_legacy_memory_write",
+    "should_allow_legacy_feedback_action",
+    "mark_legacy_direct_effect_preserved",
 ]

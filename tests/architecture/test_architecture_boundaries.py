@@ -318,6 +318,27 @@ def test_phase41_legacy_perception_modules_have_quarantine_annotations() -> None
             assert marker in text, f"{rel} missing {marker}"
 
 
+def test_phase45_ingress_gate_markers_visible_for_legacy_direct_effect_modules() -> None:
+    mic_text = (ROOT / "mic_bridge.py").read_text(encoding="utf-8")
+    assert "INGRESS_GATE_PRESENT = True" in mic_text
+    assert "INGRESS_GATE_PROPOSAL_ONLY_SUPPORTED = True" in mic_text
+    assert "LEGACY_DIRECT_MEMORY_WRITE_REQUIRES_EXPLICIT_MODE = True" in mic_text
+
+    feedback_text = (ROOT / "feedback.py").read_text(encoding="utf-8")
+    assert "INGRESS_GATE_PRESENT = True" in feedback_text
+    assert "INGRESS_GATE_PROPOSAL_ONLY_SUPPORTED = True" in feedback_text
+    assert "LEGACY_DIRECT_ACTION_REQUIRES_EXPLICIT_MODE = True" in feedback_text
+
+
+def test_phase45_known_violations_remain_manifest_visible_for_direct_effect_risk() -> None:
+    manifest = _manifest()
+    rows = {row["file"]: row for row in manifest["known_violations"]}
+    assert "mic_bridge.py" in rows
+    assert "ingress gate mode" in rows["mic_bridge.py"]["detail"]
+    assert "feedback.py" in rows
+    assert "ingress gate mode" in rows["feedback.py"]["detail"]
+
+
 def test_phase41_perception_api_boundary_purity() -> None:
     text = (ROOT / "sentientos/perception_api.py").read_text(encoding="utf-8")
     for bad in (
