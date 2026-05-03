@@ -53,6 +53,8 @@ from scene_recognizer import ObjectRecognitionModule
 from screen_awareness import ScreenAwareness
 from vision_tracker import FaceEmotionTracker
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_multimodal_observation
+from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress
 
 
 class VoiceObservation(TypedDict, total=False):
@@ -155,6 +157,7 @@ class MultiModalEmotionTracker:
         path = self.log_dir / f"{person_id}.jsonl"
         payload = normalize_multimodal_observation(timestamp=float(entry.get("timestamp", time.time())), vision=entry.get("vision", {}), voice=entry.get("voice", {}), scene=entry.get("scene"), screen=entry.get("screen"))
         _ = emit_legacy_perception_telemetry("multimodal", payload, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
+        _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 

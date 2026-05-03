@@ -27,6 +27,8 @@ from logging_config import get_log_path
 from perception_journal import PerceptionJournal
 from utils import is_headless
 from sentientos.perception_api import emit_legacy_perception_telemetry, normalize_screen_observation
+from sentientos.embodiment_fusion import build_embodiment_snapshot
+from sentientos.embodiment_ingress import evaluate_embodiment_ingress
 
 try:  # pragma: no cover - optional dependency
     import mss  # type: ignore[import-untyped]
@@ -117,7 +119,8 @@ class ScreenAwareness:
 
     def _log_snapshot(self, snapshot: ScreenSnapshot) -> None:
         payload = normalize_screen_observation(timestamp=snapshot.timestamp, text=snapshot.text, ocr_confidence=snapshot.ocr_confidence, width=snapshot.width, height=snapshot.height)
-        _ = emit_legacy_perception_telemetry("screen", payload, source="screen_awareness")
+        _ = emit_legacy_perception_telemetry("screen", payload, source_module="screen_awareness", legacy_quarantine=True, quarantine_risk="ocr_privacy")
+        _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
         try:
             with self.log_path.open("a", encoding="utf-8") as handle:
                 handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")

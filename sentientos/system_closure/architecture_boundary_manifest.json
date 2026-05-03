@@ -122,6 +122,37 @@
         "mic_bridge",
         "multimodal_tracker"
       ]
+    },
+    "embodiment_ingress": {
+      "module_globs": [
+        "sentientos/embodiment_ingress.py"
+      ],
+      "classification": "canonical_proposal_gate",
+      "proposal_only": true,
+      "derived_only": true,
+      "non_authoritative": true,
+      "no_direct_memory_write": true,
+      "no_action_trigger": true,
+      "no_admission_execution": true,
+      "consumes": [
+        "sentientos.embodiment_fusion",
+        "sentientos.perception_api"
+      ],
+      "produces": [
+        "ingress_candidates",
+        "ingress_receipts"
+      ],
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "memory_manager",
+        "feedback",
+        "mic_bridge",
+        "vision_tracker",
+        "multimodal_tracker",
+        "screen_awareness"
+      ]
     }
   },
   "protected_sinks": {
@@ -213,7 +244,7 @@
       "rule": "legacy_perception_quarantine",
       "detail": "legacy OCR privacy risk and direct jsonl write; routed shaping via sentientos.perception_api; pulse-compatible telemetry bridge added via sentientos.perception_api",
       "severity": "medium",
-      "remediation": "maintain quarantine markers and migrate write path to pulse adapter; keep quarantine until direct write/action/memory behavior is migrated",
+      "remediation": "maintain quarantine markers and migrate write path to pulse adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     },
@@ -222,7 +253,7 @@
       "rule": "legacy_perception_quarantine",
       "detail": "legacy microphone memory-write risk and optional raw audio retention; pulse-compatible telemetry bridge added via sentientos.perception_api",
       "severity": "high",
-      "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter; keep quarantine until direct write/action/memory behavior is migrated",
+      "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     },
@@ -231,7 +262,7 @@
       "rule": "legacy_perception_quarantine",
       "detail": "legacy vision biometric/emotion direct jsonl write risk; pulse-compatible telemetry bridge added via sentientos.perception_api",
       "severity": "high",
-      "remediation": "preserve quarantine and migrate publication to canonical perception bus adapter; keep quarantine until direct write/action/memory behavior is migrated",
+      "remediation": "preserve quarantine and migrate publication to canonical perception bus adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "pulse_bus",
       "requires_quarantine_annotation": true
     },
@@ -240,7 +271,7 @@
       "rule": "legacy_perception_quarantine",
       "detail": "legacy multimodal fusion direct per-person/environment jsonl writes; pulse-compatible telemetry bridge added via sentientos.perception_api",
       "severity": "medium",
-      "remediation": "preserve quarantine and route fusion emission to perception bus envelopes; keep quarantine until direct write/action/memory behavior is migrated",
+      "remediation": "preserve quarantine and route fusion emission to perception bus envelopes; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     },
@@ -249,7 +280,7 @@
       "rule": "legacy_perception_quarantine",
       "detail": "legacy feedback action-capable side effects and action logs; pulse-compatible telemetry bridge added via sentientos.perception_api",
       "severity": "high",
-      "remediation": "preserve quarantine and separate action execution from observation telemetry; keep quarantine until direct write/action/memory behavior is migrated",
+      "remediation": "preserve quarantine and separate action execution from observation telemetry; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
       "requires_quarantine_annotation": true
     }
