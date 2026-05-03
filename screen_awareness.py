@@ -1,4 +1,12 @@
 """Continuous screen awareness module with optional OCR summarisation."""
+LEGACY_PERCEPTION_QUARANTINE = True
+PERCEPTION_AUTHORITY = "none"
+RAW_RETENTION_DEFAULT = False
+CAN_TRIGGER_ACTIONS = False
+CAN_WRITE_MEMORY = False
+MIGRATION_TARGET = "sentientos.perception_api"
+NON_AUTHORITY_RATIONALE = "Legacy perception surface emits telemetry only; migration routes shaping through sentientos.perception_api."
+
 
 from __future__ import annotations
 
@@ -17,6 +25,7 @@ from typing import Dict, Optional
 from logging_config import get_log_path
 from perception_journal import PerceptionJournal
 from utils import is_headless
+from sentientos.perception_api import normalize_screen_observation, build_perception_event
 
 try:  # pragma: no cover - optional dependency
     import mss  # type: ignore[import-untyped]
@@ -106,13 +115,8 @@ class ScreenAwareness:
         return snapshot
 
     def _log_snapshot(self, snapshot: ScreenSnapshot) -> None:
-        payload = {
-            "timestamp": snapshot.timestamp,
-            "text": snapshot.text,
-            "ocr_confidence": snapshot.ocr_confidence,
-            "width": snapshot.width,
-            "height": snapshot.height,
-        }
+        payload = normalize_screen_observation(timestamp=snapshot.timestamp, text=snapshot.text, ocr_confidence=snapshot.ocr_confidence, width=snapshot.width, height=snapshot.height)
+        _ = build_perception_event("screen", payload, source="screen_awareness")
         try:
             with self.log_path.open("a", encoding="utf-8") as handle:
                 handle.write(os.getenv("JSON_DUMP_PREFIX", "") + json.dumps(payload, ensure_ascii=False) + "\n")

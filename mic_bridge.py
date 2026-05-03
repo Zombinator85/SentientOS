@@ -1,6 +1,14 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+LEGACY_PERCEPTION_QUARANTINE = True
+PERCEPTION_AUTHORITY = "none"
+RAW_RETENTION_DEFAULT = False
+CAN_TRIGGER_ACTIONS = False
+CAN_WRITE_MEMORY = True
+MIGRATION_TARGET = "sentientos.perception_api"
+NON_AUTHORITY_RATIONALE = "Legacy microphone capture still appends memory records; observation shaping now routes through sentientos.perception_api."
+
 
 require_admin_banner()
 require_lumos_approval()
@@ -25,6 +33,7 @@ if is_headless():
     sr = None
 
 from memory_manager import append_memory
+from sentientos.perception_api import normalize_audio_observation, build_perception_event
 
 
 class MicResult(TypedDict):
@@ -112,6 +121,8 @@ def recognize_from_mic(save_audio: bool = True) -> MicResult:
         )
         emotions = fused
 
+    _obs = normalize_audio_observation(message=text, source="mic", audio_file=str(audio_path) if audio_path else None, emotion_features=features)
+    _ = build_perception_event("audio", _obs, source="mic_bridge", can_write_memory=True)
     return {
         "message": text,
         "source": "mic",
@@ -156,6 +167,10 @@ def recognize_from_file(path: str) -> MicResult:
         )
         emotions = fused
 
+    _obs = normalize_audio_observation(message=text, source="mic", audio_file=str(audio_path) if audio_path else None, emotion_features=features)
+    _ = build_perception_event("audio", _obs, source="mic_bridge", can_write_memory=True)
+    _obs = normalize_audio_observation(message=text, source="file", audio_file=path, emotion_features=features)
+    _ = build_perception_event("audio", _obs, source="mic_bridge", can_write_memory=True)
     return {
         "message": text,
         "source": "file",

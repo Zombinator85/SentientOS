@@ -300,3 +300,35 @@ def test_phase40_selected_approved_autonomy_files_have_parseable_annotations() -
         text = (ROOT / rel).read_text(encoding="utf-8")
         for marker in required_markers:
             assert marker in text, f"{rel} missing {marker}"
+
+
+def test_phase41_legacy_perception_modules_have_quarantine_annotations() -> None:
+    required = [
+        "LEGACY_PERCEPTION_QUARANTINE = True",
+        "PERCEPTION_AUTHORITY = \"none\"",
+        "RAW_RETENTION_DEFAULT = False",
+        "CAN_TRIGGER_ACTIONS = ",
+        "CAN_WRITE_MEMORY = ",
+        "MIGRATION_TARGET = \"sentientos.perception_api\"",
+        "NON_AUTHORITY_RATIONALE = ",
+    ]
+    for rel in ("screen_awareness.py", "mic_bridge.py", "vision_tracker.py", "multimodal_tracker.py", "feedback.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for marker in required:
+            assert marker in text, f"{rel} missing {marker}"
+
+
+def test_phase41_perception_api_boundary_purity() -> None:
+    text = (ROOT / "sentientos/perception_api.py").read_text(encoding="utf-8")
+    for bad in (
+        "import screen_awareness",
+        "import mic_bridge",
+        "import vision_tracker",
+        "import multimodal_tracker",
+        "import feedback",
+        "task_admission",
+        "task_executor",
+        "control_plane",
+        "authority_surface",
+    ):
+        assert bad not in text
