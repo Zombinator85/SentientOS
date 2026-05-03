@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_33_repository_architecture_boundary_enforcement_wave",
+  "generated_for_phase": "phase_35_control_plane_bypass_facade_remediation_wave",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -141,13 +141,6 @@
     ]
   },
   "known_violations": [
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "speech_to_avatar_bridge.py",
-      "detail": "imports control_plane enums and records",
-      "severity": "high",
-      "remediation": "route via fa\u00e7ade DTO boundary"
-    },
     {
       "rule": "expressive_forbidden_import",
       "file": "ritual_cli.py",

@@ -1,9 +1,8 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-from control_plane.records import AuthorizationError, AuthorizationRecord
-import task_executor
-from self_patcher import _validate_gate
+from control_plane.records import AuthorizationError
+from sentientos.control_api import require_self_patch_apply_authority
 
 """Autonomous Self-Patching Agent
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -29,17 +28,17 @@ def propose(description: str) -> Dict[str, str]:
 
 
 def _require_apply_authority(
-    admission_token: task_executor.AdmissionToken | None,
-    authorization: AuthorizationRecord | None,
+    admission_token: object | None,
+    authorization: object | None,
 ) -> None:
-    _validate_gate(admission_token, authorization, None)
+    require_self_patch_apply_authority(admission_token, authorization)
 
 
 def apply(
     patch_id: int,
     *,
-    admission_token: task_executor.AdmissionToken | None = None,
-    authorization: AuthorizationRecord | None = None,
+    admission_token: object | None = None,
+    authorization: object | None = None,
 ) -> Dict[str, str]:
     _require_apply_authority(admission_token, authorization)
     entry = {"timestamp": datetime.utcnow().isoformat(), "patch_id": patch_id, "status": "applied"}
