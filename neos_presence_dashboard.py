@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-import presence_ledger as pl
+from sentientos.presence_api import append_presence_event, recent_privilege_attempts
 
 LOG_PATH = get_log_path("neos_presence_dashboard.jsonl", "NEOS_PRESENCE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -37,7 +37,7 @@ def main() -> None:
 
     led = sub.add_parser("ledger", help="Show recent privilege attempts")
     led.add_argument("--limit", type=int, default=5)
-    led.set_defaults(func=lambda a: print(json.dumps(pl.recent_privilege_attempts(a.limit), indent=2)))
+    led.set_defaults(func=lambda a: print(json.dumps(recent_privilege_attempts(a.limit), indent=2)))
 
     args = ap.parse_args()
     if hasattr(args, "func"):

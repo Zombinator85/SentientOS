@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-import presence_ledger as pl
+from sentientos.presence_api import append_presence_event
 from flask_stub import Flask, ViewReturn, jsonify, request
 from resonite_flask_boundary import coerce_int
 LOG_PATH = get_log_path("resonite_consent_feedback_wizard.jsonl", "RESONITE_CONSENT_LOG")
@@ -26,7 +26,7 @@ def log_path(action: str, data: Dict[str, str]) -> Dict[str, str]:
     entry = {"timestamp": datetime.utcnow().isoformat(), "action": action, **data}
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
-    pl.log("consent_wizard", action, data.get("user", ""))
+    append_presence_event("consent_wizard", action, data.get("user", ""))
     return entry
 
 

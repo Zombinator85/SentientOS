@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-"""Neutral presence read helpers for formal-core consumers.
+"""Neutral presence façade helpers for canonical presence ledger access.
 
-This module provides read-only accessors that preserve existing presence ledger
-record shapes while keeping formal modules free of presentation/symbolic imports.
+This module exposes narrow, boundary-safe helpers so formal/core, world, and UI
+callers can consume canonical presence behavior without importing
+``presence_ledger`` directly.
 """
 
+import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -17,8 +19,13 @@ def _presence_ledger_path() -> Path:
     return get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 
 
+def _presence_ledger_module() -> Any:
+    """Load the canonical presence ledger module lazily."""
+    return importlib.import_module("presence_ledger")
+
+
 def recent_privilege_attempts(limit: int = 5) -> list[dict[str, Any]]:
-    """Return the most recent privilege-check entries from the presence ledger."""
+    """Return recent privilege-check entries with canonical record shape."""
     ledger_path = _presence_ledger_path()
     if not ledger_path.exists():
         return []
@@ -34,3 +41,8 @@ def recent_privilege_attempts(limit: int = 5) -> list[dict[str, Any]]:
             if len(out) == limit:
                 break
     return list(reversed(out))
+
+
+def append_presence_event(user: str, event: str, note: str = "") -> None:
+    """Append a canonical presence event via presence_ledger.log()."""
+    _presence_ledger_module().log(user, event, note)

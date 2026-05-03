@@ -158,6 +158,23 @@ def test_phase37_ledger_uses_neutral_formal_helpers() -> None:
     presence_api_text = (ROOT / "sentientos/presence_api.py").read_text(encoding="utf-8")
     assert "import presence_ledger" not in presence_api_text
 
+
+def test_phase38_world_presence_modules_use_presence_facade() -> None:
+    dashboard_text = (ROOT / "neos_presence_dashboard.py").read_text(encoding="utf-8")
+    assert "import presence_ledger" not in dashboard_text
+    assert "from sentientos.presence_api import append_presence_event, recent_privilege_attempts" in dashboard_text
+
+    wizard_text = (ROOT / "resonite_guest_agent_consent_feedback_wizard.py").read_text(encoding="utf-8")
+    assert "import presence_ledger" not in wizard_text
+    assert "from sentientos.presence_api import append_presence_event" in wizard_text
+
+
+def test_phase38_presence_api_remains_world_ui_neutral() -> None:
+    text = (ROOT / "sentientos/presence_api.py").read_text(encoding="utf-8")
+    assert "neos_" not in text
+    assert "resonite_" not in text
+    assert "dashboard" not in text
+
 def test_autonomy_filenames_have_governance_annotation_or_allowlist() -> None:
     manifest = _manifest()
     policy = manifest["autonomy_naming_policy"]
