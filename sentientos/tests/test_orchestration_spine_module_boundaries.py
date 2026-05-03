@@ -7,6 +7,7 @@ from sentientos.orchestration_spine.adapters import (
     ADAPTER_FAMILY_INTERNAL_MAINTENANCE,
     internal_maintenance,
 )
+from sentientos.orchestration_spine import facade_mechanical_assembly
 from sentientos.orchestration_spine.projection import (
     PROJECTION_FAMILIES,
     PROJECTION_FAMILY_CURRENT_STATE,
@@ -51,3 +52,34 @@ def test_adapter_module_exposes_documented_family_inventory() -> None:
         internal_maintenance.ADAPTER_GROUP_ADMISSION_HANDSHAKE,
         internal_maintenance.ADAPTER_GROUP_EXECUTOR_RESULT_LINKAGE,
     )
+
+
+def test_facade_mechanical_assembly_linkage_payload_helpers_are_compact_and_non_mutating() -> None:
+    refs = [" one ", "", "two", "  "]
+    lineage = facade_mechanical_assembly.packet_lineage_payload(
+        supersedes_handoff_packet_id=" packet-1 ",
+        refresh_reason=" refresh ",
+        source_operator_resolution_receipt_id=" receipt-1 ",
+        current_packet_candidate=True,
+    )
+
+    assert refs == [" one ", "", "two", "  "]
+    assert facade_mechanical_assembly.normalized_compact_string_refs(refs) == ["one", "two"]
+    assert lineage == {
+        "supersedes_handoff_packet_id": "packet-1",
+        "superseded_by_handoff_packet_id": None,
+        "refresh_reason": "refresh",
+        "source_operator_resolution_receipt_id": "receipt-1",
+        "current_packet_candidate": True,
+    }
+
+
+def test_facade_mechanical_assembly_reference_payloads_preserve_compatibility_keys() -> None:
+    assert facade_mechanical_assembly.proposal_ref_payload(proposal_id="p-1") == {
+        "proposal_id": "p-1",
+        "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+    }
+    assert facade_mechanical_assembly.operator_resolution_ref_payload(" rec-1 ") == {
+        "operator_resolution_receipt_id": "rec-1",
+        "operator_resolution_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl",
+    }

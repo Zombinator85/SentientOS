@@ -1026,6 +1026,36 @@ def _normalized_compact_string_refs(values: list[str] | None) -> list[str]:
     return _FACADE_MECHANICAL_ASSEMBLY.normalized_compact_string_refs(values)
 
 
+def _optional_stripped(value: Any) -> str | None:
+    return _FACADE_MECHANICAL_ASSEMBLY.optional_stripped(value)
+
+
+def _proposal_ref_payload(*, proposal_id: str, source_judgment_linkage_id: Any = None) -> dict[str, Any]:
+    return _FACADE_MECHANICAL_ASSEMBLY.proposal_ref_payload(
+        proposal_id=proposal_id,
+        source_judgment_linkage_id=source_judgment_linkage_id,
+    )
+
+
+def _operator_resolution_ref_payload(source_operator_resolution_receipt_id: str | None) -> dict[str, Any]:
+    return _FACADE_MECHANICAL_ASSEMBLY.operator_resolution_ref_payload(source_operator_resolution_receipt_id)
+
+
+def _packet_lineage_payload(
+    *,
+    supersedes_handoff_packet_id: str | None,
+    refresh_reason: str | None,
+    source_operator_resolution_receipt_id: str | None,
+    current_packet_candidate: bool,
+) -> dict[str, Any]:
+    return _FACADE_MECHANICAL_ASSEMBLY.packet_lineage_payload(
+        supersedes_handoff_packet_id=supersedes_handoff_packet_id,
+        refresh_reason=refresh_reason,
+        source_operator_resolution_receipt_id=source_operator_resolution_receipt_id,
+        current_packet_candidate=current_packet_candidate,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Facade-owned ledger/record assembly: staged external work-order lifecycle
 # ---------------------------------------------------------------------------
@@ -3337,30 +3367,19 @@ def synthesize_handoff_packet(
             supersedes_handoff_packet_id=supersedes_handoff_packet_id,
             source_operator_resolution_receipt_id=source_operator_resolution_receipt_id,
         ),
-        "source_next_move_proposal_ref": {
-            "proposal_id": proposal_id,
-            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
-        },
-        "source_operator_resolution_ref": {
-            "operator_resolution_receipt_id": source_operator_resolution_receipt_id or None,
-            "operator_resolution_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl"
-            if source_operator_resolution_receipt_id
-            else None,
-        },
+        "source_next_move_proposal_ref": _proposal_ref_payload(proposal_id=proposal_id),
+        "source_operator_resolution_ref": _operator_resolution_ref_payload(source_operator_resolution_receipt_id),
         "source_delegated_judgment_ref": {
             "source_judgment_linkage_id": source_judgment_linkage_id,
             "recommended_venue": str(delegated_judgment.get("recommended_venue") or ""),
             "judgment_kind": str(delegated_judgment.get("recommendation_kind") or ""),
         },
-        "packet_lineage": {
-            "supersedes_handoff_packet_id": supersedes_handoff_packet_id.strip()
-            if isinstance(supersedes_handoff_packet_id, str) and supersedes_handoff_packet_id.strip()
-            else None,
-            "superseded_by_handoff_packet_id": None,
-            "refresh_reason": refresh_reason.strip() if isinstance(refresh_reason, str) and refresh_reason.strip() else None,
-            "source_operator_resolution_receipt_id": source_operator_resolution_receipt_id or None,
-            "current_packet_candidate": bool(current_packet_candidate),
-        },
+        "packet_lineage": _packet_lineage_payload(
+            supersedes_handoff_packet_id=supersedes_handoff_packet_id,
+            refresh_reason=refresh_reason,
+            source_operator_resolution_receipt_id=source_operator_resolution_receipt_id,
+            current_packet_candidate=current_packet_candidate,
+        ),
         "target_venue": target_venue,
         "proposed_posture": proposed_posture,
         "executability_classification": executability,
@@ -3477,11 +3496,10 @@ def ingest_operator_resolution_receipt(
             "operator_action_brief_id": operator_action_brief_id,
             "operator_action_brief_ledger_path": "glow/orchestration/operator_action_briefs.jsonl",
         },
-        "source_next_move_proposal_ref": {
-            "proposal_id": source_proposal_id,
-            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
-            "source_judgment_linkage_id": source_proposal_ref_map.get("source_judgment_linkage_id"),
-        },
+        "source_next_move_proposal_ref": _proposal_ref_payload(
+            proposal_id=source_proposal_id,
+            source_judgment_linkage_id=source_proposal_ref_map.get("source_judgment_linkage_id"),
+        ),
         "source_packetization_gate_ref": {
             "gate_kind": gate_kind,
             "packetization_outcome": gate_outcome,
@@ -3491,7 +3509,7 @@ def ingest_operator_resolution_receipt(
         "resolution_lifecycle_state": resolution_state,
         "operator_note": operator_note.strip() or "operator_resolution_ingested_without_additional_note",
         "updated_context_refs": normalized_refs,
-        "redirected_venue": redirected_venue.strip() if isinstance(redirected_venue, str) and redirected_venue.strip() else None,
+        "redirected_venue": _optional_stripped(redirected_venue),
         "target_venue_or_posture_hint": target_venue_or_posture or None,
         "trust_confidence_posture": brief.get("trust_confidence_posture"),
         "operator_provenance": operator_provenance.strip() or "human_operator",
@@ -3576,10 +3594,7 @@ def ingest_external_fulfillment_receipt(
             "handoff_packet_id": handoff_packet_id,
             "handoff_packet_ledger_path": "glow/orchestration/orchestration_handoff_packets.jsonl",
         },
-        "source_next_move_proposal_ref": {
-            "proposal_id": proposal_id,
-            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
-        },
+        "source_next_move_proposal_ref": _proposal_ref_payload(proposal_id=proposal_id),
         "source_venue": venue,
         "fulfillment_kind": fulfillment_kind,
         "operator_or_adapter_provenance": operator_or_adapter.strip() or "unspecified_external_actor",

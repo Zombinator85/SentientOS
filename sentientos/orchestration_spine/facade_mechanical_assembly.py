@@ -163,3 +163,55 @@ def operator_resolution_lifecycle_state(resolution_kind: str) -> str:
         "redirected_venue": "operator_redirected",
         "cancelled": "operator_declined",
     }[resolution_kind]
+
+
+def optional_stripped(value: Any) -> str | None:
+    """Return a stripped string or None when value is empty/non-string."""
+
+    if isinstance(value, str):
+        compact = value.strip()
+        if compact:
+            return compact
+    return None
+
+
+def proposal_ref_payload(*, proposal_id: str, source_judgment_linkage_id: Any = None) -> dict[str, Any]:
+    """Build compact source_next_move_proposal_ref payload."""
+
+    payload: dict[str, Any] = {
+        "proposal_id": str(proposal_id or ""),
+        "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+    }
+    if source_judgment_linkage_id is not None:
+        payload["source_judgment_linkage_id"] = source_judgment_linkage_id
+    return payload
+
+
+def operator_resolution_ref_payload(source_operator_resolution_receipt_id: str | None) -> dict[str, Any]:
+    """Build compact source_operator_resolution_ref payload."""
+
+    receipt_id = optional_stripped(source_operator_resolution_receipt_id)
+    return {
+        "operator_resolution_receipt_id": receipt_id,
+        "operator_resolution_receipt_ledger_path": "glow/orchestration/operator_resolution_receipts.jsonl"
+        if receipt_id
+        else None,
+    }
+
+
+def packet_lineage_payload(
+    *,
+    supersedes_handoff_packet_id: str | None,
+    refresh_reason: str | None,
+    source_operator_resolution_receipt_id: str | None,
+    current_packet_candidate: bool,
+) -> dict[str, Any]:
+    """Build compact packet_lineage payload preserving compatibility keys."""
+
+    return {
+        "supersedes_handoff_packet_id": optional_stripped(supersedes_handoff_packet_id),
+        "superseded_by_handoff_packet_id": None,
+        "refresh_reason": optional_stripped(refresh_reason),
+        "source_operator_resolution_receipt_id": optional_stripped(source_operator_resolution_receipt_id),
+        "current_packet_candidate": bool(current_packet_candidate),
+    }
