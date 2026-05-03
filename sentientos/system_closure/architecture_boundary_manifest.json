@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_40_repository_boundary_remediation_mega_wave_ii",
+  "generated_for_phase": "phase_41_legacy_perception_and_multimodal_boundary_remediation",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -185,6 +185,52 @@
       "tests/"
     ]
   },
-  "known_violations": [],
+  "known_violations": [
+    {
+      "file": "screen_awareness.py",
+      "rule": "legacy_perception_quarantine",
+      "detail": "legacy OCR privacy risk and direct jsonl write; routed shaping via sentientos.perception_api",
+      "severity": "medium",
+      "remediation": "maintain quarantine markers and migrate write path to pulse adapter",
+      "migration_target": "sentientos.perception_api",
+      "requires_quarantine_annotation": true
+    },
+    {
+      "file": "mic_bridge.py",
+      "rule": "legacy_perception_quarantine",
+      "detail": "legacy microphone memory-write risk and optional raw audio retention",
+      "severity": "high",
+      "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter",
+      "migration_target": "sentientos.perception_api",
+      "requires_quarantine_annotation": true
+    },
+    {
+      "file": "vision_tracker.py",
+      "rule": "legacy_perception_quarantine",
+      "detail": "legacy vision biometric/emotion direct jsonl write risk",
+      "severity": "high",
+      "remediation": "preserve quarantine and migrate publication to canonical perception bus adapter",
+      "migration_target": "pulse_bus",
+      "requires_quarantine_annotation": true
+    },
+    {
+      "file": "multimodal_tracker.py",
+      "rule": "legacy_perception_quarantine",
+      "detail": "legacy multimodal fusion direct per-person/environment jsonl writes",
+      "severity": "medium",
+      "remediation": "preserve quarantine and route fusion emission to perception bus envelopes",
+      "migration_target": "sentientos.perception_api",
+      "requires_quarantine_annotation": true
+    },
+    {
+      "file": "feedback.py",
+      "rule": "legacy_perception_quarantine",
+      "detail": "legacy feedback action-capable side effects and action logs",
+      "severity": "high",
+      "remediation": "preserve quarantine and separate action execution from observation telemetry",
+      "migration_target": "sentientos.perception_api",
+      "requires_quarantine_annotation": true
+    }
+  ],
   "inventory_mode_rules": []
 }

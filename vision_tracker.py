@@ -1,6 +1,14 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+LEGACY_PERCEPTION_QUARANTINE = True
+PERCEPTION_AUTHORITY = "none"
+RAW_RETENTION_DEFAULT = False
+CAN_TRIGGER_ACTIONS = False
+CAN_WRITE_MEMORY = False
+MIGRATION_TARGET = "sentientos.perception_api"
+NON_AUTHORITY_RATIONALE = "Legacy perception surface emits telemetry only; migration routes shaping through sentientos.perception_api."
+
 
 require_admin_banner()
 require_lumos_approval()
@@ -11,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from logging_config import get_log_path
 from utils import is_headless
+from sentientos.perception_api import normalize_vision_observation, build_perception_event
 
 HEADLESS = is_headless()
 
@@ -150,8 +159,10 @@ class FaceEmotionTracker:
         return {"timestamp": ts, "faces": faces}
 
     def log_result(self, data: Dict[str, Any]) -> None:
+        payload = normalize_vision_observation(faces=data.get("faces", []), timestamp=float(data.get("timestamp", time.time())))
+        _ = build_perception_event("vision", payload, source="vision_tracker", privacy="biometric")
         with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(data) + "\n")
+            f.write(json.dumps(payload) + "\n")
 
     def update_voice_sentiment(self, face_id: int, sentiment: Dict[str, float]) -> None:
         """Optionally update emotional history and feedback from voice sentiment."""

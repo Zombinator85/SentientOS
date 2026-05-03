@@ -1,6 +1,14 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+LEGACY_PERCEPTION_QUARANTINE = True
+PERCEPTION_AUTHORITY = "none"
+RAW_RETENTION_DEFAULT = False
+CAN_TRIGGER_ACTIONS = True
+CAN_WRITE_MEMORY = False
+MIGRATION_TARGET = "sentientos.perception_api"
+NON_AUTHORITY_RATIONALE = "Feedback triggers side-effect actions; telemetry observation shaping is routed through sentientos.perception_api while action risk remains explicit."
+
 
 require_admin_banner()
 require_lumos_approval()
@@ -11,6 +19,7 @@ from dataclasses import dataclass, field
 import importlib
 import os
 from pathlib import Path
+from sentientos.perception_api import build_feedback_observation, build_perception_event
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import json
 import uuid
@@ -97,14 +106,9 @@ class FeedbackManager:
                 if action:
                     action(rule, user_id, value)
                 action_id = uuid.uuid4().hex
-                entry = {
-                    "id": action_id,
-                    "time": ts,
-                    "user": user_id,
-                    "emotion": rule.emotion,
-                    "value": value,
-                    "action": rule.action,
-                }
+                observation = build_feedback_observation(user=user_id, emotion=rule.emotion, value=value, action=rule.action, timestamp=ts)
+                _ = build_perception_event("feedback", observation, source="feedback", can_trigger_actions=True)
+                entry = {"id": action_id, "time": ts, **observation}
                 self.history.append(entry)
                 self.log_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(self.log_path, "a", encoding="utf-8") as f:
