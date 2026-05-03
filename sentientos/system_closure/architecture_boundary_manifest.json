@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_37_ledger_core_purification_wave",
+  "generated_for_phase": "phase_38_world_presence_adapter_facade_wave",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -161,13 +161,6 @@
       "detail": "retains ledger read coupling; append writes remediated via public facade",
       "severity": "low",
       "remediation": "migrate read path to projection API"
-    },
-    {
-      "rule": "world_forbidden_import",
-      "file": "resonite_guest_agent_consent_feedback_wizard.py",
-      "detail": "imports presence_ledger",
-      "severity": "medium",
-      "remediation": "route via governance consent fa\u00e7ade"
     },
     {
       "rule": "autonomy_naming_missing_annotation",
