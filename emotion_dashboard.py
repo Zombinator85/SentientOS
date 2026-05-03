@@ -33,7 +33,7 @@ try:
 except Exception:  # pragma: no cover - optional
     st = None
 
-import ledger
+from sentientos.dashboard_api import render_ledger_widget
 
 
 import reflex_manager as rm
@@ -82,7 +82,7 @@ def run_dashboard(
 
     st.set_page_config(page_title="SentientOS Dashboard", layout="wide")
     st.title("SentientOS Emotion Dashboard")
-    ledger.streamlit_widget(st.sidebar if hasattr(st, "sidebar") else st)
+    render_ledger_widget(st.sidebar if hasattr(st, "sidebar") else st)
 
     # Optional FeedbackManager integration
     fm = None

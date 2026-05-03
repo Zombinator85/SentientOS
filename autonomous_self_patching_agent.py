@@ -16,6 +16,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
+
+GOVERNANCE_ANNOTATION = "phase39_boundary_non_sovereign_autonomy"
+ADMISSION_SURFACE = "caller-invoked CLI/function call with control_api authority checks"
+CONSENT_BOUNDARY = "explicit caller invocation; no autonomous background scheduling"
+PROVENANCE_BOUNDARY = "append-only self_patch_agent log entries with UTC timestamps"
+SIMULATION_ONLY = False
+NON_SOVEREIGNTY = "agent name is historical; execution remains bounded, caller-triggered, and policy-gated"
+
 LOG_PATH = get_log_path("self_patch_agent.jsonl", "SELF_PATCH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 

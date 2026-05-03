@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_for_phase": "phase_38_world_presence_adapter_facade_wave",
+  "generated_for_phase": "phase_39_repository_boundary_remediation_mega_wave",
   "layer_definitions": {
     "formal_core": {
       "module_globs": [
@@ -140,38 +140,6 @@
       "tests/"
     ]
   },
-  "known_violations": [
-    {
-      "rule": "expressive_forbidden_import",
-      "file": "ritual_cli.py",
-      "detail": "imports attestation and relationship_log directly",
-      "severity": "medium",
-      "remediation": "consume typed ritual fa\u00e7ade"
-    },
-    {
-      "rule": "dashboard_forbidden_import",
-      "file": "emotion_dashboard.py",
-      "detail": "uses ledger streamlit_widget + ledger coupling",
-      "severity": "medium",
-      "remediation": "use dashboard-safe view model"
-    },
-    {
-      "rule": "dashboard_forbidden_import",
-      "file": "mood_wall.py",
-      "detail": "retains ledger read coupling; append writes remediated via public facade",
-      "severity": "low",
-      "remediation": "migrate read path to projection API"
-    },
-    {
-      "rule": "autonomy_naming_missing_annotation",
-      "file": "autonomous_self_patching_agent.py",
-      "detail": "autonomy token without explicit governance annotation",
-      "severity": "medium",
-      "remediation": "add governance annotation block"
-    }
-  ],
-  "inventory_mode_rules": [
-    "expressive_forbidden_import",
-    "autonomy_naming_missing_annotation"
-  ]
+  "known_violations": [],
+  "inventory_mode_rules": []
 }

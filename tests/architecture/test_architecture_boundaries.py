@@ -237,3 +237,45 @@ def test_phase35_control_facade_public_contract_is_narrow() -> None:
     assert "AuthorizationRecord" not in facade_text
     assert "def require_authorization_for_request_types" in facade_text
     assert "def require_self_patch_apply_authority" in facade_text
+
+
+def test_phase39_ritual_cli_uses_ritual_facade() -> None:
+    text = (ROOT / "ritual_cli.py").read_text(encoding="utf-8")
+    assert "from sentientos.ritual_api import add_attestation, ritual_attestations_history, ritual_events_history" in text
+    assert "import attestation" not in text
+    assert "import relationship_log" not in text
+
+
+def test_phase39_dashboard_and_mood_modules_use_dashboard_facade() -> None:
+    emotion_text = (ROOT / "emotion_dashboard.py").read_text(encoding="utf-8")
+    assert "from sentientos.dashboard_api import render_ledger_widget" in emotion_text
+    assert "import ledger" not in emotion_text
+
+    mood_text = (ROOT / "mood_wall.py").read_text(encoding="utf-8")
+    assert "from sentientos.dashboard_api import log_mood_blessing" in mood_text
+    assert "import ledger" not in mood_text
+
+
+def test_phase39_new_facades_remain_narrow_and_presentation_neutral() -> None:
+    ritual_api_text = (ROOT / "sentientos/ritual_api.py").read_text(encoding="utf-8")
+    assert "__all__" in ritual_api_text
+    assert "streamlit" not in ritual_api_text
+    assert "dashboard" not in ritual_api_text
+
+    dashboard_api_text = (ROOT / "sentientos/dashboard_api.py").read_text(encoding="utf-8")
+    assert "__all__" in dashboard_api_text
+    assert "relationship_log" not in dashboard_api_text
+    assert "attestation" not in dashboard_api_text
+
+
+def test_phase39_self_patching_agent_has_governance_annotation_markers() -> None:
+    text = (ROOT / "autonomous_self_patching_agent.py").read_text(encoding="utf-8")
+    for marker in (
+        "GOVERNANCE_ANNOTATION",
+        "ADMISSION_SURFACE",
+        "CONSENT_BOUNDARY",
+        "PROVENANCE_BOUNDARY",
+        "SIMULATION_ONLY",
+        "NON_SOVEREIGNTY",
+    ):
+        assert marker in text
