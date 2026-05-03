@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Dict
 
-from ledger import _append
+from sentientos.ledger_api import append_audit_record
 
 LOG_PATHS = {
     "confession": get_log_path("confessional_log.jsonl"),
@@ -40,7 +40,7 @@ def import_recap(path: Path, source: str = "") -> int:
         if not kind or kind not in LOG_PATHS:
             continue
         entry["source"] = source or str(path)
-        _append(LOG_PATHS[kind], entry)
+        append_audit_record(LOG_PATHS[kind], entry)
         count += 1
     return count
 

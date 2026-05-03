@@ -154,3 +154,23 @@ def test_autonomy_filenames_have_governance_annotation_or_allowlist() -> None:
         assert violations
     else:
         assert not violations, "New autonomy naming policy violations: " + ", ".join(sorted(violations))
+
+
+def test_phase34_migrated_modules_use_public_ledger_facade() -> None:
+    migrated = {
+        "ritual_federation_importer.py": "append_audit_record",
+        "blessing_recap_cli.py": "append_audit_record",
+        "mood_wall.py": "append_audit_record",
+    }
+    for rel, marker in migrated.items():
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "from sentientos.ledger_api import append_audit_record" in text
+        assert marker in text
+
+
+def test_phase34_migrated_modules_avoid_direct_append_writes_to_canonical_sinks() -> None:
+    for rel in ("blessing_recap_cli.py", "mood_wall.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert '.open("a"' not in text
+        assert "Path.write_text(" not in text or rel == "blessing_recap_cli.py"
+

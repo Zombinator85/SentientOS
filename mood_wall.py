@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import ledger
+from sentientos.ledger_api import append_audit_record
 try:
     import requests  # type: ignore[import-untyped]  # HTTP client optional
 except Exception:  # pragma: no cover - optional
@@ -69,14 +70,13 @@ def sync_wall(peer_log: Path) -> int:
         LOG.touch()
     lines = peer_log.read_text(encoding="utf-8").splitlines()
     count = 0
-    with LOG.open("a", encoding="utf-8") as f:
-        for ln in lines:
+    for ln in lines:
             try:
                 e = json.loads(ln)
             except Exception:
                 continue
             if e.get("event") in ("shared", "mood_blessing"):
-                f.write(json.dumps(e) + "\n")
+                append_audit_record(LOG, e)
                 count += 1
     return count
 
@@ -92,10 +92,9 @@ def sync_wall_http(url: str) -> int:
     r.raise_for_status()
     data = r.json()
     count = 0
-    with LOG.open("a", encoding="utf-8") as f:
-        for e in data:
+    for e in data:
             if e.get("event") in ("shared", "mood_blessing"):
-                f.write(json.dumps(e) + "\n")
+                append_audit_record(LOG, e)
                 count += 1
     return count
 

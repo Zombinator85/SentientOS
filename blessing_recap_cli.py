@@ -12,6 +12,7 @@ from pathlib import Path
 import daily_theme
 import ledger
 import heresy_log
+from sentientos.ledger_api import append_audit_record
 BLESSING_LEDGER = get_log_path("blessing_ledger.jsonl", "BLESSING_LEDGER")
 BLESSING_LEDGER.parent.mkdir(parents=True, exist_ok=True)
 HERESY_REVIEW_LOG = get_log_path("heresy_review.jsonl", "HERESY_REVIEW_LOG")
@@ -56,8 +57,7 @@ def log_blessing(officiant: str, summary: str, theme: str, heresy_count: int) ->
         "theme": theme,
         "unresolved_heresy": heresy_count,
     }
-    with BLESSING_LEDGER.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_audit_record(BLESSING_LEDGER, entry)
     return entry
 
 
