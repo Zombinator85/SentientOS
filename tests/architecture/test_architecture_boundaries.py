@@ -118,7 +118,7 @@ def test_formal_layers_do_not_import_symbolic_modules() -> None:
     violations: list[str] = []
     for path in _all_python_files():
         rel = path.relative_to(ROOT).as_posix()
-        if rel not in {"ledger.py", "audit_chain.py", "agent_privilege_policy_engine.py", "healing_sprint_ledger.py", "sentientos/formal_logging.py", "sentientos/integrity_metrics.py"}:
+        if rel not in {"ledger.py", "audit_chain.py", "agent_privilege_policy_engine.py", "healing_sprint_ledger.py", "sentientos/formal_logging.py", "sentientos/integrity_metrics.py", "sentientos/presence_api.py"}:
             continue
         for mod, _ in _imports(path):
             for token in forbidden:
@@ -145,6 +145,18 @@ def test_phase36_formal_modules_use_neutral_helpers() -> None:
     assert "from sentientos.integrity_metrics import gather_integrity_issues, parse_contributors" in sprint_text
     assert "from cathedral_wounds_dashboard import gather_integrity_issues, parse_contributors" not in sprint_text
 
+
+
+
+def test_phase37_ledger_uses_neutral_formal_helpers() -> None:
+    ledger_text = (ROOT / "ledger.py").read_text(encoding="utf-8")
+    assert "from sentientos.formal_logging import PUBLIC_LOG, log_json" in ledger_text
+    assert "from cathedral_const import PUBLIC_LOG, log_json" not in ledger_text
+    assert "import presence_ledger" not in ledger_text
+    assert "from sentientos.presence_api import recent_privilege_attempts" in ledger_text
+
+    presence_api_text = (ROOT / "sentientos/presence_api.py").read_text(encoding="utf-8")
+    assert "import presence_ledger" not in presence_api_text
 
 def test_autonomy_filenames_have_governance_annotation_or_allowlist() -> None:
     manifest = _manifest()
