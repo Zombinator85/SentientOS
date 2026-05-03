@@ -149,13 +149,6 @@
       "remediation": "route via fa\u00e7ade DTO boundary"
     },
     {
-      "rule": "expressive_private_import",
-      "file": "ritual_federation_importer.py",
-      "detail": "from ledger import _append",
-      "severity": "high",
-      "remediation": "use public append sink API"
-    },
-    {
       "rule": "expressive_forbidden_import",
       "file": "ritual_cli.py",
       "detail": "imports attestation and relationship_log directly",
@@ -172,9 +165,9 @@
     {
       "rule": "dashboard_forbidden_import",
       "file": "mood_wall.py",
-      "detail": "imports ledger with shared sink coupling",
-      "severity": "medium",
-      "remediation": "use read-only projection API"
+      "detail": "retains ledger read coupling; append writes remediated via public facade",
+      "severity": "low",
+      "remediation": "migrate read path to projection API"
     },
     {
       "rule": "formal_symbolic_import",
