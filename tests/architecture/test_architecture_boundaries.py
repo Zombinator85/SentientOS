@@ -332,3 +332,36 @@ def test_phase41_perception_api_boundary_purity() -> None:
         "authority_surface",
     ):
         assert bad not in text
+
+
+def test_phase42_legacy_perception_modules_are_bridged_and_marked() -> None:
+    modules = {
+        "screen_awareness.py": {"needs_action": False, "needs_memory": False},
+        "mic_bridge.py": {"needs_action": False, "needs_memory": True},
+        "vision_tracker.py": {"needs_action": False, "needs_memory": False},
+        "multimodal_tracker.py": {"needs_action": False, "needs_memory": False},
+        "feedback.py": {"needs_action": True, "needs_memory": False},
+    }
+    for rel, flags in modules.items():
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "LEGACY_PERCEPTION_QUARANTINE = True" in text
+        assert "PULSE_COMPATIBLE_TELEMETRY = True" in text
+        assert "from sentientos.perception_api import" in text
+        assert "emit_legacy_perception_telemetry" in text
+        if flags["needs_action"]:
+            assert "CAN_TRIGGER_ACTIONS = True" in text
+        if flags["needs_memory"]:
+            assert "CAN_WRITE_MEMORY = True" in text
+
+
+def test_phase42_perception_api_import_purity_against_authority_surfaces() -> None:
+    text = (ROOT / "sentientos/perception_api.py").read_text(encoding="utf-8")
+    forbidden = [
+        "task_admission",
+        "task_executor",
+        "control_plane",
+        "authority_surface",
+        "sentientos.introspection.spine",
+    ]
+    for token in forbidden:
+        assert token not in text

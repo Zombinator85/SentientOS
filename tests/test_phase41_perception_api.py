@@ -3,6 +3,8 @@ from __future__ import annotations
 from sentientos.perception_api import (
     build_feedback_observation,
     build_perception_event,
+    build_pulse_compatible_perception_event,
+    maybe_publish_legacy_perception_event,
     normalize_audio_observation,
     normalize_multimodal_observation,
     normalize_screen_observation,
@@ -36,3 +38,38 @@ def test_legacy_modules_keep_public_symbols() -> None:
     assert MultiModalEmotionTracker is not None
     assert ScreenAwareness is not None
     assert FaceEmotionTracker is not None
+
+
+def test_phase42_pulse_compatible_event_shape_and_publisher() -> None:
+    captured = []
+    obs = {"timestamp": 11.0, "sample": True}
+    event = maybe_publish_legacy_perception_event(
+        "audio",
+        obs,
+        source_module="mic_bridge",
+        privacy_class="restricted",
+        raw_retention=False,
+        can_write_memory=True,
+        legacy_quarantine=True,
+        quarantine_risk="memory_write",
+        publisher=captured.append,
+    )
+    assert captured and captured[0]["event_type"] == "perception.legacy.audio"
+    assert event["authority"] == "none"
+    assert event["telemetry_only"] is True
+    assert event["source_module"] == "mic_bridge"
+    assert event["privacy_class"] == "restricted"
+    assert event["can_write_memory"] is True
+    assert event["legacy_quarantine"] is True
+
+
+def test_phase42_build_without_publisher_is_safe() -> None:
+    event = build_pulse_compatible_perception_event(
+        "feedback",
+        {"timestamp": 7.0, "action": "cue"},
+        source_module="feedback",
+        can_trigger_actions=True,
+        legacy_quarantine=True,
+    )
+    assert event["event_type"] == "perception.legacy.feedback"
+    assert event["can_trigger_actions"] is True
