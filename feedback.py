@@ -32,6 +32,7 @@ from sentientos.embodiment_ingress import (
     mark_legacy_direct_effect_preserved,
     should_allow_legacy_feedback_action,
 )
+from sentientos.embodiment_proposals import record_blocked_embodiment_effect
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import json
 import uuid
@@ -76,6 +77,7 @@ class FeedbackManager:
     user_log_path: Path = get_log_path("reflex_user_feedback.jsonl", "FEEDBACK_USER_LOG")
     tuning_log_path: Path = get_log_path("reflex_tuning.jsonl", "REFLEX_TUNING_LOG")
     learning: bool = False
+    embodiment_proposal_recorder: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None
     rule_stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
     tuning_history: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -127,6 +129,17 @@ class FeedbackManager:
                     effect_type="feedback_action",
                     mode=mode,
                 )
+                if action and (not legacy_action_allowed):
+                    _proposal = record_blocked_embodiment_effect(
+                        source_module="feedback",
+                        gate_mode=mode,
+                        blocked_effect_type="feedback_action",
+                        ingress_receipt=_ingress,
+                        candidate_payload_summary={"action": rule.action, "emotion": rule.emotion, "user": user_id},
+                        rationale=["proposal_only blocked legacy direct feedback action"],
+                        append_proposal=self.embodiment_proposal_recorder,
+                    )
+                    _ingress["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
                 entry = {"id": action_id, "time": ts, **observation}
                 entry["ingress_receipt"] = _ingress
                 self.history.append(entry)

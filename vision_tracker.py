@@ -28,6 +28,7 @@ from sentientos.perception_api import emit_legacy_perception_telemetry, normaliz
 from sentientos.embodiment_fusion import build_embodiment_snapshot
 from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
+from sentientos.embodiment_proposals import record_blocked_embodiment_effect
 
 HEADLESS = is_headless()
 
@@ -166,7 +167,7 @@ class FaceEmotionTracker:
                 )
         return {"timestamp": ts, "faces": faces}
 
-    def log_result(self, data: Dict[str, Any], *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE) -> dict[str, Any]:
+    def log_result(self, data: Dict[str, Any], *, ingress_gate_mode: str = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE, embodiment_proposal_recorder=None) -> dict[str, Any]:
         payload = normalize_vision_observation(faces=data.get("faces", []), timestamp=float(data.get("timestamp", time.time())))
         _ = emit_legacy_perception_telemetry("vision", payload, source_module="vision_tracker", privacy_class="restricted", legacy_quarantine=True, quarantine_risk="biometric_emotion")
         _ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([_]))
@@ -178,6 +179,17 @@ class FaceEmotionTracker:
             _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="vision_emotion", mode=resolve_embodiment_gate_mode(ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE))
             with open(self.log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload) + "\n")
+        else:
+            _proposal = record_blocked_embodiment_effect(
+                source_module="vision_tracker",
+                gate_mode=mode,
+                blocked_effect_type="retention:vision_emotion",
+                ingress_receipt=_ingress,
+                candidate_payload_summary={"retention_surface": "vision_emotion"},
+                rationale=["proposal_only blocked legacy direct retention write"],
+                append_proposal=embodiment_proposal_recorder,
+            )
+            _ingress["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
         return _ingress
 
     def update_voice_sentiment(self, face_id: int, sentiment: Dict[str, float]) -> None:

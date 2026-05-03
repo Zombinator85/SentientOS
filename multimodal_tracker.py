@@ -60,6 +60,7 @@ from sentientos.perception_api import emit_legacy_perception_telemetry, normaliz
 from sentientos.embodiment_fusion import build_embodiment_snapshot
 from sentientos.embodiment_gate_policy import resolve_embodiment_gate_mode
 from sentientos.embodiment_ingress import evaluate_embodiment_ingress, should_allow_legacy_retention_write, mark_legacy_direct_retention_preserved, build_retention_ingress_candidate
+from sentientos.embodiment_proposals import record_blocked_embodiment_effect
 
 
 class VoiceObservation(TypedDict, total=False):
@@ -159,7 +160,7 @@ class MultiModalEmotionTracker:
         self.memory = PersonaMemory()
         self.ingress_gate_mode = EMBODIMENT_RETENTION_GATE_DEFAULT_MODE
 
-    def _log(self, person_id: int, entry: LogEntry, *, ingress_gate_mode: Optional[str] = None) -> dict[str, Any]:
+    def _log(self, person_id: int, entry: LogEntry, *, ingress_gate_mode: Optional[str] = None, embodiment_proposal_recorder=None) -> dict[str, Any]:
         path = self.log_dir / f"{person_id}.jsonl"
         payload = normalize_multimodal_observation(timestamp=float(entry.get("timestamp", time.time())), vision=entry.get("vision", {}), voice=entry.get("voice", {}), scene=entry.get("scene"), screen=entry.get("screen"))
         _ = emit_legacy_perception_telemetry("multimodal", payload, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
@@ -172,9 +173,20 @@ class MultiModalEmotionTracker:
             _ingress = mark_legacy_direct_retention_preserved(_ingress, retention_surface="multimodal_person", mode=mode)
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        else:
+            _proposal = record_blocked_embodiment_effect(
+                source_module="multimodal_tracker",
+                gate_mode=mode,
+                blocked_effect_type="retention:multimodal_person",
+                ingress_receipt=_ingress,
+                candidate_payload_summary={"retention_surface": "multimodal_person", "person_id": person_id},
+                rationale=["proposal_only blocked legacy direct retention write"],
+                append_proposal=embodiment_proposal_recorder,
+            )
+            _ingress["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
         return _ingress
 
-    def _log_environment(self, entry: Dict[str, Any], *, ingress_gate_mode: Optional[str] = None) -> dict[str, Any]:
+    def _log_environment(self, entry: Dict[str, Any], *, ingress_gate_mode: Optional[str] = None, embodiment_proposal_recorder=None) -> dict[str, Any]:
         mode = resolve_embodiment_gate_mode(ingress_gate_mode or self.ingress_gate_mode, default_mode=EMBODIMENT_RETENTION_GATE_DEFAULT_MODE)
         event = emit_legacy_perception_telemetry("multimodal", entry, source_module="multimodal_tracker", legacy_quarantine=True, quarantine_risk="fusion_direct_writes")
         ingress = evaluate_embodiment_ingress(build_embodiment_snapshot([event]))
@@ -188,6 +200,17 @@ class MultiModalEmotionTracker:
                     handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
             except Exception:
                 pass
+        else:
+            _proposal = record_blocked_embodiment_effect(
+                source_module="multimodal_tracker",
+                gate_mode=mode,
+                blocked_effect_type="retention:multimodal_environment",
+                ingress_receipt=ingress,
+                candidate_payload_summary={"retention_surface": "multimodal_environment"},
+                rationale=["proposal_only blocked legacy direct retention write"],
+                append_proposal=embodiment_proposal_recorder,
+            )
+            ingress["blocked_effect_proposal_ref"] = _proposal["proposal_id"]
         return ingress
 
     def _record_journal(self, tags: List[str], note: str, extra: Optional[Dict[str, Any]] = None) -> None:

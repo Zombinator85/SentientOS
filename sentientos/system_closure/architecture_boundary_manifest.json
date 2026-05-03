@@ -153,6 +153,37 @@
         "multimodal_tracker",
         "screen_awareness"
       ]
+    },
+    "embodiment_proposals": {
+      "module_globs": [
+        "sentientos/embodiment_proposals.py"
+      ],
+      "classification": "canonical_append_only_review_surface",
+      "append_only": true,
+      "proposal_only": true,
+      "non_authoritative": true,
+      "no_direct_memory_write": true,
+      "no_action_trigger": true,
+      "no_admission_execution": true,
+      "consumes": [
+        "sentientos.embodiment_ingress",
+        "sentientos.ledger_api"
+      ],
+      "produces": [
+        "pending_review_proposals"
+      ],
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "feedback",
+        "memory_manager",
+        "mic_bridge",
+        "vision_tracker",
+        "multimodal_tracker",
+        "screen_awareness"
+      ]
     }
   },
   "protected_sinks": {
@@ -242,7 +273,7 @@
     {
       "file": "screen_awareness.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy OCR privacy risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible",
+      "detail": "legacy OCR privacy risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible; proposal_only now records blocked-effect proposals to sentientos.embodiment_proposals append-only review surface; compatibility_legacy fallback still preserves direct effects and remains unresolved migration risk",
       "severity": "medium",
       "remediation": "maintain quarantine markers and migrate write path to pulse adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
@@ -251,7 +282,7 @@
     {
       "file": "mic_bridge.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy microphone memory-write risk and optional raw audio retention; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible",
+      "detail": "legacy microphone memory-write risk and optional raw audio retention; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible; proposal_only now records blocked-effect proposals to sentientos.embodiment_proposals append-only review surface; compatibility_legacy fallback still preserves direct effects and remains unresolved migration risk",
       "severity": "high",
       "remediation": "preserve quarantine and migrate memory write behind non-authoritative telemetry-gated adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress; move default to proposal_only after downstream admission path readiness",
       "migration_target": "sentientos.perception_api",
@@ -260,7 +291,7 @@
     {
       "file": "vision_tracker.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy vision/emotion biometric risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible",
+      "detail": "legacy vision/emotion biometric risk and direct jsonl write; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible; proposal_only now records blocked-effect proposals to sentientos.embodiment_proposals append-only review surface; compatibility_legacy fallback still preserves direct effects and remains unresolved migration risk",
       "severity": "high",
       "remediation": "preserve quarantine and migrate publication to canonical perception bus adapter; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "pulse_bus",
@@ -269,7 +300,7 @@
     {
       "file": "multimodal_tracker.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy multimodal fusion direct-write risk for per-person and environment logs; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible",
+      "detail": "legacy multimodal fusion direct-write risk for per-person and environment logs; pulse-compatible telemetry bridge added via sentientos.perception_api; retention gate mode supports proposal_only and compatibility_legacy; proposal_only blocks direct retention while compatibility preserves legacy writes; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible; proposal_only now records blocked-effect proposals to sentientos.embodiment_proposals append-only review surface; compatibility_legacy fallback still preserves direct effects and remains unresolved migration risk",
       "severity": "medium",
       "remediation": "preserve quarantine and route fusion emission to perception bus envelopes; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress",
       "migration_target": "sentientos.perception_api",
@@ -278,7 +309,7 @@
     {
       "file": "feedback.py",
       "rule": "legacy_perception_quarantine",
-      "detail": "legacy feedback action-capable side effects and action logs; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible",
+      "detail": "legacy feedback action-capable side effects and action logs; pulse-compatible telemetry bridge added via sentientos.perception_api; ingress gate mode supports proposal_only and compatibility_legacy; centralized gate policy via sentientos.embodiment_gate_policy; proposal_only behavior covered by focused tests; compatibility_legacy fallback retained and risk remains visible; proposal_only now records blocked-effect proposals to sentientos.embodiment_proposals append-only review surface; compatibility_legacy fallback still preserves direct effects and remains unresolved migration risk",
       "severity": "high",
       "remediation": "preserve quarantine and separate action execution from observation telemetry; keep quarantine until direct write/action/memory behavior is migrated; phase44 canonical ingress gate: sentientos.embodiment_ingress; move default to proposal_only after operator-approved action admission path exists",
       "migration_target": "sentientos.perception_api",
