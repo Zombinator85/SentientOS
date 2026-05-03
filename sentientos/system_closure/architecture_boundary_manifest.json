@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "generated_for_phase": "phase_33_repository_architecture_boundary_enforcement_wave",
+  "layer_definitions": {
+    "formal_core": {
+      "module_globs": [
+        "sentientos/**/*.py",
+        "control_plane/**/*.py"
+      ],
+      "allowed_import_directions": [
+        "formal_core",
+        "control_plane",
+        "authority_admission",
+        "audit_ledger_introspection",
+        "governance_consent_embodiment",
+        "diagnostics_recovery",
+        "orchestration_spine",
+        "codex_forge_proposal_surface",
+        "federation_pulse",
+        "cognition_consciousness",
+        "tests_ci"
+      ],
+      "forbidden_import_patterns": [
+        "cathedral_",
+        "avatar_",
+        "ritual_",
+        "emotion_",
+        "mood_",
+        "neos_",
+        "resonite_",
+        "dashboard",
+        "streamlit",
+        "view"
+      ],
+      "forbid_private_symbol_imports": true
+    },
+    "expressive_apps": {
+      "module_globs": [
+        "*.py"
+      ],
+      "allowed_import_directions": [
+        "expressive_apps",
+        "orchestration_spine",
+        "codex_forge_proposal_surface",
+        "federation_pulse",
+        "tests_ci"
+      ],
+      "forbidden_import_patterns": [
+        "control_plane",
+        "control_plane.",
+        "task_admission",
+        "task_executor",
+        "sentientos.authority_surface",
+        "sentientos.introspection.spine",
+        "ledger._append"
+      ],
+      "forbid_private_symbol_imports": true
+    },
+    "world_adapters": {
+      "module_globs": [
+        "neos_*.py",
+        "resonite_*.py",
+        "*bridge*.py"
+      ],
+      "forbidden_import_patterns": [
+        "control_plane",
+        "task_admission",
+        "task_executor",
+        "sentientos.authority_surface",
+        "ledger._append"
+      ],
+      "forbid_private_symbol_imports": true
+    },
+    "dashboards_views": {
+      "module_globs": [
+        "*dashboard*.py",
+        "*view*.py"
+      ],
+      "forbidden_import_patterns": [
+        "control_plane",
+        "task_admission",
+        "task_executor",
+        "sentientos.authority_surface",
+        "ledger._append"
+      ],
+      "forbid_private_symbol_imports": true
+    },
+    "orchestration_spine": {
+      "module_globs": [
+        "sentientos/orchestration_spine/**/*.py"
+      ],
+      "projection_forbidden_import_patterns": [
+        "control_plane",
+        "task_admission",
+        "task_executor",
+        "sentientos.authority_surface",
+        "sentientos.introspection.spine"
+      ],
+      "adapters_forbidden_import_patterns": [
+        "sentientos.authority_surface",
+        "sentientos.introspection.spine"
+      ]
+    }
+  },
+  "protected_sinks": {
+    "paths": [
+      "logs/",
+      "glow/",
+      "audit_log/",
+      "ledger",
+      "presence_ledger",
+      "*.jsonl"
+    ],
+    "approved_direct_write_modules": [
+      "ledger.py",
+      "attestation.py",
+      "relationship_log.py",
+      "presence_ledger.py",
+      "audit_chain.py",
+      "sentientos/attestation.py"
+    ]
+  },
+  "autonomy_naming_policy": {
+    "filename_tokens": [
+      "autonomous",
+      "agent",
+      "daemon",
+      "scheduler"
+    ],
+    "annotation_markers": [
+      "GOVERNANCE_ANNOTATION",
+      "NON_SOVEREIGNTY",
+      "SIMULATION_ONLY",
+      "ADMISSION_SURFACE",
+      "CONSENT_BOUNDARY",
+      "PROVENANCE_BOUNDARY"
+    ],
+    "approved_paths": [
+      "sentientos/tests/",
+      "tests/"
+    ]
+  },
+  "known_violations": [
+    {
+      "rule": "expressive_forbidden_import",
+      "file": "speech_to_avatar_bridge.py",
+      "detail": "imports control_plane enums and records",
+      "severity": "high",
+      "remediation": "route via fa\u00e7ade DTO boundary"
+    },
+    {
+      "rule": "expressive_private_import",
+      "file": "ritual_federation_importer.py",
+      "detail": "from ledger import _append",
+      "severity": "high",
+      "remediation": "use public append sink API"
+    },
+    {
+      "rule": "expressive_forbidden_import",
+      "file": "ritual_cli.py",
+      "detail": "imports attestation and relationship_log directly",
+      "severity": "medium",
+      "remediation": "consume typed ritual fa\u00e7ade"
+    },
+    {
+      "rule": "dashboard_forbidden_import",
+      "file": "emotion_dashboard.py",
+      "detail": "uses ledger streamlit_widget + ledger coupling",
+      "severity": "medium",
+      "remediation": "use dashboard-safe view model"
+    },
+    {
+      "rule": "dashboard_forbidden_import",
+      "file": "mood_wall.py",
+      "detail": "imports ledger with shared sink coupling",
+      "severity": "medium",
+      "remediation": "use read-only projection API"
+    },
+    {
+      "rule": "formal_symbolic_import",
+      "file": "ledger.py",
+      "detail": "imports cathedral_const and presence_ledger",
+      "severity": "high",
+      "remediation": "remove symbolic coupling from formal sink"
+    },
+    {
+      "rule": "formal_symbolic_import",
+      "file": "audit_chain.py",
+      "detail": "imports cathedral_const validation",
+      "severity": "medium",
+      "remediation": "move validation primitive to formal package"
+    },
+    {
+      "rule": "formal_symbolic_import",
+      "file": "agent_privilege_policy_engine.py",
+      "detail": "imports cathedral_const logging",
+      "severity": "medium",
+      "remediation": "depend on formal logger surface"
+    },
+    {
+      "rule": "world_forbidden_import",
+      "file": "resonite_guest_agent_consent_feedback_wizard.py",
+      "detail": "imports presence_ledger",
+      "severity": "medium",
+      "remediation": "route via governance consent fa\u00e7ade"
+    },
+    {
+      "rule": "autonomy_naming_missing_annotation",
+      "file": "autonomous_self_patching_agent.py",
+      "detail": "autonomy token without explicit governance annotation",
+      "severity": "medium",
+      "remediation": "add governance annotation block"
+    }
+  ],
+  "inventory_mode_rules": [
+    "expressive_forbidden_import",
+    "formal_symbolic_import",
+    "autonomy_naming_missing_annotation"
+  ]
+}

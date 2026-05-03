@@ -71,3 +71,14 @@ def test_core_imports_are_pure() -> None:
         extra_asserts="assert module._ADMISSION_LOG_PATH is None",
     )
     _run_import_check("sentientos.federation")
+
+
+def test_architecture_boundary_manifest_exists_and_parses() -> None:
+    from pathlib import Path
+    import json
+
+    manifest_path = Path("sentientos/system_closure/architecture_boundary_manifest.json")
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["version"] == 1
+    assert manifest["known_violations"]
