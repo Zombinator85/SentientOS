@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+from pathlib import Path
 from typing import Any
 
+from sentientos.attestation import read_jsonl
+from sentientos.ledger_api import append_audit_record
+
 TRANSITIONS_WITHOUT_NEW_EVIDENCE = {"initial_stance", "preserve", "narrow", "qualify", "policy_block_but_preserve", "hold_revision"}
+DEFAULT_STANCE_LEDGER = Path("logs/truth/stance_ledger.jsonl")
+DEFAULT_CONTRADICTION_LEDGER = Path("logs/truth/contradiction_ledger.jsonl")
 TRANSITIONS_REQUIRE_NEW_EVIDENCE = {"weaken_with_new_evidence", "supersede_with_new_evidence"}
 
 
@@ -110,3 +116,21 @@ def stance_receipt_ref(receipt: dict[str, Any]) -> str:
 
 def contradiction_receipt_ref(receipt: dict[str, Any]) -> str:
     return f"contradiction:{receipt['contradiction_id']}"
+
+
+def append_stance_receipt(receipt: dict[str, Any], *, path: Path = DEFAULT_STANCE_LEDGER) -> dict[str, Any]:
+    return append_audit_record(path, dict(receipt))
+
+
+def list_recent_stance_receipts(*, path: Path = DEFAULT_STANCE_LEDGER, limit: int = 50) -> list[dict[str, Any]]:
+    rows = [row for row in read_jsonl(path) if isinstance(row, dict)]
+    return rows[-max(0, limit):]
+
+
+def append_contradiction_receipt(receipt: dict[str, Any], *, path: Path = DEFAULT_CONTRADICTION_LEDGER) -> dict[str, Any]:
+    return append_audit_record(path, dict(receipt))
+
+
+def list_recent_contradiction_receipts(*, path: Path = DEFAULT_CONTRADICTION_LEDGER, limit: int = 50) -> list[dict[str, Any]]:
+    rows = [row for row in read_jsonl(path) if isinstance(row, dict)]
+    return rows[-max(0, limit):]

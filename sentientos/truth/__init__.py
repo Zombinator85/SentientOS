@@ -7,6 +7,8 @@ from .epistemic_status import epistemic_status_ref, is_blocked_epistemic_status,
 from .stance_receipts import build_contradiction_receipt, build_stance_receipt, classify_stance_transition, contradiction_receipt_ref, detect_no_new_evidence_reversal, resolve_active_stance, stance_receipt_ref, summarize_stance_lock_status, validate_stance_transition
 from .evidence_diagnostic import build_evidence_stability_diagnostic, classify_evidence_stability_posture, count_claims_by_epistemic_status, count_contradictions_by_type, evidence_stability_diagnostic_ref, summarize_claim_evidence_state, summarize_stance_contradictions
 from .memory_ingress_guard import build_truth_memory_ingress_guard_record, classify_truth_memory_ingress_outcome, resolve_truth_memory_ingress_guards, summarize_truth_memory_ingress_guard_status, truth_memory_ingress_guard_ref, validate_claim_for_memory_ingress
+from .log_fed_diagnostic import build_log_fed_evidence_stability_diagnostic, default_truth_ledger_paths, load_truth_records_for_diagnostic, summarize_log_fed_truth_state, truth_log_fed_diagnostic_ref
+from .stance_preflight import build_stance_preflight_record, classify_stance_preflight_outcome, stance_preflight_ref, summarize_stance_preflight_results, validate_planned_claim_against_stance
 from .epistemic_orientation import (
     BeliefEnforcer,
     ContradictionRegistry,
@@ -34,6 +36,16 @@ from .provisional_assertion import (
 )
 
 __all__ = [
+    "summarize_stance_preflight_results",
+    "stance_preflight_ref",
+    "validate_planned_claim_against_stance",
+    "classify_stance_preflight_outcome",
+    "build_stance_preflight_record",
+    "truth_log_fed_diagnostic_ref",
+    "summarize_log_fed_truth_state",
+    "load_truth_records_for_diagnostic",
+    "default_truth_ledger_paths",
+    "build_log_fed_evidence_stability_diagnostic",
     "append_claim_receipt",
     "append_evidence_receipt",
     "build_claim_receipt",
