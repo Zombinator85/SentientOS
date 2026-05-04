@@ -184,6 +184,38 @@
         "multimodal_tracker",
         "screen_awareness"
       ]
+    },
+    "embodiment_proposal_diagnostic": {
+      "module_globs": [
+        "sentientos/embodiment_proposal_diagnostic.py"
+      ],
+      "classification": "embodied_proposal_review_visibility",
+      "read_only": true,
+      "summary_only": true,
+      "non_authoritative": true,
+      "no_proposal_mutation": true,
+      "no_direct_memory_write": true,
+      "no_action_trigger": true,
+      "no_admission_execution": true,
+      "consumes": [
+        "sentientos.embodiment_proposals"
+      ],
+      "produces": [
+        "embodied_proposal_review_summaries"
+      ],
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "feedback",
+        "memory_manager",
+        "mic_bridge",
+        "vision_tracker",
+        "multimodal_tracker",
+        "screen_awareness",
+        "sentientos.perception_api"
+      ]
     }
   },
   "protected_sinks": {

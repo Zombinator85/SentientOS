@@ -11,6 +11,8 @@ from sentientos.scoped_slice_stability import derive_scoped_slice_stability
 from sentientos.scoped_slice_retrospective_integrity import derive_scoped_slice_retrospective_integrity_review
 from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice_attention_recommendation
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
+from sentientos.embodiment_proposal_diagnostic import build_embodied_proposal_review_summary
+from sentientos.embodiment_proposals import DEFAULT_PROPOSAL_LOG
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
@@ -399,6 +401,11 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         resolve_lifecycle=resolve_deep_research_staged_work_order_lifecycle,
         schema_version="deep_research_staged_venue_diagnostic.v1",
     )
+    embodiment_proposal_review_summary = build_embodied_proposal_review_summary(
+        path=root / DEFAULT_PROPOSAL_LOG,
+        limit=200,
+    )
+
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -548,4 +555,5 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "deep_research_staged_venue": deep_research_staged_venue,
         },
         "actions": rows,
+        "embodiment_proposal_review_summary": embodiment_proposal_review_summary,
     }

@@ -499,3 +499,30 @@ def test_phase48_manifest_known_violations_include_proposal_visibility() -> None
     rows = {r["file"]: r for r in manifest["known_violations"]}
     for rel in ("mic_bridge.py", "feedback.py", "screen_awareness.py", "vision_tracker.py", "multimodal_tracker.py"):
         assert "proposal_only now records blocked-effect proposals" in rows[rel]["detail"]
+
+
+def test_phase49_manifest_declares_embodiment_proposal_diagnostic_non_authoritative() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_proposal_diagnostic"]
+    assert layer["read_only"] is True
+    assert layer["summary_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_proposal_mutation"] is True
+    assert layer["no_admission_execution"] is True
+
+
+def test_phase49_embodiment_proposal_diagnostic_forbidden_imports() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_proposal_diagnostic"]
+    text = (ROOT / "sentientos/embodiment_proposal_diagnostic.py").read_text(encoding="utf-8")
+    for pattern in layer["forbidden_import_patterns"]:
+        assert f"import {pattern}" not in text
+        assert f"from {pattern} import" not in text
+
+
+def test_phase49_scoped_lifecycle_diagnostic_does_not_mutate_or_execute_proposals() -> None:
+    text = (ROOT / "sentientos/scoped_lifecycle_diagnostic.py").read_text(encoding="utf-8")
+    assert "build_embodied_proposal_review_summary" in text
+    assert "append_embodied_proposal" not in text
+    assert "record_blocked_embodiment_effect" not in text
+    assert "task_executor" not in text
