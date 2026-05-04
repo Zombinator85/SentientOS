@@ -30,6 +30,7 @@ def test_phase49_summary_empty() -> None:
     assert summary["counts_by_source_module"] == {}
     assert summary["non_authoritative"] is True
     assert summary["decision_power"] == "none"
+    assert summary["review_counts_by_outcome"]["pending_review"] == 0
 
 
 def test_phase49_summary_mixed_risk_and_stable_recent_refs() -> None:
@@ -61,6 +62,7 @@ def test_phase49_read_list_integration(tmp_path: Path) -> None:
     assert len(recent) == 2
     assert summary["proposal_count_total"] == 2
     assert summary["pending_review_count"] == 2
+    assert summary["pending_without_review_count"] == 2
 
 
 def test_phase49_scoped_lifecycle_additive_integration(tmp_path: Path) -> None:
