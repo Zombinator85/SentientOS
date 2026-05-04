@@ -762,3 +762,56 @@ def test_phase55_retention_validation_output_non_effect_markers() -> None:
     assert row["does_not_commit_retention"] is True
     assert row["does_not_write_memory"] is True
     assert row["does_not_trigger_feedback"] is True
+
+def test_phase56_truth_spine_modules_avoid_authority_imports() -> None:
+    forbidden = [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "authority_surface",
+        "memory_manager",
+        "feedback",
+        "retention",
+        "screen_awareness",
+        "vision_tracker",
+        "mic_bridge",
+        "multimodal_tracker",
+    ]
+    for rel in [
+        "sentientos/truth/evidence_ledger.py",
+        "sentientos/truth/claim_ledger.py",
+        "sentientos/truth/stance_receipts.py",
+    ]:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for token in forbidden:
+            assert token not in text
+
+
+def test_phase56_manifest_truth_layers_and_invariants() -> None:
+    manifest = _manifest()
+    layers = manifest["layer_definitions"]
+    for key in ["truth_evidence_ledger", "truth_claim_ledger", "truth_stance_receipts"]:
+        assert key in layers
+        assert layers[key]["non_authoritative"] is True
+        assert layers[key]["no_direct_memory_write"] is True
+        assert layers[key]["no_admission_execution"] is True
+    stance = layers["truth_stance_receipts"]
+    assert stance["no_new_evidence_no_reversal"] is True
+    assert stance["stance_receipts_are_not_memory"] is True
+    assert stance["contradiction_receipts_are_not_execution"] is True
+    assert stance["policy_block_must_preserve_prior_source_backed_claim"] is True
+
+
+def test_phase56_truth_receipt_invariants() -> None:
+    from sentientos.truth import build_claim_receipt, build_contradiction_receipt, build_evidence_receipt, build_stance_receipt
+
+    claim = build_claim_receipt(conversation_scope_id="c", turn_id="t", topic_id="k", claim_text="x", claim_kind="model_inference")
+    evidence = build_evidence_receipt(source_type="unknown", source_id="s")
+    stance = build_stance_receipt(topic_id="k", active_claim_id=claim["claim_id"], transition_type="initial_stance")
+    contradiction = build_contradiction_receipt(topic_id="k", old_claim_id="a", new_claim_id="b", contradiction_type="unknown")
+    for row in [claim, evidence, stance, contradiction]:
+        assert row["non_authoritative"] is True
+        assert row["decision_power"] == "none"
+        assert row["does_not_write_memory"] is True
+        assert row["does_not_admit_work"] is True
+        assert row["does_not_execute_or_route_work"] is True
