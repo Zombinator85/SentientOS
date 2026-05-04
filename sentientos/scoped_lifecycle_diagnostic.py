@@ -15,6 +15,7 @@ from sentientos.embodiment_proposal_diagnostic import build_embodied_proposal_re
 from sentientos.embodiment_proposals import DEFAULT_PROPOSAL_LOG
 from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG
 from sentientos.truth.evidence_diagnostic import build_evidence_stability_diagnostic
+from sentientos.truth.log_fed_diagnostic import build_log_fed_evidence_stability_diagnostic
 from sentientos.truth.memory_ingress_guard import summarize_truth_memory_ingress_guard_status
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
@@ -404,8 +405,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         resolve_lifecycle=resolve_deep_research_staged_work_order_lifecycle,
         schema_version="deep_research_staged_venue_diagnostic.v1",
     )
-    evidence_stability_diagnostic = build_evidence_stability_diagnostic(claim_receipts=[], evidence_receipts=[], stance_receipts=[], contradiction_receipts=[])
+    truth_log_fed_diagnostic = build_log_fed_evidence_stability_diagnostic()
+    evidence_stability_diagnostic = dict(truth_log_fed_diagnostic.get("diagnostic") or build_evidence_stability_diagnostic(claim_receipts=[], evidence_receipts=[], stance_receipts=[], contradiction_receipts=[]))
     truth_memory_ingress_guard_summary = summarize_truth_memory_ingress_guard_status(truth_memory_ingress_guard_records=[])
+    truth_log_fed_diagnostic_status = truth_log_fed_diagnostic.get("status", "unknown")
+    truth_records_loaded = dict(truth_log_fed_diagnostic.get("truth_records_loaded") or {})
+    truth_records_load_errors = list(truth_log_fed_diagnostic.get("truth_records_load_errors") or [])
     embodiment_proposal_review_summary = build_embodied_proposal_review_summary(
         path=root / DEFAULT_PROPOSAL_LOG,
         review_receipt_path=root / DEFAULT_REVIEW_RECEIPT_LOG,
@@ -564,4 +569,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "embodiment_proposal_review_summary": embodiment_proposal_review_summary,
         "evidence_stability_diagnostic": evidence_stability_diagnostic,
         "truth_memory_ingress_guard_summary": truth_memory_ingress_guard_summary,
+        "truth_log_fed_diagnostic_status": truth_log_fed_diagnostic_status,
+        "truth_records_loaded": truth_records_loaded,
+        "truth_records_load_errors": truth_records_load_errors,
     }

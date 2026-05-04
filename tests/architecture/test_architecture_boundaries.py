@@ -856,3 +856,45 @@ def test_phase57_truth_outputs_expose_non_authority_flags() -> None:
     guard = build_truth_memory_ingress_guard_record(claim_receipt=claim, evidence_receipts=[], stance_receipts=[], contradiction_receipts=[])
     assert diag["non_authoritative"] is True and diag["decision_power"] == "none"
     assert guard["guard_is_not_memory_write"] is True and guard["validation_is_not_memory_write"] is True
+
+def test_phase58_truth_modules_avoid_authority_effect_retrieval_imports() -> None:
+    blocked = (
+        "task_executor", "task_admission", "control_plane", "authority_surface", "memory_manager", "feedback_action", "retention", "legacy_perception", "retrieval", "webbrowser",
+    )
+    for rel in ("sentientos/truth/log_fed_diagnostic.py", "sentientos/truth/stance_preflight.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for token in blocked:
+            assert token not in text
+
+
+def test_phase58_manifest_truth_layers_and_invariants() -> None:
+    layers = _manifest()["layer_definitions"]
+    for key in ("truth_log_fed_diagnostic", "truth_stance_preflight"):
+        assert layers[key]["non_authoritative"] is True
+        assert layers[key]["does_not_write_memory"] is True
+        assert layers[key]["does_not_admit_work"] is True
+        assert layers[key]["no_retrieval_or_web_browsing"] is True
+    pre = layers["truth_stance_preflight"]
+    assert pre["preflight_is_not_response_generation"] is True
+    assert pre["preflight_is_not_memory_write"] is True
+
+
+def test_phase58_preflight_output_flags() -> None:
+    from sentientos.truth.claim_ledger import build_claim_receipt
+    from sentientos.truth.stance_preflight import build_stance_preflight_record
+
+    prior = build_claim_receipt(conversation_scope_id="c", turn_id="1", topic_id="t", claim_text="x", claim_kind="source_backed_claim", epistemic_status="directly_supported", evidence_ids=["e1"])
+    planned = build_claim_receipt(conversation_scope_id="c", turn_id="2", topic_id="t", claim_text="x", claim_kind="source_backed_claim", epistemic_status="directly_supported", evidence_ids=["e1"])
+    out = build_stance_preflight_record(planned_claim=planned, prior_claims=[prior], stance_receipts=[])
+    assert out["preflight_is_not_response_generation"] is True
+    assert out["preflight_is_not_memory_write"] is True
+
+
+def test_phase58_scoped_lifecycle_diagnostic_truth_fields_present() -> None:
+    from pathlib import Path
+    from sentientos.scoped_lifecycle_diagnostic import build_scoped_lifecycle_diagnostic
+
+    out = build_scoped_lifecycle_diagnostic(Path('.'))
+    assert "evidence_stability_diagnostic" in out
+    assert "truth_memory_ingress_guard_summary" in out
+    assert "truth_log_fed_diagnostic_status" in out
