@@ -707,3 +707,58 @@ def test_phase54_action_validation_output_non_effect_markers() -> None:
     })
     assert row["validation_is_not_action_trigger"] is True
     assert row["does_not_trigger_feedback"] is True
+
+def test_phase55_retention_ingress_module_import_boundaries() -> None:
+    path = ROOT / "sentientos/embodiment_retention_ingress.py"
+    text = path.read_text(encoding="utf-8")
+    imports = _imports(path)
+    for forbidden in (
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "memory_manager",
+        "feedback",
+        "screen_awareness",
+        "vision_tracker",
+        "multimodal_tracker",
+        "sentientos.perception_api",
+    ):
+        assert not any(mod == forbidden or mod.startswith(f"{forbidden}.") for mod, _ in imports)
+    assert '"validation_is_not_retention_commit": True' in text
+    assert '"does_not_commit_retention": True' in text
+
+
+def test_phase55_manifest_declares_retention_ingress_invariants() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_retention_ingress"]
+    assert layer["validation_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["validation_is_not_retention_commit"] is True
+    assert layer["no_retention_commit"] is True
+    assert layer["no_retained_record_write"] is True
+    assert layer["no_memory_write"] is True
+    assert layer["no_feedback_trigger"] is True
+    assert layer["no_task_admission"] is True
+    assert layer["no_execution"] is True
+    assert layer["no_control_plane_mutation"] is True
+
+
+def test_phase55_retention_validation_output_non_effect_markers() -> None:
+    from sentientos.embodiment_retention_ingress import build_retention_ingress_validation_record
+
+    row = build_retention_ingress_validation_record(retention_fulfillment_candidate={
+        "fulfillment_candidate_id": "rfc_x",
+        "fulfillment_candidate_kind": "screen_retention_fulfillment_candidate",
+        "source_governance_bridge_candidate_ref": "governance_bridge_candidate:g1",
+        "source_handoff_candidate_ref": "handoff_candidate:h1",
+        "source_proposal_id": "p1",
+        "source_review_receipt_id": "r1",
+        "consent_posture": "granted",
+        "risk_flags": {},
+        "candidate_payload_summary": {},
+    })
+    assert row["validation_is_not_retention_commit"] is True
+    assert row["does_not_commit_retention"] is True
+    assert row["does_not_write_memory"] is True
+    assert row["does_not_trigger_feedback"] is True
