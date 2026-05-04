@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 from sentientos.embodiment_proposal_handoff import resolve_embodied_handoff_candidates, build_embodied_handoff_candidate
 from sentientos.embodiment_governance_bridge import resolve_embodied_governance_bridge_candidates, build_embodied_governance_bridge_candidate
 from sentientos.embodiment_proposal_diagnostic import summarize_recent_embodied_proposals

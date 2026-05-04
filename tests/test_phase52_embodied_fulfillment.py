@@ -1,5 +1,9 @@
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 from sentientos.embodiment_fulfillment import (
     append_embodied_fulfillment_receipt,
     build_embodied_fulfillment_candidate,
