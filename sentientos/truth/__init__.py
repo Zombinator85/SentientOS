@@ -1,6 +1,10 @@
 """Truth verification utilities."""
 
 from .belief_verifier import BeliefVerifier
+from .claim_ledger import append_claim_receipt, build_claim_receipt, claim_receipt_ref, classify_claim_kind, link_claim_to_evidence, list_recent_claim_receipts, normalize_claim_scope
+from .evidence_ledger import append_evidence_receipt, build_evidence_receipt, evidence_receipt_ref, hash_evidence_span, list_recent_evidence_receipts, normalize_evidence_locator
+from .epistemic_status import epistemic_status_ref, is_blocked_epistemic_status, is_revision_status, is_supported_epistemic_status, normalize_epistemic_status
+from .stance_receipts import build_contradiction_receipt, build_stance_receipt, classify_stance_transition, contradiction_receipt_ref, detect_no_new_evidence_reversal, resolve_active_stance, stance_receipt_ref, summarize_stance_lock_status, validate_stance_transition
 from .epistemic_orientation import (
     BeliefEnforcer,
     ContradictionRegistry,
@@ -28,6 +32,33 @@ from .provisional_assertion import (
 )
 
 __all__ = [
+    "append_claim_receipt",
+    "append_evidence_receipt",
+    "build_claim_receipt",
+    "build_contradiction_receipt",
+    "build_evidence_receipt",
+    "build_stance_receipt",
+    "claim_receipt_ref",
+    "classify_claim_kind",
+    "classify_stance_transition",
+    "contradiction_receipt_ref",
+    "detect_no_new_evidence_reversal",
+    "epistemic_status_ref",
+    "evidence_receipt_ref",
+    "hash_evidence_span",
+    "is_blocked_epistemic_status",
+    "is_revision_status",
+    "is_supported_epistemic_status",
+    "link_claim_to_evidence",
+    "list_recent_claim_receipts",
+    "list_recent_evidence_receipts",
+    "normalize_claim_scope",
+    "normalize_epistemic_status",
+    "normalize_evidence_locator",
+    "resolve_active_stance",
+    "stance_receipt_ref",
+    "summarize_stance_lock_status",
+    "validate_stance_transition",
     "BeliefEnforcer",
     "BeliefVerifier",
     "ContradictionRegistry",

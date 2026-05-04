@@ -393,6 +393,49 @@
         "multimodal_tracker",
         "sentientos.perception_api"
       ]
+    },
+    "truth_evidence_ledger": {
+      "module_globs": [
+        "sentientos/truth/evidence_ledger.py"
+      ],
+      "classification": "append_only_truth_provenance",
+      "append_only": true,
+      "non_authoritative": true,
+      "no_direct_memory_write": true,
+      "no_feedback_trigger": true,
+      "no_admission_execution": true,
+      "no_control_plane_mutation": true,
+      "no_scheduler_planner_autonomy": true
+    },
+    "truth_claim_ledger": {
+      "module_globs": [
+        "sentientos/truth/claim_ledger.py"
+      ],
+      "classification": "append_only_truth_claims",
+      "append_only": true,
+      "non_authoritative": true,
+      "no_direct_memory_write": true,
+      "no_feedback_trigger": true,
+      "no_admission_execution": true,
+      "no_control_plane_mutation": true,
+      "no_scheduler_planner_autonomy": true
+    },
+    "truth_stance_receipts": {
+      "module_globs": [
+        "sentientos/truth/stance_receipts.py"
+      ],
+      "classification": "derived_epistemic_stance_validation",
+      "derived_only": true,
+      "non_authoritative": true,
+      "no_direct_memory_write": true,
+      "no_feedback_trigger": true,
+      "no_admission_execution": true,
+      "no_control_plane_mutation": true,
+      "no_scheduler_planner_autonomy": true,
+      "no_new_evidence_no_reversal": true,
+      "stance_receipts_are_not_memory": true,
+      "contradiction_receipts_are_not_execution": true,
+      "policy_block_must_preserve_prior_source_backed_claim": true
     }
   },
   "protected_sinks": {
