@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
+
+
 from pathlib import Path
 
 from sentientos.embodiment_proposal_diagnostic import summarize_recent_embodied_proposals
