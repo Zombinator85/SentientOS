@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 from pathlib import Path
 
 from sentientos.truth import (

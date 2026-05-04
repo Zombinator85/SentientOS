@@ -898,3 +898,43 @@ def test_phase58_scoped_lifecycle_diagnostic_truth_fields_present() -> None:
     assert "evidence_stability_diagnostic" in out
     assert "truth_memory_ingress_guard_summary" in out
     assert "truth_log_fed_diagnostic_status" in out
+
+def test_phase59_manifest_declares_truth_research_response_gate_invariants() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["truth_research_response_gate"]
+    assert layer["validation_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_response_generation"] is True
+    assert layer["no_memory_write"] is True
+    assert layer["no_retrieval_or_web"] is True
+    assert set(layer["required_invariants"]) >= {
+        "response_gate_is_not_response_generation",
+        "response_gate_is_not_memory_write",
+        "no_new_evidence_no_reversal_response_gate",
+        "policy_block_must_not_become_factual_reversal",
+        "planned_response_is_not_emission",
+    }
+
+
+def test_phase59_research_response_gate_import_purity_and_output_invariants() -> None:
+    rel = "sentientos/truth/research_response_gate.py"
+    path = ROOT / rel
+    imports = _imports(path)
+    forbidden = {
+        "task_executor", "task_admission", "control_plane", "authority_surface", "browser", "retrieval", "web", "openai"
+    }
+    for mod, symbol in imports:
+        imp = f"{mod}.{symbol}" if symbol else mod
+        assert not any(mod == token or mod.startswith(token) or imp.startswith(token) for token in forbidden)
+
+    from sentientos.truth import build_claim_receipt, build_planned_research_response_record, validate_planned_response_against_truth
+
+    claim = build_claim_receipt(conversation_scope_id="c", turn_id="1", topic_id="t", claim_text="A", claim_kind="source_backed_claim", epistemic_status="directly_supported", evidence_ids=["e1"])
+    planned = build_planned_research_response_record(conversation_scope_id="c", turn_id="1", topic_id="t", planned_claim_receipts=[claim], evidence_ids_used=["e1"], stance_transition_intents=["preserve"])
+    assert planned["planned_response_is_not_emission"] is True
+    assert planned["planned_response_is_not_memory"] is True
+
+    gate = validate_planned_response_against_truth(planned_response=planned, planned_claim_receipts=[claim], prior_claims=[claim], evidence_receipts=[{"evidence_id": "e1"}], stance_receipts=[{"topic_id": "t", "active_claim_id": claim["claim_id"]}], contradiction_receipts=[])
+    assert gate["response_gate_is_not_response_generation"] is True
+    assert gate["response_gate_is_not_memory_write"] is True
+    assert gate["decision_power"] == "none"
