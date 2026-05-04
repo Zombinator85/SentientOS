@@ -10,6 +10,7 @@ from sentientos.embodiment_proposals import embodied_proposal_ref, list_recent_e
 from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG, list_recent_embodied_proposal_review_receipts, summarize_embodied_proposal_review_status
 from sentientos.embodiment_proposal_handoff import resolve_embodied_handoff_candidates
 from sentientos.embodiment_governance_bridge import resolve_embodied_governance_bridge_candidates
+from sentientos.embodiment_fulfillment import resolve_embodied_fulfillment_candidates, summarize_embodied_fulfillment_status
 
 SUMMARY_SCHEMA_VERSION = "embodiment.proposal.review_summary.v1"
 
@@ -106,6 +107,8 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
     review_summary = summarize_embodied_proposal_review_status(proposals=proposals, review_receipts=list(review_receipts or []))
     handoff_resolution = resolve_embodied_handoff_candidates(proposals=proposals, review_receipts=list(review_receipts or []), created_at=generated_at)
     bridge_resolution = resolve_embodied_governance_bridge_candidates(handoff_candidates=handoff_resolution["handoff_candidates"], created_at=generated_at)
+    fulfillment_resolution = resolve_embodied_fulfillment_candidates(governance_bridge_candidates=bridge_resolution["governance_bridge_candidates"], created_at=generated_at)
+    fulfillment_summary = summarize_embodied_fulfillment_status(fulfillment_candidates=fulfillment_resolution["fulfillment_candidates"], fulfillment_receipts=[])
     next_stage_postures = []
     if handoff_resolution["handoff_candidates"]:
         next_stage_postures.append("handoff_candidates_available")
@@ -115,6 +118,8 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
         next_stage_postures.append("privacy_or_consent_holds_present")
     if risk.get("biometric_or_emotion_sensitive", 0) > 0 and handoff_resolution["handoff_candidates"]:
         next_stage_postures.append("high_risk_next_stage_review_available")
+    if fulfillment_resolution["blocked_fulfillment_counts_by_reason"].get("blocked_privacy_or_consent_required", 0) > 0:
+        next_stage_postures.append("privacy_or_consent_holds_present")
     if not next_stage_postures:
         next_stage_posture = "no_review_approved_candidates"
     elif len(next_stage_postures) > 1:
@@ -142,6 +147,13 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
         "governance_bridge_counts_by_kind": bridge_resolution["governance_bridge_counts_by_kind"],
         "blocked_bridge_counts_by_reason": bridge_resolution["blocked_bridge_counts_by_reason"],
         "next_stage_posture": next_stage_posture,
+        "fulfillment_candidate_count": len(fulfillment_resolution["fulfillment_candidates"]),
+        "fulfillment_counts_by_kind": fulfillment_resolution["fulfillment_counts_by_kind"],
+        "blocked_fulfillment_counts_by_reason": fulfillment_resolution["blocked_fulfillment_counts_by_reason"],
+        "fulfillment_counts_by_outcome": fulfillment_summary["fulfillment_counts_by_outcome"],
+        "pending_fulfillment_review_count": fulfillment_summary["pending_fulfillment_review_count"],
+        "fulfilled_receipt_count": fulfillment_summary["fulfilled_receipt_count"],
+        "fulfillment_posture": fulfillment_summary["fulfillment_posture"],
         "non_authoritative": True,
         "decision_power": "none",
         "does_not_write_memory": True,
