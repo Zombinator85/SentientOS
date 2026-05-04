@@ -216,6 +216,39 @@
         "screen_awareness",
         "sentientos.perception_api"
       ]
+    },
+    "embodiment_proposal_review": {
+      "module_globs": [
+        "sentientos/embodiment_proposal_review.py"
+      ],
+      "classification": "append_only_review_receipt_surface",
+      "append_only": true,
+      "review_only": true,
+      "non_authoritative": true,
+      "approval_is_not_execution": true,
+      "no_direct_memory_write": true,
+      "no_action_trigger": true,
+      "no_admission_execution": true,
+      "consumes": [
+        "sentientos.embodiment_proposals",
+        "sentientos.ledger_api"
+      ],
+      "produces": [
+        "embodied_proposal_review_receipts"
+      ],
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "feedback",
+        "memory_manager",
+        "mic_bridge",
+        "vision_tracker",
+        "multimodal_tracker",
+        "screen_awareness",
+        "sentientos.perception_api"
+      ]
     }
   },
   "protected_sinks": {

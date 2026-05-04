@@ -13,6 +13,7 @@ from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
 from sentientos.embodiment_proposal_diagnostic import build_embodied_proposal_review_summary
 from sentientos.embodiment_proposals import DEFAULT_PROPOSAL_LOG
+from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_handoff_packet_ledger,
@@ -403,6 +404,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     )
     embodiment_proposal_review_summary = build_embodied_proposal_review_summary(
         path=root / DEFAULT_PROPOSAL_LOG,
+        review_receipt_path=root / DEFAULT_REVIEW_RECEIPT_LOG,
         limit=200,
     )
 

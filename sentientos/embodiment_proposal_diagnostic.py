@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from sentientos.embodiment_proposals import embodied_proposal_ref, list_recent_embodied_proposals
+from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG, list_recent_embodied_proposal_review_receipts, summarize_embodied_proposal_review_status
 
 SUMMARY_SCHEMA_VERSION = "embodiment.proposal.review_summary.v1"
 
@@ -88,7 +89,7 @@ def _recent_refs(proposals: list[Mapping[str, Any]], *, limit: int = 5) -> list[
     return [embodied_proposal_ref(row) for row in ordered[: max(1, limit)] if "proposal_id" in row]
 
 
-def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, generated_at: float | None = None) -> dict[str, Any]:
+def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, review_receipts: list[Mapping[str, Any]] | None = None, generated_at: float | None = None) -> dict[str, Any]:
     pending = [row for row in proposals if str(row.get("review_status") or "") == "pending_review"]
     pending_times = [float(row.get("created_at")) for row in pending if isinstance(row.get("created_at"), (int, float))]
     risk = _high_risk_counts(pending)
@@ -100,6 +101,7 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, g
         "posture": posture,
     }
     digest = hashlib.sha256(json.dumps(summary_material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:20]
+    review_summary = summarize_embodied_proposal_review_status(proposals=proposals, review_receipts=list(review_receipts or []))
     return {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "summary_id": f"eprs_{digest}",
@@ -113,6 +115,7 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, g
         "oldest_pending_created_at": min(pending_times) if pending_times else None,
         "newest_pending_created_at": max(pending_times) if pending_times else None,
         "recommended_review_posture": posture,
+        **review_summary,
         "non_authoritative": True,
         "decision_power": "none",
         "does_not_write_memory": True,
@@ -122,9 +125,10 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, g
     }
 
 
-def build_embodied_proposal_review_summary(*, path: Path, limit: int = 200, generated_at: float | None = None) -> dict[str, Any]:
+def build_embodied_proposal_review_summary(*, path: Path, review_receipt_path: Path | None = None, limit: int = 200, generated_at: float | None = None) -> dict[str, Any]:
     proposals = list_recent_embodied_proposals(path=path, limit=limit)
-    return summarize_recent_embodied_proposals(proposals, generated_at=generated_at)
+    review_rows = list_recent_embodied_proposal_review_receipts(path=review_receipt_path or DEFAULT_REVIEW_RECEIPT_LOG, limit=limit)
+    return summarize_recent_embodied_proposals(proposals, review_receipts=review_rows, generated_at=generated_at)
 
 
 __all__ = [

@@ -526,3 +526,31 @@ def test_phase49_scoped_lifecycle_diagnostic_does_not_mutate_or_execute_proposal
     assert "append_embodied_proposal" not in text
     assert "record_blocked_embodiment_effect" not in text
     assert "task_executor" not in text
+
+def test_phase50_review_module_manifest_and_invariants() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_proposal_review"]
+    assert layer["append_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["approval_is_not_execution"] is True
+
+
+def test_phase50_review_module_forbidden_imports_and_semantics() -> None:
+    path = ROOT / "sentientos/embodiment_proposal_review.py"
+    imports = _imports(path)
+    forbidden_tokens = [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "memory_manager",
+        "feedback",
+        "sentientos.perception_api",
+    ]
+    for mod, symbol in imports:
+        imp = f"{mod}.{symbol}" if symbol else mod
+        for token in forbidden_tokens:
+            assert not (mod == token or mod.startswith(token) or imp == token)
+    text = path.read_text(encoding="utf-8")
+    assert '"approval_is_not_execution": True' in text
+    assert '"decision_power": "none"' in text
