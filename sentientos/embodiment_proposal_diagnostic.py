@@ -8,6 +8,8 @@ from typing import Any, Iterable, Mapping
 
 from sentientos.embodiment_proposals import embodied_proposal_ref, list_recent_embodied_proposals
 from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG, list_recent_embodied_proposal_review_receipts, summarize_embodied_proposal_review_status
+from sentientos.embodiment_proposal_handoff import resolve_embodied_handoff_candidates
+from sentientos.embodiment_governance_bridge import resolve_embodied_governance_bridge_candidates
 
 SUMMARY_SCHEMA_VERSION = "embodiment.proposal.review_summary.v1"
 
@@ -102,6 +104,23 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
     }
     digest = hashlib.sha256(json.dumps(summary_material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:20]
     review_summary = summarize_embodied_proposal_review_status(proposals=proposals, review_receipts=list(review_receipts or []))
+    handoff_resolution = resolve_embodied_handoff_candidates(proposals=proposals, review_receipts=list(review_receipts or []), created_at=generated_at)
+    bridge_resolution = resolve_embodied_governance_bridge_candidates(handoff_candidates=handoff_resolution["handoff_candidates"], created_at=generated_at)
+    next_stage_postures = []
+    if handoff_resolution["handoff_candidates"]:
+        next_stage_postures.append("handoff_candidates_available")
+    if bridge_resolution["governance_bridge_candidates"]:
+        next_stage_postures.append("governance_bridge_candidates_available")
+    if bridge_resolution["blocked_bridge_counts_by_reason"].get("blocked_privacy_or_consent_required", 0) > 0:
+        next_stage_postures.append("privacy_or_consent_holds_present")
+    if risk.get("biometric_or_emotion_sensitive", 0) > 0 and handoff_resolution["handoff_candidates"]:
+        next_stage_postures.append("high_risk_next_stage_review_available")
+    if not next_stage_postures:
+        next_stage_posture = "no_review_approved_candidates"
+    elif len(next_stage_postures) > 1:
+        next_stage_posture = "mixed_next_stage_state"
+    else:
+        next_stage_posture = next_stage_postures[0]
     return {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "summary_id": f"eprs_{digest}",
@@ -116,6 +135,13 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
         "newest_pending_created_at": max(pending_times) if pending_times else None,
         "recommended_review_posture": posture,
         **review_summary,
+        "handoff_candidate_count": len(handoff_resolution["handoff_candidates"]),
+        "handoff_counts_by_kind": handoff_resolution["counts_by_proposal_kind"],
+        "blocked_handoff_counts_by_reason": {k: v for k, v in handoff_resolution["counts_by_handoff_posture"].items() if k != "eligible_for_next_stage_review"},
+        "governance_bridge_candidate_count": len(bridge_resolution["governance_bridge_candidates"]),
+        "governance_bridge_counts_by_kind": bridge_resolution["governance_bridge_counts_by_kind"],
+        "blocked_bridge_counts_by_reason": bridge_resolution["blocked_bridge_counts_by_reason"],
+        "next_stage_posture": next_stage_posture,
         "non_authoritative": True,
         "decision_power": "none",
         "does_not_write_memory": True,
