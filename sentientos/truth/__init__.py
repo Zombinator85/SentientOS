@@ -5,6 +5,8 @@ from .claim_ledger import append_claim_receipt, build_claim_receipt, claim_recei
 from .evidence_ledger import append_evidence_receipt, build_evidence_receipt, evidence_receipt_ref, hash_evidence_span, list_recent_evidence_receipts, normalize_evidence_locator
 from .epistemic_status import epistemic_status_ref, is_blocked_epistemic_status, is_revision_status, is_supported_epistemic_status, normalize_epistemic_status
 from .stance_receipts import build_contradiction_receipt, build_stance_receipt, classify_stance_transition, contradiction_receipt_ref, detect_no_new_evidence_reversal, resolve_active_stance, stance_receipt_ref, summarize_stance_lock_status, validate_stance_transition
+from .evidence_diagnostic import build_evidence_stability_diagnostic, classify_evidence_stability_posture, count_claims_by_epistemic_status, count_contradictions_by_type, evidence_stability_diagnostic_ref, summarize_claim_evidence_state, summarize_stance_contradictions
+from .memory_ingress_guard import build_truth_memory_ingress_guard_record, classify_truth_memory_ingress_outcome, resolve_truth_memory_ingress_guards, summarize_truth_memory_ingress_guard_status, truth_memory_ingress_guard_ref, validate_claim_for_memory_ingress
 from .epistemic_orientation import (
     BeliefEnforcer,
     ContradictionRegistry,
@@ -59,6 +61,19 @@ __all__ = [
     "stance_receipt_ref",
     "summarize_stance_lock_status",
     "validate_stance_transition",
+    "validate_claim_for_memory_ingress",
+    "truth_memory_ingress_guard_ref",
+    "summarize_truth_memory_ingress_guard_status",
+    "resolve_truth_memory_ingress_guards",
+    "classify_truth_memory_ingress_outcome",
+    "build_truth_memory_ingress_guard_record",
+    "summarize_stance_contradictions",
+    "summarize_claim_evidence_state",
+    "evidence_stability_diagnostic_ref",
+    "count_contradictions_by_type",
+    "count_claims_by_epistemic_status",
+    "classify_evidence_stability_posture",
+    "build_evidence_stability_diagnostic",
     "BeliefEnforcer",
     "BeliefVerifier",
     "ContradictionRegistry",

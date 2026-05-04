@@ -815,3 +815,44 @@ def test_phase56_truth_receipt_invariants() -> None:
         assert row["does_not_write_memory"] is True
         assert row["does_not_admit_work"] is True
         assert row["does_not_execute_or_route_work"] is True
+
+def test_phase57_truth_modules_avoid_authority_effect_imports() -> None:
+    blocked = (
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "authority_surface",
+        "embodiment_memory",
+        "feedback_action",
+        "retention",
+        "legacy_perception",
+    )
+    for rel in ("sentientos/truth/evidence_diagnostic.py", "sentientos/truth/memory_ingress_guard.py"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for token in blocked:
+            assert token not in text
+
+
+def test_phase57_manifest_truth_layers_and_non_authority_invariants() -> None:
+    manifest = _manifest()
+    layers = manifest["layer_definitions"]
+    diag = layers["truth_evidence_diagnostic"]
+    guard = layers["truth_memory_ingress_guard"]
+    assert diag["non_authoritative"] is True
+    assert diag["does_not_write_memory"] is True
+    assert guard["guard_is_not_memory_write"] is True
+    assert guard["truth_memory_ingress_validated_for_future_memory_is_not_memory_write"] is True
+    assert guard["unstable_claims_cannot_enter_active_memory"] is True
+    assert guard["no_new_evidence_reversal_blocks_memory_ingress"] is True
+
+
+def test_phase57_truth_outputs_expose_non_authority_flags() -> None:
+    from sentientos.truth.evidence_diagnostic import build_evidence_stability_diagnostic
+    from sentientos.truth.memory_ingress_guard import build_truth_memory_ingress_guard_record
+    from sentientos.truth.claim_ledger import build_claim_receipt
+
+    claim = build_claim_receipt(conversation_scope_id="c", turn_id="1", topic_id="t", claim_text="x", claim_kind="source_backed_claim", epistemic_status="directly_supported", evidence_ids=["e1"])
+    diag = build_evidence_stability_diagnostic(claim_receipts=[claim], evidence_receipts=[], stance_receipts=[], contradiction_receipts=[])
+    guard = build_truth_memory_ingress_guard_record(claim_receipt=claim, evidence_receipts=[], stance_receipts=[], contradiction_receipts=[])
+    assert diag["non_authoritative"] is True and diag["decision_power"] == "none"
+    assert guard["guard_is_not_memory_write"] is True and guard["validation_is_not_memory_write"] is True
