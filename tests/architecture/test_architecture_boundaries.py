@@ -581,3 +581,51 @@ def test_phase51_candidate_output_invariants() -> None:
     assert handoff["handoff_is_not_fulfillment"] is True
     bridge = build_embodied_governance_bridge_candidate(handoff_candidate=handoff)
     assert bridge["bridge_is_not_admission"] is True
+
+def test_phase52_fulfillment_manifest_invariants_declared() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_fulfillment"]
+    assert layer["candidate_receipt_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["append_only_receipts"] is True
+    assert layer["fulfillment_candidate_is_not_effect"] is True
+    assert layer["fulfillment_receipt_is_not_effect"] is True
+
+
+def test_phase52_fulfillment_module_forbidden_imports_not_present() -> None:
+    text = (ROOT / "sentientos/embodiment_fulfillment.py").read_text(encoding="utf-8")
+    forbidden = [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "memory_manager",
+        "screen_awareness",
+        "vision_tracker",
+        "multimodal_tracker",
+    ]
+    for token in forbidden:
+        assert token not in text
+
+
+def test_phase52_fulfillment_candidate_and_receipt_non_effect_markers() -> None:
+    from sentientos.embodiment_fulfillment import build_embodied_fulfillment_candidate, build_embodied_fulfillment_receipt
+
+    candidate = build_embodied_fulfillment_candidate(
+        governance_bridge_candidate={
+            "governance_bridge_candidate_id": "g1",
+            "governance_bridge_candidate_kind": "memory_governance_review_candidate",
+            "bridge_posture": "eligible_for_governance_review",
+            "source_handoff_candidate_ref": "handoff_candidate:h1",
+        },
+        created_at=1.0,
+    )
+    receipt = build_embodied_fulfillment_receipt(
+        fulfillment_candidate=candidate,
+        fulfillment_outcome="fulfilled_external_manual",
+        fulfiller_kind="test_fixture",
+        created_at=2.0,
+    )
+    assert candidate["fulfillment_candidate_is_not_effect"] is True
+    assert receipt["fulfillment_receipt_is_not_effect"] is True
+    assert receipt["receipt_does_not_prove_side_effect"] is True
