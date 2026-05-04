@@ -339,6 +339,32 @@
         "multimodal_tracker",
         "sentientos.perception_api"
       ]
+    },
+    "embodiment_action_ingress": {
+      "module_globs": [
+        "sentientos/embodiment_action_ingress.py"
+      ],
+      "classification": "governed_feedback_action_ingress_validation_surface",
+      "validation_only": true,
+      "non_authoritative": true,
+      "no_feedback_trigger": true,
+      "no_action_execution": true,
+      "no_task_admission": true,
+      "no_execution": true,
+      "no_control_plane_mutation": true,
+      "no_memory_write": true,
+      "no_retention_commit": true,
+      "validation_is_not_action_trigger": true,
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "feedback",
+        "memory_manager",
+        "sentientos.embodiment_ingress",
+        "sentientos.perception_api"
+      ]
     }
   },
   "protected_sinks": {

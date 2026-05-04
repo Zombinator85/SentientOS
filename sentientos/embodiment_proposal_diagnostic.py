@@ -12,6 +12,7 @@ from sentientos.embodiment_proposal_handoff import resolve_embodied_handoff_cand
 from sentientos.embodiment_governance_bridge import resolve_embodied_governance_bridge_candidates
 from sentientos.embodiment_fulfillment import resolve_embodied_fulfillment_candidates, summarize_embodied_fulfillment_status
 from sentientos.embodiment_memory_ingress import resolve_memory_ingress_validations, summarize_memory_ingress_validation_status
+from sentientos.embodiment_action_ingress import resolve_action_ingress_validations, summarize_action_ingress_validation_status
 
 SUMMARY_SCHEMA_VERSION = "embodiment.proposal.review_summary.v1"
 
@@ -112,6 +113,8 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
     fulfillment_summary = summarize_embodied_fulfillment_status(fulfillment_candidates=fulfillment_resolution["fulfillment_candidates"], fulfillment_receipts=[])
     memory_ingress_resolution = resolve_memory_ingress_validations(fulfillment_candidates=fulfillment_resolution["fulfillment_candidates"], created_at=generated_at)
     memory_ingress_summary = summarize_memory_ingress_validation_status(memory_ingress_validations=memory_ingress_resolution["memory_ingress_validations"])
+    action_ingress_resolution = resolve_action_ingress_validations(fulfillment_candidates=fulfillment_resolution["fulfillment_candidates"], created_at=generated_at)
+    action_ingress_summary = summarize_action_ingress_validation_status(action_ingress_validations=action_ingress_resolution["action_ingress_validations"])
     next_stage_postures = []
     if handoff_resolution["handoff_candidates"]:
         next_stage_postures.append("handoff_candidates_available")
@@ -162,6 +165,11 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
         "memory_ingress_validated_for_future_write_count": memory_ingress_summary["memory_ingress_validated_for_future_write_count"],
         "memory_ingress_blocked_count": memory_ingress_summary["memory_ingress_blocked_count"],
         "memory_ingress_posture": memory_ingress_summary["memory_ingress_posture"],
+        "action_ingress_validation_count": action_ingress_summary["action_ingress_validation_count"],
+        "action_ingress_validation_counts_by_outcome": action_ingress_summary["action_ingress_validation_counts_by_outcome"],
+        "action_ingress_validated_for_future_trigger_count": action_ingress_summary["action_ingress_validated_for_future_trigger_count"],
+        "action_ingress_blocked_count": action_ingress_summary["action_ingress_blocked_count"],
+        "action_ingress_posture": action_ingress_summary["action_ingress_posture"],
         "non_authoritative": True,
         "decision_power": "none",
         "does_not_write_memory": True,

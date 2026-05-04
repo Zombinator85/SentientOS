@@ -666,3 +666,44 @@ def test_phase53_memory_ingress_module_forbidden_imports_and_non_effect_flags() 
     assert '"does_not_trigger_feedback": True' in text
     assert '"does_not_admit_work": True' in text
     assert '"does_not_execute_or_route_work": True' in text
+
+def test_phase54_action_ingress_module_import_boundaries() -> None:
+    text = (ROOT / "sentientos/embodiment_action_ingress.py").read_text(encoding="utf-8")
+    assert "import task_executor" not in text
+    assert "import task_admission" not in text
+    assert "import control_plane" not in text
+    assert "import feedback" not in text
+    assert "memory_manager" not in text
+
+
+def test_phase54_manifest_declares_action_ingress_invariants() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_action_ingress"]
+    assert layer["validation_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["no_feedback_trigger"] is True
+    assert layer["no_action_execution"] is True
+    assert layer["no_task_admission"] is True
+    assert layer["no_execution"] is True
+    assert layer["no_control_plane_mutation"] is True
+    assert layer["no_memory_write"] is True
+    assert layer["no_retention_commit"] is True
+    assert layer["validation_is_not_action_trigger"] is True
+
+
+def test_phase54_action_validation_output_non_effect_markers() -> None:
+    from sentientos.embodiment_action_ingress import build_action_ingress_validation_record
+
+    row = build_action_ingress_validation_record(feedback_action_fulfillment_candidate={
+        "fulfillment_candidate_id": "efc_x",
+        "fulfillment_candidate_kind": "feedback_action_fulfillment_candidate",
+        "source_governance_bridge_candidate_ref": "governance_bridge_candidate:g1",
+        "source_handoff_candidate_ref": "handoff_candidate:h1",
+        "source_proposal_id": "p1",
+        "source_review_receipt_id": "r1",
+        "consent_posture": "granted",
+        "risk_flags": {},
+        "candidate_payload_summary": {},
+    })
+    assert row["validation_is_not_action_trigger"] is True
+    assert row["does_not_trigger_feedback"] is True
