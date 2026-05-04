@@ -629,3 +629,40 @@ def test_phase52_fulfillment_candidate_and_receipt_non_effect_markers() -> None:
     assert candidate["fulfillment_candidate_is_not_effect"] is True
     assert receipt["fulfillment_receipt_is_not_effect"] is True
     assert receipt["receipt_does_not_prove_side_effect"] is True
+
+def test_phase53_memory_ingress_manifest_invariants_declared() -> None:
+    manifest = _manifest()
+    layer = manifest["layer_definitions"]["embodiment_memory_ingress"]
+    assert layer["validation_only"] is True
+    assert layer["non_authoritative"] is True
+    assert layer["validation_is_not_memory_write"] is True
+    assert layer["no_direct_memory_write"] is True
+    assert layer["no_admission_execution"] is True
+    assert layer["no_control_plane_mutation"] is True
+    assert layer["no_feedback_trigger"] is True
+    assert layer["no_retention_commit"] is True
+
+
+def test_phase53_memory_ingress_module_forbidden_imports_and_non_effect_flags() -> None:
+    path = ROOT / "sentientos/embodiment_memory_ingress.py"
+    text = path.read_text(encoding="utf-8")
+    imports = _imports(path)
+    for forbidden in (
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "sentientos.authority_surface",
+        "memory_manager",
+        "feedback",
+        "screen_awareness",
+        "vision_tracker",
+        "multimodal_tracker",
+        "sentientos.perception_api",
+    ):
+        assert not any(mod == forbidden or mod.startswith(f"{forbidden}.") for mod, _ in imports)
+
+    assert '"validation_is_not_memory_write": True' in text
+    assert '"does_not_write_memory": True' in text
+    assert '"does_not_trigger_feedback": True' in text
+    assert '"does_not_admit_work": True' in text
+    assert '"does_not_execute_or_route_work": True' in text
