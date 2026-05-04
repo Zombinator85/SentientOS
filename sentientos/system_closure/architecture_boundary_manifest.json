@@ -490,6 +490,39 @@
       "preflight_is_not_memory_write": true,
       "no_new_evidence_no_reversal_preflight": true,
       "planned_claim_drift_requires_new_evidence_or_receipt": true
+    },
+    "truth_research_response_gate": {
+      "description": "Validation-only research response stance gate for planned response records.",
+      "forbidden_import_patterns": [
+        "task_executor",
+        "task_admission",
+        "control_plane",
+        "authority_surface",
+        "sentientos.memory",
+        "retention_commit",
+        "feedback",
+        "web",
+        "browser",
+        "retrieval",
+        "openai"
+      ],
+      "required_invariants": [
+        "response_gate_is_not_response_generation",
+        "response_gate_is_not_memory_write",
+        "no_new_evidence_no_reversal_response_gate",
+        "policy_block_must_not_become_factual_reversal",
+        "planned_response_is_not_emission"
+      ],
+      "non_authoritative": true,
+      "validation_only": true,
+      "no_response_generation": true,
+      "no_retrieval_or_web": true,
+      "no_memory_write": true,
+      "no_feedback_trigger": true,
+      "no_task_admission": true,
+      "no_execution": true,
+      "no_control_plane_mutation": true,
+      "no_scheduler_or_autonomous_behavior": true
     }
   },
   "protected_sinks": {
