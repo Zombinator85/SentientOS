@@ -554,3 +554,30 @@ def test_phase50_review_module_forbidden_imports_and_semantics() -> None:
     text = path.read_text(encoding="utf-8")
     assert '"approval_is_not_execution": True' in text
     assert '"decision_power": "none"' in text
+
+def test_phase51_handoff_and_bridge_import_boundaries_and_manifest_invariants() -> None:
+    handoff_text = (ROOT / "sentientos/embodiment_proposal_handoff.py").read_text(encoding="utf-8")
+    bridge_text = (ROOT / "sentientos/embodiment_governance_bridge.py").read_text(encoding="utf-8")
+    banned = ["task_executor", "task_admission", "control_plane", "authority_surface", "screen_awareness", "mic_bridge", "vision_tracker"]
+    for token in banned:
+        assert token not in handoff_text
+        assert token not in bridge_text
+
+    manifest = _manifest()
+    handoff = manifest["layer_definitions"]["embodiment_proposal_handoff"]
+    bridge = manifest["layer_definitions"]["embodiment_governance_bridge"]
+    assert "handoff_is_not_fulfillment" in handoff["invariants"]
+    assert "bridge_is_not_admission" in bridge["invariants"]
+
+
+def test_phase51_candidate_output_invariants() -> None:
+    from sentientos.embodiment_proposal_handoff import build_embodied_handoff_candidate
+    from sentientos.embodiment_governance_bridge import build_embodied_governance_bridge_candidate
+
+    proposal = {"proposal_id": "p1", "proposal_kind": "memory_ingress_candidate", "source_module": "x"}
+    review = {"proposal_id": "p1", "review_outcome": "reviewed_approved_for_next_stage", "review_receipt_id": "r1"}
+    handoff = build_embodied_handoff_candidate(proposal_record=proposal, review_receipt=review)
+    assert handoff["approval_is_not_execution"] is True
+    assert handoff["handoff_is_not_fulfillment"] is True
+    bridge = build_embodied_governance_bridge_candidate(handoff_candidate=handoff)
+    assert bridge["bridge_is_not_admission"] is True
