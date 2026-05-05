@@ -87,3 +87,10 @@ Key assertions:
 - Does not contain prompt text or call LLM/web/retrieval/memory write paths.
 - Preserves packet-safe summaries, lane/ref summaries, and safety metadata summaries only.
 - Does not alter embodiment/action/retention runtime behavior.
+
+## Phase 68: Prompt Assembly Dry-Run Envelope
+- Adds a pure dry-run envelope sourced only from the Phase 67 handoff manifest.
+- Maps handoff status to dry-run readiness without assembling prompt text.
+- Carries manifest id/digest, packet id/scope, assembly constraints, section summaries, and safe admissible ref summaries only for ready/caveated manifests.
+- Withholds admissible refs for blocked, not-applicable, and invalid manifests while preserving block reasons, caveats, source-kind summary, safety-contract gap summary, and provenance summary.
+- Includes explicit no-runtime markers for no LLM calls, memory retrieval/writes, feedback, retention, work routing/execution/admission, or final prompt text.
