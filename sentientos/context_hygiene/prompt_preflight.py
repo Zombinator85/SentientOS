@@ -13,6 +13,10 @@ from sentientos.context_hygiene.context_packet import (
     validate_context_packet,
 )
 from sentientos.context_hygiene.safety_metadata import CONTEXT_SAFETY_METADATA_KEY
+from sentientos.context_hygiene.source_kind_contracts import (
+    source_kind_contract_allows_prompt_preflight,
+    validate_context_safety_metadata_against_source_kind,
+)
 
 
 class PromptContextEligibilityStatus(str, Enum):
@@ -115,6 +119,17 @@ def packet_has_prompt_blocking_privacy_gap(packet: ContextPacket) -> bool:
     return False
 
 
+def packet_has_prompt_blocking_source_kind_contract_gap(packet: ContextPacket) -> bool:
+    for i in _all_included(packet):
+        safety_meta = i.provenance.get(CONTEXT_SAFETY_METADATA_KEY, {})
+        if not safety_meta:
+            continue
+        valid, _ = validate_context_safety_metadata_against_source_kind(safety_meta)
+        if not valid or not source_kind_contract_allows_prompt_preflight(safety_meta):
+            return True
+    return False
+
+
 def packet_has_prompt_blocking_action_gap(packet: ContextPacket) -> bool:
     flags = ["can_write_memory", "can_trigger_feedback", "can_commit_retention", "action_capable", "can_admit", "can_route", "can_approve", "can_execute", "can_fulfill", "can_trigger_work"]
     guard_flags = ["validation_is_not_memory_write", "validation_is_not_action_trigger", "validation_is_not_retention_commit", "handoff_is_not_fulfillment", "bridge_is_not_admission", "fulfillment_candidate_is_not_effect", "fulfillment_receipt_is_not_effect", "receipt_does_not_prove_side_effect"]
@@ -153,6 +168,9 @@ def evaluate_context_packet_prompt_eligibility(packet: ContextPacket) -> PromptC
     elif packet_has_prompt_blocking_privacy_gap(packet):
         block_reasons.append("privacy/sanitization gap")
         status = PromptContextEligibilityStatus.PROMPT_INELIGIBLE_PRIVACY_GAP
+    elif packet_has_prompt_blocking_source_kind_contract_gap(packet):
+        block_reasons.append("source-kind safety contract gap")
+        status = PromptContextEligibilityStatus.PROMPT_INELIGIBLE_SCHEMA_VIOLATION
     elif packet_has_prompt_blocking_action_gap(packet):
         block_reasons.append("action-capable gap")
         status = PromptContextEligibilityStatus.PROMPT_INELIGIBLE_ACTION_GAP
