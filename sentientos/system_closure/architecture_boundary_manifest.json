@@ -523,6 +523,29 @@
       "no_execution": true,
       "no_control_plane_mutation": true,
       "no_scheduler_or_autonomous_behavior": true
+    },
+    "context_hygiene": {
+      "module_globs": [
+        "sentientos/context_hygiene/**/*.py"
+      ],
+      "classification": "non_authoritative_schema_contract",
+      "non_authoritative": true,
+      "validation_or_schema_only": true,
+      "does_not_write_memory": true,
+      "does_not_execute_or_route_work": true,
+      "does_not_admit_work": true,
+      "no_retrieval": true,
+      "no_web": true,
+      "no_direct_prompt_assembly": true,
+      "no_action_side_effects": true,
+      "forbidden_import_patterns": [
+        "prompt_assembler",
+        "memory_manager",
+        "task_admission",
+        "task_executor",
+        "web",
+        "requests"
+      ]
     }
   },
   "protected_sinks": {
