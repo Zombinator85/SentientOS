@@ -61,6 +61,11 @@ __all__ = [
     "embodiment_artifact_to_context_candidate",
     "explain_embodiment_context_exclusion",
     "summarize_embodiment_context_eligibility",
+    "PromptContextEligibility",
+    "PromptContextEligibilityStatus",
+    "evaluate_context_packet_prompt_eligibility",
+    "explain_context_packet_prompt_ineligibility",
+    "summarize_context_packet_prompt_preflight",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -92,4 +97,12 @@ from sentientos.context_hygiene.embodiment_context import (
     embodiment_artifact_to_context_candidate,
     explain_embodiment_context_exclusion,
     summarize_embodiment_context_eligibility,
+)
+
+from sentientos.context_hygiene.prompt_preflight import (
+    PromptContextEligibility,
+    PromptContextEligibilityStatus,
+    evaluate_context_packet_prompt_eligibility,
+    explain_context_packet_prompt_ineligibility,
+    summarize_context_packet_prompt_preflight,
 )

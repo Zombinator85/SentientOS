@@ -56,3 +56,13 @@ Key assertions:
 - Sanitized embodiment summaries may become context candidates.
 - Privacy-sensitive, biometric/emotion-sensitive, raw-retention, and action-capable material is blocked unless explicitly sanitized and allowed.
 - This phase is adapter/eligibility only: not prompt assembly, not memory write, and not embodiment runtime behavior.
+
+## Phase 64: Prompt-Eligibility Preflight Contract
+- Phase 64 introduces prompt preflight before any prompt-assembly wiring.
+- Selection is not prompt eligibility.
+- `blocked` packet risk prevents prompt eligibility.
+- `high` risk may be prompt-eligible only with explicit caveats.
+- Phase 64 does not assemble prompts.
+- Phase 64 does not call LLMs.
+- Phase 64 does not retrieve or write memory.
+- Phase 64 does not modify embodiment, action, or retention runtime behavior.
