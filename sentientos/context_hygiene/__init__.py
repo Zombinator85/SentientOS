@@ -38,4 +38,33 @@ __all__ = [
     "packet_is_expired",
     "summarize_packet_for_diagnostics",
     "validate_context_packet",
+    "ContextCandidate",
+    "ContextSelectionDecision",
+    "build_context_packet_from_candidates",
+    "candidate_is_context_eligible",
+    "explain_candidate_exclusion",
+    "select_context_candidates",
+    "candidate_is_expired",
+    "classify_pollution_risk",
+    "combine_contradiction_status",
+    "combine_freshness_status",
+    "combine_pollution_risk",
+    "provenance_is_complete",
 ]
+
+from sentientos.context_hygiene.selector import (
+    ContextCandidate,
+    ContextSelectionDecision,
+    build_context_packet_from_candidates,
+    candidate_is_context_eligible,
+    explain_candidate_exclusion,
+    select_context_candidates,
+)
+from sentientos.context_hygiene.pollution_guard import (
+    candidate_is_expired,
+    classify_pollution_risk,
+    combine_contradiction_status,
+    combine_freshness_status,
+    combine_pollution_risk,
+    provenance_is_complete,
+)
