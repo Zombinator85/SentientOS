@@ -11,6 +11,9 @@ from sentientos.context_hygiene.safety_metadata import (
     safety_metadata_has_authority_block,
     safety_metadata_has_raw_source_block,
 )
+from sentientos.context_hygiene.source_kind_contracts import (
+    validate_context_safety_metadata_against_source_kind,
+)
 
 
 class ContextAssemblyStatus(str, Enum):
@@ -145,6 +148,12 @@ def validate_context_packet(packet: ContextPacket) -> list[str]:
             errors.append(f"included ref without provenance: {item.ref_id}")
             continue
         safety_meta = item.provenance.get(CONTEXT_SAFETY_METADATA_KEY, {})
+        if safety_meta:
+            valid, reasons = validate_context_safety_metadata_against_source_kind(safety_meta)
+            if not valid:
+                errors.append(
+                    f"included ref violates source-kind safety contract: {item.ref_id} ({'; '.join(reasons)})"
+                )
         if safety_meta and safety_metadata_has_raw_source_block(safety_meta):
             errors.append(f"included ref contains raw-source safety metadata: {item.ref_id}")
         if safety_meta and safety_metadata_has_action_authority(safety_meta):

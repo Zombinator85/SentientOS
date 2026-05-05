@@ -72,3 +72,10 @@ Key assertions:
 - Packets remain auditable without raw-source rehydration.
 - Preserved metadata is non-raw and non-authoritative; no prompt assembly/LLM/retrieval/memory-write/runtime action behavior is added.
 - This closes the Phase 64 metadata-loss blind spot between selector and prompt preflight.
+
+
+## Phase 66: Source-kind safety contract matrix
+- Safety metadata must be source-kind complete for contract-required kinds.
+- Explicit `unknown` source kind fails closed where contracted safety metadata is required.
+- Contracts validate evidence metadata only (non-authoritative) and do not grant authority.
+- No prompt assembly, LLM calls, retrieval, memory writes, or runtime embodiment/action/retention behavior changes are introduced in this phase.

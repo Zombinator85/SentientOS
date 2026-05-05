@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from sentientos.context_hygiene.source_kind_contracts import explain_context_safety_contract_gap, validate_context_safety_metadata_against_source_kind
+
 
 CONTEXT_SAFETY_METADATA_KEY = "context_safety_metadata"
 
@@ -45,6 +47,9 @@ _ALLOWED_KEYS = frozenset(
         "allow_context_privacy_sensitive",
         "allow_context_biometric_or_emotion",
         "allow_context_raw_retention",
+        "source_kind_contract_valid",
+        "missing_required_safety_fields",
+        "source_kind_contract_gap_reasons",
     }
 )
 
@@ -60,6 +65,11 @@ def normalize_context_safety_metadata(metadata: Mapping[str, Any]) -> dict[str, 
         out["safety_flags"] = [str(out["safety_flags"])]
     if out:
         out["preflight_relevant_metadata_present"] = True
+        valid, reasons = validate_context_safety_metadata_against_source_kind(out)
+        out["source_kind_contract_valid"] = valid
+        if reasons:
+            out["missing_required_safety_fields"] = [r for r in reasons if r.startswith("missing required") or "requires " in r]
+            out["source_kind_contract_gap_reasons"] = list(reasons)
     return out
 
 
@@ -86,7 +96,7 @@ def explain_missing_context_safety_metadata(ref_type: str, metadata: Mapping[str
     source_kind = str(metadata.get("source_kind", "")).strip().lower()
     if source_kind == "unknown":
         return f"unknown safety metadata source_kind for {ref_type}"
-    return None
+    return explain_context_safety_contract_gap(metadata)
 
 
 def safety_metadata_has_action_authority(metadata: Mapping[str, Any]) -> bool:

@@ -42,11 +42,11 @@ def test_phase64_prompt_preflight_contract_and_purity():
     r = evaluate_context_packet_prompt_eligibility(clean)
     assert r.eligibility_status == PromptContextEligibilityStatus.PROMPT_ELIGIBLE
 
-    high_priv = replace(_pkt([_cand("p", metadata={"source_kind": "embodiment_snapshot", "privacy_posture": "privacy_sensitive", "sanitized_context_summary": True, "allow_context_privacy_sensitive": True})]), pollution_risk=PollutionRisk.HIGH)
+    high_priv = replace(_pkt([_cand("p", metadata={"source_kind": "embodiment_snapshot", "privacy_posture": "privacy_sensitive", "sanitized_context_summary": True, "allow_context_privacy_sensitive": True, "non_authoritative": True, "decision_power": "none"})]), pollution_risk=PollutionRisk.HIGH)
     assert evaluate_context_packet_prompt_eligibility(high_priv).eligibility_status == PromptContextEligibilityStatus.PROMPT_ELIGIBLE_WITH_CAVEATS
 
     for posture, allow in [("biometric_or_emotion_sensitive", "allow_context_biometric_or_emotion"), ("raw_retention_sensitive", "allow_context_raw_retention")]:
-        pkt = replace(_pkt([_cand("x" + posture, metadata={"source_kind": "embodiment_snapshot", "privacy_posture": posture, "sanitized_context_summary": True, allow: True})]), pollution_risk=PollutionRisk.HIGH)
+        pkt = replace(_pkt([_cand("x" + posture, metadata={"source_kind": "embodiment_snapshot", "privacy_posture": posture, "sanitized_context_summary": True, allow: True, "non_authoritative": True, "decision_power": "none"})]), pollution_risk=PollutionRisk.HIGH)
         assert evaluate_context_packet_prompt_eligibility(pkt).eligibility_status == PromptContextEligibilityStatus.PROMPT_ELIGIBLE_WITH_CAVEATS
 
     assert evaluate_context_packet_prompt_eligibility(replace(clean, pollution_risk=PollutionRisk.BLOCKED)).eligibility_status == PromptContextEligibilityStatus.PROMPT_INELIGIBLE_BLOCKED_RISK

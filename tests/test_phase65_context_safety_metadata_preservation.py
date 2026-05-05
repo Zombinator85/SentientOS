@@ -73,12 +73,12 @@ def test_phase65_preservation_and_preflight_contract():
     assert evaluate_context_packet_prompt_eligibility(act).eligibility_status == PromptContextEligibilityStatus.PROMPT_INELIGIBLE_SCHEMA_VIOLATION
 
     privacy_gap = replace(pkt, included_embodiment_refs=(ContextPacketItem("p", "embodiment", attach_context_safety_metadata_to_packet_ref({"provenance_refs": ["p"]}, {"source_kind": "embodiment_snapshot", "privacy_posture": "privacy_sensitive", "sanitized_context_summary": False})),))
-    assert evaluate_context_packet_prompt_eligibility(privacy_gap).eligibility_status == PromptContextEligibilityStatus.PROMPT_INELIGIBLE_PRIVACY_GAP
+    assert evaluate_context_packet_prompt_eligibility(privacy_gap).eligibility_status == PromptContextEligibilityStatus.PROMPT_INELIGIBLE_SCHEMA_VIOLATION
 
     auth_gap = replace(pkt, included_embodiment_refs=(ContextPacketItem("u", "embodiment", attach_context_safety_metadata_to_packet_ref({"provenance_refs": ["p"]}, {"source_kind": "embodiment_snapshot", "non_authoritative": False})),))
     assert evaluate_context_packet_prompt_eligibility(auth_gap).eligibility_status == PromptContextEligibilityStatus.PROMPT_INELIGIBLE_SCHEMA_VIOLATION
 
-    caveat = replace(pkt, pollution_risk=PollutionRisk.HIGH, included_embodiment_refs=(ContextPacketItem("c", "embodiment", attach_context_safety_metadata_to_packet_ref({"provenance_refs": ["p"]}, {"source_kind": "embodiment_snapshot", "privacy_posture": "privacy_sensitive", "sanitized_context_summary": True, "allow_context_privacy_sensitive": True})),))
+    caveat = replace(pkt, pollution_risk=PollutionRisk.HIGH, included_embodiment_refs=(ContextPacketItem("c", "embodiment", attach_context_safety_metadata_to_packet_ref({"provenance_refs": ["p"]}, {"source_kind": "embodiment_snapshot", "privacy_posture": "privacy_sensitive", "sanitized_context_summary": True, "allow_context_privacy_sensitive": True, "non_authoritative": True, "decision_power": "none"})),))
     assert evaluate_context_packet_prompt_eligibility(caveat).eligibility_status == PromptContextEligibilityStatus.PROMPT_ELIGIBLE_WITH_CAVEATS
 
     clean = _pkt([_cand("cl", metadata={})])

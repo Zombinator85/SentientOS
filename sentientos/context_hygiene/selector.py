@@ -29,6 +29,7 @@ from sentientos.context_hygiene.safety_metadata import (
     explain_missing_context_safety_metadata,
     extract_context_safety_metadata,
 )
+from sentientos.context_hygiene.source_kind_contracts import context_source_kind_requires_safety_metadata
 
 
 @dataclass(frozen=True)
@@ -101,9 +102,11 @@ def explain_candidate_exclusion(candidate: ContextCandidate, packet_scope: str, 
     if candidate.ref_type == "embodiment" and not candidate.already_sanitized_context_summary:
         return "excluded: embodiment candidate not sanitized (Phase 63)"
     safety_meta = extract_context_safety_metadata(candidate)
-    missing_safety = explain_missing_context_safety_metadata(candidate.ref_type, safety_meta)
-    if missing_safety:
-        return f"excluded: {missing_safety}"
+    source_kind = str(safety_meta.get("source_kind", "")).strip().lower()
+    if source_kind and context_source_kind_requires_safety_metadata(source_kind):
+        missing_safety = explain_missing_context_safety_metadata(candidate.ref_type, safety_meta)
+        if missing_safety:
+            return f"excluded: source-kind safety contract gap ({missing_safety})"
     return None
 
 

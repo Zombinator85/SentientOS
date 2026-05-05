@@ -76,6 +76,14 @@ __all__ = [
     "safety_metadata_has_authority_block",
     "safety_metadata_has_privacy_block",
     "safety_metadata_has_raw_source_block",
+    "ContextSourceKindSafetyContract",
+    "context_source_kind_requires_safety_metadata",
+    "explain_context_safety_contract_gap",
+    "get_context_source_kind_safety_contract",
+    "source_kind_contract_allows_prompt_preflight",
+    "source_kind_contract_has_required_non_effect_guards",
+    "summarize_source_kind_contract_matrix",
+    "validate_context_safety_metadata_against_source_kind",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -127,4 +135,14 @@ from sentientos.context_hygiene.safety_metadata import (
     safety_metadata_has_authority_block,
     safety_metadata_has_privacy_block,
     safety_metadata_has_raw_source_block,
+)
+from sentientos.context_hygiene.source_kind_contracts import (
+    ContextSourceKindSafetyContract,
+    context_source_kind_requires_safety_metadata,
+    explain_context_safety_contract_gap,
+    get_context_source_kind_safety_contract,
+    source_kind_contract_allows_prompt_preflight,
+    source_kind_contract_has_required_non_effect_guards,
+    summarize_source_kind_contract_matrix,
+    validate_context_safety_metadata_against_source_kind,
 )
