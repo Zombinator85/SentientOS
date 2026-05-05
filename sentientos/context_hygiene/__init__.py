@@ -50,6 +50,17 @@ __all__ = [
     "combine_freshness_status",
     "combine_pollution_risk",
     "provenance_is_complete",
+    "EmbodimentContextEligibility",
+    "EmbodimentContextSourceKind",
+    "EmbodimentPrivacyPosture",
+    "build_embodiment_context_candidates",
+    "classify_embodiment_context_source_kind",
+    "classify_embodiment_privacy_posture",
+    "embodiment_artifact_is_context_eligible",
+    "embodiment_artifact_is_sanitized_for_context",
+    "embodiment_artifact_to_context_candidate",
+    "explain_embodiment_context_exclusion",
+    "summarize_embodiment_context_eligibility",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -67,4 +78,18 @@ from sentientos.context_hygiene.pollution_guard import (
     combine_freshness_status,
     combine_pollution_risk,
     provenance_is_complete,
+)
+
+from sentientos.context_hygiene.embodiment_context import (
+    EmbodimentContextEligibility,
+    EmbodimentContextSourceKind,
+    EmbodimentPrivacyPosture,
+    build_embodiment_context_candidates,
+    classify_embodiment_context_source_kind,
+    classify_embodiment_privacy_posture,
+    embodiment_artifact_is_context_eligible,
+    embodiment_artifact_is_sanitized_for_context,
+    embodiment_artifact_to_context_candidate,
+    explain_embodiment_context_exclusion,
+    summarize_embodiment_context_eligibility,
 )

@@ -49,3 +49,10 @@ Key assertions:
 - If any attempted candidate is blocked, packet risk is `blocked` and blocked candidates remain visible in `excluded_refs`/`exclusion_reasons`.
 - `provenance_complete` reflects all attempted candidates; included refs remain provenance-bearing.
 - This lands before Phase 63 so privacy/embodiment blocked states are preserved instead of silently degrading to `high`.
+
+
+## Phase 63: Embodiment/Privacy Context Eligibility Bridge
+- Raw perception is not context.
+- Sanitized embodiment summaries may become context candidates.
+- Privacy-sensitive, biometric/emotion-sensitive, raw-retention, and action-capable material is blocked unless explicitly sanitized and allowed.
+- This phase is adapter/eligibility only: not prompt assembly, not memory write, and not embodiment runtime behavior.
