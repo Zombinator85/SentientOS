@@ -29,3 +29,14 @@ The schema intentionally separates memory/claim/evidence/stance/diagnostic/embod
 - Distiller
 - Pruner
 - Prompt adapter / runtime middleware
+
+
+## Phase 62: Truth-Gated Context Selector Alpha
+
+Phase 62 adds a pure selector layer that evaluates normalized candidates before prompt use. The selector is non-authoritative and returns a Phase 61 `ContextPacket` only.
+
+Key assertions:
+- Truth validation is not automatic inclusion.
+- Relevance is not equivalent to truth.
+- Exclusion reasons are mandatory for every dropped candidate.
+- Embodiment privacy/sanitization policy remains deferred to Phase 63 (raw embodiment candidates are excluded by default).
