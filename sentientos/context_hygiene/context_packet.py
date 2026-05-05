@@ -43,6 +43,7 @@ class PollutionRisk(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+    BLOCKED = "blocked"
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,10 @@ def validate_context_packet(packet: ContextPacket) -> list[str]:
         errors.append("packet cannot admit work")
     if not packet.does_not_execute_or_route_work:
         errors.append("packet cannot execute or route work")
+    try:
+        PollutionRisk(packet.pollution_risk)
+    except ValueError:
+        errors.append(f"invalid pollution risk: {packet.pollution_risk}")
     return errors
 
 

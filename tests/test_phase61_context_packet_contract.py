@@ -123,3 +123,10 @@ def test_schema_lanes_and_explicit_statuses_and_no_raw_dump():
     assert packet.contradiction_status in ContradictionStatus
     assert packet.freshness_status in FreshnessStatus
     assert not hasattr(packet, "raw_memory_dump")
+
+
+def test_blocked_pollution_risk_is_valid_and_non_authoritative():
+    packet = _valid_packet()
+    blocked_packet = replace(packet, pollution_risk=PollutionRisk.BLOCKED)
+    assert validate_context_packet(blocked_packet) == []
+    assert blocked_packet.decision_power == "none"

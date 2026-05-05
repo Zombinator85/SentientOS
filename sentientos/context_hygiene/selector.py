@@ -142,8 +142,9 @@ def build_context_packet_from_candidates(candidates: Sequence[ContextCandidate],
         if not d.included
     )
     included_candidates = [d.candidate for d in decisions if d.included]
-    pollution = combine_pollution_risk(included_candidates, now=current)
-    packet_pollution = PollutionRisk.HIGH if pollution == "blocked" else PollutionRisk(pollution)
+    attempted_candidates = [d.candidate for d in decisions]
+    pollution = combine_pollution_risk(attempted_candidates, now=current)
+    packet_pollution = PollutionRisk(pollution)
     contradiction = combine_contradiction_status(included_candidates)
     freshness = combine_freshness_status(included_candidates)
     provenance_complete = all(provenance_is_complete(c) for c in candidates)

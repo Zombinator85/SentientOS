@@ -72,6 +72,7 @@ def test_phase62_selector_contracts_and_rules(tmp_path):
     assert any("contested" in reason for reason in packet.inclusion_reasons)
     assert packet.contradiction_status.value in {"suspected", "none"}
     assert packet.provenance_complete is False
+    assert packet.pollution_risk.value == "blocked"
     assert packet.exclusion_reasons and packet.inclusion_reasons
     assert candidates[0].ref_id == "claim_ok"
     assert packet.does_not_admit_work is True and packet.does_not_execute_or_route_work is True
