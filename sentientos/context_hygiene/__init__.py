@@ -98,6 +98,19 @@ __all__ = [
     "summarize_context_packet_lane_for_handoff",
     "summarize_context_packet_ref_for_handoff",
     "summarize_context_prompt_handoff_manifest",
+    "ContextPromptDryRunEnvelope",
+    "ContextPromptDryRunNoRuntimeMarkers",
+    "ContextPromptDryRunRefSummary",
+    "ContextPromptDryRunSectionSummary",
+    "ContextPromptDryRunStatus",
+    "build_context_prompt_dry_run_envelope",
+    "compute_context_prompt_dry_run_envelope_digest",
+    "dry_run_envelope_contains_no_prompt_text",
+    "dry_run_envelope_has_no_runtime_authority",
+    "map_handoff_status_to_prompt_dry_run_status",
+    "summarize_context_prompt_dry_run_envelope",
+    "summarize_handoff_lane_for_prompt_dry_run",
+    "summarize_handoff_ref_for_prompt_dry_run",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -176,4 +189,20 @@ from sentientos.context_hygiene.prompt_handoff_manifest import (
     summarize_context_packet_lane_for_handoff,
     summarize_context_packet_ref_for_handoff,
     summarize_context_prompt_handoff_manifest,
+)
+
+from sentientos.context_hygiene.prompt_dry_run_envelope import (
+    ContextPromptDryRunEnvelope,
+    ContextPromptDryRunNoRuntimeMarkers,
+    ContextPromptDryRunRefSummary,
+    ContextPromptDryRunSectionSummary,
+    ContextPromptDryRunStatus,
+    build_context_prompt_dry_run_envelope,
+    compute_context_prompt_dry_run_envelope_digest,
+    dry_run_envelope_contains_no_prompt_text,
+    dry_run_envelope_has_no_runtime_authority,
+    map_handoff_status_to_prompt_dry_run_status,
+    summarize_context_prompt_dry_run_envelope,
+    summarize_handoff_lane_for_prompt_dry_run,
+    summarize_handoff_ref_for_prompt_dry_run,
 )
