@@ -5,6 +5,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping
 from uuid import uuid4
+from sentientos.context_hygiene.safety_metadata import (
+    CONTEXT_SAFETY_METADATA_KEY,
+    safety_metadata_has_action_authority,
+    safety_metadata_has_authority_block,
+    safety_metadata_has_raw_source_block,
+)
 
 
 class ContextAssemblyStatus(str, Enum):
@@ -137,6 +143,14 @@ def validate_context_packet(packet: ContextPacket) -> list[str]:
     for item in _all_included_refs(packet):
         if not item.provenance:
             errors.append(f"included ref without provenance: {item.ref_id}")
+            continue
+        safety_meta = item.provenance.get(CONTEXT_SAFETY_METADATA_KEY, {})
+        if safety_meta and safety_metadata_has_raw_source_block(safety_meta):
+            errors.append(f"included ref contains raw-source safety metadata: {item.ref_id}")
+        if safety_meta and safety_metadata_has_action_authority(safety_meta):
+            errors.append(f"included ref is action-capable in safety metadata: {item.ref_id}")
+        if safety_meta and safety_metadata_has_authority_block(safety_meta):
+            errors.append(f"included ref has authority-risk safety metadata: {item.ref_id}")
     if packet.decision_power != "none":
         errors.append("decision_power must be none")
     if not packet.non_authoritative:

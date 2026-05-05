@@ -12,6 +12,7 @@ from sentientos.context_hygiene.context_packet import (
     PollutionRisk,
     validate_context_packet,
 )
+from sentientos.context_hygiene.safety_metadata import CONTEXT_SAFETY_METADATA_KEY
 
 
 class PromptContextEligibilityStatus(str, Enum):
@@ -74,6 +75,9 @@ def _all_included(packet: ContextPacket) -> tuple[ContextPacketItem, ...]:
 
 
 def _item_flag(item: ContextPacketItem, key: str, default: Any = False) -> Any:
+    safety_meta = item.provenance.get(CONTEXT_SAFETY_METADATA_KEY, {})
+    if key in safety_meta:
+        return safety_meta.get(key, default)
     return item.provenance.get(key, default)
 
 
