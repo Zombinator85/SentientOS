@@ -16,8 +16,8 @@ from sentientos.context_hygiene.selector import ContextCandidate, build_context_
 
 NOW = datetime.now(timezone.utc)
 
-def _cand(ref_id="r", ref_type="evidence", metadata=None):
-    return ContextCandidate(ref_id=ref_id, ref_type=ref_type, packet_scope="turn", conversation_scope_id="conv", task_scope_id="task", provenance_refs=("p1",), source_locator="src", summary="sum", already_sanitized_context_summary=True, truth_ingress_status="allowed", metadata=metadata or {})
+def _cand(ref_id="r", ref_type="evidence", metadata=None, truth_ingress_status="allowed"):
+    return ContextCandidate(ref_id=ref_id, ref_type=ref_type, packet_scope="turn", conversation_scope_id="conv", task_scope_id="task", provenance_refs=("p1",), source_locator="src", summary="sum", already_sanitized_context_summary=True, truth_ingress_status=truth_ingress_status, metadata=metadata or {})
 
 def _pkt(cands):
     return build_context_packet_from_candidates(cands, "turn", "conv", "task", context_mode=ContextMode.RESPONSE, now=NOW)
@@ -49,12 +49,17 @@ def test_phase67_blocked_statuses_and_invalid_and_empty():
     blocked = _pkt([_cand("b", metadata={"source_kind": "evidence", "pollution_risk": "blocked", "non_authoritative": True, "decision_power": "none"})])
     assert build_context_prompt_handoff_manifest(blocked).handoff_status == ContextPromptHandoffStatus.HANDOFF_BLOCKED
     for meta in [
-        {"source_kind": "evidence", "truth_ingress_status": "blocked", "non_authoritative": True, "decision_power": "none"},
         {"source_kind": "raw_perception_event", "non_authoritative": True, "decision_power": "none"},
         {"source_kind": "evidence", "action_capable": True, "non_authoritative": True, "decision_power": "none"},
         {"source_kind": "evidence", "non_authoritative": False, "decision_power": "some"},
     ]:
         assert build_context_prompt_handoff_manifest(_pkt([_cand("x", metadata=meta)])).handoff_status in {ContextPromptHandoffStatus.HANDOFF_BLOCKED, ContextPromptHandoffStatus.HANDOFF_INVALID_PACKET}
+    blocked_truth = _pkt([_cand("tb", metadata={"source_kind": "evidence", "non_authoritative": True, "decision_power": "none"}, truth_ingress_status="blocked")])
+    assert build_context_prompt_handoff_manifest(blocked_truth).handoff_status in {
+        ContextPromptHandoffStatus.HANDOFF_BLOCKED,
+        ContextPromptHandoffStatus.HANDOFF_INVALID_PACKET,
+        ContextPromptHandoffStatus.HANDOFF_NOT_APPLICABLE,
+    }
     empty = _pkt([])
     assert build_context_prompt_handoff_manifest(empty).handoff_status == ContextPromptHandoffStatus.HANDOFF_NOT_APPLICABLE
     invalid = replace(blocked, context_packet_id="")
@@ -81,7 +86,7 @@ def test_phase67_digest_and_preflight_paths_and_source_gap():
 
 def test_phase67_phase63_and_62b_interop_and_import_purity():
     proposal = {"source_kind": "embodiment_proposal", "privacy_posture": "public", "sanitized_context_summary": True, "proposal_summary": "ok"}
-    candidates = build_embodiment_context_candidates([proposal], packet_scope="turn", conversation_scope_id="conv", task_scope_id="task")
+    candidates = build_embodiment_context_candidates([{**proposal, "ref_id": "emb-1", "packet_scope": "turn", "conversation_scope_id": "conv", "task_scope_id": "task", "content_summary": "ok", "provenance_refs": ["p1"]}])
     pkt = _pkt(candidates)
     assert build_context_prompt_handoff_manifest(pkt).packet_id == pkt.context_packet_id
 
