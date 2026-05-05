@@ -94,3 +94,12 @@ Key assertions:
 - Carries manifest id/digest, packet id/scope, assembly constraints, section summaries, and safe admissible ref summaries only for ready/caveated manifests.
 - Withholds admissible refs for blocked, not-applicable, and invalid manifests while preserving block reasons, caveats, source-kind summary, safety-contract gap summary, and provenance summary.
 - Includes explicit no-runtime markers for no LLM calls, memory retrieval/writes, feedback, retention, work routing/execution/admission, or final prompt text.
+
+## Phase 69: Prompt Assembly Constraint Verifier
+- Adds a pure verifier for hypothetical future prompt assembly candidate plans against the Phase 68 dry-run envelope.
+- Proves future assembler inputs use only admissible refs, preserve caveats, preserve provenance/privacy/truth/safety boundaries, and retain no-runtime constraints.
+- The candidate plan is not prompt text and the verifier does not assemble prompts.
+- The verifier does not call LLMs, web clients, or retrieval paths.
+- The verifier does not retrieve or write memory.
+- The verifier does not modify truth, embodiment, action, retention, routing, orchestration, admission, or execution runtime behavior.
+- Blocked, not-applicable, and invalid envelopes admit no candidate refs while preserving diagnostic caveats, constraints, and block posture for review.

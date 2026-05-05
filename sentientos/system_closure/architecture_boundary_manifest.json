@@ -544,8 +544,22 @@
         "task_admission",
         "task_executor",
         "web",
-        "requests"
-      ]
+        "requests",
+        "openai",
+        "hardware"
+      ],
+      "constraint_verification_only": true,
+      "prompt_assembly_preparation_only": true,
+      "does_not_assemble_prompt": true,
+      "does_not_contain_final_prompt_text": true,
+      "does_not_call_llm": true,
+      "does_not_retrieve_memory": true,
+      "does_not_trigger_feedback": true,
+      "does_not_commit_retention": true,
+      "no_llm_calls": true,
+      "no_hardware_calls": true,
+      "no_retention_side_effects": true,
+      "no_embodiment_runtime_effects": true
     }
   },
   "protected_sinks": {
