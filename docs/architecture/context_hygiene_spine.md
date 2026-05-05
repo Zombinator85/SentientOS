@@ -66,3 +66,9 @@ Key assertions:
 - Phase 64 does not call LLMs.
 - Phase 64 does not retrieve or write memory.
 - Phase 64 does not modify embodiment, action, or retention runtime behavior.
+
+## Phase 65: Context Safety Metadata Preservation
+- ContextPacket lane refs preserve compact packet-safe `context_safety_metadata` evidence for preflight/diagnostics.
+- Packets remain auditable without raw-source rehydration.
+- Preserved metadata is non-raw and non-authoritative; no prompt assembly/LLM/retrieval/memory-write/runtime action behavior is added.
+- This closes the Phase 64 metadata-loss blind spot between selector and prompt preflight.

@@ -24,6 +24,11 @@ from sentientos.context_hygiene.pollution_guard import (
     combine_pollution_risk,
     provenance_is_complete,
 )
+from sentientos.context_hygiene.safety_metadata import (
+    attach_context_safety_metadata_to_packet_ref,
+    explain_missing_context_safety_metadata,
+    extract_context_safety_metadata,
+)
 
 
 @dataclass(frozen=True)
@@ -95,6 +100,10 @@ def explain_candidate_exclusion(candidate: ContextCandidate, packet_scope: str, 
         return "excluded: dialogue candidate requires scope"
     if candidate.ref_type == "embodiment" and not candidate.already_sanitized_context_summary:
         return "excluded: embodiment candidate not sanitized (Phase 63)"
+    safety_meta = extract_context_safety_metadata(candidate)
+    missing_safety = explain_missing_context_safety_metadata(candidate.ref_type, safety_meta)
+    if missing_safety:
+        return f"excluded: {missing_safety}"
     return None
 
 
@@ -131,7 +140,9 @@ def build_context_packet_from_candidates(candidates: Sequence[ContextCandidate],
         decisions = included + excluded
 
     def mk_item(d: ContextSelectionDecision) -> ContextPacketItem:
-        return ContextPacketItem(d.candidate.ref_id, d.candidate.ref_type, {"provenance_refs": list(d.candidate.provenance_refs), "source_locator": d.candidate.source_locator})
+        provenance = {"provenance_refs": list(d.candidate.provenance_refs), "source_locator": d.candidate.source_locator}
+        safety_meta = extract_context_safety_metadata(d.candidate)
+        return ContextPacketItem(d.candidate.ref_id, d.candidate.ref_type, attach_context_safety_metadata_to_packet_ref(provenance, safety_meta))
 
     def lane_items(lane: str) -> tuple[ContextPacketItem, ...]:
         return tuple(mk_item(d) for d in decisions if d.included and d.lane == lane)

@@ -66,6 +66,16 @@ __all__ = [
     "evaluate_context_packet_prompt_eligibility",
     "explain_context_packet_prompt_ineligibility",
     "summarize_context_packet_prompt_preflight",
+    "CONTEXT_SAFETY_METADATA_KEY",
+    "attach_context_safety_metadata_to_packet_ref",
+    "explain_missing_context_safety_metadata",
+    "extract_context_safety_metadata",
+    "normalize_context_safety_metadata",
+    "packet_ref_has_safety_metadata",
+    "safety_metadata_has_action_authority",
+    "safety_metadata_has_authority_block",
+    "safety_metadata_has_privacy_block",
+    "safety_metadata_has_raw_source_block",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -105,4 +115,16 @@ from sentientos.context_hygiene.prompt_preflight import (
     evaluate_context_packet_prompt_eligibility,
     explain_context_packet_prompt_ineligibility,
     summarize_context_packet_prompt_preflight,
+)
+from sentientos.context_hygiene.safety_metadata import (
+    CONTEXT_SAFETY_METADATA_KEY,
+    attach_context_safety_metadata_to_packet_ref,
+    explain_missing_context_safety_metadata,
+    extract_context_safety_metadata,
+    normalize_context_safety_metadata,
+    packet_ref_has_safety_metadata,
+    safety_metadata_has_action_authority,
+    safety_metadata_has_authority_block,
+    safety_metadata_has_privacy_block,
+    safety_metadata_has_raw_source_block,
 )
