@@ -31,19 +31,19 @@ def candidate_is_expired(candidate: Any, now: datetime | None = None) -> bool:
 def classify_pollution_risk(candidate: Any, now: datetime | None = None) -> str:
     ref_type = str(getattr(candidate, "ref_type", "unknown")).lower()
     if not getattr(candidate, "ref_id", ""):
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if not provenance_is_complete(candidate):
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if ref_type not in ALLOWED_REF_TYPES:
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if candidate_is_expired(candidate, now=now):
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if str(getattr(candidate, "truth_ingress_status", "")).lower() in BLOCKING_TRUTH_INGRESS:
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if str(getattr(candidate, "contradiction_status", "")).lower() == "blocked":
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if ref_type == "embodiment" and not bool(getattr(candidate, "already_sanitized_context_summary", False)):
-        return "blocked"
+        return PollutionRisk.BLOCKED.value
     if str(getattr(candidate, "freshness_status", "")).lower() in {"stale", "unknown"}:
         return PollutionRisk.MEDIUM.value
     if str(getattr(candidate, "contradiction_status", "")).lower() in {"warning", "suspected", "contradicted"}:
@@ -55,11 +55,13 @@ def combine_pollution_risk(candidates_or_decisions: Iterable[Any], now: datetime
     risks = [classify_pollution_risk(item, now=now) for item in candidates_or_decisions]
     if not risks:
         return PollutionRisk.MEDIUM.value
-    if "blocked" in risks:
-        return "blocked"
-    if PollutionRisk.HIGH.value in risks:
+    allowed = {risk.value for risk in PollutionRisk}
+    normalized = [risk if risk in allowed else PollutionRisk.BLOCKED.value for risk in risks]
+    if PollutionRisk.BLOCKED.value in normalized:
+        return PollutionRisk.BLOCKED.value
+    if PollutionRisk.HIGH.value in normalized:
         return PollutionRisk.HIGH.value
-    if PollutionRisk.MEDIUM.value in risks:
+    if PollutionRisk.MEDIUM.value in normalized:
         return PollutionRisk.MEDIUM.value
     return PollutionRisk.LOW.value
 

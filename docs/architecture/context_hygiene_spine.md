@@ -40,3 +40,12 @@ Key assertions:
 - Relevance is not equivalent to truth.
 - Exclusion reasons are mandatory for every dropped candidate.
 - Embodiment privacy/sanitization policy remains deferred to Phase 63 (raw embodiment candidates are excluded by default).
+
+
+## Phase 62B risk-contract alignment
+- `PollutionRisk` supports `low|medium|high|blocked`.
+- `blocked` is distinct from `high`: blocked means ineligible for active lanes; high means eligible with caution.
+- Packet pollution risk is an assembly-level aggregate over attempted candidates, not only included lanes.
+- If any attempted candidate is blocked, packet risk is `blocked` and blocked candidates remain visible in `excluded_refs`/`exclusion_reasons`.
+- `provenance_complete` reflects all attempted candidates; included refs remain provenance-bearing.
+- This lands before Phase 63 so privacy/embodiment blocked states are preserved instead of silently degrading to `high`.
