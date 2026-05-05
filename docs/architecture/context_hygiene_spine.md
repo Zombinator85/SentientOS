@@ -103,3 +103,9 @@ Key assertions:
 - The verifier does not retrieve or write memory.
 - The verifier does not modify truth, embodiment, action, retention, routing, orchestration, admission, or execution runtime behavior.
 - Blocked, not-applicable, and invalid envelopes admit no candidate refs while preserving diagnostic caveats, constraints, and block posture for review.
+
+### Phase 70: Prompt Assembly Adapter Contract
+
+Phase 70 adds `sentientos.context_hygiene.prompt_adapter_contract` as a dry-wired adapter contract between the Phase 69 constraint verifier and any future prompt assembler. The adapter defines the future prompt-assembler-facing payload shape while remaining non-authoritative and preparation-only.
+
+The adapter does not modify `prompt_assembler.py`, does not assemble prompts, does not contain final prompt text, does not call LLMs, and does not retrieve or write memory. It also does not change truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. Adapter refs are gated by Phase 69 verification status, and failed, not-applicable, invalid, or blocked material is withheld from adapter refs while warnings and violations remain visible.

@@ -129,6 +129,25 @@ __all__ = [
     "summarize_prompt_assembly_constraint_verification",
     "verify_prompt_assembly_candidate_plan",
     "verify_prompt_assembly_constraints",
+    "PromptAssemblyAdapterBoundary",
+    "PromptAssemblyAdapterConstraint",
+    "PromptAssemblyAdapterPayload",
+    "PromptAssemblyAdapterRef",
+    "PromptAssemblyAdapterSection",
+    "PromptAssemblyAdapterStatus",
+    "adapter_payload_contains_no_prompt_text",
+    "adapter_payload_contains_no_raw_payloads",
+    "adapter_payload_has_no_runtime_authority",
+    "adapter_payload_is_safe_for_future_prompt_assembler",
+    "build_prompt_assembly_adapter_payload",
+    "build_prompt_assembly_adapter_payload_from_envelope",
+    "build_prompt_assembly_adapter_payload_from_packet",
+    "compute_prompt_adapter_payload_digest",
+    "explain_prompt_adapter_block",
+    "map_prompt_verification_status_to_adapter_status",
+    "summarize_adapter_ref",
+    "summarize_prompt_adapter_payload",
+    "summarize_verified_candidate_plan_for_adapter",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -244,4 +263,27 @@ from sentientos.context_hygiene.prompt_constraint_verifier import (
     summarize_prompt_assembly_constraint_verification,
     verify_prompt_assembly_candidate_plan,
     verify_prompt_assembly_constraints,
+)
+
+
+from sentientos.context_hygiene.prompt_adapter_contract import (
+    PromptAssemblyAdapterBoundary,
+    PromptAssemblyAdapterConstraint,
+    PromptAssemblyAdapterPayload,
+    PromptAssemblyAdapterRef,
+    PromptAssemblyAdapterSection,
+    PromptAssemblyAdapterStatus,
+    adapter_payload_contains_no_prompt_text,
+    adapter_payload_contains_no_raw_payloads,
+    adapter_payload_has_no_runtime_authority,
+    adapter_payload_is_safe_for_future_prompt_assembler,
+    build_prompt_assembly_adapter_payload,
+    build_prompt_assembly_adapter_payload_from_envelope,
+    build_prompt_assembly_adapter_payload_from_packet,
+    compute_prompt_adapter_payload_digest,
+    explain_prompt_adapter_block,
+    map_prompt_verification_status_to_adapter_status,
+    summarize_adapter_ref,
+    summarize_prompt_adapter_payload,
+    summarize_verified_candidate_plan_for_adapter,
 )
