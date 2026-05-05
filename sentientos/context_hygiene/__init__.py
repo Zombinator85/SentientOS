@@ -84,6 +84,20 @@ __all__ = [
     "source_kind_contract_has_required_non_effect_guards",
     "summarize_source_kind_contract_matrix",
     "validate_context_safety_metadata_against_source_kind",
+    "ContextPromptHandoffBoundary",
+    "ContextPromptHandoffLaneSummary",
+    "ContextPromptHandoffManifest",
+    "ContextPromptHandoffRefSummary",
+    "ContextPromptHandoffStatus",
+    "build_context_prompt_handoff_manifest",
+    "compute_context_prompt_handoff_digest",
+    "explain_context_prompt_handoff_block",
+    "manifest_contains_no_raw_payloads",
+    "manifest_has_no_runtime_authority",
+    "summarize_context_packet_for_prompt_handoff",
+    "summarize_context_packet_lane_for_handoff",
+    "summarize_context_packet_ref_for_handoff",
+    "summarize_context_prompt_handoff_manifest",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -145,4 +159,21 @@ from sentientos.context_hygiene.source_kind_contracts import (
     source_kind_contract_has_required_non_effect_guards,
     summarize_source_kind_contract_matrix,
     validate_context_safety_metadata_against_source_kind,
+)
+
+from sentientos.context_hygiene.prompt_handoff_manifest import (
+    ContextPromptHandoffBoundary,
+    ContextPromptHandoffLaneSummary,
+    ContextPromptHandoffManifest,
+    ContextPromptHandoffRefSummary,
+    ContextPromptHandoffStatus,
+    build_context_prompt_handoff_manifest,
+    compute_context_prompt_handoff_digest,
+    explain_context_prompt_handoff_block,
+    manifest_contains_no_raw_payloads,
+    manifest_has_no_runtime_authority,
+    summarize_context_packet_for_prompt_handoff,
+    summarize_context_packet_lane_for_handoff,
+    summarize_context_packet_ref_for_handoff,
+    summarize_context_prompt_handoff_manifest,
 )

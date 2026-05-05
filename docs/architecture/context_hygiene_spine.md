@@ -79,3 +79,11 @@ Key assertions:
 - Explicit `unknown` source kind fails closed where contracted safety metadata is required.
 - Contracts validate evidence metadata only (non-authoritative) and do not grant authority.
 - No prompt assembly, LLM calls, retrieval, memory writes, or runtime embodiment/action/retention behavior changes are introduced in this phase.
+
+
+## Phase 67: Context Prompt Handoff Manifest
+- Adds pure manifest contract artifact before any prompt assembly wiring.
+- Records eligible/caveated/blocked handoff posture from packet + preflight.
+- Does not contain prompt text or call LLM/web/retrieval/memory write paths.
+- Preserves packet-safe summaries, lane/ref summaries, and safety metadata summaries only.
+- Does not alter embodiment/action/retention runtime behavior.
