@@ -133,3 +133,10 @@ Phase 73 adds a second controlled `prompt_assembler.py` context hygiene touch: a
 The blueprint is test-invoked only and is not live prompt assembly. It does not assemble prompt text, does not concatenate adapter refs into prompt prose, does not call LLMs, does not retrieve memory, and does not write memory. Blocked, not-applicable, invalid, or runtime-wiring-detected payloads produce no blueprint refs and keep prompt materialization blocked.
 
 Phase 73 does not modify truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. It does not alter existing `assemble_prompt(...)` behavior or any existing call site.
+
+## Phase 74: Prompt Materialization Audit Receipt / Attestation
+- Adds a pure audit receipt artifact that binds manifest/envelope/verifier/adapter/compliance/preview/blueprint evidence into one deterministic attestation.
+- The receipt is not prompt materialization and does not assemble prompt text.
+- The receipt does not call LLMs, retrieve memory, write memory, or modify embodiment/action/retention runtime behavior.
+- The receipt preserves IDs, digests, statuses, caveats, warnings, violations, boundary markers, provenance/privacy/truth/safety summaries, source-kind/ref/section counts, and a deterministic receipt digest.
+- The receipt is the prerequisite gate for any future shadow text materializer; blocked, not-applicable, invalid, invalid-chain, and runtime-wiring statuses remain non-materializable.
