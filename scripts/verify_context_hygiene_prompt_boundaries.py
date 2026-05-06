@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "prompt_assembler.py",
+    "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
     "sentientos/context_hygiene/prompt_assembler_compliance.py",
     "sentientos/context_hygiene/prompt_adapter_contract.py",
@@ -80,6 +81,12 @@ SHADOW_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "PromptAssemblerShadowBlueprint",
         "PromptMaterializationAuditReceipt",
         "audit_receipt_allows_shadow_materializer",
+        "PromptMaterializationPolicyDecision",
+        "PromptMaterializationPolicyInput",
+        "PromptMaterializationPolicyStatus",
+        "PromptMaterializationPolicyRing",
+        "policy_decision_allows_shadow_only",
+        "policy_decision_allows_synthetic_materializer",
     }
 )
 

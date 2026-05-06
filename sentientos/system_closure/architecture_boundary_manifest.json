@@ -566,7 +566,9 @@
       "audit_receipt_only": true,
       "attestation_only": true,
       "prompt_materialization_precondition_only": true,
-      "does_not_materialize_prompt_text": true
+      "does_not_materialize_prompt_text": true,
+      "policy_decision_only": true,
+      "policy_enforcement_not_included": true
     }
   },
   "protected_sinks": {

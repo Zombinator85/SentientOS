@@ -159,3 +159,11 @@ Phase 73 does not modify truth, embodiment, action, retention, routing, admissio
 - The harness does not retrieve memory, write memory, trigger feedback, commit retention, route work, admit work, execute work, or orchestrate runtime behavior.
 - The harness does not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or embodiment runtime behavior.
 - Phase 76 is a prerequisite before any future synthetic materializer because it proves adversarial metadata fixtures are blocked or withheld before prompt materialization exists.
+
+## Phase 77: Context Hygiene Policy Decision Layer
+
+Phase 77 adds `sentientos.context_hygiene.prompt_materialization_policy` as a pure policy decision layer over the Phase 61-76 prompt assembly runway. It consumes Phase 74 audit receipt metadata, Phase 73 blueprint status, preview/compliance/adapter evidence, source-kind summaries, caveats, warnings, violations, findings, feature flags, and operator-review state to decide whether a future materializer posture is denied, shadow-only, operator-review-required, or synthetic-fixture-only eligible.
+
+The Phase 77 policy decision layer is not enforcement and is not prompt materialization. It does not assemble prompts, does not contain final prompt text, does not call LLMs, does not retrieve or write memory, does not trigger feedback, does not commit retention, does not execute or route work, and does not admit work. It does not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or live `assemble_prompt(...)` behavior.
+
+Live/internal/LLM-capable rings remain forbidden in Phase 77. `ring_internal_candidate_no_llm` and `ring_live_llm_forbidden` are declared only so the policy can deterministically deny them.
