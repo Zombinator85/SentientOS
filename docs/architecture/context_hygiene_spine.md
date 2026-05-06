@@ -109,3 +109,11 @@ Key assertions:
 Phase 70 adds `sentientos.context_hygiene.prompt_adapter_contract` as a dry-wired adapter contract between the Phase 69 constraint verifier and any future prompt assembler. The adapter defines the future prompt-assembler-facing payload shape while remaining non-authoritative and preparation-only.
 
 The adapter does not modify `prompt_assembler.py`, does not assemble prompts, does not contain final prompt text, does not call LLMs, and does not retrieve or write memory. It also does not change truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. Adapter refs are gated by Phase 69 verification status, and failed, not-applicable, invalid, or blocked material is withheld from adapter refs while warnings and violations remain visible.
+
+### Phase 71: Prompt Assembler Compliance Harness
+
+Phase 71 adds `sentientos.context_hygiene.prompt_assembler_compliance` as a pure compliance harness for future prompt assembler integration requirements. It evaluates Phase 70 adapter payload readiness, records gaps/warnings/non-runtime markers, and statically scans `prompt_assembler.py` using source text/AST inspection only.
+
+The compliance harness defines future prompt assembler rules: adapter payloads must be verified before use, only adapter refs may be consumed, failed/blocked/invalid/not-applicable payloads must not produce prompt material, and caveat/provenance/privacy/truth/safety boundaries must remain visible.
+
+Phase 71 does not modify `prompt_assembler.py`, does not wire adapter payloads into it, does not assemble prompts, does not call LLMs, does not retrieve or write memory, and does not modify embodiment, action, retention, truth, routing, admission, execution, or orchestration runtime behavior.

@@ -148,6 +148,22 @@ __all__ = [
     "summarize_adapter_ref",
     "summarize_prompt_adapter_payload",
     "summarize_verified_candidate_plan_for_adapter",
+    "PromptAssemblerComplianceGap",
+    "PromptAssemblerComplianceReport",
+    "PromptAssemblerComplianceRequirement",
+    "PromptAssemblerComplianceStatus",
+    "PromptAssemblerFutureIntegrationRule",
+    "adapter_payload_blocks_prompt_materialization",
+    "adapter_payload_may_be_consumed_by_future_assembler",
+    "adapter_payload_satisfies_compliance_prerequisites",
+    "build_prompt_assembler_compliance_requirements",
+    "evaluate_prompt_assembler_adapter_compliance",
+    "explain_prompt_assembler_compliance_gaps",
+    "prompt_assembler_module_has_no_context_hygiene_runtime_wiring",
+    "prompt_assembler_module_has_no_forbidden_context_bypass",
+    "scan_prompt_assembler_static_findings",
+    "summarize_future_prompt_assembler_integration_contract",
+    "summarize_prompt_assembler_compliance_report",
 ]
 
 from sentientos.context_hygiene.selector import (
@@ -286,4 +302,23 @@ from sentientos.context_hygiene.prompt_adapter_contract import (
     summarize_adapter_ref,
     summarize_prompt_adapter_payload,
     summarize_verified_candidate_plan_for_adapter,
+)
+
+from sentientos.context_hygiene.prompt_assembler_compliance import (
+    PromptAssemblerComplianceGap,
+    PromptAssemblerComplianceReport,
+    PromptAssemblerComplianceRequirement,
+    PromptAssemblerComplianceStatus,
+    PromptAssemblerFutureIntegrationRule,
+    adapter_payload_blocks_prompt_materialization,
+    adapter_payload_may_be_consumed_by_future_assembler,
+    adapter_payload_satisfies_compliance_prerequisites,
+    build_prompt_assembler_compliance_requirements,
+    evaluate_prompt_assembler_adapter_compliance,
+    explain_prompt_assembler_compliance_gaps,
+    prompt_assembler_module_has_no_context_hygiene_runtime_wiring,
+    prompt_assembler_module_has_no_forbidden_context_bypass,
+    scan_prompt_assembler_static_findings,
+    summarize_future_prompt_assembler_integration_contract,
+    summarize_prompt_assembler_compliance_report,
 )
