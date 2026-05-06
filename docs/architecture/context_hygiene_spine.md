@@ -140,3 +140,13 @@ Phase 73 does not modify truth, embodiment, action, retention, routing, admissio
 - The receipt does not call LLMs, retrieve memory, write memory, or modify embodiment/action/retention runtime behavior.
 - The receipt preserves IDs, digests, statuses, caveats, warnings, violations, boundary markers, provenance/privacy/truth/safety summaries, source-kind/ref/section counts, and a deterministic receipt digest.
 - The receipt is the prerequisite gate for any future shadow text materializer; blocked, not-applicable, invalid, invalid-chain, and runtime-wiring statuses remain non-materializable.
+
+## Phase 75: Context Hygiene Prompt Boundary CI Guardrails
+- Adds static/CI guardrails for the context-hygiene prompt assembly boundary before any future prompt text materialization is allowed.
+- The guardrails inspect source text and AST only; they are not prompt materialization and do not assemble prompt text.
+- The guardrails enforce forbidden prompt-text fields, raw-payload/runtime-handle fields, forbidden runtime imports, forbidden runtime calls, and prompt-assembler bypass imports.
+- The guardrails do not call LLMs, provider SDKs, web clients, tools, browser controllers, or hardware adapters.
+- The guardrails do not retrieve memory, write memory, trigger feedback, commit retention, admit work, route work, execute work, or orchestrate runtime behavior.
+- The guardrails do not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or live `assemble_prompt(...)` behavior.
+- Phase 75 preserves the Phase 72-74 shadow-only allowlist while continuing to require no-runtime markers and no forbidden calls/imports inside those implementations.
+- These guardrails are prerequisite enforcement before any future synthetic materializer may be proposed.
