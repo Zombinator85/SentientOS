@@ -180,6 +180,10 @@ _FORBIDDEN_RAW_KEYS = frozenset(
     {
         "raw_payload",
         "raw_memory_payload",
+        "raw_screen_payload",
+        "raw_audio_payload",
+        "raw_vision_payload",
+        "raw_multimodal_payload",
         "screen_frame",
         "mic_audio",
         "audio_payload",
@@ -193,7 +197,7 @@ _FORBIDDEN_RAW_KEYS = frozenset(
     }
 )
 _FORBIDDEN_PROMPT_TEXT_KEYS = frozenset(
-    {"prompt_text", "final_prompt_text", "assembled_prompt", "system_prompt", "developer_prompt"}
+    {"prompt_text", "final_prompt_text", "assembled_prompt", "rendered_prompt", "system_prompt", "developer_prompt"}
 )
 _RUNTIME_AUTHORITY_KEYS = frozenset(
     {
@@ -201,6 +205,9 @@ _RUNTIME_AUTHORITY_KEYS = frozenset(
         "action_handle",
         "retention_handle",
         "retrieval_handle",
+        "browser_handle",
+        "mouse_handle",
+        "keyboard_handle",
         "memory_write",
         "can_write_memory",
         "write_memory",
@@ -220,11 +227,17 @@ _RUNTIME_AUTHORITY_KEYS = frozenset(
         "route_work",
         "admit_work",
         "execute_work",
+        "can_route_work",
+        "can_admit_work",
+        "can_execute_work",
+        "can_fulfill_work",
         "can_route",
         "can_admit",
         "can_execute",
         "llm_params",
         "llm_parameters",
+        "model_params",
+        "provider_params",
     }
 )
 
@@ -299,12 +312,40 @@ def _module_prompt_assembler() -> Any:
     return importlib.import_module("prompt_assembler")
 
 
-def _get_adapter_digest(adapter_payload: PromptAssemblyAdapterPayload | Mapping[str, Any] | None) -> str:
+def _compute_current_adapter_digest(adapter_payload: PromptAssemblyAdapterPayload | Mapping[str, Any] | None) -> str:
     if adapter_payload is None:
         return ""
-    data = _mapping(adapter_payload)
-    digest = str(data.get("digest", ""))
-    return digest or compute_prompt_adapter_payload_digest(adapter_payload)
+    return compute_prompt_adapter_payload_digest(adapter_payload)
+
+
+def _compute_current_blueprint_digest(blueprint: Mapping[str, Any]) -> str:
+    if not blueprint:
+        return ""
+    try:
+        digest_fields = {
+            "blueprint_id": blueprint.get("blueprint_id", ""),
+            "adapter_payload_id": blueprint.get("adapter_payload_id", ""),
+            "adapter_status": blueprint.get("adapter_status", ""),
+            "preview_status": blueprint.get("preview_status", ""),
+            "blueprint_status": blueprint.get("blueprint_status", ""),
+            "compliance_status": blueprint.get("compliance_status", ""),
+            "may_future_assembler_consume": blueprint.get("may_future_assembler_consume", False),
+            "must_block_prompt_materialization": blueprint.get("must_block_prompt_materialization", True),
+            "adapter_ref_count": blueprint.get("adapter_ref_count", 0),
+            "blueprint_refs": blueprint.get("blueprint_refs", ()),
+            "blueprint_sections": blueprint.get("blueprint_sections", ()),
+            "preserved_caveats": blueprint.get("preserved_caveats", ()),
+            "warnings": blueprint.get("warnings", ()),
+            "violations": blueprint.get("violations", ()),
+            "assembly_constraints": blueprint.get("assembly_constraints", {}),
+            "provenance_notes_present": blueprint.get("provenance_notes_present", False),
+            "privacy_notes_present": blueprint.get("privacy_notes_present", False),
+            "truth_notes_present": blueprint.get("truth_notes_present", False),
+            "safety_notes_present": blueprint.get("safety_notes_present", False),
+        }
+        return str(_module_prompt_assembler()._compute_shadow_blueprint_digest(digest_fields))
+    except Exception:
+        return ""
 
 
 def _source_kind_counts(blueprint_data: Mapping[str, Any], adapter_data: Mapping[str, Any]) -> dict[str, int]:
@@ -363,7 +404,7 @@ def _chain_and_findings(
     blueprint_id = str(blueprint_data.get("blueprint_id", ""))
     blueprint_digest = str(blueprint_data.get("digest", ""))
     adapter_payload_id = str(adapter_data.get("adapter_payload_id", blueprint_data.get("adapter_payload_id", "")))
-    adapter_digest = _get_adapter_digest(adapter_data) if adapter_data else ""
+    adapter_digest = _compute_current_adapter_digest(adapter_payload=adapter_data) if adapter_data else ""
     packet_id = str(adapter_data.get("packet_id", constraint_map.get("packet_id", "")))
     packet_scope = str(adapter_data.get("packet_scope", constraint_map.get("packet_scope", "")))
     envelope_id = str(adapter_data.get("envelope_id", constraint_map.get("envelope_id", "")))
@@ -403,6 +444,19 @@ def _chain_and_findings(
     if adapter_data and adapter_data.get("digest") and adapter_digest != str(adapter_data.get("digest", "")):
         missing.append("adapter_payload_digest_mismatch")
         findings.append(_finding("digest_chain_mismatch", "computed adapter payload digest differs from stored adapter payload digest"))
+    computed_blueprint_digest = _compute_current_blueprint_digest(blueprint_data)
+    if (
+        blueprint_data
+        and blueprint_digest
+        and computed_blueprint_digest
+        and computed_blueprint_digest != blueprint_digest
+        and str(blueprint_data.get("blueprint_status", "")) != "shadow_blueprint_runtime_wiring_detected"
+    ):
+        missing.append("blueprint_digest_mismatch")
+        findings.append(_finding("digest_chain_mismatch", "computed shadow blueprint digest differs from stored shadow blueprint digest"))
+    if adapter_data and candidate_plan_id and adapter_payload_id and adapter_payload_id != f"adapter-payload:{candidate_plan_id}":
+        missing.append("candidate_plan_id_mismatch")
+        findings.append(_finding("digest_chain_mismatch", "adapter payload id does not bind to candidate plan id"))
 
     chain = PromptMaterializationAuditDigestChain(
         packet_id=packet_id,
