@@ -562,7 +562,11 @@
       "no_embodiment_runtime_effects": true,
       "adapter_contract_only": true,
       "compliance_harness_only": true,
-      "does_not_modify_prompt_assembler": true
+      "does_not_modify_prompt_assembler": true,
+      "audit_receipt_only": true,
+      "attestation_only": true,
+      "prompt_materialization_precondition_only": true,
+      "does_not_materialize_prompt_text": true
     }
   },
   "protected_sinks": {
