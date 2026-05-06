@@ -560,7 +560,9 @@
       "no_hardware_calls": true,
       "no_retention_side_effects": true,
       "no_embodiment_runtime_effects": true,
-      "adapter_contract_only": true
+      "adapter_contract_only": true,
+      "compliance_harness_only": true,
+      "does_not_modify_prompt_assembler": true
     }
   },
   "protected_sinks": {
