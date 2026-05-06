@@ -125,3 +125,11 @@ Phase 72 adds the first controlled `prompt_assembler.py` context hygiene touch: 
 The hook is not used by runtime prompt assembly paths. It does not alter `assemble_prompt(...)`, does not change existing call sites, does not assemble prompt text, and does not concatenate adapter refs into final prompt material. Its output is a compact preview/receipt containing adapter/compliance status, metadata counts, caveats, notes-presence booleans, warnings, violations, constraints, rationale, and explicit non-runtime markers.
 
 Phase 72 does not call LLMs, does not retrieve memory, does not write memory, and does not modify truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. Blocked, not-applicable, invalid, or runtime-wiring-detected adapter payloads remain prompt-materialization blocked and expose only preview status/metadata for audit.
+
+### Phase 73: Prompt Assembler Shadow Blueprint Contract
+
+Phase 73 adds a second controlled `prompt_assembler.py` context hygiene touch: a shadow-only blueprint helper that converts a Phase 70 `PromptAssemblyAdapterPayload`, after Phase 72 shadow preview and Phase 71 compliance, into a structured future prompt-layout blueprint. The blueprint groups compliant adapter refs into blueprint sections and records caveat, provenance, privacy, truth, safety, constraint, status, and digest metadata.
+
+The blueprint is test-invoked only and is not live prompt assembly. It does not assemble prompt text, does not concatenate adapter refs into prompt prose, does not call LLMs, does not retrieve memory, and does not write memory. Blocked, not-applicable, invalid, or runtime-wiring-detected payloads produce no blueprint refs and keep prompt materialization blocked.
+
+Phase 73 does not modify truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. It does not alter existing `assemble_prompt(...)` behavior or any existing call site.

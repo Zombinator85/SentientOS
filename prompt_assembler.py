@@ -56,6 +56,89 @@ class PromptAssemblerShadowAdapterPreview:
     does_not_admit_work: bool = True
 
 
+
+
+@dataclass(frozen=True)
+class PromptAssemblerShadowBlueprintRef:
+    ref_id: str
+    ref_type: str
+    lane: str
+    source_kind: str
+    privacy_posture: str
+    pollution_risk: str
+    provenance_ref_count: int
+    caveat_count: int
+    safety_summary_present: bool
+
+
+@dataclass(frozen=True)
+class PromptAssemblerShadowBlueprintSection:
+    section_id: str
+    section_kind: str
+    source_section_kind: str
+    ref_ids: tuple[str, ...]
+    ref_count: int
+    caveats: tuple[str, ...]
+    required_boundary_notes: tuple[str, ...]
+    provenance_required: bool
+    privacy_boundary_required: bool
+    truth_boundary_required: bool
+    safety_boundary_required: bool
+    rationale: str
+
+
+@dataclass(frozen=True)
+class PromptAssemblerShadowBlueprintBoundary:
+    shadow_blueprint_only: bool = True
+    does_not_assemble_prompt: bool = True
+    does_not_contain_final_prompt_text: bool = True
+    does_not_call_llm: bool = True
+    does_not_retrieve_memory: bool = True
+    does_not_write_memory: bool = True
+    does_not_trigger_feedback: bool = True
+    does_not_commit_retention: bool = True
+    does_not_execute_or_route_work: bool = True
+    does_not_admit_work: bool = True
+
+
+@dataclass(frozen=True)
+class PromptAssemblerShadowBlueprint:
+    blueprint_id: str
+    adapter_payload_id: str
+    adapter_status: str
+    preview_status: str
+    blueprint_status: str
+    compliance_status: str
+    may_future_assembler_consume: bool
+    must_block_prompt_materialization: bool
+    adapter_ref_count: int
+    blueprint_ref_count: int
+    section_count: int
+    blueprint_sections: tuple[PromptAssemblerShadowBlueprintSection, ...]
+    blueprint_refs: tuple[PromptAssemblerShadowBlueprintRef, ...]
+    preserved_caveats: tuple[str, ...]
+    warnings: tuple[Mapping[str, str], ...]
+    violations: tuple[Mapping[str, str], ...]
+    assembly_constraints: Mapping[str, Any]
+    provenance_notes_present: bool
+    privacy_notes_present: bool
+    truth_notes_present: bool
+    safety_notes_present: bool
+    rationale: str
+    digest: str
+    boundary: PromptAssemblerShadowBlueprintBoundary = PromptAssemblerShadowBlueprintBoundary()
+    shadow_blueprint_only: bool = True
+    does_not_assemble_prompt: bool = True
+    does_not_contain_final_prompt_text: bool = True
+    does_not_call_llm: bool = True
+    does_not_retrieve_memory: bool = True
+    does_not_write_memory: bool = True
+    does_not_trigger_feedback: bool = True
+    does_not_commit_retention: bool = True
+    does_not_execute_or_route_work: bool = True
+    does_not_admit_work: bool = True
+
+
 _CONTEXT_HYGIENE_SHADOW_PREVIEW_STATUS_MAP = {
     PromptAssemblerComplianceStatus.COMPLIANCE_READY_FOR_FUTURE_INTEGRATION: "shadow_preview_ready",
     PromptAssemblerComplianceStatus.COMPLIANCE_READY_WITH_WARNINGS: "shadow_preview_ready_with_warnings",
@@ -142,6 +225,204 @@ def preview_context_hygiene_adapter_payload_for_prompt_assembly(
 
 
 build_context_hygiene_shadow_prompt_adapter_preview = preview_context_hygiene_adapter_payload_for_prompt_assembly
+
+_CONTEXT_HYGIENE_SHADOW_BLUEPRINT_STATUS_MAP = {
+    "shadow_preview_ready": "shadow_blueprint_ready",
+    "shadow_preview_ready_with_warnings": "shadow_blueprint_ready_with_warnings",
+    "shadow_preview_blocked": "shadow_blueprint_blocked",
+    "shadow_preview_not_applicable": "shadow_blueprint_not_applicable",
+    "shadow_preview_invalid_adapter_payload": "shadow_blueprint_invalid_adapter_payload",
+    "shadow_preview_runtime_wiring_detected": "shadow_blueprint_runtime_wiring_detected",
+}
+
+_CONTEXT_HYGIENE_BLUEPRINT_SECTION_KIND_MAP = {
+    "adapter_context_refs": "blueprint_context_refs",
+    "adapter_diagnostic_refs": "blueprint_diagnostic_refs",
+    "adapter_evidence_refs": "blueprint_evidence_refs",
+    "adapter_embodiment_refs": "blueprint_embodiment_refs",
+    "adapter_caveat_requirements": "blueprint_caveat_requirements",
+    "adapter_provenance_boundaries": "blueprint_provenance_boundaries",
+    "adapter_privacy_boundaries": "blueprint_privacy_boundaries",
+    "adapter_truth_boundaries": "blueprint_truth_boundaries",
+    "adapter_safety_boundaries": "blueprint_safety_boundaries",
+    "adapter_constraint_summary": "blueprint_constraint_summary",
+}
+
+
+def _shadow_digest_safe(value: Any) -> Any:
+    if is_dataclass(value) and not isinstance(value, type):
+        return {k: _shadow_digest_safe(v) for k, v in asdict(value).items() if k != "digest"}
+    if isinstance(value, Mapping):
+        return {str(k): _shadow_digest_safe(v) for k, v in sorted(value.items(), key=lambda item: str(item[0])) if str(k) != "digest"}
+    if isinstance(value, (tuple, list)):
+        return [_shadow_digest_safe(v) for v in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(_shadow_digest_safe(v) for v in value)
+    return value
+
+
+def _compute_shadow_blueprint_digest(fields: Mapping[str, Any]) -> str:
+    encoded = json.dumps(_shadow_digest_safe(fields), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _blueprint_ref(ref: Any) -> PromptAssemblerShadowBlueprintRef:
+    data = _shadow_payload_mapping(ref)
+    provenance_refs = data.get("provenance_refs", ())
+    caveats = data.get("caveats", ())
+    safety_summary = data.get("safety_summary", {})
+    return PromptAssemblerShadowBlueprintRef(
+        ref_id=str(data.get("ref_id", "")),
+        ref_type=str(data.get("ref_type", "")),
+        lane=str(data.get("lane", "")),
+        source_kind=str(data.get("source_kind", "")),
+        privacy_posture=str(data.get("privacy_posture", "")),
+        pollution_risk=str(data.get("pollution_risk", "")),
+        provenance_ref_count=len(tuple(provenance_refs or ())) if isinstance(provenance_refs, (tuple, list)) else 0,
+        caveat_count=len(tuple(caveats or ())) if isinstance(caveats, (tuple, list)) else 0,
+        safety_summary_present=bool(safety_summary),
+    )
+
+
+def _blueprint_section(
+    section: Any,
+    *,
+    payload_caveats: tuple[str, ...],
+    provenance_notes_present: bool,
+    privacy_notes_present: bool,
+    truth_notes_present: bool,
+    safety_notes_present: bool,
+) -> PromptAssemblerShadowBlueprintSection | None:
+    data = _shadow_payload_mapping(section)
+    source_kind = str(data.get("section_kind", ""))
+    section_kind = _CONTEXT_HYGIENE_BLUEPRINT_SECTION_KIND_MAP.get(source_kind)
+    if section_kind is None:
+        return None
+    ref_ids = tuple(str(ref_id) for ref_id in data.get("ref_ids", ()) or ()) if isinstance(data.get("ref_ids", ()), (tuple, list)) else ()
+    required_notes: list[str] = []
+    provenance_required = section_kind == "blueprint_provenance_boundaries" and provenance_notes_present
+    privacy_required = section_kind == "blueprint_privacy_boundaries" and privacy_notes_present
+    truth_required = section_kind == "blueprint_truth_boundaries" and truth_notes_present
+    safety_required = section_kind == "blueprint_safety_boundaries" and safety_notes_present
+    if provenance_required:
+        required_notes.append("provenance_notes")
+    if privacy_required:
+        required_notes.append("privacy_notes")
+    if truth_required:
+        required_notes.append("truth_notes")
+    if safety_required:
+        required_notes.append("safety_notes")
+    section_caveats = payload_caveats if section_kind == "blueprint_caveat_requirements" else ()
+    return PromptAssemblerShadowBlueprintSection(
+        section_id=f"blueprint:{data.get('section_id', source_kind)}",
+        section_kind=section_kind,
+        source_section_kind=source_kind,
+        ref_ids=ref_ids,
+        ref_count=len(ref_ids),
+        caveats=section_caveats,
+        required_boundary_notes=tuple(required_notes),
+        provenance_required=provenance_required,
+        privacy_boundary_required=privacy_required,
+        truth_boundary_required=truth_required,
+        safety_boundary_required=safety_required,
+        rationale=f"{section_kind} derived from {source_kind} metadata only",
+    )
+
+
+def build_context_hygiene_shadow_prompt_blueprint(
+    payload: PromptAssemblyAdapterPayload | Mapping[str, Any],
+) -> PromptAssemblerShadowBlueprint:
+    """Build a Phase 73 shadow-only future prompt-layout blueprint from adapter metadata.
+
+    The blueprint is a structured section/ref contract only. It calls the Phase 72
+    shadow preview/compliance path, never calls assemble_prompt, never performs
+    memory retrieval/writes, and never materializes final prompt text.
+    """
+
+    preview = preview_context_hygiene_adapter_payload_for_prompt_assembly(payload)
+    data = _shadow_payload_mapping(payload)
+    preview_status = preview.rationale.split(":", 1)[0]
+    blueprint_status = _CONTEXT_HYGIENE_SHADOW_BLUEPRINT_STATUS_MAP.get(
+        preview_status, "shadow_blueprint_invalid_adapter_payload"
+    )
+    may_consume = preview.may_future_assembler_consume and blueprint_status in {
+        "shadow_blueprint_ready",
+        "shadow_blueprint_ready_with_warnings",
+    }
+    preserved_caveats = tuple(preview.preserved_caveats)
+    adapter_refs = tuple(data.get("adapter_refs", ()) or ()) if isinstance(data.get("adapter_refs", ()), (tuple, list)) else ()
+    adapter_sections = tuple(data.get("adapter_sections", ()) or ()) if isinstance(data.get("adapter_sections", ()), (tuple, list)) else ()
+    blueprint_refs = tuple(_blueprint_ref(ref) for ref in adapter_refs) if may_consume else ()
+    blueprint_sections = (
+        tuple(
+            section
+            for section in (
+                _blueprint_section(
+                    adapter_section,
+                    payload_caveats=preserved_caveats,
+                    provenance_notes_present=preview.provenance_notes_present,
+                    privacy_notes_present=preview.privacy_notes_present,
+                    truth_notes_present=preview.truth_notes_present,
+                    safety_notes_present=preview.safety_notes_present,
+                )
+                for adapter_section in adapter_sections
+            )
+            if section is not None
+        )
+        if may_consume
+        else ()
+    )
+    blueprint_id = f"shadow-blueprint:{preview.adapter_payload_id or 'unknown'}:{blueprint_status}"
+    digest_fields = {
+        "blueprint_id": blueprint_id,
+        "adapter_payload_id": preview.adapter_payload_id,
+        "adapter_status": preview.adapter_status,
+        "preview_status": preview_status,
+        "blueprint_status": blueprint_status,
+        "compliance_status": preview.compliance_status,
+        "may_future_assembler_consume": may_consume,
+        "must_block_prompt_materialization": (not may_consume) or preview.must_block_prompt_materialization,
+        "adapter_ref_count": preview.adapter_ref_count,
+        "blueprint_refs": blueprint_refs,
+        "blueprint_sections": blueprint_sections,
+        "preserved_caveats": preserved_caveats,
+        "warnings": preview.warnings,
+        "violations": preview.violations,
+        "assembly_constraints": preview.constraints,
+        "provenance_notes_present": preview.provenance_notes_present,
+        "privacy_notes_present": preview.privacy_notes_present,
+        "truth_notes_present": preview.truth_notes_present,
+        "safety_notes_present": preview.safety_notes_present,
+    }
+    digest = _compute_shadow_blueprint_digest(digest_fields)
+    return PromptAssemblerShadowBlueprint(
+        blueprint_id=blueprint_id,
+        adapter_payload_id=preview.adapter_payload_id,
+        adapter_status=preview.adapter_status,
+        preview_status=preview_status,
+        blueprint_status=blueprint_status,
+        compliance_status=preview.compliance_status,
+        may_future_assembler_consume=may_consume,
+        must_block_prompt_materialization=(not may_consume) or preview.must_block_prompt_materialization,
+        adapter_ref_count=preview.adapter_ref_count,
+        blueprint_ref_count=len(blueprint_refs),
+        section_count=len(blueprint_sections),
+        blueprint_sections=blueprint_sections,
+        blueprint_refs=blueprint_refs,
+        preserved_caveats=preserved_caveats,
+        warnings=preview.warnings,
+        violations=preview.violations,
+        assembly_constraints=preview.constraints,
+        provenance_notes_present=preview.provenance_notes_present,
+        privacy_notes_present=preview.privacy_notes_present,
+        truth_notes_present=preview.truth_notes_present,
+        safety_notes_present=preview.safety_notes_present,
+        rationale=f"{blueprint_status}: layout metadata only after {preview_status}; no prompt materialization",
+        digest=digest,
+    )
+
+
+build_shadow_prompt_blueprint_from_adapter_payload = build_context_hygiene_shadow_prompt_blueprint
 
 
 SYSTEM_PROMPT = "You are Lumos, an emotionally present AI assistant."
