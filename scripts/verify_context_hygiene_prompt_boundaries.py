@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "prompt_assembler.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
+    "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
     "sentientos/context_hygiene/prompt_assembler_compliance.py",
     "sentientos/context_hygiene/prompt_adapter_contract.py",

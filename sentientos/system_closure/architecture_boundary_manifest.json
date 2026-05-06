@@ -568,7 +568,9 @@
       "prompt_materialization_precondition_only": true,
       "does_not_materialize_prompt_text": true,
       "policy_decision_only": true,
-      "policy_enforcement_not_included": true
+      "policy_enforcement_not_included": true,
+      "operator_review_receipt_only": true,
+      "policy_review_support_only": true
     }
   },
   "protected_sinks": {
