@@ -251,9 +251,10 @@ def test_missing_packet_envelope_candidate_identifiers_are_blocked():
     assert {"packet_id_missing", "envelope_id_missing", "candidate_plan_id_missing"}.issubset(_codes(report))
 
 
-def test_static_prompt_assembler_scan_reports_no_active_context_hygiene_wiring_pre_integration():
+def test_static_prompt_assembler_scan_reports_shadow_hook_without_active_context_hygiene_runtime_wiring():
     findings = scan_prompt_assembler_static_findings(ROOT / "prompt_assembler.py")
     assert findings["inspection_mode"] == "source_text_ast_only_no_import"
+    assert findings["context_hygiene_shadow_hook_only"] is True
     assert findings["active_context_hygiene_runtime_wiring"] is False
     assert prompt_assembler_module_has_no_context_hygiene_runtime_wiring(ROOT / "prompt_assembler.py") is True
 

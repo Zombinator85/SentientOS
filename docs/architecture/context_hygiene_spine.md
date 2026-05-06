@@ -117,3 +117,11 @@ Phase 71 adds `sentientos.context_hygiene.prompt_assembler_compliance` as a pure
 The compliance harness defines future prompt assembler rules: adapter payloads must be verified before use, only adapter refs may be consumed, failed/blocked/invalid/not-applicable payloads must not produce prompt material, and caveat/provenance/privacy/truth/safety boundaries must remain visible.
 
 Phase 71 does not modify `prompt_assembler.py`, does not wire adapter payloads into it, does not assemble prompts, does not call LLMs, does not retrieve or write memory, and does not modify embodiment, action, retention, truth, routing, admission, execution, or orchestration runtime behavior.
+
+### Phase 72: Prompt Assembler Shadow Adapter Hook
+
+Phase 72 adds the first controlled `prompt_assembler.py` context hygiene touch: a shadow-only adapter preview hook that validates a Phase 70 `PromptAssemblyAdapterPayload` through the Phase 71 compliance harness. The hook exists in `prompt_assembler.py` so the prompt assembler can recognize the adapter contract, but it is opt-in and test-invoked only in this phase.
+
+The hook is not used by runtime prompt assembly paths. It does not alter `assemble_prompt(...)`, does not change existing call sites, does not assemble prompt text, and does not concatenate adapter refs into final prompt material. Its output is a compact preview/receipt containing adapter/compliance status, metadata counts, caveats, notes-presence booleans, warnings, violations, constraints, rationale, and explicit non-runtime markers.
+
+Phase 72 does not call LLMs, does not retrieve memory, does not write memory, and does not modify truth, embodiment, action, retention, routing, admission, execution, or orchestration runtime behavior. Blocked, not-applicable, invalid, or runtime-wiring-detected adapter payloads remain prompt-materialization blocked and expose only preview status/metadata for audit.
