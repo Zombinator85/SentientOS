@@ -255,7 +255,7 @@ def _evaluate_payload(payload: PromptAssemblyAdapterPayload | Mapping[str, Any])
     if status in _READY_STATUSES and "preserved_caveats" not in data:
         warnings.append(_gap("caveats_missing", "preserved_caveats should be present even when upstream had none", "warning"))
     for field_name in _REQUIRED_NOTE_FIELDS:
-        if field_name not in data or data.get(field_name) in (None, ""):
+        if field_name not in data or data.get(field_name) in (None, "", {}, ()):
             warnings.append(_gap(f"{field_name}_missing", f"{field_name} should be preserved when upstream supplied it", "warning"))
 
     return gaps, warnings

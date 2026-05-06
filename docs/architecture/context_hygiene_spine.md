@@ -150,3 +150,12 @@ Phase 73 does not modify truth, embodiment, action, retention, routing, admissio
 - The guardrails do not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or live `assemble_prompt(...)` behavior.
 - Phase 75 preserves the Phase 72-74 shadow-only allowlist while continuing to require no-runtime markers and no forbidden calls/imports inside those implementations.
 - These guardrails are prerequisite enforcement before any future synthetic materializer may be proposed.
+
+## Phase 76: Context Hygiene Adversarial Failure-Mode Harness
+- Adds deterministic adversarial and property-style tests for the Phase 61-75 shadow prompt assembly runway.
+- Covers prompt injection metadata, raw payload smuggling, capability smuggling, runtime-authority booleans, blocked/excluded/unknown ref smuggling, digest and identity mismatches, warning/caveat/violation/note downgrades, and runtime-call sentinels.
+- The harness does not materialize prompt text and does not assemble final prompts.
+- The harness does not call LLMs, provider SDKs, web clients, tools, browser controllers, hardware adapters, or live `assemble_prompt(...)` behavior.
+- The harness does not retrieve memory, write memory, trigger feedback, commit retention, route work, admit work, execute work, or orchestrate runtime behavior.
+- The harness does not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or embodiment runtime behavior.
+- Phase 76 is a prerequisite before any future synthetic materializer because it proves adversarial metadata fixtures are blocked or withheld before prompt materialization exists.

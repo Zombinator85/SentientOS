@@ -93,6 +93,10 @@ _FORBIDDEN_RAW_KEYS = frozenset(
     {
         "raw_payload",
         "raw_memory_payload",
+        "raw_screen_payload",
+        "raw_audio_payload",
+        "raw_vision_payload",
+        "raw_multimodal_payload",
         "screen_frame",
         "mic_audio",
         "audio_payload",
@@ -105,14 +109,14 @@ _FORBIDDEN_RAW_KEYS = frozenset(
         "chain_of_thought",
     }
 )
-_FORBIDDEN_PROMPT_TEXT_KEYS = frozenset({"prompt_text", "final_prompt_text", "assembled_prompt", "system_prompt", "developer_prompt"})
-_FORBIDDEN_LLM_KEYS = frozenset({"llm_params", "llm_parameters", "model", "temperature", "max_tokens", "tool_choice"})
-_RUNTIME_HANDLE_KEYS = frozenset({"execution_handle", "action_handle", "retention_handle", "retrieval_handle"})
+_FORBIDDEN_PROMPT_TEXT_KEYS = frozenset({"prompt_text", "final_prompt_text", "assembled_prompt", "rendered_prompt", "system_prompt", "developer_prompt"})
+_FORBIDDEN_LLM_KEYS = frozenset({"llm_params", "llm_parameters", "model_params", "provider_params", "model", "temperature", "max_tokens", "tool_choice"})
+_RUNTIME_HANDLE_KEYS = frozenset({"execution_handle", "action_handle", "retention_handle", "retrieval_handle", "browser_handle", "mouse_handle", "keyboard_handle"})
 _MEMORY_WRITE_KEYS = frozenset({"memory_write", "can_write_memory", "write_memory", "memory_write_capability"})
 _RETENTION_KEYS = frozenset({"retention_commit", "can_commit_retention", "commit_retention", "retention_commit_capability"})
 _FEEDBACK_KEYS = frozenset({"feedback_trigger", "can_trigger_feedback", "trigger_feedback", "feedback_trigger_capability"})
 _ACTION_KEYS = frozenset({"execute_action", "action_execution", "can_execute_action", "action_execution_capability"})
-_ROUTE_ADMIT_KEYS = frozenset({"route_work", "admit_work", "execute_work", "can_route", "can_admit", "can_execute"})
+_ROUTE_ADMIT_KEYS = frozenset({"route_work", "admit_work", "execute_work", "can_route_work", "can_admit_work", "can_execute_work", "can_fulfill_work", "can_route", "can_admit", "can_execute"})
 _RUNTIME_AUTHORITY_KEYS = _RUNTIME_HANDLE_KEYS | _MEMORY_WRITE_KEYS | _RETENTION_KEYS | _FEEDBACK_KEYS | _ACTION_KEYS | _ROUTE_ADMIT_KEYS
 _REQUIRED_NO_RUNTIME_MARKERS = (
     "does_not_assemble_prompt",

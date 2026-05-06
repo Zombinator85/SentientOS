@@ -136,6 +136,10 @@ _FORBIDDEN_RAW_KEYS = frozenset(
     {
         "raw_payload",
         "raw_memory_payload",
+        "raw_screen_payload",
+        "raw_audio_payload",
+        "raw_vision_payload",
+        "raw_multimodal_payload",
         "screen_frame",
         "mic_audio",
         "audio_payload",
@@ -148,13 +152,16 @@ _FORBIDDEN_RAW_KEYS = frozenset(
         "chain_of_thought",
     }
 )
-_FORBIDDEN_PROMPT_TEXT_KEYS = frozenset({"prompt_text", "final_prompt_text", "assembled_prompt", "system_prompt", "developer_prompt"})
+_FORBIDDEN_PROMPT_TEXT_KEYS = frozenset({"prompt_text", "final_prompt_text", "assembled_prompt", "rendered_prompt", "system_prompt", "developer_prompt"})
 _RUNTIME_AUTHORITY_KEYS = frozenset(
     {
         "execution_handle",
         "action_handle",
         "retention_handle",
         "retrieval_handle",
+        "browser_handle",
+        "mouse_handle",
+        "keyboard_handle",
         "memory_write",
         "can_write_memory",
         "write_memory",
@@ -174,11 +181,17 @@ _RUNTIME_AUTHORITY_KEYS = frozenset(
         "route_work",
         "admit_work",
         "execute_work",
+        "can_route_work",
+        "can_admit_work",
+        "can_execute_work",
+        "can_fulfill_work",
         "can_route",
         "can_admit",
         "can_execute",
         "llm_params",
         "llm_parameters",
+        "model_params",
+        "provider_params",
     }
 )
 
