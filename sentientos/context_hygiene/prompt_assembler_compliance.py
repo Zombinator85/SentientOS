@@ -111,6 +111,8 @@ _SHADOW_HOOK_FUNCTION_NAMES = frozenset(
     {
         "preview_context_hygiene_adapter_payload_for_prompt_assembly",
         "build_context_hygiene_shadow_prompt_adapter_preview",
+        "build_context_hygiene_shadow_prompt_blueprint",
+        "build_shadow_prompt_blueprint_from_adapter_payload",
     }
 )
 _SHADOW_HOOK_ALLOWED_NAMES = frozenset(
