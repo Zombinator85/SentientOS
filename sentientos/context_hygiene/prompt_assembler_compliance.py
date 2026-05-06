@@ -99,8 +99,26 @@ _FORBIDDEN_BYPASS_IMPORTS = (
     "sentientos.context_hygiene.prompt_handoff_manifest",
     "sentientos.context_hygiene.prompt_dry_run_envelope",
     "sentientos.context_hygiene.prompt_constraint_verifier",
-    "sentientos.context_hygiene.prompt_adapter_contract",
     "sentientos.context_hygiene.context_packet",
+)
+_ALLOWED_SHADOW_HOOK_IMPORTS = frozenset(
+    {
+        "sentientos.context_hygiene.prompt_assembler_compliance",
+        "sentientos.context_hygiene.prompt_adapter_contract",
+    }
+)
+_SHADOW_HOOK_FUNCTION_NAMES = frozenset(
+    {
+        "preview_context_hygiene_adapter_payload_for_prompt_assembly",
+        "build_context_hygiene_shadow_prompt_adapter_preview",
+    }
+)
+_SHADOW_HOOK_ALLOWED_NAMES = frozenset(
+    {
+        "PromptAssemblyAdapterPayload",
+        "PromptAssemblerComplianceStatus",
+        "evaluate_prompt_assembler_adapter_compliance",
+    }
 )
 _CONTEXT_HYGIENE_HELPER_NAMES = (
     "ContextPacket",
@@ -264,27 +282,36 @@ def scan_prompt_assembler_static_findings(
     tree = ast.parse(source_text or "", filename=str(prompt_assembler_path))
     imports = _imports_from_tree(tree)
     names = _names_from_tree(tree)
-    imports_context_hygiene_adapter_modules = any("sentientos.context_hygiene" in imp for imp in imports)
+    function_names = frozenset(node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef))
+    shadow_hook_only = bool(function_names & _SHADOW_HOOK_FUNCTION_NAMES)
+    context_hygiene_imports = tuple(imp for imp in imports if "sentientos.context_hygiene" in imp)
+    non_shadow_context_hygiene_imports = tuple(imp for imp in context_hygiene_imports if imp not in _ALLOWED_SHADOW_HOOK_IMPORTS)
+    imports_context_hygiene_adapter_modules = bool(context_hygiene_imports)
     imports_prompt_adapter_contract = any("prompt_adapter_contract" in imp for imp in imports)
     uses_context_packet_directly = "ContextPacket" in names or "ContextPacket" in (source_text or "")
-    calls_context_hygiene_helpers = any(name in names for name in _CONTEXT_HYGIENE_HELPER_NAMES)
-    bypasses_adapter_contract = any(imp in _FORBIDDEN_BYPASS_IMPORTS for imp in imports) and not imports_prompt_adapter_contract
-    retrieves_memory_for_context_hygiene = "context_hygiene" in (source_text or "") and any("memory" in imp for imp in imports)
-    calls_llm_for_context_hygiene = "context_hygiene" in (source_text or "") and any(token in (source_text or "") for token in ("openai", "anthropic", "ChatCompletion", "llm"))
+    helper_names_used = set(names) & set(_CONTEXT_HYGIENE_HELPER_NAMES)
+    disallowed_helper_names_used = helper_names_used - (_SHADOW_HOOK_ALLOWED_NAMES if shadow_hook_only else frozenset())
+    calls_context_hygiene_helpers = bool(disallowed_helper_names_used)
+    bypasses_adapter_contract = any(imp in _FORBIDDEN_BYPASS_IMPORTS for imp in imports)
+    retrieves_memory_for_context_hygiene = bool(non_shadow_context_hygiene_imports) and any("memory" in imp for imp in imports)
+    provider_tokens = {"openai", "anthropic", "ChatCompletion"}
+    calls_llm_for_context_hygiene = bool(non_shadow_context_hygiene_imports) and any(token in (source_text or "") for token in provider_tokens)
     contains_phase70_adapter_payload_usage = "PromptAssemblyAdapterPayload" in names or "build_prompt_assembly_adapter_payload" in names
+    shadow_adapter_payload_usage_only = shadow_hook_only and contains_phase70_adapter_payload_usage and not non_shadow_context_hygiene_imports
     active_context_hygiene_runtime_wiring = any(
         (
-            imports_context_hygiene_adapter_modules,
-            imports_prompt_adapter_contract,
+            bool(non_shadow_context_hygiene_imports),
             uses_context_packet_directly,
             calls_context_hygiene_helpers,
-            contains_phase70_adapter_payload_usage,
+            contains_phase70_adapter_payload_usage and not shadow_adapter_payload_usage_only,
         )
     )
     forbidden_context_bypass_detected = any((bypasses_adapter_contract, retrieves_memory_for_context_hygiene, calls_llm_for_context_hygiene))
     return {
         "imports_context_hygiene_adapter_modules": imports_context_hygiene_adapter_modules,
         "imports_prompt_adapter_contract": imports_prompt_adapter_contract,
+        "context_hygiene_shadow_hook_only": shadow_hook_only and not active_context_hygiene_runtime_wiring and not forbidden_context_bypass_detected,
+        "non_shadow_context_hygiene_imports": non_shadow_context_hygiene_imports,
         "uses_context_packet_directly": uses_context_packet_directly,
         "calls_selector_preflight_manifest_envelope_verifier_or_adapter_helpers": calls_context_hygiene_helpers,
         "bypasses_adapter_contract_by_reading_context_hygiene_internals": bypasses_adapter_contract,
