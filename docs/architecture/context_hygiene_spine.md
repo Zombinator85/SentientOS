@@ -167,3 +167,11 @@ Phase 77 adds `sentientos.context_hygiene.prompt_materialization_policy` as a pu
 The Phase 77 policy decision layer is not enforcement and is not prompt materialization. It does not assemble prompts, does not contain final prompt text, does not call LLMs, does not retrieve or write memory, does not trigger feedback, does not commit retention, does not execute or route work, and does not admit work. It does not modify truth, embodiment, action, retention, routing, admission, execution, orchestration, or live `assemble_prompt(...)` behavior.
 
 Live/internal/LLM-capable rings remain forbidden in Phase 77. `ring_internal_candidate_no_llm` and `ring_live_llm_forbidden` are declared only so the policy can deterministically deny them.
+
+## Phase 78: Operator Review Receipt Contract
+
+Phase 78 adds `sentientos.context_hygiene.prompt_operator_review` as a deterministic, metadata-only operator review receipt contract for Phase 77 policy decisions that require review. Operator review receipts can satisfy review-required warnings and caveats only; they do not grant runtime authority and are not prompt materialization.
+
+The review receipt cannot override hard policy denial, blocked refs, raw payload markers, prompt text markers, missing provenance, digest mismatch, runtime authority, action/retention/memory/tool capability, unknown source kinds, or live/internal/LLM-capable rings. If an acceptance decision attempts to attach operator review to those hard-block conditions, the receipt records `review_forbidden_override_attempted` and cannot satisfy the policy decision.
+
+The receipt preserves digest linkage to the Phase 77 policy decision and Phase 74 audit receipt, reviewer metadata, accepted/rejected warning and caveat codes, required warning and caveat codes, expiration metadata, findings, and explicit non-runtime markers. It does not materialize prompt text, assemble prompts, call LLMs, retrieve memory, write memory, trigger feedback, commit retention, execute or route work, admit work, or modify embodiment/action/retention runtime behavior.
