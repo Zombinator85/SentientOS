@@ -570,7 +570,11 @@
       "policy_decision_only": true,
       "policy_enforcement_not_included": true,
       "operator_review_receipt_only": true,
-      "policy_review_support_only": true
+      "policy_review_support_only": true,
+      "synthetic_fixture_only": true,
+      "no_real_context_materialization": true,
+      "prompt_shape_test_harness_only": true,
+      "live_prompt_materialization_forbidden": true
     }
   },
   "protected_sinks": {

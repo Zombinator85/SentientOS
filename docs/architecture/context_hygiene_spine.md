@@ -175,3 +175,11 @@ Phase 78 adds `sentientos.context_hygiene.prompt_operator_review` as a determini
 The review receipt cannot override hard policy denial, blocked refs, raw payload markers, prompt text markers, missing provenance, digest mismatch, runtime authority, action/retention/memory/tool capability, unknown source kinds, or live/internal/LLM-capable rings. If an acceptance decision attempts to attach operator review to those hard-block conditions, the receipt records `review_forbidden_override_attempted` and cannot satisfy the policy decision.
 
 The receipt preserves digest linkage to the Phase 77 policy decision and Phase 74 audit receipt, reviewer metadata, accepted/rejected warning and caveat codes, required warning and caveat codes, expiration metadata, findings, and explicit non-runtime markers. It does not materialize prompt text, assemble prompts, call LLMs, retrieve memory, write memory, trigger feedback, commit retention, execute or route work, admit work, or modify embodiment/action/retention runtime behavior.
+
+## Phase 79 — Synthetic-only prompt candidate harness
+
+Phase 79 introduces `sentientos.context_hygiene.prompt_synthetic_materializer` as a deterministic fixture-only harness for prompt-shaped formatting tests. It may render `SYNTHETIC FIXTURE ONLY` candidate text from explicitly synthetic refs and sections only after the Phase 74 audit gate, Phase 77 synthetic fixture policy gate, and Phase 78 operator review gate (when required) are satisfied.
+
+This phase is not live prompt materialization and is not real context materialization. Real context remains forbidden, `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched, LLM calls remain forbidden, memory retrieval and writes remain forbidden, and embodiment/action/retention/routing/admission/execution/orchestration runtime behavior remains forbidden.
+
+The harness exists solely to preserve formatting boundaries, caveats, and untrusted/reference-only labels with synthetic fixtures before any future internal no-LLM candidate path is considered. Any later candidate path must treat Phase 79 as a prerequisite formatting harness, not as runtime authority.
