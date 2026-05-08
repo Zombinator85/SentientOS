@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "prompt_assembler.py",
     "sentientos/context_hygiene/prompt_synthetic_materializer.py",
+    "sentientos/context_hygiene/prompt_internal_candidate.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -73,18 +74,23 @@ NEGATIVE_MARKER_PREFIXES: tuple[str, ...] = (
     "must_not_",
 )
 
-SYNTHETIC_PROMPT_ALLOWLIST_PATHS: frozenset[str] = frozenset(
+PROMPT_TEXT_ALLOWLIST_PATHS: frozenset[str] = frozenset(
     {
         "sentientos/context_hygiene/prompt_synthetic_materializer.py",
         "tests/test_phase79_synthetic_only_prompt_candidate_harness.py",
+        "sentientos/context_hygiene/prompt_internal_candidate.py",
+        "tests/test_phase80_internal_no_llm_prompt_candidate_contract.py",
     }
 )
 
-SYNTHETIC_PROMPT_ALLOWLIST_NAMES: frozenset[str] = frozenset(
+PROMPT_TEXT_ALLOWLIST_NAMES: frozenset[str] = frozenset(
     {
         "synthetic_prompt_text",
         "synthetic_prompt_candidate",
         "SyntheticPromptCandidate",
+        "internal_candidate_text",
+        "internal_prompt_candidate",
+        "InternalPromptCandidate",
     }
 )
 
@@ -104,6 +110,7 @@ SHADOW_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "PromptMaterializationPolicyRing",
         "policy_decision_allows_shadow_only",
         "policy_decision_allows_synthetic_materializer",
+        "policy_decision_allows_internal_candidate_no_llm",
     }
 )
 
@@ -277,7 +284,7 @@ def _name_is_negative_marker(name: str) -> bool:
 def _identifier_contains_forbidden_field(name: str, path: Path | None = None, repo_root: Path = REPO_ROOT) -> str | None:
     lowered = name.lower()
     rel = _display_path(path, repo_root) if path is not None else ""
-    if rel in SYNTHETIC_PROMPT_ALLOWLIST_PATHS and name in SYNTHETIC_PROMPT_ALLOWLIST_NAMES:
+    if rel in PROMPT_TEXT_ALLOWLIST_PATHS and name in PROMPT_TEXT_ALLOWLIST_NAMES:
         return None
     if name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
         return None

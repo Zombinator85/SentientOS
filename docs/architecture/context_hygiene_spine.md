@@ -183,3 +183,11 @@ Phase 79 introduces `sentientos.context_hygiene.prompt_synthetic_materializer` a
 This phase is not live prompt materialization and is not real context materialization. Real context remains forbidden, `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched, LLM calls remain forbidden, memory retrieval and writes remain forbidden, and embodiment/action/retention/routing/admission/execution/orchestration runtime behavior remains forbidden.
 
 The harness exists solely to preserve formatting boundaries, caveats, and untrusted/reference-only labels with synthetic fixtures before any future internal no-LLM candidate path is considered. Any later candidate path must treat Phase 79 as a prerequisite formatting harness, not as runtime authority.
+
+## Phase 80: Internal No-LLM Prompt Candidate Contract
+
+Phase 80 adds the first narrow internal real-context candidate path. It may render operator-visible prompt-shaped candidate text from approved, packet-safe context hygiene summaries only, after the Phase 74 audit receipt, Phase 77 policy decision, and Phase 78 operator review gates pass.
+
+The Phase 80 candidate is not an LLM invocation and is not live prompt assembly. LLM calls remain forbidden, `assemble_prompt(...)` remains untouched, and memory retrieval/writes remain forbidden. Embodiment runtime effects, actions, retention, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+All rendered context is explicitly marked untrusted/reference-only and cannot become system or developer instruction authority. Caveats, boundary notes, and provenance summaries remain visible in the internal candidate text. Phase 80 is a prerequisite contract for any later model-call or live user-facing phase, not that later phase itself.
