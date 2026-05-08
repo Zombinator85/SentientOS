@@ -40,6 +40,7 @@ from sentientos.context_hygiene.prompt_materialization_policy import (
     explain_prompt_materialization_policy_reasons,
     policy_decision_allows_shadow_only,
     policy_decision_allows_synthetic_materializer,
+    policy_decision_allows_internal_candidate_no_llm,
     policy_decision_denies_materialization,
     policy_decision_requires_operator_review,
     summarize_prompt_materialization_policy_decision,
@@ -51,6 +52,7 @@ NOW = datetime.now(timezone.utc)
 SHADOW_FLAGS = {"allow_shadow_policy": True}
 SYNTH_FLAGS = {"allow_synthetic_fixture_policy": True}
 REVIEW_FLAGS = {"allow_operator_review_queue": True}
+INTERNAL_FLAGS = {"internal_no_llm_candidate": True}
 
 
 def _cand(ref_id="r", ref_type="evidence", metadata=None, truth_ingress_status="allowed", contradiction_status="unknown"):
@@ -399,3 +401,32 @@ def test_import_purity_for_policy_module():
     importlib.import_module("sentientos.context_hygiene.prompt_materialization_policy")
     after = len(logging.getLogger().handlers)
     assert before == after
+
+
+def test_internal_no_llm_candidate_ring_allowed_only_with_explicit_non_runtime_markers():
+    decision = _decision(
+        requested_ring=PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
+        feature_flag_state=INTERNAL_FLAGS,
+        no_runtime_markers={"internal_only": True, "operator_visible_only": True, "no_llm": True},
+    )
+    assert decision.policy_status == PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED
+    assert policy_decision_allows_internal_candidate_no_llm(decision)
+    assert decision.does_not_call_llm
+    assert decision.does_not_retrieve_memory
+    assert decision.does_not_write_memory
+    assert decision.does_not_execute_or_route_work
+
+
+def test_internal_no_llm_candidate_ring_denies_without_explicit_feature_or_markers():
+    missing_flag = _decision(
+        requested_ring=PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
+        feature_flag_state={},
+        no_runtime_markers={"internal_only": True, "operator_visible_only": True, "no_llm": True},
+    )
+    missing_marker = _decision(
+        requested_ring=PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
+        feature_flag_state=INTERNAL_FLAGS,
+        no_runtime_markers={"internal_only": True, "operator_visible_only": True},
+    )
+    assert policy_decision_denies_materialization(missing_flag)
+    assert policy_decision_denies_materialization(missing_marker)

@@ -574,7 +574,13 @@
       "synthetic_fixture_only": true,
       "no_real_context_materialization": true,
       "prompt_shape_test_harness_only": true,
-      "live_prompt_materialization_forbidden": true
+      "live_prompt_materialization_forbidden": true,
+      "internal_candidate_only": true,
+      "operator_visible_only": true,
+      "no_llm_candidate_only": true,
+      "approved_packet_safe_summary_only": true,
+      "live_prompt_assembly_forbidden": true,
+      "live_model_call_forbidden": true
     }
   },
   "protected_sinks": {

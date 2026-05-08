@@ -22,6 +22,7 @@ class PromptMaterializationPolicyStatus:
     POLICY_SHADOW_ONLY = "policy_shadow_only"
     POLICY_OPERATOR_REVIEW_REQUIRED = "policy_operator_review_required"
     POLICY_SYNTHETIC_MATERIALIZATION_ALLOWED = "policy_synthetic_materialization_allowed"
+    POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED = "policy_internal_candidate_no_llm_allowed"
     POLICY_INVALID_INPUT = "policy_invalid_input"
     POLICY_RUNTIME_WIRING_DETECTED = "policy_runtime_wiring_detected"
 
@@ -111,6 +112,7 @@ class PromptMaterializationPolicyDecision:
     requires_operator_review: bool
     allows_shadow_only: bool
     allows_synthetic_materializer: bool
+    allows_internal_candidate_no_llm: bool
     forbids_live_llm: bool
     forbids_memory_retrieval: bool
     forbids_memory_write: bool
@@ -170,7 +172,6 @@ _OPERATOR_OR_HIGHER_RINGS = frozenset(
 )
 _FORBIDDEN_PHASE77_RINGS = frozenset(
     {
-        PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
         PromptMaterializationPolicyRing.RING_LIVE_LLM_FORBIDDEN,
     }
 )
@@ -356,6 +357,8 @@ def _ring_feature_enabled(policy_input: PromptMaterializationPolicyInput) -> boo
         return _feature_enabled(policy_input, "allow_operator_review_queue")
     if ring == PromptMaterializationPolicyRing.RING_SYNTHETIC_FIXTURE_ONLY:
         return _feature_enabled(policy_input, "allow_synthetic_fixture_policy")
+    if ring == PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM:
+        return _feature_enabled(policy_input, "internal_no_llm_candidate")
     return False
 
 
@@ -475,6 +478,7 @@ def compute_prompt_materialization_policy_digest(decision: PromptMaterialization
         "requires_operator_review": bool(data.get("requires_operator_review", False)),
         "allows_shadow_only": bool(data.get("allows_shadow_only", False)),
         "allows_synthetic_materializer": bool(data.get("allows_synthetic_materializer", False)),
+        "allows_internal_candidate_no_llm": bool(data.get("allows_internal_candidate_no_llm", False)),
         "reasons": _stable(data.get("reasons", ())),
         "required_mitigations": _stable(data.get("required_mitigations", ())),
         "receipt_id": data.get("receipt_id", ""),
@@ -501,6 +505,7 @@ def _finalize_decision(
     allowed = status in {
         PromptMaterializationPolicyStatus.POLICY_SHADOW_ONLY,
         PromptMaterializationPolicyStatus.POLICY_SYNTHETIC_MATERIALIZATION_ALLOWED,
+        PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED,
     }
     decision = PromptMaterializationPolicyDecision(
         decision_id="",
@@ -512,6 +517,7 @@ def _finalize_decision(
         requires_operator_review=status == PromptMaterializationPolicyStatus.POLICY_OPERATOR_REVIEW_REQUIRED,
         allows_shadow_only=status == PromptMaterializationPolicyStatus.POLICY_SHADOW_ONLY,
         allows_synthetic_materializer=status == PromptMaterializationPolicyStatus.POLICY_SYNTHETIC_MATERIALIZATION_ALLOWED,
+        allows_internal_candidate_no_llm=status == PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED,
         forbids_live_llm=True,
         forbids_memory_retrieval=True,
         forbids_memory_write=True,
@@ -587,7 +593,7 @@ def evaluate_prompt_materialization_policy(policy_input: PromptMaterializationPo
     if parsed.requested_ring not in _ALLOWED_RINGS:
         add("unknown_policy_ring", f"requested policy ring {parsed.requested_ring!r} is unknown", "use_known_policy_ring", "request a declared Phase 77 policy ring")
     elif parsed.requested_ring in _FORBIDDEN_PHASE77_RINGS:
-        add("phase77_ring_forbidden", f"requested ring {parsed.requested_ring} is live/internal/LLM-capable and forbidden in Phase 77", "downgrade_policy_ring", "request shadow metadata, receipt, review queue, or synthetic fixture ring only")
+        add("phase77_ring_forbidden", f"requested ring {parsed.requested_ring} is live/LLM-capable and forbidden", "downgrade_policy_ring", "request shadow metadata, receipt, review queue, synthetic fixture, or internal no-LLM candidate ring only")
 
     feature = _ring_feature_enabled(parsed)
     if feature is None:
@@ -630,6 +636,12 @@ def evaluate_prompt_materialization_policy(policy_input: PromptMaterializationPo
     if parsed.requested_ring == PromptMaterializationPolicyRing.RING_SYNTHETIC_FIXTURE_ONLY and not parsed.synthetic_fixture_only:
         add("synthetic_fixture_required", "synthetic materialization policy requires synthetic_fixture_only=True", "mark_synthetic_fixture_only", "mark input as synthetic fixture only before synthetic allowance")
 
+    if parsed.requested_ring == PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM:
+        required_markers = {"internal_only", "operator_visible_only", "no_llm"}
+        missing_markers = tuple(marker for marker in sorted(required_markers) if parsed.no_runtime_markers.get(marker) is not True)
+        if missing_markers:
+            add("internal_candidate_marker_missing", f"internal no-LLM candidate policy requires explicit markers: {','.join(missing_markers)}", "set_internal_candidate_markers", "set internal_only, operator_visible_only, and no_llm markers before internal candidate allowance")
+
     if runtime_wiring:
         return _finalize_decision(parsed, PromptMaterializationPolicyStatus.POLICY_RUNTIME_WIRING_DETECTED, PromptMaterializationPolicyRing.RING_SHADOW_RECEIPT_ONLY, reasons, mitigations)
     if reasons:
@@ -662,6 +674,15 @@ def evaluate_prompt_materialization_policy(policy_input: PromptMaterializationPo
             (),
         )
 
+    if parsed.requested_ring == PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM:
+        return _finalize_decision(
+            parsed,
+            PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED,
+            PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
+            (_reason("internal_candidate_no_llm_policy_allowed", "complete audit metadata allows internal operator-visible no-LLM candidate posture", "info"),),
+            (),
+        )
+
     return _finalize_decision(
         parsed,
         PromptMaterializationPolicyStatus.POLICY_DENY,
@@ -687,6 +708,11 @@ def policy_decision_allows_shadow_only(decision: PromptMaterializationPolicyDeci
 def policy_decision_allows_synthetic_materializer(decision: PromptMaterializationPolicyDecision | Mapping[str, Any]) -> bool:
     data = _mapping(decision)
     return data.get("policy_status") == PromptMaterializationPolicyStatus.POLICY_SYNTHETIC_MATERIALIZATION_ALLOWED and bool(data.get("allows_synthetic_materializer"))
+
+
+def policy_decision_allows_internal_candidate_no_llm(decision: PromptMaterializationPolicyDecision | Mapping[str, Any]) -> bool:
+    data = _mapping(decision)
+    return data.get("policy_status") == PromptMaterializationPolicyStatus.POLICY_INTERNAL_CANDIDATE_NO_LLM_ALLOWED and bool(data.get("allows_internal_candidate_no_llm"))
 
 
 def policy_decision_requires_operator_review(decision: PromptMaterializationPolicyDecision | Mapping[str, Any]) -> bool:
@@ -723,6 +749,7 @@ def summarize_prompt_materialization_policy_decision(decision: PromptMaterializa
         "requires_operator_review": bool(data.get("requires_operator_review", False)),
         "allows_shadow_only": bool(data.get("allows_shadow_only", False)),
         "allows_synthetic_materializer": bool(data.get("allows_synthetic_materializer", False)),
+        "allows_internal_candidate_no_llm": bool(data.get("allows_internal_candidate_no_llm", False)),
         "receipt_id": str(data.get("receipt_id", "")),
         "receipt_digest": str(data.get("receipt_digest", "")),
         "packet_id": str(data.get("packet_id", "")),

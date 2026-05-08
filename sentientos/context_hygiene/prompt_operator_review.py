@@ -168,7 +168,6 @@ _FORBIDDEN_POLICY_STATUSES = frozenset(
 )
 _FORBIDDEN_RINGS = frozenset(
     {
-        PromptMaterializationPolicyRing.RING_INTERNAL_CANDIDATE_NO_LLM,
         PromptMaterializationPolicyRing.RING_LIVE_LLM_FORBIDDEN,
     }
 )
