@@ -589,7 +589,13 @@
       "internal_display_receipt_only": true,
       "operator_visible_egress_control_only": true,
       "no_model_egress": true,
-      "no_external_user_egress": true
+      "no_external_user_egress": true,
+      "model_call_preflight_only": true,
+      "provider_call_forbidden": true,
+      "llm_call_forbidden": true,
+      "model_review_gate_precondition_only": true,
+      "does_not_send_to_provider": true,
+      "no_provider_sdk_imports": true
     }
   },
   "protected_sinks": {

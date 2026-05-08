@@ -203,3 +203,15 @@ Allowed display scopes are limited to `operator_internal_review`, `operator_inte
 No LLM/model/provider egress remains allowed. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Memory retrieval/writes, feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
 
 Phase 81 is a prerequisite metadata gate for any future internal review or internal model-call review gate. It grants no runtime authority by itself.
+
+## Phase 82: Internal Model-Call Preflight Contract
+
+Phase 82 adds `sentientos.context_hygiene.prompt_model_call_preflight` as a deterministic, metadata-only preflight artifact for deciding whether a Phase 80 `InternalPromptCandidate`, a Phase 81 display receipt, a Phase 77 policy decision, a Phase 74 audit receipt, and optional Phase 78 operator review evidence may be considered for a future internal model-call review gate.
+
+The preflight is not model invocation. It does not call LLMs, does not send candidate text to providers, does not add provider SDK imports, does not retrieve memory, does not write memory, does not trigger feedback, does not commit retention, does not execute tools/actions, and does not route, admit, fulfill, or orchestrate work.
+
+Phase 82 declares metadata-only rings: `model_review_preflight_only`, `internal_model_call_review_queue`, `internal_model_call_dry_run_forbidden_provider`, and `live_model_call_forbidden`. Only the preflight/review-queue rings can yield review eligibility; the dry-run provider ring remains provider-forbidden and the live ring always denies. No Phase 82 status permits a provider call.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Memory retrieval/writes remain forbidden, embodiment/action/retention/routing/admission/execution runtime behavior remains forbidden, and operator display scope remains internal operator/debug/audit only.
+
+Phase 82 is a prerequisite to any future internal provider dry-run or model-call review gate. It grants no runtime authority and produces only eligibility status, reasons, mitigations, digest linkage, provider-absence proof, no-tool/no-memory/no-retention/no-action constraints, and explicit denial/default-block markers.
