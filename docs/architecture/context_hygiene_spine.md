@@ -191,3 +191,15 @@ Phase 80 adds the first narrow internal real-context candidate path. It may rend
 The Phase 80 candidate is not an LLM invocation and is not live prompt assembly. LLM calls remain forbidden, `assemble_prompt(...)` remains untouched, and memory retrieval/writes remain forbidden. Embodiment runtime effects, actions, retention, routing, admission, execution, fulfillment, and orchestration remain forbidden.
 
 All rendered context is explicitly marked untrusted/reference-only and cannot become system or developer instruction authority. Caveats, boundary notes, and provenance summaries remain visible in the internal candidate text. Phase 80 is a prerequisite contract for any later model-call or live user-facing phase, not that later phase itself.
+
+## Phase 81: Internal Candidate Display Receipt / Egress Boundary
+
+Phase 81 adds `sentientos.context_hygiene.prompt_internal_display` as an internal display/egress receipt layer for Phase 80 `InternalPromptCandidate` objects. It controls whether already-rendered internal candidate text may be shown to an operator-only internal review/debug/audit surface.
+
+The display receipt is not UI and is not model egress. It does not duplicate the full Phase 80 `internal_candidate_text` by default; it records only candidate text digest, candidate text length, redaction state, and deterministic receipt metadata. Future display code must validate the receipt and then read text from the original candidate if display is permitted.
+
+Allowed display scopes are limited to `operator_internal_review`, `operator_internal_debug`, and `audit_replay`. External-user-visible display, model/provider egress, tool/action egress, unknown scopes, missing operator references, expired receipts, digest mismatches, blocked/invalid/policy-denied/review-required candidates, runtime authority, raw payload markers, and provider parameter markers deny display.
+
+No LLM/model/provider egress remains allowed. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Memory retrieval/writes, feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+Phase 81 is a prerequisite metadata gate for any future internal review or internal model-call review gate. It grants no runtime authority by itself.
