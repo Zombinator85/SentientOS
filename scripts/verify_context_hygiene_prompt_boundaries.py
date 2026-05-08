@@ -22,6 +22,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "prompt_assembler.py",
     "sentientos/context_hygiene/prompt_synthetic_materializer.py",
     "sentientos/context_hygiene/prompt_internal_candidate.py",
+    "sentientos/context_hygiene/prompt_internal_display.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",

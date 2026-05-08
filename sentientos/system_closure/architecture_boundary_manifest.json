@@ -546,7 +546,12 @@
         "web",
         "requests",
         "openai",
-        "hardware"
+        "hardware",
+        "action_router",
+        "action_executor",
+        "retention",
+        "routing",
+        "orchestration"
       ],
       "constraint_verification_only": true,
       "prompt_assembly_preparation_only": true,
@@ -580,7 +585,11 @@
       "no_llm_candidate_only": true,
       "approved_packet_safe_summary_only": true,
       "live_prompt_assembly_forbidden": true,
-      "live_model_call_forbidden": true
+      "live_model_call_forbidden": true,
+      "internal_display_receipt_only": true,
+      "operator_visible_egress_control_only": true,
+      "no_model_egress": true,
+      "no_external_user_egress": true
     }
   },
   "protected_sinks": {
