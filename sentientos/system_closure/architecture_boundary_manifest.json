@@ -551,7 +551,10 @@
         "action_executor",
         "retention",
         "routing",
-        "orchestration"
+        "orchestration",
+        "httpx",
+        "browser",
+        "feedback"
       ],
       "constraint_verification_only": true,
       "prompt_assembly_preparation_only": true,
@@ -597,7 +600,14 @@
       "does_not_send_to_provider": true,
       "no_provider_sdk_imports": true,
       "model_call_review_receipt_only": true,
-      "future_gate_review_only": true
+      "future_gate_review_only": true,
+      "provider_dry_run_only": true,
+      "non_sendable_request_envelope_only": true,
+      "provider_send_forbidden": true,
+      "network_egress_forbidden": true,
+      "credentials_forbidden": true,
+      "provider_client_absent": true,
+      "no_network_calls": true
     }
   },
   "protected_sinks": {

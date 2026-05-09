@@ -634,3 +634,25 @@ from sentientos.context_hygiene.prompt_synthetic_materializer import (
     synthetic_prompt_candidate_preserves_boundaries,
     validate_synthetic_prompt_materialization_input,
 )
+
+from sentientos.context_hygiene.prompt_provider_dry_run import (
+    ProviderDryRunBoundary,
+    ProviderDryRunConstraint,
+    ProviderDryRunFinding,
+    ProviderDryRunModelFamily,
+    ProviderDryRunPayload,
+    ProviderDryRunProviderFamily,
+    ProviderDryRunRequestEnvelope,
+    ProviderDryRunScope,
+    ProviderDryRunStatus,
+    build_provider_dry_run_request_envelope,
+    compute_provider_dry_run_digest,
+    explain_provider_dry_run_findings,
+    provider_dry_run_has_no_network_egress,
+    provider_dry_run_has_no_provider_credentials,
+    provider_dry_run_has_no_runtime_authority,
+    provider_dry_run_is_non_sendable,
+    provider_dry_run_preserves_review_receipt,
+    summarize_provider_dry_run_request_envelope,
+    validate_provider_dry_run_request_envelope,
+)

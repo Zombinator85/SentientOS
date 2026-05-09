@@ -225,3 +225,13 @@ The model-call review receipt is not model invocation and is not provider egress
 Provider calls and LLM calls remain forbidden. The receipt stores false provider/LLM/tool/memory/action/retention/routing allowances and true `provider_call_forbidden`, `llm_call_forbidden`, `does_not_call_llm`, and `does_not_send_to_provider` markers. Memory retrieval and writes remain forbidden. Feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
 
 `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 83 is a prerequisite attestation layer for any future provider dry-run contract, not that future contract and not a runtime model-call path.
+
+## Phase 84: Provider Dry-Run Request Envelope — No Send
+
+Phase 84 adds `sentientos.context_hygiene.prompt_provider_dry_run` as a deterministic provider-shaped dry-run request envelope. It binds a Phase 80 `InternalPromptCandidate`, Phase 81 internal display receipt, Phase 82 model-call preflight, and Phase 83 model-call review receipt into a single non-sendable artifact for internal review.
+
+The provider dry-run envelope is not provider invocation. Provider and model families are label-only metadata, not SDK clients, transports, endpoints, or deployable provider parameters. The dry-run payload uses dry-run-only labels and explicitly marks provider sends, network egress, credentials, provider clients, tool calls, memory, retention, action execution, routing, admission, LLM calls, and provider egress as forbidden.
+
+Provider/LLM calls remain forbidden. The module imports no provider SDKs or network clients and performs no network calls. It does not retrieve memory, write memory, trigger feedback, commit retention, execute tools/actions, route/admit/fulfill/orchestrate work, or invoke embodiment runtime behavior.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 84 is a prerequisite evidence artifact for any future provider-call simulation or egress review phase; it grants no runtime authority and cannot be used as a sendable request.
