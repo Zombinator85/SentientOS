@@ -619,7 +619,10 @@
       "api_key_absent": true,
       "endpoint_absent": true,
       "no_semantic_generation": true,
-      "network_egress_preflight_only": true
+      "network_egress_preflight_only": true,
+      "network_egress_review_receipt_only": true,
+      "future_network_gate_review_only": true,
+      "endpoint_forbidden": true
     }
   },
   "protected_sinks": {

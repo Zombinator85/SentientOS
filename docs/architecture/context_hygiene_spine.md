@@ -270,3 +270,13 @@ Phase 87 adds `ProviderNetworkEgressPreflight`, a deterministic audit/preflight 
 The Phase 87 artifact records digest-chain completeness, findings, warnings, required mitigations, no-runtime markers, and a compact rationale. It never performs semantic generation, never sends prompt text to a provider, never retrieves or writes memory, never commits retention, never executes embodiment/action/tool behavior, and never routes, admits, fulfills, or orchestrates work. Live `assemble_prompt(...)` behavior remains untouched.
 
 Phase 87 is a prerequisite for any future network-egress review receipt or provider-call harness. Future phases may review its metadata, but Phase 87 itself grants no live provider-send, network-egress, credential-use, client-construction, model-call, action, retention, routing, admission, execution, or memory authority.
+
+## Phase 88: Provider Network-Egress Review Receipt
+
+Phase 88 adds `sentientos.context_hygiene.prompt_network_egress_review` as a deterministic, metadata-only review receipt for Phase 87 `ProviderNetworkEgressPreflight` artifacts. Provider network-egress review is not network egress. The receipt can approve only future metadata gates: a future network-egress review gate, a future provider-call dry-run gate, or a future null-transport adapter gate.
+
+The receipt can never approve actual network egress or provider send. Provider SDKs, clients, sessions, transports, endpoints, credentials, authorization material, provider/LLM calls, network calls, semantic generation, tool calls, memory retrieval/writes, feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+The Phase 88 receipt derives required mitigation codes from Phase 87 findings, warnings, required mitigations, review-required/ready-with-warnings statuses, and network/provider/credential/client/endpoint/semantic-generation/no-runtime constraints. A receipt satisfies a preflight only when IDs and digests match, the preflight is ready/review-required, the receipt is approved or constrained, unexpired, all required mitigations are accepted or addressed, no forbidden network override is attempted, all allowances remain false, and all no-network/provider-forbidden markers remain true.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 88 is a prerequisite evidence receipt for any future null transport adapter or provider-call dry-run contract, not that future contract and not a runtime network-egress path.
