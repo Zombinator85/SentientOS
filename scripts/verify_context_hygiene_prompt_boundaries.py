@@ -30,6 +30,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_provider_simulation.py",
     "sentientos/context_hygiene/prompt_network_egress_preflight.py",
     "sentientos/context_hygiene/prompt_network_egress_review.py",
+    "sentientos/context_hygiene/prompt_provider_null_transport.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -122,6 +123,12 @@ METADATA_ONLY_FIELD_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "provider_client_allowed",
         "provider_client_forbidden",
         "endpoint_allowed",
+        "endpoint_used",
+        "provider_client_used",
+        "NULL_TRANSPORT_ENDPOINT_DETECTED",
+        "NULL_TRANSPORT_CLIENT_DETECTED",
+        "raw_payload_marker_detected",
+        "provider_model_params_detected",
     }
 )
 
