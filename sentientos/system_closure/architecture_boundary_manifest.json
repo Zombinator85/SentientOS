@@ -595,7 +595,9 @@
       "llm_call_forbidden": true,
       "model_review_gate_precondition_only": true,
       "does_not_send_to_provider": true,
-      "no_provider_sdk_imports": true
+      "no_provider_sdk_imports": true,
+      "model_call_review_receipt_only": true,
+      "future_gate_review_only": true
     }
   },
   "protected_sinks": {

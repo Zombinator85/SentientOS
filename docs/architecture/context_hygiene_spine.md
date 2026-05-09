@@ -215,3 +215,13 @@ Phase 82 declares metadata-only rings: `model_review_preflight_only`, `internal_
 `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Memory retrieval/writes remain forbidden, embodiment/action/retention/routing/admission/execution runtime behavior remains forbidden, and operator display scope remains internal operator/debug/audit only.
 
 Phase 82 is a prerequisite to any future internal provider dry-run or model-call review gate. It grants no runtime authority and produces only eligibility status, reasons, mitigations, digest linkage, provider-absence proof, no-tool/no-memory/no-retention/no-action constraints, and explicit denial/default-block markers.
+
+## Phase 83: Internal Model-Call Review Receipt Contract
+
+Phase 83 adds `sentientos.context_hygiene.prompt_model_call_review` as a deterministic, metadata-only review receipt layer for Phase 82 `InternalModelCallPreflight` decisions. It records operator reviewer identity, decision, scope, approved/rejected constraints, required/accepted/rejected mitigations, expiration, findings, digest linkage, and explicit non-runtime markers.
+
+The model-call review receipt is not model invocation and is not provider egress. It can approve only a future internal model-call review gate as metadata; it can never approve provider invocation in Phase 83. `provider_dry_run_future_gate` remains constrained and future-phase-only, while live provider call, tool/action, and external-user-visible scopes remain non-overridable.
+
+Provider calls and LLM calls remain forbidden. The receipt stores false provider/LLM/tool/memory/action/retention/routing allowances and true `provider_call_forbidden`, `llm_call_forbidden`, `does_not_call_llm`, and `does_not_send_to_provider` markers. Memory retrieval and writes remain forbidden. Feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 83 is a prerequisite attestation layer for any future provider dry-run contract, not that future contract and not a runtime model-call path.
