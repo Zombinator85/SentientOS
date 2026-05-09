@@ -607,7 +607,12 @@
       "network_egress_forbidden": true,
       "credentials_forbidden": true,
       "provider_client_absent": true,
-      "no_network_calls": true
+      "no_network_calls": true,
+      "provider_dry_run_egress_review_receipt_only": true,
+      "future_simulation_gate_review_only": true,
+      "non_sendable_preserved": true,
+      "provider_client_forbidden": true,
+      "does_not_make_network_calls": true
     }
   },
   "protected_sinks": {
