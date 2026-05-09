@@ -27,6 +27,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_model_call_review.py",
     "sentientos/context_hygiene/prompt_provider_dry_run.py",
     "sentientos/context_hygiene/prompt_provider_dry_run_review.py",
+    "sentientos/context_hygiene/prompt_provider_simulation.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -93,6 +94,8 @@ PROMPT_TEXT_ALLOWLIST_PATHS: frozenset[str] = frozenset(
         "tests/test_phase80_internal_no_llm_prompt_candidate_contract.py",
         "sentientos/context_hygiene/prompt_provider_dry_run.py",
         "tests/test_phase84_provider_dry_run_request_envelope.py",
+        "sentientos/context_hygiene/prompt_provider_simulation.py",
+        "tests/test_phase86_provider_simulation_result_envelope.py",
     }
 )
 
@@ -105,6 +108,9 @@ PROMPT_TEXT_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "internal_prompt_candidate",
         "InternalPromptCandidate",
         "dry_run_prompt_text",
+        "simulated_result_stub",
+        "dry_run_prompt_text_digest",
+        "dry_run_prompt_text_length",
     }
 )
 

@@ -612,7 +612,13 @@
       "future_simulation_gate_review_only": true,
       "non_sendable_preserved": true,
       "provider_client_forbidden": true,
-      "does_not_make_network_calls": true
+      "does_not_make_network_calls": true,
+      "provider_simulation_only": true,
+      "fixed_stub_or_metadata_only": true,
+      "semantic_generation_forbidden": true,
+      "api_key_absent": true,
+      "endpoint_absent": true,
+      "no_semantic_generation": true
     }
   },
   "protected_sinks": {

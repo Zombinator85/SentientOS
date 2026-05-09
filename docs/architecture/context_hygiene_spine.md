@@ -247,3 +247,18 @@ Provider/LLM/network calls remain forbidden. Credentials, provider clients, tran
 The receipt derives required mitigations from Phase 84 findings, warnings, constraints, warning status, and provider/network/credential/client forbidden markers. A receipt satisfies an envelope only when the envelope is ready or ready-with-warnings, the receipt is approved or approved-with-constraints, ids and digests match, the receipt is unexpired, required mitigations are accepted or addressed, no forbidden send override is attempted, all runtime/provider allowances remain false, and all non-sendable markers remain true.
 
 Phase 85 is a prerequisite to any future provider-call simulation contract or egress-review gate. It is not provider invocation and grants no runtime authority.
+
+## Phase 86 — Provider Simulation Result Envelope (No Network)
+
+Phase 86 adds `sentientos.context_hygiene.prompt_provider_simulation`, a pure provider simulation result envelope for Phase 84 provider dry-run requests after Phase 85 egress review approval. The artifact is fixed-stub/metadata-only and exists to record a deterministic provider-like boundary without provider invocation.
+
+The Phase 86 envelope preserves these boundaries:
+
+- provider/LLM/network calls remain forbidden;
+- credentials, provider clients, endpoints, auth/header material, SDK objects, sessions, transports, streams, and runtime handles remain forbidden;
+- semantic generation remains forbidden, and the simulated result stub must not answer, summarize, transform, or complete prompt content;
+- live `assemble_prompt(...)` behavior is untouched, and `prompt_assembler.py` remains outside this phase;
+- memory retrieval and memory writes remain forbidden;
+- embodiment runtime, tools, actions, retention, feedback, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+Phase 86 is a prerequisite artifact for any future network-egress preflight or provider-call harness, but it does not authorize or implement those future paths. Provider simulation is not provider invocation.
