@@ -642,7 +642,17 @@
       "no hardware calls": true,
       "no action side effects": true,
       "no retention side effects": true,
-      "no embodiment runtime effects": true
+      "no embodiment runtime effects": true,
+      "provider_transport_registry_only": true,
+      "null_transport_only": true,
+      "selected_null_transport_only": true,
+      "live_provider_transport_forbidden": true,
+      "network_transport_forbidden": true,
+      "credentialed_transport_forbidden": true,
+      "endpoint_transport_forbidden": true,
+      "socket_transport_forbidden": true,
+      "http_transport_forbidden": true,
+      "semantic_generation_transport_forbidden": true
     }
   },
   "protected_sinks": {
