@@ -652,7 +652,11 @@
       "endpoint_transport_forbidden": true,
       "socket_transport_forbidden": true,
       "http_transport_forbidden": true,
-      "semantic_generation_transport_forbidden": true
+      "semantic_generation_transport_forbidden": true,
+      "provider_transport_capability_manifest_only": true,
+      "provider_transport_registration_preflight_only": true,
+      "real_transport_registration_forbidden": true,
+      "provider_sdk_forbidden": true
     }
   },
   "protected_sinks": {
