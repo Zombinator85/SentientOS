@@ -554,7 +554,8 @@
         "orchestration",
         "httpx",
         "browser",
-        "feedback"
+        "feedback",
+        "socket"
       ],
       "constraint_verification_only": true,
       "prompt_assembly_preparation_only": true,
@@ -622,7 +623,26 @@
       "network_egress_preflight_only": true,
       "network_egress_review_receipt_only": true,
       "future_network_gate_review_only": true,
-      "endpoint_forbidden": true
+      "endpoint_forbidden": true,
+      "provider_null_transport_only": true,
+      "null_transport_sent_nothing": true,
+      "socket_forbidden": true,
+      "http_forbidden": true,
+      "does_not_open_sockets": true,
+      "does_not_make_http_requests": true,
+      "no_socket_calls": true,
+      "no_HTTP_calls": true,
+      "no web": true,
+      "no network calls": true,
+      "no socket calls": true,
+      "no HTTP calls": true,
+      "no LLM calls": true,
+      "no provider SDK imports": true,
+      "no semantic generation": true,
+      "no hardware calls": true,
+      "no action side effects": true,
+      "no retention side effects": true,
+      "no embodiment runtime effects": true
     }
   },
   "protected_sinks": {

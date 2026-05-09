@@ -280,3 +280,13 @@ The receipt can never approve actual network egress or provider send. Provider S
 The Phase 88 receipt derives required mitigation codes from Phase 87 findings, warnings, required mitigations, review-required/ready-with-warnings statuses, and network/provider/credential/client/endpoint/semantic-generation/no-runtime constraints. A receipt satisfies a preflight only when IDs and digests match, the preflight is ready/review-required, the receipt is approved or constrained, unexpired, all required mitigations are accepted or addressed, no forbidden network override is attempted, all allowances remain false, and all no-network/provider-forbidden markers remain true.
 
 `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 88 is a prerequisite evidence receipt for any future null transport adapter or provider-call dry-run contract, not that future contract and not a runtime network-egress path.
+
+## Phase 89: Provider Null Transport Adapter Contract
+
+Phase 89 adds `sentientos.context_hygiene.prompt_provider_null_transport` as a deterministic, metadata-only null transport adapter receipt for Phase 84 provider dry-run envelopes after Phase 87 network-egress preflight and Phase 88 review approval of `future_transport_null_adapter_gate`. The null transport adapter proves the transport boundary while sending nothing: null transport is not network transport.
+
+The Phase 89 artifact records dry-run/preflight/review linkage, digest-chain completeness, no-send proof, no-network proof, credential/client/endpoint absence proof, findings, warnings, constraints, compact rationale, and explicit no-runtime markers. It never creates endpoint URLs, API keys, auth headers, provider clients, network sessions, HTTP requests, sockets, request/response handles, provider invocations, semantic outputs, model outputs, tool calls, or runtime side effects.
+
+Provider, LLM, and network calls remain forbidden. Credentials, clients, endpoints, sockets, HTTP use, semantic generation, memory retrieval, memory writes, feedback triggers, retention commits, embodiment runtime effects, tools/actions, routing, admission, execution, fulfillment, and orchestration remain forbidden. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched.
+
+Phase 89 is a prerequisite proof artifact for any future real network-egress contract. It grants no provider-send, network-egress, credential-use, client-construction, endpoint-use, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
