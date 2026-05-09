@@ -679,3 +679,24 @@ from sentientos.context_hygiene.prompt_provider_dry_run_review import (
     summarize_provider_dry_run_egress_review_receipt,
     validate_provider_dry_run_egress_review_receipt,
 )
+
+from sentientos.context_hygiene.prompt_provider_simulation import (
+    ProviderSimulationBoundary,
+    ProviderSimulationConstraint,
+    ProviderSimulationFinding,
+    ProviderSimulationMode,
+    ProviderSimulationResultEnvelope,
+    ProviderSimulationResultPayload,
+    ProviderSimulationScope,
+    ProviderSimulationStatus,
+    build_provider_simulation_result_envelope,
+    compute_provider_simulation_digest,
+    explain_provider_simulation_findings,
+    provider_simulation_has_no_provider_credentials,
+    provider_simulation_has_no_runtime_authority,
+    provider_simulation_is_no_network,
+    provider_simulation_is_not_model_output,
+    provider_simulation_preserves_dry_run_review,
+    summarize_provider_simulation_result_envelope,
+    validate_provider_simulation_result_envelope,
+)
