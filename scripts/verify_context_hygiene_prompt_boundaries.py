@@ -26,6 +26,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_model_call_preflight.py",
     "sentientos/context_hygiene/prompt_model_call_review.py",
     "sentientos/context_hygiene/prompt_provider_dry_run.py",
+    "sentientos/context_hygiene/prompt_provider_dry_run_review.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -104,6 +105,14 @@ PROMPT_TEXT_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "internal_prompt_candidate",
         "InternalPromptCandidate",
         "dry_run_prompt_text",
+    }
+)
+
+
+METADATA_ONLY_FIELD_ALLOWLIST_NAMES: frozenset[str] = frozenset(
+    {
+        "provider_client_allowed",
+        "provider_client_forbidden",
     }
 )
 
@@ -302,7 +311,7 @@ def _identifier_contains_forbidden_field(name: str, path: Path | None = None, re
     rel = _display_path(path, repo_root) if path is not None else ""
     if rel in PROMPT_TEXT_ALLOWLIST_PATHS and name in PROMPT_TEXT_ALLOWLIST_NAMES:
         return None
-    if name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
+    if name in METADATA_ONLY_FIELD_ALLOWLIST_NAMES or name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
         return None
     for pattern in FORBIDDEN_FIELD_PATTERNS:
         if pattern == "auth" and ("authority" in lowered or "authoritative" in lowered):

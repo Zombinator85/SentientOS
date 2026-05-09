@@ -235,3 +235,15 @@ The provider dry-run envelope is not provider invocation. Provider and model fam
 Provider/LLM calls remain forbidden. The module imports no provider SDKs or network clients and performs no network calls. It does not retrieve memory, write memory, trigger feedback, commit retention, execute tools/actions, route/admit/fulfill/orchestrate work, or invoke embodiment runtime behavior.
 
 `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 84 is a prerequisite evidence artifact for any future provider-call simulation or egress review phase; it grants no runtime authority and cannot be used as a sendable request.
+
+## Phase 85: Provider Dry-Run Egress Review Receipt
+
+Phase 85 adds `sentientos.context_hygiene.prompt_provider_dry_run_review` as a deterministic, metadata-only egress review receipt for Phase 84 `ProviderDryRunRequestEnvelope` artifacts. It records reviewer identity, decision, scope, approved/rejected constraint codes, required/accepted/rejected mitigation codes, expiration, findings, digest linkage, and explicit non-sendable/provider-forbidden markers.
+
+The dry-run egress review can approve only a future provider-call simulation gate or a future egress-review gate. It can never approve actual provider send, network egress, provider SDK/client use, credential use, endpoint use, tool calls, memory retrieval/writes, feedback, retention, embodiment runtime effects, actions, routing, admission, execution, fulfillment, or orchestration.
+
+Provider/LLM/network calls remain forbidden. Credentials, provider clients, transports, endpoints, and deployable provider parameters remain forbidden. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Memory retrieval and writes remain forbidden, and embodiment/action/retention/routing/admission/execution runtime behavior remains forbidden.
+
+The receipt derives required mitigations from Phase 84 findings, warnings, constraints, warning status, and provider/network/credential/client forbidden markers. A receipt satisfies an envelope only when the envelope is ready or ready-with-warnings, the receipt is approved or approved-with-constraints, ids and digests match, the receipt is unexpired, required mitigations are accepted or addressed, no forbidden send override is attempted, all runtime/provider allowances remain false, and all non-sendable markers remain true.
+
+Phase 85 is a prerequisite to any future provider-call simulation contract or egress-review gate. It is not provider invocation and grants no runtime authority.
