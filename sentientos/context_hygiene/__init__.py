@@ -700,3 +700,47 @@ from sentientos.context_hygiene.prompt_provider_simulation import (
     summarize_provider_simulation_result_envelope,
     validate_provider_simulation_result_envelope,
 )
+
+from sentientos.context_hygiene.prompt_network_egress_preflight import (
+    ProviderNetworkEgressAuditChain,
+    ProviderNetworkEgressPreflight,
+    ProviderNetworkEgressPreflightConstraint,
+    ProviderNetworkEgressPreflightDecision,
+    ProviderNetworkEgressPreflightFinding,
+    ProviderNetworkEgressPreflightRing,
+    ProviderNetworkEgressPreflightStatus,
+    build_provider_network_egress_preflight,
+    compute_provider_network_egress_preflight_digest,
+    explain_provider_network_egress_preflight_findings,
+    provider_network_egress_preflight_allows_future_review_gate,
+    provider_network_egress_preflight_digest_chain_complete,
+    provider_network_egress_preflight_forbids_network,
+    provider_network_egress_preflight_forbids_provider_send,
+    provider_network_egress_preflight_has_no_credentials,
+    provider_network_egress_preflight_has_no_runtime_authority,
+    summarize_provider_network_egress_preflight,
+    validate_provider_network_egress_preflight,
+)
+
+__all__.extend(
+    [
+        "ProviderNetworkEgressAuditChain",
+        "ProviderNetworkEgressPreflight",
+        "ProviderNetworkEgressPreflightConstraint",
+        "ProviderNetworkEgressPreflightDecision",
+        "ProviderNetworkEgressPreflightFinding",
+        "ProviderNetworkEgressPreflightRing",
+        "ProviderNetworkEgressPreflightStatus",
+        "build_provider_network_egress_preflight",
+        "compute_provider_network_egress_preflight_digest",
+        "explain_provider_network_egress_preflight_findings",
+        "provider_network_egress_preflight_allows_future_review_gate",
+        "provider_network_egress_preflight_digest_chain_complete",
+        "provider_network_egress_preflight_forbids_network",
+        "provider_network_egress_preflight_forbids_provider_send",
+        "provider_network_egress_preflight_has_no_credentials",
+        "provider_network_egress_preflight_has_no_runtime_authority",
+        "summarize_provider_network_egress_preflight",
+        "validate_provider_network_egress_preflight",
+    ]
+)

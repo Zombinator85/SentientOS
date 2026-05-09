@@ -262,3 +262,11 @@ The Phase 86 envelope preserves these boundaries:
 - embodiment runtime, tools, actions, retention, feedback, routing, admission, execution, fulfillment, and orchestration remain forbidden.
 
 Phase 86 is a prerequisite artifact for any future network-egress preflight or provider-call harness, but it does not authorize or implement those future paths. Provider simulation is not provider invocation.
+
+## Phase 87: Provider Simulation Network-Egress Preflight
+
+Phase 87 adds `ProviderNetworkEgressPreflight`, a deterministic audit/preflight artifact that binds the Phase 84 provider dry-run request envelope, Phase 85 provider dry-run egress review receipt, and Phase 86 provider simulation result envelope into a single future-review decision. Network-egress preflight is not network egress: provider calls, LLM calls, network calls, credentials, provider clients, sessions, transports, endpoints, and authorization material remain forbidden.
+
+The Phase 87 artifact records digest-chain completeness, findings, warnings, required mitigations, no-runtime markers, and a compact rationale. It never performs semantic generation, never sends prompt text to a provider, never retrieves or writes memory, never commits retention, never executes embodiment/action/tool behavior, and never routes, admits, fulfills, or orchestrates work. Live `assemble_prompt(...)` behavior remains untouched.
+
+Phase 87 is a prerequisite for any future network-egress review receipt or provider-call harness. Future phases may review its metadata, but Phase 87 itself grants no live provider-send, network-egress, credential-use, client-construction, model-call, action, retention, routing, admission, execution, or memory authority.

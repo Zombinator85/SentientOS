@@ -618,7 +618,8 @@
       "semantic_generation_forbidden": true,
       "api_key_absent": true,
       "endpoint_absent": true,
-      "no_semantic_generation": true
+      "no_semantic_generation": true,
+      "network_egress_preflight_only": true
     }
   },
   "protected_sinks": {
