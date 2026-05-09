@@ -290,3 +290,15 @@ The Phase 89 artifact records dry-run/preflight/review linkage, digest-chain com
 Provider, LLM, and network calls remain forbidden. Credentials, clients, endpoints, sockets, HTTP use, semantic generation, memory retrieval, memory writes, feedback triggers, retention commits, embodiment runtime effects, tools/actions, routing, admission, execution, fulfillment, and orchestration remain forbidden. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched.
 
 Phase 89 is a prerequisite proof artifact for any future real network-egress contract. It grants no provider-send, network-egress, credential-use, client-construction, endpoint-use, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
+
+## Phase 90: Provider Transport Registry Contract — Null-Only
+
+Phase 90 adds `sentientos.context_hygiene.prompt_provider_transport_registry` as a deterministic, metadata-only provider transport registry and selector contract. The registry/selector exists to prove that transport selection is a governed boundary, but it allows only the Phase 89 `provider_transport_null_adapter` to be registered and selected.
+
+Provider transport registry is not network transport. Real provider, OpenAI live, local model live, network, HTTP, socket, custom endpoint, SDK-backed, credentialed, endpoint, client/session, and live-send adapters remain forbidden, unregistered, and unselectable. Requested forbidden adapters produce deterministic forbidden/unregistered findings rather than runtime handles.
+
+The Phase 90 selection receipt links the registry manifest to the Phase 89 null transport receipt and records registry/null/dry-run/network-preflight/network-review/candidate/packet audit-chain ids and digests. It proves `sent=False`, `bytes_sent=0`, no provider send, no network egress, no credentials, no endpoint, no provider client, no socket open, no HTTP request, no LLM call, no semantic generation, no tool call, no memory access, no retention, no action execution, no routing, no admission, and no runtime authority.
+
+Provider/LLM/network calls remain forbidden. Credentials, clients, endpoints, sockets, HTTP use, semantic generation, model outputs, provider invocations, request/response handles, raw payloads, runtime handles, provider/model parameters, memory retrieval/writes, feedback triggers, retention commits, embodiment runtime effects, tools/actions, routing, admission, execution, fulfillment, and orchestration remain forbidden.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 90 is a prerequisite metadata contract for any future real transport capability manifest or network-egress contract; it grants no provider-send, network-egress, credential-use, endpoint-use, client-construction, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
