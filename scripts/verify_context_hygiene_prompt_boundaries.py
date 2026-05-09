@@ -25,6 +25,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_internal_display.py",
     "sentientos/context_hygiene/prompt_model_call_preflight.py",
     "sentientos/context_hygiene/prompt_model_call_review.py",
+    "sentientos/context_hygiene/prompt_provider_dry_run.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -53,6 +54,12 @@ FORBIDDEN_FIELD_PATTERNS: tuple[str, ...] = (
     "llm_parameters",
     "model_params",
     "provider_params",
+    "api_key",
+    "endpoint",
+    "headers",
+    "auth",
+    "client",
+    "session",
     "raw_payload",
     "raw_memory_payload",
     "raw_screen_payload",
@@ -83,6 +90,8 @@ PROMPT_TEXT_ALLOWLIST_PATHS: frozenset[str] = frozenset(
         "tests/test_phase79_synthetic_only_prompt_candidate_harness.py",
         "sentientos/context_hygiene/prompt_internal_candidate.py",
         "tests/test_phase80_internal_no_llm_prompt_candidate_contract.py",
+        "sentientos/context_hygiene/prompt_provider_dry_run.py",
+        "tests/test_phase84_provider_dry_run_request_envelope.py",
     }
 )
 
@@ -94,6 +103,7 @@ PROMPT_TEXT_ALLOWLIST_NAMES: frozenset[str] = frozenset(
         "internal_candidate_text",
         "internal_prompt_candidate",
         "InternalPromptCandidate",
+        "dry_run_prompt_text",
     }
 )
 
@@ -276,11 +286,14 @@ def _name_is_negative_marker(name: str) -> bool:
     return (
         lowered.startswith(NEGATIVE_MARKER_PREFIXES)
         or lowered.startswith(("forbidden_", "_forbidden_"))
+        or lowered.endswith("_forbidden")
         or "_forbidden_" in lowered
         or "_not_" in lowered
         or "does_not" in lowered
         or "must_not" in lowered
         or "without" in lowered
+        or lowered.endswith("_absent")
+        or "_absent" in lowered
     )
 
 
@@ -292,6 +305,8 @@ def _identifier_contains_forbidden_field(name: str, path: Path | None = None, re
     if name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
         return None
     for pattern in FORBIDDEN_FIELD_PATTERNS:
+        if pattern == "auth" and ("authority" in lowered or "authoritative" in lowered):
+            continue
         if pattern in lowered:
             return pattern
     return None
@@ -431,7 +446,7 @@ def scan_file_for_prompt_boundary_violations(path: str | Path, *, repo_root: str
                 if lowered_call == "commit" and not any(owner in lowered_call for owner in ("retention", "memory")):
                     continue
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_runtime_call", f"forbidden runtime/provider call pattern {call!r}", root))
-            elif any(owner in lowered_call for owner in FORBIDDEN_PROVIDER_CALL_OWNERS) and any(verb in lowered_call for verb in ("create", "complete", "invoke", "generate", "send")):
+            elif not lowered_call.startswith("provider_dry_run_") and any(owner in lowered_call for owner in FORBIDDEN_PROVIDER_CALL_OWNERS) and any(verb in lowered_call for verb in ("create", "complete", "invoke", "generate", "send")):
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_provider_call", f"forbidden LLM/provider call pattern {call!r}", root))
             elif any(term in lowered_call for term in ("retrieve_memory", "write_memory", "save_memory", "search_memory", "commit_retention", "execute_action", "route_work", "admit_work")):
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_runtime_call", f"forbidden context side-effect call pattern {call!r}", root))
