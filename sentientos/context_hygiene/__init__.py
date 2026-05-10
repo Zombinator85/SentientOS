@@ -1373,3 +1373,57 @@ __all__.extend(
         "validate_external_audit_export_receipt",
     ]
 )
+
+from sentientos.context_hygiene.prompt_provider_invocation_denial_attestation import (
+    ProviderInvocationDenialAttestation,
+    ProviderInvocationDenialAttestationConstraint,
+    ProviderInvocationDenialAttestationDecision,
+    ProviderInvocationDenialAttestationEvidenceSummary,
+    ProviderInvocationDenialAttestationExpiration,
+    ProviderInvocationDenialAttestationFinding,
+    ProviderInvocationDenialAttestationScope,
+    ProviderInvocationDenialAttestationStatus,
+    build_provider_invocation_denial_attestation,
+    compute_provider_invocation_denial_attestation_digest,
+    explain_provider_invocation_denial_attestation_findings,
+    provider_invocation_denial_attestation_contains_no_clients,
+    provider_invocation_denial_attestation_contains_no_endpoints,
+    provider_invocation_denial_attestation_contains_no_network_handles,
+    provider_invocation_denial_attestation_contains_no_prompt_text,
+    provider_invocation_denial_attestation_contains_no_runtime_authority,
+    provider_invocation_denial_attestation_contains_no_secrets,
+    provider_invocation_denial_attestation_denies_invocation,
+    provider_invocation_denial_attestation_does_not_export,
+    provider_invocation_denial_attestation_is_metadata_only,
+    provider_invocation_denial_attestation_ready,
+    summarize_provider_invocation_denial_attestation,
+    validate_provider_invocation_denial_attestation,
+)
+
+__all__.extend(
+    [
+        "ProviderInvocationDenialAttestation",
+        "ProviderInvocationDenialAttestationConstraint",
+        "ProviderInvocationDenialAttestationDecision",
+        "ProviderInvocationDenialAttestationEvidenceSummary",
+        "ProviderInvocationDenialAttestationExpiration",
+        "ProviderInvocationDenialAttestationFinding",
+        "ProviderInvocationDenialAttestationScope",
+        "ProviderInvocationDenialAttestationStatus",
+        "build_provider_invocation_denial_attestation",
+        "compute_provider_invocation_denial_attestation_digest",
+        "explain_provider_invocation_denial_attestation_findings",
+        "provider_invocation_denial_attestation_contains_no_clients",
+        "provider_invocation_denial_attestation_contains_no_endpoints",
+        "provider_invocation_denial_attestation_contains_no_network_handles",
+        "provider_invocation_denial_attestation_contains_no_prompt_text",
+        "provider_invocation_denial_attestation_contains_no_runtime_authority",
+        "provider_invocation_denial_attestation_contains_no_secrets",
+        "provider_invocation_denial_attestation_denies_invocation",
+        "provider_invocation_denial_attestation_does_not_export",
+        "provider_invocation_denial_attestation_is_metadata_only",
+        "provider_invocation_denial_attestation_ready",
+        "summarize_provider_invocation_denial_attestation",
+        "validate_provider_invocation_denial_attestation",
+    ]
+)
