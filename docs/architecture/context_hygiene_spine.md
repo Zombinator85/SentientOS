@@ -374,3 +374,15 @@ Phase 95 clean metadata remains metadata-only and not invocable. The Phase 90 re
 The receipt derives stable denial, gap, and constraint codes from linked Phase 95 gaps, missing evidence, findings, constraints, audit-chain completeness, forbidden markers, metadata-only markers, null-only metadata status, and denied/forbidden preflight statuses. Satisfaction requires linked IDs and digests to match, the review to be unexpired, required codes to be accepted or approved, all provider/runtime allowances to remain false, all no-provider/no-network/no-runtime markers to remain true, and no forbidden invocation override to be attempted.
 
 Phase 96 is a prerequisite to any future external security review packet or formal provider-invocation denial attestation. It grants no provider-invocation, provider-send, network-egress, credential-use, endpoint-use, client-construction, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
+
+## Phase 97 — External Security Review Packet (Metadata Only)
+
+Phase 97 adds `sentientos.context_hygiene.prompt_external_security_review` as a pure metadata packet for external security review of Phase 91 through Phase 96 provider-invocation denial evidence. It packages denial evidence IDs, statuses, digest links, summary codes, redaction counts, guardrail markers, and a deterministic packet digest only.
+
+The external security review packet is not executable and is not provider-sendable. It contains no prompt text, synthetic prompt text, internal candidate text, dry-run prompt text, raw payloads, secrets, secret references, endpoint values/references, provider clients/client references, sessions, transports, SDK objects, sockets, HTTP clients, stream handles, runtime handles, model/provider parameters, tool schemas/functions, or hidden chain-of-thought.
+
+Accepted Phase 97 packets cannot approve provider invocation. Phase 96 denial review remains not invocation approval. Phase 95 clean readiness metadata remains metadata-only and not invocable. Phase 90 registry selection remains null-only; Phase 91 real transport registration remains forbidden; Phase 92 credential custody remains no-secret; Phase 93 endpoint custody remains no-endpoint; Phase 94 client custody remains no-client.
+
+Provider/LLM/network calls remain forbidden. Credential, client, endpoint, socket, HTTP, provider-SDK, environment, file, config-store, DNS, vault, keychain, and cloud-secret access remain forbidden. Semantic generation remains forbidden. Live `assemble_prompt(...)` behavior is untouched. Memory retrieval, memory writes, embodiment runtime effects, action execution, retention, routing, admission, execution, and orchestration remain forbidden.
+
+Phase 97 is a prerequisite for any future external audit export receipt or formal provider-invocation denial attestation packet. Any future artifact must continue to distinguish security-review metadata from runtime authority and provider invocation.
