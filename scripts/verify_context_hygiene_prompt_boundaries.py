@@ -37,6 +37,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_provider_endpoint_custody.py",
     "sentientos/context_hygiene/prompt_provider_client_custody.py",
     "sentientos/context_hygiene/prompt_provider_invocation_readiness.py",
+    "sentientos/context_hygiene/prompt_provider_invocation_denial_review.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -750,7 +751,13 @@ def scan_file_for_prompt_boundary_violations(path: str | Path, *, repo_root: str
                 if lowered_call == "commit" and not any(owner in lowered_call for owner in ("retention", "memory")):
                     continue
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_runtime_call", f"forbidden runtime/provider call pattern {call!r}", root))
-            elif not (lowered_call.startswith("provider_dry_run_") or lowered_call.startswith("provider_network_egress_preflight_")) and any(owner in lowered_call for owner in FORBIDDEN_PROVIDER_CALL_OWNERS) and any(verb in lowered_call for verb in ("create", "complete", "invoke", "generate", "send")):
+            elif not (
+                lowered_call.startswith("provider_dry_run_")
+                or lowered_call.startswith("provider_network_egress_preflight_")
+                or lowered_call.startswith("provider_invocation_readiness_")
+                or lowered_call.startswith("provider_invocation_preflight_")
+                or lowered_call.startswith("provider_invocation_denial_review_")
+            ) and any(owner in lowered_call for owner in FORBIDDEN_PROVIDER_CALL_OWNERS) and any(verb in lowered_call for verb in ("create", "complete", "invoke", "generate", "send")):
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_provider_call", f"forbidden LLM/provider call pattern {call!r}", root))
             elif any(term in lowered_call for term in ("retrieve_memory", "write_memory", "save_memory", "search_memory", "commit_retention", "execute_action", "route_work", "admit_work")):
                 findings.append(_finding(source_path, node.lineno, node.col_offset, "forbidden_runtime_call", f"forbidden context side-effect call pattern {call!r}", root))
