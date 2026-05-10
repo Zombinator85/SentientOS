@@ -324,3 +324,15 @@ The Phase 90 provider transport registry remains null-only, and Phase 91 real tr
 Provider/LLM/network calls remain forbidden. Credentials, credential references, endpoint URLs, auth headers, provider clients/sessions, sockets, HTTP clients/requests, provider SDKs, semantic generation, memory retrieval/writes, feedback, retention commits, embodiment runtime effects, actions, routing, admission, execution, and orchestration remain forbidden. Environment, file, vault, keychain, cloud-secret, and OS credential APIs remain forbidden. `prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched.
 
 Phase 92 is a prerequisite evidence and denial surface for any future credential custody review or real transport capability review. It grants no credential-use, secret-resolution, provider-send, network-egress, endpoint-use, client-construction, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
+
+## Phase 93 — Provider Endpoint Custody Manifest / Preflight (No Endpoints)
+
+Phase 93 adds `sentientos.context_hygiene.prompt_provider_endpoint_custody` as a deterministic, metadata-only provider endpoint custody manifest and preflight contract. It defines future endpoint custody evidence without accepting, storing, resolving, validating, dialing, pinging, probing, or using real endpoints.
+
+Endpoint custody manifest is not endpoint custody. A clean manifest declares `endpoint_custody_no_endpoints`, and a clean preflight can produce only `endpoint_preflight_no_endpoints_allowed` as no-endpoint metadata compatibility. The future endpoint contract placeholder is metadata-only and must not include a resolvable URL, hostname, IP address, port, DNS name, endpoint path, endpoint config key, credential, client/session/transport handle, or request/response handle.
+
+The Phase 90 provider transport registry remains null-only, Phase 91 real transport registration remains forbidden, and Phase 92 credential custody remains no-secret. Provider/LLM/network calls remain forbidden. Credential, client, endpoint, socket, HTTP, provider-SDK, auth-header, semantic-generation, provider-send, and model-call use remains forbidden. Environment, file, config-store, DNS, vault, keychain, cloud-secret, and OS credential/config access remains forbidden.
+
+`prompt_assembler.py` and live `assemble_prompt(...)` behavior remain untouched. Phase 93 performs no prompt materialization, semantic generation, memory retrieval/writes, feedback, retention commits, embodiment runtime effects, actions, routing, admission, execution, orchestration, endpoint registration, or network egress.
+
+Phase 93 is a prerequisite evidence and denial surface for any future endpoint custody review or real transport endpoint review. It grants no endpoint-use, endpoint-resolution, DNS resolution, credential-use, provider-send, network-egress, client-construction, socket/HTTP, model-call, semantic-generation, action, retention, routing, admission, execution, or memory authority.
