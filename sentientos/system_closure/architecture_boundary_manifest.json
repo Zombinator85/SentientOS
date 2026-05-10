@@ -683,7 +683,22 @@
       "no file secret access": true,
       "no vault access": true,
       "no keychain access": true,
-      "no cloud secret access": true
+      "no cloud secret access": true,
+      "provider_endpoint_custody_manifest_only": true,
+      "provider_endpoint_custody_preflight_only": true,
+      "no_endpoint_material": true,
+      "endpoint_resolution_forbidden": true,
+      "dns_resolution_forbidden": true,
+      "env_endpoint_access_forbidden": true,
+      "file_endpoint_access_forbidden": true,
+      "config_store_endpoint_access_forbidden": true,
+      "credential_material_forbidden": true,
+      "endpoint_use_forbidden": true,
+      "does_not_resolve_dns": true,
+      "does_not_access_config_stores": true,
+      "no DNS resolution": true,
+      "no file endpoint access": true,
+      "no config store access": true
     }
   },
   "protected_sinks": {
