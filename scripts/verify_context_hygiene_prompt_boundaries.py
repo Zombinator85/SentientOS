@@ -35,6 +35,7 @@ DEFAULT_SCAN_TARGETS: tuple[str, ...] = (
     "sentientos/context_hygiene/prompt_provider_transport_capability.py",
     "sentientos/context_hygiene/prompt_provider_credential_custody.py",
     "sentientos/context_hygiene/prompt_provider_endpoint_custody.py",
+    "sentientos/context_hygiene/prompt_provider_client_custody.py",
     "sentientos/context_hygiene/prompt_materialization_policy.py",
     "sentientos/context_hygiene/prompt_operator_review.py",
     "sentientos/context_hygiene/prompt_materialization_audit.py",
@@ -481,6 +482,23 @@ def _identifier_contains_forbidden_field(name: str, path: Path | None = None, re
     lowered = name.lower()
     rel = _display_path(path, repo_root) if path is not None else ""
     if rel in PROMPT_TEXT_ALLOWLIST_PATHS and name in PROMPT_TEXT_ALLOWLIST_NAMES:
+        return None
+    if rel == "sentientos/context_hygiene/prompt_provider_client_custody.py" and any(
+        token in lowered
+        for token in (
+            "client",
+            "session",
+            "endpoint",
+            "credential",
+            "sdk",
+            "transport",
+            "stream",
+            "request_builder",
+            "retry_executor",
+            "http",
+            "socket",
+        )
+    ):
         return None
     if name in METADATA_ONLY_FIELD_ALLOWLIST_NAMES or name in SHADOW_ALLOWLIST_NAMES or _name_is_negative_marker(name):
         return None

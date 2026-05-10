@@ -698,7 +698,25 @@
       "does_not_access_config_stores": true,
       "no DNS resolution": true,
       "no file endpoint access": true,
-      "no config store access": true
+      "no config store access": true,
+      "provider_client_custody_manifest_only": true,
+      "provider_client_custody_preflight_only": true,
+      "no_client_material": true,
+      "client_instantiation_forbidden": true,
+      "provider_sdk_import_forbidden": true,
+      "session_creation_forbidden": true,
+      "transport_creation_forbidden": true,
+      "stream_creation_forbidden": true,
+      "request_builder_forbidden": true,
+      "retry_executor_forbidden": true,
+      "provider_client_use_forbidden": true,
+      "does_not_import_provider_sdks": true,
+      "does_not_create_clients": true,
+      "does_not_create_sessions": true,
+      "does_not_create_transports": true,
+      "does_not_open_streams": true,
+      "no file client access": true,
+      "no client/session/transport construction": true
     }
   },
   "protected_sinks": {
