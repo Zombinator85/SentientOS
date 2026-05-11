@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import json
 import os
 import subprocess
@@ -27,6 +28,15 @@ TEST_INFRA_IMPORTS = (
     ("sentientos", None),
 )
 INSTALL_EXTRAS = "[dev,test]"
+MINIMAL_TEST_AIRLOCK_DEPS = (
+    "pytest>=7,<8",
+    "pytest-cov",
+    "fastapi>=0.110,<1",
+    "starlette>=0.37,<1",
+    "httpx>=0.27,<1",
+)
+INSTALL_MODE_FULL = "full"
+INSTALL_MODE_TEST_AIRLOCK_MINIMAL = "test_airlock_minimal"
 BYPASS_ENV_VARS = (
     "SENTIENTOS_ALLOW_NAKED_PYTEST",
     "SENTIENTOS_ALLOW_NO_TESTS",
@@ -130,13 +140,74 @@ def _imports_ok() -> tuple[bool, str | None]:
     return True, None
 
 
-def _install_deps() -> bool:
+@dataclass(frozen=True)
+class BootstrapResult:
+    ok: bool
+    install_performed: bool
+    install_mode: str | None
+    attempted_modes: tuple[str, ...]
+    fallback_reason: str | None = None
+    failure_reason: str | None = None
+
+
+def _run_pip_install(args: list[str]) -> bool:
     proc = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-e", f".{INSTALL_EXTRAS}"],
+        [sys.executable, "-m", "pip", "install", *args],
         cwd=REPO_ROOT,
         check=False,
     )
+    if proc.returncode != 0:
+        print(f"run_tests dependency bootstrap failed: pip install {' '.join(args)} exited {proc.returncode}.")
     return proc.returncode == 0
+
+
+def _install_full_deps() -> bool:
+    return _run_pip_install(["-e", f".{INSTALL_EXTRAS}"])
+
+
+def _install_minimal_test_airlock_deps() -> bool:
+    if not _run_pip_install(["--no-deps", "-e", "."]):
+        return False
+    return _run_pip_install(list(MINIMAL_TEST_AIRLOCK_DEPS))
+
+
+def _bootstrap_missing_editable(run_intent: str) -> BootstrapResult:
+    if run_intent == "targeted":
+        ok = _install_minimal_test_airlock_deps()
+        return BootstrapResult(
+            ok=ok,
+            install_performed=True,
+            install_mode=INSTALL_MODE_TEST_AIRLOCK_MINIMAL if ok else None,
+            attempted_modes=(INSTALL_MODE_TEST_AIRLOCK_MINIMAL,),
+            failure_reason=None if ok else "minimal-test-airlock-install-failed",
+        )
+
+    if _install_full_deps():
+        return BootstrapResult(
+            ok=True,
+            install_performed=True,
+            install_mode=INSTALL_MODE_FULL,
+            attempted_modes=(INSTALL_MODE_FULL,),
+        )
+
+    fallback_reason = "full-install-failed"
+    if _install_minimal_test_airlock_deps():
+        return BootstrapResult(
+            ok=True,
+            install_performed=True,
+            install_mode=INSTALL_MODE_TEST_AIRLOCK_MINIMAL,
+            attempted_modes=(INSTALL_MODE_FULL, INSTALL_MODE_TEST_AIRLOCK_MINIMAL),
+            fallback_reason=fallback_reason,
+        )
+
+    return BootstrapResult(
+        ok=False,
+        install_performed=True,
+        install_mode=None,
+        attempted_modes=(INSTALL_MODE_FULL, INSTALL_MODE_TEST_AIRLOCK_MINIMAL),
+        fallback_reason=fallback_reason,
+        failure_reason="full-and-minimal-test-airlock-install-failed",
+    )
 
 
 def _emit_run_context(
@@ -146,15 +217,20 @@ def _emit_run_context(
     editable_ok: bool,
     repo_root: Path,
     bypass_env: str | None,
+    install_mode: str | None = None,
+    install_fallback_reason: str | None = None,
 ) -> None:
     joined_args = " ".join(pytest_args) if pytest_args else "(none)"
     context = [
         f"python={sys.executable}",
         f"install_performed={install_performed}",
         f"editable_ok={str(editable_ok).lower()}",
+        f"install_mode={install_mode or 'none'}",
         f"repo_root={repo_root}",
         f"pytest_args={joined_args}",
     ]
+    if install_fallback_reason:
+        context.append(f"install_fallback_reason={install_fallback_reason}")
     if bypass_env:
         context.append("bypass_env=SENTIENTOS_ALLOW_NAKED_PYTEST=1")
     print(
@@ -416,6 +492,9 @@ def _write_provenance(
     junitxml_path: Path | None,
     failure_report_path: Path | None,
     env: dict[str, str],
+    install_mode: str | None = None,
+    install_fallback_reason: str | None = None,
+    install_attempted_modes: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     run_dir = repo_root / "glow" / "test_runs"
     provenance_dir = run_dir / "provenance"
@@ -439,6 +518,9 @@ def _write_provenance(
         "bypass_env": bypass_env,
         "allow_nonexecution": allow_nonexecution,
         "install_performed": install_performed,
+        "install_mode": install_mode or "none",
+        "install_attempted_modes": list(install_attempted_modes or ()),
+        "install_fallback_reason": install_fallback_reason,
         "pytest_args": list(pytest_args),
         "run_intent": run_intent,
         "selection_flags": list(selection_flags),
@@ -517,7 +599,10 @@ def _write_provenance(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Install SentientOS dev/test deps (if needed) and run pytest.",
+        description=(
+            "Install SentientOS test dependencies (if needed) and run pytest. "
+            "Focused selections use a minimal test-airlock bootstrap to avoid broad optional runtime deps."
+        ),
     )
     parser.add_argument(
         "pytest_args",
@@ -543,10 +628,17 @@ def main(argv: list[str] | None = None) -> int:
     if allow_nonexecution:
         run_intent = "exceptional"
     install_performed = False
+    install_mode: str | None = None
+    install_fallback_reason: str | None = None
+    install_attempted_modes: tuple[str, ...] = ()
     editable_status = get_editable_install_status(REPO_ROOT)
     if not editable_status.ok:
-        install_performed = True
-        if not _install_deps():
+        bootstrap_result = _bootstrap_missing_editable(run_intent)
+        install_performed = bootstrap_result.install_performed
+        install_mode = bootstrap_result.install_mode
+        install_fallback_reason = bootstrap_result.fallback_reason
+        install_attempted_modes = bootstrap_result.attempted_modes
+        if not bootstrap_result.ok:
             _write_provenance(
                 repo_root=REPO_ROOT,
                 install_performed=install_performed,
@@ -580,6 +672,9 @@ def main(argv: list[str] | None = None) -> int:
                 junitxml_path=None,
                 failure_report_path=None,
                 env=env,
+                install_mode=install_mode,
+                install_fallback_reason=bootstrap_result.failure_reason or install_fallback_reason,
+                install_attempted_modes=install_attempted_modes,
             )
             _emit_run_context(
                 install_performed,
@@ -587,6 +682,8 @@ def main(argv: list[str] | None = None) -> int:
                 editable_ok=editable_status.ok,
                 repo_root=REPO_ROOT,
                 bypass_env="1" if bypass_env else None,
+                install_mode=install_mode,
+                install_fallback_reason=bootstrap_result.failure_reason or install_fallback_reason,
             )
             print(PRECHECK_MESSAGE)
             return 1
@@ -627,6 +724,9 @@ def main(argv: list[str] | None = None) -> int:
             junitxml_path=None,
             failure_report_path=None,
             env=env,
+            install_mode=install_mode,
+            install_fallback_reason=install_fallback_reason,
+            install_attempted_modes=install_attempted_modes,
         )
         _emit_run_context(
             install_performed,
@@ -634,6 +734,8 @@ def main(argv: list[str] | None = None) -> int:
             editable_ok=editable_status.ok,
             repo_root=REPO_ROOT,
             bypass_env="1" if bypass_env else None,
+            install_mode=install_mode,
+            install_fallback_reason=install_fallback_reason,
         )
         if import_error:
             print(f"run_tests import airlock failed: {import_error}")
@@ -646,6 +748,8 @@ def main(argv: list[str] | None = None) -> int:
         editable_ok=editable_status.ok,
         repo_root=REPO_ROOT,
         bypass_env="1" if bypass_env else None,
+        install_mode=install_mode,
+        install_fallback_reason=install_fallback_reason,
     )
     if allow_nonexecution:
         print(
@@ -686,6 +790,9 @@ def main(argv: list[str] | None = None) -> int:
             junitxml_path=None,
             failure_report_path=None,
             env=env,
+            install_mode=install_mode,
+            install_fallback_reason=install_fallback_reason,
+            install_attempted_modes=install_attempted_modes,
         )
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
         return 1
@@ -947,6 +1054,9 @@ def main(argv: list[str] | None = None) -> int:
         junitxml_path=junitxml_path if junitxml_path is not None and junitxml_path.exists() else None,
         failure_report_path=failure_report_path if failure_report_path is not None and failure_report_path.exists() else None,
         env=env,
+        install_mode=install_mode,
+        install_fallback_reason=install_fallback_reason,
+        install_attempted_modes=install_attempted_modes,
     )
     if failure_report_path is not None and failure_report_path.exists():
         try:
