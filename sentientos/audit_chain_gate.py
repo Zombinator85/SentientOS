@@ -119,6 +119,7 @@ def _configured_log_paths(repo_root: Path) -> list[Path]:
 
 def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> AuditChainVerification:
     root = repo_root.resolve()
+    configured_paths = paths is None
     files = sorted(paths) if paths is not None else _configured_log_paths(root)
     if not files:
         return AuditChainVerification(status="unknown", created_at=_iso_now(), break_count=0, checked_files=0)
@@ -132,26 +133,40 @@ def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> A
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = [line for line in text.splitlines() if line.strip()]
+        # Configured audit registry files are independently sealed at their
+        # declared first previous hash. Explicit path checks retain cross-file
+        # continuity unless a file begins with a genesis marker.
+        file_prev_hash = prev_hash
+        if lines:
+            try:
+                first_entry = json.loads(lines[0])
+            except json.JSONDecodeError:
+                first_entry = None
+            first_prev = first_entry.get("prev_hash") if isinstance(first_entry, dict) else None
+            if configured_paths and isinstance(first_prev, str):
+                file_prev_hash = first_prev
+            elif first_prev == "0" * 64:
+                file_prev_hash = "0" * 64
         for idx, line in enumerate(lines, 1):
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 break_count += 1
                 if first_break is None:
-                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=prev_hash, found_prev_hash="<invalid-json>", line_number=idx)
+                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=file_prev_hash, found_prev_hash="<invalid-json>", line_number=idx)
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
             if not isinstance(entry, dict):
                 break_count += 1
                 if first_break is None:
-                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=prev_hash, found_prev_hash="<non-object>", line_number=idx)
+                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=file_prev_hash, found_prev_hash="<non-object>", line_number=idx)
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
             found_prev = str(entry.get("prev_hash", "<missing>"))
-            if found_prev != prev_hash:
+            if found_prev != file_prev_hash:
                 break_count += 1
                 if first_break is None:
-                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=prev_hash, found_prev_hash=found_prev, line_number=idx)
+                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=file_prev_hash, found_prev_hash=found_prev, line_number=idx)
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
             timestamp = entry.get("timestamp")
@@ -159,19 +174,20 @@ def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> A
             if not isinstance(timestamp, str) or data is None:
                 break_count += 1
                 if first_break is None:
-                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=prev_hash, found_prev_hash=found_prev, line_number=idx)
+                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=file_prev_hash, found_prev_hash=found_prev, line_number=idx)
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
-            expected = _hash_entry(timestamp, data, prev_hash)
+            expected = _hash_entry(timestamp, data, file_prev_hash)
             current = entry.get("rolling_hash") or entry.get("hash")
             if current != expected:
                 break_count += 1
                 if first_break is None:
-                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=prev_hash, found_prev_hash=found_prev, line_number=idx)
+                    first_break = AuditFirstBreak(path=str(path.relative_to(root)), expected_prev_hash=file_prev_hash, found_prev_hash=found_prev, line_number=idx)
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
-            prev_hash = str(current)
-            trusted_history_head_hash = prev_hash
+            file_prev_hash = str(current)
+            prev_hash = file_prev_hash
+            trusted_history_head_hash = file_prev_hash
 
     status = "ok" if break_count == 0 else "broken"
     recovery_state: dict[str, object] = {

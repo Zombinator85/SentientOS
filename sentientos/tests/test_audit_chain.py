@@ -36,6 +36,37 @@ def test_verify_audit_chain_ok(tmp_path: Path, monkeypatch) -> None:  # type: ig
     assert status["bucket"] in {"healthy_strict", "healthy_reanchored"}
 
 
+def test_verify_audit_chain_accepts_independent_genesis_logs(tmp_path: Path) -> None:
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    first = _entry("2026-01-01T00:00:00Z", {"log": "first"}, "0" * 64)
+    second = _entry("2026-01-01T00:00:01Z", {"log": "second"}, "0" * 64)
+    first_path = tmp_path / "logs/a.jsonl"
+    second_path = tmp_path / "logs/b.jsonl"
+    first_path.write_text(json.dumps(first) + "\n", encoding="utf-8")
+    second_path.write_text(json.dumps(second) + "\n", encoding="utf-8")
+
+    result = verify_audit_chain(tmp_path, paths=[first_path, second_path])
+
+    assert result.status == "ok"
+    assert result.break_count == 0
+
+
+def test_verify_audit_chain_rejects_unanchored_non_genesis_file(tmp_path: Path) -> None:
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    first = _entry("2026-01-01T00:00:00Z", {"log": "first"}, "0" * 64)
+    unanchored = _entry("2026-01-01T00:00:01Z", {"log": "second"}, "f" * 64)
+    first_path = tmp_path / "logs/a.jsonl"
+    second_path = tmp_path / "logs/b.jsonl"
+    first_path.write_text(json.dumps(first) + "\n", encoding="utf-8")
+    second_path.write_text(json.dumps(unanchored) + "\n", encoding="utf-8")
+
+    result = verify_audit_chain(tmp_path, paths=[first_path, second_path])
+
+    assert result.status == "broken"
+    assert result.first_break is not None
+    assert result.first_break.path == "logs/b.jsonl"
+
+
 def test_verify_audit_chain_broken_has_first_break(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
     (tmp_path / "pulse/audit").mkdir(parents=True, exist_ok=True)
