@@ -422,3 +422,11 @@ Phase 100 preserves the prior runway invariants: Phase 99 attestation remains me
 Provider, LLM, and network calls remain forbidden. Credential/client/endpoint/socket/HTTP/provider-SDK use remains forbidden. Environment, file, config-store, DNS, vault, keychain, and cloud-secret access remains forbidden. Export, upload, email, webhook, storage, and file-write behavior remains forbidden. Semantic generation remains forbidden. Live `assemble_prompt(...)` behavior remains untouched. Memory retrieval/writes, embodiment runtime effects, action execution, retention, routing, admission, execution, and orchestration remain forbidden.
 
 This phase seals the provider-invocation denial runway as a release-blocker closure and sets up a later, separate public-surface or release-readiness track if desired.
+
+## Phase 101: Provider Invocation Denial Enforcement Snapshot
+
+Phase 101 consumes the Phase 100 closure manifest as metadata-only denial evidence and emits a deterministic enforcement snapshot. It is observational only: it does not invoke providers, register transports, use credentials, use endpoints, construct clients, import provider SDKs, perform network egress, export prompt text, grant runtime authority, modify `assemble_prompt(...)`, or perform export I/O.
+
+A clean Phase 101 snapshot keeps the repository release-blocked against real provider invocation. The clean status means the enforcement evidence remains internally consistent, not that invocation has been cleared. Sealed-with-conditions, missing evidence, digest mismatch, missing guardrail evidence, contradictory architecture classification, unblock/approval/clearance markers, sensitive markers, provider/network/export/runtime markers, prompt-text markers, and export destination markers all fail closed.
+
+Phase 101 exposes conservative predicate helpers for metadata-only, release-blocked, no-provider, no-network, no-export, no-prompt-text, no-secret, no-endpoint, no-client, no-runtime-authority, no-clearance, and no-unblock posture. Its blocker posture remains explicit for provider invocation, real transport registration, credentials, endpoints, clients, provider SDKs, network egress, prompt-text export, runtime authority, prompt assembler modification, and export I/O.
