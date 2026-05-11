@@ -1,4 +1,21 @@
 {
+  "admission": {
+    "action_kind": "generate_immutable_manifest",
+    "admission_decision_ref": "kernel_decision:manifest:vow/immutable_manifest.json",
+    "authority_class": "manifest_or_identity_mutation",
+    "canonical_handler": "scripts.generate_immutable_manifest.generate_manifest",
+    "canonical_router": "constitutional_mutation_router.v1",
+    "correlation_id": "manifest:vow/immutable_manifest.json",
+    "delegate_checks_consulted": [
+      "protected_mutation_intent",
+      "runtime_governor"
+    ],
+    "execution_owner": "operator_cli",
+    "final_disposition": "allow",
+    "lifecycle_phase": "maintenance",
+    "path_status": "canonical_router",
+    "typed_action_id": "sentientos.manifest.generate"
+  },
   "canonical_serialization": {
     "path_normalization": "posix_relative",
     "separators": [
@@ -7,19 +24,19 @@
     ],
     "sort_keys": true
   },
-  "captured_by": "14776c8d88bd610688d9031fcbd21e76efa94d1d",
+  "captured_by": "0f7a1f23bbaa907bcb3f53fc637aab28716dc0d4",
   "files": {
     "NEWLEGACY.txt": {
       "sha256": "67d689ea6797c72ea7326ad431a0f5f54a7804d79d0ab6fea7e85d53c787b9d5",
       "size": 73
     },
     "scripts/audit_immutability_verifier.py": {
-      "sha256": "a64278c63c6443ffb56b2a0b796a1ea18dda74ddb4e87d87ce21698e18de84fb",
-      "size": 9531
+      "sha256": "60bce11ce785cf7a8d1b73d2f4e282464e8dbabc91f3f4938018ce512e730118",
+      "size": 10517
     },
     "scripts/verify_audits.py": {
-      "sha256": "e1df1900aad97d581ed79d1ede9032799e4d89d4bb157c92aa0e74706d497d87",
-      "size": 19915
+      "sha256": "a11fd1a3227b8d7a39f5d37d9afe9272c0f4244cd7faa044cfa7aaf576231584",
+      "size": 24516
     },
     "vow/config.yaml": {
       "sha256": "52877f0eacc7013f98baabe1847aed6fe6fe1e602b70b1b6e9fd3bf1f58627a8",
@@ -35,7 +52,7 @@
     }
   },
   "generated_by": "scripts.generate_immutable_manifest",
-  "manifest_sha256": "db3f7a0957ca74fdcde27bde5556a4a4115c7a9824379b8ed5e49ed6c938b6ab",
+  "manifest_sha256": "28e03d2aa23263895f03495c501ed270e2b19fabf7a0c69a04b5b9d0800d6e95",
   "manifest_type": "sentientos_immutable",
   "schema_version": 1,
   "tool_version": "1"
