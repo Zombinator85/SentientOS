@@ -410,3 +410,15 @@ Accepted Phase 99 attestations cannot approve provider invocation, cannot send t
 Phase 99 also preserves the lower provider boundary invariants: Phase 90 registry remains null-only, Phase 91 real transport registration remains forbidden, Phase 92 credentials remain no-secret, Phase 93 endpoints remain no-endpoint, and Phase 94 clients remain no-client. Provider/LLM/network calls remain forbidden; credential/client/endpoint/socket/HTTP/provider-SDK use remains forbidden; environment, file, config-store, DNS, vault, keychain, and cloud-secret access remain forbidden; export/upload/email/webhook/storage/file-write behavior remains forbidden; semantic generation remains forbidden; live `assemble_prompt(...)` remains untouched; memory retrieval and writes remain forbidden; embodiment/action/retention/routing/admission/execution remain forbidden.
 
 Phase 99 is a prerequisite metadata-denial artifact for any future Phase 100 consolidation, release-blocker, or public-surface audit summary. Future consumers must treat it as denial evidence only, never as invocation or export authority.
+
+## Phase 100: Provider Invocation Denial Closure Manifest
+
+Phase 100 closes the provider-invocation denial runway by binding Phase 61 through Phase 99 context hygiene, prompt assembly, and provider-denial evidence into one deterministic metadata-only closure manifest. The closure manifest is not release approval, not invocation approval, and not export I/O.
+
+An accepted Phase 100 closure keeps provider invocation release-blocked. It requires future explicit phases before any real transport, credentials, endpoints, clients, network egress, prompt assembler modification, or provider invocation can be considered. Accepted closure cannot approve provider invocation and cannot perform external delivery, upload, email, webhook, file write, object storage, or network I/O.
+
+Phase 100 preserves the prior runway invariants: Phase 99 attestation remains metadata-only and non-invoking; Phase 98 receipt remains metadata-only and non-exporting; Phase 97 packet remains metadata-only and non-executable; Phase 96 denial review remains not invocation approval; Phase 95 clean metadata remains metadata-only and not invocable; Phase 90 registry remains null-only; Phase 91 real transport registration remains forbidden; Phase 92 credentials remain no-secret; Phase 93 endpoints remain no-endpoint; and Phase 94 clients remain no-client.
+
+Provider, LLM, and network calls remain forbidden. Credential/client/endpoint/socket/HTTP/provider-SDK use remains forbidden. Environment, file, config-store, DNS, vault, keychain, and cloud-secret access remains forbidden. Export, upload, email, webhook, storage, and file-write behavior remains forbidden. Semantic generation remains forbidden. Live `assemble_prompt(...)` behavior remains untouched. Memory retrieval/writes, embodiment runtime effects, action execution, retention, routing, admission, execution, and orchestration remain forbidden.
+
+This phase seals the provider-invocation denial runway as a release-blocker closure and sets up a later, separate public-surface or release-readiness track if desired.
