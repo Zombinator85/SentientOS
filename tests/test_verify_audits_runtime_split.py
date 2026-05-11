@@ -40,6 +40,23 @@ def test_runtime_events_do_not_flag_baseline_drift(tmp_path: Path, monkeypatch) 
     assert _hash(baseline) == baseline_before
 
 
+def test_safe_write_event_wraps_raw_runtime_events_as_chained_entries(tmp_path: Path, monkeypatch) -> None:
+    runtime_dir = tmp_path / "pulse" / "audit"
+    monkeypatch.setenv("SENTIENTOS_AUDIT_RUNTIME_DIR", str(runtime_dir))
+    cfg = resolve_audit_paths(tmp_path)
+
+    safe_write_event(cfg, {"timestamp": "2026-01-01T00:00:00Z", "tool": "cli", "command": "verify"})
+    safe_write_event(cfg, {"timestamp": "2026-01-01T00:00:01Z", "tool": "cli", "command": "verify-again"})
+
+    status = verify_audits._strict_privileged_status(cfg)
+
+    assert status["runtime_status"] == "ok"
+    rows = [json.loads(line) for line in cfg.runtime_path.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["prev_hash"] == "0" * 64
+    assert rows[1]["prev_hash"] == rows[0]["rolling_hash"]
+    assert rows[0]["data"]["tool"] == "cli"
+
+
 def test_show_paths_and_runtime_override(capsys, tmp_path: Path) -> None:
     runtime_dir = tmp_path / "audit"
     rc = verify_audits.main(["--strict", "--show-paths", "--runtime-dir", str(runtime_dir)])
@@ -48,6 +65,13 @@ def test_show_paths_and_runtime_override(capsys, tmp_path: Path) -> None:
     lines = [line for line in out.splitlines() if line.startswith("{")]
     payloads = [json.loads(line) for line in lines]
     assert any("runtime_path" in item for item in payloads)
+
+
+def test_verify_timestamp_parser_treats_naive_runtime_rows_as_utc() -> None:
+    parsed = verify_audits._parse_timestamp("2026-01-01T00:00:00")
+
+    assert parsed is not None
+    assert parsed.tzinfo is not None
 
 
 def test_strict_runtime_error_classification(tmp_path: Path, monkeypatch) -> None:
