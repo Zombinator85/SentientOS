@@ -1487,3 +1487,57 @@ __all__.extend(
         "validate_provider_invocation_denial_closure_manifest",
     ]
 )
+
+from sentientos.context_hygiene.prompt_provider_invocation_denial_enforcement import (
+    ProviderInvocationDenialBlockerPosture,
+    ProviderInvocationDenialEnforcementEvidence,
+    ProviderInvocationDenialEnforcementFinding,
+    ProviderInvocationDenialEnforcementSnapshot,
+    ProviderInvocationDenialEnforcementStatus,
+    build_provider_invocation_denial_enforcement_snapshot,
+    compute_provider_invocation_denial_enforcement_digest,
+    explain_provider_invocation_denial_enforcement_findings,
+    provider_invocation_denial_enforcement_blocks_release,
+    provider_invocation_denial_enforcement_contains_no_client,
+    provider_invocation_denial_enforcement_contains_no_endpoint,
+    provider_invocation_denial_enforcement_contains_no_export,
+    provider_invocation_denial_enforcement_contains_no_network,
+    provider_invocation_denial_enforcement_contains_no_prompt_text,
+    provider_invocation_denial_enforcement_contains_no_provider,
+    provider_invocation_denial_enforcement_contains_no_runtime_authority,
+    provider_invocation_denial_enforcement_contains_no_secret,
+    provider_invocation_denial_enforcement_grants_no_clearance,
+    provider_invocation_denial_enforcement_grants_no_unblock,
+    provider_invocation_denial_enforcement_is_metadata_only,
+    provider_invocation_denial_enforcement_ready,
+    summarize_provider_invocation_denial_enforcement_snapshot,
+    validate_provider_invocation_denial_enforcement_snapshot,
+)
+
+__all__.extend(
+    [
+        "ProviderInvocationDenialBlockerPosture",
+        "ProviderInvocationDenialEnforcementEvidence",
+        "ProviderInvocationDenialEnforcementFinding",
+        "ProviderInvocationDenialEnforcementSnapshot",
+        "ProviderInvocationDenialEnforcementStatus",
+        "build_provider_invocation_denial_enforcement_snapshot",
+        "compute_provider_invocation_denial_enforcement_digest",
+        "explain_provider_invocation_denial_enforcement_findings",
+        "provider_invocation_denial_enforcement_blocks_release",
+        "provider_invocation_denial_enforcement_contains_no_client",
+        "provider_invocation_denial_enforcement_contains_no_endpoint",
+        "provider_invocation_denial_enforcement_contains_no_export",
+        "provider_invocation_denial_enforcement_contains_no_network",
+        "provider_invocation_denial_enforcement_contains_no_prompt_text",
+        "provider_invocation_denial_enforcement_contains_no_provider",
+        "provider_invocation_denial_enforcement_contains_no_runtime_authority",
+        "provider_invocation_denial_enforcement_contains_no_secret",
+        "provider_invocation_denial_enforcement_grants_no_clearance",
+        "provider_invocation_denial_enforcement_grants_no_unblock",
+        "provider_invocation_denial_enforcement_is_metadata_only",
+        "provider_invocation_denial_enforcement_ready",
+        "summarize_provider_invocation_denial_enforcement_snapshot",
+        "validate_provider_invocation_denial_enforcement_snapshot",
+    ]
+)
