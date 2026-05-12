@@ -1,0 +1,186 @@
+# Public Technical Overview for Reviewers
+
+## SentientOS in one paragraph
+
+SentientOS is a deterministic governance-and-audit runtime for operator-directed AI automation. It can remember prior artifacts, retrieve bounded context, reflect on outcomes, propose improvements, rehearse changes, and participate in federation workflows, but authority is never implicit: changes move through explicit custody, policy, audit, immutability, and local-governance gates before adoption.
+
+## Purpose and non-purpose
+
+### What it is
+- A control-plane runtime for policy-gated automation (`sentientos/` and `scripts/` surfaces).
+- A deterministic workflow system with explicit audit and integrity verification.
+- A repository with verification tooling that treats evidence artifacts, state transitions, and governance checks as first-class outputs.
+
+### What it is not
+- Not autonomous authority: operators and local policy remain final authority.
+- Not implicit remote control: federation artifacts do not bypass local adoption gates.
+- Not a claim of self-executing provider invocation; prompt/provider boundaries are explicitly verified.
+
+## First reviewer path (short path)
+
+1. Read this document.
+2. Inspect control-plane and policy docs:
+   - `docs/control_plane_authority_map.md`
+   - `docs/STATE_MACHINE_PROPERTIES.md`
+   - `docs/RELEASE_READINESS_MODEL.md`
+3. Inspect core verification scripts:
+   - `scripts/verify_audits.py`
+   - `scripts/audit_immutability_verifier.py`
+   - `scripts/verify_context_hygiene_prompt_boundaries.py`
+4. Inspect representative tests:
+   - `tests/test_verify_audits_cli.py`
+   - `tests/test_federated_improvement_local_variant_artifact.py`
+   - `tests/test_run_tests_bootstrap_airlock.py`
+   - `tests/test_phase101_provider_invocation_denial_enforcement.py`
+5. Run the proof-map commands in this document and validate output artifacts under `glow/audits/`.
+6. Evaluate hard invariants below before considering any runtime or federation claim.
+
+## Core control-plane model
+
+At a high level, SentientOS separates:
+- **Admission** (what requests, artifacts, or proposals are accepted for evaluation),
+- **Policy and invariants** (what is allowed to proceed),
+- **Evidence and audit** (what must be recorded and verified), and
+- **Adoption** (what, if anything, becomes locally effective).
+
+This separation is reflected in dedicated verifier scripts, state and readiness docs, and tests that enforce deny-by-default behavior for restricted surfaces.
+
+## Authority classes (practical reading)
+
+- **Local operator authority:** final decision authority for local node behavior.
+- **Policy/invariant authority:** rule surfaces that gate progression (admission, readiness, adoption).
+- **Evidence authority (non-execution):** artifacts can prove history/lineage/readiness but do not execute themselves.
+- **Federation input authority (bounded):** remote evidence can be received and compared, but cannot force local adoption.
+
+## Audit + immutability spine
+
+The repo includes explicit audit and immutability verification tooling:
+- Audit chain verification (`scripts/verify_audits.py`, `scripts/verify_audits`).
+- Immutability checks (`scripts/audit_immutability_verifier.py`).
+- Corridor checks that compose integrity gates (`scripts/protected_corridor.py`).
+
+The operational posture is fail-closed: unresolved audit/integrity issues are treated as blocking conditions for trusted progression.
+
+## Request/admission lifecycle (reviewer view)
+
+Typical request/proposal flow is:
+1. Intake (artifact/request received).
+2. Validation and policy checks.
+3. Evidence recording (audit trails, manifests, receipts).
+4. Readiness/rehearsal evaluation where applicable.
+5. Separate adoption decision under local governance.
+
+Important distinction: readiness/rehearsal outputs are support evidence, not automatic execution authority.
+
+## Degradation and quarantine behavior
+
+When integrity or policy checks fail, the runtime uses degraded/quarantine handling patterns rather than silently continuing. Reviewers can inspect:
+- Quarantine-oriented handling in `scripts/verify_audits.py` and `scripts/apply_audit_repairs.py`.
+- Quarantine/degraded tests such as `tests/test_audit_doctor.py`, `tests/test_contract_sentinel.py`, and `tests/test_cathedral_review.py`.
+
+## Memory, context, and reflection loop boundaries
+
+SentientOS contains memory/context and reflection-style surfaces, but with bounded usage and explicit policy checks. Context hygiene and prompt-boundary enforcement are verified by:
+- `scripts/verify_context_hygiene_prompt_boundaries.py`
+- phase tests such as `tests/test_phase95_provider_invocation_readiness_manifest.py`, `tests/test_phase97_external_security_review_packet.py`, and `tests/test_phase101_provider_invocation_denial_enforcement.py`
+
+Memory/context selection improves retrieval quality; it is not treated as truth authority by itself.
+
+## GenesisForge/Codex self-amendment loop (governed)
+
+Self-amendment/proposal workflows are represented as governed proposal and review components (for example, status/reporting and review/quarantine paths). Review targets include:
+- `scripts/forge_status.py`
+- `scripts/work_plan_build.py`
+- `scripts/work_plan_run.py`
+- tests covering amendment interception/quarantine behavior (`tests/test_amendment_sentinel.py`, `tests/test_codex_anomalies.py`, `tests/test_codex_rewrites.py`)
+
+Interpretation boundary: proposal generation, simulation, or repair evidence is not equivalent to local adoption authority.
+
+## Embodiment boundaries
+
+Embodied/adapter telemetry exists as optional integration surface. Public reviewer posture:
+- Embodiment integrations are non-core adapters.
+- Telemetry is non-authoritative by default.
+- Deterministic governance/audit core does not depend on a specific embodiment runtime.
+
+See `docs/EMBODIED_PIPELINE.md` for adapter context while treating control-plane gates as authoritative.
+
+## Federation and local sovereignty model
+
+SentientOS supports sovereign multi-node coordination where evidence may be exchanged and compared. Local node governance remains authoritative for adoption. Federation-specific artifacts and tests should be read as custody and lineage controls, not forced execution channels.
+
+## Federated self-improvement custody runway (metadata-only)
+
+Current runway terms are best interpreted as custody metadata stages:
+- **Candidate evidence:** candidate improvement artifacts with supporting proof.
+- **Intake receipt:** acknowledgement that evidence entered local review.
+- **Custody runway:** tracked progression state for local evaluation.
+- **Local variant:** locally materialized evaluation variant for comparison.
+- **Lineage comparison:** provenance and divergence assessment.
+- **Dissemination receipt:** record that metadata/receipt was shared.
+
+These artifacts are **not** transport execution, **not** adoption, and **not** runtime authority by themselves.
+
+## Installer and test-runner reliability posture
+
+Reviewer-facing reliability posture:
+- Canonical test entrypoint is `python -m scripts.run_tests`.
+- Bootstrap/airlock behavior is covered by `tests/test_run_tests_bootstrap_airlock.py`.
+- Audit and immutability checks are first-class pre-merge expectations in repository guidance.
+
+## Hard invariants
+
+- Local operator authority is not overridden by federation.
+- Remote nodes cannot force adoption.
+- Improvement evidence is not execution authority.
+- Rehearsal is not adoption.
+- Readiness is not adoption.
+- Dissemination is not transport execution.
+- Embodiment telemetry is non-authoritative by default.
+- Memory/context selection is not truth authority.
+- Prompt/provider invocation remains gated or blocked according to current phase posture and boundary checks.
+- Audit/immutability failures fail closed.
+
+## Translation layer (internal terms -> engineering terms)
+
+- **Cathedral** -> governed runtime / control plane
+- **Covenant** -> invariant policy set
+- **Ritual** -> auditable workflow
+- **Vow** -> immutable or protected commitment artifact
+- **Glow** -> audit/provenance output
+- **Federation** -> sovereign multi-node coordination
+- **GenesisForge** -> governed capability proposal pipeline
+- **CodexHealer / SpecAmender** -> repair/amendment workflow components
+
+For broader internal language mapping, see `docs/PUBLIC_LANGUAGE_BRIDGE.md`.
+
+## Proof map (commands and tests)
+
+Run from repository root:
+
+```bash
+# Audit verifier
+python scripts/verify_audits.py --strict
+
+# Immutability verifier
+python scripts/audit_immutability_verifier.py
+
+# Prompt-boundary verifier
+python scripts/verify_context_hygiene_prompt_boundaries.py
+
+# Federation improvement coverage
+python -m scripts.run_tests -q tests/test_federated_improvement_local_variant_artifact.py
+
+# Context-hygiene phase coverage
+python -m scripts.run_tests -q tests/test_phase95_provider_invocation_readiness_manifest.py tests/test_phase97_external_security_review_packet.py tests/test_phase101_provider_invocation_denial_enforcement.py
+
+# Test-runner bootstrap reliability
+python -m scripts.run_tests -q tests/test_run_tests_bootstrap_airlock.py
+```
+
+## Internal language / cultural layer
+
+Internal and legacy cultural documentation remains available and is not removed by this overview. Reviewers who need term mapping should start with:
+- `docs/PUBLIC_LANGUAGE_BRIDGE.md`
+- `docs/enter_cathedral.md`
+- `AGENTS.md` (repository governance ledger)
