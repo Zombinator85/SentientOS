@@ -19,6 +19,25 @@ from .improvement_candidate import (
     summarize_federated_improvement_candidate,
     validate_federated_improvement_candidate,
 )
+from .improvement_intake_receipt import (
+    FederatedImprovementIntakeDecision,
+    FederatedImprovementIntakeReceipt,
+    FederatedImprovementIntakeStatus,
+    FederatedImprovementIntakeValidation,
+    INTAKE_DECISIONS,
+    INTAKE_STATUSES,
+    build_federated_improvement_intake_receipt,
+    compute_federated_improvement_intake_receipt_digest,
+    explain_federated_improvement_intake_receipt,
+    federated_improvement_intake_receipt_allows_adaptation,
+    federated_improvement_intake_receipt_allows_inspection,
+    federated_improvement_intake_receipt_allows_rehearsal,
+    federated_improvement_intake_receipt_has_no_remote_authority,
+    federated_improvement_intake_receipt_is_metadata_only,
+    federated_improvement_intake_receipt_preserves_local_custody,
+    summarize_federated_improvement_intake_receipt,
+    validate_federated_improvement_intake_receipt,
+)
 from .consensus_sentinel import FederationConsensusSentinel
 from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
@@ -104,4 +123,21 @@ __all__ = [
     "federated_improvement_candidate_ready_for_receipt_inspection",
     "summarize_federated_improvement_candidate",
     "validate_federated_improvement_candidate",
+    "FederatedImprovementIntakeDecision",
+    "FederatedImprovementIntakeReceipt",
+    "FederatedImprovementIntakeStatus",
+    "FederatedImprovementIntakeValidation",
+    "INTAKE_DECISIONS",
+    "INTAKE_STATUSES",
+    "build_federated_improvement_intake_receipt",
+    "compute_federated_improvement_intake_receipt_digest",
+    "explain_federated_improvement_intake_receipt",
+    "federated_improvement_intake_receipt_allows_adaptation",
+    "federated_improvement_intake_receipt_allows_inspection",
+    "federated_improvement_intake_receipt_allows_rehearsal",
+    "federated_improvement_intake_receipt_has_no_remote_authority",
+    "federated_improvement_intake_receipt_is_metadata_only",
+    "federated_improvement_intake_receipt_preserves_local_custody",
+    "summarize_federated_improvement_intake_receipt",
+    "validate_federated_improvement_intake_receipt",
 ]
