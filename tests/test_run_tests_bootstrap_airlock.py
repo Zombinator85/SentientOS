@@ -73,6 +73,15 @@ def test_targeted_missing_editable_uses_minimal_airlock_without_broad_deps(monke
         [run_tests.sys.executable, "-m", "pip", "install", "--no-deps", "-e", "."],
         [run_tests.sys.executable, "-m", "pip", "install", *run_tests.MINIMAL_TEST_AIRLOCK_DEPS],
     ]
+    assert pip_commands[0][-3:] == ["--no-deps", "-e", "."]
+    assert set(pip_commands[1][4:]) == set(run_tests.MINIMAL_TEST_AIRLOCK_DEPS)
+    assert {
+        "pytest>=7,<8",
+        "pytest-cov",
+        "fastapi>=0.110,<1",
+        "starlette>=0.37,<1",
+        "httpx>=0.27,<1",
+    } <= set(pip_commands[1])
     assert all(f".{run_tests.INSTALL_EXTRAS}" not in part for command in pip_commands for part in command)
     payload = json.loads(
         (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
@@ -204,6 +213,8 @@ def test_actual_pytest_failures_still_fail_as_pytest_failures(monkeypatch, tmp_p
     assert payload["exit_reason"] == "pytest-failed"
     assert payload["tests_failed"] == 1
     assert payload["metrics_status"] == "ok"
+    assert payload["install_mode"] == "none"
+    assert payload["install_fallback_reason"] is None
 
 
 def test_bootstrap_failure_is_distinct_from_test_failure(monkeypatch, tmp_path):
@@ -229,8 +240,12 @@ def test_bootstrap_failure_is_distinct_from_test_failure(monkeypatch, tmp_path):
         (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
     )
     assert payload["exit_reason"] == "install-failed"
+    assert payload["exit_reason"] != "pytest-failed"
     assert payload["metrics_status"] == "unavailable"
+    assert "pytest_exit_code" not in payload
     assert payload["tests_failed"] == 0
+    assert payload["install_mode"] == "none"
+    assert payload["install_attempted_modes"] == [run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL]
     assert payload["install_fallback_reason"] == "minimal-test-airlock-install-failed"
 
 
