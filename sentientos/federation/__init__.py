@@ -71,6 +71,22 @@ from .improvement_custody_runway import (
     validate_federated_improvement_rehearsal_authorization,
     validate_federated_improvement_rehearsal_result,
 )
+from .improvement_local_variant_artifact import (
+    FederatedImprovementLocalVariantArtifact,
+    FederatedImprovementVariantKind,
+    FederatedImprovementVariantStatus,
+    FederatedImprovementVariantValidation,
+    VARIANT_KINDS,
+    VARIANT_STATUSES,
+    build_federated_improvement_local_variant_artifact,
+    compute_federated_improvement_local_variant_artifact_digest,
+    explain_federated_improvement_local_variant_artifact,
+    federated_improvement_local_variant_artifact_has_no_remote_authority,
+    federated_improvement_local_variant_artifact_is_conservative_evidence_only,
+    federated_improvement_local_variant_artifact_is_metadata_only,
+    summarize_federated_improvement_local_variant_artifact,
+    validate_federated_improvement_local_variant_artifact,
+)
 from .consensus_sentinel import FederationConsensusSentinel
 from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
@@ -204,4 +220,18 @@ __all__ = [
     "federated_improvement_rehearsal_result_is_metadata_only",
     "federated_improvement_local_review_receipt_is_metadata_only",
     "federated_improvement_adoption_readiness_manifest_is_metadata_only",
+    "FederatedImprovementLocalVariantArtifact",
+    "FederatedImprovementVariantKind",
+    "FederatedImprovementVariantStatus",
+    "FederatedImprovementVariantValidation",
+    "VARIANT_KINDS",
+    "VARIANT_STATUSES",
+    "build_federated_improvement_local_variant_artifact",
+    "compute_federated_improvement_local_variant_artifact_digest",
+    "explain_federated_improvement_local_variant_artifact",
+    "federated_improvement_local_variant_artifact_has_no_remote_authority",
+    "federated_improvement_local_variant_artifact_is_conservative_evidence_only",
+    "federated_improvement_local_variant_artifact_is_metadata_only",
+    "summarize_federated_improvement_local_variant_artifact",
+    "validate_federated_improvement_local_variant_artifact",
 ]
