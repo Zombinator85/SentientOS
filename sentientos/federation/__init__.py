@@ -87,6 +87,22 @@ from .improvement_local_variant_artifact import (
     summarize_federated_improvement_local_variant_artifact,
     validate_federated_improvement_local_variant_artifact,
 )
+from .improvement_lineage_comparison_receipt import (
+    FederatedImprovementLineageComparisonDimension,
+    FederatedImprovementLineageComparisonReceipt,
+    FederatedImprovementLineageComparisonStatus,
+    LINEAGE_COMPARISON_DIMENSIONS,
+    LINEAGE_COMPARISON_STATUSES,
+    LineageComparisonValidation,
+    build_federated_improvement_lineage_comparison_receipt,
+    compute_federated_improvement_lineage_comparison_receipt_digest,
+    explain_federated_improvement_lineage_comparison_receipt,
+    federated_improvement_lineage_comparison_receipt_is_conservative,
+    federated_improvement_lineage_comparison_receipt_is_metadata_only,
+    not_adopted_lineage_comparison_only,
+    summarize_federated_improvement_lineage_comparison_receipt,
+    validate_federated_improvement_lineage_comparison_receipt,
+)
 from .consensus_sentinel import FederationConsensusSentinel
 from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
@@ -234,4 +250,18 @@ __all__ = [
     "federated_improvement_local_variant_artifact_is_metadata_only",
     "summarize_federated_improvement_local_variant_artifact",
     "validate_federated_improvement_local_variant_artifact",
+    "FederatedImprovementLineageComparisonDimension",
+    "FederatedImprovementLineageComparisonReceipt",
+    "FederatedImprovementLineageComparisonStatus",
+    "LINEAGE_COMPARISON_DIMENSIONS",
+    "LINEAGE_COMPARISON_STATUSES",
+    "LineageComparisonValidation",
+    "build_federated_improvement_lineage_comparison_receipt",
+    "compute_federated_improvement_lineage_comparison_receipt_digest",
+    "explain_federated_improvement_lineage_comparison_receipt",
+    "federated_improvement_lineage_comparison_receipt_is_conservative",
+    "federated_improvement_lineage_comparison_receipt_is_metadata_only",
+    "not_adopted_lineage_comparison_only",
+    "summarize_federated_improvement_lineage_comparison_receipt",
+    "validate_federated_improvement_lineage_comparison_receipt",
 ]
