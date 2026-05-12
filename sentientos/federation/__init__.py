@@ -2,6 +2,23 @@
 
 from .identity import NodeId
 from .federation_digest import FederationDigest
+from .improvement_candidate import (
+    CandidateTestEvidence,
+    CandidateValidation,
+    CANDIDATE_KINDS,
+    CANDIDATE_STATUSES,
+    FederatedImprovementCandidate,
+    FederatedImprovementCandidateKind,
+    FederatedImprovementCandidateStatus,
+    compute_federated_improvement_candidate_digest,
+    explain_federated_improvement_candidate,
+    federated_improvement_candidate_has_no_remote_authority,
+    federated_improvement_candidate_is_metadata_only,
+    federated_improvement_candidate_is_transmissible_evidence_only,
+    federated_improvement_candidate_ready_for_receipt_inspection,
+    summarize_federated_improvement_candidate,
+    validate_federated_improvement_candidate,
+)
 from .consensus_sentinel import FederationConsensusSentinel
 from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
@@ -72,4 +89,19 @@ __all__ = [
     "FederationConsensusSentinel",
     "ConcordDaemon",
     "PeerSnapshot",
+    "CandidateTestEvidence",
+    "CandidateValidation",
+    "CANDIDATE_KINDS",
+    "CANDIDATE_STATUSES",
+    "FederatedImprovementCandidate",
+    "FederatedImprovementCandidateKind",
+    "FederatedImprovementCandidateStatus",
+    "compute_federated_improvement_candidate_digest",
+    "explain_federated_improvement_candidate",
+    "federated_improvement_candidate_has_no_remote_authority",
+    "federated_improvement_candidate_is_metadata_only",
+    "federated_improvement_candidate_is_transmissible_evidence_only",
+    "federated_improvement_candidate_ready_for_receipt_inspection",
+    "summarize_federated_improvement_candidate",
+    "validate_federated_improvement_candidate",
 ]
