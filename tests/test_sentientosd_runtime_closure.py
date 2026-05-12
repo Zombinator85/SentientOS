@@ -246,8 +246,12 @@ def test_governor_denial_prevents_daemon_loop_side_effects(tmp_path: Path) -> No
     assert surfaces.cycle_calls == 0
     assert surfaces.guard_calls == 0
     assert surfaces.monitor_calls == 0
-    assert forge.calls == 1
-    assert merge.calls == 1
+    assert forge.calls == 0
+    assert merge.calls == 0
+
+    rows = [json.loads(line) for line in (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(row.get("action_kind") == "forge_tick" and row.get("final_disposition") == "deny" for row in rows)
+    assert any(row.get("action_kind") == "merge_tick" and row.get("final_disposition") == "deny" for row in rows)
 
 
 def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp_path: Path, monkeypatch) -> None:
