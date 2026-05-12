@@ -103,6 +103,22 @@ from .improvement_lineage_comparison_receipt import (
     summarize_federated_improvement_lineage_comparison_receipt,
     validate_federated_improvement_lineage_comparison_receipt,
 )
+from .improvement_dissemination_receipt import (
+    DISSEMINATION_SCOPES,
+    DISSEMINATION_STATUSES,
+    FederatedImprovementDisseminationReceipt,
+    FederatedImprovementDisseminationScope,
+    FederatedImprovementDisseminationStatus,
+    FederatedImprovementDisseminationValidation,
+    build_federated_improvement_dissemination_receipt,
+    compute_federated_improvement_dissemination_receipt_digest,
+    explain_federated_improvement_dissemination_receipt,
+    federated_improvement_dissemination_receipt_is_catalogable,
+    federated_improvement_dissemination_receipt_is_metadata_only,
+    federated_improvement_dissemination_receipt_preserves_sovereignty,
+    summarize_federated_improvement_dissemination_receipt,
+    validate_federated_improvement_dissemination_receipt,
+)
 from .consensus_sentinel import FederationConsensusSentinel
 from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
@@ -264,4 +280,18 @@ __all__ = [
     "not_adopted_lineage_comparison_only",
     "summarize_federated_improvement_lineage_comparison_receipt",
     "validate_federated_improvement_lineage_comparison_receipt",
+    "DISSEMINATION_SCOPES",
+    "DISSEMINATION_STATUSES",
+    "FederatedImprovementDisseminationReceipt",
+    "FederatedImprovementDisseminationScope",
+    "FederatedImprovementDisseminationStatus",
+    "FederatedImprovementDisseminationValidation",
+    "build_federated_improvement_dissemination_receipt",
+    "compute_federated_improvement_dissemination_receipt_digest",
+    "explain_federated_improvement_dissemination_receipt",
+    "federated_improvement_dissemination_receipt_is_catalogable",
+    "federated_improvement_dissemination_receipt_is_metadata_only",
+    "federated_improvement_dissemination_receipt_preserves_sovereignty",
+    "summarize_federated_improvement_dissemination_receipt",
+    "validate_federated_improvement_dissemination_receipt",
 ]
