@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,6 +91,205 @@ class FederationTrustLedger:
         self._probe_plan_storm_limit = self._env_int("SENTIENTOS_TRUST_PROBE_PLAN_STORM_LIMIT", 1)
         self._peer_state: dict[str, dict[str, object]] = {}
         self._events: list[dict[str, object]] = []
+        self._schema_version = 1
+        self._recovery_status: dict[str, object] = {
+            "schema_version": self._schema_version,
+            "recovered_from_state": False,
+            "recovered_from_events": False,
+            "recovery_degraded": False,
+            "recovery_findings": [],
+        }
+        self._recover()
+
+    def _record_finding(self, finding: str) -> None:
+        findings = self._recovery_status.get("recovery_findings")
+        if not isinstance(findings, list):
+            findings = []
+            self._recovery_status["recovery_findings"] = findings
+        findings.append(finding)
+        self._recovery_status["recovery_degraded"] = True
+
+    def _recover(self) -> None:
+        state_path = self._federation_root / "trust_ledger_state.json"
+        events_path = self._federation_root / "trust_ledger_events.jsonl"
+        state_ok = self._recover_from_state(state_path)
+        if not state_ok:
+            self._recover_from_events(events_path)
+            if not state_path.exists() and not events_path.exists():
+                self._record_finding("recovery_genesis_empty")
+
+    def _recover_from_state(self, path: Path) -> bool:
+        if not path.exists():
+            self._record_finding("state_missing")
+            return False
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            self._record_finding("state_unreadable_or_invalid_json")
+            return False
+        if not isinstance(payload, Mapping):
+            self._record_finding("state_invalid_shape")
+            return False
+        if _as_int(payload.get("schema_version"), -1) != self._schema_version:
+            self._record_finding("state_schema_mismatch")
+            return False
+        rows = payload.get("peer_states")
+        if not isinstance(rows, list):
+            self._record_finding("state_peer_states_missing")
+            return False
+        loaded: dict[str, dict[str, object]] = {}
+        for row in rows:
+            if not isinstance(row, Mapping):
+                self._record_finding("state_peer_row_invalid")
+                continue
+            peer_id = str(row.get("peer_id") or "").strip()
+            if not peer_id:
+                self._record_finding("state_peer_missing_id")
+                continue
+            state = self._ensure_peer(peer_id)
+            for key in (
+                "divergence_events",
+                "epoch_mismatch_events",
+                "digest_mismatch_events",
+                "quorum_success_events",
+                "quorum_failure_events",
+                "replay_events",
+                "control_denied_events",
+            ):
+                state[key] = max(0, _as_int(row.get(key), 0))
+            state["last_probe_status"] = str(row.get("last_probe_status") or "never")
+            lpa = row.get("last_probe_at")
+            state["last_probe_at"] = str(lpa) if isinstance(lpa, str) else None
+            state["probe_history"] = _probe_history_from(row.get("probe_history"))
+            self._refresh_state(state)
+            loaded[peer_id] = state
+        self._peer_state = loaded
+        self._recovery_status["recovered_from_state"] = True
+        self._detect_state_event_contradictions(path.parent / "trust_ledger_events.jsonl")
+        return True
+
+    def _detect_state_event_contradictions(self, events_path: Path) -> None:
+        if not events_path.exists():
+            return
+        latest: dict[str, str] = {}
+        try:
+            lines = events_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            self._record_finding("events_unreadable_for_contradiction_check")
+            return
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, Mapping):
+                continue
+            peer_id = str(event.get("peer_id") or "").strip()
+            trust_state = str(event.get("trust_state") or "").strip()
+            if peer_id and trust_state:
+                latest[peer_id] = trust_state
+        for peer_id, logged_state in latest.items():
+            current = self._snapshot_for(peer_id).trust_state
+            if current != logged_state:
+                self._record_finding(f"state_event_contradiction:{peer_id}:{logged_state}!={current}")
+
+    def _apply_event(self, event: Mapping[str, object]) -> bool:
+        event_type = str(event.get("event") or "")
+        peer_id = str(event.get("peer_id") or "").strip()
+        if event_type != "probe_schedule" and not peer_id:
+            self._record_finding("event_missing_peer_id")
+            return False
+        if event_type == "probe":
+            status = str(event.get("status") or "warn")
+            state = self._ensure_peer(peer_id)
+            history = _probe_history_from(state.get("probe_history"))
+            history[status if status in history else "warn"] += 1
+            state["probe_history"] = history
+            if status == "fail":
+                self._bounded_increment(state, "divergence_events")
+            elif status == "warn":
+                self._bounded_increment(state, "quorum_failure_events")
+            self._refresh_state(state)
+            return True
+        if event_type == "governance_evaluation":
+            state = self._ensure_peer(peer_id)
+            if str(event.get("digest_status") or "") in {"missing", "incompatible"}:
+                self._bounded_increment(state, "digest_mismatch_events")
+            if str(event.get("epoch_status") or "") == "unexpected":
+                self._bounded_increment(state, "epoch_mismatch_events")
+            denial = str(event.get("denial_cause") or "")
+            if denial == "quorum_failure" or not bool(event.get("quorum_satisfied", False)):
+                self._bounded_increment(state, "quorum_failure_events")
+            if bool(event.get("quorum_satisfied", False)) and denial == "none":
+                self._bounded_increment(state, "quorum_success_events")
+            if denial in {"digest_mismatch", "trust_epoch"}:
+                self._bounded_increment(state, "divergence_events")
+            self._refresh_state(state)
+            return True
+        if event_type == "epoch_classification":
+            state = self._ensure_peer(peer_id)
+            if str(event.get("classification") or "") in {"revoked_epoch", "unknown_epoch", "invalid_signature"}:
+                self._bounded_increment(state, "epoch_mismatch_events")
+                self._bounded_increment(state, "divergence_events")
+            self._refresh_state(state)
+            return True
+        if event_type == "replay_duplicate":
+            state = self._ensure_peer(peer_id)
+            self._bounded_increment(state, "replay_events")
+            self._refresh_state(state)
+            return True
+        if event_type == "control_attempt":
+            state = self._ensure_peer(peer_id)
+            if not bool(event.get("allowed", False)):
+                self._bounded_increment(state, "control_denied_events")
+            self._refresh_state(state)
+            return True
+        if event_type == "probe_schedule":
+            return True
+        self._record_finding(f"unknown_event_type:{event_type or 'missing'}")
+        return False
+
+    def _recover_from_events(self, path: Path) -> bool:
+        if not path.exists():
+            self._record_finding("events_missing")
+            return False
+        rebuilt: dict[str, dict[str, object]] = {}
+        events: list[dict[str, object]] = []
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            self._record_finding("events_unreadable")
+            return False
+        for idx, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError:
+                self._record_finding(f"event_invalid_json_line:{idx}")
+                continue
+            if not isinstance(parsed, Mapping):
+                self._record_finding(f"event_invalid_shape_line:{idx}")
+                continue
+            events.append(dict(parsed))
+            self._apply_event(parsed)
+            rebuilt = self._peer_state
+        self._peer_state = rebuilt
+        self._events = events[-self._event_log_limit :]
+        self._recovery_status["recovered_from_events"] = True
+        return True
+
+    def recovery_status(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "schema_version": self._schema_version,
+                "recovered_from_state": bool(self._recovery_status.get("recovered_from_state", False)),
+                "recovered_from_events": bool(self._recovery_status.get("recovered_from_events", False)),
+                "recovery_degraded": bool(self._recovery_status.get("recovery_degraded", False)),
+                "recovery_findings": [str(item) for item in self._recovery_status.get("recovery_findings", []) if isinstance(item, str)],
+            }
 
     @staticmethod
     def _env_int(name: str, default: int) -> int:
@@ -454,10 +654,24 @@ class FederationTrustLedger:
         }
         for root in (self._governor_root, self._federation_root):
             root.mkdir(parents=True, exist_ok=True)
-            (root / "trust_ledger_state.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            with (root / "trust_ledger_events.jsonl").open("w", encoding="utf-8") as handle:
-                for entry in self._events[-self._event_log_limit :]:
-                    handle.write(json.dumps(entry, sort_keys=True) + "\n")
+            self._atomic_write_text(root / "trust_ledger_state.json", json.dumps(payload, indent=2, sort_keys=True) + "\n")
+            event_payload = "".join(json.dumps(entry, sort_keys=True) + "\n" for entry in self._events[-self._event_log_limit :])
+            self._atomic_write_text(root / "trust_ledger_events.jsonl", event_payload)
+
+    @staticmethod
+    def _atomic_write_text(path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_path, path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
 
 
 _LEDGER = FederationTrustLedger()
