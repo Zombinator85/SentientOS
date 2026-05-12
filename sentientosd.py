@@ -182,12 +182,34 @@ def _run_maintenance_tick(
         ),
         execute=runtime_surfaces.monitor,
     )
-    kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     # Sentinel runs after integrity guard so contract artifacts are trustworthy, before forge daemon so queued repairs execute same tick.
     if os.getenv("SENTIENTOS_SENTINEL_ENABLED", "0") == "1":
         contract_sentinel.tick()
-    forge_daemon.run_tick()
-    merge_train.tick()
+    feedback = runtime_surfaces.governance_feedback()
+    kernel.admit_and_execute(
+        ControlActionRequest(
+            action_kind="forge_tick",
+            authority_class=AuthorityClass.REPAIR,
+            actor="sentientosd",
+            target_subsystem="forge_daemon",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:forge_tick"},
+        ),
+        execute=forge_daemon.run_tick,
+    )
+    feedback = runtime_surfaces.governance_feedback()
+    kernel.admit_and_execute(
+        ControlActionRequest(
+            action_kind="merge_tick",
+            authority_class=AuthorityClass.REPAIR,
+            actor="sentientosd",
+            target_subsystem="forge_merge_train",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:merge_tick"},
+        ),
+        execute=merge_train.tick,
+    )
+    kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
     plan = runtime_surfaces.next_commit()
     if plan:
