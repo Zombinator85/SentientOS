@@ -134,3 +134,71 @@ def test_artifacts_are_bounded_and_deterministic_rollup(monkeypatch, tmp_path) -
     assert event_path.exists()
     lines = event_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) <= 5
+
+
+def test_probe_schedule_prioritization_ordering(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_TRUST_PROBE_PLAN_LIMIT", "10")
+    reset_trust_ledger()
+    ledger = get_trust_ledger()
+
+    for _ in range(3):
+        ledger.record_probe("watch-high-div", status="fail", actor="test", reason="divergence")
+    for _ in range(1):
+        ledger.record_probe("watch-low-div", status="fail", actor="test", reason="divergence")
+
+    for _ in range(2):
+        ledger.record_governance_evaluation(
+            "epoch-high",
+            {"digest_status": "ok", "epoch_status": "unexpected", "quorum_satisfied": True, "denial_cause": "none"},
+            actor="test",
+        )
+    ledger.record_governance_evaluation(
+        "epoch-low",
+        {"digest_status": "ok", "epoch_status": "unexpected", "quorum_satisfied": True, "denial_cause": "none"},
+        actor="test",
+    )
+
+    ledger.record_governance_evaluation(
+        "digest-high",
+        {"digest_status": "incompatible", "epoch_status": "expected", "quorum_satisfied": True, "denial_cause": "none"},
+        actor="test",
+    )
+    ledger.record_governance_evaluation(
+        "digest-high",
+        {"digest_status": "incompatible", "epoch_status": "expected", "quorum_satisfied": True, "denial_cause": "none"},
+        actor="test",
+    )
+    ledger.record_governance_evaluation(
+        "digest-low",
+        {"digest_status": "incompatible", "epoch_status": "expected", "quorum_satisfied": True, "denial_cause": "none"},
+        actor="test",
+    )
+
+    for peer in ("alpha", "beta"):
+        ledger.record_probe(peer, status="ok", actor="test", reason="tie-break")
+
+    schedule = ledger.build_probe_schedule(
+        peer_ids=[
+            "watch-high-div",
+            "watch-low-div",
+            "epoch-high",
+            "epoch-low",
+            "digest-high",
+            "digest-low",
+            "alpha",
+            "beta",
+        ],
+        pressure_composite=0.2,
+        scheduling_window_open=True,
+        storm_active=False,
+    )
+    ordered = [entry["peer_id"] for entry in schedule["pending_actions"]]
+
+    assert ordered.index("watch-high-div") < ordered.index("watch-low-div")
+    assert ordered.index("epoch-high") < ordered.index("epoch-low")
+    assert ordered.index("digest-high") < ordered.index("digest-low")
+    assert ordered.index("digest-high") < ordered.index("watch-high-div")
+    assert ordered.index("watch-high-div") < ordered.index("alpha")
+    assert ordered.index("alpha") < ordered.index("beta")

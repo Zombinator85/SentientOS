@@ -573,16 +573,21 @@ class FederationTrustLedger:
                 storm_active=storm_active,
             )
             peers = [self._snapshot_for(peer_id) for peer_id in sorted(set(peer_ids))]
+            # Highest-risk peers must sort first:
+            #   1) trust state risk class (incompatible > quarantined > degraded > watched > trusted)
+            #   2) divergence events (higher first)
+            #   3) epoch mismatch events (higher first)
+            #   4) digest mismatch events (higher first)
+            #   5) peer id (ascending) for deterministic tie-breaks.
             prioritized = sorted(
                 peers,
                 key=lambda item: (
-                    _TRUST_ORDER.get(item.trust_state, 9),
+                    -_TRUST_ORDER.get(item.trust_state, 9),
                     -item.divergence_events,
                     -item.epoch_mismatch_events,
                     -item.digest_mismatch_events,
                     item.peer_id,
                 ),
-                reverse=True,
             )
             selected = prioritized[:slots]
             pending: list[dict[str, object]] = []
