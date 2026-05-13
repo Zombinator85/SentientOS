@@ -13,13 +13,22 @@ from .local_model import LocalModel
 
 LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
-_MODEL = LocalModel.autoload()
+_MODEL: LocalModel | None = None
 try:
     _CHANGE_NARRATOR = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
     LOGGER.exception("Unable to initialise change narrator")
     _CHANGE_NARRATOR = None
 
+
+
+
+def _get_model() -> LocalModel:
+    global _MODEL
+    if _MODEL is None:
+        _MODEL = LocalModel.autoload()
+        LOGGER.info("Chat model loaded: %s", _MODEL.describe())
+    return _MODEL
 
 class ChatRequest(BaseModel):
     message: str
@@ -37,7 +46,7 @@ class BootEvent(BaseModel):
 
 @APP.on_event("startup")
 async def _startup_event() -> None:
-    LOGGER.info("Chat interface ready using %s", _MODEL.describe())
+    LOGGER.info("Chat interface ready")
 
 
 @APP.post("/chat", response_model=ChatResponse)
@@ -49,7 +58,7 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         summary = _CHANGE_NARRATOR.maybe_respond(message)
         if summary is not None:
             return ChatResponse(response=summary)
-    reply = _MODEL.generate(message)
+    reply = _get_model().generate(message)
     return ChatResponse(response=reply)
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -13,6 +14,8 @@ from .storage import ensure_mounts, get_data_root
 LOGGER = logging.getLogger(__name__)
 
 _MODEL_META_NAME = "model.json"
+_ALLOW_MODEL_CODE_EXEC_ENV = "SENTIENTOS_ALLOW_MODEL_CODE_EXECUTION"
+
 
 __all__ = ["LocalModel"]
 
@@ -110,7 +113,12 @@ class _TransformersBackend(_ModelBackend):
             raise ModelLoadError(f"Model path {model_location} does not exist")
 
         self._torch = torch
-        self._tokenizer = AutoTokenizer.from_pretrained(model_location, trust_remote_code=True, local_files_only=True)
+        trust_remote_code = _allow_model_code_execution(candidate, metadata)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            model_location,
+            trust_remote_code=trust_remote_code,
+            local_files_only=True,
+        )
         device_map: Optional[str]
         torch_dtype: Optional[torch.dtype]
         if torch.cuda.is_available():
@@ -123,7 +131,7 @@ class _TransformersBackend(_ModelBackend):
             model_location,
             device_map=device_map,
             torch_dtype=torch_dtype,
-            trust_remote_code=True,
+            trust_remote_code=trust_remote_code,
             local_files_only=True,
         )
         self._generation = generation
@@ -159,6 +167,41 @@ class _TransformersBackend(_ModelBackend):
         if decoded.startswith(prompt):
             decoded = decoded[len(prompt) :]
         return decoded.strip() or ""
+
+
+def _allow_model_code_execution(candidate: ModelCandidate, metadata: Dict[str, Any]) -> bool:
+    allow_env = os.getenv(_ALLOW_MODEL_CODE_EXEC_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    allow_option = bool(candidate.options.get("allow_model_code_execution"))
+    allow_metadata = bool(metadata.get("allow_model_code_execution"))
+    allow = allow_env or allow_option or allow_metadata
+    if allow:
+        manifest_hash = _candidate_manifest_hash(candidate)
+        if manifest_hash is not None:
+            LOGGER.warning(
+                "Model code execution enabled for %s with manifest hash %s",
+                candidate.display_name(),
+                manifest_hash,
+            )
+        else:
+            LOGGER.warning(
+                "Model code execution enabled for %s without escrow manifest hash",
+                candidate.display_name(),
+            )
+        return True
+    return False
+
+
+def _candidate_manifest_hash(candidate: ModelCandidate) -> Optional[str]:
+    if candidate.path is None:
+        return None
+    manifest_path = LocalModel._candidate_meta_path(candidate.path)
+    if not manifest_path.exists():
+        return None
+    try:
+        payload = manifest_path.read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha256(payload).hexdigest()
 
 
 class _LlamaCppBackend(_ModelBackend):
