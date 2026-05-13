@@ -997,7 +997,14 @@ def main(argv: list[str] | None = None) -> int:
     if pytest_exit_code == 5:
         exit_reason = "no-tests-collected"
     elif pytest_exit_code != 0:
-        if metrics_status in {"unavailable", "partial"}:
+        if (
+            metrics_status == "ok"
+            and isinstance(tests_executed, int)
+            and tests_executed == 0
+            and pytest_exit_code in {2, 3, 4}
+        ):
+            exit_reason = "pytest-collection-failed"
+        elif metrics_status in {"unavailable", "partial"}:
             exit_reason = "bootstrap-metrics-failed"
         else:
             exit_reason = "pytest-failed"

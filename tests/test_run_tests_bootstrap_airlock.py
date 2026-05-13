@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -17,15 +18,23 @@ class _Completed:
         self.stdout = stdout
 
 
-def _write_report(env: dict[str, str] | None, *, failed: int = 0, passed: int = 1) -> None:
+def _write_report(
+    env: dict[str, str] | None,
+    *,
+    failed: int = 0,
+    passed: int = 1,
+    collected: int | None = None,
+    selected: int | None = None,
+    executed: int | None = None,
+) -> None:
     assert env is not None
     report_path = Path(env["SENTIENTOS_PYTEST_REPORT_PATH"])
     report_path.write_text(
         json.dumps(
             {
-                "tests_collected": passed + failed,
-                "tests_selected": passed + failed,
-                "tests_executed": passed + failed,
+                "tests_collected": collected if collected is not None else passed + failed,
+                "tests_selected": selected if selected is not None else passed + failed,
+                "tests_executed": executed if executed is not None else passed + failed,
                 "tests_passed": passed,
                 "tests_failed": failed,
                 "tests_skipped": 0,
@@ -37,6 +46,24 @@ def _write_report(env: dict[str, str] | None, *, failed: int = 0, passed: int = 
         ),
         encoding="utf-8",
     )
+
+
+def test_minimal_airlock_pytest_constraint_matches_project_declaration() -> None:
+    pyproject = tomllib.loads((run_tests.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project_pytest_specs = {
+        dep
+        for dep in pyproject["project"]["dependencies"]
+        if dep.startswith("pytest") and not dep.startswith("pytest-")
+    }
+    test_extra_pytest_specs = {
+        dep
+        for dep in pyproject["project"]["optional-dependencies"]["test"]
+        if dep.startswith("pytest") and not dep.startswith("pytest-")
+    }
+
+    assert project_pytest_specs == {"pytest>=7,<8"}
+    assert test_extra_pytest_specs == project_pytest_specs
+    assert set(run_tests.MINIMAL_TEST_AIRLOCK_DEPS) >= project_pytest_specs
 
 
 def test_targeted_missing_editable_uses_minimal_airlock_without_broad_deps(monkeypatch, tmp_path):
@@ -259,3 +286,35 @@ def test_naked_pytest_bypass_still_marks_run_exceptional(monkeypatch):
 
     assert run_intent == "exceptional"
     assert selection == ["tests/test_focused.py"]
+
+
+def test_collection_failure_is_distinct_from_test_failure(monkeypatch, tmp_path):
+    def fake_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
+        if cmd[:3] == [run_tests.sys.executable, "-m", "pytest"]:
+            _write_report(env, passed=0, failed=0, collected=3, selected=3, executed=0)
+            return _Completed(2)
+        if cmd[:3] == ["git", "rev-parse", "HEAD"]:
+            return _Completed(0, "c011ec7\n")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        run_tests,
+        "get_editable_install_status",
+        lambda _root: EditableInstallStatus(True, "direct-url"),
+    )
+    monkeypatch.setattr(run_tests, "_imports_ok", lambda: (True, None))
+    monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
+
+    code = run_tests.main(["-q", "tests/test_focused.py"])
+
+    assert code == 2
+    payload = json.loads(
+        (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
+    )
+    assert payload["exit_reason"] == "pytest-collection-failed"
+    assert payload["exit_reason"] != "pytest-failed"
+    assert payload["pytest_exit_code"] == 2
+    assert payload["tests_executed"] == 0
+    assert payload["tests_failed"] == 0
+    assert payload["metrics_status"] == "ok"
