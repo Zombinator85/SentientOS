@@ -43,7 +43,7 @@ At a high level, SentientOS separates:
 - **Evidence and audit** (what must be recorded and verified), and
 - **Adoption** (what, if anything, becomes locally effective).
 
-This separation is reflected in dedicated verifier scripts, state and readiness docs, and tests that enforce deny-by-default behavior for restricted surfaces.
+This separation is reflected in dedicated verifier scripts, state and readiness docs, and tests that enforce deny-by-default behavior for restricted surfaces. Admission idempotency uses a bounded process-local TTL dedupe cache with inspectable status; it is an availability and duplicate-suppression guard, not durable authority.
 
 ## Authority classes (practical reading)
 
@@ -70,7 +70,7 @@ Typical request/proposal flow is:
 4. Readiness/rehearsal evaluation where applicable.
 5. Separate adoption decision under local governance.
 
-Important distinction: readiness/rehearsal outputs are support evidence, not automatic execution authority.
+Important distinction: readiness/rehearsal outputs are support evidence, not automatic execution authority. Recent maintenance forge/merge ticks are also gated through admission, and maintenance tick handling keeps degradation at the top-level boundary instead of allowing unchecked progression.
 
 ## Degradation and quarantine behavior
 
@@ -107,7 +107,7 @@ See `docs/EMBODIED_PIPELINE.md` for adapter context while treating control-plane
 
 ## Federation and local sovereignty model
 
-SentientOS supports sovereign multi-node coordination where evidence may be exchanged and compared. Local node governance remains authoritative for adoption. Federation-specific artifacts and tests should be read as custody and lineage controls, not forced execution channels.
+SentientOS supports sovereign multi-node coordination where evidence may be exchanged and compared. Local node governance remains authoritative for adoption. Federation-specific artifacts and tests should be read as custody and lineage controls, not forced execution channels. Current review coverage includes trust ledger startup recovery with event replay fallback and repaired probe prioritization ordering.
 
 ## Federated self-improvement custody runway (metadata-only)
 
@@ -121,11 +121,16 @@ Current runway terms are best interpreted as custody metadata stages:
 
 These artifacts are **not** transport execution, **not** adoption, and **not** runtime authority by themselves.
 
+## Model/runtime loading posture
+
+Chat/model runtime coverage now includes lazy chat service model loading and safe defaults for local transformer model code execution. Local transformer loading defaults `trust_remote_code` to false and requires explicit opt-in where remote model code execution is intended.
+
 ## Installer and test-runner reliability posture
 
 Reviewer-facing reliability posture:
 - Canonical test entrypoint is `python -m scripts.run_tests`.
-- Bootstrap/airlock behavior is covered by `tests/test_run_tests_bootstrap_airlock.py`.
+- Bootstrap/airlock behavior, including the minimal test-airlock bootstrap custody note, is covered by `tests/test_run_tests_bootstrap_airlock.py`.
+- Integration pytest marker compatibility is covered by `tests/test_integration_conftest_compat.py`.
 - Audit and immutability checks are first-class pre-merge expectations in repository guidance.
 
 ## Hard invariants
@@ -154,28 +159,44 @@ Reviewer-facing reliability posture:
 
 For broader internal language mapping, see `docs/PUBLIC_LANGUAGE_BRIDGE.md`.
 
+## Recent hardening checks
+
+The current reviewer proof path covers these repaired areas:
+- Control-plane admission, runtime closure, maintenance admission gating, and degradation boundaries.
+- Federation trust ledger startup recovery, event replay fallback, and probe prioritization ordering.
+- Chat/model lazy loading and local transformer `trust_remote_code` safe default behavior.
+- Integration pytest marker compatibility and minimal test-airlock bootstrap custody.
+- Federated improvement custody runway receipts and lineage/dissemination metadata.
+
 ## Proof map (commands and tests)
 
 Run from repository root:
 
 ```bash
-# Audit verifier
-python scripts/verify_audits.py --strict
+# Control-plane and runtime hardening
+python -m scripts.run_tests -q tests/test_control_plane_kernel.py
+python -m scripts.run_tests -q tests/test_sentientosd_runtime_closure.py
 
-# Immutability verifier
-python scripts/audit_immutability_verifier.py
+# Federation trust ledger recovery and probe ordering
+python -m scripts.run_tests -q tests/test_trust_ledger.py sentientos/tests/test_trust_ledger_recovery.py
+
+# Chat/model runtime loading and local model safety
+python -m scripts.run_tests -q tests/test_chat_service_lazy_loading.py tests/test_local_model.py tests/integration/test_chat_mistral_runtime.py
+
+# Test-runner bootstrap and integration marker compatibility
+python -m scripts.run_tests -q tests/test_integration_conftest_compat.py tests/test_run_tests_bootstrap_airlock.py
+
+# Federation improvement custody runway
+python -m scripts.run_tests -q tests/test_federated_improvement_candidate.py tests/test_federated_improvement_intake_receipt.py tests/test_federated_improvement_custody_runway.py tests/test_federated_improvement_local_variant_artifact.py tests/test_federated_improvement_lineage_comparison_receipt.py tests/test_federated_improvement_dissemination_receipt.py
 
 # Prompt-boundary verifier
 python scripts/verify_context_hygiene_prompt_boundaries.py
 
-# Federation improvement coverage
-python -m scripts.run_tests -q tests/test_federated_improvement_local_variant_artifact.py
+# Audit verifier
+python scripts/verify_audits.py --strict
 
-# Context-hygiene phase coverage
-python -m scripts.run_tests -q tests/test_phase95_provider_invocation_readiness_manifest.py tests/test_phase97_external_security_review_packet.py tests/test_phase101_provider_invocation_denial_enforcement.py
-
-# Test-runner bootstrap reliability
-python -m scripts.run_tests -q tests/test_run_tests_bootstrap_airlock.py
+# Immutability verifier
+python scripts/audit_immutability_verifier.py --manifest vow/immutable_manifest.json
 ```
 
 ## Internal language / cultural layer
