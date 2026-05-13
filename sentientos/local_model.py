@@ -114,11 +114,18 @@ class _TransformersBackend(_ModelBackend):
 
         self._torch = torch
         trust_remote_code = _allow_model_code_execution(candidate, metadata)
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            model_location,
-            trust_remote_code=trust_remote_code,
-            local_files_only=True,
-        )
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                model_location,
+                trust_remote_code=trust_remote_code,
+                local_files_only=True,
+            )
+        except Exception as exc:
+            raise _model_load_error_for_transformers_exception(
+                exc,
+                trust_remote_code=trust_remote_code,
+                phase="tokenizer",
+            ) from exc
         device_map: Optional[str]
         torch_dtype: Optional[torch.dtype]
         if torch.cuda.is_available():
@@ -127,13 +134,20 @@ class _TransformersBackend(_ModelBackend):
         else:
             device_map = None
             torch_dtype = torch.float32
-        self._model = AutoModelForCausalLM.from_pretrained(
-            model_location,
-            device_map=device_map,
-            torch_dtype=torch_dtype,
-            trust_remote_code=trust_remote_code,
-            local_files_only=True,
-        )
+        try:
+            self._model = AutoModelForCausalLM.from_pretrained(
+                model_location,
+                device_map=device_map,
+                torch_dtype=torch_dtype,
+                trust_remote_code=trust_remote_code,
+                local_files_only=True,
+            )
+        except Exception as exc:
+            raise _model_load_error_for_transformers_exception(
+                exc,
+                trust_remote_code=trust_remote_code,
+                phase="model",
+            ) from exc
         self._generation = generation
         self._max_context_tokens = max_context_tokens
 
@@ -167,6 +181,32 @@ class _TransformersBackend(_ModelBackend):
         if decoded.startswith(prompt):
             decoded = decoded[len(prompt) :]
         return decoded.strip() or ""
+
+
+def _model_load_error_for_transformers_exception(
+    exc: Exception,
+    *,
+    trust_remote_code: bool,
+    phase: str,
+) -> ModelLoadError:
+    message = str(exc) or exc.__class__.__name__
+    if not trust_remote_code and _requires_custom_model_code(message):
+        return ModelLoadError(
+            "transformers model requires custom code but explicit opt-in is absent; "
+            "refusing to enable trust_remote_code=True. "
+            f"Set {_ALLOW_MODEL_CODE_EXEC_ENV}=1 only for audited local weights. "
+            f"Original {phase} loader error: {message}"
+        )
+    return ModelLoadError(f"transformers {phase} loader failed: {message}")
+
+
+def _requires_custom_model_code(message: str) -> bool:
+    normalized = message.lower().replace("-", "_")
+    return (
+        "trust_remote_code" in normalized
+        or "custom code" in normalized
+        or "remote code" in normalized
+    )
 
 
 def _allow_model_code_execution(candidate: ModelCandidate, metadata: Dict[str, Any]) -> bool:
