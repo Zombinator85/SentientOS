@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import OrderedDict
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -107,11 +108,31 @@ class ControlActionDecision:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class AdmissionDedupeStatus:
+    """Inspectable process-local admission idempotency cache status."""
+
+    key_shape: str
+    ttl_seconds: float
+    max_entries: int
+    current_entries: int
+    expires_at_by_key: dict[tuple[str, str], float]
+
+
+@dataclass(frozen=True, slots=True)
+class _AdmissionHistoryEntry:
+    first_seen: float
+    expires_at: float
+
+
 class ControlPlaneKernel:
     """Phase-aware control-plane admission broker.
 
     This layer orchestrates existing governors/guards and records a machine-readable
-    decision row for every sensitive action request.
+    decision row for every sensitive action request. Admission idempotency is
+    intentionally process-local: allowed admissions reserve ``(phase, correlation_id)``
+    for a bounded TTL so accidental duplicate execution is deferred without making a
+    reused correlation ID sticky for the full process lifetime.
     """
 
     def __init__(
@@ -120,17 +141,39 @@ class ControlPlaneKernel:
         runtime_governor: RuntimeGovernor | None = None,
         decisions_path: Path | None = None,
         phase: LifecyclePhase = LifecyclePhase.RUNTIME,
+        admission_dedupe_ttl_seconds: float = 3600.0,
+        admission_dedupe_max_entries: int = 4096,
+        clock: Callable[[], float] | None = None,
     ) -> None:
+        if admission_dedupe_ttl_seconds <= 0:
+            raise ValueError("admission_dedupe_ttl_seconds must be positive")
+        if admission_dedupe_max_entries < 1:
+            raise ValueError("admission_dedupe_max_entries must be at least 1")
         self._phase = phase
         self._runtime_governor = runtime_governor or get_runtime_governor()
         root = Path(os.getenv("SENTIENTOS_CONTROL_KERNEL_ROOT", "glow/control_plane"))
         self._decisions_path = decisions_path or (root / "kernel_decisions.jsonl")
         self._decisions_path.parent.mkdir(parents=True, exist_ok=True)
-        self._admission_history: set[tuple[str, str]] = set()
+        self._admission_dedupe_ttl_seconds = float(admission_dedupe_ttl_seconds)
+        self._admission_dedupe_max_entries = int(admission_dedupe_max_entries)
+        self._clock = clock or (lambda: datetime.now(timezone.utc).timestamp())
+        self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
 
     @property
     def phase(self) -> LifecyclePhase:
         return self._phase
+
+    def admission_dedupe_status(self) -> AdmissionDedupeStatus:
+        """Return deterministic status for the bounded process-local dedupe cache."""
+
+        self._expire_admission_history(self._now())
+        return AdmissionDedupeStatus(
+            key_shape="(current_phase.value, correlation_id)",
+            ttl_seconds=self._admission_dedupe_ttl_seconds,
+            max_entries=self._admission_dedupe_max_entries,
+            current_entries=len(self._admission_history),
+            expires_at_by_key={key: entry.expires_at for key, entry in self._admission_history.items()},
+        )
 
     def set_phase(self, phase: LifecyclePhase, *, actor: str = "control_plane_kernel") -> None:
         self._phase = phase
@@ -156,10 +199,19 @@ class ControlPlaneKernel:
             or f"{request.actor}:{request.action_kind}:{request.target_subsystem}"
         )
         dedupe_key = (self._phase.value, correlation_id)
-        if dedupe_key in self._admission_history:
+        now = self._now()
+        duplicate_entry = self._get_active_admission_history_entry(dedupe_key, now)
+        if duplicate_entry is not None:
             reasons.append("duplicate_admission_context")
+            delegated["admission_dedupe"] = {
+                "key_shape": "(current_phase.value, correlation_id)",
+                "phase": dedupe_key[0],
+                "correlation_id": dedupe_key[1],
+                "first_seen": duplicate_entry.first_seen,
+                "expires_at": duplicate_entry.expires_at,
+                "scope": "process_local",
+            }
             return self._finalize(request, AdmissionOutcome.DEFER, reasons, delegated, correlation_id=correlation_id)
-        self._admission_history.add(dedupe_key)
 
         phase_reason, phase_outcome = self._evaluate_phase(request)
         if phase_reason:
@@ -244,8 +296,70 @@ class ControlPlaneKernel:
                 advisory_denial=denial if denial not in {"", "none"} else None,
             )
 
+        admission_entry = self._reserve_admission_history_entry(dedupe_key, now)
+        if admission_entry is None:
+            reasons.append("admission_dedupe_cache_full")
+            delegated["admission_dedupe"] = {
+                "key_shape": "(current_phase.value, correlation_id)",
+                "phase": dedupe_key[0],
+                "correlation_id": dedupe_key[1],
+                "ttl_seconds": self._admission_dedupe_ttl_seconds,
+                "max_entries": self._admission_dedupe_max_entries,
+                "current_entries": len(self._admission_history),
+                "scope": "process_local",
+            }
+            return self._finalize(request, AdmissionOutcome.DEFER, reasons, delegated, correlation_id=correlation_id)
+        delegated["admission_dedupe"] = {
+            "key_shape": "(current_phase.value, correlation_id)",
+            "phase": dedupe_key[0],
+            "correlation_id": dedupe_key[1],
+            "first_seen": admission_entry.first_seen,
+            "expires_at": admission_entry.expires_at,
+            "ttl_seconds": self._admission_dedupe_ttl_seconds,
+            "max_entries": self._admission_dedupe_max_entries,
+            "scope": "process_local",
+        }
         reasons.append("admitted")
         return self._finalize(request, AdmissionOutcome.ALLOW, reasons, delegated, correlation_id=correlation_id)
+
+    def _now(self) -> float:
+        return float(self._clock())
+
+    def _get_active_admission_history_entry(
+        self,
+        key: tuple[str, str],
+        now: float,
+    ) -> _AdmissionHistoryEntry | None:
+        self._expire_admission_history(now)
+        entry = self._admission_history.get(key)
+        if entry is None:
+            return None
+        self._admission_history.move_to_end(key)
+        return entry
+
+    def _reserve_admission_history_entry(
+        self,
+        key: tuple[str, str],
+        now: float,
+    ) -> _AdmissionHistoryEntry | None:
+        self._expire_admission_history(now)
+        if key in self._admission_history:
+            entry = self._admission_history[key]
+            self._admission_history.move_to_end(key)
+            return entry
+        if len(self._admission_history) >= self._admission_dedupe_max_entries:
+            return None
+        entry = _AdmissionHistoryEntry(
+            first_seen=now,
+            expires_at=now + self._admission_dedupe_ttl_seconds,
+        )
+        self._admission_history[key] = entry
+        return entry
+
+    def _expire_admission_history(self, now: float) -> None:
+        expired_keys = [key for key, entry in self._admission_history.items() if entry.expires_at <= now]
+        for key in expired_keys:
+            self._admission_history.pop(key, None)
 
     @staticmethod
     def _authority_rule_for_federated_control(
