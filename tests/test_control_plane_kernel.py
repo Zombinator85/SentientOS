@@ -57,6 +57,37 @@ class ExplodingRuntimeGovernor:
         raise RuntimeError("boom")
 
 
+@dataclass
+class CountingRuntimeGovernor(FakeRuntimeGovernor):
+    calls: int = 0
+
+    def admit_action(self, action_type: str, actor: str, correlation_id: str, metadata=None) -> GovernorDecision:
+        self.calls += 1
+        return super().admit_action(action_type, actor, correlation_id, metadata=metadata)
+
+
+class MutableClock:
+    def __init__(self, now: float = 0.0) -> None:
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _restart_request(correlation_id: str, *, phase: LifecyclePhase = LifecyclePhase.RUNTIME) -> ControlActionRequest:
+    return ControlActionRequest(
+        action_kind="restart_daemon",
+        authority_class=AuthorityClass.DAEMON_RESTART,
+        actor="healer",
+        target_subsystem="daemon-x",
+        requested_phase=phase,
+        metadata={"correlation_id": correlation_id, "subject": "daemon-x"},
+    )
+
+
 def test_legal_bootstrap_action_allowed(tmp_path):
     kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
     kernel.set_phase(LifecyclePhase.BOOTSTRAP)
@@ -400,6 +431,143 @@ def test_duplicate_admission_attempt_in_same_phase_is_deferred(tmp_path):
     assert first.outcome == AdmissionOutcome.ALLOW
     assert second.outcome == AdmissionOutcome.DEFER
     assert "duplicate_admission_context" in second.reason_codes
+
+
+
+
+def test_duplicate_admission_dedupe_status_is_explicit_and_no_duplicate_execution(tmp_path):
+    clock = MutableClock(100.0)
+    governor = CountingRuntimeGovernor()
+    kernel = ControlPlaneKernel(
+        runtime_governor=governor,
+        decisions_path=tmp_path / "decisions.jsonl",
+        admission_dedupe_ttl_seconds=30.0,
+        clock=clock,
+    )
+    executions = {"count": 0}
+
+    def _execute() -> str:
+        executions["count"] += 1
+        return "executed"
+
+    first, result = kernel.admit_and_execute(_restart_request("dup-exec-1"), execute=_execute)
+    second, duplicate_result = kernel.admit_and_execute(_restart_request("dup-exec-1"), execute=_execute)
+
+    assert first.outcome == AdmissionOutcome.ALLOW
+    assert result == "executed"
+    assert second.outcome == AdmissionOutcome.DEFER
+    assert duplicate_result is None
+    assert "duplicate_admission_context" in second.reason_codes
+    assert second.delegated_outcomes["admission_dedupe"]["key_shape"] == "(current_phase.value, correlation_id)"
+    assert second.delegated_outcomes["admission_dedupe"]["scope"] == "process_local"
+    assert executions["count"] == 1
+    assert governor.calls == 1
+
+
+def test_dedupe_key_is_phase_and_correlation_id_not_action_shape(tmp_path):
+    clock = MutableClock(200.0)
+    kernel = ControlPlaneKernel(
+        runtime_governor=FakeRuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+        admission_dedupe_ttl_seconds=60.0,
+        clock=clock,
+    )
+
+    first = kernel.admit(_restart_request("shared-corr", phase=LifecyclePhase.RUNTIME))
+    other_correlation = kernel.admit(_restart_request("other-corr", phase=LifecyclePhase.RUNTIME))
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    other_phase = kernel.admit(_restart_request("shared-corr", phase=LifecyclePhase.MAINTENANCE))
+
+    assert first.outcome == AdmissionOutcome.ALLOW
+    assert other_correlation.outcome == AdmissionOutcome.ALLOW
+    assert other_phase.outcome == AdmissionOutcome.ALLOW
+    assert kernel.admission_dedupe_status().expires_at_by_key.keys() == {
+        (LifecyclePhase.RUNTIME.value, "shared-corr"),
+        (LifecyclePhase.RUNTIME.value, "other-corr"),
+        (LifecyclePhase.MAINTENANCE.value, "shared-corr"),
+    }
+
+
+def test_dedupe_entries_expire_and_allow_correlation_reuse(tmp_path):
+    clock = MutableClock(300.0)
+    kernel = ControlPlaneKernel(
+        runtime_governor=FakeRuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+        admission_dedupe_ttl_seconds=10.0,
+        clock=clock,
+    )
+
+    first = kernel.admit(_restart_request("ttl-corr"))
+    duplicate = kernel.admit(_restart_request("ttl-corr"))
+    clock.advance(10.0)
+    after_expiry = kernel.admit(_restart_request("ttl-corr"))
+
+    assert first.outcome == AdmissionOutcome.ALLOW
+    assert duplicate.outcome == AdmissionOutcome.DEFER
+    assert "duplicate_admission_context" in duplicate.reason_codes
+    assert after_expiry.outcome == AdmissionOutcome.ALLOW
+    status = kernel.admission_dedupe_status()
+    assert status.current_entries == 1
+    assert status.expires_at_by_key == {(LifecyclePhase.RUNTIME.value, "ttl-corr"): 320.0}
+
+
+def test_dedupe_cache_is_bounded_without_evicting_live_keys(tmp_path):
+    clock = MutableClock(400.0)
+    kernel = ControlPlaneKernel(
+        runtime_governor=FakeRuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+        admission_dedupe_ttl_seconds=100.0,
+        admission_dedupe_max_entries=2,
+        clock=clock,
+    )
+
+    first = kernel.admit(_restart_request("bounded-1"))
+    second = kernel.admit(_restart_request("bounded-2"))
+    over_capacity = kernel.admit(_restart_request("bounded-3"))
+    duplicate_first = kernel.admit(_restart_request("bounded-1"))
+
+    assert first.outcome == AdmissionOutcome.ALLOW
+    assert second.outcome == AdmissionOutcome.ALLOW
+    assert over_capacity.outcome == AdmissionOutcome.DEFER
+    assert "admission_dedupe_cache_full" in over_capacity.reason_codes
+    assert over_capacity.delegated_outcomes["admission_dedupe"]["current_entries"] == 2
+    assert duplicate_first.outcome == AdmissionOutcome.DEFER
+    assert "duplicate_admission_context" in duplicate_first.reason_codes
+    assert kernel.admission_dedupe_status().current_entries == 2
+
+
+def test_dedupe_cache_compacts_expired_entries_before_capacity_check(tmp_path):
+    clock = MutableClock(500.0)
+    kernel = ControlPlaneKernel(
+        runtime_governor=FakeRuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+        admission_dedupe_ttl_seconds=5.0,
+        admission_dedupe_max_entries=1,
+        clock=clock,
+    )
+
+    assert kernel.admit(_restart_request("old-corr")).outcome == AdmissionOutcome.ALLOW
+    clock.advance(5.0)
+    assert kernel.admit(_restart_request("new-corr")).outcome == AdmissionOutcome.ALLOW
+
+    status = kernel.admission_dedupe_status()
+    assert status.current_entries == 1
+    assert status.expires_at_by_key == {(LifecyclePhase.RUNTIME.value, "new-corr"): 510.0}
+
+
+def test_governor_denial_is_not_converted_to_duplicate_deferral(tmp_path):
+    governor = FakeRuntimeGovernor(allow=False, reason="operator_lockout")
+    kernel = ControlPlaneKernel(runtime_governor=governor, decisions_path=tmp_path / "decisions.jsonl")
+
+    first = kernel.admit(_restart_request("deny-corr"))
+    second = kernel.admit(_restart_request("deny-corr"))
+
+    assert first.outcome == AdmissionOutcome.DENY
+    assert second.outcome == AdmissionOutcome.DENY
+    assert "runtime_governor:operator_lockout" in first.reason_codes
+    assert "runtime_governor:operator_lockout" in second.reason_codes
+    assert "duplicate_admission_context" not in second.reason_codes
+    assert kernel.admission_dedupe_status().current_entries == 0
 
 
 def test_proof_budget_delegate_unavailable_is_deferred(monkeypatch: pytest.MonkeyPatch, tmp_path):
