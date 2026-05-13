@@ -284,4 +284,7 @@ def test_transformers_custom_code_requirement_fails_closed(monkeypatch: pytest.M
 
     model = LocalModel.autoload()
     assert model.metadata.get("engine") == "null"
-    assert any("requires trust_remote_code=True" in err for err in model.metadata.get("errors", []))
+    errors = model.metadata.get("errors", [])
+    assert any("requires custom code" in err for err in errors)
+    assert any("explicit opt-in is absent" in err for err in errors)
+    assert any("refusing to enable trust_remote_code=True" in err for err in errors)

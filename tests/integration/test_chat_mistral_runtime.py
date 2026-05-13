@@ -1,5 +1,4 @@
 import importlib
-import importlib
 import sys
 import types
 from pathlib import Path
@@ -8,6 +7,8 @@ import pytest
 
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
+
+from sentientos.optional_deps import reset_optional_dependency_state
 
 
 def _prepare_mistral(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -37,6 +38,7 @@ def test_chat_endpoint_uses_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp
             return {"choices": [{"text": f"Mistral test reply: {prompt}"}]}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
+    reset_optional_dependency_state()
 
     sys.modules.pop("sentientos.chat_service", None)
     chat_service = importlib.import_module("sentientos.chat_service")
