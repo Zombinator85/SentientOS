@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -119,6 +120,51 @@ class RuntimeMaintenanceSurfaces:
         self._feedback["degraded"] = degraded
 
 
+def _maintenance_degradation_signal(
+    *,
+    tick_id: str,
+    surface: str,
+    correlation_id: str,
+    phase_before: Any,
+    phase_at_failure: Any,
+    exc: BaseException,
+) -> dict[str, Any]:
+    return {
+        "event_type": "runtime_maintenance_degradation",
+        "schema": "runtime_maintenance_degradation:v1",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "tick_id": tick_id,
+        "correlation_id": correlation_id,
+        "phase": LifecyclePhase.MAINTENANCE.value,
+        "phase_before": getattr(phase_before, "value", str(phase_before)),
+        "phase_at_failure": getattr(phase_at_failure, "value", str(phase_at_failure)),
+        "surface": surface,
+        "actor": "sentientosd",
+        "severity": "blocking",
+        "disposition": "fail_stop_degraded",
+        "stopped_active_cycle": True,
+        "retry_attempted": False,
+        "follow_up_enqueued": False,
+        "reinterpreted_as_goal": False,
+        "failure_type": type(exc).__name__,
+        "failure_message": str(exc),
+    }
+
+
+def _record_maintenance_degradation(*, kernel: Any, signal: dict[str, Any]) -> None:
+    logging.getLogger("sentientos.degradation").error(json.dumps(signal, sort_keys=True))
+    append = getattr(kernel, "_append", None)
+    if callable(append):
+        try:
+            append(signal)
+        except Exception:
+            LOGGER.warning(
+                "Failed to append runtime maintenance degradation signal",
+                extra={"correlation_id": signal.get("correlation_id"), "surface": signal.get("surface")},
+                exc_info=True,
+            )
+
+
 def _run_maintenance_tick(
     *,
     kernel: Any,
@@ -128,94 +174,137 @@ def _run_maintenance_tick(
     merge_train: ForgeMergeTrain,
 ) -> None:
     LOGGER.debug("SentientOS daemon tick")
-    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="sentientosd")
+    phase_before = getattr(kernel, "phase", LifecyclePhase.RUNTIME)
     tick_id = datetime.now(timezone.utc).isoformat()
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="expand",
-            authority_class=AuthorityClass.PROPOSAL_EVALUATION,
-            actor="sentientosd",
-            target_subsystem="genesis_forge",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            startup_symbol="GenesisForge",
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:expand"},
-        ),
-        execute=runtime_surfaces.expand,
-    )
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="cycle",
-            authority_class=AuthorityClass.SPEC_AMENDMENT,
-            actor="sentientosd",
-            target_subsystem="spec_amender",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            startup_symbol="SpecAmender",
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:cycle"},
-        ),
-        execute=runtime_surfaces.cycle,
-    )
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="guard",
-            authority_class=AuthorityClass.PROPOSAL_EVALUATION,
-            actor="sentientosd",
-            target_subsystem="integrity_daemon",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            startup_symbol="IntegrityDaemon",
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:guard"},
-        ),
-        execute=runtime_surfaces.guard,
-    )
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="monitor",
-            authority_class=AuthorityClass.REPAIR,
-            actor="sentientosd",
-            target_subsystem="codex_healer",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            startup_symbol="CodexHealer",
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:monitor"},
-        ),
-        execute=runtime_surfaces.monitor,
-    )
-    # Sentinel runs after integrity guard so contract artifacts are trustworthy, before forge daemon so queued repairs execute same tick.
-    if os.getenv("SENTIENTOS_SENTINEL_ENABLED", "0") == "1":
-        contract_sentinel.tick()
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="forge_tick",
-            authority_class=AuthorityClass.REPAIR,
-            actor="sentientosd",
-            target_subsystem="forge_daemon",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:forge_tick"},
-        ),
-        execute=forge_daemon.run_tick,
-    )
-    feedback = runtime_surfaces.governance_feedback()
-    kernel.admit_and_execute(
-        ControlActionRequest(
-            action_kind="merge_tick",
-            authority_class=AuthorityClass.REPAIR,
-            actor="sentientosd",
-            target_subsystem="forge_merge_train",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:merge_tick"},
-        ),
-        execute=merge_train.tick,
-    )
-    kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
+    current_surface = "maintenance_start"
+    current_correlation_id = f"{tick_id}:{current_surface}"
 
-    plan = runtime_surfaces.next_commit()
-    if plan:
-        LOGGER.info("Codex amendment ready for commit: %s", plan.message)
-        if git_commit_push(plan.message):
-            runtime_surfaces.mark_committed(plan)
+    try:
+        kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="sentientosd")
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "expand"
+        current_correlation_id = f"{tick_id}:expand"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="expand",
+                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                actor="sentientosd",
+                target_subsystem="genesis_forge",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="GenesisForge",
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=runtime_surfaces.expand,
+        )
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "cycle"
+        current_correlation_id = f"{tick_id}:cycle"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="cycle",
+                authority_class=AuthorityClass.SPEC_AMENDMENT,
+                actor="sentientosd",
+                target_subsystem="spec_amender",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="SpecAmender",
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=runtime_surfaces.cycle,
+        )
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "guard"
+        current_correlation_id = f"{tick_id}:guard"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="guard",
+                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                actor="sentientosd",
+                target_subsystem="integrity_daemon",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="IntegrityDaemon",
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=runtime_surfaces.guard,
+        )
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "monitor"
+        current_correlation_id = f"{tick_id}:monitor"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="monitor",
+                authority_class=AuthorityClass.REPAIR,
+                actor="sentientosd",
+                target_subsystem="codex_healer",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="CodexHealer",
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=runtime_surfaces.monitor,
+        )
+        # Sentinel runs after integrity guard so contract artifacts are trustworthy, before forge daemon so queued repairs execute same tick.
+        if os.getenv("SENTIENTOS_SENTINEL_ENABLED", "0") == "1":
+            current_surface = "sentinel_tick"
+            current_correlation_id = f"{tick_id}:sentinel_tick"
+            contract_sentinel.tick()
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "forge_tick"
+        current_correlation_id = f"{tick_id}:forge_tick"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="forge_tick",
+                authority_class=AuthorityClass.REPAIR,
+                actor="sentientosd",
+                target_subsystem="forge_daemon",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=forge_daemon.run_tick,
+        )
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "merge_tick"
+        current_correlation_id = f"{tick_id}:merge_tick"
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="merge_tick",
+                authority_class=AuthorityClass.REPAIR,
+                actor="sentientosd",
+                target_subsystem="forge_merge_train",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+            ),
+            execute=merge_train.tick,
+        )
+        kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
+
+        current_surface = "commit_plan"
+        current_correlation_id = f"{tick_id}:commit_plan"
+        plan = runtime_surfaces.next_commit()
+        if plan:
+            LOGGER.info("Codex amendment ready for commit: %s", plan.message)
+            if git_commit_push(plan.message):
+                runtime_surfaces.mark_committed(plan)
+    except Exception as exc:
+        signal = _maintenance_degradation_signal(
+            tick_id=tick_id,
+            surface=current_surface,
+            correlation_id=current_correlation_id,
+            phase_before=phase_before,
+            phase_at_failure=getattr(kernel, "phase", "unknown"),
+            exc=exc,
+        )
+        _record_maintenance_degradation(kernel=kernel, signal=signal)
+        safe_phase = phase_before if isinstance(phase_before, LifecyclePhase) else LifecyclePhase.RUNTIME
+        if safe_phase == LifecyclePhase.MAINTENANCE:
+            safe_phase = LifecyclePhase.RUNTIME
+        try:
+            kernel.set_phase(safe_phase, actor="sentientosd")
+        except Exception:
+            LOGGER.warning(
+                "Failed to restore runtime phase after maintenance degradation",
+                extra={"correlation_id": current_correlation_id, "surface": current_surface},
+                exc_info=True,
+            )
+        return
 
 
 async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) -> None:

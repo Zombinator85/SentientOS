@@ -254,6 +254,209 @@ def test_governor_denial_prevents_daemon_loop_side_effects(tmp_path: Path) -> No
     assert any(row.get("action_kind") == "merge_tick" and row.get("final_disposition") == "deny" for row in rows)
 
 
+class _FailingRuntimeSurfaceSpy(_RuntimeSurfaceSpy):
+    def __init__(self, *, fail_surface: str) -> None:
+        super().__init__()
+        self.fail_surface = fail_surface
+        self.next_commit_calls = 0
+        self.mark_committed_calls = 0
+
+    def expand(self) -> list[object]:
+        self.expand_calls += 1
+        if self.fail_surface == "expand":
+            raise RuntimeError("boom-expand")
+        return []
+
+    def cycle(self) -> dict[str, object]:
+        self.cycle_calls += 1
+        if self.fail_surface == "cycle":
+            raise RuntimeError("boom-cycle")
+        return {}
+
+    def guard(self) -> dict[str, object]:
+        self.guard_calls += 1
+        if self.fail_surface == "guard":
+            raise RuntimeError("boom-guard")
+        return {}
+
+    def monitor(self) -> list[dict[str, object]]:
+        self.monitor_calls += 1
+        if self.fail_surface == "monitor":
+            raise RuntimeError("boom-monitor")
+        return []
+
+    def next_commit(self):
+        self.next_commit_calls += 1
+        if self.fail_surface == "commit_plan":
+            raise RuntimeError("boom-commit-plan")
+        return None
+
+    def mark_committed(self, _plan) -> None:
+        self.mark_committed_calls += 1
+        raise AssertionError("mark_committed should not run during degradation tests")
+
+
+class _FailingForgeDaemonStub(_ForgeDaemonStub):
+    def run_tick(self) -> None:
+        self.calls += 1
+        raise RuntimeError("boom-forge")
+
+
+class _FailingMergeTrainStub(_MergeTrainStub):
+    def tick(self) -> None:
+        self.calls += 1
+        raise RuntimeError("boom-merge")
+
+
+def _decision_rows(path: Path) -> list[dict[str, object]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def _maintenance_degradations(path: Path) -> list[dict[str, object]]:
+    return [row for row in _decision_rows(path) if row.get("event_type") == "runtime_maintenance_degradation"]
+
+
+@pytest.mark.parametrize(
+    ("fail_surface", "expected_counts"),
+    [
+        ("expand", {"expand": 1, "cycle": 0, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
+        ("cycle", {"expand": 1, "cycle": 1, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
+        ("guard", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
+        ("monitor", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 1, "forge": 0, "merge": 0, "next_commit": 0}),
+    ],
+)
+def test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime(
+    tmp_path: Path,
+    fail_surface: str,
+    expected_counts: dict[str, int],
+) -> None:
+    decisions_path = tmp_path / "decisions.jsonl"
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=decisions_path,
+    )
+    surfaces = _FailingRuntimeSurfaceSpy(fail_surface=fail_surface)
+    forge = _ForgeDaemonStub()
+    merge = _MergeTrainStub()
+
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=forge,  # type: ignore[arg-type]
+        merge_train=merge,  # type: ignore[arg-type]
+    )
+
+    assert surfaces.expand_calls == expected_counts["expand"]
+    assert surfaces.cycle_calls == expected_counts["cycle"]
+    assert surfaces.guard_calls == expected_counts["guard"]
+    assert surfaces.monitor_calls == expected_counts["monitor"]
+    assert forge.calls == expected_counts["forge"]
+    assert merge.calls == expected_counts["merge"]
+    assert surfaces.next_commit_calls == expected_counts["next_commit"]
+    assert surfaces.mark_committed_calls == 0
+    assert kernel.phase == LifecyclePhase.RUNTIME
+
+    degradations = _maintenance_degradations(decisions_path)
+    assert len(degradations) == 1
+    degradation = degradations[0]
+    assert degradation == {
+        **degradation,
+        "event_type": "runtime_maintenance_degradation",
+        "schema": "runtime_maintenance_degradation:v1",
+        "surface": fail_surface,
+        "actor": "sentientosd",
+        "severity": "blocking",
+        "disposition": "fail_stop_degraded",
+        "stopped_active_cycle": True,
+        "retry_attempted": False,
+        "follow_up_enqueued": False,
+        "reinterpreted_as_goal": False,
+        "failure_type": "RuntimeError",
+        "failure_message": f"boom-{fail_surface}",
+        "phase": "maintenance",
+        "phase_before": "runtime",
+        "phase_at_failure": "maintenance",
+    }
+    assert degradation["correlation_id"] == f"{degradation['tick_id']}:{fail_surface}"
+
+
+@pytest.mark.parametrize(
+    ("fail_surface", "forge_factory", "merge_factory", "expected_forge", "expected_merge"),
+    [
+        ("forge_tick", _FailingForgeDaemonStub, _MergeTrainStub, 1, 0),
+        ("merge_tick", _ForgeDaemonStub, _FailingMergeTrainStub, 1, 1),
+    ],
+)
+def test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry(
+    tmp_path: Path,
+    fail_surface: str,
+    forge_factory,
+    merge_factory,
+    expected_forge: int,
+    expected_merge: int,
+) -> None:
+    decisions_path = tmp_path / "decisions.jsonl"
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=decisions_path,
+    )
+    surfaces = _FailingRuntimeSurfaceSpy(fail_surface="none")
+    forge = forge_factory()
+    merge = merge_factory()
+
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=forge,  # type: ignore[arg-type]
+        merge_train=merge,  # type: ignore[arg-type]
+    )
+
+    assert (surfaces.expand_calls, surfaces.cycle_calls, surfaces.guard_calls, surfaces.monitor_calls) == (1, 1, 1, 1)
+    assert forge.calls == expected_forge
+    assert merge.calls == expected_merge
+    assert surfaces.next_commit_calls == 0
+    assert surfaces.mark_committed_calls == 0
+    assert kernel.phase == LifecyclePhase.RUNTIME
+
+    degradations = _maintenance_degradations(decisions_path)
+    assert len(degradations) == 1
+    assert degradations[0]["surface"] == fail_surface
+    assert degradations[0]["retry_attempted"] is False
+    assert degradations[0]["follow_up_enqueued"] is False
+    assert degradations[0]["reinterpreted_as_goal"] is False
+
+
+def test_maintenance_tick_commit_plan_failure_degrades_without_new_action(tmp_path: Path) -> None:
+    decisions_path = tmp_path / "decisions.jsonl"
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=decisions_path,
+    )
+    surfaces = _FailingRuntimeSurfaceSpy(fail_surface="commit_plan")
+    forge = _ForgeDaemonStub()
+    merge = _MergeTrainStub()
+
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=forge,  # type: ignore[arg-type]
+        merge_train=merge,  # type: ignore[arg-type]
+    )
+
+    assert (surfaces.expand_calls, surfaces.cycle_calls, surfaces.guard_calls, surfaces.monitor_calls) == (1, 1, 1, 1)
+    assert forge.calls == 1
+    assert merge.calls == 1
+    assert surfaces.next_commit_calls == 1
+    assert surfaces.mark_committed_calls == 0
+    assert kernel.phase == LifecyclePhase.RUNTIME
+    degradations = _maintenance_degradations(decisions_path)
+    assert len(degradations) == 1
+    assert degradations[0]["surface"] == "commit_plan"
+    assert degradations[0]["phase_at_failure"] == "runtime"
+
 def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
