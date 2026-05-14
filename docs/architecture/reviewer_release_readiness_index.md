@@ -185,3 +185,8 @@ python scripts/build_docs.py
 5. Inspect `tests/test_chat_service_lazy_loading.py`, `tests/test_local_model.py`, and `tests/integration/test_chat_mistral_runtime.py`.
 6. Inspect the federated improvement receipt tests listed in the custody runway section.
 7. Build docs with `python scripts/build_docs.py --check-deps` and `python scripts/build_docs.py`.
+
+
+## Host Embodiment Phase 3 policy receipts
+
+See `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`. Proposal receipts are not effects. A policy decision is not authorization. PWM presence is not control authority. Phase 3 names the future Privilege Broker and Actuation Fulfillment Layer and keeps them future/deferred.

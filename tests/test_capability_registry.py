@@ -31,7 +31,7 @@ def test_summary_shape_is_metadata_only_and_digest_changes_on_metadata() -> None
     assert summary["metadata_only"] is True
     assert summary["no_runtime_authority_expansion"] is True
     assert "direct_fan_pwm_thermal_control" in summary["capability_ids"]
-    changed = replace_capability_record(registry, "host_resource_telemetry", status="partial")
+    changed = replace_capability_record(registry, "host_resource_telemetry", status="implemented")
     assert capability_registry_digest(changed) != summary["digest"]
 
 
@@ -163,4 +163,26 @@ def test_registry_updates_from_collector_backed_inventory_and_resource_report_wi
     assert records["host_resource_telemetry"].authority_level == "proposal_only"
     assert records["host_resource_telemetry"].host_actuation_performed is False
     assert records["direct_fan_pwm_thermal_control"].status in {"blocked", "deferred"}
+    assert validate_capability_registry(registry).ok
+
+
+def test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_organs() -> None:
+    from sentientos.capability_registry import update_registry_from_host_resource_policy
+    from sentientos.host_resource_governor import build_host_resource_telemetry_snapshot, evaluate_host_resource_pressure
+    from sentientos.host_resource_policy import build_host_resource_proposal_receipts, evaluate_host_resource_policy
+
+    snapshot = build_host_resource_telemetry_snapshot(snapshot_id="s", cpu_utilization_percent=95, ram_utilization_percent=20, disk_utilization_percent=30)
+    report = evaluate_host_resource_pressure(snapshot)
+    decision = evaluate_host_resource_policy(report)
+    receipts = build_host_resource_proposal_receipts(decision)
+    registry = update_registry_from_host_resource_policy(build_default_capability_registry(), decision, receipts)
+    records = registry.by_id()
+    assert records["host_resource_policy"].status == "implemented"
+    assert records["host_resource_policy"].authority_level == "proposal_only"
+    assert records["host_resource_policy"].host_actuation_performed is False
+    assert records["host_resource_proposal_receipts"].status == "implemented"
+    assert records["host_resource_proposal_receipts"].authority_level == "proposal_only"
+    assert records["direct_fan_pwm_thermal_control"].status == "blocked"
+    assert records["privilege_broker"].status == "deferred"
+    assert records["actuation_fulfillment"].status == "deferred"
     assert validate_capability_registry(registry).ok

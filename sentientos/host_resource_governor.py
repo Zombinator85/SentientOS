@@ -448,3 +448,23 @@ def validate_host_resource_pressure_report(
         if not all(required):
             findings.append(prefix + ":candidate_claims_execution_or_missing_future_gate")
     return HostResourceGovernorValidationResult(ok=not findings, findings=tuple(findings))
+
+
+def evaluate_host_resource_policy_from_telemetry(
+    snapshot: HostResourceTelemetrySnapshot,
+    *,
+    host_id: str | None = None,
+    node_id: str | None = None,
+    thermal_pressure_c: float = 85.0,
+) -> tuple[Any, tuple[Any, ...]]:
+    """Evaluate Phase 3 policy receipts from supplied read-only telemetry.
+
+    The returned decision and receipts are proposal-only metadata. This helper
+    does not authorize or fulfill host action.
+    """
+
+    from sentientos.host_resource_policy import build_host_resource_proposal_receipts, evaluate_host_resource_policy
+
+    report = evaluate_host_resource_pressure(snapshot, thermal_pressure_c=thermal_pressure_c)
+    decision = evaluate_host_resource_policy(report, host_id=host_id, node_id=node_id)
+    return decision, build_host_resource_proposal_receipts(decision)

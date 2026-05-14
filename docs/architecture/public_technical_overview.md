@@ -215,4 +215,4 @@ Internal and legacy cultural documentation remains available and is not removed 
 
 ## Host embodiment substrate
 
-See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` for Phase 1 metadata-only host embodiment and Phase 2 read-only discovery.
+See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` for Phase 1 metadata-only host embodiment and Phase 2 read-only discovery.
