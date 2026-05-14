@@ -58,3 +58,7 @@ Proof path: docs/architecture/host_embodiment_reviewer_demo_trace.md
 ## Downstream readiness link
 
 After controlled authorization contracts and safety gates, the [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`) checks readiness/preflight metadata only. Controlled authorization contract is not a live grant, and live-grant readiness is not authorization.
+
+Later ladder link: [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) records scoped local authorization metadata after live-grant readiness without executing host actions.
+
+Path link: `docs/architecture/host_local_authorization_grant_wing.md`.

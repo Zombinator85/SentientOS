@@ -78,3 +78,7 @@ The reviewer should see that:
 ## Live-grant readiness artifact
 
 The bundle includes `live_grant_readiness.json`, documented in [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`). The artifact is metadata-only reviewer proof: live-grant readiness is not a live grant, the operator/policy approval packet is not approval, and the grant issue preflight receipt does not issue a grant.
+
+The bundle also includes `local_authorization.json` for the [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md); this is authority metadata only and does not authorize fulfillment.
+
+Path link: `docs/architecture/host_local_authorization_grant_wing.md`.

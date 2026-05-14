@@ -41,3 +41,7 @@ This wing covers **safety gates** only. It answers: “What gates must be declar
 ## Next wing
 
 The next organ is the [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`), which evaluates post-safety-gate readiness/preflight metadata only. Live-grant readiness is not a live grant; authorization and real actuation remain deferred.
+
+See also: [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md), which follows live-grant readiness and remains authorization-record-only.
+
+Path link: `docs/architecture/host_local_authorization_grant_wing.md`.

@@ -398,3 +398,7 @@ See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. The external rev
 ### Host Live-Grant Readiness Wing
 
 See [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`). It sits after Host Actuation Safety Gates and before any future authorize/fulfill/effect path. It is readiness/preflight only; real actuation remains deferred.
+
+- [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md): implemented bounded authorization-record lifecycle; fulfillment and actuation remain deferred.
+
+Path link: `docs/architecture/host_local_authorization_grant_wing.md`.

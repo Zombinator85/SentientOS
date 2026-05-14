@@ -413,3 +413,37 @@ def test_live_grant_readiness_capabilities_are_metadata_only_and_real_actions_re
     for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
         assert records[capability_id].status == "blocked"
         assert records[capability_id].host_actuation_performed is False
+
+
+def test_local_authorization_capabilities_are_record_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["local_authorization_grant"].status == "implemented"
+    assert records["local_authorization_grant"].authority_level == "local_authorization_record_only"
+    assert records["local_authorization_grant"].host_actuation_performed is False
+    assert "host mutation" in records["local_authorization_grant"].deferred_surfaces
+    assert records["local_authorization_grant_ledger"].authority_level == "authorization_ledger_only"
+    assert records["local_authorization_revocation_receipt"].authority_level == "revocation_record_only"
+    assert records["local_authorization_expiry_evaluation"].authority_level == "expiry_evaluation_only"
+    assert records["local_authorization_verification"].authority_level == "verification_only"
+    assert records["fulfillment_authorization_consumption"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status in {"blocked", "deferred"}
+    assert records["real_thermal_actuation"].status in {"blocked", "deferred"}
+    assert records["real_power_profile_mutation"].status in {"blocked", "deferred"}
+    assert records["real_service_restart"].status in {"blocked", "deferred"}
+    assert records["real_file_cleanup"].status in {"blocked", "deferred"}
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_updates_from_local_authorization_ledger_without_fulfillment() -> None:
+    from sentientos.capability_registry import update_registry_from_local_authorization_ledger
+    from sentientos.local_authorization_grant import build_local_authorization_grant_ledger
+
+    registry = update_registry_from_local_authorization_ledger(build_default_capability_registry(), build_local_authorization_grant_ledger(()))
+    records = registry.by_id()
+    assert records["local_authorization_grant"].authority_level == "local_authorization_record_only"
+    assert records["local_authorization_grant_ledger"].authority_level == "authorization_ledger_only"
+    assert records["fulfillment_authorization_consumption"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert validate_capability_registry(registry).ok

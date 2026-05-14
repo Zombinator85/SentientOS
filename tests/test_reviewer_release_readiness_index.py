@@ -377,3 +377,29 @@ def test_host_live_grant_readiness_doc_preserves_preflight_only_boundaries() -> 
     assert "grant issue preflight receipt does not issue a grant" in doc
     assert "Real actuation remains deferred" in doc
     assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → authorize" in doc
+
+HOST_LOCAL_AUTHORIZATION_GRANT_WING = "docs/architecture/host_local_authorization_grant_wing.md"
+
+
+def test_navigation_links_to_host_local_authorization_grant_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    safety = _read(HOST_ACTUATION_SAFETY_GATE_WING)
+    live = _read(HOST_LIVE_GRANT_READINESS_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, safety, live, bundle, controlled, trajectory]:
+        assert HOST_LOCAL_AUTHORIZATION_GRANT_WING in text
+
+
+def test_host_local_authorization_grant_doc_preserves_record_only_boundaries() -> None:
+    doc = _read(HOST_LOCAL_AUTHORIZATION_GRANT_WING)
+    assert "A local authorization grant is authority metadata, not fulfillment" in doc
+    assert "A local authorization grant does not execute" in doc
+    assert "A local authorization grant does not mutate host state" in doc
+    assert "Grant verification is not fulfillment authorization" in doc
+    assert "revocation receipt records revocation metadata and does not execute host action" in doc
+    assert "Expiry evaluation is metadata-only" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → local authorization grant → fulfill" in doc

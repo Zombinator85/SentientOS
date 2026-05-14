@@ -18,13 +18,24 @@ from typing import Any, Mapping, Sequence
 from sentientos.capability_registry import build_default_capability_registry, summarize_capability_registry
 from sentientos.host_embodiment_trace import build_host_embodiment_demo_trace, summarize_host_embodiment_trace
 from sentientos.host_actuation_safety import build_safety_gates_for_domain, summarize_safety_gate_satisfaction_manifest
-from sentientos.controlled_authorization import build_controlled_authorization_ledger
 from sentientos.live_grant_readiness import (
     build_live_grant_readiness_wing,
     summarize_grant_denial_deferral_receipt,
     summarize_grant_issue_preflight_receipt,
     summarize_live_grant_prerequisite_matrix,
     summarize_operator_policy_approval_packet,
+)
+from sentientos.local_authorization_grant import (
+    build_local_authorization_grant_wing,
+    build_operator_approval_evidence,
+    build_policy_approval_evidence,
+    summarize_local_authorization_grant,
+    summarize_local_authorization_grant_expiry_evaluation,
+    summarize_local_authorization_grant_ledger,
+    summarize_local_authorization_grant_revocation_receipt,
+    summarize_local_authorization_grant_verification,
+    summarize_operator_approval_evidence,
+    summarize_policy_approval_evidence,
 )
 from sentientos.host_embodiment_trace_export import (
     serialize_host_embodiment_trace_json,
@@ -53,6 +64,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "bundle_manifest",
         "safety_gate_posture",
         "live_grant_readiness_posture",
+        "local_authorization_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -75,6 +87,7 @@ BUNDLE_FILE_NAMES = {
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
     "live_grant_readiness_posture": "live_grant_readiness.json",
+    "local_authorization_posture": "local_authorization.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -290,8 +303,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "3. `deferred_actions.json` — deferred/blocked action inventory.",
             "4. `safety_gates.json` — metadata-only host actuation safety gate posture.",
             "5. `live_grant_readiness.json` — readiness/preflight-only future live-grant posture; it is not a grant.",
-            "6. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "7. `capability_registry_summary.json` — metadata-only capability posture.",
+            "6. `local_authorization.json` — bounded local authorization-record posture; it is not fulfillment.",
+            "7. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "8. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -304,6 +318,7 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "- Network/provider/prompt assembly performed: false",
             "- Safety gates are not authorization and do not grant fulfillment or control authority.",
             "- Live-grant readiness is not a live grant; the approval packet is not approval; preflight does not issue a grant.",
+            "- Local authorization grant records are authority metadata only; verification does not authorize fulfillment.",
             "- Fan/PWM writes, thermal writes, power mutation, service restart, cleanup, federation transport, and remote execution remain deferred or blocked.",
             "",
             f"Manifest ID: `{manifest_id}`",
@@ -339,17 +354,34 @@ def build_reviewer_proof_bundle_payload(
         raise ValueError("invalid trace export payload: " + ", ".join(trace_validation.findings))
 
     registry = build_default_capability_registry()
+    manifest_id = "reviewer-proof-bundle-thermal-pwm-demo"
     safety_gates = build_safety_gates_for_domain("cooling_control_future", created_at=created_at)
-    controlled_ledger = build_controlled_authorization_ledger((), created_at=created_at)
+    controlled_ledger = {
+        "ledger_id": "sample-controlled-authorization-ledger-for-reviewer-proof",
+        "grant_records": ({"grant_record_id": "sample-controlled-grant-schema"},),
+        "revocation_records": ({"revocation_id": "sample-revocation-schema"},),
+        "metadata_only": True,
+        "ledger_only": True,
+        "host_mutation_performed": False,
+    }
+    proof_manifest_stub = {"manifest_id": manifest_id, "metadata_only": True, "reviewer_proof_only": True}
     live_grant_readiness = build_live_grant_readiness_wing(
         controlled_ledger,
         safety_gates.safety_gate_satisfaction_manifest,
-        None,
+        proof_manifest_stub,
         readiness_domain="future_cooling_live_grant_review",
         created_at=created_at,
     )
+    operator_evidence = build_operator_approval_evidence(created_at=created_at)
+    policy_evidence = build_policy_approval_evidence(created_at=created_at)
+    local_authorization = build_local_authorization_grant_wing(
+        live_grant_readiness.preflight_receipt,
+        live_grant_readiness.prerequisite_matrix,
+        operator_evidence,
+        policy_evidence,
+        created_at=created_at,
+    )
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
-    manifest_id = "reviewer-proof-bundle-thermal-pwm-demo"
     contents: dict[str, str] = {
         "trace_json": serialize_host_embodiment_trace_json(trace),
         "trace_markdown": serialize_host_embodiment_trace_markdown(trace),
@@ -371,6 +403,33 @@ def build_reviewer_proof_bundle_payload(
                 "approval_packet": live_grant_readiness.approval_packet.to_dict(),
                 "preflight_receipt": live_grant_readiness.preflight_receipt.to_dict(),
                 "denial_deferral_receipt": live_grant_readiness.denial_deferral_receipt.to_dict(),
+            },
+        }),
+
+        "local_authorization_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "authorization_record_only": True,
+            "proof_statement": "A local authorization grant is authority metadata, not fulfillment; verification does not authorize fulfillment and no effect or host mutation is performed.",
+            "operator_approval_evidence_summary": summarize_operator_approval_evidence(operator_evidence),
+            "policy_approval_evidence_summary": summarize_policy_approval_evidence(policy_evidence),
+            "grant_summary": summarize_local_authorization_grant(local_authorization.grant),
+            "expiry_evaluation_summary": summarize_local_authorization_grant_expiry_evaluation(local_authorization.expiry_evaluation),
+            "verification_summary": summarize_local_authorization_grant_verification(local_authorization.verification),
+            "revocation_receipt_summary": summarize_local_authorization_grant_revocation_receipt(local_authorization.revocation_receipt),
+            "ledger_summary": summarize_local_authorization_grant_ledger(local_authorization.ledger),
+            "fulfillment_granted": False,
+            "effect_performed": False,
+            "host_mutation_performed": False,
+            "real_actuation_deferred": True,
+            "records": {
+                "operator_approval_evidence": operator_evidence.to_dict(),
+                "policy_approval_evidence": policy_evidence.to_dict(),
+                "grant": local_authorization.grant.to_dict(),
+                "expiry_evaluation": local_authorization.expiry_evaluation.to_dict(),
+                "verification": local_authorization.verification.to_dict(),
+                "revocation_receipt_schema_example": local_authorization.revocation_receipt.to_dict(),
+                "ledger": local_authorization.ledger.to_dict(),
             },
         }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
@@ -414,7 +473,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

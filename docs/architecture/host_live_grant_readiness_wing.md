@@ -49,3 +49,7 @@ The reviewer proof bundle now includes `live_grant_readiness.json`. That artifac
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_live_grant_readiness.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+Next: [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) records bounded local authorization metadata after readiness; it is still not fulfillment.
+
+Path link: `docs/architecture/host_local_authorization_grant_wing.md`.

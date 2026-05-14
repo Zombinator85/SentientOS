@@ -127,3 +127,18 @@ def test_reviewer_proof_bundle_cli_writes_live_grant_readiness_json(tmp_path) ->
     text = live_grant.read_text(encoding="utf-8")
     assert "Live-grant readiness is not a live grant" in text
     assert "grant_not_issued" in text
+
+
+def test_reviewer_proof_bundle_cli_writes_local_authorization_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    local_authorization = output_dir / "local_authorization.json"
+    assert local_authorization.exists()
+    payload = json.loads(local_authorization.read_text(encoding="utf-8"))
+    assert payload["authorization_record_only"] is True
+    assert payload["grant_summary"]["live_authorization_granted"] is True
+    assert payload["grant_summary"]["fulfillment_granted"] is False
+    assert payload["grant_summary"]["effect_performed"] is False
+    assert payload["grant_summary"]["host_mutation_performed"] is False
+    assert payload["verification_summary"]["authorizes_fulfillment"] is False

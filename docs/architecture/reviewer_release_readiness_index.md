@@ -254,3 +254,6 @@ See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. Proof commands: 
 - Architecture: [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`).
 - Proof: `tests/test_live_grant_readiness.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, and `tests/test_capability_registry.py`.
 - Boundary: live-grant readiness is not a live grant; operator/policy approval packet is not approval; grant issue preflight does not issue a grant; real actuation remains deferred.
+
+
+- Host Local Authorization Grant Wing: `docs/architecture/host_local_authorization_grant_wing.md`; proof artifact `local_authorization.json`; tests `tests/test_local_authorization_grant.py`. Local authorization grant is authority metadata, not fulfillment, and does not execute.
