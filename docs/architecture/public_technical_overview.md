@@ -241,3 +241,7 @@ Next review-only wing: `docs/architecture/host_embodiment_authorization_review_w
 The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) adds a contract-only controlled authorization schema and a demo/proof-only host embodiment trace. The controlled authorization contract is not a live grant; the grant record is schema-only/future-use-only; the demo trace is reviewer proof only; real fulfillment and real actuation remain deferred.
 
 Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+
+## Host Embodiment Reviewer Demo Trace
+
+See `docs/architecture/host_embodiment_reviewer_demo_trace.md` for the one-command deterministic reviewer trace. Run `python scripts/build_host_embodiment_trace.py --format json`, `python scripts/build_host_embodiment_trace.py --format markdown`, or `python scripts/build_host_embodiment_trace.py --validate-only`. The demo trace is reviewer proof only, no host mutation occurs, PWM presence is not control authority, the controlled authorization contract is not a live grant, and grant/revocation records are schema-only/future-use-only.
