@@ -33,6 +33,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "host_resource_proposal_receipts",
         "privilege_broker",
         "control_plane_admission",
+        "actuation_fulfillment",
         "audit_immutability",
         "self_amendment",
         "federation_evidence",
@@ -46,6 +47,7 @@ AUTHORITY_LEVELS = frozenset(
         "observation",
         "proposal_only",
         "eligibility_only",
+        "rehearsal_only",
         "gated_host_interaction",
         "privileged_host_action",
         "federation_evidence",
@@ -123,7 +125,7 @@ class CapabilityRecord:
 @dataclass(frozen=True)
 class CapabilityRegistry:
     registry_id: str
-    schema_version: str = "host-embodiment-substrate-phase4.v1"
+    schema_version: str = "host-embodiment-substrate-phase5.v1"
     records: tuple[CapabilityRecord, ...] = ()
     metadata_only: bool = True
     no_runtime_authority_expansion: bool = True
@@ -192,7 +194,7 @@ def _record(
 
 
 def build_default_capability_registry() -> CapabilityRegistry:
-    """Return the deterministic Phase 1 capability map."""
+    """Return the deterministic host embodiment capability map."""
 
     records = (
         _record("install_bootstrap", "install_bootstrap", "implemented", "observation", source_paths=("installer/setup_installer.py", "installer/dry_run.py", "scripts/package_launcher.py"), implemented_surfaces=("offline/dry-run setup metadata",), forbidden_implications=("package installation without operator action",)),
@@ -216,15 +218,16 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("blanket_hardware_control", "hardware_driver_awareness", "blocked", "none", deferred_surfaces=("stem-to-stern host actuation",), forbidden_implications=("blanket hardware control exists"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("control_plane_admission", "control_plane_admission", "implemented", "proposal_only", source_paths=("sentientos/control_plane_kernel.py", "control_plane/", "sentientos/runtime_governor.py"), proof_tests=("tests/test_control_plane_kernel.py", "tests/test_sentientosd_runtime_closure.py"), implemented_surfaces=("admission receipts and runtime gating",), forbidden_implications=("admission alone performs effects",)),
         _record("privilege_broker", "privilege_broker", "implemented", "eligibility_only", source_paths=("sentientos/privilege_broker.py", "sentientos/host_resource_policy.py"), proof_tests=("tests/test_privilege_broker.py",), proof_commands=("python -m scripts.run_tests -q tests/test_privilege_broker.py tests/test_host_resource_policy.py tests/test_capability_registry.py",), implemented_surfaces=("eligibility-only classification of proposal receipts", "deterministic broker review receipts"), deferred_surfaces=("authorization", "Actuation Fulfillment Layer", "cooling fulfillment", "service restart fulfillment", "cleanup fulfillment", "power policy mutation"), forbidden_implications=("privilege broker eligibility is authorization", "broker review receipt is fulfillment", "privilege broker performs host action"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
-        _record("actuation_fulfillment", "control_plane_admission", "deferred", "none", deferred_surfaces=("candidate-to-effect fulfillment", "rollback execution", "host mutation effects", "fan/PWM writes", "thermal actuation", "service restart", "power profile mutation", "cleanup mutation"), forbidden_implications=("proposal receipt is actuation fulfillment", "privilege broker receipt is actuation fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("actuation_fulfillment", "actuation_fulfillment", "implemented", "rehearsal_only", source_paths=("sentientos/actuation_fulfillment.py", "sentientos/privilege_broker.py"), proof_tests=("tests/test_actuation_fulfillment.py",), proof_commands=("python -m scripts.run_tests -q tests/test_actuation_fulfillment.py tests/test_privilege_broker.py tests/test_capability_registry.py",), implemented_surfaces=("dry-run fulfillment rehearsal plans", "non-effect fulfillment rehearsal receipts"), deferred_surfaces=("real actuation fulfillment", "rollback execution", "host mutation effects", "fan/PWM writes", "thermal actuation", "service restart", "power profile mutation", "cleanup mutation"), forbidden_implications=("rehearsal plan is authorization", "rehearsal receipt is effect receipt", "privilege broker receipt is fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("real_actuation_fulfillment", "actuation_fulfillment", "deferred", "none", deferred_surfaces=("candidate-to-effect fulfillment", "privileged host mutation", "fan/PWM writes", "thermal actuation", "service restart", "power profile mutation", "cleanup mutation"), forbidden_implications=("Phase 5 implements real actuation", "rehearsal receipt is effect receipt"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("audit_immutability", "audit_immutability", "implemented", "observation", source_paths=("scripts/audit_immutability_verifier.py", "scripts/verify_audits.py", "vow/immutable_manifest.json"), proof_commands=("python scripts/verify_audits.py --strict", "python scripts/audit_immutability_verifier.py --manifest vow/immutable_manifest.json"), implemented_surfaces=("audit verification",)),
         _record("self_amendment", "self_amendment", "partial", "self_amendment", source_paths=("sentientos/autonomy/runtime.py", "sentientos/autonomy/rehearsal.py"), implemented_surfaces=("rehearsal/governed composition surfaces",), deferred_surfaces=("unapproved self-modification",), forbidden_implications=("runtime authority expansion",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-phase4", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-embodiment-phase5", records=records)
 
 
 
@@ -335,10 +338,10 @@ def update_registry_from_host_resource_policy(registry: CapabilityRegistry, deci
         elif record.capability_id == "privilege_broker":
             records.append(record)
         elif record.capability_id == "actuation_fulfillment":
-            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+            records.append(replace(record, status="implemented", authority_level="rehearsal_only", host_actuation_performed=False))
         else:
             records.append(record)
-    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase3.v1")
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase5.v1")
 
 
 def _canonical_json(value: Any) -> str:
@@ -430,6 +433,60 @@ def replace_capability_record(registry: CapabilityRegistry, capability_id: str, 
     return replace(registry, records=records)
 
 
+
+def update_registry_from_actuation_fulfillment_plan(registry: CapabilityRegistry, plan: Any) -> CapabilityRegistry:
+    """Reflect a Phase 5 rehearsal plan without claiming real fulfillment."""
+
+    records: list[CapabilityRecord] = []
+    has_plan = bool(getattr(plan, "plan_id", ""))
+    for record in registry.records:
+        if record.capability_id == "actuation_fulfillment":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_plan else "scaffolded",
+                    authority_level="rehearsal_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/actuation_fulfillment.py", "sentientos/privilege_broker.py")))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_actuation_fulfillment.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("dry-run fulfillment rehearsal planning",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("real actuation fulfillment", "host mutation", "effect receipt issuance", "fan/PWM writes", "thermal actuation", "service restart", "cleanup mutation", "power profile mutation")))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("fulfillment rehearsal is real fulfillment", "plan is authorization")))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "real_actuation_fulfillment":
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id == "direct_fan_pwm_thermal_control":
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase5.v1")
+
+
+def update_registry_from_actuation_rehearsal_receipt(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect a Phase 5 rehearsal receipt while keeping real host actuation deferred."""
+
+    updated = update_registry_from_actuation_fulfillment_plan(registry, receipt)
+    records: list[CapabilityRecord] = []
+    has_receipt = bool(getattr(receipt, "receipt_id", ""))
+    for record in updated.records:
+        if record.capability_id == "actuation_fulfillment":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_receipt else record.status,
+                    authority_level="rehearsal_only",
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("non-effect fulfillment rehearsal receipts",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("rehearsal receipt is effect receipt",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        else:
+            records.append(record)
+    return replace(updated, records=tuple(records), schema_version="host-embodiment-substrate-phase5.v1")
+
 def update_registry_from_privilege_broker_decision(registry: CapabilityRegistry, decision: Any, review_receipts: Sequence[Any] = ()) -> CapabilityRegistry:
     """Reflect Phase 4 broker eligibility without claiming fulfillment."""
 
@@ -453,9 +510,9 @@ def update_registry_from_privilege_broker_decision(registry: CapabilityRegistry,
                 )
             )
         elif record.capability_id == "actuation_fulfillment":
-            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+            records.append(replace(record, status="implemented", authority_level="rehearsal_only", host_actuation_performed=False))
         elif record.capability_id == "direct_fan_pwm_thermal_control":
             records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
         else:
             records.append(record)
-    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase4.v1")
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase5.v1")

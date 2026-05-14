@@ -215,9 +215,14 @@ Internal and legacy cultural documentation remains available and is not removed 
 
 ## Host embodiment substrate
 
-See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` and `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md` for Host Embodiment Substrate phases 1 through 4.
+See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` and `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md` and `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md` for Host Embodiment Substrate phases 1 through 5.
 
 
 ### Host Embodiment Phase 4 Privilege Broker
 
 See `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Phase 4 evaluates proposal receipts for future privileged-action eligibility only. Eligibility is not authorization, a broker receipt is not fulfillment, fan/PWM/thermal control remains blocked/deferred, and the future Actuation Fulfillment Layer is still required before any effect can occur.
+
+
+### Host Embodiment Phase 5 Actuation Fulfillment Scaffold
+
+See `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Phase 5 creates fulfillment rehearsal plans and rehearsal receipts only. Fulfillment rehearsal is not real fulfillment, a rehearsal receipt is not an effect receipt, no host mutation occurs, and fan/PWM/thermal/power/service/cleanup actions remain blocked/deferred behind future control-plane admission, operator/policy approval, audit, rollback, effect receipt, and postcondition gates.

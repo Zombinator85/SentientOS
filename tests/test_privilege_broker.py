@@ -198,6 +198,6 @@ def test_capability_registry_reflects_privilege_broker_without_actuation_fulfill
     assert records["privilege_broker"].status == "implemented"
     assert records["privilege_broker"].authority_level == "eligibility_only"
     assert records["privilege_broker"].host_actuation_performed is False
-    assert records["actuation_fulfillment"].status == "deferred"
+    assert records["actuation_fulfillment"].status == "implemented"
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
     assert validate_capability_registry(registry).ok
