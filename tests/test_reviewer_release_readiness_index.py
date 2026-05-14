@@ -202,3 +202,29 @@ def test_phase5_doc_preserves_actuation_fulfillment_scaffold_boundaries() -> Non
     assert "operator/policy approval" in phase5
     assert "effect receipt" in phase5
     assert "postcondition check" in phase5
+
+HOST_EMBODIMENT_EXECUTION_PROOF_WING = "docs/architecture/host_embodiment_execution_proof_wing.md"
+
+
+def test_navigation_links_to_host_embodiment_execution_proof_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase1 = _read(HOST_EMBODIMENT_PHASE1)
+    phase2 = _read(HOST_EMBODIMENT_PHASE2)
+    phase3 = _read(HOST_EMBODIMENT_PHASE3)
+    phase4 = _read(HOST_EMBODIMENT_PHASE4)
+    phase5 = _read(HOST_EMBODIMENT_PHASE5)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, phase1, phase2, phase3, phase4, phase5, trajectory]:
+        assert HOST_EMBODIMENT_EXECUTION_PROOF_WING in text
+
+
+def test_execution_proof_wing_doc_preserves_readiness_boundaries() -> None:
+    doc = _read(HOST_EMBODIMENT_EXECUTION_PROOF_WING)
+    assert "Execution Readiness Manifest is not authorization" in doc
+    assert "future effect receipt schema is not proof that an effect occurred" in doc
+    assert "does not restart services" in doc
+    assert "does not kill processes" in doc
+    assert "Real actuation remains deferred" in doc
+    for term in ["Effect Receipt", "Postcondition Check", "Rollback Plan", "RollbackReceipt", "Runtime Supervisor", "Execution Readiness Manifest"]:
+        assert term in doc

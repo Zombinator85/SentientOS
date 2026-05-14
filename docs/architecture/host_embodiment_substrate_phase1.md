@@ -125,3 +125,8 @@ python scripts/verify_context_hygiene_prompt_boundaries.py
 python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```
+
+
+## Host Embodiment Execution Proof Wing
+
+Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.

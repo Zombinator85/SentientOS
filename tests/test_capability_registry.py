@@ -208,3 +208,41 @@ def test_phase5_registry_represents_actuation_fulfillment_as_rehearsal_only() ->
     assert records["real_actuation_fulfillment"].host_actuation_performed is False
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
     assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_execution_proof_wing_capabilities_are_proof_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["effect_receipt_contract"].status == "implemented"
+    assert records["effect_receipt_contract"].authority_level == "proof_only"
+    assert records["postcondition_checks"].authority_level == "proof_only"
+    assert records["rollback_planning"].authority_level == "proof_only"
+    assert records["runtime_supervisor"].authority_level == "telemetry_readiness_only"
+    assert records["execution_readiness_manifest"].authority_level == "readiness_only"
+    for capability_id in ["real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"]:
+        assert records[capability_id].status == "deferred"
+    for capability_id in ["real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_updates_from_execution_readiness_and_supervisor_keep_real_actions_blocked() -> None:
+    from sentientos.actuation_fulfillment import build_actuation_fulfillment_plan, build_actuation_fulfillment_rehearsal_receipt
+    from sentientos.capability_registry import update_registry_from_execution_readiness_manifest, update_registry_from_runtime_supervisor_report
+    from sentientos.effect_proof import build_execution_proof_wing_for_rehearsal_receipt
+    from sentientos.runtime_supervisor import RuntimeServiceRecord, build_runtime_supervisor_readiness_report, build_runtime_supervisor_snapshot
+    from tests.test_actuation_fulfillment import _broker_receipt_for
+
+    rehearsal = build_actuation_fulfillment_rehearsal_receipt(build_actuation_fulfillment_plan(_broker_receipt_for("inspect_cpu_pressure_candidate", cpu_utilization_percent=95)))
+    manifest = build_execution_proof_wing_for_rehearsal_receipt(rehearsal).execution_readiness_manifest
+    service = RuntimeServiceRecord("svc", "svc", "daemon", "service_status_nominal", "desired_nominal", (), (), ())
+    report = build_runtime_supervisor_readiness_report(build_runtime_supervisor_snapshot(service_records=(service,)))
+    registry = update_registry_from_runtime_supervisor_report(update_registry_from_execution_readiness_manifest(build_default_capability_registry(), manifest), report)
+    records = registry.by_id()
+    assert records["execution_readiness_manifest"].status == "implemented"
+    assert records["runtime_supervisor"].status == "implemented"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
+    assert records["real_effect_execution"].status == "deferred"
+    assert validate_capability_registry(registry).ok
