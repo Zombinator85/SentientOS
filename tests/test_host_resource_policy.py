@@ -196,6 +196,6 @@ def test_capability_registry_reflects_policy_proposal_only_and_deferred_fulfillm
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
     assert records["privilege_broker"].status == "implemented"
     assert records["privilege_broker"].authority_level == "eligibility_only"
-    assert records["actuation_fulfillment"].status == "deferred"
+    assert records["actuation_fulfillment"].status == "implemented"
     assert all(record.host_actuation_performed is False for record in records.values() if "host_resource" in record.capability_id or record.capability_id in {"direct_fan_pwm_thermal_control", "privilege_broker", "actuation_fulfillment"})
     assert validate_capability_registry(registry).ok

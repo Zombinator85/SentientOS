@@ -185,7 +185,7 @@ def test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_o
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
     assert records["privilege_broker"].status == "implemented"
     assert records["privilege_broker"].authority_level == "eligibility_only"
-    assert records["actuation_fulfillment"].status == "deferred"
+    assert records["actuation_fulfillment"].status == "implemented"
     assert validate_capability_registry(registry).ok
 
 
@@ -194,5 +194,17 @@ def test_default_registry_represents_phase4_privilege_broker_as_eligibility_only
     assert records["privilege_broker"].status == "implemented"
     assert records["privilege_broker"].authority_level == "eligibility_only"
     assert records["privilege_broker"].host_actuation_performed is False
-    assert records["actuation_fulfillment"].status == "deferred"
+    assert records["actuation_fulfillment"].status == "implemented"
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
+
+
+def test_phase5_registry_represents_actuation_fulfillment_as_rehearsal_only() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["actuation_fulfillment"].status == "implemented"
+    assert records["actuation_fulfillment"].authority_level == "rehearsal_only"
+    assert records["actuation_fulfillment"].host_actuation_performed is False
+    assert "real actuation fulfillment" in records["actuation_fulfillment"].deferred_surfaces
+    assert records["real_actuation_fulfillment"].status == "deferred"
+    assert records["real_actuation_fulfillment"].host_actuation_performed is False
+    assert records["direct_fan_pwm_thermal_control"].status == "blocked"
+    assert validate_capability_registry(build_default_capability_registry()).ok

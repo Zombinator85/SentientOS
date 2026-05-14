@@ -199,5 +199,16 @@ See `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. El
 Proof command:
 
 ```bash
-python -m scripts.run_tests -q tests/test_privilege_broker.py tests/test_host_resource_policy.py tests/test_capability_registry.py
+python -m scripts.run_tests -q tests/test_actuation_fulfillment.py tests/test_privilege_broker.py tests/test_host_resource_policy.py tests/test_capability_registry.py
+```
+
+
+## Host Embodiment Phase 5 actuation fulfillment scaffold
+
+See `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Phase 5 creates fulfillment rehearsal plans and receipts only. Fulfillment rehearsal is not real fulfillment. A rehearsal receipt is not an effect receipt. No host mutation occurs. Fan/PWM/thermal/power/service/cleanup actions remain blocked/deferred, and future real fulfillment still requires control-plane admission, operator/policy approval, audit receipt, rollback receipt, effect receipt, and postcondition check.
+
+Proof command:
+
+```bash
+python -m scripts.run_tests -q tests/test_actuation_fulfillment.py tests/test_privilege_broker.py tests/test_capability_registry.py
 ```

@@ -156,3 +156,8 @@ python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 python scripts/verify_context_hygiene_prompt_boundaries.py
 ```
+
+
+## Next phase
+
+Phase 5 actuation fulfillment rehearsal is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Fulfillment rehearsal is not real fulfillment, and a rehearsal receipt is not an effect receipt. Direct fan/PWM/thermal control remains blocked/deferred, and power, service, and cleanup actions remain behind future authorization, admission, audit, rollback, effect receipt, and postcondition gates.

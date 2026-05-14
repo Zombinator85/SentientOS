@@ -167,3 +167,38 @@ def test_phase4_doc_preserves_privilege_broker_boundaries() -> None:
     assert "broker review receipt is not fulfillment" in phase4 or "broker receipt is not fulfillment" in phase4
     assert "direct fan/PWM/thermal control remains blocked/deferred" in phase4
     assert "future Actuation Fulfillment Layer" in phase4
+
+HOST_EMBODIMENT_PHASE5 = "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md"
+
+
+def test_navigation_links_to_host_embodiment_phase5_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase1 = _read(HOST_EMBODIMENT_PHASE1)
+    phase2 = _read(HOST_EMBODIMENT_PHASE2)
+    phase3 = _read(HOST_EMBODIMENT_PHASE3)
+    phase4 = _read(HOST_EMBODIMENT_PHASE4)
+    trajectory = _read(TRAJECTORY_DOC)
+    assert HOST_EMBODIMENT_PHASE5 in overview
+    assert HOST_EMBODIMENT_PHASE5 in index
+    assert HOST_EMBODIMENT_PHASE5 in phase1
+    assert HOST_EMBODIMENT_PHASE5 in phase2
+    assert HOST_EMBODIMENT_PHASE5 in phase3
+    assert HOST_EMBODIMENT_PHASE5 in phase4
+    assert HOST_EMBODIMENT_PHASE5 in trajectory
+
+
+def test_phase5_doc_preserves_actuation_fulfillment_scaffold_boundaries() -> None:
+    phase5 = _read(HOST_EMBODIMENT_PHASE5)
+    assert "Fulfillment rehearsal is not real fulfillment" in phase5
+    assert "rehearsal receipt is not an effect receipt" in phase5
+    assert "No host mutation occurs" in phase5
+    assert "No direct fan/PWM control occurs" in phase5
+    assert "No thermal actuation occurs" in phase5
+    assert "No power profile mutation occurs" in phase5
+    assert "No service restart occurs" in phase5
+    assert "No cleanup/deletion occurs" in phase5
+    assert "control-plane admission" in phase5
+    assert "operator/policy approval" in phase5
+    assert "effect receipt" in phase5
+    assert "postcondition check" in phase5

@@ -93,4 +93,4 @@ python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```
 
-Phase 4 privilege broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Eligibility is not authorization, and broker receipts are not fulfillment.
+Phase 4 privilege broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Phase 5 actuation fulfillment rehearsal is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Eligibility is not authorization, broker receipts are not fulfillment, and fulfillment rehearsal is not real fulfillment.
