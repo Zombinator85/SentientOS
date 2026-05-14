@@ -91,15 +91,15 @@ until a later phase proves the complete authority and recovery chain.
 
 Every new class of host control must pass through this ladder:
 
-`telemetry → proposal → privilege broker → fulfillment → audit → rollback`
+`telemetry → proposal → privilege broker eligibility → rehearse → authorize → fulfillment → audit → rollback`
 
 The longer doctrine remains:
 
-`observe → model → propose → rehearse → authorize → fulfill → audit → rollback`
+`observe → model → propose → broker eligibility → rehearse → authorize → fulfill → audit → rollback`
 
 Phase 1 covers observe/model and proposal candidate summaries only. It never
 fulfills an action. The next read-only discovery pass is documented in
-`docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`; Phase 3 policy receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`.
+`docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`; Phase 3 policy receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`; Phase 4 broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`.
 
 ## Relationship to existing organs
 

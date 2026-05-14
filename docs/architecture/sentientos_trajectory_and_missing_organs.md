@@ -18,7 +18,7 @@ reconstruct what happened. Capabilities that are only implied by this trajectory
 are listed below as missing or deferred rather than claimed as implemented.
 
 Host Embodiment Substrate Phase 1 is the first observe/model substrate for this
-path; see `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`. It adds a
+path; see `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` and `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. It adds a
 Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
 Resource Governor scaffold while keeping Privilege Broker and Actuation
 Fulfillment Layer requirements ahead of any future host actuation. Direct
@@ -360,3 +360,8 @@ implemented:
 ### Host Embodiment Phase 3 policy receipts
 
 Phase 3 is documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`. It converts pressure reports into proposal receipts only: proposal receipts are not effects, policy decisions are not authorization, PWM presence is not control authority, and future cooling/power/service/cleanup candidates require the future Privilege Broker and Actuation Fulfillment Layer.
+
+
+### Host Embodiment Phase 4 privilege broker eligibility
+
+Phase 4 is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. It classifies proposal receipts for future privileged-action eligibility only. Eligibility is not authorization, a broker receipt is not fulfillment, and direct fan/PWM/thermal control, service restart, power mutation, cleanup mutation, package/driver install, provider invocation, network egress, prompt assembly, federation transport/sync/adoption, and remote execution remain blocked behind future gates and the future Actuation Fulfillment Layer.

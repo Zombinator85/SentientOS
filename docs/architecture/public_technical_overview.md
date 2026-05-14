@@ -215,4 +215,9 @@ Internal and legacy cultural documentation remains available and is not removed 
 
 ## Host embodiment substrate
 
-See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` for Phase 1 metadata-only host embodiment and Phase 2 read-only discovery.
+See `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` and `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md` for Host Embodiment Substrate phases 1 through 4.
+
+
+### Host Embodiment Phase 4 Privilege Broker
+
+See `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Phase 4 evaluates proposal receipts for future privileged-action eligibility only. Eligibility is not authorization, a broker receipt is not fulfillment, fan/PWM/thermal control remains blocked/deferred, and the future Actuation Fulfillment Layer is still required before any effect can occur.

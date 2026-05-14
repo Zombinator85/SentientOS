@@ -505,3 +505,20 @@ def validate_host_resource_proposal_receipt(receipt: HostResourceProposalReceipt
     if missing_blocks:
         findings.append("receipt_missing_blocked_actions")
     return HostResourcePolicyValidationResult(ok=not findings, findings=tuple(findings))
+
+def evaluate_privilege_broker_for_host_resource_receipts(
+    receipts: Sequence[HostResourceProposalReceipt],
+    *,
+    created_at: str = "1970-01-01T00:00:00+00:00",
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    """Evaluate Phase 4 broker eligibility for Phase 3 proposal receipts.
+
+    The returned broker decisions and review receipts are metadata-only and
+    eligibility-only. They do not authorize, fulfill, or mutate host state.
+    """
+
+    from sentientos.privilege_broker import build_privilege_broker_review_receipt, evaluate_privilege_broker_eligibility
+
+    decisions = tuple(evaluate_privilege_broker_eligibility(receipt) for receipt in receipts)
+    review_receipts = tuple(build_privilege_broker_review_receipt(decision, created_at=created_at) for decision in decisions)
+    return decisions, review_receipts

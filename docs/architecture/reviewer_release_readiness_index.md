@@ -19,7 +19,7 @@ Host Embodiment Substrate Phase 1 is covered by
 `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`. It adds the
 Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
 Resource Governor scaffold. Privilege Broker and Actuation Fulfillment Layer
-remain future gates for any host action; direct fan/PWM control remains deferred.
+remain future gates for any host action; direct fan/PWM control remains deferred. Phase 4 broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md` and still does not authorize or fulfill host action.
 
 ## Current implemented proof surfaces
 
@@ -190,3 +190,14 @@ python scripts/build_docs.py
 ## Host Embodiment Phase 3 policy receipts
 
 See `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`. Proposal receipts are not effects. A policy decision is not authorization. PWM presence is not control authority. Phase 3 names the future Privilege Broker and Actuation Fulfillment Layer and keeps them future/deferred.
+
+
+## Host Embodiment Phase 4 privilege broker eligibility
+
+See `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Eligibility is not authorization. A broker receipt is not fulfillment. Fan/PWM/thermal control remains blocked/deferred. Future cooling, power, cleanup, and service actions remain behind future gates, including control-plane admission, operator/policy approval, audit, rollback, rehearsal, panic/hardware/backend/bounds gates where applicable, and the future Actuation Fulfillment Layer.
+
+Proof command:
+
+```bash
+python -m scripts.run_tests -q tests/test_privilege_broker.py tests/test_host_resource_policy.py tests/test_capability_registry.py
+```
