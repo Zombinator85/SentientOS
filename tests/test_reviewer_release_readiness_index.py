@@ -118,3 +118,27 @@ def test_phase2_doc_preserves_read_only_discovery_boundaries() -> None:
     assert "PWM presence is not control authority" in phase2
     assert "Privilege Broker" in phase2
     assert "Actuation Fulfillment Layer" in phase2
+
+HOST_EMBODIMENT_PHASE3 = "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md"
+
+
+def test_navigation_links_to_host_embodiment_phase3_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase1 = _read(HOST_EMBODIMENT_PHASE1)
+    phase2 = _read(HOST_EMBODIMENT_PHASE2)
+    trajectory = _read(TRAJECTORY_DOC)
+    assert HOST_EMBODIMENT_PHASE3 in overview
+    assert HOST_EMBODIMENT_PHASE3 in index
+    assert HOST_EMBODIMENT_PHASE3 in phase1
+    assert HOST_EMBODIMENT_PHASE3 in phase2
+    assert HOST_EMBODIMENT_PHASE3 in trajectory
+
+
+def test_phase3_doc_preserves_proposal_receipt_boundaries() -> None:
+    phase3 = _read(HOST_EMBODIMENT_PHASE3)
+    assert "Proposal receipts are not effects" in phase3
+    assert "policy decision is not authorization" in phase3
+    assert "PWM presence is not control authority" in phase3
+    assert "Privilege Broker" in phase3
+    assert "Actuation Fulfillment Layer" in phase3

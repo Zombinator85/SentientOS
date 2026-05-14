@@ -99,7 +99,7 @@ The longer doctrine remains:
 
 Phase 1 covers observe/model and proposal candidate summaries only. It never
 fulfills an action. The next read-only discovery pass is documented in
-`docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`.
+`docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`; Phase 3 policy receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`.
 
 ## Relationship to existing organs
 

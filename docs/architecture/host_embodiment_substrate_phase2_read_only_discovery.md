@@ -64,3 +64,8 @@ Phase 2 must not perform:
 - prompt assembly/export;
 - federation transport, sync, adoption, merge, apply, install, execution, or remote execution;
 - uncontrolled runtime authority expansion.
+
+
+## Next phase
+
+Phase 3 policy and proposal receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`.
