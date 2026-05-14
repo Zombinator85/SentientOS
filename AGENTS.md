@@ -70,6 +70,25 @@ unless explicitly marked **sealed** or **deprecated**.
 - Avoid modifying any file listed in `AGENTS.md` unless creating logs or
   updating the index.
 
+### Codex Project Law
+- Use `python -m scripts.run_tests` for tests; direct naked `pytest` is exceptional.
+- Do not modify `prompt_assembler.py` unless explicitly asked.
+- Do not add provider invocation, prompt export, provider SDKs, network egress,
+  or runtime provider authority unless explicitly asked.
+- Do not add direct host actuation unless the task explicitly requests it and
+  includes control-plane admission, audit, rollback, panic, and operator
+  authority requirements.
+- Do not implement direct fan/PWM/thermal writes unless explicitly requested;
+  Phase 1 host resource work is read-only telemetry.
+- Preserve local operator authority and fail closed on ambiguity around
+  privileged host action.
+- Federation evidence is not adoption, transport, sync, merge, apply, install,
+  or execution. Receipts/readiness/proposals are not effects.
+- Update public docs and proof maps when behavior changes.
+- Run docs build and prompt-boundary checks when docs or context-hygiene docs
+  are touched.
+
+
 ### Procedure-Required Actions
 - Any invocation of `bless`, `animate`, or `reflect` must write a corresponding
   entry to `/logs/privileges/`.

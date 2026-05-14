@@ -17,6 +17,13 @@ host effects, and leave enough audit evidence for an operator or reviewer to
 reconstruct what happened. Capabilities that are only implied by this trajectory
 are listed below as missing or deferred rather than claimed as implemented.
 
+Host Embodiment Substrate Phase 1 is the first observe/model substrate for this
+path; see `docs/architecture/host_embodiment_substrate_phase1.md`. It adds a
+Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
+Resource Governor scaffold while keeping Privilege Broker and Actuation
+Fulfillment Layer requirements ahead of any future host actuation. Direct
+fan/PWM control remains deferred.
+
 ## What already exists
 
 The repository already contains these major subsystem surfaces:
