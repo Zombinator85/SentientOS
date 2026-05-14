@@ -40,6 +40,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "host_embodiment_trace",
         "reviewer_proof_bundle",
         "host_actuation_safety",
+        "live_grant_readiness",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -68,6 +69,9 @@ AUTHORITY_LEVELS = frozenset(
         "policy_only",
         "scope_only",
         "safety_gate_only",
+        "packet_only",
+        "preflight_only",
+        "denial_deferral_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -265,6 +269,11 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("panic_stop_contract", "host_actuation_safety", "implemented", "contract_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only panic stop contracts",), deferred_surfaces=("panic stop execution", "host mutation"), forbidden_implications=("panic stop contract executes stop",)),
         _record("host_action_scope_manifest", "host_actuation_safety", "implemented", "scope_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only host action scope manifests",), deferred_surfaces=("action authorization", "host mutation"), forbidden_implications=("scope manifest authorizes action",)),
         _record("safety_gate_satisfaction_manifest", "host_actuation_safety", "implemented", "safety_gate_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only safety gate satisfaction manifests",), deferred_surfaces=("live authorization", "fulfillment", "real effects"), forbidden_implications=("safety satisfaction manifest is authorization or fulfillment",)),
+        _record("live_grant_readiness", "live_grant_readiness", "implemented", "readiness_only", source_paths=("sentientos/live_grant_readiness.py",), proof_tests=("tests/test_live_grant_readiness.py",), implemented_surfaces=("metadata-only live-grant readiness assessment",), deferred_surfaces=("live authorization grant", "real fulfillment", "host mutation"), forbidden_implications=("live-grant readiness is a live grant", "readiness authorizes fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("live_grant_prerequisite_matrix", "live_grant_readiness", "implemented", "metadata_proof_only", source_paths=("sentientos/live_grant_readiness.py",), proof_tests=("tests/test_live_grant_readiness.py",), implemented_surfaces=("metadata-only prerequisite matrix",), deferred_surfaces=("authorization approval", "live grant issuance"), forbidden_implications=("prerequisite matrix grants authority",)),
+        _record("operator_policy_approval_packet", "live_grant_readiness", "implemented", "packet_only", source_paths=("sentientos/live_grant_readiness.py",), proof_tests=("tests/test_live_grant_readiness.py",), implemented_surfaces=("operator/policy approval packet scaffold",), deferred_surfaces=("operator approval", "policy approval", "live authorization grant"), forbidden_implications=("approval packet is approval",)),
+        _record("grant_issue_preflight_receipt", "live_grant_readiness", "implemented", "preflight_only", source_paths=("sentientos/live_grant_readiness.py",), proof_tests=("tests/test_live_grant_readiness.py",), implemented_surfaces=("grant issue preflight receipt",), deferred_surfaces=("grant issuance", "fulfillment", "effect receipt"), forbidden_implications=("preflight receipt issues a grant",)),
+        _record("grant_denial_deferral_receipt", "live_grant_readiness", "implemented", "denial_deferral_only", source_paths=("sentientos/live_grant_readiness.py",), proof_tests=("tests/test_live_grant_readiness.py",), implemented_surfaces=("grant denial/deferral receipt",), deferred_surfaces=("grant issuance", "host mutation"), forbidden_implications=("denial/deferral receipt mutates host state",)),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -834,3 +843,28 @@ def update_registry_from_safety_gate_manifest(registry: CapabilityRegistry, mani
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-actuation-safety-gate-wing.v1")
+
+
+def update_registry_from_live_grant_readiness(registry: CapabilityRegistry, readiness_wing: Any) -> CapabilityRegistry:
+    """Reflect live-grant readiness/preflight records without granting authority."""
+
+    has_matrix = bool(getattr(getattr(readiness_wing, "prerequisite_matrix", None), "matrix_id", ""))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "live_grant_readiness":
+            records.append(replace(record, status="implemented" if has_matrix else record.status, authority_level="readiness_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "live_grant_prerequisite_matrix":
+            records.append(replace(record, status="implemented" if has_matrix else record.status, authority_level="metadata_proof_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "operator_policy_approval_packet":
+            records.append(replace(record, status="implemented", authority_level="packet_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "grant_issue_preflight_receipt":
+            records.append(replace(record, status="implemented", authority_level="preflight_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "grant_denial_deferral_receipt":
+            records.append(replace(record, status="implemented", authority_level="denial_deferral_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"live_authorization_grant", "real_authorization_grant", "real_effect_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-live-grant-readiness-wing.v1")

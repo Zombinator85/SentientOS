@@ -394,3 +394,7 @@ Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace
 ## Host Embodiment Reviewer Demo Trace
 
 See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. The external reviewer demo script now has a deterministic metadata-only thermal+PWM trace export. It is reviewer proof only: no live host collection by default, no live authorization, no effect, no host mutation, and PWM presence is not control authority.
+
+### Host Live-Grant Readiness Wing
+
+See [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`). It sits after Host Actuation Safety Gates and before any future authorize/fulfill/effect path. It is readiness/preflight only; real actuation remains deferred.

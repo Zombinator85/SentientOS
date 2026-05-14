@@ -116,3 +116,14 @@ def test_reviewer_proof_bundle_cli_writes_safety_gates_json(tmp_path) -> None:
     text = safety_gates.read_text(encoding="utf-8")
     assert "safety_gate_only" in text
     assert "not authorization" in text
+
+
+def test_reviewer_proof_bundle_cli_writes_live_grant_readiness_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    live_grant = output_dir / "live_grant_readiness.json"
+    assert live_grant.exists()
+    text = live_grant.read_text(encoding="utf-8")
+    assert "Live-grant readiness is not a live grant" in text
+    assert "grant_not_issued" in text

@@ -396,3 +396,20 @@ def test_host_actuation_safety_capabilities_are_metadata_only_and_real_actions_b
         assert by_id[capability_id].status in {"deferred", "blocked"}
         assert by_id[capability_id].authority_level == "none"
         assert by_id[capability_id].host_actuation_performed is False
+
+
+def test_live_grant_readiness_capabilities_are_metadata_only_and_real_actions_remain_deferred() -> None:
+    registry = build_default_capability_registry()
+    records = registry.by_id()
+    assert records["live_grant_readiness"].status == "implemented"
+    assert records["live_grant_readiness"].authority_level == "readiness_only"
+    assert records["live_grant_prerequisite_matrix"].authority_level == "metadata_proof_only"
+    assert records["operator_policy_approval_packet"].authority_level == "packet_only"
+    assert records["grant_issue_preflight_receipt"].authority_level == "preflight_only"
+    assert records["grant_denial_deferral_receipt"].authority_level == "denial_deferral_only"
+    for capability_id in ["live_authorization_grant", "real_effect_execution"]:
+        assert records[capability_id].status == "deferred"
+        assert records[capability_id].host_actuation_performed is False
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+        assert records[capability_id].host_actuation_performed is False
