@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_OVERVIEW = "docs/architecture/public_technical_overview.md"
 READINESS_INDEX = "docs/architecture/reviewer_release_readiness_index.md"
 TRAJECTORY_DOC = "docs/architecture/sentientos_trajectory_and_missing_organs.md"
+HOST_EMBODIMENT_PHASE1 = "docs/architecture/host_embodiment_substrate_phase1.md"
 
 
 def _read(relative: str) -> str:
@@ -50,6 +51,15 @@ def test_navigation_links_to_trajectory_doc() -> None:
     assert TRAJECTORY_DOC in index
 
 
+def test_navigation_links_to_host_embodiment_phase1_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    trajectory = _read(TRAJECTORY_DOC)
+    assert HOST_EMBODIMENT_PHASE1 in overview
+    assert HOST_EMBODIMENT_PHASE1 in index
+    assert HOST_EMBODIMENT_PHASE1 in trajectory
+
+
 def test_trajectory_doc_clarifies_deferred_fan_pwm_and_missing_organs() -> None:
     trajectory = _read(TRAJECTORY_DOC)
     assert "Direct fan/PWM control is deferred" in trajectory
@@ -67,3 +77,23 @@ def test_trajectory_doc_clarifies_deferred_fan_pwm_and_missing_organs() -> None:
     ]
     for organ in expected_organs:
         assert organ in trajectory
+
+
+def test_host_embodiment_docs_preserve_phase1_boundaries() -> None:
+    combined = "\n".join(
+        [
+            _read(HOST_EMBODIMENT_PHASE1),
+            _read(PUBLIC_OVERVIEW),
+            _read(READINESS_INDEX),
+            _read(TRAJECTORY_DOC),
+        ]
+    )
+    assert "direct fan/PWM control remains deferred" in combined
+    for term in [
+        "Capability Registry",
+        "Hardware/Sensor Inventory Manifest",
+        "Host Resource Governor",
+        "Privilege Broker",
+        "Actuation Fulfillment Layer",
+    ]:
+        assert term in combined

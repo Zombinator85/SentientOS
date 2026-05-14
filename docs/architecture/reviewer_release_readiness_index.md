@@ -15,6 +15,12 @@ For the broader user-space operating-substrate trajectory and the concrete
 missing subsystems still required, see
 `docs/architecture/sentientos_trajectory_and_missing_organs.md`.
 
+Host Embodiment Substrate Phase 1 is covered by
+`docs/architecture/host_embodiment_substrate_phase1.md`. It adds the
+Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
+Resource Governor scaffold. Privilege Broker and Actuation Fulfillment Layer
+remain future gates for any host action; direct fan/PWM control remains deferred.
+
 ## Current implemented proof surfaces
 
 ### Control plane / authority admission
@@ -138,6 +144,10 @@ python -m scripts.run_tests -q tests/test_integration_conftest_compat.py
 
 # Federated improvement custody/evidence runway.
 python -m scripts.run_tests -q tests/test_federated_improvement_candidate.py tests/test_federated_improvement_intake_receipt.py tests/test_federated_improvement_custody_runway.py tests/test_federated_improvement_local_variant_artifact.py tests/test_federated_improvement_lineage_comparison_receipt.py tests/test_federated_improvement_dissemination_receipt.py
+
+
+# Host embodiment substrate Phase 1 metadata-only proof.
+python -m scripts.run_tests -q tests/test_capability_registry.py tests/test_host_inventory.py tests/test_host_resource_governor.py
 
 # Context hygiene / prompt-boundary verification.
 python scripts/verify_context_hygiene_prompt_boundaries.py

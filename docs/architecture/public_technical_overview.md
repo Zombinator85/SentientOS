@@ -212,3 +212,7 @@ Internal and legacy cultural documentation remains available and is not removed 
 - `docs/PUBLIC_LANGUAGE_BRIDGE.md`
 - `docs/enter_cathedral.md`
 - `AGENTS.md` (repository governance ledger)
+
+## Host embodiment substrate
+
+See `docs/architecture/host_embodiment_substrate_phase1.md` for Phase 1 metadata-only host embodiment.
