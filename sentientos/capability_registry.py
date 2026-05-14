@@ -39,6 +39,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "controlled_authorization",
         "host_embodiment_trace",
         "reviewer_proof_bundle",
+        "host_actuation_safety",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -61,6 +62,12 @@ AUTHORITY_LEVELS = frozenset(
         "contract_only",
         "ledger_only",
         "demo_proof_only",
+        "metadata_proof_only",
+        "allowlist_only",
+        "declaration_only",
+        "policy_only",
+        "scope_only",
+        "safety_gate_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -250,6 +257,14 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("reviewer_proof_bundle", "reviewer_proof_bundle", "implemented", "demo_proof_only", source_paths=("sentientos/reviewer_proof_bundle.py",), proof_tests=("tests/test_reviewer_proof_bundle.py",), proof_commands=("python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --force",), implemented_surfaces=("metadata-only first-run reviewer proof bundle", "deterministic local packaging of demo trace, capability posture, deferred actions, and proof commands"), deferred_surfaces=("live host trace collection", "live authorization", "real effects", "host mutation"), forbidden_implications=("reviewer proof bundle collects live host data", "reviewer proof bundle grants authority", "reviewer proof bundle performs effects")),
         _record("reviewer_proof_bundle_cli", "reviewer_proof_bundle", "implemented", "demo_proof_only", source_paths=("scripts/build_reviewer_proof_bundle.py",), proof_tests=("tests/test_build_reviewer_proof_bundle_script.py",), proof_commands=("python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --force",), implemented_surfaces=("one-command local proof bundle writer",), deferred_surfaces=("verification command execution by default", "live host collection", "host mutation"), forbidden_implications=("CLI performs live verification by default", "CLI mutates host state beyond explicit bundle files")),
         _record("proof_command_manifest", "reviewer_proof_bundle", "implemented", "proof_only", source_paths=("sentientos/reviewer_proof_bundle.py",), proof_tests=("tests/test_reviewer_proof_bundle.py",), implemented_surfaces=("bounded local proof command inventory",), deferred_surfaces=("default proof command execution", "network commands", "provider invocation"), forbidden_implications=("listed proof commands have run", "proof command manifest grants runtime authority")),
+        _record("host_actuation_safety_gates", "host_actuation_safety", "implemented", "metadata_proof_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only safety gate prerequisite assessment",), deferred_surfaces=("live authorization grant", "real actuation", "host mutation"), forbidden_implications=("safety gates are authorization", "safety gates perform effects"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("hardware_allowlist_manifest", "host_actuation_safety", "implemented", "allowlist_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only hardware allowlist manifests",), deferred_surfaces=("hardware control authority", "host mutation"), forbidden_implications=("hardware allowlist grants control",)),
+        _record("os_backend_declaration", "host_actuation_safety", "implemented", "declaration_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("declaration-only OS backend records",), deferred_surfaces=("backend loading", "backend invocation", "host mutation"), forbidden_implications=("OS backend declaration loads or invokes backend",)),
+        _record("bounds_policy", "host_actuation_safety", "implemented", "policy_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only bounds policy records",), deferred_surfaces=("live bounds enforcement", "host mutation"), forbidden_implications=("bounds policy enforces live action",)),
+        _record("cooldown_policy", "host_actuation_safety", "implemented", "policy_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only cooldown policy records",), deferred_surfaces=("live cooldown enforcement", "host mutation"), forbidden_implications=("cooldown policy waits or enforces live action",)),
+        _record("panic_stop_contract", "host_actuation_safety", "implemented", "contract_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only panic stop contracts",), deferred_surfaces=("panic stop execution", "host mutation"), forbidden_implications=("panic stop contract executes stop",)),
+        _record("host_action_scope_manifest", "host_actuation_safety", "implemented", "scope_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only host action scope manifests",), deferred_surfaces=("action authorization", "host mutation"), forbidden_implications=("scope manifest authorizes action",)),
+        _record("safety_gate_satisfaction_manifest", "host_actuation_safety", "implemented", "safety_gate_only", source_paths=("sentientos/host_actuation_safety.py",), proof_tests=("tests/test_host_actuation_safety.py",), implemented_surfaces=("metadata-only safety gate satisfaction manifests",), deferred_surfaces=("live authorization", "fulfillment", "real effects"), forbidden_implications=("safety satisfaction manifest is authorization or fulfillment",)),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -258,6 +273,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("real_service_restart", "runtime_supervision", "blocked", "none", deferred_surfaces=("service restart", "service stop", "process kill"), forbidden_implications=("runtime supervisor grants restart authority",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_fan_pwm_control", "execution_proof", "blocked", "none", deferred_surfaces=("fan/PWM writes", "thermal actuation"), forbidden_implications=("execution proof wing grants fan/PWM control",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_power_profile_mutation", "execution_proof", "blocked", "none", deferred_surfaces=("power profile mutation",), forbidden_implications=("execution proof wing grants power mutation",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("real_thermal_actuation", "execution_proof", "blocked", "none", deferred_surfaces=("thermal actuation",), forbidden_implications=("safety gate wing grants thermal actuation",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_file_cleanup", "execution_proof", "blocked", "none", deferred_surfaces=("file cleanup", "file delete",), forbidden_implications=("execution proof wing grants cleanup authority",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("audit_immutability", "audit_immutability", "implemented", "observation", source_paths=("scripts/audit_immutability_verifier.py", "scripts/verify_audits.py", "vow/immutable_manifest.json"), proof_commands=("python scripts/verify_audits.py --strict", "python scripts/audit_immutability_verifier.py --manifest vow/immutable_manifest.json"), implemented_surfaces=("audit verification",)),
         _record("self_amendment", "self_amendment", "partial", "self_amendment", source_paths=("sentientos/autonomy/runtime.py", "sentientos/autonomy/rehearsal.py"), implemented_surfaces=("rehearsal/governed composition surfaces",), deferred_surfaces=("unapproved self-modification",), forbidden_implications=("runtime authority expansion",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -801,3 +817,20 @@ def update_registry_from_trace_export(registry: CapabilityRegistry, trace: Any) 
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-embodiment-reviewer-demo-trace.v1")
+
+
+def update_registry_from_safety_gate_manifest(registry: CapabilityRegistry, manifest: Any) -> CapabilityRegistry:
+    """Reflect metadata-only safety gate posture without claiming authorization."""
+
+    has_manifest = bool(getattr(manifest, "manifest_id", ""))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "host_actuation_safety_gates":
+            records.append(replace(record, status="implemented" if has_manifest else record.status, authority_level="metadata_proof_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"live_authorization_grant", "real_effect_execution"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-actuation-safety-gate-wing.v1")

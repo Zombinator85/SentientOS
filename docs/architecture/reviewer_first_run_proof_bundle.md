@@ -1,5 +1,6 @@
 # Reviewer First-Run Proof Bundle
 
+The bundle now includes `safety_gates.json`; see the [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`) for the metadata-only safety gate posture. Safety gates are not authorization.
 This doc is the first practical reviewer command path after reading the [public technical overview](public_technical_overview.md). It packages the current deterministic, non-mutating host-embodiment proof chain into one local output directory so a serious reviewer can run one safe command, inspect the story, and archive the artifacts.
 
 ## Boundary
@@ -33,6 +34,7 @@ The bundle writes:
 - `trace.summary.txt` — compact summary of the non-mutating proof posture.
 - `capability_registry_summary.json` — metadata-only capability registry summary and records.
 - `deferred_actions.json` — deferred/blocked action inventory.
+- `safety_gates.json` — metadata-only host actuation safety gate posture; safety gates are not authorization.
 - `proof_commands.json` — proof command manifest; commands are listed but not run by default.
 - `README.md` — local reviewer guide for the bundle directory.
 - `bundle_manifest.json` — manifest, artifact digests, command records, and safety flags.
@@ -45,7 +47,8 @@ Reviewers should inspect these files in order:
 2. `trace.md`
 3. `bundle_manifest.json`
 4. `deferred_actions.json`
-5. `proof_commands.json`
+5. `safety_gates.json`
+6. `proof_commands.json`
 
 ## What the bundle proves
 
@@ -57,6 +60,7 @@ The reviewer should see that:
 
 - PWM presence is telemetry, not control authority.
 - The controlled authorization contract is not a live grant.
+- Safety gates are metadata-only prerequisites, not authorization or fulfillment.
 - Grant/revocation records are schema-only/future-use-only.
 - Real effect execution and rollback execution remain deferred.
 - Real fan/PWM control, thermal actuation, power mutation, service restart, cleanup, provider invocation, prompt export, federation transport/sync/adoption, and remote execution remain deferred or blocked.

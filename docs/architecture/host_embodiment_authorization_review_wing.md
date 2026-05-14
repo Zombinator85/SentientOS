@@ -1,5 +1,6 @@
 # Host Embodiment Authorization Review Wing
 
+After authorization review and controlled authorization contracts, the [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`) records metadata-only prerequisites; those safety gates are not authorization.
 The Host Embodiment Authorization Review Wing follows the Host Embodiment
 Execution Proof Wing. The Execution Proof Wing produces an
 `ExecutionReadinessManifest`; this wing asks only whether that readiness manifest

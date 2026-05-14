@@ -154,3 +154,13 @@ def test_validation_rejects_unknown_artifact_kind() -> None:
     result = validate_reviewer_proof_bundle_manifest(replace(manifest, artifact_records=tuple(artifacts)))
     assert not result.ok
     assert "unknown_artifact_kind:unknown" in result.findings
+
+
+def test_bundle_includes_host_actuation_safety_gate_posture() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "safety_gate_posture" in payload["artifacts"]
+    assert "safety_gates.json" in payload["artifacts"]["bundle_manifest"]
+    assert "Safety gates declare prerequisites only" in payload["artifacts"]["safety_gate_posture"]
+    assert "safety_gates" in payload
+    validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
+    assert validation.ok, validation.findings

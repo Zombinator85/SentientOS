@@ -1,5 +1,6 @@
 # Reviewer Release-Readiness Proof Index
 
+The [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`) adds metadata-only safety gate proof records to the reviewer bundle. Safety gates are not authorization; hardware allowlists do not grant control; OS backend declarations do not load/invoke backends; panic stop contracts do not execute panic stop; real actuation remains deferred.
 ## Reviewer first-run proof bundle
 
 Reviewers can generate the local non-mutating host-embodiment proof archive with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`; see [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). It uses fake/sample telemetry by default, performs no live host collection by default, and performs no host mutation.

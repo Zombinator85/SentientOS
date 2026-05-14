@@ -368,3 +368,31 @@ def test_registry_updates_from_reviewer_proof_bundle_keep_authority_deferred() -
     assert records["real_service_restart"].status == "blocked"
     assert records["real_file_cleanup"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_host_actuation_safety_capabilities_are_metadata_only_and_real_actions_blocked() -> None:
+    registry = build_default_capability_registry()
+    by_id = registry.by_id()
+    expected = {
+        "host_actuation_safety_gates": "metadata_proof_only",
+        "hardware_allowlist_manifest": "allowlist_only",
+        "os_backend_declaration": "declaration_only",
+        "bounds_policy": "policy_only",
+        "cooldown_policy": "policy_only",
+        "panic_stop_contract": "contract_only",
+        "host_action_scope_manifest": "scope_only",
+        "safety_gate_satisfaction_manifest": "safety_gate_only",
+    }
+    for capability_id, authority in expected.items():
+        record = by_id[capability_id]
+        assert record.status == "implemented"
+        assert record.authority_level == authority
+        assert record.metadata_only is True
+        assert record.host_actuation_performed is False
+    for capability_id in [
+        "live_authorization_grant", "real_effect_execution", "real_fan_pwm_control", "real_thermal_actuation",
+        "real_power_profile_mutation", "real_service_restart", "real_file_cleanup",
+    ]:
+        assert by_id[capability_id].status in {"deferred", "blocked"}
+        assert by_id[capability_id].authority_level == "none"
+        assert by_id[capability_id].host_actuation_performed is False

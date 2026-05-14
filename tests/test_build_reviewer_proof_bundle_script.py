@@ -105,3 +105,14 @@ def test_verify_is_explicitly_unsupported(tmp_path: Path) -> None:
     code, _stdout, stderr = _run_main(["--output-dir", str(tmp_path / "bundle"), "--verify"])
     assert code == 2
     assert "not implemented" in stderr
+
+
+def test_reviewer_proof_bundle_cli_writes_safety_gates_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, _stdout, stderr = _run_main(["--output-dir", str(output_dir), "--force"])
+    assert code == 0, stderr
+    safety_gates = output_dir / "safety_gates.json"
+    assert safety_gates.exists()
+    text = safety_gates.read_text(encoding="utf-8")
+    assert "safety_gate_only" in text
+    assert "not authorization" in text

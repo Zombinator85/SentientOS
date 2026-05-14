@@ -1,5 +1,6 @@
 # Public Technical Overview for Reviewers
 
+Host actuation safety gates are documented in [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`): safety gates are not authorization, hardware allowlists do not grant control, OS backend declarations do not load/invoke backends, panic stop contracts do not execute panic stop, and real actuation remains deferred.
 ## SentientOS in one paragraph
 
 SentientOS is a deterministic governance-and-audit runtime for operator-directed AI automation. It can remember prior artifacts, retrieve bounded context, reflect on outcomes, propose improvements, rehearse changes, and participate in federation workflows, but authority is never implicit: changes move through explicit custody, policy, audit, immutability, and local-governance gates before adoption.
