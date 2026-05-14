@@ -158,3 +158,7 @@ python -m scripts.run_tests -q tests/test_actuation_fulfillment.py tests/test_pr
 ## Host Embodiment Execution Proof Wing
 
 Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.
+
+## Next wing: Authorization Review
+
+After the Execution Proof Wing, see `docs/architecture/host_embodiment_authorization_review_wing.md`. Authorization review is not authorization; a future authorization grant schema is not a real grant; real fulfillment and real actuation remain deferred.

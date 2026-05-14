@@ -35,6 +35,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "control_plane_admission",
         "actuation_fulfillment",
         "execution_proof",
+        "authorization_review",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -52,6 +53,8 @@ AUTHORITY_LEVELS = frozenset(
         "rehearsal_only",
         "proof_only",
         "readiness_only",
+        "review_only",
+        "schema_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -230,6 +233,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("rollback_planning", "execution_proof", "implemented", "proof_only", source_paths=("sentientos/effect_proof.py",), proof_tests=("tests/test_effect_proof.py",), implemented_surfaces=("metadata-only rollback plans and rollback receipt schemas",), deferred_surfaces=("real rollback execution",), forbidden_implications=("rollback plan executes rollback",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("runtime_supervisor", "runtime_supervision", "implemented", "telemetry_readiness_only", source_paths=("sentientos/runtime_supervisor.py",), proof_tests=("tests/test_runtime_supervisor.py",), proof_commands=("python -m scripts.run_tests -q tests/test_runtime_supervisor.py",), implemented_surfaces=("supplied service telemetry snapshots", "runtime supervisor readiness reports"), deferred_surfaces=("service restart", "process kill", "service manager mutation"), forbidden_implications=("runtime supervisor restarts or kills services",), requires_audit_receipt=True),
         _record("execution_readiness_manifest", "execution_proof", "implemented", "readiness_only", source_paths=("sentientos/effect_proof.py", "sentientos/runtime_supervisor.py"), proof_tests=("tests/test_effect_proof.py", "tests/test_runtime_supervisor.py"), implemented_surfaces=("metadata-only execution readiness manifest",), deferred_surfaces=("authorization", "fulfillment", "real actuation"), forbidden_implications=("execution readiness is authorization", "readiness manifest performs effects"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("authorization_review", "authorization_review", "implemented", "review_only", source_paths=("sentientos/authorization_review.py",), proof_tests=("tests/test_authorization_review.py",), proof_commands=("python -m scripts.run_tests -q tests/test_authorization_review.py",), implemented_surfaces=("metadata-only authorization review packets", "authorization review decisions", "authorization review receipts"), deferred_surfaces=("real authorization grants", "real effect execution", "real rollback execution"), forbidden_implications=("authorization review is authorization", "authorization review receipt is fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("future_authorization_grant_schema", "authorization_review", "implemented", "schema_only", source_paths=("sentientos/authorization_review.py",), proof_tests=("tests/test_authorization_review.py",), implemented_surfaces=("future authorization grant schema placeholder",), deferred_surfaces=("real authorization grant issuance", "host mutation fulfillment"), forbidden_implications=("future authorization grant schema is a real grant", "schema grants fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_execution", "execution_proof", "deferred", "none", deferred_surfaces=("authorized effect fulfillment", "host mutation", "effect receipt from real action"), forbidden_implications=("execution proof wing implements real effects",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_rollback_execution", "execution_proof", "deferred", "none", deferred_surfaces=("rollback execution", "host mutation rollback",), forbidden_implications=("rollback receipt schema executes rollback",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_service_restart", "runtime_supervision", "blocked", "none", deferred_surfaces=("service restart", "service stop", "process kill"), forbidden_implications=("runtime supervisor grants restart authority",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -241,9 +247,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-execution-proof-wing", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-embodiment-authorization-review-wing", schema_version="host-embodiment-authorization-review-wing.v1", records=records)
 
 
 
@@ -572,6 +578,62 @@ def update_registry_from_execution_readiness_manifest(registry: CapabilityRegist
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-embodiment-execution-proof-wing.v1")
+
+
+def update_registry_from_authorization_review_decision(registry: CapabilityRegistry, decision: Any) -> CapabilityRegistry:
+    """Reflect authorization review eligibility without granting authorization."""
+
+    records: list[CapabilityRecord] = []
+    has_decision = bool(getattr(decision, "decision_id", ""))
+    for record in registry.records:
+        if record.capability_id == "authorization_review":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_decision else "scaffolded",
+                    authority_level="review_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/authorization_review.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_authorization_review.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("authorization review decision is not authorization",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("real authorization grant", "real effect execution", "real rollback execution")))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("authorization review decision grants authorization",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id in {"real_authorization_grant", "real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id in {"real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-authorization-review-wing.v1")
+
+
+def update_registry_from_future_authorization_schema(registry: CapabilityRegistry, schema: Any) -> CapabilityRegistry:
+    """Reflect the future grant schema placeholder without creating a grant."""
+
+    updated = registry
+    records: list[CapabilityRecord] = []
+    has_schema = bool(getattr(schema, "schema_id", ""))
+    for record in updated.records:
+        if record.capability_id == "future_authorization_grant_schema":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_schema else "scaffolded",
+                    authority_level="schema_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/authorization_review.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_authorization_review.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("schema-only future authorization grant placeholder",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("future authorization grant schema is a real grant",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        else:
+            records.append(record)
+    return replace(updated, records=tuple(records), schema_version="host-embodiment-authorization-review-wing.v1")
 
 
 def update_registry_from_runtime_supervisor_report(registry: CapabilityRegistry, report: Any) -> CapabilityRegistry:

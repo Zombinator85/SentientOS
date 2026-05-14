@@ -166,3 +166,7 @@ Phase 5 actuation fulfillment rehearsal is documented in `docs/architecture/host
 ## Host Embodiment Execution Proof Wing
 
 Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.
+
+## Later authorization-review wing
+
+The later authorization-review layer is documented at `docs/architecture/host_embodiment_authorization_review_wing.md`. Eligibility is not authorization, authorization review is not authorization grant, and future host actions still require explicit future authorization, control-plane admission, audit, rollback, effect receipt, and postcondition checks.

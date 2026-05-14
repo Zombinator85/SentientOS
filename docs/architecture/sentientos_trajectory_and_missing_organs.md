@@ -375,3 +375,7 @@ Phase 5 is documented in `docs/architecture/host_embodiment_substrate_phase5_act
 ## Host Embodiment Execution Proof Wing
 
 Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.
+
+## Host Embodiment Authorization Review Wing
+
+See `docs/architecture/host_embodiment_authorization_review_wing.md`. This next organ after the Execution Proof Wing records metadata-only authorization review packets, decisions, receipts, and a future grant schema placeholder. Authorization review is not authorization, the future authorization grant schema is not a real grant, real fulfillment remains deferred, and real actuation remains deferred.
