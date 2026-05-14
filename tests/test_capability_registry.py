@@ -246,3 +246,45 @@ def test_registry_updates_from_execution_readiness_and_supervisor_keep_real_acti
     assert records["real_file_cleanup"].status == "blocked"
     assert records["real_effect_execution"].status == "deferred"
     assert validate_capability_registry(registry).ok
+
+
+def test_authorization_review_capabilities_are_review_and_schema_only() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["authorization_review"].status == "implemented"
+    assert records["authorization_review"].authority_level == "review_only"
+    assert records["authorization_review"].host_actuation_performed is False
+    assert "real authorization grants" in records["authorization_review"].deferred_surfaces
+    assert records["future_authorization_grant_schema"].status == "implemented"
+    assert records["future_authorization_grant_schema"].authority_level == "schema_only"
+    assert records["future_authorization_grant_schema"].host_actuation_performed is False
+    assert records["real_authorization_grant"].status == "deferred"
+    for capability_id in ["real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"]:
+        assert records[capability_id].status == "deferred"
+    for capability_id in ["real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_updates_from_authorization_review_keep_real_actions_deferred_or_blocked() -> None:
+    from sentientos.authorization_review import build_authorization_review_wing_for_execution_readiness
+    from sentientos.capability_registry import update_registry_from_authorization_review_decision, update_registry_from_future_authorization_schema
+    from sentientos.effect_proof import build_execution_proof_wing_for_rehearsal_receipt
+    from sentientos.actuation_fulfillment import build_actuation_fulfillment_plan, build_actuation_fulfillment_rehearsal_receipt
+    from tests.test_actuation_fulfillment import _broker_receipt_for
+
+    rehearsal = build_actuation_fulfillment_rehearsal_receipt(build_actuation_fulfillment_plan(_broker_receipt_for("inspect_cpu_pressure_candidate", cpu_utilization_percent=95)))
+    manifest = build_execution_proof_wing_for_rehearsal_receipt(rehearsal).execution_readiness_manifest
+    wing = build_authorization_review_wing_for_execution_readiness(manifest)
+    registry = update_registry_from_future_authorization_schema(update_registry_from_authorization_review_decision(build_default_capability_registry(), wing.decision), wing.future_authorization_grant_schema)
+    records = registry.by_id()
+    assert records["authorization_review"].status == "implemented"
+    assert records["authorization_review"].authority_level == "review_only"
+    assert records["future_authorization_grant_schema"].authority_level == "schema_only"
+    assert records["real_authorization_grant"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_rollback_execution"].status == "deferred"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
+    assert validate_capability_registry(registry).ok

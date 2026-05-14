@@ -15,9 +15,9 @@ federation transport/sync/adoption, and not remote execution.
 
 The authority ladder remains:
 
-`observe → model → propose → broker eligibility → rehearse → readiness → authorize → fulfill → effect receipt → postcondition check → audit → rollback`
+`observe → model → propose → broker eligibility → rehearse → readiness → authorization review → authorize → fulfill → effect receipt → postcondition check → audit → rollback`
 
-This wing covers `readiness` and proof scaffolding only. It does not authorize,
+This wing covers `readiness` and proof scaffolding only; the next wing is `docs/architecture/host_embodiment_authorization_review_wing.md`. It does not authorize,
 fulfill, create a real effect receipt, perform postcondition checks against real
 effects, audit a real effect, or execute rollback.
 
@@ -87,7 +87,7 @@ only. No effect is performed.
 
 The non-mutating pipeline is now:
 
-`collector results → telemetry snapshot → pressure report → policy decision → proposal receipt → broker eligibility decision → broker review receipt → fulfillment rehearsal plan → fulfillment rehearsal receipt → effect receipt contract → future effect receipt schema → postcondition plan → rollback plan → execution readiness manifest → optional runtime supervisor readiness report`
+`collector results → telemetry snapshot → pressure report → policy decision → proposal receipt → broker eligibility decision → broker review receipt → fulfillment rehearsal plan → fulfillment rehearsal receipt → effect receipt contract → future effect receipt schema → postcondition plan → rollback plan → execution readiness manifest → optional runtime supervisor readiness report → authorization review packet → authorization review decision → authorization review receipt → future authorization grant schema`
 
 All stages remain metadata-only and non-mutating. Real fulfillment remains
 deferred. Real actuation remains deferred.
@@ -96,6 +96,7 @@ deferred. Real actuation remains deferred.
 
 - Module: `sentientos/effect_proof.py`
 - Module: `sentientos/runtime_supervisor.py`
+- Authorization Review Wing: `docs/architecture/host_embodiment_authorization_review_wing.md`
 - Capability registry: `sentientos/capability_registry.py`
 - Tests: `tests/test_effect_proof.py`
 - Tests: `tests/test_runtime_supervisor.py`

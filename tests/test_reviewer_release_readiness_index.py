@@ -228,3 +228,27 @@ def test_execution_proof_wing_doc_preserves_readiness_boundaries() -> None:
     assert "Real actuation remains deferred" in doc
     for term in ["Effect Receipt", "Postcondition Check", "Rollback Plan", "RollbackReceipt", "Runtime Supervisor", "Execution Readiness Manifest"]:
         assert term in doc
+
+HOST_EMBODIMENT_AUTHORIZATION_REVIEW_WING = "docs/architecture/host_embodiment_authorization_review_wing.md"
+
+
+def test_navigation_links_to_host_embodiment_authorization_review_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase4 = _read(HOST_EMBODIMENT_PHASE4)
+    phase5 = _read(HOST_EMBODIMENT_PHASE5)
+    execution = _read(HOST_EMBODIMENT_EXECUTION_PROOF_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, phase4, phase5, execution, trajectory]:
+        assert HOST_EMBODIMENT_AUTHORIZATION_REVIEW_WING in text
+
+
+def test_authorization_review_wing_doc_preserves_review_only_boundaries() -> None:
+    doc = _read(HOST_EMBODIMENT_AUTHORIZATION_REVIEW_WING)
+    assert "authorization review is not authorization grant" in doc
+    assert "Future Authorization Grant schema is not a real grant" in doc or "future authorization grant schema is not a real grant" in doc
+    assert "Real fulfillment remains deferred" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "No host mutation" in doc or "not host mutation" in doc
+    for term in ["AuthorizationReviewPacket", "AuthorizationReviewDecision", "AuthorizationReviewReceipt", "FutureAuthorizationGrantSchema"]:
+        assert term in doc
