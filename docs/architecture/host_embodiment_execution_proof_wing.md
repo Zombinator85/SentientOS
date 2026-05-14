@@ -114,3 +114,9 @@ Runtime Supervisor, and Execution Readiness Manifest.
 Execution readiness remains non-authorizing. The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) follows authorization review with contract-only/schema-only/ledger-only records and a demo trace; real effect execution and rollback remain deferred.
 
 Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+
+## Reviewer demo trace link
+
+After execution proof and authorization review, reviewers can inspect the deterministic non-mutating export in [Host Embodiment Reviewer Demo Trace](host_embodiment_reviewer_demo_trace.md).
+
+Proof path: docs/architecture/host_embodiment_reviewer_demo_trace.md

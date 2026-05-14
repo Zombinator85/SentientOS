@@ -274,3 +274,31 @@ def test_controlled_authorization_trace_doc_preserves_non_live_boundaries() -> N
     assert "Demo trace is reviewer proof only" in doc or "demo trace is reviewer proof only" in doc
     assert "Real fulfillment remains deferred" in doc
     assert "Real actuation remains deferred" in doc
+
+HOST_EMBODIMENT_REVIEWER_DEMO_TRACE = "docs/architecture/host_embodiment_reviewer_demo_trace.md"
+
+
+def test_navigation_links_to_host_embodiment_reviewer_demo_trace_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    auth = _read(HOST_EMBODIMENT_AUTHORIZATION_REVIEW_WING)
+    proof = _read(HOST_EMBODIMENT_EXECUTION_PROOF_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, controlled, auth, proof, trajectory]:
+        assert HOST_EMBODIMENT_REVIEWER_DEMO_TRACE in text
+
+
+def test_reviewer_demo_trace_doc_preserves_demo_boundaries_and_commands() -> None:
+    doc = _read(HOST_EMBODIMENT_REVIEWER_DEMO_TRACE)
+    for command in [
+        "python scripts/build_host_embodiment_trace.py --format json",
+        "python scripts/build_host_embodiment_trace.py --format markdown",
+        "python scripts/build_host_embodiment_trace.py --validate-only",
+    ]:
+        assert command in doc
+    assert "demo trace is reviewer proof only" in doc.lower()
+    assert "no host mutation" in doc.lower()
+    assert "PWM presence is not control authority" in doc
+    assert "controlled authorization contract is not a live grant" in doc
+    assert "schema-only/future-use-only" in doc

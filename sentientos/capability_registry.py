@@ -244,6 +244,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("controlled_authorization_grant_record", "controlled_authorization", "implemented", "schema_only", source_paths=("sentientos/controlled_authorization.py",), proof_tests=("tests/test_controlled_authorization.py",), implemented_surfaces=("schema-only future-use grant record",), deferred_surfaces=("live authorization grant",), forbidden_implications=("grant record grants live authority",)),
         _record("controlled_authorization_ledger", "controlled_authorization", "implemented", "ledger_only", source_paths=("sentientos/controlled_authorization.py",), proof_tests=("tests/test_controlled_authorization.py",), implemented_surfaces=("metadata-only authorization ledger scaffold",), deferred_surfaces=("runtime authority token",), forbidden_implications=("ledger grants authorization",)),
         _record("host_embodiment_trace", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("sentientos/host_embodiment_trace.py",), proof_tests=("tests/test_host_embodiment_trace.py",), implemented_surfaces=("reviewer-facing non-mutating demo trace",), deferred_surfaces=("live authorization", "real effects", "real rollback"), forbidden_implications=("demo trace executes host actions", "trace grants authority")),
+        _record("host_embodiment_trace_export", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("sentientos/host_embodiment_trace_export.py",), proof_tests=("tests/test_host_embodiment_trace_export.py",), proof_commands=("python scripts/build_host_embodiment_trace.py --format json", "python scripts/build_host_embodiment_trace.py --format markdown", "python scripts/build_host_embodiment_trace.py --validate-only"), implemented_surfaces=("deterministic sorted-key JSON trace export", "reviewer Markdown trace summary", "explicit-path artifact writing"), deferred_surfaces=("live host collection", "live authorization", "real effects"), forbidden_implications=("trace export collects live host data", "trace export grants authority", "trace export performs effects")),
+        _record("reviewer_demo_trace", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("scripts/build_host_embodiment_trace.py", "tests/fixtures/host_embodiment_trace_thermal_pwm_demo.json"), proof_tests=("tests/test_build_host_embodiment_trace_script.py",), proof_commands=("python scripts/build_host_embodiment_trace.py --format json", "python scripts/build_host_embodiment_trace.py --summary"), implemented_surfaces=("deterministic fake/sample thermal+PWM reviewer demo",), deferred_surfaces=("live host collection", "host mutation", "runtime authority token"), forbidden_implications=("reviewer demo performs live collection by default", "reviewer demo authorizes host actions")),
+        _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_execution", "execution_proof", "deferred", "none", deferred_surfaces=("authorized effect fulfillment", "host mutation", "effect receipt from real action"), forbidden_implications=("execution proof wing implements real effects",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -734,3 +737,36 @@ def update_registry_from_host_embodiment_trace(registry: CapabilityRegistry, tra
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1")
+
+
+def update_registry_from_trace_export(registry: CapabilityRegistry, trace: Any) -> CapabilityRegistry:
+    """Reflect trace export/demo proof without live collection or authority."""
+
+    records: list[CapabilityRecord] = []
+    has_trace = bool(getattr(trace, "trace_id", ""))
+    for record in registry.records:
+        if record.capability_id == "host_embodiment_trace_export":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_trace else "scaffolded",
+                    authority_level="demo_proof_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/host_embodiment_trace_export.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_host_embodiment_trace_export.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("deterministic reviewer trace export",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("trace export grants live authorization", "trace export performs host mutation")))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "reviewer_demo_trace":
+            records.append(replace(record, status="implemented" if has_trace else "scaffolded", authority_level="demo_proof_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "live_host_trace_collection":
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"live_authorization_grant", "real_authorization_grant", "real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-reviewer-demo-trace.v1")

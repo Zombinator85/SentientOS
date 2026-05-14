@@ -47,3 +47,9 @@ Real fulfillment remains deferred. Real actuation remains deferred.
 - Trace builder: `sentientos/host_embodiment_trace.py`
 - Tests: `tests/test_controlled_authorization.py`, `tests/test_host_embodiment_trace.py`
 - Public proof map: [Reviewer Release Readiness Index](reviewer_release_readiness_index.md)
+
+## Reviewer demo trace export
+
+See [Host Embodiment Reviewer Demo Trace](host_embodiment_reviewer_demo_trace.md) for the deterministic JSON/Markdown export command. The export is reviewer proof only, uses fake/sample thermal+PWM telemetry by default, and preserves the proof that PWM presence is not control authority, the controlled authorization contract is not a live grant, grant/revocation records are schema-only/future-use-only, and real actuation remains deferred.
+
+Proof path: docs/architecture/host_embodiment_reviewer_demo_trace.md

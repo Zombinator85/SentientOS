@@ -308,3 +308,25 @@ def test_controlled_authorization_and_trace_capabilities_are_non_live() -> None:
     assert records["real_power_profile_mutation"].status == "blocked"
     assert records["real_file_cleanup"].status == "blocked"
     assert all(record.host_actuation_performed is False for record in records.values())
+
+
+def test_trace_export_and_reviewer_demo_capabilities_are_proof_only() -> None:
+    from sentientos.capability_registry import update_registry_from_trace_export
+    from sentientos.host_embodiment_trace import build_host_embodiment_demo_trace
+
+    trace = build_host_embodiment_demo_trace()
+    registry = update_registry_from_trace_export(build_default_capability_registry(), trace)
+    records = registry.by_id()
+    assert records["host_embodiment_trace_export"].status == "implemented"
+    assert records["host_embodiment_trace_export"].authority_level == "demo_proof_only"
+    assert records["host_embodiment_trace_export"].host_actuation_performed is False
+    assert records["reviewer_demo_trace"].status == "implemented"
+    assert records["reviewer_demo_trace"].authority_level == "demo_proof_only"
+    assert records["live_host_trace_collection"].status == "deferred"
+    assert records["live_authorization_grant"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
+    assert validate_capability_registry(registry).ok

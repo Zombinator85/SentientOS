@@ -1,0 +1,944 @@
+{
+  "blocked_action_labels": [
+    "driver_install",
+    "fan_pwm_write",
+    "federation_transport",
+    "file_cleanup",
+    "file_delete",
+    "host_mutation",
+    "live_authorization_grant",
+    "network_egress",
+    "package_install",
+    "power_profile_mutation",
+    "process_kill",
+    "prompt_assembly",
+    "provider_invocation",
+    "remote_execution",
+    "service_restart",
+    "thermal_actuation"
+  ],
+  "created_at": "1970-01-01T00:00:00+00:00",
+  "deferred_capability_labels": [
+    "live_authorization_grant",
+    "real_effect_execution",
+    "real_rollback_execution",
+    "real_fan_pwm_control",
+    "real_thermal_actuation",
+    "real_power_profile_mutation",
+    "real_service_restart",
+    "real_process_kill",
+    "real_file_cleanup",
+    "real_file_delete",
+    "network_egress",
+    "provider_invocation",
+    "prompt_assembly",
+    "federation_transport",
+    "remote_execution"
+  ],
+  "demo_only": true,
+  "digest": "d11a53b05a1d10428b8f26f226d784b944a2fd591ae3902f4fab4e9fd4ad4ec1",
+  "effect_performed": false,
+  "host_mutation_performed": false,
+  "live_authorization_granted": false,
+  "metadata_only": true,
+  "network_performed": false,
+  "prompt_assembly_performed": false,
+  "provider_invocation_performed": false,
+  "risk_codes": [
+    "controlled_authorization_contract_is_not_live_grant",
+    "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+    "cooling_control_requires_hardware_and_os_bounds",
+    "demo_trace_is_reviewer_proof_only",
+    "future_cooling_requires_privileged_gates",
+    "grant_record_schema_only_future_use_only",
+    "ledger_does_not_grant_live_authority",
+    "pwm_presence_is_not_control_authority",
+    "revocation_record_schema_only_future_use_only"
+  ],
+  "scenario_id": "demo-thermal-pwm-non-mutating-ladder",
+  "scenario_label": "Thermal + PWM presence proves telemetry is not control authority",
+  "step_count": 24,
+  "steps": [
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [],
+      "source_digest": "870270c0425fb7aa6d155bd3f3ecc45e35197979c822926b84ff9c57fb34bcc1",
+      "source_id": "thermal_sensors",
+      "status": "available",
+      "step_id": "hets_5550f46a4ed64090dc1ec228",
+      "step_kind": "collector_result",
+      "summary": {
+        "collector_id": "thermal_sensors",
+        "status": "available",
+        "telemetry_only": true,
+        "values": {
+          "control_available": false,
+          "thermal_actuation_deferred": true,
+          "zones": [
+            {
+              "control_available": false,
+              "id": "thermal_zone0",
+              "label": "x86_pkg_temp",
+              "telemetry_only": true,
+              "temperature_c": 91.0
+            },
+            {
+              "control_available": false,
+              "id": "hwmon0/temp1_input",
+              "label": "hwmon0:temp1_input",
+              "telemetry_only": true,
+              "temperature_c": 91.0
+            }
+          ]
+        }
+      },
+      "warning_codes": []
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "pwm_presence_is_not_control_authority"
+      ],
+      "source_digest": "b2d562966fa1a4bc3eb642da5528b161ed2ade097bd08ddd8f617bd70c79a897",
+      "source_id": "fan_pwm",
+      "status": "available",
+      "step_id": "hets_459d038ffd96341eaae97f71",
+      "step_kind": "collector_result",
+      "summary": {
+        "collector_id": "fan_pwm",
+        "status": "available",
+        "telemetry_only": true,
+        "values": {
+          "control_available": false,
+          "control_deferred": true,
+          "fans": [
+            {
+              "control_available": false,
+              "id": "hwmon0/fan1_input",
+              "rpm": 1800.0,
+              "telemetry_only": true
+            }
+          ],
+          "pwm_signal_observed": true,
+          "pwm_signals": [
+            {
+              "control_available": false,
+              "control_deferred": true,
+              "id": "hwmon0/pwm1",
+              "possible_controller_observed": true,
+              "pwm_signal_observed": true,
+              "requires_future_allowlist": true,
+              "requires_privilege_broker": true,
+              "telemetry_only": true
+            }
+          ],
+          "requires_future_allowlist": true,
+          "requires_privilege_broker": true,
+          "telemetry_only": true
+        }
+      },
+      "warning_codes": []
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [],
+      "source_digest": "1a082c15dc212ecc4c0398e6d5d5410d338471df5aba80e7680f1c3f2029d1b2",
+      "source_id": "demo-thermal-pwm-non-mutating-ladder-inventory",
+      "status": "recorded",
+      "step_id": "hets_172eab4e3334f76c3e0483c5",
+      "step_kind": "host_inventory_manifest",
+      "summary": {
+        "architecture": "unknown",
+        "device_count": 0,
+        "digest": "1a082c15dc212ecc4c0398e6d5d5410d338471df5aba80e7680f1c3f2029d1b2",
+        "fan_pwm_status": "available",
+        "fan_pwm_telemetry_only": true,
+        "host_id": "review-demo-host",
+        "manifest_id": "demo-thermal-pwm-non-mutating-ladder-inventory",
+        "metadata_only": true,
+        "no_host_actuation": true,
+        "no_provider_network_prompt_authority": true,
+        "node_id": "review-demo-node",
+        "os_family": "unknown",
+        "sensor_count": 3,
+        "unsupported_deferred_labels": [
+          "fan_pwm_control_deferred",
+          "pwm_presence_not_control_authority",
+          "requires_future_allowlist",
+          "requires_privilege_broker",
+          "thermal_actuation_deferred"
+        ],
+        "warning_risk_codes": [
+          "risk:pwm_presence_is_not_control_authority"
+        ]
+      },
+      "warning_codes": []
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [],
+      "source_digest": "0add24e792da014ecf71a0c6eddbac57457029384e584eb8e6abeee1cbaef7af",
+      "source_id": "demo-thermal-pwm-non-mutating-ladder-telemetry",
+      "status": "recorded",
+      "step_id": "hets_aaa2930a605cacabdecd2965",
+      "step_kind": "telemetry_snapshot",
+      "summary": {
+        "fan_rpm_observations": {
+          "hwmon0/fan1_input": 1800.0
+        },
+        "metadata_only": true,
+        "model_runtime_pressure_labels": [
+          "pwm_signal_observed_not_control_authority"
+        ],
+        "no_host_actuation": true,
+        "snapshot_id": "demo-thermal-pwm-non-mutating-ladder-telemetry",
+        "thermal_zone_temperatures_c": {
+          "hwmon0/temp1_input": 91.0,
+          "thermal_zone0": 91.0
+        }
+      },
+      "warning_codes": []
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [],
+      "source_digest": "de65bad07f54f6266a318fbf19a283b1e0ddf28df4707bda0a85eec9aafc5b5b",
+      "source_id": "hrr_0a7c6892785a40e236f847d8",
+      "status": "recorded",
+      "step_id": "hets_4a64601e867081af198bcd79",
+      "step_kind": "pressure_report",
+      "summary": {
+        "candidate_kinds": [
+          "future_cooling_policy_candidate",
+          "inspect_thermal_state_candidate"
+        ],
+        "digest": "de65bad07f54f6266a318fbf19a283b1e0ddf28df4707bda0a85eec9aafc5b5b",
+        "finding_count": 2,
+        "metadata_only": true,
+        "no_fan_pwm_writes": true,
+        "no_host_actuation": true,
+        "no_process_kill_restart_install": true,
+        "no_provider_network_prompt_authority": true,
+        "observe_model_propose_only": true,
+        "pressure_labels": [
+          "fan_signal_present",
+          "telemetry_incomplete",
+          "thermal_pressure"
+        ],
+        "proposal_candidate_count": 2,
+        "report_id": "hrr_0a7c6892785a40e236f847d8",
+        "snapshot_id": "demo-thermal-pwm-non-mutating-ladder-telemetry"
+      },
+      "warning_codes": []
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "d32c958ce5fcdb0722e689a5ce6b6e1c00debaee757c6b9f55854962ab82bc63",
+      "source_id": "hrpd_acb08c608bccc87cb3bd4259",
+      "status": "host_resource_policy_incomplete",
+      "step_id": "hets_4ee5108d33095daf7275cf4a",
+      "step_kind": "policy_decision",
+      "summary": {
+        "blocked_proposal_kind_count": 1,
+        "decision_id": "hrpd_acb08c608bccc87cb3bd4259",
+        "digest": "d32c958ce5fcdb0722e689a5ce6b6e1c00debaee757c6b9f55854962ab82bc63",
+        "fan_pwm_write_performed": false,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "network_performed": false,
+        "pressure_labels": [
+          "fan_signal_present",
+          "telemetry_incomplete",
+          "thermal_pressure"
+        ],
+        "proposal_kind_count": 3,
+        "proposal_only": true,
+        "report_digest": "de65bad07f54f6266a318fbf19a283b1e0ddf28df4707bda0a85eec9aafc5b5b",
+        "report_id": "hrr_0a7c6892785a40e236f847d8",
+        "risk_count": 1,
+        "selected_policy_rule_count": 3,
+        "status": "host_resource_policy_incomplete",
+        "thermal_actuation_performed": false,
+        "warning_count": 4
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "5917f208c4d59b72e517cd2442fc3f9193c1942163fba0aa3d065b10e675ad6d",
+      "source_id": "hrpr_ec77822f40f59b35607e2141",
+      "status": "host_resource_proposal_blocked",
+      "step_id": "hets_aa67353b54b0e78dc96a6185",
+      "step_kind": "proposal_receipt",
+      "summary": {
+        "blocked_action_count": 12,
+        "decision_id": "hrpd_acb08c608bccc87cb3bd4259",
+        "digest": "5917f208c4d59b72e517cd2442fc3f9193c1942163fba0aa3d065b10e675ad6d",
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "future_gate_count": 5,
+        "not_authorized_for_fulfillment": true,
+        "pressure_labels": [
+          "fan_signal_present",
+          "telemetry_incomplete",
+          "thermal_pressure"
+        ],
+        "proposal_kind": "future_cooling_policy_candidate",
+        "proposal_only": true,
+        "proposal_scope": "future_privilege_broker_queue",
+        "proposal_status": "host_resource_proposal_blocked",
+        "receipt_id": "hrpr_ec77822f40f59b35607e2141",
+        "report_id": "hrr_0a7c6892785a40e236f847d8",
+        "risk_count": 1,
+        "warning_count": 4
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "8c2c909681d9498a2a47201993f423037e7813d5771f93646670a9fd833bb0f1",
+      "source_id": "pbd_5baf56a400f1fe5ed0c1e841",
+      "status": "privilege_broker_blocked",
+      "step_id": "hets_0d357c4b1dd3bec2d210929b",
+      "step_kind": "broker_decision",
+      "summary": {
+        "authorization_granted": false,
+        "blocked_action_count": 13,
+        "decision_id": "pbd_5baf56a400f1fe5ed0c1e841",
+        "digest": "8c2c909681d9498a2a47201993f423037e7813d5771f93646670a9fd833bb0f1",
+        "eligibility_only": true,
+        "eligibility_status": "privilege_broker_blocked",
+        "fan_pwm_write_performed": false,
+        "fulfillment_granted": false,
+        "future_gate_count": 11,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "missing_prerequisite_count": 11,
+        "network_performed": false,
+        "privilege_domain": "future_cooling_policy_review",
+        "source_proposal_kind": "future_cooling_policy_candidate",
+        "source_receipt_id": "hrpr_ec77822f40f59b35607e2141",
+        "thermal_actuation_performed": false
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "3511e9ea242712fd63405a63acc61f534fbb696d842818de040586646c7aa52b",
+      "source_id": "pbr_3822e7b72b1335b3b95f19e7",
+      "status": "privilege_broker_receipt_blocked",
+      "step_id": "hets_d30237e03c0260d1ee38e5fd",
+      "step_kind": "broker_review_receipt",
+      "summary": {
+        "blocked_action_count": 13,
+        "decision_id": "pbd_5baf56a400f1fe5ed0c1e841",
+        "digest": "3511e9ea242712fd63405a63acc61f534fbb696d842818de040586646c7aa52b",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "eligibility_only": true,
+        "eligibility_status": "privilege_broker_blocked",
+        "future_gate_count": 11,
+        "privilege_domain": "future_cooling_policy_review",
+        "receipt_id": "pbr_3822e7b72b1335b3b95f19e7",
+        "review_only": true,
+        "review_status": "privilege_broker_receipt_blocked",
+        "risk_count": 2,
+        "source_receipt_id": "hrpr_ec77822f40f59b35607e2141",
+        "warning_count": 4
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "131755809df17a367d964d3f568d26e96b438e2c58f89850c03316c9230acd3e",
+      "source_id": "afpl_24dcaf445997a0fde107b36d",
+      "status": "actuation_fulfillment_plan_blocked",
+      "step_id": "hets_2b6849279d08479f3258f143",
+      "step_kind": "fulfillment_plan",
+      "summary": {
+        "authorization_granted": false,
+        "backend_class": "cooling_backend_future",
+        "blocked_action_count": 15,
+        "digest": "131755809df17a367d964d3f568d26e96b438e2c58f89850c03316c9230acd3e",
+        "fan_pwm_write_performed": false,
+        "file_cleanup_performed": false,
+        "fulfillment_domain": "future_cooling_rehearsal",
+        "fulfillment_granted": false,
+        "future_gate_count": 14,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "network_performed": false,
+        "plan_id": "afpl_24dcaf445997a0fde107b36d",
+        "plan_status": "actuation_fulfillment_plan_blocked",
+        "power_profile_mutation_performed": false,
+        "privilege_domain": "future_cooling_policy_review",
+        "rehearsal_only": true,
+        "service_restart_performed": false,
+        "source_broker_receipt_id": "pbr_3822e7b72b1335b3b95f19e7",
+        "source_eligibility_status": "privilege_broker_blocked",
+        "thermal_actuation_performed": false
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "10f9dab2cb01ff180066daaba66330bafe8aa72f85486c0b9daa044b5e52ef05",
+      "source_id": "afrr_f8ade0526b0fb9d2968eeebd",
+      "status": "actuation_fulfillment_rehearsal_blocked",
+      "step_id": "hets_19515171bbae1bc9f359f5df",
+      "step_kind": "fulfillment_rehearsal_receipt",
+      "summary": {
+        "backend_class": "cooling_backend_future",
+        "blocked_action_count": 15,
+        "digest": "10f9dab2cb01ff180066daaba66330bafe8aa72f85486c0b9daa044b5e52ef05",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "dry_run_only": true,
+        "effect_not_performed": true,
+        "fulfillment_domain": "future_cooling_rehearsal",
+        "future_gate_count": 14,
+        "plan_id": "afpl_24dcaf445997a0fde107b36d",
+        "plan_status": "actuation_fulfillment_plan_blocked",
+        "receipt_id": "afrr_f8ade0526b0fb9d2968eeebd",
+        "rehearsal_only": true,
+        "rehearsal_status": "actuation_fulfillment_rehearsal_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "66dcbf95a96302274f8722a24e73bed28994bfd48a13d22ea2e14cfacb880db9",
+      "source_id": "erc_6457d8ac87019f62aa780b7d",
+      "status": "effect_receipt_contract_blocked",
+      "step_id": "hets_6df9fd9ae8eecbf524a3e744",
+      "step_kind": "effect_contract",
+      "summary": {
+        "authorization_granted": false,
+        "backend_class": "cooling_backend_future",
+        "blocked_action_count": 15,
+        "contract_id": "erc_6457d8ac87019f62aa780b7d",
+        "contract_only": true,
+        "effect_domain": "future_cooling_effect",
+        "effect_performed": false,
+        "fulfillment_granted": false,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "proof_gate_count": 17,
+        "status": "effect_receipt_contract_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "42a83a1a6af98eaf092043ae174d295488ac94b3b4625aa61504864adaf0cd2a",
+      "source_id": "fers_e0deb08766f2a70dc2ca7606",
+      "status": "future_effect_receipt_blocked",
+      "step_id": "hets_a1608fa1f3be60afb07afdc8",
+      "step_kind": "future_effect_schema",
+      "summary": {
+        "contract_id": "erc_6457d8ac87019f62aa780b7d",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "effect_performed": false,
+        "future_use_only": true,
+        "planned_effect_domain": "future_cooling_effect",
+        "receipt_id": "fers_e0deb08766f2a70dc2ca7606",
+        "schema_only": true,
+        "status": "future_effect_receipt_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "b5ece0d6e87986f1dd6b18613e47bd2c2ffbe4236f6acbf602f106ce555c5bb6",
+      "source_id": "pcp_0ccc9114fd1c3ea7f12966f4",
+      "status": "postcondition_plan_blocked",
+      "step_id": "hets_f6588f237a227ed087252aec",
+      "step_kind": "postcondition_plan",
+      "summary": {
+        "check_performed": false,
+        "contract_id": "erc_6457d8ac87019f62aa780b7d",
+        "effect_domain": "future_cooling_effect",
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "plan_id": "pcp_0ccc9114fd1c3ea7f12966f4",
+        "plan_only": true,
+        "status": "postcondition_plan_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "641adac1711d562043679558633fb79379eb8ccbbbc349e639af512b75ba1f9f",
+      "source_id": "rbp_d0d8a6793e43efe0645ba179",
+      "status": "rollback_plan_blocked",
+      "step_id": "hets_801def41236bf8fb98657101",
+      "step_kind": "rollback_plan",
+      "summary": {
+        "contract_id": "erc_6457d8ac87019f62aa780b7d",
+        "effect_domain": "future_cooling_effect",
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "plan_id": "rbp_d0d8a6793e43efe0645ba179",
+        "plan_only": true,
+        "rollback_performed": false,
+        "status": "rollback_plan_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "ab415cad9d0ae7d8c3fe7f3d03bc8a275d61687858bf60a17db24f34a2ca50d5",
+      "source_id": "erm_2e1ec4b3e0a90fb3f55b6bd8",
+      "status": "execution_readiness_blocked",
+      "step_id": "hets_7b062f054152155ea1aecf22",
+      "step_kind": "execution_readiness_manifest",
+      "summary": {
+        "authorization_granted": false,
+        "effect_contract_id": "erc_6457d8ac87019f62aa780b7d",
+        "effect_domain": "future_cooling_effect",
+        "effect_performed": false,
+        "fulfillment_granted": false,
+        "future_effect_receipt_id": "fers_e0deb08766f2a70dc2ca7606",
+        "host_mutation_performed": false,
+        "manifest_id": "erm_2e1ec4b3e0a90fb3f55b6bd8",
+        "metadata_only": true,
+        "missing_proof_gate_count": 0,
+        "readiness_only": true,
+        "readiness_status": "execution_readiness_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "262e8cae225bda4bc623523aad6f60efab908992d70abbaf7b479b9e238c24d1",
+      "source_id": "arp_f2b0d3134f95a174787b3a34",
+      "status": "authorization_review_packet_blocked",
+      "step_id": "hets_dbe05d0b229eb957ec426dbb",
+      "step_kind": "authorization_review_packet",
+      "summary": {
+        "approval_class": "future_hardware_safety_approval_required",
+        "authorization_granted": false,
+        "effect_performed": false,
+        "fulfillment_granted": false,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "missing_authorization_gate_count": 0,
+        "packet_id": "arp_f2b0d3134f95a174787b3a34",
+        "packet_status": "authorization_review_packet_blocked",
+        "readiness_status": "execution_readiness_blocked",
+        "review_only": true,
+        "source_execution_readiness_manifest_id": "erm_2e1ec4b3e0a90fb3f55b6bd8"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "ee15bfae952e0bb46a0399ada54ad8194c02c8d96909c012523ef8ba77eaebf4",
+      "source_id": "ard_1f4b3ae1659d4f5b004b58e6",
+      "status": "authorization_review_blocked",
+      "step_id": "hets_076c26815d008848203cad96",
+      "step_kind": "authorization_review_decision",
+      "summary": {
+        "approval_class": "future_hardware_safety_approval_required",
+        "authorization_domain": "future_cooling_authorization_review",
+        "authorization_granted": false,
+        "decision_id": "ard_1f4b3ae1659d4f5b004b58e6",
+        "decision_status": "authorization_review_blocked",
+        "effect_performed": false,
+        "fulfillment_granted": false,
+        "host_mutation_performed": false,
+        "metadata_only": true,
+        "missing_authorization_gate_count": 0,
+        "packet_id": "arp_f2b0d3134f95a174787b3a34",
+        "review_only": true
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "6db52a41cf9185a7ff42aded529ac6baa91e89151c77ef3ef4721dd2d3b8c191",
+      "source_id": "arr_84cecae44852778625267e23",
+      "status": "authorization_review_receipt_blocked",
+      "step_id": "hets_c96cc5317257edd453fb6506",
+      "step_kind": "authorization_review_receipt",
+      "summary": {
+        "authorization_domain": "future_cooling_authorization_review",
+        "authorization_not_granted": true,
+        "decision_id": "ard_1f4b3ae1659d4f5b004b58e6",
+        "digest": "6db52a41cf9185a7ff42aded529ac6baa91e89151c77ef3ef4721dd2d3b8c191",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "receipt_id": "arr_84cecae44852778625267e23",
+        "receipt_status": "authorization_review_receipt_blocked",
+        "review_only": true
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "71a377d0d30c64f686ebd21ffd5bb4a85aff6dd1d42bbaac8c2023e740d10f1b",
+      "source_id": "fags_096664f56425751bdbc3176a",
+      "status": "future_authorization_grant_schema_blocked",
+      "step_id": "hets_860c7a8086a2d0ecc1e53e1e",
+      "step_kind": "future_authorization_schema",
+      "summary": {
+        "authorization_domain": "future_cooling_authorization_review",
+        "authorization_granted": false,
+        "digest": "71a377d0d30c64f686ebd21ffd5bb4a85aff6dd1d42bbaac8c2023e740d10f1b",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "future_use_only": true,
+        "schema_id": "fags_096664f56425751bdbc3176a",
+        "schema_only": true,
+        "schema_status": "future_authorization_grant_schema_blocked",
+        "source_authorization_review_receipt_id": "arr_84cecae44852778625267e23"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "controlled_authorization_contract_is_not_live_grant",
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates"
+      ],
+      "source_digest": "10f4bd576425a884511b0f1660d297c92ad4abc4c72fb6d954acf9615cb0c451",
+      "source_id": "cagc_aa5985484dfe566de9289b83",
+      "status": "controlled_authorization_contract_blocked",
+      "step_id": "hets_af5bf3de9a2c7b4744964237",
+      "step_kind": "controlled_authorization_contract",
+      "summary": {
+        "authorization_domain": "future_cooling_authorization_review",
+        "authorization_scope": "future_cooling_scope",
+        "blocked_action_count": 16,
+        "contract_id": "cagc_aa5985484dfe566de9289b83",
+        "contract_only": true,
+        "digest": "10f4bd576425a884511b0f1660d297c92ad4abc4c72fb6d954acf9615cb0c451",
+        "effect_performed": false,
+        "fulfillment_granted": false,
+        "future_authorization_grant_schema_id": "fags_096664f56425751bdbc3176a",
+        "host_mutation_performed": false,
+        "live_authorization_granted": false,
+        "metadata_only": true,
+        "source_authorization_review_receipt_id": "arr_84cecae44852778625267e23",
+        "status": "controlled_authorization_contract_blocked"
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "controlled_authorization_contract_is_not_live_grant",
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates",
+        "grant_record_schema_only_future_use_only"
+      ],
+      "source_digest": "f390726c1339365a2df41d1fb6448964dec4b743fa2a20e7939e3acfa36cdb5e",
+      "source_id": "cagr_8b0eae356e6baefead1f19ed",
+      "status": "controlled_authorization_grant_blocked",
+      "step_id": "hets_46c60bd74f0116bfd0050e59",
+      "step_kind": "controlled_authorization_grant_record",
+      "summary": {
+        "authorization_scope": "future_cooling_scope",
+        "contract_id": "cagc_aa5985484dfe566de9289b83",
+        "digest": "f390726c1339365a2df41d1fb6448964dec4b743fa2a20e7939e3acfa36cdb5e",
+        "does_not_authorize_fulfillment": true,
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "future_use_only": true,
+        "grant_record_id": "cagr_8b0eae356e6baefead1f19ed",
+        "grant_status": "controlled_authorization_grant_blocked",
+        "live_authorization_granted": false,
+        "schema_only": true
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "controlled_authorization_contract_is_not_live_grant",
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates",
+        "grant_record_schema_only_future_use_only",
+        "revocation_record_schema_only_future_use_only"
+      ],
+      "source_digest": "86fe59e9b272101b10f3cfd35ffd6683e1e7146fab1344d2533a6cfac6406670",
+      "source_id": "carr_5a5c472a0d897da79ca17add",
+      "status": "controlled_authorization_revocation_blocked",
+      "step_id": "hets_ec8d98c40064150a6e137183",
+      "step_kind": "controlled_authorization_revocation_record",
+      "summary": {
+        "digest": "86fe59e9b272101b10f3cfd35ffd6683e1e7146fab1344d2533a6cfac6406670",
+        "does_not_execute": true,
+        "does_not_mutate_host": true,
+        "future_use_only": true,
+        "grant_record_id": "cagr_8b0eae356e6baefead1f19ed",
+        "live_revocation_performed": false,
+        "revocation_id": "carr_5a5c472a0d897da79ca17add",
+        "revocation_status": "controlled_authorization_revocation_blocked",
+        "schema_only": true
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    },
+    {
+      "effect_performed": false,
+      "host_mutation_performed": false,
+      "metadata_only": true,
+      "risk_codes": [
+        "controlled_authorization_contract_is_not_live_grant",
+        "cooling_backend_requires_future_allowlist_bounds_cooldown_and_panic_stop",
+        "cooling_control_requires_hardware_and_os_bounds",
+        "future_cooling_requires_privileged_gates",
+        "grant_record_schema_only_future_use_only",
+        "ledger_does_not_grant_live_authority",
+        "revocation_record_schema_only_future_use_only"
+      ],
+      "source_digest": "a52e71d078cbc8f7dcce174a70768078884011a514feb7ba15a3344b43a62ddb",
+      "source_id": "cal_2f38955078b74ad8edb79130",
+      "status": "controlled_authorization_ledger_blocked",
+      "step_id": "hets_2c5074ccfcc5c1fbae02647c",
+      "step_kind": "controlled_authorization_ledger",
+      "summary": {
+        "active_schema_grant_count": 0,
+        "blocked_schema_grant_count": 1,
+        "digest": "a52e71d078cbc8f7dcce174a70768078884011a514feb7ba15a3344b43a62ddb",
+        "expired_schema_grant_count": 0,
+        "host_mutation_performed": false,
+        "ledger_id": "cal_2f38955078b74ad8edb79130",
+        "ledger_only": true,
+        "ledger_status": "controlled_authorization_ledger_blocked",
+        "live_authorization_granted": false,
+        "metadata_only": true,
+        "revoked_schema_grant_count": 0
+      },
+      "warning_codes": [
+        "fan_pwm_signal_is_observation_only",
+        "incomplete_telemetry_blocks_automatic_readiness",
+        "pwm_presence_is_not_control_authority",
+        "thermal_pressure_is_not_cooling_authorization"
+      ]
+    }
+  ],
+  "trace_id": "het_914794048260a160dddfcbe5",
+  "trace_status": "host_embodiment_trace_incomplete",
+  "warning_codes": [
+    "fan_pwm_signal_is_observation_only",
+    "incomplete_telemetry_blocks_automatic_readiness",
+    "pwm_presence_is_not_control_authority",
+    "thermal_pressure_is_not_cooling_authorization"
+  ]
+}

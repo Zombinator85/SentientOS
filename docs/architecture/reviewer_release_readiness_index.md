@@ -239,3 +239,7 @@ Reviewer assertions:
 - Real actuation remains deferred.
 
 Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+
+## Host Embodiment Reviewer Demo Trace
+
+See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. Proof commands: `python scripts/build_host_embodiment_trace.py --format json`, `python scripts/build_host_embodiment_trace.py --format markdown`, and `python scripts/build_host_embodiment_trace.py --validate-only`. The demo trace is reviewer proof only; no host mutation occurs; PWM presence is not control authority; no live authorization, real effect, network, provider invocation, prompt assembly, federation transport, or remote execution occurs.

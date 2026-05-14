@@ -385,3 +385,7 @@ See `docs/architecture/host_embodiment_authorization_review_wing.md`. This next 
 The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) is now represented as the next non-mutating organ after Authorization Review: contract-only controlled authorization, schema-only/future-use-only grant and revocation records, metadata-only ledger, and a reviewer demo trace. Live authorization, real fulfillment, real actuation, rollback execution, fan/PWM control, thermal actuation, power mutation, service restart, and cleanup/delete remain missing/deferred organs.
 
 Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+
+## Host Embodiment Reviewer Demo Trace
+
+See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. The external reviewer demo script now has a deterministic metadata-only thermal+PWM trace export. It is reviewer proof only: no live host collection by default, no live authorization, no effect, no host mutation, and PWM presence is not control authority.
