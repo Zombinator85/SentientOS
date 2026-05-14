@@ -98,7 +98,8 @@ The longer doctrine remains:
 `observe → model → propose → rehearse → authorize → fulfill → audit → rollback`
 
 Phase 1 covers observe/model and proposal candidate summaries only. It never
-fulfills an action.
+fulfills an action. The next read-only discovery pass is documented in
+`docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`.
 
 ## Relationship to existing organs
 

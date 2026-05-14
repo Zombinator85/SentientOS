@@ -18,7 +18,7 @@ reconstruct what happened. Capabilities that are only implied by this trajectory
 are listed below as missing or deferred rather than claimed as implemented.
 
 Host Embodiment Substrate Phase 1 is the first observe/model substrate for this
-path; see `docs/architecture/host_embodiment_substrate_phase1.md`. It adds a
+path; see `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`. It adds a
 Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
 Resource Governor scaffold while keeping Privilege Broker and Actuation
 Fulfillment Layer requirements ahead of any future host actuation. Direct

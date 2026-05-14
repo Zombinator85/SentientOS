@@ -139,3 +139,40 @@ def test_deterministic_digest_and_metadata_summary() -> None:
     assert summary["no_host_actuation"] is True
     assert summary["no_fan_pwm_writes"] is True
     assert validate_host_resource_pressure_report(first_report, first_snapshot).ok
+
+
+def test_build_resource_telemetry_from_collectors_classifies_thermal_and_fan_telemetry_only() -> None:
+    from sentientos.host_collectors import collect_fan_pwm_observation, collect_thermal_sensor_observation
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    tree = {"/thermal": ("thermal_zone0",), "/hwmon": ("hwmon0",), "/hwmon/hwmon0": ("fan1_input", "pwm1")}
+    files = {"/thermal/thermal_zone0/temp": "90000\n", "/thermal/thermal_zone0/type": "cpu\n", "/hwmon/hwmon0/fan1_input": "1400\n", "/hwmon/hwmon0/pwm1": "128\n"}
+    results = (
+        collect_thermal_sensor_observation(thermal_path="/thermal", hwmon_path="/empty", directory_lister=lambda path: tree.get(path, ()), text_reader=lambda path: files[path], observed_at="2026-01-01T00:00:00+00:00"),
+        collect_fan_pwm_observation(hwmon_path="/hwmon", directory_lister=lambda path: tree.get(path, ()), text_reader=lambda path: files[path], observed_at="2026-01-01T00:00:00+00:00"),
+    )
+    snapshot = build_host_resource_telemetry_from_collector_results(results, snapshot_id="s")
+    report = evaluate_host_resource_pressure(snapshot, thermal_pressure_c=85)
+    assert snapshot.thermal_zone_temperatures_c["thermal_zone0"] == 90
+    assert snapshot.fan_rpm_observations["hwmon0/fan1_input"] == 1400
+    assert "pwm_signal_observed_not_control_authority" in snapshot.model_runtime_pressure_labels
+    assert "thermal_pressure" in report.pressure_labels
+    assert "fan_signal_present" in report.pressure_labels
+    assert all(candidate.does_not_mutate_host for candidate in report.proposal_candidates)
+    assert validate_host_resource_pressure_report(report, snapshot).ok
+
+
+def test_incomplete_collector_data_yields_unavailable_findings_and_digest_is_deterministic() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results
+
+    result = HostCollectorResult(collector_id="memory", status="unavailable", observed_at="2026-01-01T00:00:00+00:00", source="test", warnings=("sensor_unavailable:memory",))
+    snapshot = build_host_resource_telemetry_from_collector_results((result,), snapshot_id="s")
+    report = evaluate_host_resource_pressure(snapshot)
+    assert "telemetry_incomplete" in report.pressure_labels
+    assert "sensor_unavailable" in report.pressure_labels
+    assert any("sensor_unavailable" in finding for finding in report.findings)
+    assert host_resource_report_digest(report) == host_resource_report_digest(evaluate_host_resource_pressure(build_host_resource_telemetry_from_collector_results((result,), snapshot_id="s")))
+    bad_snapshot = replace(snapshot, forbidden_markers={"actuation_claimed": True})
+    bad_report = evaluate_host_resource_pressure(bad_snapshot)
+    assert not validate_host_resource_pressure_report(bad_report, bad_snapshot).ok

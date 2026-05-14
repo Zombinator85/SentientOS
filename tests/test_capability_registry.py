@@ -142,3 +142,25 @@ def test_validation_rejects_federation_evidence_as_transport() -> None:
     result = validate_capability_registry(CapabilityRegistry(registry_id="bad", records=(bad,)))
     assert not result.ok
     assert any("federation_evidence" in finding for finding in result.findings)
+
+
+def test_registry_updates_from_collector_backed_inventory_and_resource_report_without_control() -> None:
+    from sentientos.capability_registry import update_registry_from_host_inventory, update_registry_from_host_resource_report
+    from sentientos.host_collectors import collect_fan_pwm_observation
+    from sentientos.host_inventory import build_host_inventory_from_collector_results
+    from sentientos.host_resource_governor import build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure
+
+    tree = {"/hwmon": ("hwmon0",), "/hwmon/hwmon0": ("fan1_input", "pwm1")}
+    files = {"/hwmon/hwmon0/fan1_input": "1000\n", "/hwmon/hwmon0/pwm1": "1\n"}
+    results = (collect_fan_pwm_observation(hwmon_path="/hwmon", directory_lister=lambda path: tree.get(path, ()), text_reader=lambda path: files[path], observed_at="2026-01-01T00:00:00+00:00"),)
+    manifest = build_host_inventory_from_collector_results(results, manifest_id="m", node_id="n")
+    snapshot = build_host_resource_telemetry_from_collector_results(results, snapshot_id="s")
+    report = evaluate_host_resource_pressure(snapshot)
+    registry = update_registry_from_host_resource_report(update_registry_from_host_inventory(build_default_capability_registry(), manifest), report)
+    records = registry.by_id()
+    assert records["hardware_sensor_inventory"].status in {"implemented", "partial"}
+    assert records["host_resource_telemetry"].status in {"implemented", "partial"}
+    assert records["host_resource_telemetry"].authority_level == "proposal_only"
+    assert records["host_resource_telemetry"].host_actuation_performed is False
+    assert records["direct_fan_pwm_thermal_control"].status in {"blocked", "deferred"}
+    assert validate_capability_registry(registry).ok

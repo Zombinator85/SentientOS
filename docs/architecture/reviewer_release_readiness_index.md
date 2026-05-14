@@ -16,7 +16,7 @@ missing subsystems still required, see
 `docs/architecture/sentientos_trajectory_and_missing_organs.md`.
 
 Host Embodiment Substrate Phase 1 is covered by
-`docs/architecture/host_embodiment_substrate_phase1.md`. It adds the
+`docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`. It adds the
 Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
 Resource Governor scaffold. Privilege Broker and Actuation Fulfillment Layer
 remain future gates for any host action; direct fan/PWM control remains deferred.
