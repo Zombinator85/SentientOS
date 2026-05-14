@@ -252,6 +252,109 @@ def evaluate_host_resource_pressure(
     )
 
 
+
+def build_host_resource_telemetry_from_collector_results(
+    results: Sequence[Any],
+    *,
+    snapshot_id: str = "collector-backed-host-resource-telemetry",
+) -> HostResourceTelemetrySnapshot:
+    """Build read-only resource telemetry from Phase 2 collector results."""
+
+    from sentientos.host_collectors import HostCollectorResult, validate_host_collector_result
+
+    by_id: dict[str, HostCollectorResult] = {str(result.collector_id): result for result in results if isinstance(result, HostCollectorResult)}
+    unavailable: list[str] = []
+    service_labels: list[str] = []
+    model_labels: list[str] = []
+    forbidden_markers: dict[str, bool] = {}
+    observed_values = [result.observed_at for result in by_id.values() if result.observed_at]
+    observed_at = min(observed_values) if observed_values else None
+
+    for result in by_id.values():
+        if result.status in {"unavailable", "partial", "error"}:
+            unavailable.append(result.collector_id)
+        for finding in validate_host_collector_result(result).findings:
+            unavailable.append(f"collector_validation:{finding}")
+        for warning in result.warnings:
+            if "sensor_unavailable" in warning:
+                unavailable.append(warning)
+        for key, value in result.forbidden_markers.items():
+            if value:
+                forbidden_markers[key] = True
+
+    cpu_values = dict(by_id.get("cpu").values) if by_id.get("cpu") else {}
+    memory_values = dict(by_id.get("memory").values) if by_id.get("memory") else {}
+    disk_values = dict(by_id.get("disk").values) if by_id.get("disk") else {}
+    process_values = dict(by_id.get("process").values) if by_id.get("process") else {}
+    thermal_values = dict(by_id.get("thermal_sensors").values) if by_id.get("thermal_sensors") else {}
+    fan_values = dict(by_id.get("fan_pwm").values) if by_id.get("fan_pwm") else {}
+    service_values = dict(by_id.get("service_manager").values) if by_id.get("service_manager") else {}
+
+    cpu_utilization_percent = cpu_values.get("utilization_percent")
+    if cpu_utilization_percent is None and any(key in cpu_values for key in ("load_average_1m", "load_average_5m", "load_average_15m")):
+        model_labels.append("cpu_load_average_observed_utilization_unavailable")
+
+    ram_utilization_percent = memory_values.get("used_percent") or memory_values.get("utilization_percent")
+    disk_utilization_percent = disk_values.get("used_percent")
+    disk_free_bytes = disk_values.get("free_bytes")
+    process_count = process_values.get("process_count")
+
+    thermal_zone_temperatures_c: dict[str, float] = {}
+    for index, zone in enumerate(tuple(thermal_values.get("zones") or ())):
+        if isinstance(zone, Mapping) and zone.get("temperature_c") is not None:
+            try:
+                thermal_zone_temperatures_c[str(zone.get("id") or zone.get("label") or index)] = float(zone["temperature_c"])
+            except (TypeError, ValueError):
+                unavailable.append("thermal_temperature_malformed")
+
+    fan_rpm_observations: dict[str, float] = {}
+    for index, fan in enumerate(tuple(fan_values.get("fans") or ())):
+        if isinstance(fan, Mapping) and fan.get("rpm") is not None:
+            try:
+                fan_rpm_observations[str(fan.get("id") or index)] = float(fan["rpm"])
+            except (TypeError, ValueError):
+                unavailable.append("fan_rpm_malformed")
+    if fan_values.get("pwm_signal_observed"):
+        model_labels.append("pwm_signal_observed_not_control_authority")
+
+    if service_values:
+        service_labels.append(str(service_values.get("service_manager_label") or "service_manager_observed"))
+        if not service_values.get("live_services_queried", False):
+            unavailable.append("service_health_not_queried")
+
+    return build_host_resource_telemetry_snapshot(
+        snapshot_id=snapshot_id,
+        cpu_utilization_percent=float(cpu_utilization_percent) if cpu_utilization_percent is not None else None,
+        ram_utilization_percent=float(ram_utilization_percent) if ram_utilization_percent is not None else None,
+        disk_utilization_percent=float(disk_utilization_percent) if disk_utilization_percent is not None else None,
+        disk_free_bytes=int(disk_free_bytes) if disk_free_bytes is not None else None,
+        process_count=int(process_count) if process_count is not None else None,
+        thermal_zone_temperatures_c=thermal_zone_temperatures_c,
+        fan_rpm_observations=fan_rpm_observations,
+        model_runtime_pressure_labels=tuple(sorted(set(model_labels))),
+        service_health_labels=tuple(sorted(set(service_labels))),
+        unavailable_sensor_labels=tuple(sorted(set(unavailable))),
+        observed_at=observed_at,
+        forbidden_markers=forbidden_markers,
+    )
+
+
+def evaluate_current_host_resource_pressure(
+    results: Sequence[Any] | None = None,
+    *,
+    snapshot_id: str = "collector-backed-host-resource-telemetry",
+    thermal_pressure_c: float = 85.0,
+) -> tuple[HostResourceTelemetrySnapshot, HostResourcePressureReport]:
+    """Collect or consume read-only telemetry and evaluate proposal-only pressure."""
+
+    if results is None:
+        from sentientos.host_collectors import collect_basic_host_observations
+
+        results = collect_basic_host_observations()
+    snapshot = build_host_resource_telemetry_from_collector_results(results, snapshot_id=snapshot_id)
+    return snapshot, evaluate_host_resource_pressure(snapshot, thermal_pressure_c=thermal_pressure_c)
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
 

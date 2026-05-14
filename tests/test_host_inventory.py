@@ -125,3 +125,59 @@ def test_fan_pwm_control_claim_requires_backend_metadata_and_privileged_devices_
     assert "fan_pwm_control_claimed_without_backend_metadata" in result.findings
     assert any("privileged_action_claimed" in finding for finding in result.findings)
     assert any("control_claimed" in finding for finding in result.findings)
+
+
+def test_build_inventory_from_collector_results_maps_read_only_discovery() -> None:
+    from sentientos.host_collectors import (
+        collect_disk_observation,
+        collect_fan_pwm_observation,
+        collect_network_interface_observation,
+        collect_platform_observation,
+        collect_thermal_sensor_observation,
+    )
+    from sentientos.host_inventory import build_host_inventory_from_collector_results
+
+    tree = {"/thermal": ("thermal_zone0",), "/hwmon": ("hwmon0",), "/hwmon/hwmon0": ("fan1_input", "pwm1")}
+    files = {
+        "/thermal/thermal_zone0/temp": "86000\n",
+        "/thermal/thermal_zone0/type": "cpu\n",
+        "/hwmon/hwmon0/fan1_input": "1300\n",
+        "/hwmon/hwmon0/pwm1": "200\n",
+    }
+    results = (
+        collect_platform_observation(observed_at="2026-01-01T00:00:00+00:00"),
+        collect_disk_observation(disk_provider=lambda path: type("D", (), {"total": 100, "used": 50, "free": 50})(), observed_at="2026-01-01T00:00:00+00:00"),
+        collect_network_interface_observation(directory_lister=lambda path: ("lo",), text_reader=lambda path: "00\n", observed_at="2026-01-01T00:00:00+00:00"),
+        collect_thermal_sensor_observation(thermal_path="/thermal", hwmon_path="/empty", directory_lister=lambda path: tree.get(path, ()), text_reader=lambda path: files[path], observed_at="2026-01-01T00:00:00+00:00"),
+        collect_fan_pwm_observation(hwmon_path="/hwmon", directory_lister=lambda path: tree.get(path, ()), text_reader=lambda path: files[path], observed_at="2026-01-01T00:00:00+00:00"),
+    )
+    manifest = build_host_inventory_from_collector_results(results, manifest_id="m", node_id="n")
+    assert validate_host_inventory_manifest(manifest).ok
+    assert manifest.disk_summary["free_bytes"] == 50
+    assert manifest.thermal_zone_summary["zones"][0]["temperature_c"] == 86
+    assert manifest.fan_pwm_controller_summary["pwm_signal_observed"] is True
+    assert manifest.fan_pwm_controller_summary["control_available"] is False
+    assert manifest.fan_pwm_controller_summary["control_deferred"] is True
+    assert manifest.fan_pwm_controller_summary["requires_future_allowlist"] is True
+    assert manifest.fan_pwm_controller_summary["requires_privilege_broker"] is True
+    assert "pwm_presence_not_control_authority" in manifest.unsupported_deferred_labels
+    assert host_inventory_digest(manifest) == host_inventory_digest(build_host_inventory_from_collector_results(results, manifest_id="m", node_id="n"))
+
+
+def test_collector_unavailable_inventory_adds_warning_deferred_labels_and_rejects_authority_claims() -> None:
+    from sentientos.host_collectors import HostCollectorResult
+    from sentientos.host_inventory import build_host_inventory_from_collector_results
+
+    result = HostCollectorResult(
+        collector_id="fan_pwm",
+        status="unavailable",
+        observed_at="2026-01-01T00:00:00+00:00",
+        source="test",
+        warnings=("sensor_unavailable:fan_pwm",),
+    )
+    manifest = build_host_inventory_from_collector_results((result,), manifest_id="m", node_id="n")
+    assert validate_host_inventory_manifest(manifest).ok
+    assert "fan_pwm_unavailable" in manifest.unsupported_deferred_labels
+    assert "sensor_unavailable:fan_pwm" in manifest.warning_risk_codes
+    bad = replace(manifest, fan_pwm_controller_summary={**manifest.fan_pwm_controller_summary, "control_available": True})
+    assert not validate_host_inventory_manifest(bad).ok

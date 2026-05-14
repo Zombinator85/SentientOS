@@ -11,6 +11,7 @@ PUBLIC_OVERVIEW = "docs/architecture/public_technical_overview.md"
 READINESS_INDEX = "docs/architecture/reviewer_release_readiness_index.md"
 TRAJECTORY_DOC = "docs/architecture/sentientos_trajectory_and_missing_organs.md"
 HOST_EMBODIMENT_PHASE1 = "docs/architecture/host_embodiment_substrate_phase1.md"
+HOST_EMBODIMENT_PHASE2 = "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md"
 
 
 def _read(relative: str) -> str:
@@ -97,3 +98,23 @@ def test_host_embodiment_docs_preserve_phase1_boundaries() -> None:
         "Actuation Fulfillment Layer",
     ]:
         assert term in combined
+
+
+
+def test_navigation_links_to_host_embodiment_phase2_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase1 = _read(HOST_EMBODIMENT_PHASE1)
+    trajectory = _read(TRAJECTORY_DOC)
+    assert HOST_EMBODIMENT_PHASE2 in overview
+    assert HOST_EMBODIMENT_PHASE2 in index
+    assert HOST_EMBODIMENT_PHASE2 in phase1
+    assert HOST_EMBODIMENT_PHASE2 in trajectory
+
+
+def test_phase2_doc_preserves_read_only_discovery_boundaries() -> None:
+    phase2 = _read(HOST_EMBODIMENT_PHASE2)
+    assert "direct fan/PWM writes remain forbidden/deferred" in phase2
+    assert "PWM presence is not control authority" in phase2
+    assert "Privilege Broker" in phase2
+    assert "Actuation Fulfillment Layer" in phase2

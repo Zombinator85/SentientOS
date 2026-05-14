@@ -219,6 +219,71 @@ def build_default_capability_registry() -> CapabilityRegistry:
     return CapabilityRegistry(registry_id="sentientos-host-embodiment-phase1", records=records)
 
 
+
+def update_registry_from_host_inventory(registry: CapabilityRegistry, manifest: Any) -> CapabilityRegistry:
+    """Reflect collector-backed hardware inventory without granting control."""
+
+    records: list[CapabilityRecord] = []
+    source_paths = ("sentientos/host_collectors.py", "sentientos/host_inventory.py")
+    has_collector_source = any(str(label).startswith("collector:") for label in getattr(manifest, "source_labels", ()))
+    sensor_count = len(getattr(manifest, "sensors", ()) or ())
+    device_count = len(getattr(manifest, "devices", ()) or ())
+    status = "implemented" if has_collector_source and (sensor_count or device_count) else "partial"
+    for record in registry.records:
+        if record.capability_id == "hardware_sensor_inventory":
+            records.append(
+                replace(
+                    record,
+                    status=status,
+                    authority_level="observation",
+                    source_paths=tuple(sorted(set(record.source_paths + source_paths))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_host_collectors.py", "tests/test_host_inventory.py")))),
+                    proof_commands=tuple(sorted(set(record.proof_commands + ("python -m scripts.run_tests -q tests/test_host_collectors.py tests/test_host_inventory.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("collector-backed read-only local host inventory",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("direct fan/PWM control", "direct thermal actuation",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("pwm presence is control authority", "inventory grants host actuation",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "direct_fan_pwm_thermal_control":
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase2.v1")
+
+
+def update_registry_from_host_resource_report(registry: CapabilityRegistry, report: Any) -> CapabilityRegistry:
+    """Reflect collector-backed host resource telemetry as observe/model/propose only."""
+
+    records: list[CapabilityRecord] = []
+    has_labels = bool(getattr(report, "pressure_labels", ()) or getattr(report, "findings", ()))
+    status = "implemented" if has_labels else "partial"
+    source_paths = ("sentientos/host_collectors.py", "sentientos/host_resource_governor.py")
+    for record in registry.records:
+        if record.capability_id == "host_resource_telemetry":
+            records.append(
+                replace(
+                    record,
+                    status=status,
+                    authority_level="proposal_only",
+                    source_paths=tuple(sorted(set(record.source_paths + source_paths))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_host_collectors.py", "tests/test_host_resource_governor.py")))),
+                    proof_commands=tuple(sorted(set(record.proof_commands + ("python -m scripts.run_tests -q tests/test_host_collectors.py tests/test_host_resource_governor.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("collector-backed read-only resource pressure telemetry",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("cooling fulfillment", "process killing", "service restart", "power profile mutation",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("telemetry candidates execute host actions",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "direct_fan_pwm_thermal_control":
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-substrate-phase2.v1")
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 

@@ -224,6 +224,130 @@ def collect_basic_host_inventory(*, manifest_id: str = "basic-host-inventory", n
     )
 
 
+
+def build_host_inventory_from_collector_results(
+    results: Sequence[Any],
+    *,
+    manifest_id: str = "collector-backed-host-inventory",
+    node_id: str = "local-node",
+    host_id: str | None = None,
+) -> HostInventoryManifest:
+    """Build a metadata-only inventory manifest from Phase 2 collectors.
+
+    Collector results are read-only observations. They populate inventory summary
+    fields but never grant device control or privileged host action.
+    """
+
+    from sentientos.host_collectors import HostCollectorResult, validate_host_collector_result
+
+    by_id: dict[str, HostCollectorResult] = {str(result.collector_id): result for result in results if isinstance(result, HostCollectorResult)}
+    source_labels: list[str] = []
+    warnings: list[str] = []
+    deferred: list[str] = []
+    devices: list[HostInventoryDevice] = []
+    sensors: list[HostInventorySensor] = []
+    observed_values = [result.observed_at for result in by_id.values() if result.observed_at]
+    observed_at = min(observed_values) if observed_values else _now_iso()
+
+    for result in by_id.values():
+        source_labels.append(f"collector:{result.collector_id}:{result.source}")
+        warnings.extend(result.warnings)
+        warnings.extend(f"collector_validation:{finding}" for finding in validate_host_collector_result(result).findings)
+        if result.status in {"unavailable", "partial", "error"}:
+            deferred.append(f"{result.collector_id}_{result.status}")
+        warnings.extend(f"{result.collector_id}:{finding.code}" for finding in result.findings)
+        warnings.extend(f"risk:{risk}" for risk in result.risks)
+
+    platform_values = dict(by_id.get("platform").values) if by_id.get("platform") else {}
+    cpu_values = dict(by_id.get("cpu").values) if by_id.get("cpu") else {}
+    memory_values = dict(by_id.get("memory").values) if by_id.get("memory") else {}
+    disk_values = dict(by_id.get("disk").values) if by_id.get("disk") else {}
+    network_values = dict(by_id.get("network_interfaces").values) if by_id.get("network_interfaces") else {}
+    service_values = dict(by_id.get("service_manager").values) if by_id.get("service_manager") else {}
+    thermal_values = dict(by_id.get("thermal_sensors").values) if by_id.get("thermal_sensors") else {}
+    fan_values = dict(by_id.get("fan_pwm").values) if by_id.get("fan_pwm") else {}
+
+    if platform_values:
+        devices.append(HostInventoryDevice(device_id="host-platform", kind="other", label="Host platform", summary=platform_values, status=by_id["platform"].status, source_label="collector:platform"))
+    if cpu_values or platform_values.get("cpu_count") is not None:
+        merged_cpu = {**({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None else {}), **cpu_values}
+        devices.append(HostInventoryDevice(device_id="cpu-summary", kind="cpu", label="CPU summary", summary=merged_cpu, status=by_id.get("cpu").status if by_id.get("cpu") else "partial", source_label="collector:cpu"))
+    if memory_values:
+        devices.append(HostInventoryDevice(device_id="ram-summary", kind="ram", label="RAM summary", summary=memory_values, status=by_id["memory"].status, source_label="collector:memory"))
+    if disk_values:
+        devices.append(HostInventoryDevice(device_id="disk-summary", kind="disk", label="Disk summary", summary=disk_values, status=by_id["disk"].status, source_label="collector:disk"))
+    if network_values:
+        devices.append(HostInventoryDevice(device_id="network-interfaces", kind="network", label="Network interfaces", summary=network_values, status=by_id["network_interfaces"].status, source_label="collector:network_interfaces"))
+    if service_values:
+        devices.append(HostInventoryDevice(device_id="service-manager", kind="service_manager", label="Service manager", summary=service_values, status=by_id["service_manager"].status, source_label="collector:service_manager"))
+
+    zones = tuple(thermal_values.get("zones") or ())
+    for index, zone in enumerate(zones):
+        if isinstance(zone, Mapping):
+            sensors.append(HostInventorySensor(sensor_id=f"thermal-{index}", kind="temperature", label=str(zone.get("label") or zone.get("id") or f"thermal-{index}"), status="observed", observed_value=zone.get("temperature_c"), unit="C", source_label="collector:thermal_sensors", control_available=False, metadata_only=True))
+    fans = tuple(fan_values.get("fans") or ())
+    for index, fan in enumerate(fans):
+        if isinstance(fan, Mapping):
+            sensors.append(HostInventorySensor(sensor_id=f"fan-rpm-{index}", kind="fan_rpm", label=str(fan.get("id") or f"fan-rpm-{index}"), status="observed", observed_value=fan.get("rpm"), unit="rpm", source_label="collector:fan_pwm", control_available=False, metadata_only=True))
+
+    fan_summary = {
+        **fan_values,
+        "status": by_id.get("fan_pwm").status if by_id.get("fan_pwm") else "unavailable",
+        "telemetry_only": True,
+        "pwm_signal_observed": bool(fan_values.get("pwm_signal_observed", False)),
+        "control_available": False,
+        "control_deferred": True,
+        "requires_future_allowlist": True,
+        "requires_privilege_broker": True,
+    }
+    if fan_summary["pwm_signal_observed"]:
+        deferred.extend(("fan_pwm_control_deferred", "pwm_presence_not_control_authority", "requires_future_allowlist", "requires_privilege_broker"))
+
+    thermal_summary = {**thermal_values, "telemetry_only": True, "control_available": False, "thermal_actuation_deferred": True}
+    if zones:
+        deferred.append("thermal_actuation_deferred")
+
+    return build_host_inventory_manifest(
+        manifest_id=manifest_id,
+        node_id=node_id,
+        host_id=host_id,
+        os_family=str(platform_values.get("os_family") or "unknown"),
+        os_release=str(platform_values.get("os_release") or "unknown"),
+        architecture=str(platform_values.get("architecture") or "unknown"),
+        cpu_summary={**cpu_values, **({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None and "cpu_count" not in cpu_values else {})},
+        ram_summary=memory_values,
+        disk_summary=disk_values,
+        network_interface_summary=network_values,
+        thermal_zone_summary=thermal_summary,
+        fan_pwm_controller_summary=fan_summary,
+        service_manager_summary=service_values,
+        devices=devices,
+        sensors=sensors,
+        observed_at=observed_at,
+        source_labels=tuple(sorted(set(source_labels))),
+        unsupported_deferred_labels=tuple(sorted(set(deferred))),
+        warning_risk_codes=tuple(sorted(set(warnings))),
+    )
+
+
+def collect_host_inventory_manifest(
+    *,
+    manifest_id: str = "collector-backed-host-inventory",
+    node_id: str = "local-node",
+    host_id: str | None = None,
+) -> HostInventoryManifest:
+    """Collect read-only Phase 2 host observations and build a manifest."""
+
+    from sentientos.host_collectors import collect_basic_host_observations
+
+    return build_host_inventory_from_collector_results(
+        collect_basic_host_observations(),
+        manifest_id=manifest_id,
+        node_id=node_id,
+        host_id=host_id,
+    )
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
 
