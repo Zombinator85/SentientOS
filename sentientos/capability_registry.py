@@ -38,6 +38,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "authorization_review",
         "controlled_authorization",
         "host_embodiment_trace",
+        "reviewer_proof_bundle",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -246,6 +247,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("host_embodiment_trace", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("sentientos/host_embodiment_trace.py",), proof_tests=("tests/test_host_embodiment_trace.py",), implemented_surfaces=("reviewer-facing non-mutating demo trace",), deferred_surfaces=("live authorization", "real effects", "real rollback"), forbidden_implications=("demo trace executes host actions", "trace grants authority")),
         _record("host_embodiment_trace_export", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("sentientos/host_embodiment_trace_export.py",), proof_tests=("tests/test_host_embodiment_trace_export.py",), proof_commands=("python scripts/build_host_embodiment_trace.py --format json", "python scripts/build_host_embodiment_trace.py --format markdown", "python scripts/build_host_embodiment_trace.py --validate-only"), implemented_surfaces=("deterministic sorted-key JSON trace export", "reviewer Markdown trace summary", "explicit-path artifact writing"), deferred_surfaces=("live host collection", "live authorization", "real effects"), forbidden_implications=("trace export collects live host data", "trace export grants authority", "trace export performs effects")),
         _record("reviewer_demo_trace", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("scripts/build_host_embodiment_trace.py", "tests/fixtures/host_embodiment_trace_thermal_pwm_demo.json"), proof_tests=("tests/test_build_host_embodiment_trace_script.py",), proof_commands=("python scripts/build_host_embodiment_trace.py --format json", "python scripts/build_host_embodiment_trace.py --summary"), implemented_surfaces=("deterministic fake/sample thermal+PWM reviewer demo",), deferred_surfaces=("live host collection", "host mutation", "runtime authority token"), forbidden_implications=("reviewer demo performs live collection by default", "reviewer demo authorizes host actions")),
+        _record("reviewer_proof_bundle", "reviewer_proof_bundle", "implemented", "demo_proof_only", source_paths=("sentientos/reviewer_proof_bundle.py",), proof_tests=("tests/test_reviewer_proof_bundle.py",), proof_commands=("python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --force",), implemented_surfaces=("metadata-only first-run reviewer proof bundle", "deterministic local packaging of demo trace, capability posture, deferred actions, and proof commands"), deferred_surfaces=("live host trace collection", "live authorization", "real effects", "host mutation"), forbidden_implications=("reviewer proof bundle collects live host data", "reviewer proof bundle grants authority", "reviewer proof bundle performs effects")),
+        _record("reviewer_proof_bundle_cli", "reviewer_proof_bundle", "implemented", "demo_proof_only", source_paths=("scripts/build_reviewer_proof_bundle.py",), proof_tests=("tests/test_build_reviewer_proof_bundle_script.py",), proof_commands=("python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --force",), implemented_surfaces=("one-command local proof bundle writer",), deferred_surfaces=("verification command execution by default", "live host collection", "host mutation"), forbidden_implications=("CLI performs live verification by default", "CLI mutates host state beyond explicit bundle files")),
+        _record("proof_command_manifest", "reviewer_proof_bundle", "implemented", "proof_only", source_paths=("sentientos/reviewer_proof_bundle.py",), proof_tests=("tests/test_reviewer_proof_bundle.py",), implemented_surfaces=("bounded local proof command inventory",), deferred_surfaces=("default proof command execution", "network commands", "provider invocation"), forbidden_implications=("listed proof commands have run", "proof command manifest grants runtime authority")),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -264,6 +268,33 @@ def build_default_capability_registry() -> CapabilityRegistry:
     )
     return CapabilityRegistry(registry_id="sentientos-host-embodiment-controlled-authorization-and-trace-wing", schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1", records=records)
 
+
+
+def update_registry_from_reviewer_proof_bundle(registry: CapabilityRegistry, manifest: Any) -> CapabilityRegistry:
+    """Reflect reviewer proof bundle packaging without claiming live authority."""
+
+    has_manifest = bool(getattr(manifest, "manifest_id", "")) or (isinstance(manifest, Mapping) and bool(manifest.get("manifest_id")))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in {"reviewer_proof_bundle", "reviewer_proof_bundle_cli", "proof_command_manifest"}:
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_manifest else record.status,
+                    authority_level="demo_proof_only" if record.capability_id != "proof_command_manifest" else "proof_only",
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "live_host_trace_collection":
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id in {"live_authorization_grant", "real_effect_execution", "real_rollback_execution"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id in {"real_fan_pwm_control", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="reviewer-first-run-proof-bundle.v1")
 
 
 def update_registry_from_host_inventory(registry: CapabilityRegistry, manifest: Any) -> CapabilityRegistry:

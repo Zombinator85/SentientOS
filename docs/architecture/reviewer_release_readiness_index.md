@@ -1,5 +1,9 @@
 # Reviewer Release-Readiness Proof Index
 
+## Reviewer first-run proof bundle
+
+Reviewers can generate the local non-mutating host-embodiment proof archive with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`; see [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). It uses fake/sample telemetry by default, performs no live host collection by default, and performs no host mutation.
+
 ## What this index is
 
 This is a reviewer-facing map of the currently implemented proof surfaces for the

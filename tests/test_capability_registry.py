@@ -330,3 +330,41 @@ def test_trace_export_and_reviewer_demo_capabilities_are_proof_only() -> None:
     assert records["real_service_restart"].status == "blocked"
     assert records["real_file_cleanup"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_reviewer_proof_bundle_capabilities_are_export_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["reviewer_proof_bundle"].status == "implemented"
+    assert records["reviewer_proof_bundle"].authority_level == "demo_proof_only"
+    assert records["reviewer_proof_bundle"].host_actuation_performed is False
+    assert records["reviewer_proof_bundle_cli"].status == "implemented"
+    assert records["reviewer_proof_bundle_cli"].authority_level == "demo_proof_only"
+    assert records["reviewer_proof_bundle_cli"].host_actuation_performed is False
+    assert records["proof_command_manifest"].status == "implemented"
+    assert records["proof_command_manifest"].authority_level == "proof_only"
+    assert records["live_host_trace_collection"].status == "deferred"
+    assert records["live_authorization_grant"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    for capability_id in ["real_fan_pwm_control", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+        assert records[capability_id].host_actuation_performed is False
+
+
+def test_registry_updates_from_reviewer_proof_bundle_keep_authority_deferred() -> None:
+    from sentientos.capability_registry import update_registry_from_reviewer_proof_bundle
+    from sentientos.reviewer_proof_bundle import build_reviewer_proof_bundle_payload
+
+    manifest = build_reviewer_proof_bundle_payload()["manifest"]
+    registry = update_registry_from_reviewer_proof_bundle(build_default_capability_registry(), manifest)
+    records = registry.by_id()
+    assert records["reviewer_proof_bundle"].status == "implemented"
+    assert records["reviewer_proof_bundle_cli"].status == "implemented"
+    assert records["proof_command_manifest"].status == "implemented"
+    assert records["live_host_trace_collection"].status == "deferred"
+    assert records["live_authorization_grant"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
+    assert validate_capability_registry(registry).ok

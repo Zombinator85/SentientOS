@@ -4,6 +4,8 @@
 
 For technical reviewers, start here: [`docs/architecture/public_technical_overview.md`](docs/architecture/public_technical_overview.md).
 
+To generate a local reviewer proof bundle, run `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof` (metadata-only; fake/sample host telemetry by default).
+
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
 [![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)

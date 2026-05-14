@@ -1,6 +1,6 @@
 # Host Embodiment Reviewer Demo Trace
 
-This doc follows the [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md). The reviewer demo trace is a deterministic, non-mutating proof artifact for seeing the full host embodiment ladder breathe without moving the body.
+This doc follows the [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md). For the one-command local archive path, see the [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). The reviewer demo trace is a deterministic, non-mutating proof artifact for seeing the full host embodiment ladder breathe without moving the body.
 
 ## Boundary
 
