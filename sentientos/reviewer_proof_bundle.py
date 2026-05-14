@@ -17,6 +17,7 @@ from typing import Any, Mapping, Sequence
 
 from sentientos.capability_registry import build_default_capability_registry, summarize_capability_registry
 from sentientos.host_embodiment_trace import build_host_embodiment_demo_trace, summarize_host_embodiment_trace
+from sentientos.host_actuation_safety import build_safety_gates_for_domain, summarize_safety_gate_satisfaction_manifest
 from sentientos.host_embodiment_trace_export import (
     serialize_host_embodiment_trace_json,
     serialize_host_embodiment_trace_markdown,
@@ -42,6 +43,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "proof_command_manifest",
         "reviewer_readme",
         "bundle_manifest",
+        "safety_gate_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -62,6 +64,7 @@ BUNDLE_FILE_NAMES = {
     "proof_command_manifest": "proof_commands.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
+    "safety_gate_posture": "safety_gates.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -275,8 +278,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "1. `trace.md` — reviewer-readable trace ladder.",
             "2. `bundle_manifest.json` — artifact digests and safety flags.",
             "3. `deferred_actions.json` — deferred/blocked action inventory.",
-            "4. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "5. `capability_registry_summary.json` — metadata-only capability posture.",
+            "4. `safety_gates.json` — metadata-only host actuation safety gate posture.",
+            "5. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "6. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -287,6 +291,7 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "- Effect performed: false",
             "- Host mutation performed: false",
             "- Network/provider/prompt assembly performed: false",
+            "- Safety gates are not authorization and do not grant fulfillment or control authority.",
             "- Fan/PWM writes, thermal writes, power mutation, service restart, cleanup, federation transport, and remote execution remain deferred or blocked.",
             "",
             f"Manifest ID: `{manifest_id}`",
@@ -322,6 +327,7 @@ def build_reviewer_proof_bundle_payload(
         raise ValueError("invalid trace export payload: " + ", ".join(trace_validation.findings))
 
     registry = build_default_capability_registry()
+    safety_gates = build_safety_gates_for_domain("cooling_control_future", created_at=created_at)
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
     manifest_id = "reviewer-proof-bundle-thermal-pwm-demo"
     contents: dict[str, str] = {
@@ -330,6 +336,7 @@ def build_reviewer_proof_bundle_payload(
         "trace_summary": _trace_summary_text(trace),
         "capability_registry_summary": _pretty_json({"summary": summarize_capability_registry(registry), "records": [record.to_dict() for record in registry.records], "metadata_only": True, "reviewer_proof_only": True}),
         "deferred_action_inventory": _pretty_json(_deferred_action_inventory()),
+        "safety_gate_posture": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "safety_gate_only": True, "proof_statement": "Safety gates declare prerequisites only; they are not authorization or fulfillment.", "summary": summarize_safety_gate_satisfaction_manifest(safety_gates.safety_gate_satisfaction_manifest), "records": safety_gates.to_dict()}),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
@@ -371,7 +378,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

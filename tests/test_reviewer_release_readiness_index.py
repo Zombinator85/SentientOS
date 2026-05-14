@@ -328,8 +328,30 @@ def test_reviewer_first_run_proof_bundle_doc_preserves_boundary_and_file_list() 
         "trace.summary.txt",
         "capability_registry_summary.json",
         "deferred_actions.json",
+        "safety_gates.json",
         "proof_commands.json",
         "README.md",
         "bundle_manifest.json",
     ]:
         assert filename in doc
+
+HOST_ACTUATION_SAFETY_GATE_WING = "docs/architecture/host_actuation_safety_gate_wing.md"
+
+
+def test_navigation_links_to_host_actuation_safety_gate_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    for text in [overview, index, bundle, controlled]:
+        assert HOST_ACTUATION_SAFETY_GATE_WING in text
+
+
+def test_host_actuation_safety_gate_doc_preserves_safety_only_boundaries() -> None:
+    doc = _read(HOST_ACTUATION_SAFETY_GATE_WING)
+    assert "Safety gates are not authorization" in doc
+    assert "Hardware allowlist does not grant control" in doc
+    assert "OS backend declaration does not load/invoke backend" in doc
+    assert "Panic stop contract does not execute panic stop" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → authorize" in doc
