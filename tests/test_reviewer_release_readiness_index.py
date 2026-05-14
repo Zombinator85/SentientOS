@@ -9,6 +9,7 @@ pytestmark = pytest.mark.no_legacy_skip
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_OVERVIEW = "docs/architecture/public_technical_overview.md"
 READINESS_INDEX = "docs/architecture/reviewer_release_readiness_index.md"
+TRAJECTORY_DOC = "docs/architecture/sentientos_trajectory_and_missing_organs.md"
 
 
 def _read(relative: str) -> str:
@@ -40,3 +41,29 @@ def test_release_readiness_index_keeps_key_proof_commands_current() -> None:
     ]
     for command in expected_commands:
         assert command in index
+
+
+def test_navigation_links_to_trajectory_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert TRAJECTORY_DOC in overview
+    assert TRAJECTORY_DOC in index
+
+
+def test_trajectory_doc_clarifies_deferred_fan_pwm_and_missing_organs() -> None:
+    trajectory = _read(TRAJECTORY_DOC)
+    assert "Direct fan/PWM control is deferred" in trajectory
+    expected_organs = [
+        "Host Resource Governor",
+        "Privilege Broker",
+        "Actuation Fulfillment Layer",
+        "Hardware/Sensor Inventory Manifest",
+        "Runtime Supervisor",
+        "Capability Registry",
+        "Local Model Authority Map",
+        "World-State Board",
+        "Federation Transport Envelope",
+        "External Reviewer Demo Script",
+    ]
+    for organ in expected_organs:
+        assert organ in trajectory
