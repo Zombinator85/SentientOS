@@ -12,28 +12,30 @@ SentientOS is a deterministic governance-and-audit runtime for operator-directed
 - A repository with verification tooling that treats evidence artifacts, state transitions, and governance checks as first-class outputs.
 
 ### What it is not
-- Not autonomous authority: operators and local policy remain final authority.
-- Not implicit remote control: federation artifacts do not bypass local adoption gates.
-- Not a claim of self-executing provider invocation; prompt/provider boundaries are explicitly verified.
+- Not autonomous goal generation or autonomous authority: operators and local policy remain final authority.
+- Not forced federation adoption: federation artifacts do not bypass local adoption gates.
+- Not provider invocation and not prompt assembly; prompt/provider boundaries are explicitly verified.
+- Not remote execution, auto-update, or transport/sync by receipt alone.
 
 ## First reviewer path (short path)
 
 1. Read this document.
-2. Inspect control-plane and policy docs:
+2. Read the proof-oriented release-readiness index: `docs/architecture/reviewer_release_readiness_index.md`.
+3. Inspect control-plane and policy docs:
    - `docs/control_plane_authority_map.md`
    - `docs/STATE_MACHINE_PROPERTIES.md`
    - `docs/RELEASE_READINESS_MODEL.md`
-3. Inspect core verification scripts:
+4. Inspect core verification scripts:
    - `scripts/verify_audits.py`
    - `scripts/audit_immutability_verifier.py`
    - `scripts/verify_context_hygiene_prompt_boundaries.py`
-4. Inspect representative tests:
+5. Inspect representative tests:
    - `tests/test_verify_audits_cli.py`
    - `tests/test_federated_improvement_local_variant_artifact.py`
    - `tests/test_run_tests_bootstrap_airlock.py`
    - `tests/test_phase101_provider_invocation_denial_enforcement.py`
-5. Run the proof-map commands in this document and validate output artifacts under `glow/audits/`.
-6. Evaluate hard invariants below before considering any runtime or federation claim.
+6. Run the proof-map commands in this document and validate output artifacts under `glow/audits/`.
+7. Evaluate hard invariants below before considering any runtime or federation claim.
 
 ## Core control-plane model
 
@@ -117,9 +119,9 @@ Current runway terms are best interpreted as custody metadata stages:
 - **Custody runway:** tracked progression state for local evaluation.
 - **Local variant:** locally materialized evaluation variant for comparison.
 - **Lineage comparison:** provenance and divergence assessment.
-- **Dissemination receipt:** record that metadata/receipt was shared.
+- **Dissemination receipt:** record that metadata/receipt was cataloged for possible announcement, without transport or sync authority.
 
-These artifacts are **not** transport execution, **not** adoption, and **not** runtime authority by themselves.
+These artifacts are **not** transport execution, **not** transport/sync by receipt alone, **not** adoption, **not** merge/apply/install, **not** forced update, **not** provider invocation, **not** prompt assembly, and **not** runtime authority by themselves.
 
 ## Model/runtime loading posture
 
@@ -161,7 +163,7 @@ For broader internal language mapping, see `docs/PUBLIC_LANGUAGE_BRIDGE.md`.
 
 ## Recent hardening checks
 
-The current reviewer proof path covers these repaired areas:
+The current reviewer proof path is summarized in `docs/architecture/reviewer_release_readiness_index.md` and covers these repaired areas:
 - Control-plane admission, runtime closure, maintenance admission gating, and degradation boundaries.
 - Federation trust ledger startup recovery, event replay fallback, and probe prioritization ordering.
 - Chat/model lazy loading and local transformer `trust_remote_code` safe default behavior.
@@ -197,6 +199,10 @@ python scripts/verify_audits.py --strict
 
 # Immutability verifier
 python scripts/audit_immutability_verifier.py --manifest vow/immutable_manifest.json
+
+# Docs dependency check and docs build
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py
 ```
 
 ## Internal language / cultural layer

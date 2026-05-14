@@ -1,10 +1,12 @@
 # Federated Improvement Candidate Artifact
 
 The federated improvement candidate is a deterministic, metadata-first object for
-representing transmissible improvement evidence under local custody.  It lets a
-SentientOS node describe that a locally produced improvement candidate has source
-or lineage evidence, verification posture, test or rehearsal labels, risks, and
-local review requirements that another node may inspect.
+representing improvement evidence under local custody.  It lets a SentientOS node
+describe that a locally produced improvement candidate has source or lineage
+evidence, verification posture, test or rehearsal labels, risks, and local review
+requirements that another node may inspect.  The code-level
+`transmissible_evidence_only` flag means bounded metadata may be represented for
+review; it does not perform transport, sync, delivery, adoption, or execution.
 
 The artifact is intentionally not a federation transport, adoption engine,
 scheduler, prompt assembly path, provider invocation path, runtime authority
