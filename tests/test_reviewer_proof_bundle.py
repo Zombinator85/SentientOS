@@ -174,3 +174,18 @@ def test_reviewer_bundle_includes_live_grant_readiness_posture() -> None:
     assert "Live-grant readiness is not a live grant" in text
     assert "grant_not_issued" in text
     assert payload["live_grant_readiness"].preflight_receipt.live_authorization_granted is False
+
+
+def test_reviewer_bundle_includes_local_authorization_posture_without_fulfillment() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "local_authorization_posture" in payload["artifacts"]
+    assert "local_authorization.json" in payload["artifacts"]["bundle_manifest"]
+    text = payload["artifacts"]["local_authorization_posture"]
+    assert "authority metadata, not fulfillment" in text
+    assert "authorizes_fulfillment" in text
+    grant = payload["local_authorization"].grant
+    assert grant.live_authorization_granted is True
+    assert grant.fulfillment_granted is False
+    assert grant.effect_performed is False
+    assert grant.host_mutation_performed is False
+    assert payload["local_authorization"].verification.authorizes_fulfillment is False

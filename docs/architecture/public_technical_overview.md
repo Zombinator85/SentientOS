@@ -251,3 +251,6 @@ See `docs/architecture/host_embodiment_reviewer_demo_trace.md` for the one-comma
 Reviewer first-run proof bundle: `docs/architecture/reviewer_first_run_proof_bundle.md`.
 
 Host live-grant readiness is documented in [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`): live-grant readiness is not a live grant, the operator/policy approval packet is not approval, grant issue preflight does not issue a grant, and real actuation remains deferred.
+
+
+Local authorization grant records are documented in [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) (`docs/architecture/host_local_authorization_grant_wing.md`): a local authorization grant is authority metadata, not fulfillment; grant verification is not fulfillment authorization; real actuation remains deferred.
