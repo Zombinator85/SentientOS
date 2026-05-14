@@ -142,3 +142,28 @@ def test_phase3_doc_preserves_proposal_receipt_boundaries() -> None:
     assert "PWM presence is not control authority" in phase3
     assert "Privilege Broker" in phase3
     assert "Actuation Fulfillment Layer" in phase3
+
+HOST_EMBODIMENT_PHASE4 = "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md"
+
+
+def test_navigation_links_to_host_embodiment_phase4_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    phase1 = _read(HOST_EMBODIMENT_PHASE1)
+    phase2 = _read(HOST_EMBODIMENT_PHASE2)
+    phase3 = _read(HOST_EMBODIMENT_PHASE3)
+    trajectory = _read(TRAJECTORY_DOC)
+    assert HOST_EMBODIMENT_PHASE4 in overview
+    assert HOST_EMBODIMENT_PHASE4 in index
+    assert HOST_EMBODIMENT_PHASE4 in phase1
+    assert HOST_EMBODIMENT_PHASE4 in phase2
+    assert HOST_EMBODIMENT_PHASE4 in phase3
+    assert HOST_EMBODIMENT_PHASE4 in trajectory
+
+
+def test_phase4_doc_preserves_privilege_broker_boundaries() -> None:
+    phase4 = _read(HOST_EMBODIMENT_PHASE4)
+    assert "Eligibility is not authorization" in phase4
+    assert "broker review receipt is not fulfillment" in phase4 or "broker receipt is not fulfillment" in phase4
+    assert "direct fan/PWM/thermal control remains blocked/deferred" in phase4
+    assert "future Actuation Fulfillment Layer" in phase4

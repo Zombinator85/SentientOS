@@ -183,6 +183,16 @@ def test_phase3_policy_registry_records_are_proposal_only_and_defer_privileged_o
     assert records["host_resource_proposal_receipts"].status == "implemented"
     assert records["host_resource_proposal_receipts"].authority_level == "proposal_only"
     assert records["direct_fan_pwm_thermal_control"].status == "blocked"
-    assert records["privilege_broker"].status == "deferred"
+    assert records["privilege_broker"].status == "implemented"
+    assert records["privilege_broker"].authority_level == "eligibility_only"
     assert records["actuation_fulfillment"].status == "deferred"
     assert validate_capability_registry(registry).ok
+
+
+def test_default_registry_represents_phase4_privilege_broker_as_eligibility_only() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["privilege_broker"].status == "implemented"
+    assert records["privilege_broker"].authority_level == "eligibility_only"
+    assert records["privilege_broker"].host_actuation_performed is False
+    assert records["actuation_fulfillment"].status == "deferred"
+    assert records["direct_fan_pwm_thermal_control"].status == "blocked"

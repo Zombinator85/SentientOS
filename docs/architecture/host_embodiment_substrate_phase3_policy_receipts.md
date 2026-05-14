@@ -92,3 +92,5 @@ python scripts/verify_context_hygiene_prompt_boundaries.py
 python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```
+
+Phase 4 privilege broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Eligibility is not authorization, and broker receipts are not fulfillment.

@@ -68,4 +68,4 @@ Phase 2 must not perform:
 
 ## Next phase
 
-Phase 3 policy and proposal receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`.
+Phase 3 policy and proposal receipts are documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`; Phase 4 privilege broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`.
