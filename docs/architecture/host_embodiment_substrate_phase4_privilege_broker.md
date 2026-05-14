@@ -161,3 +161,8 @@ python scripts/verify_context_hygiene_prompt_boundaries.py
 ## Next phase
 
 Phase 5 actuation fulfillment rehearsal is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Fulfillment rehearsal is not real fulfillment, and a rehearsal receipt is not an effect receipt. Direct fan/PWM/thermal control remains blocked/deferred, and power, service, and cleanup actions remain behind future authorization, admission, audit, rollback, effect receipt, and postcondition gates.
+
+
+## Host Embodiment Execution Proof Wing
+
+Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.

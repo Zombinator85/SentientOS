@@ -153,3 +153,8 @@ python -m scripts.run_tests -q tests/test_actuation_fulfillment.py tests/test_pr
 - `docs/architecture/sentientos_trajectory_and_missing_organs.md`
 - `docs/architecture/public_technical_overview.md`
 - `docs/architecture/reviewer_release_readiness_index.md`
+
+
+## Host Embodiment Execution Proof Wing
+
+Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.

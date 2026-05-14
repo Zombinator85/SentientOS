@@ -370,3 +370,8 @@ Phase 4 is documented in `docs/architecture/host_embodiment_substrate_phase4_pri
 ### Host Embodiment Phase 5 actuation fulfillment scaffold
 
 Phase 5 is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. It adds the Actuation Fulfillment Layer scaffold as rehearsal-only metadata: fulfillment rehearsal is not real fulfillment, a rehearsal receipt is not an effect receipt, and no host mutation occurs. Direct fan/PWM/thermal control, service restart, power profile mutation, cleanup/deletion, process killing, package/driver installation, provider invocation, network egress, prompt assembly, federation transport/sync/adoption, and remote execution remain blocked/deferred behind future control-plane admission, operator/policy approval, audit, rollback, effect receipt, and postcondition gates.
+
+
+## Host Embodiment Execution Proof Wing
+
+Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.

@@ -94,3 +94,8 @@ python scripts/build_docs.py
 ```
 
 Phase 4 privilege broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. Phase 5 actuation fulfillment rehearsal is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. Eligibility is not authorization, broker receipts are not fulfillment, and fulfillment rehearsal is not real fulfillment.
+
+
+## Host Embodiment Execution Proof Wing
+
+Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.
