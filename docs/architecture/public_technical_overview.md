@@ -21,21 +21,22 @@ SentientOS is a deterministic governance-and-audit runtime for operator-directed
 
 1. Read this document.
 2. Read the proof-oriented release-readiness index: `docs/architecture/reviewer_release_readiness_index.md`.
-3. Inspect control-plane and policy docs:
+3. Read the whole-system trajectory and missing-organs map: `docs/architecture/sentientos_trajectory_and_missing_organs.md`.
+4. Inspect control-plane and policy docs:
    - `docs/control_plane_authority_map.md`
    - `docs/STATE_MACHINE_PROPERTIES.md`
    - `docs/RELEASE_READINESS_MODEL.md`
-4. Inspect core verification scripts:
+5. Inspect core verification scripts:
    - `scripts/verify_audits.py`
    - `scripts/audit_immutability_verifier.py`
    - `scripts/verify_context_hygiene_prompt_boundaries.py`
-5. Inspect representative tests:
+6. Inspect representative tests:
    - `tests/test_verify_audits_cli.py`
    - `tests/test_federated_improvement_local_variant_artifact.py`
    - `tests/test_run_tests_bootstrap_airlock.py`
    - `tests/test_phase101_provider_invocation_denial_enforcement.py`
-6. Run the proof-map commands in this document and validate output artifacts under `glow/audits/`.
-7. Evaluate hard invariants below before considering any runtime or federation claim.
+7. Run the proof-map commands in this document and validate output artifacts under `glow/audits/`.
+8. Evaluate hard invariants below before considering any runtime or federation claim.
 
 ## Core control-plane model
 

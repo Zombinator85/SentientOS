@@ -11,6 +11,10 @@ This index is not a release announcement, not a production-readiness claim, and
 not a promise of provider invocation, federation transport, automatic adoption,
 remote execution, or merge/apply/install behavior.
 
+For the broader user-space operating-substrate trajectory and the concrete
+missing subsystems still required, see
+`docs/architecture/sentientos_trajectory_and_missing_organs.md`.
+
 ## Current implemented proof surfaces
 
 ### Control plane / authority admission
