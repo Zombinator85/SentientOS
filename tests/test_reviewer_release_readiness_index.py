@@ -302,3 +302,34 @@ def test_reviewer_demo_trace_doc_preserves_demo_boundaries_and_commands() -> Non
     assert "PWM presence is not control authority" in doc
     assert "controlled authorization contract is not a live grant" in doc
     assert "schema-only/future-use-only" in doc
+
+REVIEWER_FIRST_RUN_PROOF_BUNDLE = "docs/architecture/reviewer_first_run_proof_bundle.md"
+
+
+def test_navigation_links_to_reviewer_first_run_proof_bundle_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    trajectory = _read(TRAJECTORY_DOC)
+    reviewer_demo = _read(HOST_EMBODIMENT_REVIEWER_DEMO_TRACE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    for text in [overview, index, trajectory, reviewer_demo, controlled]:
+        assert REVIEWER_FIRST_RUN_PROOF_BUNDLE in text
+
+
+def test_reviewer_first_run_proof_bundle_doc_preserves_boundary_and_file_list() -> None:
+    doc = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    assert "python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof" in doc
+    assert "fake/sample thermal+PWM telemetry" in doc
+    assert "does not collect live host data by default" in doc
+    assert "does not mutate host state" in doc
+    for filename in [
+        "trace.json",
+        "trace.md",
+        "trace.summary.txt",
+        "capability_registry_summary.json",
+        "deferred_actions.json",
+        "proof_commands.json",
+        "README.md",
+        "bundle_manifest.json",
+    ]:
+        assert filename in doc

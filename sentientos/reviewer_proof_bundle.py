@@ -1,0 +1,483 @@
+"""Reviewer first-run proof bundle for non-mutating host embodiment.
+
+This module builds deterministic, metadata-only bundle payloads from existing
+reviewer proof surfaces. It does not collect live host data by default, open
+network egress, invoke providers, assemble prompts, grant authorization, execute
+host actions, or mutate host state except for writing explicit caller-requested
+bundle files.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass, replace
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+from sentientos.capability_registry import build_default_capability_registry, summarize_capability_registry
+from sentientos.host_embodiment_trace import build_host_embodiment_demo_trace, summarize_host_embodiment_trace
+from sentientos.host_embodiment_trace_export import (
+    serialize_host_embodiment_trace_json,
+    serialize_host_embodiment_trace_markdown,
+    validate_trace_export_payload,
+)
+
+REVIEWER_PROOF_BUNDLE_STATUSES = frozenset(
+    {
+        "reviewer_proof_bundle_ready",
+        "reviewer_proof_bundle_ready_with_warnings",
+        "reviewer_proof_bundle_blocked",
+        "reviewer_proof_bundle_incomplete",
+        "reviewer_proof_bundle_contradicted",
+    }
+)
+REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
+    {
+        "trace_json",
+        "trace_markdown",
+        "trace_summary",
+        "capability_registry_summary",
+        "deferred_action_inventory",
+        "proof_command_manifest",
+        "reviewer_readme",
+        "bundle_manifest",
+    }
+)
+REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
+    {
+        "proof_command_listed",
+        "proof_command_verified",
+        "proof_command_skipped",
+        "proof_command_failed",
+        "proof_command_not_run",
+    }
+)
+BUNDLE_FILE_NAMES = {
+    "trace_json": "trace.json",
+    "trace_markdown": "trace.md",
+    "trace_summary": "trace.summary.txt",
+    "capability_registry_summary": "capability_registry_summary.json",
+    "deferred_action_inventory": "deferred_actions.json",
+    "proof_command_manifest": "proof_commands.json",
+    "reviewer_readme": "README.md",
+    "bundle_manifest": "bundle_manifest.json",
+}
+FORBIDDEN_MANIFEST_FLAGS = (
+    "live_host_collection_performed",
+    "live_authorization_granted",
+    "effect_performed",
+    "host_mutation_performed",
+    "network_performed",
+    "provider_invocation_performed",
+    "prompt_assembly_performed",
+)
+DEFERRED_ACTION_LABELS = (
+    "live_authorization_grant",
+    "real_effect_execution",
+    "real_rollback_execution",
+    "real_fan_pwm_control",
+    "real_thermal_actuation",
+    "real_power_profile_mutation",
+    "real_service_restart",
+    "real_file_cleanup",
+    "provider_invocation",
+    "network_egress",
+    "prompt_assembly_export",
+    "federation_transport_sync_adoption",
+    "remote_execution",
+)
+BLOCKED_ACTION_LABELS = (
+    "fan_pwm_write",
+    "thermal_write",
+    "power_profile_mutation",
+    "service_restart",
+    "file_cleanup_or_delete",
+    "provider_invocation",
+    "network_egress",
+    "prompt_assembly_export",
+    "federation_transport_sync_adoption",
+    "remote_execution",
+)
+
+
+@dataclass(frozen=True)
+class ReviewerProofBundleArtifact:
+    artifact_id: str
+    artifact_kind: str
+    relative_path: str
+    media_type: str
+    digest: str
+    byte_count: int
+    metadata_only: bool = True
+    contains_live_host_data: bool = False
+    contains_prompt_text: bool = False
+    contains_secret_material: bool = False
+    contains_provider_material: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ReviewerProofCommandRecord:
+    command_id: str
+    command: tuple[str, ...]
+    purpose: str
+    expected_posture: str
+    status: str
+    exit_code: int | None = None
+    output_digest: str | None = None
+    warning_codes: tuple[str, ...] = ()
+    risk_codes: tuple[str, ...] = ()
+    executed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ReviewerProofBundleManifest:
+    manifest_id: str
+    scenario_id: str
+    scenario_label: str
+    bundle_status: str
+    created_at: str
+    trace_id: str
+    trace_digest: str
+    artifact_records: tuple[ReviewerProofBundleArtifact, ...]
+    proof_command_records: tuple[ReviewerProofCommandRecord, ...]
+    blocked_action_labels: tuple[str, ...]
+    deferred_capability_labels: tuple[str, ...]
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    digest: str
+    metadata_only: bool = True
+    reviewer_proof_only: bool = True
+    live_host_collection_performed: bool = False
+    live_authorization_granted: bool = False
+    effect_performed: bool = False
+    host_mutation_performed: bool = False
+    network_performed: bool = False
+    provider_invocation_performed: bool = False
+    prompt_assembly_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ReviewerProofBundleValidationResult:
+    ok: bool
+    findings: tuple[str, ...] = ()
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
+
+
+def _pretty_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, indent=2, ensure_ascii=True, default=str) + "\n"
+
+
+def _digest_text(prefix: str, content: str, length: int = 24) -> str:
+    return prefix + hashlib.sha256(content.encode("utf-8")).hexdigest()[:length]
+
+
+def reviewer_proof_artifact_digest(content: str | bytes) -> str:
+    data = content if isinstance(content, bytes) else content.encode("utf-8")
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def reviewer_proof_bundle_manifest_digest(manifest_or_payload: ReviewerProofBundleManifest | Mapping[str, Any]) -> str:
+    payload = manifest_or_payload.to_dict() if isinstance(manifest_or_payload, ReviewerProofBundleManifest) else dict(manifest_or_payload)
+    payload["digest"] = ""
+    return _digest_text("reviewer-proof-bundle-manifest-", _canonical_json(payload))
+
+
+def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord, ...]:
+    commands = (
+        (("python", "scripts/build_host_embodiment_trace.py", "--validate-only"), "Validate the deterministic host embodiment demo trace."),
+        (("python", "scripts/build_host_embodiment_trace.py", "--format", "json"), "Print deterministic trace JSON."),
+        (("python", "scripts/build_host_embodiment_trace.py", "--format", "markdown"), "Print deterministic trace Markdown."),
+        (("python", "-m", "scripts.run_tests", "-q", "tests/test_host_embodiment_trace.py", "tests/test_host_embodiment_trace_export.py", "tests/test_build_host_embodiment_trace_script.py"), "Run trace and trace export tests."),
+        (("python", "-m", "scripts.run_tests", "-q", "tests/test_controlled_authorization.py", "tests/test_authorization_review.py", "tests/test_effect_proof.py", "tests/test_runtime_supervisor.py"), "Run authorization review, proof, and runtime readiness tests."),
+        (("python", "-m", "scripts.run_tests", "-q", "tests/test_actuation_fulfillment.py", "tests/test_privilege_broker.py", "tests/test_host_resource_policy.py", "tests/test_host_resource_governor.py", "tests/test_host_inventory.py", "tests/test_host_collectors.py"), "Run non-mutating host resource ladder tests."),
+        (("python", "-m", "scripts.run_tests", "-q", "tests/test_capability_registry.py", "tests/test_reviewer_release_readiness_index.py"), "Run capability registry and reviewer documentation proof tests."),
+        (("python", "scripts/build_docs.py", "--check-deps"), "Check documentation build dependencies."),
+        (("python", "scripts/build_docs.py"), "Build documentation locally."),
+        (("python", "scripts/verify_context_hygiene_prompt_boundaries.py"), "Verify prompt/provider boundary hygiene."),
+    )
+    return tuple(
+        ReviewerProofCommandRecord(
+            command_id=f"proof-command-{index:02d}",
+            command=command,
+            purpose=purpose,
+            expected_posture="bounded local reviewer check; no live authorization, no effects, no host mutation",
+            status="proof_command_not_run",
+        )
+        for index, (command, purpose) in enumerate(commands, start=1)
+    )
+
+
+def _trace_summary_text(trace: Any) -> str:
+    summary = summarize_host_embodiment_trace(trace)
+    return "\n".join(
+        [
+            "SentientOS Reviewer First-Run Proof Bundle Trace Summary",
+            f"scenario: {summary['scenario_id']}",
+            f"status: {summary['trace_status']}",
+            f"steps: {summary['step_count']}",
+            "reviewer proof only: true",
+            "metadata only: true",
+            "fake/sample telemetry by default: true",
+            "live host collection performed: false",
+            "live authorization granted: false",
+            "effect performed: false",
+            "host mutation performed: false",
+            "network performed: false",
+            "provider invocation performed: false",
+            "prompt assembly performed: false",
+            "PWM presence is not control authority: true",
+            f"digest: {summary['digest']}",
+            "",
+        ]
+    )
+
+
+def _deferred_action_inventory() -> dict[str, Any]:
+    return {
+        "inventory_id": "reviewer-proof-bundle-deferred-actions-v1",
+        "metadata_only": True,
+        "reviewer_proof_only": True,
+        "deferred_action_labels": DEFERRED_ACTION_LABELS,
+        "blocked_action_labels": BLOCKED_ACTION_LABELS,
+        "proof_statement": "All listed actions remain deferred or blocked; the bundle is an export-only inspection artifact.",
+        "no_live_authorization": True,
+        "no_effects": True,
+        "no_host_mutation": True,
+        "no_network": True,
+        "no_provider": True,
+        "no_prompt_assembly": True,
+    }
+
+
+def _readme_text(manifest_id: str, trace_digest: str) -> str:
+    return "\n".join(
+        [
+            "# SentientOS Reviewer First-Run Proof Bundle",
+            "",
+            "This local bundle packages the deterministic non-mutating host-embodiment reviewer demo trace.",
+            "It uses fake/sample thermal+PWM telemetry by default and does not collect live host data.",
+            "",
+            "## Inspect first",
+            "",
+            "1. `trace.md` — reviewer-readable trace ladder.",
+            "2. `bundle_manifest.json` — artifact digests and safety flags.",
+            "3. `deferred_actions.json` — deferred/blocked action inventory.",
+            "4. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "5. `capability_registry_summary.json` — metadata-only capability posture.",
+            "",
+            "## Safety posture",
+            "",
+            "- Reviewer proof only: true",
+            "- Metadata only: true",
+            "- Live host collection performed: false",
+            "- Live authorization granted: false",
+            "- Effect performed: false",
+            "- Host mutation performed: false",
+            "- Network/provider/prompt assembly performed: false",
+            "- Fan/PWM writes, thermal writes, power mutation, service restart, cleanup, federation transport, and remote execution remain deferred or blocked.",
+            "",
+            f"Manifest ID: `{manifest_id}`",
+            f"Trace digest: `{trace_digest}`",
+            "",
+        ]
+    )
+
+
+def _artifact(kind: str, content: str) -> ReviewerProofBundleArtifact:
+    media_type = "application/json" if BUNDLE_FILE_NAMES[kind].endswith(".json") else ("text/markdown" if BUNDLE_FILE_NAMES[kind].endswith(".md") else "text/plain")
+    return ReviewerProofBundleArtifact(
+        artifact_id=f"reviewer-proof-{kind.replace('_', '-')}",
+        artifact_kind=kind,
+        relative_path=BUNDLE_FILE_NAMES[kind],
+        media_type=media_type,
+        digest=reviewer_proof_artifact_digest(content),
+        byte_count=len(content.encode("utf-8")),
+    )
+
+
+def build_reviewer_proof_bundle_payload(
+    *,
+    scenario: str = "thermal_pwm_demo",
+    created_at: str = "1970-01-01T00:00:00+00:00",
+    proof_command_records: Sequence[ReviewerProofCommandRecord] | None = None,
+) -> dict[str, Any]:
+    if scenario != "thermal_pwm_demo":
+        raise ValueError(f"unsupported scenario: {scenario}")
+    trace = build_host_embodiment_demo_trace(created_at=created_at)
+    trace_validation = validate_trace_export_payload(trace)
+    if not trace_validation.ok:
+        raise ValueError("invalid trace export payload: " + ", ".join(trace_validation.findings))
+
+    registry = build_default_capability_registry()
+    commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
+    manifest_id = "reviewer-proof-bundle-thermal-pwm-demo"
+    contents: dict[str, str] = {
+        "trace_json": serialize_host_embodiment_trace_json(trace),
+        "trace_markdown": serialize_host_embodiment_trace_markdown(trace),
+        "trace_summary": _trace_summary_text(trace),
+        "capability_registry_summary": _pretty_json({"summary": summarize_capability_registry(registry), "records": [record.to_dict() for record in registry.records], "metadata_only": True, "reviewer_proof_only": True}),
+        "deferred_action_inventory": _pretty_json(_deferred_action_inventory()),
+        "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
+        "reviewer_readme": _readme_text(manifest_id, trace.digest),
+    }
+    artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())
+    # The manifest artifact record describes the canonical manifest payload before
+    # the final pretty JSON wrapper is materialized; this avoids recursive digest
+    # ambiguity while still giving reviewers a stable manifest payload digest.
+    manifest_artifact = ReviewerProofBundleArtifact(
+        artifact_id="reviewer-proof-bundle-manifest",
+        artifact_kind="bundle_manifest",
+        relative_path=BUNDLE_FILE_NAMES["bundle_manifest"],
+        media_type="application/json",
+        digest="pending",
+        byte_count=0,
+    )
+    manifest = ReviewerProofBundleManifest(
+        manifest_id=manifest_id,
+        scenario_id=trace.scenario_id,
+        scenario_label=trace.scenario_label,
+        bundle_status="reviewer_proof_bundle_ready",
+        created_at=created_at,
+        trace_id=trace.trace_id,
+        trace_digest=trace.digest,
+        artifact_records=artifact_records + (manifest_artifact,),
+        proof_command_records=commands,
+        blocked_action_labels=BLOCKED_ACTION_LABELS,
+        deferred_capability_labels=DEFERRED_ACTION_LABELS,
+        warning_codes=(),
+        risk_codes=(),
+        digest="",
+    )
+    manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
+    manifest_json = _pretty_json(manifest.to_dict())
+    manifest_artifact = replace(
+        manifest_artifact,
+        digest=reviewer_proof_artifact_digest(manifest_json),
+        byte_count=len(manifest_json.encode("utf-8")),
+    )
+    manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
+    manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
+    contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry}
+
+
+def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:
+    payload = manifest.to_dict() if isinstance(manifest, ReviewerProofBundleManifest) else dict(manifest)
+    findings: list[str] = []
+    if not payload.get("manifest_id"):
+        findings.append("missing_manifest_id")
+    if payload.get("bundle_status") not in REVIEWER_PROOF_BUNDLE_STATUSES:
+        findings.append("unknown_bundle_status")
+    if not payload.get("metadata_only", False):
+        findings.append("manifest_not_metadata_only")
+    if not payload.get("reviewer_proof_only", False):
+        findings.append("manifest_not_reviewer_proof_only")
+    for flag in FORBIDDEN_MANIFEST_FLAGS:
+        if payload.get(flag, False):
+            findings.append(f"manifest_forbidden_flag:{flag}")
+    artifacts = payload.get("artifact_records", ())
+    if not isinstance(artifacts, (list, tuple)) or not artifacts:
+        findings.append("missing_artifact_records")
+        artifacts = ()
+    seen_kinds: set[str] = set()
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, Mapping):
+            findings.append(f"artifact_not_mapping:{index}")
+            continue
+        kind = str(artifact.get("artifact_kind", ""))
+        seen_kinds.add(kind)
+        if kind not in REVIEWER_PROOF_ARTIFACT_KINDS:
+            findings.append(f"unknown_artifact_kind:{kind}")
+        if not artifact.get("metadata_only", False):
+            findings.append(f"artifact_not_metadata_only:{kind}")
+        for flag in ("contains_live_host_data", "contains_prompt_text", "contains_secret_material", "contains_provider_material"):
+            if artifact.get(flag, False):
+                findings.append(f"artifact_forbidden_flag:{kind}:{flag}")
+        if ".." in Path(str(artifact.get("relative_path", ""))).parts:
+            findings.append(f"artifact_relative_path_escapes:{kind}")
+    missing = REVIEWER_PROOF_ARTIFACT_KINDS - seen_kinds
+    if missing:
+        findings.append("missing_artifact_kinds:" + ",".join(sorted(missing)))
+    commands = payload.get("proof_command_records", ())
+    if not isinstance(commands, (list, tuple)) or not commands:
+        findings.append("missing_proof_command_records")
+        commands = ()
+    for index, command in enumerate(commands):
+        if not isinstance(command, Mapping):
+            findings.append(f"proof_command_not_mapping:{index}")
+            continue
+        if command.get("status") not in REVIEWER_PROOF_COMMAND_STATUSES:
+            findings.append(f"unknown_proof_command_status:{command.get('command_id', index)}")
+        if command.get("executed", False) and command.get("status") == "proof_command_not_run":
+            findings.append(f"proof_command_executed_but_not_run:{command.get('command_id', index)}")
+    for label in DEFERRED_ACTION_LABELS:
+        if label not in tuple(payload.get("deferred_capability_labels", ())):
+            findings.append(f"missing_deferred_label:{label}")
+    return ReviewerProofBundleValidationResult(not findings, tuple(findings))
+
+
+def summarize_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> dict[str, Any]:
+    payload = manifest.to_dict() if isinstance(manifest, ReviewerProofBundleManifest) else dict(manifest)
+    return {
+        "manifest_id": payload.get("manifest_id"),
+        "scenario_id": payload.get("scenario_id"),
+        "bundle_status": payload.get("bundle_status"),
+        "artifact_count": len(payload.get("artifact_records", ()) or ()),
+        "proof_command_count": len(payload.get("proof_command_records", ()) or ()),
+        "proof_commands_executed": sum(1 for record in payload.get("proof_command_records", ()) if isinstance(record, Mapping) and record.get("executed")),
+        "metadata_only": payload.get("metadata_only"),
+        "reviewer_proof_only": payload.get("reviewer_proof_only"),
+        "live_host_collection_performed": payload.get("live_host_collection_performed"),
+        "live_authorization_granted": payload.get("live_authorization_granted"),
+        "effect_performed": payload.get("effect_performed"),
+        "host_mutation_performed": payload.get("host_mutation_performed"),
+        "network_performed": payload.get("network_performed"),
+        "provider_invocation_performed": payload.get("provider_invocation_performed"),
+        "prompt_assembly_performed": payload.get("prompt_assembly_performed"),
+        "digest": payload.get("digest"),
+    }
+
+
+def write_reviewer_proof_bundle(
+    output_dir: str | Path,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    force: bool = False,
+    manifest_only: bool = False,
+) -> tuple[Path, ...]:
+    path = Path(output_dir)
+    if not str(output_dir):
+        raise ValueError("output directory is required")
+    if path == path.anchor or path.resolve() == Path(path.anchor).resolve():
+        raise ValueError("refusing to write bundle to filesystem root")
+    if path.exists() and not path.is_dir():
+        raise ValueError("output path must be a directory, not a file")
+    path.mkdir(parents=True, exist_ok=True)
+    bundle_payload = dict(payload or build_reviewer_proof_bundle_payload())
+    artifacts = dict(bundle_payload["artifacts"])
+    selected = {"bundle_manifest": artifacts["bundle_manifest"]} if manifest_only else artifacts
+    targets = tuple(path / BUNDLE_FILE_NAMES[kind] for kind in selected)
+    existing = tuple(target for target in targets if target.exists())
+    if existing and not force:
+        raise FileExistsError("bundle files already exist; pass --force to overwrite: " + ", ".join(str(target) for target in existing))
+    written: list[Path] = []
+    for kind in sorted(selected, key=lambda item: BUNDLE_FILE_NAMES[item]):
+        target = path / BUNDLE_FILE_NAMES[kind]
+        if target.parent != path:
+            raise ValueError("bundle target escaped output directory")
+        target.write_text(selected[kind], encoding="utf-8")
+        written.append(target)
+    return tuple(written)

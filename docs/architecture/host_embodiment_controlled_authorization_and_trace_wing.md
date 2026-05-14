@@ -1,6 +1,6 @@
 # Host Embodiment Controlled Authorization + Trace Wing
 
-This wing follows the [Authorization Review Wing](host_embodiment_authorization_review_wing.md). It defines the controlled authorization grant contract and a reviewer-facing end-to-end trace across the non-mutating host-embodiment ladder.
+This wing follows the [Authorization Review Wing](host_embodiment_authorization_review_wing.md). The practical first-run reviewer command path is the [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). It defines the controlled authorization grant contract and a reviewer-facing end-to-end trace across the non-mutating host-embodiment ladder.
 
 ## Boundary
 

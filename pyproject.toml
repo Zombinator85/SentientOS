@@ -106,6 +106,7 @@ sosctl = "sosctl:main"
 verify_audits = "sentientos.verify_audits:main"
 audit_immutability_verifier = "sentientos.vow_artifacts:run_immutability_verifier_main"
 reconcile_audits = "scripts.reconcile_audits:main"
+sentientos-reviewer-proof-bundle = "scripts.build_reviewer_proof_bundle:main"
 
 [project.entry-points."sentientos.plugins"]
 telegram-bot = "telegram_bot"

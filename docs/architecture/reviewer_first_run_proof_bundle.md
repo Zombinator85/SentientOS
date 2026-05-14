@@ -1,0 +1,72 @@
+# Reviewer First-Run Proof Bundle
+
+This doc is the first practical reviewer command path after reading the [public technical overview](public_technical_overview.md). It packages the current deterministic, non-mutating host-embodiment proof chain into one local output directory so a serious reviewer can run one safe command, inspect the story, and archive the artifacts.
+
+## Boundary
+
+The reviewer proof bundle is metadata/export-only. It packages the deterministic non-mutating host-embodiment trace and the capability/deferred-action posture.
+
+By default, the bundle uses fake/sample thermal+PWM telemetry. It does not collect live host data by default, does not grant authorization, does not perform effects, does not mutate host state, does not perform fan/PWM writes, does not perform thermal writes, does not mutate power profiles, does not restart services, does not clean up or delete files, does not perform network egress, does not invoke providers, does not assemble/export prompts, does not transport/sync/adopt federation state, and does not perform remote execution.
+
+The command writes only explicit local bundle files under the caller-supplied output directory.
+
+## Run the first proof bundle
+
+From the repository root:
+
+```bash
+python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof
+python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --force
+python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof --summary
+```
+
+`--force` overwrites only the known bundle files inside the explicit output directory. It does not delete unrelated files.
+
+`--verify` is intentionally unsupported in this packaging pass. The default command lists bounded local proof commands in `proof_commands.json` with `proof_command_not_run`; reviewers can run those commands separately when they want to verify the chain.
+
+## Generated files
+
+The bundle writes:
+
+- `trace.json` — deterministic sorted-key trace JSON.
+- `trace.md` — reviewer-readable Markdown trace.
+- `trace.summary.txt` — compact summary of the non-mutating proof posture.
+- `capability_registry_summary.json` — metadata-only capability registry summary and records.
+- `deferred_actions.json` — deferred/blocked action inventory.
+- `proof_commands.json` — proof command manifest; commands are listed but not run by default.
+- `README.md` — local reviewer guide for the bundle directory.
+- `bundle_manifest.json` — manifest, artifact digests, command records, and safety flags.
+
+## Inspect first
+
+Reviewers should inspect these files in order:
+
+1. `README.md`
+2. `trace.md`
+3. `bundle_manifest.json`
+4. `deferred_actions.json`
+5. `proof_commands.json`
+
+## What the bundle proves
+
+The bundle exposes the same non-mutating ladder as the host embodiment trace:
+
+collector results → inventory → telemetry → pressure → policy → proposal → broker eligibility → broker review → fulfillment rehearsal → execution proof → authorization review → controlled authorization contract → schema-only grant/revocation records → metadata-only ledger → reviewer trace.
+
+The reviewer should see that:
+
+- PWM presence is telemetry, not control authority.
+- The controlled authorization contract is not a live grant.
+- Grant/revocation records are schema-only/future-use-only.
+- Real effect execution and rollback execution remain deferred.
+- Real fan/PWM control, thermal actuation, power mutation, service restart, cleanup, provider invocation, prompt export, federation transport/sync/adoption, and remote execution remain deferred or blocked.
+- The proof command manifest is inventory by default, not execution.
+
+## Implementation links
+
+- Bundle module: `sentientos/reviewer_proof_bundle.py`
+- Bundle CLI: `scripts/build_reviewer_proof_bundle.py`
+- Trace builder: `sentientos/host_embodiment_trace.py`
+- Trace export: `sentientos/host_embodiment_trace_export.py`
+- Capability registry: `sentientos/capability_registry.py`
+- Tests: `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`

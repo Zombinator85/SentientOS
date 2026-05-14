@@ -245,3 +245,6 @@ Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace
 ## Host Embodiment Reviewer Demo Trace
 
 See `docs/architecture/host_embodiment_reviewer_demo_trace.md` for the one-command deterministic reviewer trace. Run `python scripts/build_host_embodiment_trace.py --format json`, `python scripts/build_host_embodiment_trace.py --format markdown`, or `python scripts/build_host_embodiment_trace.py --validate-only`. The demo trace is reviewer proof only, no host mutation occurs, PWM presence is not control authority, the controlled authorization contract is not a live grant, and grant/revocation records are schema-only/future-use-only.
+
+
+Reviewer first-run proof bundle: `docs/architecture/reviewer_first_run_proof_bundle.md`.
