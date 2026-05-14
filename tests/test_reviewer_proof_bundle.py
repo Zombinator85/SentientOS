@@ -164,3 +164,13 @@ def test_bundle_includes_host_actuation_safety_gate_posture() -> None:
     assert "safety_gates" in payload
     validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
     assert validation.ok, validation.findings
+
+
+def test_reviewer_bundle_includes_live_grant_readiness_posture() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "live_grant_readiness_posture" in payload["artifacts"]
+    assert "live_grant_readiness.json" in payload["artifacts"]["bundle_manifest"]
+    text = payload["artifacts"]["live_grant_readiness_posture"]
+    assert "Live-grant readiness is not a live grant" in text
+    assert "grant_not_issued" in text
+    assert payload["live_grant_readiness"].preflight_receipt.live_authorization_granted is False

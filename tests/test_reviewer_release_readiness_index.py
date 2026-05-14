@@ -355,3 +355,25 @@ def test_host_actuation_safety_gate_doc_preserves_safety_only_boundaries() -> No
     assert "Panic stop contract does not execute panic stop" in doc
     assert "Real actuation remains deferred" in doc
     assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → authorize" in doc
+
+HOST_LIVE_GRANT_READINESS_WING = "docs/architecture/host_live_grant_readiness_wing.md"
+
+
+def test_navigation_links_to_host_live_grant_readiness_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    safety = _read(HOST_ACTUATION_SAFETY_GATE_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, safety, bundle, controlled, trajectory]:
+        assert HOST_LIVE_GRANT_READINESS_WING in text
+
+
+def test_host_live_grant_readiness_doc_preserves_preflight_only_boundaries() -> None:
+    doc = _read(HOST_LIVE_GRANT_READINESS_WING)
+    assert "Live-grant readiness is not a live grant" in doc
+    assert "operator/policy approval packet is not approval" in doc
+    assert "grant issue preflight receipt does not issue a grant" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → authorize" in doc

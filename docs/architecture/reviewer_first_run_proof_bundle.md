@@ -74,3 +74,7 @@ The reviewer should see that:
 - Trace export: `sentientos/host_embodiment_trace_export.py`
 - Capability registry: `sentientos/capability_registry.py`
 - Tests: `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`
+
+## Live-grant readiness artifact
+
+The bundle includes `live_grant_readiness.json`, documented in [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`). The artifact is metadata-only reviewer proof: live-grant readiness is not a live grant, the operator/policy approval packet is not approval, and the grant issue preflight receipt does not issue a grant.

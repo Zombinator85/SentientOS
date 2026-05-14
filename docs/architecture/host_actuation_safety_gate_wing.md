@@ -37,3 +37,7 @@ This wing covers **safety gates** only. It answers: “What gates must be declar
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_host_actuation_safety.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_capability_registry.py`
+
+## Next wing
+
+The next organ is the [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`), which evaluates post-safety-gate readiness/preflight metadata only. Live-grant readiness is not a live grant; authorization and real actuation remain deferred.

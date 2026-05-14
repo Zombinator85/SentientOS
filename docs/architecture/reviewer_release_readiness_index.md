@@ -248,3 +248,9 @@ Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace
 ## Host Embodiment Reviewer Demo Trace
 
 See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. Proof commands: `python scripts/build_host_embodiment_trace.py --format json`, `python scripts/build_host_embodiment_trace.py --format markdown`, and `python scripts/build_host_embodiment_trace.py --validate-only`. The demo trace is reviewer proof only; no host mutation occurs; PWM presence is not control authority; no live authorization, real effect, network, provider invocation, prompt assembly, federation transport, or remote execution occurs.
+
+## Host Live-Grant Readiness Wing
+
+- Architecture: [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`).
+- Proof: `tests/test_live_grant_readiness.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, and `tests/test_capability_registry.py`.
+- Boundary: live-grant readiness is not a live grant; operator/policy approval packet is not approval; grant issue preflight does not issue a grant; real actuation remains deferred.
