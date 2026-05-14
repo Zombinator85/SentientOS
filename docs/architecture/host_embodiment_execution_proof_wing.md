@@ -108,3 +108,9 @@ deferred. Real actuation remains deferred.
 Reviewers should explicitly see these proof organs before any future effect:
 Effect Receipt contract, Postcondition Check plan/receipt, Rollback Plan/Receipt,
 Runtime Supervisor, and Execution Readiness Manifest.
+
+## Controlled authorization and trace link
+
+Execution readiness remains non-authorizing. The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) follows authorization review with contract-only/schema-only/ledger-only records and a demo trace; real effect execution and rollback remain deferred.
+
+Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md

@@ -221,3 +221,21 @@ Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wi
 ## Host Embodiment Authorization Review Wing
 
 See `docs/architecture/host_embodiment_authorization_review_wing.md`. This proof surface is metadata-only review of ExecutionReadinessManifest records: authorization review is not authorization grant, a future authorization grant schema is not a real grant, real fulfillment remains deferred, and real actuation remains deferred.
+
+## Host Embodiment Controlled Authorization + Trace Wing
+
+- Architecture: [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md)
+- Code: `sentientos/controlled_authorization.py`, `sentientos/host_embodiment_trace.py`
+- Tests: `tests/test_controlled_authorization.py`, `tests/test_host_embodiment_trace.py`
+
+Reviewer assertions:
+
+- Controlled authorization contract is not a live grant.
+- Grant record is schema-only/future-use-only.
+- Revocation record is schema-only/future-use-only.
+- Authorization ledger is metadata-only and does not grant authority.
+- Demo trace is reviewer proof only.
+- Real fulfillment remains deferred.
+- Real actuation remains deferred.
+
+Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md

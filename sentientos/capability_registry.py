@@ -36,6 +36,8 @@ CAPABILITY_CATEGORIES = frozenset(
         "actuation_fulfillment",
         "execution_proof",
         "authorization_review",
+        "controlled_authorization",
+        "host_embodiment_trace",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -55,6 +57,9 @@ AUTHORITY_LEVELS = frozenset(
         "readiness_only",
         "review_only",
         "schema_only",
+        "contract_only",
+        "ledger_only",
+        "demo_proof_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -235,6 +240,11 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("execution_readiness_manifest", "execution_proof", "implemented", "readiness_only", source_paths=("sentientos/effect_proof.py", "sentientos/runtime_supervisor.py"), proof_tests=("tests/test_effect_proof.py", "tests/test_runtime_supervisor.py"), implemented_surfaces=("metadata-only execution readiness manifest",), deferred_surfaces=("authorization", "fulfillment", "real actuation"), forbidden_implications=("execution readiness is authorization", "readiness manifest performs effects"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("authorization_review", "authorization_review", "implemented", "review_only", source_paths=("sentientos/authorization_review.py",), proof_tests=("tests/test_authorization_review.py",), proof_commands=("python -m scripts.run_tests -q tests/test_authorization_review.py",), implemented_surfaces=("metadata-only authorization review packets", "authorization review decisions", "authorization review receipts"), deferred_surfaces=("real authorization grants", "real effect execution", "real rollback execution"), forbidden_implications=("authorization review is authorization", "authorization review receipt is fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("future_authorization_grant_schema", "authorization_review", "implemented", "schema_only", source_paths=("sentientos/authorization_review.py",), proof_tests=("tests/test_authorization_review.py",), implemented_surfaces=("future authorization grant schema placeholder",), deferred_surfaces=("real authorization grant issuance", "host mutation fulfillment"), forbidden_implications=("future authorization grant schema is a real grant", "schema grants fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("controlled_authorization_contract", "controlled_authorization", "implemented", "contract_only", source_paths=("sentientos/controlled_authorization.py",), proof_tests=("tests/test_controlled_authorization.py",), implemented_surfaces=("controlled authorization grant contract metadata",), deferred_surfaces=("live authorization grant", "real fulfillment", "real actuation"), forbidden_implications=("controlled authorization contract is a live grant", "contract authorizes fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("controlled_authorization_grant_record", "controlled_authorization", "implemented", "schema_only", source_paths=("sentientos/controlled_authorization.py",), proof_tests=("tests/test_controlled_authorization.py",), implemented_surfaces=("schema-only future-use grant record",), deferred_surfaces=("live authorization grant",), forbidden_implications=("grant record grants live authority",)),
+        _record("controlled_authorization_ledger", "controlled_authorization", "implemented", "ledger_only", source_paths=("sentientos/controlled_authorization.py",), proof_tests=("tests/test_controlled_authorization.py",), implemented_surfaces=("metadata-only authorization ledger scaffold",), deferred_surfaces=("runtime authority token",), forbidden_implications=("ledger grants authorization",)),
+        _record("host_embodiment_trace", "host_embodiment_trace", "implemented", "demo_proof_only", source_paths=("sentientos/host_embodiment_trace.py",), proof_tests=("tests/test_host_embodiment_trace.py",), implemented_surfaces=("reviewer-facing non-mutating demo trace",), deferred_surfaces=("live authorization", "real effects", "real rollback"), forbidden_implications=("demo trace executes host actions", "trace grants authority")),
+        _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_execution", "execution_proof", "deferred", "none", deferred_surfaces=("authorized effect fulfillment", "host mutation", "effect receipt from real action"), forbidden_implications=("execution proof wing implements real effects",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_rollback_execution", "execution_proof", "deferred", "none", deferred_surfaces=("rollback execution", "host mutation rollback",), forbidden_implications=("rollback receipt schema executes rollback",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -247,9 +257,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-authorization-review-wing", schema_version="host-embodiment-authorization-review-wing.v1", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-embodiment-controlled-authorization-and-trace-wing", schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1", records=records)
 
 
 
@@ -661,3 +671,66 @@ def update_registry_from_runtime_supervisor_report(registry: CapabilityRegistry,
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-embodiment-execution-proof-wing.v1")
+
+
+def update_registry_from_controlled_authorization_ledger(registry: CapabilityRegistry, ledger: Any) -> CapabilityRegistry:
+    """Reflect controlled authorization records without creating live authority."""
+
+    records: list[CapabilityRecord] = []
+    has_ledger = bool(getattr(ledger, "ledger_id", "") or getattr(ledger, "source_id", ""))
+    for record in registry.records:
+        if record.capability_id == "controlled_authorization_contract":
+            records.append(replace(record, status="implemented", authority_level="contract_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "controlled_authorization_grant_record":
+            records.append(replace(record, status="implemented", authority_level="schema_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "controlled_authorization_ledger":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_ledger else "scaffolded",
+                    authority_level="ledger_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/controlled_authorization.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_controlled_authorization.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("metadata-only controlled authorization ledger",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("controlled authorization ledger grants live authority",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id in {"live_authorization_grant", "real_authorization_grant", "real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1")
+
+
+def update_registry_from_host_embodiment_trace(registry: CapabilityRegistry, trace: Any) -> CapabilityRegistry:
+    """Reflect reviewer demo trace proof without granting authorization or effects."""
+
+    records: list[CapabilityRecord] = []
+    has_trace = bool(getattr(trace, "trace_id", ""))
+    for record in registry.records:
+        if record.capability_id == "host_embodiment_trace":
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_trace else "scaffolded",
+                    authority_level="demo_proof_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/host_embodiment_trace.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_host_embodiment_trace.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("full non-mutating reviewer trace artifact",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("live authorization grant", "real effect execution", "real rollback execution")))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("host embodiment trace grants live authorization", "trace performs effects")))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id in {"live_authorization_grant", "real_authorization_grant", "real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1")
