@@ -162,3 +162,9 @@ Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wi
 ## Next wing: Authorization Review
 
 After the Execution Proof Wing, see `docs/architecture/host_embodiment_authorization_review_wing.md`. Authorization review is not authorization; a future authorization grant schema is not a real grant; real fulfillment and real actuation remain deferred.
+
+## Controlled authorization and trace link
+
+Fulfillment rehearsal remains non-mutating. The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) links this scaffold into a reviewer trace while keeping real fulfillment, host mutation, fan/PWM writes, thermal actuation, service restart, power mutation, and cleanup/delete deferred or blocked.
+
+Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md

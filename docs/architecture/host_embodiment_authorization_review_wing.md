@@ -95,3 +95,9 @@ rollback, effect receipt, and postcondition checks.
 - Authorization review tests: `tests/test_authorization_review.py`
 - Registry tests: `tests/test_capability_registry.py`
 - Docs regression: `tests/test_reviewer_release_readiness_index.py`
+
+## Next wing
+
+The next non-mutating organ is the [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md). It defines a controlled grant contract, schema-only/future-use-only grant and revocation records, a metadata-only ledger, and a reviewer demo trace. It does not grant live authorization or perform effects.
+
+Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md

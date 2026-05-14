@@ -288,3 +288,23 @@ def test_registry_updates_from_authorization_review_keep_real_actions_deferred_o
     assert records["real_power_profile_mutation"].status == "blocked"
     assert records["real_file_cleanup"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_controlled_authorization_and_trace_capabilities_are_non_live() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["controlled_authorization_contract"].status == "implemented"
+    assert records["controlled_authorization_contract"].authority_level == "contract_only"
+    assert records["controlled_authorization_grant_record"].status == "implemented"
+    assert records["controlled_authorization_grant_record"].authority_level == "schema_only"
+    assert records["controlled_authorization_ledger"].status == "implemented"
+    assert records["controlled_authorization_ledger"].authority_level == "ledger_only"
+    assert records["host_embodiment_trace"].status == "implemented"
+    assert records["host_embodiment_trace"].authority_level == "demo_proof_only"
+    assert records["live_authorization_grant"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_rollback_execution"].status == "deferred"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
+    assert all(record.host_actuation_performed is False for record in records.values())

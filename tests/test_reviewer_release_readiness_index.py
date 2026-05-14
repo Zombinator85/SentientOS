@@ -252,3 +252,25 @@ def test_authorization_review_wing_doc_preserves_review_only_boundaries() -> Non
     assert "No host mutation" in doc or "not host mutation" in doc
     for term in ["AuthorizationReviewPacket", "AuthorizationReviewDecision", "AuthorizationReviewReceipt", "FutureAuthorizationGrantSchema"]:
         assert term in doc
+
+HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING = "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md"
+
+
+def test_navigation_links_to_controlled_authorization_trace_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    auth = _read(HOST_EMBODIMENT_AUTHORIZATION_REVIEW_WING)
+    proof = _read(HOST_EMBODIMENT_EXECUTION_PROOF_WING)
+    phase5 = _read(HOST_EMBODIMENT_PHASE5)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, auth, proof, phase5, trajectory]:
+        assert HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING in text
+
+
+def test_controlled_authorization_trace_doc_preserves_non_live_boundaries() -> None:
+    doc = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    assert "controlled authorization contract is not a live grant" in doc
+    assert "grant record is schema-only/future-use-only" in doc
+    assert "Demo trace is reviewer proof only" in doc or "demo trace is reviewer proof only" in doc
+    assert "Real fulfillment remains deferred" in doc
+    assert "Real actuation remains deferred" in doc

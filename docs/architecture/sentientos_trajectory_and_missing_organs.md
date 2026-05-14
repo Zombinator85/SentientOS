@@ -379,3 +379,9 @@ Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wi
 ## Host Embodiment Authorization Review Wing
 
 See `docs/architecture/host_embodiment_authorization_review_wing.md`. This next organ after the Execution Proof Wing records metadata-only authorization review packets, decisions, receipts, and a future grant schema placeholder. Authorization review is not authorization, the future authorization grant schema is not a real grant, real fulfillment remains deferred, and real actuation remains deferred.
+
+## Controlled Authorization + Trace Wing
+
+The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) is now represented as the next non-mutating organ after Authorization Review: contract-only controlled authorization, schema-only/future-use-only grant and revocation records, metadata-only ledger, and a reviewer demo trace. Live authorization, real fulfillment, real actuation, rollback execution, fan/PWM control, thermal actuation, power mutation, service restart, and cleanup/delete remain missing/deferred organs.
+
+Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
