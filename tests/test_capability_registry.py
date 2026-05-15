@@ -623,3 +623,20 @@ def test_update_registry_from_real_effect_admission_preserves_deferred_real_back
     assert records["real_backend_invocation"].status == "deferred"
     assert records["real_effect_execution"].status == "deferred"
     assert records["real_fan_pwm_control"].status == "blocked"
+
+
+def test_local_diagnostic_effect_registry_records_are_narrow_and_general_effects_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["local_diagnostic_effect"].status == "implemented"
+    assert records["local_diagnostic_effect"].authority_level == "local_diagnostic_effect_only"
+    assert "explicit optional low-risk local diagnostic file write" in records["local_diagnostic_effect"].implemented_surfaces
+    assert records["local_diagnostic_effect_receipt"].status == "implemented"
+    assert records["local_diagnostic_effect_receipt"].authority_level == "real_effect_receipt_only"
+    assert records["local_diagnostic_postcondition_check"].authority_level == "real_postcondition_check_only"
+    assert records["local_diagnostic_production_audit_receipt"].authority_level == "production_audit_only"
+    assert records["local_diagnostic_rollback_plan"].status == "implemented"
+    assert records["local_diagnostic_rollback_execution"].status == "deferred"
+    for capability_id in ["real_backend_implementation", "real_backend_invocation", "fulfillment_execution", "real_effect_execution"]:
+        assert records[capability_id].status == "deferred"
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"

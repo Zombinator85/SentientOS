@@ -47,6 +47,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "dry_run_execution_harness",
         "dry_run_audit_closure",
         "real_effect_admission",
+        "local_diagnostic_effect",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -98,6 +99,10 @@ AUTHORITY_LEVELS = frozenset(
         "dry_run_audit_only",
         "dry_run_closure_only",
         "admission_planning_only",
+        "local_diagnostic_effect_only",
+        "real_effect_receipt_only",
+        "real_postcondition_check_only",
+        "production_audit_only",
         "candidate_only",
         "plan_scaffold_only",
         "block_receipt_only",
@@ -337,6 +342,12 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("real_effect_capability_candidate", "real_effect_admission", "implemented", "candidate_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("metadata-only capability candidate records",), deferred_surfaces=("implementation start", "backend loading"), forbidden_implications=("candidate record implements backend",)),
         _record("real_effect_implementation_plan_scaffold", "real_effect_admission", "implemented", "plan_scaffold_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("implementation plan scaffolds only",), deferred_surfaces=("real backend implementation", "backend invocation", "effect receipt creation"), forbidden_implications=("plan scaffold starts implementation",)),
         _record("real_effect_capability_block_receipt", "real_effect_admission", "implemented", "block_receipt_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("real effect capability block and deferral receipts",), deferred_surfaces=("blocked host action", "host mutation"), forbidden_implications=("block receipt mutates host state",)),
+        _record("local_diagnostic_effect", "local_diagnostic_effect", "implemented", "local_diagnostic_effect_only", source_paths=("sentientos/local_diagnostic_effect.py", "scripts/run_local_diagnostic_effect.py"), proof_tests=("tests/test_local_diagnostic_effect.py", "tests/test_run_local_diagnostic_effect_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_local_diagnostic_effect.py tests/test_run_local_diagnostic_effect_script.py", "python scripts/run_local_diagnostic_effect.py --output-dir /tmp/sentientos-local-effect --summary"), implemented_surfaces=("explicit optional low-risk local diagnostic file write", "single caller-supplied output directory artifact"), deferred_surfaces=("general host effects", "hardware control", "service control", "cleanup outside exact artifact rollback"), forbidden_implications=("local diagnostic effect is general host backend", "diagnostic artifact write grants hardware control"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("local_diagnostic_effect_receipt", "local_diagnostic_effect", "implemented", "real_effect_receipt_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("real effect receipt for diagnostic artifact write only",), deferred_surfaces=("general real effect receipt creation", "privileged host action receipts"), forbidden_implications=("diagnostic receipt covers fan/PWM, thermal, power, service, cleanup, provider, network, prompt, subprocess, shell, or control-plane execution"), requires_audit_receipt=True),
+        _record("local_diagnostic_postcondition_check", "local_diagnostic_effect", "implemented", "real_postcondition_check_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("readback postcondition check for the exact diagnostic artifact only",), deferred_surfaces=("general host postcondition checks",), forbidden_implications=("postcondition readback scans broad filesystem")),
+        _record("local_diagnostic_production_audit_receipt", "local_diagnostic_effect", "implemented", "production_audit_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("production audit receipt for local diagnostic artifact effect only",), deferred_surfaces=("production audits for general host effects",), forbidden_implications=("diagnostic audit authorizes broader effects")),
+        _record("local_diagnostic_rollback_plan", "local_diagnostic_effect", "implemented", "plan_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("rollback plan and non-executed rollback receipt scaffold",), deferred_surfaces=("automatic exact-artifact rollback execution"), forbidden_implications=("rollback plan deletes files"), requires_rollback_receipt=True),
+        _record("local_diagnostic_rollback_execution", "local_diagnostic_effect", "deferred", "none", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), deferred_surfaces=("exact-artifact rollback deletion requires explicit future implementation"), forbidden_implications=("rollback scaffold performs deletion")),
         _record("real_backend_implementation", "real_effect_admission", "deferred", "none", deferred_surfaces=("real backend implementation", "OS backend implementation"), forbidden_implications=("real effect admission implements backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_receipt_creation", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real effect receipt creation",), forbidden_implications=("dry-run audit closure creates real effect receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_postcondition_check", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real host postcondition checking",), forbidden_implications=("dry-run audit closure checks real host postconditions",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -653,6 +664,35 @@ def update_registry_from_dry_run_audit_closure(registry: CapabilityRegistry, clo
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-dry-run-audit-closure-wing.v1")
 
+
+def update_registry_from_local_diagnostic_effect_receipt(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect the explicit Tier-1 local diagnostic effect without broadening host authority."""
+
+    has_receipt = bool(getattr(receipt, "receipt_id", "")) or bool(isinstance(receipt, Mapping) and receipt.get("receipt_id"))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in {"local_diagnostic_effect", "local_diagnostic_effect_receipt", "local_diagnostic_postcondition_check", "local_diagnostic_production_audit_receipt", "local_diagnostic_rollback_plan"}:
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_receipt else record.status,
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/local_diagnostic_effect.py", "scripts/run_local_diagnostic_effect.py")))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_local_diagnostic_effect.py", "tests/test_run_local_diagnostic_effect_script.py")))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("Tier-1 explicit local diagnostic artifact effect",)))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("local diagnostic effect grants general host control",)))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id == "local_diagnostic_rollback_execution":
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_backend_implementation", "real_backend_invocation", "fulfillment_execution", "real_effect_execution", "real_fulfillment_execution"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-local-diagnostic-effect-pilot-wing.v1")
 
 def update_registry_from_real_effect_admission(registry: CapabilityRegistry, admission_wing: Any) -> CapabilityRegistry:
     """Reflect real-effect admission planning without claiming implementation."""

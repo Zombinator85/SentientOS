@@ -282,3 +282,17 @@ def test_bundle_includes_real_effect_admission_posture_and_remains_non_mutating(
     assert admission["host_mutation_performed"] is False
     assert "fan_pwm_write" in admission["blocked_actions"]
     assert "thermal_actuation" in admission["blocked_actions"]
+
+
+def test_reviewer_proof_bundle_lists_local_diagnostic_effect_but_does_not_run_it() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    capability = json.loads(artifacts["local_diagnostic_effect_capability"])
+    assert capability["explicit_command_required"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_effect_performed"] is False
+    assert capability["proof_bundle_host_mutation_performed"] is False
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    local_commands = [record for record in commands if "run_local_diagnostic_effect.py" in " ".join(record["command"])]
+    assert local_commands
+    assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in local_commands)

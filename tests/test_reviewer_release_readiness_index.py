@@ -545,3 +545,18 @@ def test_host_real_effect_capability_admission_doc_preserves_planning_only_bound
     assert "Real postcondition checks remain deferred" in doc
     assert "Real rollback remains deferred" in doc
     assert "Production audit remains deferred" in doc
+
+
+def test_local_diagnostic_effect_pilot_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = Path("docs/architecture/host_local_diagnostic_effect_pilot_wing.md").read_text(encoding="utf-8")
+    public = Path("docs/architecture/public_technical_overview.md").read_text(encoding="utf-8")
+    index = Path("docs/architecture/reviewer_release_readiness_index.md").read_text(encoding="utf-8")
+    assert "host_local_diagnostic_effect_pilot_wing.md" in public
+    assert "host_local_diagnostic_effect_pilot_wing.md" in index
+    assert "first intentionally real effect pilot" in doc
+    assert "one deterministic metadata/diagnostic artifact" in doc
+    assert "does not run this effect by default" in doc
+    assert "fan/PWM control" in doc and "thermal actuation" in doc and "service restart" in doc
+    assert "network egress" in doc and "provider invocation" in doc and "prompt assembly" in doc
+    assert "subprocess execution" in doc and "shell execution" in doc
+    assert "python scripts/run_local_diagnostic_effect.py --output-dir /tmp/sentientos-local-diagnostic-effect --summary" in doc

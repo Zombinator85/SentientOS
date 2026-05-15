@@ -228,3 +228,15 @@ def test_reviewer_proof_bundle_cli_writes_real_effect_admission_json(tmp_path) -
     assert payload["backend_loaded"] is False
     assert payload["backend_invoked"] is False
     assert payload["host_mutation_performed"] is False
+
+
+def test_reviewer_proof_bundle_cli_writes_local_diagnostic_capability_without_running_effect(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    payload = json.loads((output_dir / "local_diagnostic_effect_capability.json").read_text(encoding="utf-8"))
+    assert payload["explicit_command_required"] is True
+    assert payload["run_by_reviewer_proof_bundle_default"] is False
+    assert payload["proof_bundle_effect_performed"] is False
+    commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
+    assert any("run_local_diagnostic_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
