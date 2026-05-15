@@ -86,3 +86,7 @@ Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
 The bundle also writes `fulfillment_authorization.json` for the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md). The artifact states that consuming authorization is not fulfillment, scope match is not execution, and no effect or host mutation is performed.
 
 Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+
+The bundle also includes `executor_contract.json` for the [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md): executor contract is not an executor, backend declaration does not load/invoke backend, dry-run plan is not dry-run execution, admission packet is not control-plane admission, and real actuation remains deferred.
+
+Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.

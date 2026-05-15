@@ -483,3 +483,40 @@ def test_registry_update_from_fulfillment_authorization_consumption_keeps_real_a
     assert records["real_service_restart"].status == "blocked"
     assert records["real_file_cleanup"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_fulfillment_executor_contract_capabilities_are_contract_only_and_real_execution_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["fulfillment_executor_contract"].status == "implemented"
+    assert records["fulfillment_executor_contract"].authority_level == "contract_only"
+    assert records["executor_backend_declaration"].authority_level == "declaration_only"
+    assert records["executor_precondition_manifest"].authority_level == "precondition_only"
+    assert records["executor_dry_run_plan"].authority_level == "plan_only"
+    assert records["executor_admission_packet"].authority_level == "packet_only"
+    assert records["executor_contract_readiness_receipt"].authority_level == "readiness_receipt_only"
+    for capability_id in ["executor_implementation", "backend_invocation", "control_plane_admission_for_fulfillment", "fulfillment_execution", "real_effect_execution"]:
+        assert records[capability_id].status == "deferred"
+        assert records[capability_id].host_actuation_performed is False
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+        assert records[capability_id].host_actuation_performed is False
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_update_from_executor_contract_readiness_preserves_deferred_execution() -> None:
+    from sentientos.capability_registry import update_registry_from_executor_contract_readiness
+    from sentientos.fulfillment_executor_contract import build_fulfillment_executor_contract_wing
+    from tests.test_fulfillment_authorization import _wing, FIXED
+
+    receipt = _wing().consumption_receipt
+    wing = build_fulfillment_executor_contract_wing(receipt, created_at=FIXED)
+    registry = update_registry_from_executor_contract_readiness(build_default_capability_registry(), wing)
+    records = registry.by_id()
+    assert records["fulfillment_executor_contract"].authority_level == "contract_only"
+    assert records["executor_contract_readiness_receipt"].authority_level == "readiness_receipt_only"
+    assert records["executor_implementation"].status == "deferred"
+    assert records["backend_invocation"].status == "deferred"
+    assert records["control_plane_admission_for_fulfillment"].status == "deferred"
+    assert records["fulfillment_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert validate_capability_registry(registry).ok

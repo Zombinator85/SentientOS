@@ -206,3 +206,30 @@ def test_reviewer_bundle_includes_fulfillment_authorization_consumption_posture_
     assert wing.consumption_receipt.host_mutation_performed is False
     validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
     assert validation.ok, validation.findings
+
+
+def test_bundle_includes_executor_contract_posture_without_execution() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    manifest = payload["manifest"]
+    assert "executor_contract_posture" in artifacts
+    assert any(record.artifact_kind == "executor_contract_posture" and record.relative_path == "executor_contract.json" for record in manifest.artifact_records)
+    assert "Executor contract records define prerequisites" in artifacts["executor_contract_posture"]
+    wing = payload["executor_contract"]
+    assert wing.contract.executor_implemented is False
+    assert wing.backend_declaration.backend_loaded is False
+    assert wing.backend_declaration.backend_invoked is False
+    assert wing.dry_run_plan.dry_run_executed is False
+    assert wing.admission_packet.control_plane_admission_granted is False
+    assert wing.readiness_receipt.fulfillment_granted is False
+    assert wing.readiness_receipt.effect_performed is False
+    assert wing.readiness_receipt.host_mutation_performed is False
+    validation = validate_reviewer_proof_bundle_manifest(manifest)
+    assert validation.ok, validation.findings
+
+
+def test_deferred_actions_include_executor_contract_non_execution_ladder() -> None:
+    manifest = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)["manifest"]
+    for label in ["executor_implementation", "backend_invocation", "control_plane_admission_for_fulfillment", "fulfillment_execution"]:
+        assert label in manifest.deferred_capability_labels
+        assert label in DEFERRED_ACTION_LABELS
