@@ -42,6 +42,14 @@ from sentientos.fulfillment_executor_contract import (
     summarize_executor_precondition_manifest,
     summarize_fulfillment_executor_contract,
 )
+from sentientos.dry_run_execution_harness import (
+    build_dry_run_execution_harness_wing,
+    summarize_dry_run_execution_block_receipt,
+    summarize_dry_run_execution_receipt,
+    summarize_dry_run_execution_request,
+    summarize_dry_run_execution_result,
+    summarize_simulated_backend_registry,
+)
 from sentientos.local_authorization_grant import (
     build_local_authorization_grant_wing,
     build_operator_approval_evidence,
@@ -84,6 +92,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "local_authorization_posture",
         "fulfillment_authorization_posture",
         "executor_contract_posture",
+        "dry_run_execution_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -109,6 +118,7 @@ BUNDLE_FILE_NAMES = {
     "local_authorization_posture": "local_authorization.json",
     "fulfillment_authorization_posture": "fulfillment_authorization.json",
     "executor_contract_posture": "executor_contract.json",
+    "dry_run_execution_posture": "dry_run_execution.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -125,6 +135,12 @@ DEFERRED_ACTION_LABELS = (
     "backend_invocation",
     "control_plane_admission_for_fulfillment",
     "fulfillment_execution",
+    "dry_run_execution_harness",
+    "simulated_backend_registry",
+    "dry_run_execution_request",
+    "dry_run_execution_result",
+    "dry_run_execution_receipt",
+    "real_backend_invocation",
     "real_effect_execution",
     "real_rollback_execution",
     "real_fan_pwm_control",
@@ -331,8 +347,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "6. `local_authorization.json` — bounded local authorization-record posture; it is not fulfillment.",
             "7. `fulfillment_authorization.json` — metadata-only authorization consumption posture; consuming authorization is not fulfillment.",
             "8. `executor_contract.json` — metadata-only executor contract posture; it is not an executor.",
-            "9. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "10. `capability_registry_summary.json` — metadata-only capability posture.",
+            "9. `dry_run_execution.json` — simulation-only dry-run harness posture; it is not fulfillment or an effect receipt.",
+            "10. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "11. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -347,6 +364,7 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "- Live-grant readiness is not a live grant; the approval packet is not approval; preflight does not issue a grant.",
             "- Local authorization grant records are authority metadata only; verification does not authorize fulfillment.",
             "- Executor contract records are readiness metadata only; they do not load backends, execute dry runs, grant control-plane admission, fulfill actions, or perform effects.",
+            "- Dry-run execution runs only inert simulated in-process backends; dry_run_executed=true is simulation only, not fulfillment, not an effect receipt, and not host mutation proof.",
             "- Fan/PWM writes, thermal writes, power mutation, service restart, cleanup, federation transport, and remote execution remain deferred or blocked.",
             "",
             f"Manifest ID: `{manifest_id}`",
@@ -429,6 +447,12 @@ def build_reviewer_proof_bundle_payload(
     if fulfillment_authorization.consumption_receipt is None:
         raise ValueError("reviewer proof scenario expected consumed authorization receipt")
     executor_contract = build_fulfillment_executor_contract_wing(fulfillment_authorization.consumption_receipt, created_at=created_at)
+    dry_run_execution = build_dry_run_execution_harness_wing(
+        executor_contract.readiness_receipt,
+        requested_dry_run_domain="future_cooling_dry_run",
+        requested_simulated_backend_class="cooling_backend_simulated",
+        created_at=created_at,
+    )
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
     contents: dict[str, str] = {
         "trace_json": serialize_host_embodiment_trace_json(trace),
@@ -532,6 +556,39 @@ def build_reviewer_proof_bundle_payload(
                 "readiness_receipt": executor_contract.readiness_receipt.to_dict(),
             },
         }),
+        "dry_run_execution_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "dry_run_execution_harness_only": True,
+            "simulation_only": True,
+            "proof_statement": "Dry-run execution runs only inert simulated in-process backend mappings against executor contract records; it is not real fulfillment, not an effect receipt, and not proof of host mutation.",
+            "registry_summary": summarize_simulated_backend_registry(dry_run_execution.registry),
+            "request_summary": summarize_dry_run_execution_request(dry_run_execution.request),
+            "result_summary": summarize_dry_run_execution_result(dry_run_execution.result_or_block_receipt) if dry_run_execution.receipt else None,
+            "block_receipt_summary": summarize_dry_run_execution_block_receipt(dry_run_execution.result_or_block_receipt) if dry_run_execution.receipt is None else None,
+            "receipt_summary": summarize_dry_run_execution_receipt(dry_run_execution.receipt) if dry_run_execution.receipt else None,
+            "dry_run_executed": bool(dry_run_execution.receipt and dry_run_execution.receipt.dry_run_executed),
+            "real_backend_invoked": False,
+            "real_fulfillment_performed": False,
+            "real_effect_performed": False,
+            "effect_performed": False,
+            "host_mutation_performed": False,
+            "fan_pwm_write_performed": False,
+            "thermal_actuation_performed": False,
+            "power_profile_mutation_performed": False,
+            "service_restart_performed": False,
+            "file_cleanup_performed": False,
+            "network_performed": False,
+            "provider_invocation_performed": False,
+            "prompt_assembly_performed": False,
+            "real_actuation_deferred": True,
+            "records": {
+                "registry": dry_run_execution.registry.to_dict(),
+                "request": dry_run_execution.request.to_dict(),
+                "result_or_block_receipt": dry_run_execution.result_or_block_receipt.to_dict(),
+                "receipt": dry_run_execution.receipt.to_dict() if dry_run_execution.receipt else None,
+            },
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
@@ -573,7 +630,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

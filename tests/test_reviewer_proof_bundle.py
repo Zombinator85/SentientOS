@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 
 import pytest
 
@@ -233,3 +234,17 @@ def test_deferred_actions_include_executor_contract_non_execution_ladder() -> No
     for label in ["executor_implementation", "backend_invocation", "control_plane_admission_for_fulfillment", "fulfillment_execution"]:
         assert label in manifest.deferred_capability_labels
         assert label in DEFERRED_ACTION_LABELS
+
+
+def test_default_reviewer_proof_bundle_includes_dry_run_execution_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    assert "dry_run_execution_posture" in payload["artifacts"]
+    dry_run = json.loads(payload["artifacts"]["dry_run_execution_posture"])
+    assert dry_run["dry_run_execution_harness_only"] is True
+    assert dry_run["simulation_only"] is True
+    assert dry_run["dry_run_executed"] is True
+    assert dry_run["real_backend_invoked"] is False
+    assert dry_run["real_fulfillment_performed"] is False
+    assert dry_run["real_effect_performed"] is False
+    assert dry_run["host_mutation_performed"] is False
+    assert "dry_run_execution_posture" in {artifact.artifact_kind for artifact in payload["manifest"].artifact_records}

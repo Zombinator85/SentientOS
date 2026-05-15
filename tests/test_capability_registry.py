@@ -520,3 +520,39 @@ def test_registry_update_from_executor_contract_readiness_preserves_deferred_exe
     assert records["fulfillment_execution"].status == "deferred"
     assert records["real_fan_pwm_control"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_dry_run_execution_harness_capabilities_are_simulation_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["dry_run_execution_harness"].status == "implemented"
+    assert records["dry_run_execution_harness"].authority_level == "simulated_only"
+    assert records["simulated_backend_registry"].authority_level == "simulated_only"
+    assert records["dry_run_execution_request"].authority_level == "request_only"
+    assert records["dry_run_execution_result"].authority_level == "simulated_only"
+    assert records["dry_run_execution_receipt"].authority_level == "dry_run_receipt_only"
+    assert records["real_backend_invocation"].status == "deferred"
+    assert records["fulfillment_execution"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+        assert records[capability_id].host_actuation_performed is False
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_update_from_dry_run_execution_receipt_preserves_real_action_deferral() -> None:
+    from sentientos.capability_registry import update_registry_from_dry_run_execution_receipt
+    from sentientos.dry_run_execution_harness import build_dry_run_execution_harness_wing
+    from sentientos.fulfillment_executor_contract import build_fulfillment_executor_contract_wing
+    from tests.test_fulfillment_authorization import _wing, FIXED
+
+    executor = build_fulfillment_executor_contract_wing(_wing().consumption_receipt, created_at=FIXED)
+    dry_run = build_dry_run_execution_harness_wing(executor.readiness_receipt, created_at=FIXED)
+    registry = update_registry_from_dry_run_execution_receipt(build_default_capability_registry(), dry_run.receipt)
+    records = registry.by_id()
+    assert records["dry_run_execution_receipt"].status == "implemented"
+    assert records["dry_run_execution_receipt"].authority_level == "dry_run_receipt_only"
+    assert records["real_backend_invocation"].status == "deferred"
+    assert records["fulfillment_execution"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert validate_capability_registry(registry).ok

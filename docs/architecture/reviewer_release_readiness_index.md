@@ -261,3 +261,6 @@ See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. Proof commands: 
 The [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) (`docs/architecture/host_fulfillment_authorization_consumption_wing.md`) adds metadata-only fulfillment authorization request, grant consumption verification, scope match assessment, consumption receipt, and denial receipt records. Consuming authorization is not fulfillment; scope match is not execution; consumption receipts do not execute; real actuation remains deferred.
 
 - [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md) (`docs/architecture/host_fulfillment_executor_contract_wing.md`): metadata-only executor contract/readiness; not an executor, not backend invocation, not dry-run execution, not control-plane admission, and not actuation.
+
+
+See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.
