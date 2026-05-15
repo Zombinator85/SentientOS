@@ -469,3 +469,27 @@ def test_reviewer_first_run_proof_bundle_doc_lists_executor_contract_artifact() 
     doc = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
     assert "executor_contract.json" in doc
     assert "executor contract is not an executor" in doc.lower()
+
+HOST_DRY_RUN_EXECUTION_HARNESS_WING = "docs/architecture/host_dry_run_execution_harness_wing.md"
+
+
+def test_navigation_links_to_host_dry_run_execution_harness_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    executor = _read(HOST_FULFILLMENT_EXECUTOR_CONTRACT_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, executor, bundle, controlled, trajectory]:
+        assert HOST_DRY_RUN_EXECUTION_HARNESS_WING in text
+
+
+def test_host_dry_run_execution_harness_doc_preserves_simulation_only_boundaries() -> None:
+    doc = _read(HOST_DRY_RUN_EXECUTION_HARNESS_WING)
+    assert "runs only inert simulated backends" in doc or "only inert, deterministic, in-process simulated backend" in doc
+    assert "Dry-run execution is not real fulfillment" in doc
+    assert "A dry-run result is not an effect receipt" in doc
+    assert "A dry-run receipt is not proof of host mutation" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "subprocess execution" in doc
+    assert "network egress" in doc

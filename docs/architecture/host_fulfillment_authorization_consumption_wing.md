@@ -44,3 +44,6 @@ The reviewer proof bundle includes `fulfillment_authorization.json`. The artifac
 Next wing: [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md). Executor contract is not an executor; backend declaration does not load/invoke backend; dry-run plan is not dry-run execution; admission packet is not control-plane admission; real actuation remains deferred.
 
 Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.
+
+
+See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.

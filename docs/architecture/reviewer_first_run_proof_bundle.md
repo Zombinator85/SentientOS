@@ -35,6 +35,11 @@ The bundle writes:
 - `capability_registry_summary.json` — metadata-only capability registry summary and records.
 - `deferred_actions.json` — deferred/blocked action inventory.
 - `safety_gates.json` — metadata-only host actuation safety gate posture; safety gates are not authorization.
+- `live_grant_readiness.json` — readiness/preflight-only live-grant posture; it is not a live grant.
+- `local_authorization.json` — local authorization-record posture; it is not fulfillment.
+- `fulfillment_authorization.json` — authorization consumption posture; consuming authorization is not fulfillment.
+- `executor_contract.json` — executor contract/readiness posture; executor contract is not an executor.
+- `dry_run_execution.json` — simulation-only dry-run harness posture; dry-run execution is not real fulfillment or an effect receipt.
 - `proof_commands.json` — proof command manifest; commands are listed but not run by default.
 - `README.md` — local reviewer guide for the bundle directory.
 - `bundle_manifest.json` — manifest, artifact digests, command records, and safety flags.
@@ -48,7 +53,12 @@ Reviewers should inspect these files in order:
 3. `bundle_manifest.json`
 4. `deferred_actions.json`
 5. `safety_gates.json`
-6. `proof_commands.json`
+6. `live_grant_readiness.json`
+7. `local_authorization.json`
+8. `fulfillment_authorization.json`
+9. `executor_contract.json`
+10. `dry_run_execution.json`
+11. `proof_commands.json`
 
 ## What the bundle proves
 
@@ -90,3 +100,10 @@ Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
 The bundle also includes `executor_contract.json` for the [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md): executor contract is not an executor, backend declaration does not load/invoke backend, dry-run plan is not dry-run execution, admission packet is not control-plane admission, and real actuation remains deferred.
 
 Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.
+
+The bundle also includes `dry_run_execution.json` for the [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md): the harness uses only inert simulated backends; dry-run execution is not real fulfillment; a dry-run result is not an effect receipt; a dry-run receipt is not proof of host mutation; real actuation remains deferred.
+
+Proof path: `docs/architecture/host_dry_run_execution_harness_wing.md`.
+
+
+See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.

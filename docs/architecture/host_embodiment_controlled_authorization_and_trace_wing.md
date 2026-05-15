@@ -70,3 +70,6 @@ Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
 Downstream proof links include [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) and [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md); both preserve the boundary that records and contracts are not fulfillment or execution.
 
 Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.
+
+
+See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.

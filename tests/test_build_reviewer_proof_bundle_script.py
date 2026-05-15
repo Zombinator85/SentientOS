@@ -176,3 +176,21 @@ def test_reviewer_proof_bundle_cli_writes_executor_contract_json(tmp_path) -> No
     assert payload["readiness_receipt_summary"]["fulfillment_granted"] is False
     assert payload["readiness_receipt_summary"]["effect_performed"] is False
     assert payload["readiness_receipt_summary"]["host_mutation_performed"] is False
+
+
+def test_reviewer_proof_bundle_cli_writes_dry_run_execution_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "dry_run_execution.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["dry_run_execution_harness_only"] is True
+    assert payload["simulation_only"] is True
+    assert payload["dry_run_executed"] is True
+    assert payload["real_backend_invoked"] is False
+    assert payload["real_fulfillment_performed"] is False
+    assert payload["real_effect_performed"] is False
+    assert payload["host_mutation_performed"] is False
+    assert payload["fan_pwm_write_performed"] is False
+    assert payload["thermal_actuation_performed"] is False

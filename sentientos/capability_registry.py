@@ -44,6 +44,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "local_authorization_grant",
         "fulfillment_authorization",
         "fulfillment_executor_contract",
+        "dry_run_execution_harness",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -87,6 +88,8 @@ AUTHORITY_LEVELS = frozenset(
         "precondition_only",
         "plan_only",
         "readiness_receipt_only",
+        "simulated_only",
+        "dry_run_receipt_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -309,6 +312,12 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("executor_implementation", "fulfillment_executor_contract", "deferred", "none", source_paths=("sentientos/fulfillment_executor_contract.py",), deferred_surfaces=("future executor implementation", "host mutation", "real fulfillment"), forbidden_implications=("executor contract wing implements executor"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("backend_invocation", "fulfillment_executor_contract", "deferred", "none", deferred_surfaces=("backend loading", "backend invocation"), forbidden_implications=("backend declaration invokes backend"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("control_plane_admission_for_fulfillment", "fulfillment_executor_contract", "deferred", "none", deferred_surfaces=("future control-plane admission for fulfillment",), forbidden_implications=("executor admission packet grants admission"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("dry_run_execution_harness", "dry_run_execution_harness", "implemented", "simulated_only", source_paths=("sentientos/dry_run_execution_harness.py",), proof_tests=("tests/test_dry_run_execution_harness.py",), proof_commands=("python -m scripts.run_tests -q tests/test_dry_run_execution_harness.py",), implemented_surfaces=("deterministic in-process simulated dry-run harness",), deferred_surfaces=("real backend invocation", "real fulfillment execution", "real effect execution", "host mutation"), forbidden_implications=("dry-run harness is real fulfillment", "dry-run harness performs host mutation"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("simulated_backend_registry", "dry_run_execution_harness", "implemented", "simulated_only", source_paths=("sentientos/dry_run_execution_harness.py",), proof_tests=("tests/test_dry_run_execution_harness.py",), implemented_surfaces=("inert simulated backend registry metadata",), deferred_surfaces=("real backend loading", "real backend invocation"), forbidden_implications=("simulated backend registry loads real backends",)),
+        _record("dry_run_execution_request", "dry_run_execution_harness", "implemented", "request_only", source_paths=("sentientos/dry_run_execution_harness.py",), proof_tests=("tests/test_dry_run_execution_harness.py",), implemented_surfaces=("dry-run request records",), deferred_surfaces=("real backend execution",), forbidden_implications=("dry-run request executes a backend",)),
+        _record("dry_run_execution_result", "dry_run_execution_harness", "implemented", "simulated_only", source_paths=("sentientos/dry_run_execution_harness.py",), proof_tests=("tests/test_dry_run_execution_harness.py",), implemented_surfaces=("simulation-only dry-run results",), deferred_surfaces=("effect receipt", "host mutation", "real fulfillment"), forbidden_implications=("dry-run result is effect receipt",)),
+        _record("dry_run_execution_receipt", "dry_run_execution_harness", "implemented", "dry_run_receipt_only", source_paths=("sentientos/dry_run_execution_harness.py",), proof_tests=("tests/test_dry_run_execution_harness.py",), implemented_surfaces=("dry-run-only execution receipts",), deferred_surfaces=("proof of host mutation", "real effect receipt"), forbidden_implications=("dry-run receipt proves host mutation",)),
+        _record("real_backend_invocation", "dry_run_execution_harness", "deferred", "none", deferred_surfaces=("real backend invocation", "OS backend invocation", "control-plane execution"), forbidden_implications=("dry-run harness invokes real backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("fulfillment_execution", "fulfillment_authorization", "deferred", "none", deferred_surfaces=("future fulfillment executor", "host mutation", "effect receipt from real action"), forbidden_implications=("fulfillment authorization wing implements execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -559,6 +568,36 @@ def replace_capability_record(registry: CapabilityRegistry, capability_id: str, 
     records = tuple(replace(record, **changes) if record.capability_id == capability_id else record for record in registry.records)
     return replace(registry, records=records)
 
+
+
+def update_registry_from_dry_run_execution_receipt(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect a simulation-only dry-run receipt without claiming real effects."""
+
+    records: list[CapabilityRecord] = []
+    has_receipt = bool(getattr(receipt, "receipt_id", "")) or bool(isinstance(receipt, Mapping) and receipt.get("receipt_id"))
+    for record in registry.records:
+        if record.capability_id in {"dry_run_execution_harness", "dry_run_execution_result", "dry_run_execution_receipt"}:
+            records.append(
+                replace(
+                    record,
+                    status="implemented" if has_receipt else record.status,
+                    authority_level="dry_run_receipt_only" if record.capability_id == "dry_run_execution_receipt" else "simulated_only",
+                    source_paths=tuple(sorted(set(record.source_paths + ("sentientos/dry_run_execution_harness.py",)))),
+                    proof_tests=tuple(sorted(set(record.proof_tests + ("tests/test_dry_run_execution_harness.py",)))),
+                    implemented_surfaces=tuple(sorted(set(record.implemented_surfaces + ("simulation-only dry-run receipt posture",)))),
+                    deferred_surfaces=tuple(sorted(set(record.deferred_surfaces + ("real backend invocation", "real fulfillment execution", "real effect execution", "host mutation")))),
+                    forbidden_implications=tuple(sorted(set(record.forbidden_implications + ("dry-run receipt is real fulfillment", "dry-run receipt is proof of host mutation")))),
+                    host_actuation_performed=False,
+                    metadata_only=True,
+                )
+            )
+        elif record.capability_id in {"real_backend_invocation", "fulfillment_execution", "real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False))
+        elif record.capability_id in {"real_service_restart", "real_fan_pwm_control", "real_power_profile_mutation", "real_thermal_actuation", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-dry-run-execution-harness-wing.v1")
 
 
 def update_registry_from_actuation_fulfillment_plan(registry: CapabilityRegistry, plan: Any) -> CapabilityRegistry:
