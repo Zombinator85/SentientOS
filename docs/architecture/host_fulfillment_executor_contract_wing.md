@@ -42,3 +42,7 @@ The reviewer proof bundle includes `executor_contract.json`. The artifact is rev
 
 
 See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.
+
+See also: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md), which follows the dry-run execution harness and remains metadata-only; it does not create real effect receipts, real postcondition checks, real rollback, production audit receipts, or actuation.
+
+Proof path: docs/architecture/host_dry_run_audit_closure_wing.md

@@ -556,3 +556,40 @@ def test_registry_update_from_dry_run_execution_receipt_preserves_real_action_de
     assert records["real_effect_execution"].status == "deferred"
     assert records["real_fan_pwm_control"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_dry_run_audit_closure_capabilities_are_dry_run_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["dry_run_effect_verification"].status == "implemented"
+    assert records["dry_run_effect_verification"].authority_level == "dry_run_verification_only"
+    assert records["dry_run_postcondition_verification"].authority_level == "dry_run_postcondition_only"
+    assert records["dry_run_rollback_rehearsal"].authority_level == "dry_run_rollback_only"
+    assert records["dry_run_audit_closure_receipt"].authority_level == "dry_run_audit_only"
+    assert records["dry_run_closure_bundle"].authority_level == "dry_run_closure_only"
+    for capability_id in ["real_effect_receipt_creation", "real_postcondition_check", "real_rollback_execution", "production_audit_receipt_for_host_effect", "fulfillment_execution", "real_effect_execution"]:
+        assert records[capability_id].status == "deferred"
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_update_from_dry_run_audit_closure_preserves_real_action_deferral() -> None:
+    from sentientos.capability_registry import update_registry_from_dry_run_audit_closure
+    from sentientos.dry_run_audit_closure import build_dry_run_audit_closure_wing
+    from sentientos.dry_run_execution_harness import build_dry_run_execution_harness_wing
+    from sentientos.fulfillment_executor_contract import build_fulfillment_executor_contract_wing
+    from tests.test_fulfillment_authorization import _wing, FIXED
+
+    executor = build_fulfillment_executor_contract_wing(_wing().consumption_receipt, created_at=FIXED)
+    dry_run = build_dry_run_execution_harness_wing(executor.readiness_receipt, created_at=FIXED)
+    closure = build_dry_run_audit_closure_wing(dry_run.receipt, created_at=FIXED)
+    registry = update_registry_from_dry_run_audit_closure(build_default_capability_registry(), closure)
+    records = registry.by_id()
+    assert records["dry_run_audit_closure_receipt"].status == "implemented"
+    assert records["dry_run_closure_bundle"].authority_level == "dry_run_closure_only"
+    assert records["real_effect_receipt_creation"].status == "deferred"
+    assert records["real_postcondition_check"].status == "deferred"
+    assert records["real_rollback_execution"].status == "deferred"
+    assert records["production_audit_receipt_for_host_effect"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert validate_capability_registry(registry).ok

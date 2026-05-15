@@ -43,3 +43,7 @@ The reviewer proof bundle includes `dry_run_execution.json`. The artifact is rev
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_dry_run_execution_harness.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+Next wing: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md). It verifies dry-run evidence only; dry-run effect verification is not a real effect receipt, dry-run postcondition verification is not a real host postcondition check, dry-run rollback rehearsal is not real rollback, and dry-run audit closure is not a production audit receipt.
+
+Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
