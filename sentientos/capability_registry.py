@@ -46,6 +46,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "fulfillment_executor_contract",
         "dry_run_execution_harness",
         "dry_run_audit_closure",
+        "real_effect_admission",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -96,6 +97,10 @@ AUTHORITY_LEVELS = frozenset(
         "dry_run_rollback_only",
         "dry_run_audit_only",
         "dry_run_closure_only",
+        "admission_planning_only",
+        "candidate_only",
+        "plan_scaffold_only",
+        "block_receipt_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -328,10 +333,15 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("dry_run_rollback_rehearsal", "dry_run_audit_closure", "implemented", "dry_run_rollback_only", source_paths=("sentientos/dry_run_audit_closure.py",), proof_tests=("tests/test_dry_run_audit_closure.py",), implemented_surfaces=("metadata-only rollback rehearsal records",), deferred_surfaces=("real rollback execution",), forbidden_implications=("dry-run rollback rehearsal executes rollback",)),
         _record("dry_run_audit_closure_receipt", "dry_run_audit_closure", "implemented", "dry_run_audit_only", source_paths=("sentientos/dry_run_audit_closure.py",), proof_tests=("tests/test_dry_run_audit_closure.py",), implemented_surfaces=("metadata-only dry-run audit closure receipts",), deferred_surfaces=("production audit receipt for host effects",), forbidden_implications=("dry-run audit closure is a production audit receipt",)),
         _record("dry_run_closure_bundle", "dry_run_audit_closure", "implemented", "dry_run_closure_only", source_paths=("sentientos/dry_run_audit_closure.py",), proof_tests=("tests/test_dry_run_audit_closure.py",), implemented_surfaces=("metadata-only dry-run closure bundles",), deferred_surfaces=("real fulfillment", "real effect receipt", "real postcondition check", "real rollback"), forbidden_implications=("dry-run closure bundle fulfills host actions",)),
+        _record("real_effect_capability_admission", "real_effect_admission", "implemented", "admission_planning_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("metadata-only real effect capability admission decisions",), deferred_surfaces=("real backend implementation", "real fulfillment execution", "real effect execution", "host mutation"), forbidden_implications=("real effect admission is implementation", "admission authorizes execution")),
+        _record("real_effect_capability_candidate", "real_effect_admission", "implemented", "candidate_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("metadata-only capability candidate records",), deferred_surfaces=("implementation start", "backend loading"), forbidden_implications=("candidate record implements backend",)),
+        _record("real_effect_implementation_plan_scaffold", "real_effect_admission", "implemented", "plan_scaffold_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("implementation plan scaffolds only",), deferred_surfaces=("real backend implementation", "backend invocation", "effect receipt creation"), forbidden_implications=("plan scaffold starts implementation",)),
+        _record("real_effect_capability_block_receipt", "real_effect_admission", "implemented", "block_receipt_only", source_paths=("sentientos/real_effect_admission.py",), proof_tests=("tests/test_real_effect_admission.py",), implemented_surfaces=("real effect capability block and deferral receipts",), deferred_surfaces=("blocked host action", "host mutation"), forbidden_implications=("block receipt mutates host state",)),
+        _record("real_backend_implementation", "real_effect_admission", "deferred", "none", deferred_surfaces=("real backend implementation", "OS backend implementation"), forbidden_implications=("real effect admission implements backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_receipt_creation", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real effect receipt creation",), forbidden_implications=("dry-run audit closure creates real effect receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_postcondition_check", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real host postcondition checking",), forbidden_implications=("dry-run audit closure checks real host postconditions",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("production_audit_receipt_for_host_effect", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("production audit receipts for real host effects",), forbidden_implications=("dry-run audit closure emits production audit receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
-        _record("real_backend_invocation", "dry_run_execution_harness", "deferred", "none", deferred_surfaces=("real backend invocation", "OS backend invocation", "control-plane execution"), forbidden_implications=("dry-run harness invokes real backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("real_backend_invocation", "real_effect_admission", "deferred", "none", deferred_surfaces=("real backend invocation", "OS backend invocation", "control-plane execution"), forbidden_implications=("real effect admission invokes real backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("fulfillment_execution", "fulfillment_authorization", "deferred", "none", deferred_surfaces=("future fulfillment executor", "host mutation", "effect receipt from real action"), forbidden_implications=("fulfillment authorization wing implements execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -348,9 +358,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/host_fulfillment_authorization_consumption_wing.md", "docs/architecture/host_fulfillment_executor_contract_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/host_fulfillment_authorization_consumption_wing.md", "docs/architecture/host_fulfillment_executor_contract_wing.md", "docs/architecture/host_real_effect_capability_admission_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-dry-run-audit-closure-wing", schema_version="host-dry-run-audit-closure-wing.v1", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-real-effect-capability-admission-wing", schema_version="host-real-effect-capability-admission-wing.v1", records=records)
 
 
 
@@ -642,6 +652,33 @@ def update_registry_from_dry_run_audit_closure(registry: CapabilityRegistry, clo
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-dry-run-audit-closure-wing.v1")
+
+
+def update_registry_from_real_effect_admission(registry: CapabilityRegistry, admission_wing: Any) -> CapabilityRegistry:
+    """Reflect real-effect admission planning without claiming implementation."""
+
+    has_candidate = bool(getattr(getattr(admission_wing, "candidate", None), "candidate_id", "")) or bool(getattr(admission_wing, "candidate_id", ""))
+    has_decision = bool(getattr(getattr(admission_wing, "decision", None), "decision_id", "")) or bool(getattr(admission_wing, "decision_id", ""))
+    plan_or_block = getattr(admission_wing, "plan_or_block_receipt", None)
+    has_plan = bool(getattr(plan_or_block, "plan_id", "")) or bool(getattr(admission_wing, "plan_id", ""))
+    has_block = bool(getattr(plan_or_block, "receipt_id", "")) or bool(getattr(admission_wing, "block_receipt_id", ""))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "real_effect_capability_admission":
+            records.append(replace(record, status="implemented" if has_decision else record.status, authority_level="admission_planning_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "real_effect_capability_candidate":
+            records.append(replace(record, status="implemented" if has_candidate else record.status, authority_level="candidate_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "real_effect_implementation_plan_scaffold":
+            records.append(replace(record, status="implemented" if has_plan else record.status, authority_level="plan_scaffold_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "real_effect_capability_block_receipt":
+            records.append(replace(record, status="implemented" if has_block else record.status, authority_level="block_receipt_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_backend_implementation", "real_backend_invocation", "fulfillment_execution", "real_effect_execution", "real_effect_receipt_creation", "real_postcondition_check", "real_rollback_execution", "production_audit_receipt_for_host_effect", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-real-effect-capability-admission-wing.v1")
 
 def update_registry_from_actuation_fulfillment_plan(registry: CapabilityRegistry, plan: Any) -> CapabilityRegistry:
     """Reflect a Phase 5 rehearsal plan without claiming real fulfillment."""

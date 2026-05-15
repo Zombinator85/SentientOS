@@ -26,7 +26,7 @@ Any record claiming real fulfillment, real effect, host mutation, fan/PWM write,
 
 ## Authority ladder
 
-observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → local authorization grant → fulfillment authorization consumption → executor contract → dry-run execution harness → dry-run verification/audit closure → fulfill → effect receipt → postcondition check → audit → rollback.
+observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → local authorization grant → fulfillment authorization consumption → executor contract → dry-run execution harness → dry-run verification/audit closure → real effect capability admission → implement real backend → fulfill → effect receipt → postcondition check → audit → rollback.
 
 This wing covers **dry-run verification and audit closure only**.
 
@@ -41,3 +41,8 @@ The reviewer proof bundle includes `dry_run_audit_closure.json`. The artifact is
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_dry_run_audit_closure.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+
+## Real effect capability admission link
+
+See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.

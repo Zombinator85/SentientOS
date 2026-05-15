@@ -264,3 +264,21 @@ def test_default_reviewer_proof_bundle_includes_dry_run_audit_closure_artifact()
     assert "dry_run_audit_closure_posture" in {artifact.artifact_kind for artifact in payload["manifest"].artifact_records}
     validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
     assert validation.ok, validation.findings
+
+
+def test_bundle_includes_real_effect_admission_posture_and_remains_non_mutating() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "real_effect_admission_posture" in payload["artifacts"]
+    admission = json.loads(payload["artifacts"]["real_effect_admission_posture"])
+    assert admission["real_effect_admission_only"] is True
+    assert admission["authorizes_implementation"] is False
+    assert admission["authorizes_execution"] is False
+    assert admission["implementation_not_started"] is True
+    assert admission["backend_loaded"] is False
+    assert admission["backend_invoked"] is False
+    assert admission["real_backend_implemented"] is False
+    assert admission["real_fulfillment_performed"] is False
+    assert admission["real_effect_performed"] is False
+    assert admission["host_mutation_performed"] is False
+    assert "fan_pwm_write" in admission["blocked_actions"]
+    assert "thermal_actuation" in admission["blocked_actions"]

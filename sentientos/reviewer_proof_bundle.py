@@ -59,6 +59,14 @@ from sentientos.dry_run_audit_closure import (
     summarize_dry_run_postcondition_verification,
     summarize_dry_run_rollback_rehearsal,
 )
+from sentientos.real_effect_admission import (
+    build_real_effect_admission_wing,
+    summarize_real_effect_admission_bundle,
+    summarize_real_effect_capability_admission_decision,
+    summarize_real_effect_capability_block_receipt,
+    summarize_real_effect_capability_candidate,
+    summarize_real_effect_implementation_plan_scaffold,
+)
 
 from sentientos.local_authorization_grant import (
     build_local_authorization_grant_wing,
@@ -104,6 +112,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "executor_contract_posture",
         "dry_run_execution_posture",
         "dry_run_audit_closure_posture",
+        "real_effect_admission_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -131,6 +140,7 @@ BUNDLE_FILE_NAMES = {
     "executor_contract_posture": "executor_contract.json",
     "dry_run_execution_posture": "dry_run_execution.json",
     "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
+    "real_effect_admission_posture": "real_effect_admission.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -157,6 +167,11 @@ DEFERRED_ACTION_LABELS = (
     "dry_run_rollback_rehearsal",
     "dry_run_audit_closure_receipt",
     "dry_run_closure_bundle",
+    "real_effect_capability_admission",
+    "real_effect_capability_candidate",
+    "real_effect_implementation_plan_scaffold",
+    "real_effect_capability_block_receipt",
+    "real_backend_implementation",
     "real_backend_invocation",
     "real_effect_execution",
     "real_rollback_execution",
@@ -366,8 +381,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "8. `executor_contract.json` — metadata-only executor contract posture; it is not an executor.",
             "9. `dry_run_execution.json` — simulation-only dry-run harness posture; it is not fulfillment or an effect receipt.",
             "10. `dry_run_audit_closure.json` — dry-run verification/audit closure posture; it is not a real effect receipt, real postcondition check, real rollback, or production audit receipt.",
-            "11. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "12. `capability_registry_summary.json` — metadata-only capability posture.",
+            "11. `real_effect_admission.json` — metadata-only real-effect capability admission posture; admission is not implementation or execution.",
+            "12. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "13. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -473,6 +489,7 @@ def build_reviewer_proof_bundle_payload(
         created_at=created_at,
     )
     dry_run_audit_closure = build_dry_run_audit_closure_wing(dry_run_execution.receipt, created_at=created_at)
+    real_effect_admission = build_real_effect_admission_wing(dry_run_audit_closure.closure_bundle, created_at=created_at)
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
     contents: dict[str, str] = {
         "trace_json": serialize_host_embodiment_trace_json(trace),
@@ -643,6 +660,46 @@ def build_reviewer_proof_bundle_payload(
                 "closure_bundle": dry_run_audit_closure.closure_bundle.to_dict(),
             },
         }),
+
+        "real_effect_admission_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "real_effect_admission_only": True,
+            "proof_statement": "Dry-run audit closure does not automatically permit real effects; real-effect admission is implementation planning metadata only, not implementation, backend loading, execution, fulfillment, effect receipt creation, postcondition checking, rollback, production audit, or host mutation.",
+            "candidate_summary": summarize_real_effect_capability_candidate(real_effect_admission.candidate),
+            "decision_summary": summarize_real_effect_capability_admission_decision(real_effect_admission.decision),
+            "plan_scaffold_summary": summarize_real_effect_implementation_plan_scaffold(real_effect_admission.plan_or_block_receipt) if hasattr(real_effect_admission.plan_or_block_receipt, "plan_id") else None,
+            "block_receipt_summary": summarize_real_effect_capability_block_receipt(real_effect_admission.plan_or_block_receipt) if hasattr(real_effect_admission.plan_or_block_receipt, "receipt_id") else None,
+            "admission_bundle_summary": summarize_real_effect_admission_bundle(real_effect_admission.admission_bundle),
+            "authorizes_implementation": False,
+            "authorizes_execution": False,
+            "implementation_not_started": True,
+            "backend_loaded": False,
+            "backend_invoked": False,
+            "real_backend_implemented": False,
+            "real_fulfillment_performed": False,
+            "real_effect_performed": False,
+            "real_effect_receipt_created": False,
+            "real_postcondition_check_performed": False,
+            "real_rollback_performed": False,
+            "production_audit_receipt_created": False,
+            "host_mutation_performed": False,
+            "fan_pwm_write_performed": False,
+            "thermal_actuation_performed": False,
+            "power_profile_mutation_performed": False,
+            "service_restart_performed": False,
+            "file_cleanup_performed": False,
+            "network_performed": False,
+            "provider_invocation_performed": False,
+            "prompt_assembly_performed": False,
+            "blocked_actions": real_effect_admission.admission_bundle.blocked_actions,
+            "records": {
+                "candidate": real_effect_admission.candidate.to_dict(),
+                "decision": real_effect_admission.decision.to_dict(),
+                "plan_or_block_receipt": real_effect_admission.plan_or_block_receipt.to_dict(),
+                "admission_bundle": real_effect_admission.admission_bundle.to_dict(),
+            },
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
@@ -684,7 +741,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure, "real_effect_admission": real_effect_admission}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

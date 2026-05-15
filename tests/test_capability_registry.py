@@ -593,3 +593,33 @@ def test_registry_update_from_dry_run_audit_closure_preserves_real_action_deferr
     assert records["production_audit_receipt_for_host_effect"].status == "deferred"
     assert records["real_fan_pwm_control"].status == "blocked"
     assert validate_capability_registry(registry).ok
+
+
+def test_real_effect_admission_registry_records_are_planning_only_and_real_actions_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["real_effect_capability_admission"].status == "implemented"
+    assert records["real_effect_capability_admission"].authority_level == "admission_planning_only"
+    assert records["real_effect_capability_candidate"].authority_level == "candidate_only"
+    assert records["real_effect_implementation_plan_scaffold"].authority_level == "plan_scaffold_only"
+    assert records["real_effect_capability_block_receipt"].authority_level == "block_receipt_only"
+    for capability_id in ["real_backend_implementation", "real_backend_invocation", "fulfillment_execution", "real_effect_execution", "real_effect_receipt_creation", "real_postcondition_check", "real_rollback_execution", "production_audit_receipt_for_host_effect"]:
+        assert records[capability_id].status == "deferred"
+        assert records[capability_id].host_actuation_performed is False
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+        assert records[capability_id].host_actuation_performed is False
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_update_registry_from_real_effect_admission_preserves_deferred_real_backends() -> None:
+    from sentientos.capability_registry import update_registry_from_real_effect_admission
+    from sentientos.real_effect_admission import build_real_effect_admission_wing
+    from tests.test_real_effect_admission import _closure
+
+    wing = build_real_effect_admission_wing(_closure(), created_at="2025-07-30T00:00:00+00:00")
+    records = update_registry_from_real_effect_admission(build_default_capability_registry(), wing).by_id()
+    assert records["real_effect_capability_admission"].status == "implemented"
+    assert records["real_backend_implementation"].status == "deferred"
+    assert records["real_backend_invocation"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
