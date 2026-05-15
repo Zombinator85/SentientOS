@@ -53,3 +53,7 @@ The reviewer proof bundle now includes `live_grant_readiness.json`. That artifac
 Next: [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) records bounded local authorization metadata after readiness; it is still not fulfillment.
 
 Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
+
+Downstream link: after local authorization grants, the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) can record metadata-only future fulfillment authorization consumption without execution.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.

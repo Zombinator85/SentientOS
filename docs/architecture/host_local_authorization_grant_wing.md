@@ -44,3 +44,7 @@ The reviewer proof bundle includes `local_authorization.json`. That artifact is 
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_local_authorization_grant.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+Next organ: the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) records metadata-only future fulfillment authorization consumption. Consuming authorization is not fulfillment, and scope match is not execution.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.

@@ -25,6 +25,14 @@ from sentientos.live_grant_readiness import (
     summarize_live_grant_prerequisite_matrix,
     summarize_operator_policy_approval_packet,
 )
+from sentientos.fulfillment_authorization import (
+    build_fulfillment_authorization_wing,
+    summarize_fulfillment_authorization_consumption_receipt,
+    summarize_fulfillment_authorization_denial_receipt,
+    summarize_fulfillment_authorization_request,
+    summarize_fulfillment_scope_match_assessment,
+    summarize_grant_consumption_verification,
+)
 from sentientos.local_authorization_grant import (
     build_local_authorization_grant_wing,
     build_operator_approval_evidence,
@@ -65,6 +73,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "safety_gate_posture",
         "live_grant_readiness_posture",
         "local_authorization_posture",
+        "fulfillment_authorization_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -88,6 +97,7 @@ BUNDLE_FILE_NAMES = {
     "safety_gate_posture": "safety_gates.json",
     "live_grant_readiness_posture": "live_grant_readiness.json",
     "local_authorization_posture": "local_authorization.json",
+    "fulfillment_authorization_posture": "fulfillment_authorization.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -100,6 +110,7 @@ FORBIDDEN_MANIFEST_FLAGS = (
 )
 DEFERRED_ACTION_LABELS = (
     "live_authorization_grant",
+    "fulfillment_execution",
     "real_effect_execution",
     "real_rollback_execution",
     "real_fan_pwm_control",
@@ -304,8 +315,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "4. `safety_gates.json` — metadata-only host actuation safety gate posture.",
             "5. `live_grant_readiness.json` — readiness/preflight-only future live-grant posture; it is not a grant.",
             "6. `local_authorization.json` — bounded local authorization-record posture; it is not fulfillment.",
-            "7. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "8. `capability_registry_summary.json` — metadata-only capability posture.",
+            "7. `fulfillment_authorization.json` — metadata-only authorization consumption posture; consuming authorization is not fulfillment.",
+            "8. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "9. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -372,13 +384,30 @@ def build_reviewer_proof_bundle_payload(
         readiness_domain="future_cooling_live_grant_review",
         created_at=created_at,
     )
-    operator_evidence = build_operator_approval_evidence(created_at=created_at)
-    policy_evidence = build_policy_approval_evidence(created_at=created_at)
+    operator_evidence = build_operator_approval_evidence(
+        approval_time_bounds=("not_before:1970-01-01T00:00:00+00:00", "not_after:2999-01-01T00:00:00+00:00"),
+        approval_expiry_label="expires:2999-01-01T00:00:00+00:00",
+        created_at=created_at,
+    )
+    policy_evidence = build_policy_approval_evidence(
+        policy_time_bounds=("not_before:1970-01-01T00:00:00+00:00", "not_after:2999-01-01T00:00:00+00:00"),
+        policy_expiry_label="expires:2999-01-01T00:00:00+00:00",
+        created_at=created_at,
+    )
     local_authorization = build_local_authorization_grant_wing(
         live_grant_readiness.preflight_receipt,
         live_grant_readiness.prerequisite_matrix,
         operator_evidence,
         policy_evidence,
+        created_at=created_at,
+    )
+    fulfillment_authorization = build_fulfillment_authorization_wing(
+        local_authorization.grant,
+        local_authorization.verification,
+        requested_fulfillment_domain="future_cooling_fulfillment_authorization",
+        requested_backend_class="future_metadata_only_cooling_fulfillment_executor",
+        requested_scope_labels=("future_cooling_scope",),
+        requested_time_label=created_at,
         created_at=created_at,
     )
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
@@ -432,6 +461,29 @@ def build_reviewer_proof_bundle_payload(
                 "ledger": local_authorization.ledger.to_dict(),
             },
         }),
+        "fulfillment_authorization_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "consumption_pre_fulfillment_only": True,
+            "proof_statement": "Fulfillment authorization consumption checks grant scope for a future executor; consuming authorization is not fulfillment, scope match is not execution, and no effect or host mutation is performed.",
+            "request_summary": summarize_fulfillment_authorization_request(fulfillment_authorization.request),
+            "grant_consumption_verification_summary": summarize_grant_consumption_verification(fulfillment_authorization.grant_consumption_verification),
+            "scope_match_assessment_summary": summarize_fulfillment_scope_match_assessment(fulfillment_authorization.scope_match_assessment),
+            "consumption_receipt_summary": summarize_fulfillment_authorization_consumption_receipt(fulfillment_authorization.consumption_receipt) if fulfillment_authorization.consumption_receipt else None,
+            "denial_receipt_summary": summarize_fulfillment_authorization_denial_receipt(fulfillment_authorization.denial_receipt) if fulfillment_authorization.denial_receipt else None,
+            "authorization_consumed_for_future_fulfillment": bool(fulfillment_authorization.consumption_receipt and fulfillment_authorization.consumption_receipt.authorization_consumed_for_future_fulfillment),
+            "fulfillment_granted": False,
+            "effect_performed": False,
+            "host_mutation_performed": False,
+            "real_actuation_deferred": True,
+            "records": {
+                "request": fulfillment_authorization.request.to_dict(),
+                "grant_consumption_verification": fulfillment_authorization.grant_consumption_verification.to_dict(),
+                "scope_match_assessment": fulfillment_authorization.scope_match_assessment.to_dict(),
+                "consumption_receipt": fulfillment_authorization.consumption_receipt.to_dict() if fulfillment_authorization.consumption_receipt else None,
+                "denial_receipt": fulfillment_authorization.denial_receipt.to_dict() if fulfillment_authorization.denial_receipt else None,
+            },
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
@@ -473,7 +525,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

@@ -425,7 +425,7 @@ def test_local_authorization_capabilities_are_record_only_and_real_actions_defer
     assert records["local_authorization_revocation_receipt"].authority_level == "revocation_record_only"
     assert records["local_authorization_expiry_evaluation"].authority_level == "expiry_evaluation_only"
     assert records["local_authorization_verification"].authority_level == "verification_only"
-    assert records["fulfillment_authorization_consumption"].status == "deferred"
+    assert records["fulfillment_authorization_consumption"].status == "implemented"
     assert records["real_effect_execution"].status == "deferred"
     assert records["real_fan_pwm_control"].status in {"blocked", "deferred"}
     assert records["real_thermal_actuation"].status in {"blocked", "deferred"}
@@ -443,7 +443,43 @@ def test_registry_updates_from_local_authorization_ledger_without_fulfillment() 
     records = registry.by_id()
     assert records["local_authorization_grant"].authority_level == "local_authorization_record_only"
     assert records["local_authorization_grant_ledger"].authority_level == "authorization_ledger_only"
-    assert records["fulfillment_authorization_consumption"].status == "deferred"
+    assert records["fulfillment_authorization_consumption"].status == "implemented"
     assert records["real_effect_execution"].status == "deferred"
     assert records["real_fan_pwm_control"].status == "blocked"
+    assert validate_capability_registry(registry).ok
+
+
+def test_fulfillment_authorization_capabilities_are_metadata_only_and_execution_deferred() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["fulfillment_authorization_request"].status == "implemented"
+    assert records["fulfillment_authorization_request"].authority_level == "request_only"
+    assert records["grant_consumption_verification"].status == "implemented"
+    assert records["grant_consumption_verification"].authority_level == "verification_only"
+    assert records["fulfillment_scope_match_assessment"].status == "implemented"
+    assert records["fulfillment_scope_match_assessment"].authority_level == "assessment_only"
+    assert records["fulfillment_authorization_consumption_receipt"].status == "implemented"
+    assert records["fulfillment_authorization_consumption_receipt"].authority_level == "consumption_receipt_only"
+    assert records["fulfillment_authorization_denial_receipt"].status == "implemented"
+    assert records["fulfillment_authorization_denial_receipt"].authority_level == "denial_receipt_only"
+    assert records["fulfillment_execution"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
+        assert records[capability_id].status == "blocked"
+    assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_registry_update_from_fulfillment_authorization_consumption_keeps_real_actions_blocked() -> None:
+    from sentientos.capability_registry import update_registry_from_fulfillment_authorization_consumption
+    from tests.test_fulfillment_authorization import _wing
+
+    registry = update_registry_from_fulfillment_authorization_consumption(build_default_capability_registry(), _wing())
+    records = registry.by_id()
+    assert records["fulfillment_authorization_consumption_receipt"].status == "implemented"
+    assert records["fulfillment_execution"].status == "deferred"
+    assert records["real_effect_execution"].status == "deferred"
+    assert records["real_fan_pwm_control"].status == "blocked"
+    assert records["real_thermal_actuation"].status == "blocked"
+    assert records["real_power_profile_mutation"].status == "blocked"
+    assert records["real_service_restart"].status == "blocked"
+    assert records["real_file_cleanup"].status == "blocked"
     assert validate_capability_registry(registry).ok

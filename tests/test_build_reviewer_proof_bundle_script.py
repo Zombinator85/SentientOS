@@ -142,3 +142,19 @@ def test_reviewer_proof_bundle_cli_writes_local_authorization_json(tmp_path) -> 
     assert payload["grant_summary"]["effect_performed"] is False
     assert payload["grant_summary"]["host_mutation_performed"] is False
     assert payload["verification_summary"]["authorizes_fulfillment"] is False
+
+
+def test_reviewer_proof_bundle_cli_writes_fulfillment_authorization_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "fulfillment_authorization.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["consumption_pre_fulfillment_only"] is True
+    assert payload["authorization_consumed_for_future_fulfillment"] is True
+    assert payload["fulfillment_granted"] is False
+    assert payload["effect_performed"] is False
+    assert payload["host_mutation_performed"] is False
+    assert payload["consumption_receipt_summary"]["fan_pwm_write_performed"] is False
+    assert payload["consumption_receipt_summary"]["thermal_actuation_performed"] is False

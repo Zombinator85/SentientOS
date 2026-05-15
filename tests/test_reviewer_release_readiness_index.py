@@ -403,3 +403,33 @@ def test_host_local_authorization_grant_doc_preserves_record_only_boundaries() -
     assert "Expiry evaluation is metadata-only" in doc
     assert "Real actuation remains deferred" in doc
     assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → local authorization grant → fulfill" in doc
+
+HOST_FULFILLMENT_AUTHORIZATION_CONSUMPTION_WING = "docs/architecture/host_fulfillment_authorization_consumption_wing.md"
+
+
+def test_navigation_links_to_host_fulfillment_authorization_consumption_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    local = _read(HOST_LOCAL_AUTHORIZATION_GRANT_WING)
+    live = _read(HOST_LIVE_GRANT_READINESS_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, local, live, bundle, controlled, trajectory]:
+        assert HOST_FULFILLMENT_AUTHORIZATION_CONSUMPTION_WING in text
+
+
+def test_host_fulfillment_authorization_consumption_doc_preserves_pre_fulfillment_boundaries() -> None:
+    doc = _read(HOST_FULFILLMENT_AUTHORIZATION_CONSUMPTION_WING)
+    assert "Fulfillment authorization consumption is not fulfillment" in doc
+    assert "Scope match is not execution" in doc
+    assert "A consumption receipt does not execute" in doc
+    assert "A denial receipt does not execute" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "observe → model → propose → broker eligibility → rehearse → readiness → authorization review → controlled grant contract → safety gates → live-grant readiness → local authorization grant → fulfillment authorization consumption → fulfill" in doc
+
+
+def test_reviewer_first_run_proof_bundle_doc_lists_fulfillment_authorization_artifact() -> None:
+    doc = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    assert "fulfillment_authorization.json" in doc
+    assert "consuming authorization is not fulfillment" in doc
