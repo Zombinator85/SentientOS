@@ -194,3 +194,21 @@ def test_reviewer_proof_bundle_cli_writes_dry_run_execution_json(tmp_path) -> No
     assert payload["host_mutation_performed"] is False
     assert payload["fan_pwm_write_performed"] is False
     assert payload["thermal_actuation_performed"] is False
+
+
+def test_reviewer_proof_bundle_cli_writes_dry_run_audit_closure_json(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "dry_run_audit_closure.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["dry_run_audit_closure_only"] is True
+    assert payload["effect_verification_summary"]["real_effect_receipt_created"] is False
+    assert payload["postcondition_verification_summary"]["real_postcondition_check_performed"] is False
+    assert payload["rollback_rehearsal_summary"]["real_rollback_performed"] is False
+    assert payload["audit_closure_receipt_summary"]["production_audit_receipt_created"] is False
+    assert payload["real_fulfillment_performed"] is False
+    assert payload["host_mutation_performed"] is False
+    assert payload["fan_pwm_write_performed"] is False
+    assert payload["thermal_actuation_performed"] is False

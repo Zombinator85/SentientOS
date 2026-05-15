@@ -248,3 +248,19 @@ def test_default_reviewer_proof_bundle_includes_dry_run_execution_artifact() -> 
     assert dry_run["real_effect_performed"] is False
     assert dry_run["host_mutation_performed"] is False
     assert "dry_run_execution_posture" in {artifact.artifact_kind for artifact in payload["manifest"].artifact_records}
+
+
+def test_default_reviewer_proof_bundle_includes_dry_run_audit_closure_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    assert "dry_run_audit_closure_posture" in payload["artifacts"]
+    closure = json.loads(payload["artifacts"]["dry_run_audit_closure_posture"])
+    assert closure["dry_run_audit_closure_only"] is True
+    assert closure["effect_verification_summary"]["real_effect_receipt_created"] is False
+    assert closure["postcondition_verification_summary"]["real_postcondition_check_performed"] is False
+    assert closure["rollback_rehearsal_summary"]["real_rollback_performed"] is False
+    assert closure["audit_closure_receipt_summary"]["production_audit_receipt_created"] is False
+    assert closure["real_fulfillment_performed"] is False
+    assert closure["host_mutation_performed"] is False
+    assert "dry_run_audit_closure_posture" in {artifact.artifact_kind for artifact in payload["manifest"].artifact_records}
+    validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
+    assert validation.ok, validation.findings

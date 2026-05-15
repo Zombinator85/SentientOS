@@ -50,6 +50,16 @@ from sentientos.dry_run_execution_harness import (
     summarize_dry_run_execution_result,
     summarize_simulated_backend_registry,
 )
+
+from sentientos.dry_run_audit_closure import (
+    build_dry_run_audit_closure_wing,
+    summarize_dry_run_audit_closure_receipt,
+    summarize_dry_run_closure_bundle,
+    summarize_dry_run_effect_verification,
+    summarize_dry_run_postcondition_verification,
+    summarize_dry_run_rollback_rehearsal,
+)
+
 from sentientos.local_authorization_grant import (
     build_local_authorization_grant_wing,
     build_operator_approval_evidence,
@@ -93,6 +103,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "fulfillment_authorization_posture",
         "executor_contract_posture",
         "dry_run_execution_posture",
+        "dry_run_audit_closure_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -119,6 +130,7 @@ BUNDLE_FILE_NAMES = {
     "fulfillment_authorization_posture": "fulfillment_authorization.json",
     "executor_contract_posture": "executor_contract.json",
     "dry_run_execution_posture": "dry_run_execution.json",
+    "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -140,6 +152,11 @@ DEFERRED_ACTION_LABELS = (
     "dry_run_execution_request",
     "dry_run_execution_result",
     "dry_run_execution_receipt",
+    "dry_run_effect_verification",
+    "dry_run_postcondition_verification",
+    "dry_run_rollback_rehearsal",
+    "dry_run_audit_closure_receipt",
+    "dry_run_closure_bundle",
     "real_backend_invocation",
     "real_effect_execution",
     "real_rollback_execution",
@@ -348,8 +365,9 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "7. `fulfillment_authorization.json` — metadata-only authorization consumption posture; consuming authorization is not fulfillment.",
             "8. `executor_contract.json` — metadata-only executor contract posture; it is not an executor.",
             "9. `dry_run_execution.json` — simulation-only dry-run harness posture; it is not fulfillment or an effect receipt.",
-            "10. `proof_commands.json` — bounded local proof commands listed but not run by default.",
-            "11. `capability_registry_summary.json` — metadata-only capability posture.",
+            "10. `dry_run_audit_closure.json` — dry-run verification/audit closure posture; it is not a real effect receipt, real postcondition check, real rollback, or production audit receipt.",
+            "11. `proof_commands.json` — bounded local proof commands listed but not run by default.",
+            "12. `capability_registry_summary.json` — metadata-only capability posture.",
             "",
             "## Safety posture",
             "",
@@ -365,6 +383,7 @@ def _readme_text(manifest_id: str, trace_digest: str) -> str:
             "- Local authorization grant records are authority metadata only; verification does not authorize fulfillment.",
             "- Executor contract records are readiness metadata only; they do not load backends, execute dry runs, grant control-plane admission, fulfill actions, or perform effects.",
             "- Dry-run execution runs only inert simulated in-process backends; dry_run_executed=true is simulation only, not fulfillment, not an effect receipt, and not host mutation proof.",
+            "- Dry-run audit closure verifies dry-run evidence only; it is not a real effect receipt, real host postcondition check, real rollback, or production audit receipt.",
             "- Fan/PWM writes, thermal writes, power mutation, service restart, cleanup, federation transport, and remote execution remain deferred or blocked.",
             "",
             f"Manifest ID: `{manifest_id}`",
@@ -453,6 +472,7 @@ def build_reviewer_proof_bundle_payload(
         requested_simulated_backend_class="cooling_backend_simulated",
         created_at=created_at,
     )
+    dry_run_audit_closure = build_dry_run_audit_closure_wing(dry_run_execution.receipt, created_at=created_at)
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
     contents: dict[str, str] = {
         "trace_json": serialize_host_embodiment_trace_json(trace),
@@ -589,6 +609,40 @@ def build_reviewer_proof_bundle_payload(
                 "receipt": dry_run_execution.receipt.to_dict() if dry_run_execution.receipt else None,
             },
         }),
+        "dry_run_audit_closure_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "dry_run_audit_closure_only": True,
+            "proof_statement": "Dry-run audit closure verifies dry-run evidence only; it is not a real effect receipt, not a real host postcondition check, not real rollback, and not a production audit receipt.",
+            "effect_verification_summary": summarize_dry_run_effect_verification(dry_run_audit_closure.effect_verification),
+            "postcondition_verification_summary": summarize_dry_run_postcondition_verification(dry_run_audit_closure.postcondition_verification),
+            "rollback_rehearsal_summary": summarize_dry_run_rollback_rehearsal(dry_run_audit_closure.rollback_rehearsal),
+            "audit_closure_receipt_summary": summarize_dry_run_audit_closure_receipt(dry_run_audit_closure.audit_closure_receipt),
+            "closure_bundle_summary": summarize_dry_run_closure_bundle(dry_run_audit_closure.closure_bundle),
+            "real_effect_receipt_created": False,
+            "real_postcondition_check_performed": False,
+            "real_rollback_performed": False,
+            "production_audit_receipt_created": False,
+            "real_fulfillment_performed": False,
+            "real_effect_performed": False,
+            "host_mutation_performed": False,
+            "fan_pwm_write_performed": False,
+            "thermal_actuation_performed": False,
+            "power_profile_mutation_performed": False,
+            "service_restart_performed": False,
+            "file_cleanup_performed": False,
+            "network_performed": False,
+            "provider_invocation_performed": False,
+            "prompt_assembly_performed": False,
+            "real_actuation_deferred": True,
+            "records": {
+                "effect_verification": dry_run_audit_closure.effect_verification.to_dict(),
+                "postcondition_verification": dry_run_audit_closure.postcondition_verification.to_dict(),
+                "rollback_rehearsal": dry_run_audit_closure.rollback_rehearsal.to_dict(),
+                "audit_closure_receipt": dry_run_audit_closure.audit_closure_receipt.to_dict(),
+                "closure_bundle": dry_run_audit_closure.closure_bundle.to_dict(),
+            },
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
@@ -630,7 +684,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:
