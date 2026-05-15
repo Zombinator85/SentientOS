@@ -266,3 +266,8 @@ The [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authoriza
 See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.
 
 See also: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md) (`docs/architecture/host_dry_run_audit_closure_wing.md`). Dry-run effect verification is not a real effect receipt; dry-run postcondition verification is not real host postcondition check; dry-run rollback rehearsal is not real rollback; dry-run audit closure is not production audit receipt; real actuation remains deferred.
+
+
+## Real effect capability admission link
+
+See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.

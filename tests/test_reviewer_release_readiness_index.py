@@ -516,3 +516,32 @@ def test_host_dry_run_audit_closure_doc_preserves_dry_run_only_boundaries() -> N
     assert "Dry-run audit closure is not a production audit receipt" in doc
     assert "Real actuation remains deferred" in doc
     assert "No subprocess" in doc or "no subprocess" in doc
+
+HOST_REAL_EFFECT_CAPABILITY_ADMISSION_WING = "docs/architecture/host_real_effect_capability_admission_wing.md"
+
+
+def test_navigation_links_to_host_real_effect_capability_admission_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    dry_run = _read(HOST_DRY_RUN_EXECUTION_HARNESS_WING)
+    closure = _read(HOST_DRY_RUN_AUDIT_CLOSURE_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, dry_run, closure, bundle, controlled, trajectory]:
+        assert HOST_REAL_EFFECT_CAPABILITY_ADMISSION_WING in text
+
+
+def test_host_real_effect_capability_admission_doc_preserves_planning_only_boundaries() -> None:
+    doc = _read(HOST_REAL_EFFECT_CAPABILITY_ADMISSION_WING)
+    assert "Dry-run audit closure verifies simulated evidence only" in doc
+    assert "Real effect capability admission is not implementation" in doc
+    assert "admission decision does not authorize implementation or execution" in doc
+    assert "implementation plan scaffold does not start implementation" in doc
+    assert "Cooling/hardware control remains blocked by default" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "Real fulfillment remains deferred" in doc
+    assert "Real effect receipts remain deferred" in doc
+    assert "Real postcondition checks remain deferred" in doc
+    assert "Real rollback remains deferred" in doc
+    assert "Production audit remains deferred" in doc

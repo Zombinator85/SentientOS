@@ -111,3 +111,8 @@ See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_w
 The bundle also includes `dry_run_audit_closure.json`; see [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md). Dry-run audit closure verifies dry-run evidence only and is not a real effect receipt, not a real host postcondition check, not real rollback, and not a production audit receipt.
 
 Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
+
+
+## Real effect capability admission link
+
+See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.

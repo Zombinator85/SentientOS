@@ -47,3 +47,8 @@ The reviewer proof bundle includes `dry_run_execution.json`. The artifact is rev
 Next wing: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md). It verifies dry-run evidence only; dry-run effect verification is not a real effect receipt, dry-run postcondition verification is not a real host postcondition check, dry-run rollback rehearsal is not real rollback, and dry-run audit closure is not a production audit receipt.
 
 Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
+
+
+## Real effect capability admission link
+
+See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
