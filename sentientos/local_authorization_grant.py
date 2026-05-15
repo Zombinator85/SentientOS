@@ -427,7 +427,7 @@ def verify_local_authorization_grant(grant: LocalAuthorizationGrant | Mapping[st
         status = "local_authorization_verification_blocked"
     elif str(g.get("grant_status", "")).endswith("incomplete") or missing:
         status = "local_authorization_verification_incomplete"
-    elif str(g.get("grant_status", "")).endswith("expired") or (expiry_evaluation is not None and "expired" in str(_source_payload(expiry_evaluation).get("expiry_status"))):
+    elif str(g.get("grant_status", "")).endswith("expired") or (expiry_evaluation is not None and str(_source_payload(expiry_evaluation).get("expiry_status")) == "local_authorization_expiry_expired"):
         status = "local_authorization_verification_expired"
     elif str(g.get("grant_status", "")).endswith("revoked") or any(_source_payload(r).get("revocation_status") == "local_authorization_revocation_recorded" for r in revocation_receipts):
         status = "local_authorization_verification_revoked"

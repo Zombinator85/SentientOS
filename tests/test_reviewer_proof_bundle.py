@@ -189,3 +189,20 @@ def test_reviewer_bundle_includes_local_authorization_posture_without_fulfillmen
     assert grant.effect_performed is False
     assert grant.host_mutation_performed is False
     assert payload["local_authorization"].verification.authorizes_fulfillment is False
+
+
+def test_reviewer_bundle_includes_fulfillment_authorization_consumption_posture_without_execution() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "fulfillment_authorization_posture" in payload["artifacts"]
+    assert "fulfillment_authorization.json" in payload["artifacts"]["bundle_manifest"]
+    text = payload["artifacts"]["fulfillment_authorization_posture"]
+    assert "consuming authorization is not fulfillment" in text
+    assert "scope match is not execution" in text
+    wing = payload["fulfillment_authorization"]
+    assert wing.consumption_receipt is not None
+    assert wing.consumption_receipt.authorization_consumed_for_future_fulfillment is True
+    assert wing.consumption_receipt.fulfillment_granted is False
+    assert wing.consumption_receipt.effect_performed is False
+    assert wing.consumption_receipt.host_mutation_performed is False
+    validation = validate_reviewer_proof_bundle_manifest(payload["manifest"])
+    assert validation.ok, validation.findings

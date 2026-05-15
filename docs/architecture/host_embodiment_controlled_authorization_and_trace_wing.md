@@ -62,3 +62,7 @@ After controlled authorization contracts and safety gates, the [Host Live-Grant 
 Later ladder link: [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) records scoped local authorization metadata after live-grant readiness without executing host actions.
 
 Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
+
+See also the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md), which sits after local authorization grants and before any future fulfillment executor. Consumption receipts do not execute.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.

@@ -402,3 +402,7 @@ See [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/a
 - [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md): implemented bounded authorization-record lifecycle; fulfillment and actuation remain deferred.
 
 Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
+
+Implemented organ link: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) adds metadata-only pre-fulfillment grant consumption checks while real fulfillment and real actuation remain deferred.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.

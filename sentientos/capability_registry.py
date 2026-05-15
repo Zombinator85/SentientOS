@@ -42,6 +42,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "host_actuation_safety",
         "live_grant_readiness",
         "local_authorization_grant",
+        "fulfillment_authorization",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -78,6 +79,10 @@ AUTHORITY_LEVELS = frozenset(
         "revocation_record_only",
         "expiry_evaluation_only",
         "verification_only",
+        "request_only",
+        "assessment_only",
+        "consumption_receipt_only",
+        "denial_receipt_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -285,7 +290,13 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("local_authorization_revocation_receipt", "local_authorization_grant", "implemented", "revocation_record_only", source_paths=("sentientos/local_authorization_grant.py",), proof_tests=("tests/test_local_authorization_grant.py",), implemented_surfaces=("local authorization revocation metadata receipt",), deferred_surfaces=("revocation effect execution",), forbidden_implications=("revocation receipt executes host action",)),
         _record("local_authorization_expiry_evaluation", "local_authorization_grant", "implemented", "expiry_evaluation_only", source_paths=("sentientos/local_authorization_grant.py",), proof_tests=("tests/test_local_authorization_grant.py",), implemented_surfaces=("metadata-only grant expiry evaluation",), deferred_surfaces=("scheduler or host action execution",), forbidden_implications=("expiry evaluation executes host action",)),
         _record("local_authorization_verification", "local_authorization_grant", "implemented", "verification_only", source_paths=("sentientos/local_authorization_grant.py",), proof_tests=("tests/test_local_authorization_grant.py",), implemented_surfaces=("grant lookup and verification metadata",), deferred_surfaces=("fulfillment authorization consumption",), forbidden_implications=("verification authorizes fulfillment",)),
-        _record("fulfillment_authorization_consumption", "local_authorization_grant", "deferred", "none", source_paths=("sentientos/local_authorization_grant.py",), deferred_surfaces=("future executor consumption of grant verification", "control-plane admitted fulfillment"), forbidden_implications=("local authorization wing consumes grants for effects",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("fulfillment_authorization_consumption", "fulfillment_authorization", "implemented", "consumption_receipt_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), proof_commands=("python -m scripts.run_tests -q tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only fulfillment authorization consumption receipts",), deferred_surfaces=("fulfillment execution", "real effect execution", "host mutation"), forbidden_implications=("authorization consumption is fulfillment", "consumption receipt executes host action"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("fulfillment_authorization_request", "fulfillment_authorization", "implemented", "request_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only future fulfillment authorization requests",), deferred_surfaces=("fulfillment execution", "host mutation"), forbidden_implications=("fulfillment authorization request grants fulfillment",)),
+        _record("grant_consumption_verification", "fulfillment_authorization", "implemented", "verification_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("non-authorizing grant consumption verification metadata",), deferred_surfaces=("fulfillment authorization grant", "effect execution"), forbidden_implications=("grant consumption verification authorizes fulfillment",)),
+        _record("fulfillment_scope_match_assessment", "fulfillment_authorization", "implemented", "assessment_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only requested scope versus granted scope assessment",), deferred_surfaces=("execution", "host mutation"), forbidden_implications=("scope match is execution",)),
+        _record("fulfillment_authorization_consumption_receipt", "fulfillment_authorization", "implemented", "consumption_receipt_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only consumption receipt for future fulfillment",), deferred_surfaces=("fulfillment execution", "real effects", "postcondition checks against real effects"), forbidden_implications=("consumption receipt performs effect",)),
+        _record("fulfillment_authorization_denial_receipt", "fulfillment_authorization", "implemented", "denial_receipt_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only denial receipt for out-of-scope or non-active grants",), deferred_surfaces=("fulfillment execution",), forbidden_implications=("denial receipt executes host action",)),
+        _record("fulfillment_execution", "fulfillment_authorization", "deferred", "none", deferred_surfaces=("future fulfillment executor", "host mutation", "effect receipt from real action"), forbidden_implications=("fulfillment authorization wing implements execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_authorization_grant", "authorization_review", "deferred", "none", deferred_surfaces=("operator/policy authorization grant issuance",), forbidden_implications=("authorization review wing grants authorization",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -301,9 +312,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/host_fulfillment_authorization_consumption_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-controlled-authorization-and-trace-wing", schema_version="host-embodiment-controlled-authorization-and-trace-wing.v1", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-embodiment-fulfillment-authorization-consumption-wing", schema_version="host-fulfillment-authorization-consumption-wing.v1", records=records)
 
 
 
@@ -882,6 +893,35 @@ def update_registry_from_live_grant_readiness(registry: CapabilityRegistry, read
     return replace(registry, records=tuple(records), schema_version="host-live-grant-readiness-wing.v1")
 
 
+
+def update_registry_from_fulfillment_authorization_consumption(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
+    """Reflect metadata-only fulfillment authorization consumption without execution."""
+
+    has_request = bool(getattr(getattr(wing, "request", None), "request_id", "")) or bool(getattr(wing, "request_id", ""))
+    has_verification = bool(getattr(getattr(wing, "grant_consumption_verification", None), "verification_id", "")) or bool(getattr(wing, "verification_id", ""))
+    has_assessment = bool(getattr(getattr(wing, "scope_match_assessment", None), "assessment_id", "")) or bool(getattr(wing, "assessment_id", ""))
+    has_consumption = bool(getattr(getattr(wing, "consumption_receipt", None), "receipt_id", "")) or bool(getattr(wing, "receipt_id", ""))
+    has_denial = bool(getattr(getattr(wing, "denial_receipt", None), "receipt_id", ""))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "fulfillment_authorization_request":
+            records.append(replace(record, status="implemented" if has_request else record.status, authority_level="request_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "grant_consumption_verification":
+            records.append(replace(record, status="implemented" if has_verification else record.status, authority_level="verification_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "fulfillment_scope_match_assessment":
+            records.append(replace(record, status="implemented" if has_assessment else record.status, authority_level="assessment_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"fulfillment_authorization_consumption", "fulfillment_authorization_consumption_receipt"}:
+            records.append(replace(record, status="implemented" if has_consumption else record.status, authority_level="consumption_receipt_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "fulfillment_authorization_denial_receipt":
+            records.append(replace(record, status="implemented" if (has_denial or not has_consumption) else record.status, authority_level="denial_receipt_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"fulfillment_execution", "real_effect_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-fulfillment-authorization-consumption-wing.v1")
+
 def update_registry_from_local_authorization_ledger(registry: CapabilityRegistry, ledger: Any) -> CapabilityRegistry:
     """Reflect local authorization grant records without claiming fulfillment."""
 
@@ -898,7 +938,9 @@ def update_registry_from_local_authorization_ledger(registry: CapabilityRegistry
             records.append(replace(record, status="implemented", authority_level="expiry_evaluation_only", host_actuation_performed=False, metadata_only=True))
         elif record.capability_id == "local_authorization_verification":
             records.append(replace(record, status="implemented", authority_level="verification_only", host_actuation_performed=False, metadata_only=True))
-        elif record.capability_id in {"fulfillment_authorization_consumption", "real_authorization_grant", "real_effect_execution", "real_actuation_fulfillment"}:
+        elif record.capability_id in {"fulfillment_authorization_consumption", "fulfillment_authorization_request", "grant_consumption_verification", "fulfillment_scope_match_assessment", "fulfillment_authorization_consumption_receipt", "fulfillment_authorization_denial_receipt"}:
+            records.append(replace(record, status="implemented", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"fulfillment_execution", "real_authorization_grant", "real_effect_execution", "real_actuation_fulfillment"}:
             records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
         elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
             records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))

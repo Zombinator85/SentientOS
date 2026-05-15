@@ -254,3 +254,7 @@ Host live-grant readiness is documented in [Host Live-Grant Readiness Wing](host
 
 
 Local authorization grant records are documented in [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md) (`docs/architecture/host_local_authorization_grant_wing.md`): a local authorization grant is authority metadata, not fulfillment; grant verification is not fulfillment authorization; real actuation remains deferred.
+
+Reviewer proof link: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) documents the metadata-only authorization-consumption layer. Consuming authorization is not fulfillment; scope match is not execution; real actuation remains deferred.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.

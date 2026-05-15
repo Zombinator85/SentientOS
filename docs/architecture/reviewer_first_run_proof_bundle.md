@@ -82,3 +82,7 @@ The bundle includes `live_grant_readiness.json`, documented in [Host Live-Grant 
 The bundle also includes `local_authorization.json` for the [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md); this is authority metadata only and does not authorize fulfillment.
 
 Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
+
+The bundle also writes `fulfillment_authorization.json` for the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md). The artifact states that consuming authorization is not fulfillment, scope match is not execution, and no effect or host mutation is performed.
+
+Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
