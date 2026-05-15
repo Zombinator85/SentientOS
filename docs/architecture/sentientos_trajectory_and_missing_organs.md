@@ -406,3 +406,7 @@ Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
 Implemented organ link: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) adds metadata-only pre-fulfillment grant consumption checks while real fulfillment and real actuation remain deferred.
 
 Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+
+- [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md) records metadata-only executor prerequisites after fulfillment authorization consumption; it is not an executor and real actuation remains deferred.
+
+Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.

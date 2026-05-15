@@ -43,6 +43,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "live_grant_readiness",
         "local_authorization_grant",
         "fulfillment_authorization",
+        "fulfillment_executor_contract",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -83,6 +84,9 @@ AUTHORITY_LEVELS = frozenset(
         "assessment_only",
         "consumption_receipt_only",
         "denial_receipt_only",
+        "precondition_only",
+        "plan_only",
+        "readiness_receipt_only",
         "telemetry_readiness_only",
         "gated_host_interaction",
         "privileged_host_action",
@@ -296,6 +300,15 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("fulfillment_scope_match_assessment", "fulfillment_authorization", "implemented", "assessment_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only requested scope versus granted scope assessment",), deferred_surfaces=("execution", "host mutation"), forbidden_implications=("scope match is execution",)),
         _record("fulfillment_authorization_consumption_receipt", "fulfillment_authorization", "implemented", "consumption_receipt_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only consumption receipt for future fulfillment",), deferred_surfaces=("fulfillment execution", "real effects", "postcondition checks against real effects"), forbidden_implications=("consumption receipt performs effect",)),
         _record("fulfillment_authorization_denial_receipt", "fulfillment_authorization", "implemented", "denial_receipt_only", source_paths=("sentientos/fulfillment_authorization.py",), proof_tests=("tests/test_fulfillment_authorization.py",), implemented_surfaces=("metadata-only denial receipt for out-of-scope or non-active grants",), deferred_surfaces=("fulfillment execution",), forbidden_implications=("denial receipt executes host action",)),
+        _record("fulfillment_executor_contract", "fulfillment_executor_contract", "implemented", "contract_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), proof_commands=("python -m scripts.run_tests -q tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("metadata-only future executor contract records",), deferred_surfaces=("executor implementation", "backend invocation", "control-plane admission for fulfillment", "fulfillment execution"), forbidden_implications=("executor contract is an executor", "contract grants fulfillment"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("executor_backend_declaration", "fulfillment_executor_contract", "implemented", "declaration_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("backend declaration metadata",), deferred_surfaces=("backend loading", "backend invocation"), forbidden_implications=("backend declaration loads a backend", "backend declaration invokes a backend")),
+        _record("executor_precondition_manifest", "fulfillment_executor_contract", "implemented", "precondition_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("executor precondition manifest metadata",), deferred_surfaces=("precondition enforcement by a real executor",), forbidden_implications=("precondition manifest performs an effect",)),
+        _record("executor_dry_run_plan", "fulfillment_executor_contract", "implemented", "plan_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("dry-run plan metadata",), deferred_surfaces=("dry-run execution",), forbidden_implications=("dry-run plan executes a dry run",)),
+        _record("executor_admission_packet", "fulfillment_executor_contract", "implemented", "packet_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("control-plane admission packet metadata",), deferred_surfaces=("control-plane admission", "fulfillment execution"), forbidden_implications=("admission packet is control-plane admission",)),
+        _record("executor_contract_readiness_receipt", "fulfillment_executor_contract", "implemented", "readiness_receipt_only", source_paths=("sentientos/fulfillment_executor_contract.py",), proof_tests=("tests/test_fulfillment_executor_contract.py",), implemented_surfaces=("executor contract readiness receipt metadata",), deferred_surfaces=("executor implementation", "backend invocation", "real effects"), forbidden_implications=("readiness receipt implements executor", "readiness receipt performs effects")),
+        _record("executor_implementation", "fulfillment_executor_contract", "deferred", "none", source_paths=("sentientos/fulfillment_executor_contract.py",), deferred_surfaces=("future executor implementation", "host mutation", "real fulfillment"), forbidden_implications=("executor contract wing implements executor"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("backend_invocation", "fulfillment_executor_contract", "deferred", "none", deferred_surfaces=("backend loading", "backend invocation"), forbidden_implications=("backend declaration invokes backend"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("control_plane_admission_for_fulfillment", "fulfillment_executor_contract", "deferred", "none", deferred_surfaces=("future control-plane admission for fulfillment",), forbidden_implications=("executor admission packet grants admission"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("fulfillment_execution", "fulfillment_authorization", "deferred", "none", deferred_surfaces=("future fulfillment executor", "host mutation", "effect receipt from real action"), forbidden_implications=("fulfillment authorization wing implements execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("live_host_trace_collection", "host_embodiment_trace", "deferred", "none", deferred_surfaces=("live host trace collection", "privileged probing"), forbidden_implications=("reviewer demo default collects live host data",)),
         _record("live_authorization_grant", "controlled_authorization", "deferred", "none", deferred_surfaces=("live controlled authorization grant", "runtime authority token"), forbidden_implications=("controlled authorization wing implements live grants",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -312,9 +325,9 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("federation_evidence_custody", "federation_evidence", "implemented", "federation_evidence", source_paths=("sentientos/federation/",), proof_tests=("tests/test_federated_improvement_candidate.py", "tests/test_federated_improvement_intake_receipt.py", "tests/test_federated_improvement_custody_runway.py"), implemented_surfaces=("federated evidence/receipt custody",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "execution"), forbidden_implications=("federation receipts transport or adopt changes")),
         _record("federation_transport_sync_adoption", "federation_evidence", "blocked", "none", source_paths=("sentientos/federation/",), deferred_surfaces=("transport", "sync", "adoption", "merge", "apply", "install", "remote execution"), forbidden_implications=("evidence custody is adoption")),
         _record("provider_invocation", "local_model_chat", "blocked", "none", source_paths=("docs/architecture/reviewer_release_readiness_index.md",), proof_commands=("python scripts/verify_context_hygiene_prompt_boundaries.py",), deferred_surfaces=("provider invocation", "provider SDK", "network egress", "prompt export"), forbidden_implications=("provider runtime authority exists")),
-        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/host_fulfillment_authorization_consumption_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
+        _record("docs_proof", "docs_proof", "implemented", "observation", source_paths=("docs/architecture/host_embodiment_substrate_phase1.md", "docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md", "docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md", "docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md", "docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md", "docs/architecture/host_embodiment_execution_proof_wing.md", "docs/architecture/host_embodiment_authorization_review_wing.md", "docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md", "docs/architecture/host_local_authorization_grant_wing.md", "docs/architecture/host_fulfillment_authorization_consumption_wing.md", "docs/architecture/host_fulfillment_executor_contract_wing.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "docs/architecture/public_technical_overview.md", "docs/architecture/reviewer_release_readiness_index.md"), proof_tests=("tests/test_reviewer_release_readiness_index.py",), proof_commands=("python scripts/build_docs.py --check-deps", "python scripts/build_docs.py"), implemented_surfaces=("public proof maps and docs build",)),
     )
-    return CapabilityRegistry(registry_id="sentientos-host-embodiment-fulfillment-authorization-consumption-wing", schema_version="host-fulfillment-authorization-consumption-wing.v1", records=records)
+    return CapabilityRegistry(registry_id="sentientos-host-embodiment-fulfillment-executor-contract-wing", schema_version="host-fulfillment-executor-contract-wing.v1", records=records)
 
 
 
@@ -947,3 +960,35 @@ def update_registry_from_local_authorization_ledger(registry: CapabilityRegistry
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-local-authorization-grant-wing.v1")
+
+
+def update_registry_from_executor_contract_readiness(registry: CapabilityRegistry, readiness_wing: Any) -> CapabilityRegistry:
+    """Reflect executor contract readiness without implementing execution."""
+
+    has_contract = bool(getattr(getattr(readiness_wing, "contract", None), "contract_id", "")) or bool(getattr(readiness_wing, "contract_id", ""))
+    has_backend = bool(getattr(getattr(readiness_wing, "backend_declaration", None), "declaration_id", "")) or bool(getattr(readiness_wing, "backend_declaration_id", ""))
+    has_manifest = bool(getattr(getattr(readiness_wing, "precondition_manifest", None), "manifest_id", "")) or bool(getattr(readiness_wing, "precondition_manifest_id", ""))
+    has_plan = bool(getattr(getattr(readiness_wing, "dry_run_plan", None), "plan_id", "")) or bool(getattr(readiness_wing, "dry_run_plan_id", ""))
+    has_packet = bool(getattr(getattr(readiness_wing, "admission_packet", None), "packet_id", "")) or bool(getattr(readiness_wing, "admission_packet_id", ""))
+    has_receipt = bool(getattr(getattr(readiness_wing, "readiness_receipt", None), "receipt_id", "")) or bool(getattr(readiness_wing, "receipt_id", ""))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "fulfillment_executor_contract":
+            records.append(replace(record, status="implemented" if has_contract else record.status, authority_level="contract_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "executor_backend_declaration":
+            records.append(replace(record, status="implemented" if has_backend else record.status, authority_level="declaration_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "executor_precondition_manifest":
+            records.append(replace(record, status="implemented" if has_manifest else record.status, authority_level="precondition_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "executor_dry_run_plan":
+            records.append(replace(record, status="implemented" if has_plan else record.status, authority_level="plan_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "executor_admission_packet":
+            records.append(replace(record, status="implemented" if has_packet else record.status, authority_level="packet_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "executor_contract_readiness_receipt":
+            records.append(replace(record, status="implemented" if has_receipt else record.status, authority_level="readiness_receipt_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"executor_implementation", "backend_invocation", "control_plane_admission_for_fulfillment", "fulfillment_execution", "real_effect_execution", "real_actuation_fulfillment"}:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup", "direct_fan_pwm_thermal_control"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-fulfillment-executor-contract-wing.v1")

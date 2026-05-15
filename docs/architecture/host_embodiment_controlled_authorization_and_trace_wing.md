@@ -66,3 +66,7 @@ Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
 See also the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md), which sits after local authorization grants and before any future fulfillment executor. Consumption receipts do not execute.
 
 Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+
+Downstream proof links include [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) and [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md); both preserve the boundary that records and contracts are not fulfillment or execution.
+
+Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.

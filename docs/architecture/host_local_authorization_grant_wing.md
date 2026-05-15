@@ -48,3 +48,7 @@ The reviewer proof bundle includes `local_authorization.json`. That artifact is 
 Next organ: the [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) records metadata-only future fulfillment authorization consumption. Consuming authorization is not fulfillment, and scope match is not execution.
 
 Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+
+Next proof links: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) and [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md). Local authorization remains metadata; executor contract is not execution.
+
+Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.

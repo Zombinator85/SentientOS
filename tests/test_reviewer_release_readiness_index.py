@@ -433,3 +433,39 @@ def test_reviewer_first_run_proof_bundle_doc_lists_fulfillment_authorization_art
     doc = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
     assert "fulfillment_authorization.json" in doc
     assert "consuming authorization is not fulfillment" in doc
+
+HOST_FULFILLMENT_EXECUTOR_CONTRACT_WING = "docs/architecture/host_fulfillment_executor_contract_wing.md"
+
+
+def test_navigation_links_to_host_fulfillment_executor_contract_wing_doc() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    consumption = _read(HOST_FULFILLMENT_AUTHORIZATION_CONSUMPTION_WING)
+    local = _read(HOST_LOCAL_AUTHORIZATION_GRANT_WING)
+    bundle = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    controlled = _read(HOST_EMBODIMENT_CONTROLLED_AUTHORIZATION_TRACE_WING)
+    trajectory = _read(TRAJECTORY_DOC)
+    for text in [overview, index, consumption, local, bundle, controlled, trajectory]:
+        assert HOST_FULFILLMENT_EXECUTOR_CONTRACT_WING in text
+
+
+def test_host_fulfillment_executor_contract_doc_preserves_contract_only_boundaries() -> None:
+    doc = _read(HOST_FULFILLMENT_EXECUTOR_CONTRACT_WING)
+    assert "executor contract is not an executor" in doc.lower()
+    assert "backend declaration does not load or invoke backend" in doc
+    assert "dry-run plan is not dry-run execution" in doc
+    assert "admission packet is not control-plane admission" in doc
+    assert "Real actuation remains deferred" in doc
+    assert "executor_implemented=false" in doc
+    assert "backend_loaded=false" in doc
+    assert "dry_run_executed=false" in doc
+    assert "control_plane_admission_granted=false" in doc
+    assert "fulfillment_granted=false" in doc
+    assert "effect_performed=false" in doc
+    assert "host_mutation_performed=false" in doc
+
+
+def test_reviewer_first_run_proof_bundle_doc_lists_executor_contract_artifact() -> None:
+    doc = _read(REVIEWER_FIRST_RUN_PROOF_BUNDLE)
+    assert "executor_contract.json" in doc
+    assert "executor contract is not an executor" in doc.lower()

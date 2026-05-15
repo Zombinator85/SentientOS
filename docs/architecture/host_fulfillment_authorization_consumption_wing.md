@@ -40,3 +40,7 @@ The reviewer proof bundle includes `fulfillment_authorization.json`. The artifac
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_fulfillment_authorization.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+Next wing: [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md). Executor contract is not an executor; backend declaration does not load/invoke backend; dry-run plan is not dry-run execution; admission packet is not control-plane admission; real actuation remains deferred.
+
+Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.

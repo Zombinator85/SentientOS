@@ -258,3 +258,5 @@ Local authorization grant records are documented in [Host Local Authorization Gr
 Reviewer proof link: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) documents the metadata-only authorization-consumption layer. Consuming authorization is not fulfillment; scope match is not execution; real actuation remains deferred.
 
 Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+
+Reviewer map: [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md) (`docs/architecture/host_fulfillment_executor_contract_wing.md`) follows fulfillment authorization consumption. Executor contract is not an executor; backend declaration does not load/invoke backend; dry-run plan is not dry-run execution; admission packet is not control-plane admission; real actuation remains deferred.
