@@ -271,3 +271,5 @@ See also: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_a
 ## Real effect capability admission link
 
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
+
+- [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md) — first intentionally real effect, explicit diagnostic artifact write only, reviewer bundle does not run it by default.

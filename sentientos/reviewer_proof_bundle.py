@@ -113,6 +113,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "dry_run_execution_posture",
         "dry_run_audit_closure_posture",
         "real_effect_admission_posture",
+        "local_diagnostic_effect_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -141,6 +142,7 @@ BUNDLE_FILE_NAMES = {
     "dry_run_execution_posture": "dry_run_execution.json",
     "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
     "real_effect_admission_posture": "real_effect_admission.json",
+    "local_diagnostic_effect_capability": "local_diagnostic_effect_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -185,6 +187,7 @@ DEFERRED_ACTION_LABELS = (
     "prompt_assembly_export",
     "federation_transport_sync_adoption",
     "remote_execution",
+    "local_diagnostic_effect_pilot_explicit_only",
 )
 BLOCKED_ACTION_LABELS = (
     "fan_pwm_write",
@@ -197,6 +200,7 @@ BLOCKED_ACTION_LABELS = (
     "prompt_assembly_export",
     "federation_transport_sync_adoption",
     "remote_execution",
+    "local_diagnostic_effect_pilot_explicit_only",
 )
 
 
@@ -306,6 +310,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/build_docs.py", "--check-deps"), "Check documentation build dependencies."),
         (("python", "scripts/build_docs.py"), "Build documentation locally."),
         (("python", "scripts/verify_context_hygiene_prompt_boundaries.py"), "Verify prompt/provider boundary hygiene."),
+        (("python", "scripts/run_local_diagnostic_effect.py", "--output-dir", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit Tier-1 local diagnostic effect pilot; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -701,6 +706,21 @@ def build_reviewer_proof_bundle_payload(
             },
         }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
+        "local_diagnostic_effect_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "explicit_command_required": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_host_mutation_performed": False,
+            "first_intentionally_real_effect_pilot": True,
+            "only_real_effect_when_explicitly_run": "write one deterministic diagnostic artifact to caller-supplied local output directory",
+            "command": "python scripts/run_local_diagnostic_effect.py --output-dir /tmp/sentientos-local-effect --summary",
+            "no_fan_pwm_thermal_power_service_cleanup": True,
+            "no_network_provider_prompt_subprocess_shell_control_plane": True,
+            "rollback_execution_deferred_by_default": True,
+        }),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
     artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())

@@ -41,3 +41,5 @@ The reviewer proof bundle includes `real_effect_admission.json`. The artifact sh
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_real_effect_admission.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+After admission, the first intentionally real low-risk effect is the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md), limited to an explicit diagnostic artifact write only.
