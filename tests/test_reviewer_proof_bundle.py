@@ -296,3 +296,18 @@ def test_reviewer_proof_bundle_lists_local_diagnostic_effect_but_does_not_run_it
     local_commands = [record for record in commands if "run_local_diagnostic_effect.py" in " ".join(record["command"])]
     assert local_commands
     assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in local_commands)
+
+
+def test_reviewer_proof_bundle_lists_exact_rollback_but_does_not_run_it() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    capability = json.loads(artifacts["local_diagnostic_rollback_capability"])
+    assert capability["explicit_command_required"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_rollback_performed"] is False
+    assert capability["proof_bundle_host_mutation_performed"] is False
+    assert capability["not_general_cleanup"] is True
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rollback_commands = [record for record in commands if "run_local_diagnostic_rollback.py" in " ".join(record["command"])]
+    assert rollback_commands
+    assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in rollback_commands)

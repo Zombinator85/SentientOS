@@ -103,6 +103,9 @@ AUTHORITY_LEVELS = frozenset(
         "real_effect_receipt_only",
         "real_postcondition_check_only",
         "production_audit_only",
+        "exact_artifact_rollback_only",
+        "exact_artifact_postcondition_only",
+        "exact_artifact_rollback_audit_only",
         "candidate_only",
         "plan_scaffold_only",
         "block_receipt_only",
@@ -347,7 +350,10 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("local_diagnostic_postcondition_check", "local_diagnostic_effect", "implemented", "real_postcondition_check_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("readback postcondition check for the exact diagnostic artifact only",), deferred_surfaces=("general host postcondition checks",), forbidden_implications=("postcondition readback scans broad filesystem")),
         _record("local_diagnostic_production_audit_receipt", "local_diagnostic_effect", "implemented", "production_audit_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("production audit receipt for local diagnostic artifact effect only",), deferred_surfaces=("production audits for general host effects",), forbidden_implications=("diagnostic audit authorizes broader effects")),
         _record("local_diagnostic_rollback_plan", "local_diagnostic_effect", "implemented", "plan_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), implemented_surfaces=("rollback plan and non-executed rollback receipt scaffold",), deferred_surfaces=("automatic exact-artifact rollback execution"), forbidden_implications=("rollback plan deletes files"), requires_rollback_receipt=True),
-        _record("local_diagnostic_rollback_execution", "local_diagnostic_effect", "deferred", "none", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), deferred_surfaces=("exact-artifact rollback deletion requires explicit future implementation"), forbidden_implications=("rollback scaffold performs deletion")),
+        _record("local_diagnostic_exact_rollback", "local_diagnostic_effect", "implemented", "exact_artifact_rollback_only", source_paths=("sentientos/local_diagnostic_effect.py", "scripts/run_local_diagnostic_rollback.py"), proof_tests=("tests/test_local_diagnostic_exact_rollback.py", "tests/test_run_local_diagnostic_rollback_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_local_diagnostic_exact_rollback.py tests/test_run_local_diagnostic_rollback_script.py", "python scripts/run_local_diagnostic_rollback.py --effect-receipt <receipt.json> --rollback-plan <rollback-plan.json> --output-dir-scope /tmp/sentientos-local-effect --summary"), implemented_surfaces=("explicit exact-artifact rollback for local diagnostic artifact only", "path, digest, plan, receipt, and scope gated single Path.unlink"), deferred_surfaces=("general cleanup", "recursive delete", "wildcard delete", "unrelated file delete", "hardware control", "service control"), forbidden_implications=("exact diagnostic rollback is general cleanup", "exact diagnostic rollback deletes directories, siblings, wildcard matches, or unrelated files"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("local_diagnostic_rollback_postcondition_check", "local_diagnostic_effect", "implemented", "exact_artifact_postcondition_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_exact_rollback.py",), implemented_surfaces=("postcondition check verifies exact artifact path absence only",), deferred_surfaces=("broad filesystem checks",), forbidden_implications=("rollback postcondition scans broad filesystem")),
+        _record("local_diagnostic_rollback_audit_receipt", "local_diagnostic_effect", "implemented", "exact_artifact_rollback_audit_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_exact_rollback.py",), implemented_surfaces=("audit receipt for exact local diagnostic artifact rollback only",), deferred_surfaces=("general rollback audits",), forbidden_implications=("rollback audit authorizes cleanup or unrelated deletion")),
+        _record("local_diagnostic_rollback_execution", "local_diagnostic_effect", "deferred", "none", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), deferred_surfaces=("general rollback execution outside exact local diagnostic artifact"), forbidden_implications=("rollback scaffold performs deletion")),
         _record("real_backend_implementation", "real_effect_admission", "deferred", "none", deferred_surfaces=("real backend implementation", "OS backend implementation"), forbidden_implications=("real effect admission implements backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_receipt_creation", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real effect receipt creation",), forbidden_implications=("dry-run audit closure creates real effect receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_postcondition_check", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real host postcondition checking",), forbidden_implications=("dry-run audit closure checks real host postconditions",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -1151,3 +1157,23 @@ def update_registry_from_executor_contract_readiness(registry: CapabilityRegistr
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-fulfillment-executor-contract-wing.v1")
+
+
+def update_registry_from_local_diagnostic_rollback_receipt(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect exact local diagnostic artifact rollback without widening cleanup authority."""
+
+    payload = receipt.to_dict() if hasattr(receipt, "to_dict") else dict(receipt)
+    performed = bool(payload.get("real_rollback_performed")) and bool(payload.get("exact_artifact_only"))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "local_diagnostic_exact_rollback":
+            records.append(replace(record, status="implemented", authority_level="exact_artifact_rollback_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "local_diagnostic_rollback_postcondition_check":
+            records.append(replace(record, status="implemented", authority_level="exact_artifact_postcondition_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "local_diagnostic_rollback_audit_receipt":
+            records.append(replace(record, status="implemented", authority_level="exact_artifact_rollback_audit_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"real_file_cleanup", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "provider_invocation", "federation_transport_sync_adoption"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-local-diagnostic-exact-rollback-wing.v1")

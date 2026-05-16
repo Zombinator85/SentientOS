@@ -84,3 +84,5 @@ Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
 
 The authority ladder later reaches the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md), the first explicit diagnostic artifact write effect.
+
+Later bounded real-effect proof organs include the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md) and its [exact artifact rollback pilot](host_local_diagnostic_exact_rollback_pilot_wing.md); both remain explicit and narrow.

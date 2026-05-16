@@ -560,3 +560,18 @@ def test_local_diagnostic_effect_pilot_doc_is_linked_and_preserves_boundaries() 
     assert "network egress" in doc and "provider invocation" in doc and "prompt assembly" in doc
     assert "subprocess execution" in doc and "shell execution" in doc
     assert "python scripts/run_local_diagnostic_effect.py --output-dir /tmp/sentientos-local-diagnostic-effect --summary" in doc
+
+HOST_LOCAL_DIAGNOSTIC_EXACT_ROLLBACK = "docs/architecture/host_local_diagnostic_exact_rollback_pilot_wing.md"
+
+
+def test_exact_rollback_pilot_doc_is_linked_and_preserves_boundaries() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    doc = _read(HOST_LOCAL_DIAGNOSTIC_EXACT_ROLLBACK)
+    assert "host_local_diagnostic_exact_rollback_pilot_wing.md" in overview
+    assert "host_local_diagnostic_exact_rollback_pilot_wing.md" in index
+    assert "first intentionally real rollback pilot" in doc
+    assert "exact diagnostic artifact" in doc
+    assert "not general cleanup" in doc
+    assert "proof bundle does not run" in doc
+    assert "python scripts/run_local_diagnostic_rollback.py" in doc
