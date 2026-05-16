@@ -426,3 +426,5 @@ The first bounded real-effect pilot is the [Host Local Diagnostic Effect Pilot W
 The trajectory now includes a bounded [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md): the first real rollback, limited to the exact diagnostic artifact and not general cleanup.
 
 - [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md): metadata-only integrity ledger for the Tier-1 local diagnostic effect and exact rollback lifecycle before broader effect implementation.
+
+See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.

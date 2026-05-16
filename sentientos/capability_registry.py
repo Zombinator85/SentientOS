@@ -49,6 +49,8 @@ CAPABILITY_CATEGORIES = frozenset(
         "real_effect_admission",
         "local_diagnostic_effect",
         "local_effect_transaction_ledger",
+        "host_steward_boundary",
+        "delegated_runner_boundary",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -110,6 +112,11 @@ AUTHORITY_LEVELS = frozenset(
         "local_effect_transaction_ledger_only",
         "local_effect_lifecycle_report_only",
         "explicit_local_artifact_only",
+        "authority_profile_only",
+        "boundary_profile_only",
+        "containment_profile_only",
+        "grant_scaffold_only",
+        "violation_receipt_only",
         "candidate_only",
         "plan_scaffold_only",
         "block_receipt_only",
@@ -360,6 +367,23 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("local_effect_transaction_ledger", "local_effect_transaction_ledger", "implemented", "local_effect_transaction_ledger_only", source_paths=("sentientos/local_effect_transaction_ledger.py", "scripts/build_local_effect_transaction_ledger.py"), proof_tests=("tests/test_local_effect_transaction_ledger.py", "tests/test_build_local_effect_transaction_ledger_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_local_effect_transaction_ledger.py tests/test_build_local_effect_transaction_ledger_script.py", "python scripts/build_local_effect_transaction_ledger.py --effect-receipt <effect_receipt.json> --postcondition-check <postcondition.json> --production-audit <audit.json> --rollback-plan <rollback_plan.json> --summary"), implemented_surfaces=("metadata-only transaction ledger for local diagnostic effect and exact rollback records", "digest-chain validation", "open/orphan/incomplete/contradicted/closed lifecycle classification"), deferred_surfaces=("broader effect transaction ledger", "general cleanup", "broader host control"), forbidden_implications=("transaction ledger performs host effects", "ledger authorizes cleanup or rollback"), requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("local_effect_lifecycle_report", "local_effect_transaction_ledger", "implemented", "local_effect_lifecycle_report_only", source_paths=("sentientos/local_effect_transaction_ledger.py",), proof_tests=("tests/test_local_effect_transaction_ledger.py",), implemented_surfaces=("metadata-only lifecycle status report for local diagnostic transactions",), deferred_surfaces=("general lifecycle enforcement",), forbidden_implications=("lifecycle report performs host mutation")),
         _record("local_effect_transaction_ledger_artifact", "local_effect_transaction_ledger", "implemented", "explicit_local_artifact_only", source_paths=("sentientos/local_effect_transaction_ledger.py", "scripts/build_local_effect_transaction_ledger.py"), proof_tests=("tests/test_local_effect_transaction_ledger.py", "tests/test_build_local_effect_transaction_ledger_script.py"), implemented_surfaces=("optional explicit caller-supplied local JSON ledger artifact write",), deferred_surfaces=("default proof bundle execution", "implicit artifact writes"), forbidden_implications=("ledger artifact write runs effect or rollback")),
+        _record("host_steward_authority_profile", "host_steward_boundary", "implemented", "authority_profile_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only host steward authority profile", "top-level operator-delegated broad local authority model"), deferred_surfaces=("delegated runner execution",), forbidden_implications=("authority profile grants live runner authority",)),
+        _record("delegated_runner_boundary_profile", "delegated_runner_boundary", "implemented", "boundary_profile_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only delegated runner boundary profile", "ambient authority inheritance denial"), deferred_surfaces=("live runner implementation",), forbidden_implications=("boundary profile executes runner",)),
+        _record("execution_containment_profile", "delegated_runner_boundary", "implemented", "containment_profile_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only containment declaration",), deferred_surfaces=("live sandbox enforcement",), forbidden_implications=("containment declaration is live sandbox execution",)),
+        _record("backend_adapter_authority_declaration", "delegated_runner_boundary", "implemented", "declaration_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only backend adapter authority declaration",), deferred_surfaces=("backend loading", "backend invocation"), forbidden_implications=("declaration invokes backend",)),
+        _record("runner_capability_grant_scaffold", "delegated_runner_boundary", "implemented", "grant_scaffold_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only scoped revocable auditable grant scaffold",), deferred_surfaces=("live runner grant issuance",), forbidden_implications=("grant scaffold issues live runner grant",)),
+        _record("runner_boundary_assessment", "delegated_runner_boundary", "implemented", "assessment_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only runner boundary assessment",), deferred_surfaces=("execution authorization",), forbidden_implications=("boundary assessment authorizes execution",)),
+        _record("runner_boundary_violation_receipt", "delegated_runner_boundary", "implemented", "violation_receipt_only", source_paths=("sentientos/host_steward_boundary.py",), proof_tests=("tests/test_host_steward_boundary.py",), implemented_surfaces=("metadata-only runner boundary violation receipt",), deferred_surfaces=("runner execution", "host mutation"), forbidden_implications=("violation receipt authorizes execution",)),
+        _record("live_runner_execution", "delegated_runner_boundary", "deferred", "none", deferred_surfaces=("live delegated runner execution",), forbidden_implications=("host steward boundary wing implements runner execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("real_subprocess_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("subprocess runner",), forbidden_implications=("delegated runner subprocess execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("shell_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("shell runner",), forbidden_implications=("delegated runner shell execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("network_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("network runner",), forbidden_implications=("delegated runner network egress",), network_required=False),
+        _record("provider_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("provider runner",), forbidden_implications=("delegated runner provider invocation",), provider_required=False),
+        _record("prompt_assembly_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("prompt assembly runner",), forbidden_implications=("delegated runner prompt assembly",), prompt_assembly_required=False),
+        _record("hardware_control_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("hardware control runner",), forbidden_implications=("delegated runner hardware control",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("service_control_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("service control runner",), forbidden_implications=("delegated runner service control",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("power_control_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("power control runner",), forbidden_implications=("delegated runner power control",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
+        _record("cleanup_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("cleanup runner",), forbidden_implications=("delegated runner cleanup",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("general_effect_transaction_ledger", "local_effect_transaction_ledger", "deferred", "none", deferred_surfaces=("transaction ledgers for broader host effects",), forbidden_implications=("local diagnostic transaction ledger covers arbitrary host effects"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("general_cleanup", "execution_proof", "blocked", "none", deferred_surfaces=("general cleanup", "directory cleanup", "wildcard cleanup"), forbidden_implications=("exact artifact rollback is general cleanup"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("recursive_delete", "execution_proof", "blocked", "none", deferred_surfaces=("recursive delete",), forbidden_implications=("rollback uses recursive deletion"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -1215,3 +1239,42 @@ def update_registry_from_local_effect_transaction_ledger(registry: CapabilityReg
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-local-effect-transaction-ledger-wing.v1")
+
+
+def update_registry_from_host_steward_boundary(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
+    """Reflect metadata-only host steward boundary records without adding runner execution."""
+
+    payload = wing.to_dict() if hasattr(wing, "to_dict") else dict(wing)
+    has_profile = bool(payload.get("host_steward_profile"))
+    boundary_ids = {
+        "host_steward_authority_profile",
+        "delegated_runner_boundary_profile",
+        "execution_containment_profile",
+        "backend_adapter_authority_declaration",
+        "runner_capability_grant_scaffold",
+        "runner_boundary_assessment",
+        "runner_boundary_violation_receipt",
+    }
+    blocked_runner_ids = {
+        "live_runner_execution",
+        "real_subprocess_runner",
+        "shell_runner",
+        "network_runner",
+        "provider_runner",
+        "prompt_assembly_runner",
+        "hardware_control_runner",
+        "service_control_runner",
+        "power_control_runner",
+        "cleanup_runner",
+        "real_fan_pwm_control",
+        "real_thermal_actuation",
+    }
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in boundary_ids:
+            records.append(replace(record, status="implemented" if has_profile else record.status, host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in blocked_runner_ids:
+            records.append(replace(record, status="deferred" if record.capability_id == "live_runner_execution" else "blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-steward-delegated-runner-boundary-wing.v1")

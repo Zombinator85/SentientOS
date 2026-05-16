@@ -278,3 +278,5 @@ See [Host Real Effect Capability Admission Wing](host_real_effect_capability_adm
 - [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md) — first intentionally real effect, explicit diagnostic artifact write only, reviewer bundle does not run it by default.
 
 The exact-artifact rollback proof is documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md): it is the first real rollback and is exact diagnostic artifact only, not general cleanup.
+
+See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
