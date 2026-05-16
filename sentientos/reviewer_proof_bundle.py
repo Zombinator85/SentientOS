@@ -80,6 +80,10 @@ from sentientos.local_authorization_grant import (
     summarize_operator_approval_evidence,
     summarize_policy_approval_evidence,
 )
+from sentientos.host_steward_boundary import (
+    build_host_steward_boundary_wing,
+    summarize_host_steward_boundary_wing,
+)
 from sentientos.host_embodiment_trace_export import (
     serialize_host_embodiment_trace_json,
     serialize_host_embodiment_trace_markdown,
@@ -116,6 +120,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "local_diagnostic_effect_capability",
         "local_diagnostic_rollback_capability",
         "local_effect_transaction_ledger_capability",
+        "host_steward_boundary_posture",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -147,6 +152,7 @@ BUNDLE_FILE_NAMES = {
     "local_diagnostic_effect_capability": "local_diagnostic_effect_capability.json",
     "local_diagnostic_rollback_capability": "local_diagnostic_rollback_capability.json",
     "local_effect_transaction_ledger_capability": "local_effect_transaction_ledger_capability.json",
+    "host_steward_boundary_posture": "host_steward_boundary.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -192,6 +198,16 @@ DEFERRED_ACTION_LABELS = (
     "federation_transport_sync_adoption",
     "remote_execution",
     "local_diagnostic_effect_pilot_explicit_only",
+    "live_runner_execution",
+    "real_subprocess_runner",
+    "shell_runner",
+    "network_runner",
+    "provider_runner",
+    "prompt_assembly_runner",
+    "hardware_control_runner",
+    "service_control_runner",
+    "power_control_runner",
+    "cleanup_runner",
 )
 BLOCKED_ACTION_LABELS = (
     "fan_pwm_write",
@@ -205,6 +221,16 @@ BLOCKED_ACTION_LABELS = (
     "federation_transport_sync_adoption",
     "remote_execution",
     "local_diagnostic_effect_pilot_explicit_only",
+    "live_runner_execution",
+    "real_subprocess_runner",
+    "shell_runner",
+    "network_runner",
+    "provider_runner",
+    "prompt_assembly_runner",
+    "hardware_control_runner",
+    "service_control_runner",
+    "power_control_runner",
+    "cleanup_runner",
 )
 
 
@@ -501,6 +527,7 @@ def build_reviewer_proof_bundle_payload(
     )
     dry_run_audit_closure = build_dry_run_audit_closure_wing(dry_run_execution.receipt, created_at=created_at)
     real_effect_admission = build_real_effect_admission_wing(dry_run_audit_closure.closure_bundle, created_at=created_at)
+    host_steward_boundary = build_host_steward_boundary_wing(created_at=created_at)
     commands = tuple(proof_command_records) if proof_command_records is not None else build_default_reviewer_proof_commands()
     contents: dict[str, str] = {
         "trace_json": serialize_host_embodiment_trace_json(trace),
@@ -763,6 +790,33 @@ def build_reviewer_proof_bundle_payload(
             "no_fan_pwm_thermal_power_service_package_driver": True,
             "no_network_provider_prompt_subprocess_shell_control_plane": True,
         }),
+        "host_steward_boundary_posture": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "host_steward_boundary_only": True,
+            "proof_statement": "Host steward authority may be broad at the top level under operator delegation, but delegated runners do not inherit ambient authority.",
+            "delegated_runners_do_not_inherit_ambient_authority": True,
+            "no_runner_executes_by_default": True,
+            "containment_profiles_are_not_live_sandbox_execution": True,
+            "backend_declarations_do_not_load_or_invoke_backends": True,
+            "grant_scaffolds_do_not_issue_live_runner_grants": True,
+            "boundary_assessments_do_not_authorize_runner_execution": True,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_ledger_built_by_default": False,
+            "runner_executed": False,
+            "live_runner_grant_issued": False,
+            "backend_loaded": False,
+            "backend_invoked": False,
+            "host_mutation_performed": False,
+            "network_performed": False,
+            "provider_invocation_performed": False,
+            "prompt_assembly_performed": False,
+            "subprocess_execution_performed": False,
+            "shell_execution_performed": False,
+            "summary": summarize_host_steward_boundary_wing(host_steward_boundary),
+            "records": host_steward_boundary.to_dict(),
+        }),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }
     artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())
@@ -803,7 +857,7 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, artifact_records=artifact_records + (manifest_artifact,))
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
-    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure, "real_effect_admission": real_effect_admission}
+    return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure, "real_effect_admission": real_effect_admission, "host_steward_boundary": host_steward_boundary}
 
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:

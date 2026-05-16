@@ -88,3 +88,5 @@ The authority ladder later reaches the [Host Local Diagnostic Effect Pilot Wing]
 Later bounded real-effect proof organs include the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md) and its [exact artifact rollback pilot](host_local_diagnostic_exact_rollback_pilot_wing.md); both remain explicit and narrow.
 
 The later [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) remains downstream of authorization, real-effect admission, the local diagnostic effect pilot, and exact rollback; it is metadata-only transaction integrity, not new authority.
+
+See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.

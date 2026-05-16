@@ -240,3 +240,14 @@ def test_reviewer_proof_bundle_cli_writes_local_diagnostic_capability_without_ru
     assert payload["proof_bundle_effect_performed"] is False
     commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
     assert any("run_local_diagnostic_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
+
+
+def test_script_writes_host_steward_boundary_artifact(tmp_path: Path) -> None:
+    out = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(out), "--force"])
+    assert code == 0, stderr
+    assert "artifacts:" in stdout
+    assert (out / "host_steward_boundary.json").exists()
+    posture = json.loads((out / "host_steward_boundary.json").read_text(encoding="utf-8"))
+    assert posture["delegated_runners_do_not_inherit_ambient_authority"] is True
+    assert posture["no_runner_executes_by_default"] is True

@@ -592,3 +592,20 @@ def test_transaction_ledger_doc_is_linked_and_preserves_boundaries() -> None:
     assert "closed transactions" in doc
     assert "not general cleanup" in doc
     assert "python scripts/build_local_effect_transaction_ledger.py" in doc
+
+HOST_STEWARD_BOUNDARY_WING = "docs/architecture/host_steward_delegated_runner_boundary_wing.md"
+
+
+def test_navigation_links_to_host_steward_delegated_runner_boundary_wing_doc() -> None:
+    for relative in [PUBLIC_OVERVIEW, READINESS_INDEX, TRAJECTORY_DOC]:
+        assert HOST_STEWARD_BOUNDARY_WING in _read(relative)
+
+
+def test_host_steward_boundary_doc_preserves_runner_boundary_limits() -> None:
+    doc = _read(HOST_STEWARD_BOUNDARY_WING)
+    assert "broad operator-delegated local authority" in doc
+    assert "Delegated runners do not inherit ambient authority by default" in doc
+    assert "Execution containment profiles are declarations, not live sandbox execution" in doc
+    assert "Backend adapter declarations do not load or invoke backends" in doc
+    assert "does not spawn processes, use shell, use network" in doc
+    assert "mutate host state" in doc

@@ -122,3 +122,5 @@ The bundle documents but does not run the [Host Local Diagnostic Effect Pilot Wi
 The proof bundle lists, but does not run, the exact-artifact rollback CLI documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md).
 
 The bundle also includes `local_effect_transaction_ledger_capability.json`; its ledger command is listed as `proof_command_not_run` and does not run effect or rollback by default. See [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md).
+
+See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.

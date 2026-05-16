@@ -672,3 +672,38 @@ def test_local_effect_transaction_ledger_capabilities_are_bounded() -> None:
     assert records["general_effect_transaction_ledger"].status == "deferred"
     for capability_id in ["general_cleanup", "recursive_delete", "unrelated_file_delete", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "remote_execution"]:
         assert records[capability_id].status == "blocked"
+
+
+def test_host_steward_boundary_capabilities_are_metadata_only_and_runners_blocked() -> None:
+    records = build_default_capability_registry().by_id()
+    expected = {
+        "host_steward_authority_profile": "authority_profile_only",
+        "delegated_runner_boundary_profile": "boundary_profile_only",
+        "execution_containment_profile": "containment_profile_only",
+        "backend_adapter_authority_declaration": "declaration_only",
+        "runner_capability_grant_scaffold": "grant_scaffold_only",
+        "runner_boundary_assessment": "assessment_only",
+        "runner_boundary_violation_receipt": "violation_receipt_only",
+    }
+    for capability_id, authority_level in expected.items():
+        record = records[capability_id]
+        assert record.status == "implemented"
+        assert record.authority_level == authority_level
+        assert record.metadata_only is True
+        assert record.host_actuation_performed is False
+    assert records["live_runner_execution"].status == "deferred"
+    for capability_id in [
+        "real_subprocess_runner",
+        "shell_runner",
+        "network_runner",
+        "provider_runner",
+        "prompt_assembly_runner",
+        "hardware_control_runner",
+        "service_control_runner",
+        "power_control_runner",
+        "cleanup_runner",
+        "real_fan_pwm_control",
+        "real_thermal_actuation",
+    ]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+        assert records[capability_id].host_actuation_performed is False

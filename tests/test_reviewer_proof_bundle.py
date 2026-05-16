@@ -315,3 +315,23 @@ def test_reviewer_proof_bundle_lists_exact_rollback_but_does_not_run_it() -> Non
     rollback_commands = [record for record in commands if "run_local_diagnostic_rollback.py" in " ".join(record["command"])]
     assert rollback_commands
     assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in rollback_commands)
+
+
+def test_bundle_includes_host_steward_boundary_posture_without_runner_execution() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    assert "host_steward_boundary_posture" in payload["artifacts"]
+    assert "host_steward_boundary.json" in payload["artifacts"]["bundle_manifest"]
+    posture = json.loads(payload["artifacts"]["host_steward_boundary_posture"])
+    assert posture["delegated_runners_do_not_inherit_ambient_authority"] is True
+    assert posture["no_runner_executes_by_default"] is True
+    assert posture["containment_profiles_are_not_live_sandbox_execution"] is True
+    assert posture["backend_declarations_do_not_load_or_invoke_backends"] is True
+    assert posture["grant_scaffolds_do_not_issue_live_runner_grants"] is True
+    assert posture["boundary_assessments_do_not_authorize_runner_execution"] is True
+    assert posture["proof_bundle_effect_performed"] is False
+    assert posture["proof_bundle_rollback_performed"] is False
+    assert posture["proof_bundle_ledger_built_by_default"] is False
+    assert posture["runner_executed"] is False
+    assert posture["host_mutation_performed"] is False
+    assert payload["host_steward_boundary"].runner_executed is False
+    assert validate_reviewer_proof_bundle_manifest(payload["manifest"]).ok

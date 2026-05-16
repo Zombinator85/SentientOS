@@ -276,3 +276,5 @@ For the first intentionally real but bounded effect, see the [Host Local Diagnos
 Host embodiment proof now includes an explicit [local diagnostic effect pilot](host_local_diagnostic_effect_pilot_wing.md) and matching [exact artifact rollback pilot](host_local_diagnostic_exact_rollback_pilot_wing.md); reviewer bundles document but do not run either by default.
 
 The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) (`docs/architecture/host_local_effect_transaction_ledger_wing.md`) adds metadata-only lifecycle integrity for the local diagnostic effect and exact rollback; it adds no new host effect and is not general cleanup or broader host control.
+
+See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
