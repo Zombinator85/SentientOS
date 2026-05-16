@@ -26,6 +26,9 @@ Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
 Resource Governor scaffold. Privilege Broker and Actuation Fulfillment Layer
 remain future gates for any host action; direct fan/PWM control remains deferred. Phase 4 broker eligibility is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md` and still does not authorize or fulfill host action.
 
+
+The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) (`docs/architecture/host_local_effect_transaction_ledger_wing.md`) records the local diagnostic effect plus exact rollback lifecycle, detects open/orphaned/incomplete/contradicted/closed transactions, and adds no new host effect.
+
 ## Current implemented proof surfaces
 
 ### Control plane / authority admission

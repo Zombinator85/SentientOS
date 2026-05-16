@@ -63,6 +63,7 @@ def test_default_proof_commands_are_listed_and_not_run() -> None:
     rendered = [" ".join(command.command) for command in commands]
     assert "python scripts/build_host_embodiment_trace.py --validate-only" in rendered
     assert "python scripts/verify_context_hygiene_prompt_boundaries.py" in rendered
+    assert "python scripts/build_local_effect_transaction_ledger.py --effect-receipt <effect_receipt.json> --postcondition-check <postcondition.json> --production-audit <audit.json> --rollback-plan <rollback_plan.json> --summary" in rendered
 
 
 def test_bundle_includes_expected_artifacts_and_content() -> None:
@@ -77,6 +78,7 @@ def test_bundle_includes_expected_artifacts_and_content() -> None:
         "proof_command_manifest",
         "reviewer_readme",
         "bundle_manifest",
+        "local_effect_transaction_ledger_capability",
     ]:
         assert key in artifacts
     assert "fake/sample" in artifacts["trace_summary"]
@@ -84,6 +86,8 @@ def test_bundle_includes_expected_artifacts_and_content() -> None:
     assert "reviewer_proof_bundle" in artifacts["capability_registry_summary"]
     assert "real_fan_pwm_control" in artifacts["deferred_action_inventory"]
     assert "proof_command_not_run" in artifacts["proof_command_manifest"]
+    assert "performs_no_new_host_effect_by_default" in artifacts["local_effect_transaction_ledger_capability"]
+    assert "proof_bundle_ledger_built_by_default" in artifacts["local_effect_transaction_ledger_capability"]
 
 
 def test_deferred_actions_cover_non_mutating_boundary() -> None:

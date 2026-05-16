@@ -274,3 +274,5 @@ See [Host Real Effect Capability Admission Wing](host_real_effect_capability_adm
 For the first intentionally real but bounded effect, see the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md), which only writes one explicit local diagnostic artifact and is not run by reviewer bundles by default.
 
 Host embodiment proof now includes an explicit [local diagnostic effect pilot](host_local_diagnostic_effect_pilot_wing.md) and matching [exact artifact rollback pilot](host_local_diagnostic_exact_rollback_pilot_wing.md); reviewer bundles document but do not run either by default.
+
+The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) (`docs/architecture/host_local_effect_transaction_ledger_wing.md`) adds metadata-only lifecycle integrity for the local diagnostic effect and exact rollback; it adds no new host effect and is not general cleanup or broader host control.
