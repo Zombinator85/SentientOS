@@ -280,3 +280,14 @@ See [Host Real Effect Capability Admission Wing](host_real_effect_capability_adm
 The exact-artifact rollback proof is documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md): it is the first real rollback and is exact diagnostic artifact only, not general cleanup.
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+## Built-In Local Effect Runner Pilot
+
+- Architecture: `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md`.
+- This is the first actual delegated runner implementation.
+- It is in-process only.
+- It supports only local diagnostic artifact write and exact artifact rollback.
+- It uses no subprocess/shell/network/provider/prompt.
+- It is not a general runner framework.
+- It does not broaden cleanup/hardware/service/power/fan/thermal control.
+- Proof command listed but not run by default: `python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary`.

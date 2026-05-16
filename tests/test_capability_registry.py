@@ -707,3 +707,32 @@ def test_host_steward_boundary_capabilities_are_metadata_only_and_runners_blocke
     ]:
         assert records[capability_id].status in {"blocked", "deferred"}
         assert records[capability_id].host_actuation_performed is False
+
+
+def test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only() -> None:
+    records = build_default_capability_registry().by_id()
+    assert records["builtin_local_effect_runner"].status == "implemented"
+    assert records["builtin_local_effect_runner"].authority_level == "bounded_in_process_runner"
+    assert "only local diagnostic artifact write and exact-artifact rollback" in records["builtin_local_effect_runner"].implemented_surfaces
+    assert records["builtin_runner_local_diagnostic_artifact_write"].status == "implemented"
+    assert records["builtin_runner_local_diagnostic_artifact_write"].authority_level == "builtin_runner_action_only"
+    assert records["builtin_runner_exact_artifact_rollback"].status == "implemented"
+    assert records["builtin_runner_exact_artifact_rollback"].authority_level == "builtin_runner_action_only"
+    assert records["general_runner_framework"].status == "deferred"
+    for capability_id in [
+        "generated_code_runner",
+        "plugin_runner",
+        "federation_import_runner",
+        "subprocess_runner",
+        "shell_runner",
+        "network_runner",
+        "provider_runner",
+        "prompt_assembly_runner",
+        "hardware_control_runner",
+        "service_control_runner",
+        "power_control_runner",
+        "cleanup_runner",
+    ]:
+        assert records[capability_id].status == "blocked"
+        assert records[capability_id].host_actuation_performed is False
+    assert validate_capability_registry(build_default_capability_registry()).ok

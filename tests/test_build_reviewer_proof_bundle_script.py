@@ -251,3 +251,18 @@ def test_script_writes_host_steward_boundary_artifact(tmp_path: Path) -> None:
     posture = json.loads((out / "host_steward_boundary.json").read_text(encoding="utf-8"))
     assert posture["delegated_runners_do_not_inherit_ambient_authority"] is True
     assert posture["no_runner_executes_by_default"] is True
+
+
+def test_reviewer_proof_bundle_cli_writes_builtin_runner_capability_without_running_runner(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--force"])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "builtin_local_effect_runner_capability.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["built_in_runner_exists"] is True
+    assert payload["run_by_reviewer_proof_bundle_default"] is False
+    assert payload["proof_bundle_runner_invoked"] is False
+    assert payload["no_subprocess_shell_network_provider_prompt"] is True
+    commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
+    assert any("run_builtin_local_effect_runner.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)

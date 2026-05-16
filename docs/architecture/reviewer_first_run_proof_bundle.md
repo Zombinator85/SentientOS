@@ -124,3 +124,7 @@ The proof bundle lists, but does not run, the exact-artifact rollback CLI docume
 The bundle also includes `local_effect_transaction_ledger_capability.json`; its ledger command is listed as `proof_command_not_run` and does not run effect or rollback by default. See [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md).
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+## Built-In Local Effect Runner Proof Artifact
+
+The proof bundle includes `builtin_local_effect_runner_capability.json` for `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md`. The proof bundle does not invoke the runner by default; listed runner commands remain `proof_command_not_run`.

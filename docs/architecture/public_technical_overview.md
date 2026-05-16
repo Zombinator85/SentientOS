@@ -278,3 +278,5 @@ Host embodiment proof now includes an explicit [local diagnostic effect pilot](h
 The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) (`docs/architecture/host_local_effect_transaction_ledger_wing.md`) adds metadata-only lifecycle integrity for the local diagnostic effect and exact rollback; it adds no new host effect and is not general cleanup or broader host control.
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+- `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` — first actual delegated runner implementation; in-process only; supports only local diagnostic artifact write and exact-artifact rollback; not a general runner framework; no subprocess/shell/network/provider/prompt.
