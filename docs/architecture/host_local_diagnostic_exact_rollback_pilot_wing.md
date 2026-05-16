@@ -68,3 +68,7 @@ The capability registry marks `local_diagnostic_exact_rollback`, `local_diagnost
 Next: [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) connects the effect, rollback, postcondition, and audit records into a metadata-only transaction lifecycle ledger.
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+## Built-In Runner Link
+
+`docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` may invoke this exact-artifact rollback path in-process only; it does not broaden cleanup, recursive delete, or unrelated file deletion.

@@ -428,3 +428,7 @@ The trajectory now includes a bounded [Host Local Diagnostic Exact Artifact Roll
 - [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md): metadata-only integrity ledger for the Tier-1 local diagnostic effect and exact rollback lifecycle before broader effect implementation.
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+## Bounded Built-In Runner Pilot
+
+`docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` closes the first delegated-runner organ only for bounded in-process local diagnostic artifact write and exact-artifact rollback. General runners and hardware/service/power/fan/thermal/cleanup authority remain missing or blocked/deferred.

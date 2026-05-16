@@ -121,6 +121,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "local_diagnostic_rollback_capability",
         "local_effect_transaction_ledger_capability",
         "host_steward_boundary_posture",
+        "builtin_local_effect_runner_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -153,6 +154,7 @@ BUNDLE_FILE_NAMES = {
     "local_diagnostic_rollback_capability": "local_diagnostic_rollback_capability.json",
     "local_effect_transaction_ledger_capability": "local_effect_transaction_ledger_capability.json",
     "host_steward_boundary_posture": "host_steward_boundary.json",
+    "builtin_local_effect_runner_capability": "builtin_local_effect_runner_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -208,6 +210,7 @@ DEFERRED_ACTION_LABELS = (
     "service_control_runner",
     "power_control_runner",
     "cleanup_runner",
+    "builtin_local_effect_runner_explicit_only",
 )
 BLOCKED_ACTION_LABELS = (
     "fan_pwm_write",
@@ -231,6 +234,7 @@ BLOCKED_ACTION_LABELS = (
     "service_control_runner",
     "power_control_runner",
     "cleanup_runner",
+    "builtin_local_effect_runner_explicit_only",
 )
 
 
@@ -342,6 +346,8 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/verify_context_hygiene_prompt_boundaries.py"), "Verify prompt/provider boundary hygiene."),
         (("python", "scripts/run_local_diagnostic_effect.py", "--output-dir", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit Tier-1 local diagnostic effect pilot; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_local_diagnostic_rollback.py", "--effect-receipt", "<receipt.json>", "--rollback-plan", "<rollback-plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit exact-artifact rollback pilot; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "local_diagnostic_artifact_write", "--output-dir", "/tmp/sentientos-local-effect-runner", "--summary"), "Optional explicit bounded built-in local effect runner diagnostic write; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "local_diagnostic_exact_rollback", "--effect-receipt", "<effect_receipt.json>", "--rollback-plan", "<rollback_plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect-runner", "--summary"), "Optional explicit bounded built-in local effect runner exact rollback; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/build_local_effect_transaction_ledger.py", "--effect-receipt", "<effect_receipt.json>", "--postcondition-check", "<postcondition.json>", "--production-audit", "<audit.json>", "--rollback-plan", "<rollback_plan.json>", "--summary"), "Optional metadata-only local effect transaction ledger; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
@@ -789,6 +795,29 @@ def build_reviewer_proof_bundle_payload(
             "general_cleanup_hardware_service_network_provider_prompt_remain_blocked": True,
             "no_fan_pwm_thermal_power_service_package_driver": True,
             "no_network_provider_prompt_subprocess_shell_control_plane": True,
+        }),
+
+        "builtin_local_effect_runner_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "built_in_runner_exists": True,
+            "first_actual_delegated_runner_implementation": True,
+            "bounded_builtin_runner_only": True,
+            "in_process_only": True,
+            "explicit_command_required": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_runner_invoked": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_host_mutation_performed": False,
+            "supported_action_kinds": ["local_diagnostic_artifact_write", "local_diagnostic_exact_rollback"],
+            "not_general_runner_framework": True,
+            "no_subprocess_shell_network_provider_prompt": True,
+            "no_hardware_service_power_general_cleanup": True,
+            "delegated_runners_do_not_inherit_ambient_authority": True,
+            "proof_command": "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary",
+            "rollback_proof_command": "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_exact_rollback --effect-receipt <effect_receipt.json> --rollback-plan <rollback_plan.json> --output-dir-scope /tmp/sentientos-local-effect-runner --summary",
         }),
         "host_steward_boundary_posture": _pretty_json({
             "metadata_only": True,

@@ -609,3 +609,18 @@ def test_host_steward_boundary_doc_preserves_runner_boundary_limits() -> None:
     assert "Backend adapter declarations do not load or invoke backends" in doc
     assert "does not spawn processes, use shell, use network" in doc
     assert "mutate host state" in doc
+
+HOST_BUILTIN_LOCAL_EFFECT_RUNNER = "docs/architecture/host_builtin_local_effect_runner_pilot_wing.md"
+
+
+def test_builtin_local_effect_runner_doc_linked_and_preserves_boundaries() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    doc = _read(HOST_BUILTIN_LOCAL_EFFECT_RUNNER)
+    assert HOST_BUILTIN_LOCAL_EFFECT_RUNNER in overview
+    assert HOST_BUILTIN_LOCAL_EFFECT_RUNNER in index
+    assert "first actual delegated runner implementation" in doc
+    assert "in-process only" in doc
+    assert "supports only local diagnostic artifact write and exact-artifact rollback" in doc
+    assert "subprocess execution, shell execution, network egress, provider invocation, prompt assembly" in doc
+    assert "not a general runner framework" in doc

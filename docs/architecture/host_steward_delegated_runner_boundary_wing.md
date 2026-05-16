@@ -76,3 +76,7 @@ The capability registry marks host-steward boundary surfaces as implemented meta
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_host_steward_boundary.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+## Bounded Built-In Runner Pilot
+
+See `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` for the first actual delegated runner implementation. It remains in-process only, supports only local diagnostic artifact write and exact-artifact rollback, and is not a general runner framework.

@@ -335,3 +335,17 @@ def test_bundle_includes_host_steward_boundary_posture_without_runner_execution(
     assert posture["host_mutation_performed"] is False
     assert payload["host_steward_boundary"].runner_executed is False
     assert validate_reviewer_proof_bundle_manifest(payload["manifest"]).ok
+
+
+def test_bundle_includes_builtin_local_effect_runner_capability_and_does_not_run_it() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "builtin_local_effect_runner_capability" in artifacts
+    artifact = json.loads(artifacts["builtin_local_effect_runner_capability"])
+    assert artifact["built_in_runner_exists"] is True
+    assert artifact["run_by_reviewer_proof_bundle_default"] is False
+    assert artifact["proof_bundle_runner_invoked"] is False
+    assert artifact["supported_action_kinds"] == ["local_diagnostic_artifact_write", "local_diagnostic_exact_rollback"]
+    commands = [" ".join(command.command) for command in payload["manifest"].proof_command_records]
+    assert "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary" in commands
+    assert all(command.status == "proof_command_not_run" and command.executed is False for command in payload["manifest"].proof_command_records)

@@ -60,3 +60,7 @@ The matching exact-artifact rollback pilot is documented in [Host Local Diagnost
 Related: [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) records the diagnostic effect plus exact rollback lifecycle without adding a new host effect.
 
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
+
+## Built-In Runner Link
+
+`docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` may invoke this local diagnostic artifact write path in-process only; it does not add subprocess, shell, network, provider, or prompt authority.
