@@ -115,6 +115,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_effect_admission_posture",
         "local_diagnostic_effect_capability",
         "local_diagnostic_rollback_capability",
+        "local_effect_transaction_ledger_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -145,6 +146,7 @@ BUNDLE_FILE_NAMES = {
     "real_effect_admission_posture": "real_effect_admission.json",
     "local_diagnostic_effect_capability": "local_diagnostic_effect_capability.json",
     "local_diagnostic_rollback_capability": "local_diagnostic_rollback_capability.json",
+    "local_effect_transaction_ledger_capability": "local_effect_transaction_ledger_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -314,6 +316,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/verify_context_hygiene_prompt_boundaries.py"), "Verify prompt/provider boundary hygiene."),
         (("python", "scripts/run_local_diagnostic_effect.py", "--output-dir", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit Tier-1 local diagnostic effect pilot; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_local_diagnostic_rollback.py", "--effect-receipt", "<receipt.json>", "--rollback-plan", "<rollback-plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit exact-artifact rollback pilot; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/build_local_effect_transaction_ledger.py", "--effect-receipt", "<effect_receipt.json>", "--postcondition-check", "<postcondition.json>", "--production-audit", "<audit.json>", "--rollback-plan", "<rollback_plan.json>", "--summary"), "Optional metadata-only local effect transaction ledger; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -738,6 +741,25 @@ def build_reviewer_proof_bundle_payload(
             "command": "python scripts/run_local_diagnostic_rollback.py --effect-receipt <receipt.json> --rollback-plan <rollback-plan.json> --output-dir-scope /tmp/sentientos-local-effect --summary",
             "not_general_cleanup": True,
             "no_directory_recursive_wildcard_or_unrelated_delete": True,
+            "no_fan_pwm_thermal_power_service_package_driver": True,
+            "no_network_provider_prompt_subprocess_shell_control_plane": True,
+        }),
+        "local_effect_transaction_ledger_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "explicit_command_required": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_ledger_built_by_default": False,
+            "proof_bundle_host_mutation_performed": False,
+            "transaction_ledger_exists": True,
+            "performs_no_new_host_effect_by_default": True,
+            "builds_from_explicit_effect_and_rollback_record_files": True,
+            "command": "python scripts/build_local_effect_transaction_ledger.py --effect-receipt <effect_receipt.json> --postcondition-check <postcondition.json> --production-audit <audit.json> --rollback-plan <rollback_plan.json> --summary",
+            "detects_open_orphaned_incomplete_contradicted_and_closed_transactions": True,
+            "general_cleanup_hardware_service_network_provider_prompt_remain_blocked": True,
             "no_fan_pwm_thermal_power_service_package_driver": True,
             "no_network_provider_prompt_subprocess_shell_control_plane": True,
         }),

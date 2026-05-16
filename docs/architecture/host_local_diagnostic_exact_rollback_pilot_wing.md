@@ -64,3 +64,5 @@ The capability registry marks `local_diagnostic_exact_rollback`, `local_diagnost
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_local_diagnostic_exact_rollback.py`, `tests/test_run_local_diagnostic_rollback_script.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+Next: [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) connects the effect, rollback, postcondition, and audit records into a metadata-only transaction lifecycle ledger.

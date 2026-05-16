@@ -575,3 +575,20 @@ def test_exact_rollback_pilot_doc_is_linked_and_preserves_boundaries() -> None:
     assert "not general cleanup" in doc
     assert "proof bundle does not run" in doc
     assert "python scripts/run_local_diagnostic_rollback.py" in doc
+
+HOST_LOCAL_EFFECT_TRANSACTION_LEDGER_WING = "docs/architecture/host_local_effect_transaction_ledger_wing.md"
+
+
+def test_transaction_ledger_doc_is_linked_and_preserves_boundaries() -> None:
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    doc = _read(HOST_LOCAL_EFFECT_TRANSACTION_LEDGER_WING)
+    assert HOST_LOCAL_EFFECT_TRANSACTION_LEDGER_WING in overview
+    assert HOST_LOCAL_EFFECT_TRANSACTION_LEDGER_WING in index
+    assert "does **not** introduce a new host effect" in doc
+    assert "open or rollback-pending transactions" in doc
+    assert "orphaned effects" in doc
+    assert "incomplete rollback" in doc
+    assert "closed transactions" in doc
+    assert "not general cleanup" in doc
+    assert "python scripts/build_local_effect_transaction_ledger.py" in doc

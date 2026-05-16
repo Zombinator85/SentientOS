@@ -658,3 +658,17 @@ def test_local_diagnostic_exact_rollback_capabilities_are_exact_artifact_only() 
     for capability_id in ["real_file_cleanup", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "provider_invocation", "federation_transport_sync_adoption"]:
         assert records[capability_id].status in {"blocked", "deferred"}
     assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_local_effect_transaction_ledger_capabilities_are_bounded() -> None:
+    registry = build_default_capability_registry()
+    records = registry.by_id()
+    assert records["local_effect_transaction_ledger"].status == "implemented"
+    assert records["local_effect_transaction_ledger"].authority_level == "local_effect_transaction_ledger_only"
+    assert records["local_effect_lifecycle_report"].status == "implemented"
+    assert records["local_effect_lifecycle_report"].authority_level == "local_effect_lifecycle_report_only"
+    assert records["local_effect_transaction_ledger_artifact"].status == "implemented"
+    assert records["local_effect_transaction_ledger_artifact"].authority_level == "explicit_local_artifact_only"
+    assert records["general_effect_transaction_ledger"].status == "deferred"
+    for capability_id in ["general_cleanup", "recursive_delete", "unrelated_file_delete", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "remote_execution"]:
+        assert records[capability_id].status == "blocked"

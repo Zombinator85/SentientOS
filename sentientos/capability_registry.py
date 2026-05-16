@@ -48,6 +48,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "dry_run_audit_closure",
         "real_effect_admission",
         "local_diagnostic_effect",
+        "local_effect_transaction_ledger",
         "runtime_supervision",
         "audit_immutability",
         "self_amendment",
@@ -106,6 +107,9 @@ AUTHORITY_LEVELS = frozenset(
         "exact_artifact_rollback_only",
         "exact_artifact_postcondition_only",
         "exact_artifact_rollback_audit_only",
+        "local_effect_transaction_ledger_only",
+        "local_effect_lifecycle_report_only",
+        "explicit_local_artifact_only",
         "candidate_only",
         "plan_scaffold_only",
         "block_receipt_only",
@@ -353,6 +357,18 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("local_diagnostic_exact_rollback", "local_diagnostic_effect", "implemented", "exact_artifact_rollback_only", source_paths=("sentientos/local_diagnostic_effect.py", "scripts/run_local_diagnostic_rollback.py"), proof_tests=("tests/test_local_diagnostic_exact_rollback.py", "tests/test_run_local_diagnostic_rollback_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_local_diagnostic_exact_rollback.py tests/test_run_local_diagnostic_rollback_script.py", "python scripts/run_local_diagnostic_rollback.py --effect-receipt <receipt.json> --rollback-plan <rollback-plan.json> --output-dir-scope /tmp/sentientos-local-effect --summary"), implemented_surfaces=("explicit exact-artifact rollback for local diagnostic artifact only", "path, digest, plan, receipt, and scope gated single Path.unlink"), deferred_surfaces=("general cleanup", "recursive delete", "wildcard delete", "unrelated file delete", "hardware control", "service control"), forbidden_implications=("exact diagnostic rollback is general cleanup", "exact diagnostic rollback deletes directories, siblings, wildcard matches, or unrelated files"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("local_diagnostic_rollback_postcondition_check", "local_diagnostic_effect", "implemented", "exact_artifact_postcondition_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_exact_rollback.py",), implemented_surfaces=("postcondition check verifies exact artifact path absence only",), deferred_surfaces=("broad filesystem checks",), forbidden_implications=("rollback postcondition scans broad filesystem")),
         _record("local_diagnostic_rollback_audit_receipt", "local_diagnostic_effect", "implemented", "exact_artifact_rollback_audit_only", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_exact_rollback.py",), implemented_surfaces=("audit receipt for exact local diagnostic artifact rollback only",), deferred_surfaces=("general rollback audits",), forbidden_implications=("rollback audit authorizes cleanup or unrelated deletion")),
+        _record("local_effect_transaction_ledger", "local_effect_transaction_ledger", "implemented", "local_effect_transaction_ledger_only", source_paths=("sentientos/local_effect_transaction_ledger.py", "scripts/build_local_effect_transaction_ledger.py"), proof_tests=("tests/test_local_effect_transaction_ledger.py", "tests/test_build_local_effect_transaction_ledger_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_local_effect_transaction_ledger.py tests/test_build_local_effect_transaction_ledger_script.py", "python scripts/build_local_effect_transaction_ledger.py --effect-receipt <effect_receipt.json> --postcondition-check <postcondition.json> --production-audit <audit.json> --rollback-plan <rollback_plan.json> --summary"), implemented_surfaces=("metadata-only transaction ledger for local diagnostic effect and exact rollback records", "digest-chain validation", "open/orphan/incomplete/contradicted/closed lifecycle classification"), deferred_surfaces=("broader effect transaction ledger", "general cleanup", "broader host control"), forbidden_implications=("transaction ledger performs host effects", "ledger authorizes cleanup or rollback"), requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("local_effect_lifecycle_report", "local_effect_transaction_ledger", "implemented", "local_effect_lifecycle_report_only", source_paths=("sentientos/local_effect_transaction_ledger.py",), proof_tests=("tests/test_local_effect_transaction_ledger.py",), implemented_surfaces=("metadata-only lifecycle status report for local diagnostic transactions",), deferred_surfaces=("general lifecycle enforcement",), forbidden_implications=("lifecycle report performs host mutation")),
+        _record("local_effect_transaction_ledger_artifact", "local_effect_transaction_ledger", "implemented", "explicit_local_artifact_only", source_paths=("sentientos/local_effect_transaction_ledger.py", "scripts/build_local_effect_transaction_ledger.py"), proof_tests=("tests/test_local_effect_transaction_ledger.py", "tests/test_build_local_effect_transaction_ledger_script.py"), implemented_surfaces=("optional explicit caller-supplied local JSON ledger artifact write",), deferred_surfaces=("default proof bundle execution", "implicit artifact writes"), forbidden_implications=("ledger artifact write runs effect or rollback")),
+        _record("general_effect_transaction_ledger", "local_effect_transaction_ledger", "deferred", "none", deferred_surfaces=("transaction ledgers for broader host effects",), forbidden_implications=("local diagnostic transaction ledger covers arbitrary host effects"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("general_cleanup", "execution_proof", "blocked", "none", deferred_surfaces=("general cleanup", "directory cleanup", "wildcard cleanup"), forbidden_implications=("exact artifact rollback is general cleanup"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("recursive_delete", "execution_proof", "blocked", "none", deferred_surfaces=("recursive delete",), forbidden_implications=("rollback uses recursive deletion"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("unrelated_file_delete", "execution_proof", "blocked", "none", deferred_surfaces=("unrelated file deletion",), forbidden_implications=("exact artifact rollback deletes siblings"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("package_install", "install_bootstrap", "blocked", "none", deferred_surfaces=("package installation",), forbidden_implications=("proof bundle or local effect installs packages"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("driver_install", "hardware_driver_awareness", "blocked", "none", deferred_surfaces=("driver installation",), forbidden_implications=("driver awareness installs drivers"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("network_egress", "local_model_chat", "blocked", "none", deferred_surfaces=("network egress",), forbidden_implications=("local ledgers open network connections")),
+        _record("prompt_assembly", "local_model_chat", "blocked", "none", deferred_surfaces=("prompt assembly", "prompt export"), forbidden_implications=("reviewer proof or local ledgers assemble prompts")),
+        _record("remote_execution", "federation_evidence", "blocked", "none", deferred_surfaces=("remote execution",), forbidden_implications=("federation evidence executes remotely"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("local_diagnostic_rollback_execution", "local_diagnostic_effect", "deferred", "none", source_paths=("sentientos/local_diagnostic_effect.py",), proof_tests=("tests/test_local_diagnostic_effect.py",), deferred_surfaces=("general rollback execution outside exact local diagnostic artifact"), forbidden_implications=("rollback scaffold performs deletion")),
         _record("real_backend_implementation", "real_effect_admission", "deferred", "none", deferred_surfaces=("real backend implementation", "OS backend implementation"), forbidden_implications=("real effect admission implements backends",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_effect_receipt_creation", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real effect receipt creation",), forbidden_implications=("dry-run audit closure creates real effect receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -1177,3 +1193,25 @@ def update_registry_from_local_diagnostic_rollback_receipt(registry: CapabilityR
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-local-diagnostic-exact-rollback-wing.v1")
+
+
+def update_registry_from_local_effect_transaction_ledger(registry: CapabilityRegistry, ledger: Any) -> CapabilityRegistry:
+    """Reflect the metadata-only local effect transaction ledger without widening host authority."""
+
+    payload = ledger.to_dict() if hasattr(ledger, "to_dict") else dict(ledger)
+    has_ledger = bool(payload.get("ledger_id"))
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id == "local_effect_transaction_ledger":
+            records.append(replace(record, status="implemented" if has_ledger else record.status, authority_level="local_effect_transaction_ledger_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "local_effect_lifecycle_report":
+            records.append(replace(record, status="implemented", authority_level="local_effect_lifecycle_report_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "local_effect_transaction_ledger_artifact":
+            records.append(replace(record, status="implemented", authority_level="explicit_local_artifact_only", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "general_effect_transaction_ledger":
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in {"general_cleanup", "recursive_delete", "unrelated_file_delete", "real_file_cleanup", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "federation_transport_sync_adoption", "remote_execution"}:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-local-effect-transaction-ledger-wing.v1")

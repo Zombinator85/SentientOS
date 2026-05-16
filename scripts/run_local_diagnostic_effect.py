@@ -84,6 +84,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if records.result.effect_status == "local_diagnostic_effect_performed" and not args.dry_run:
         output_dir = Path(args.output_dir).expanduser()
         (output_dir / "effect_receipt.json").write_text(json.dumps(records.receipt.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (output_dir / "postcondition_check.json").write_text(json.dumps(records.postcondition_check.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (output_dir / "production_audit.json").write_text(json.dumps(records.production_audit_receipt.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
         (output_dir / "rollback_plan.json").write_text(json.dumps(records.rollback_plan.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     payload = _compact_summary(summary, dry_run=args.dry_run) if args.summary else {
@@ -95,6 +97,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "rollback_receipt": records.rollback_receipt.to_dict(),
         "production_audit_receipt": records.production_audit_receipt.to_dict(),
         "effect_receipt_path": str(Path(args.output_dir).expanduser() / "effect_receipt.json") if records.result.effect_status == "local_diagnostic_effect_performed" and not args.dry_run else None,
+        "postcondition_check_path": str(Path(args.output_dir).expanduser() / "postcondition_check.json") if records.result.effect_status == "local_diagnostic_effect_performed" and not args.dry_run else None,
+        "production_audit_path": str(Path(args.output_dir).expanduser() / "production_audit.json") if records.result.effect_status == "local_diagnostic_effect_performed" and not args.dry_run else None,
         "rollback_plan_path": str(Path(args.output_dir).expanduser() / "rollback_plan.json") if records.result.effect_status == "local_diagnostic_effect_performed" and not args.dry_run else None,
     }
     print(json.dumps(payload, indent=2, sort_keys=True))

@@ -120,3 +120,5 @@ See [Host Real Effect Capability Admission Wing](host_real_effect_capability_adm
 The bundle documents but does not run the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md); its optional CLI command is listed as not run by default.
 
 The proof bundle lists, but does not run, the exact-artifact rollback CLI documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md).
+
+The bundle also includes `local_effect_transaction_ledger_capability.json`; its ledger command is listed as `proof_command_not_run` and does not run effect or rollback by default. See [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md).

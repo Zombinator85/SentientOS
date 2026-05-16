@@ -56,3 +56,5 @@ The capability registry marks `local_diagnostic_effect`, `local_diagnostic_effec
 - Tests: `tests/test_local_diagnostic_effect.py`, `tests/test_run_local_diagnostic_effect_script.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
 
 The matching exact-artifact rollback pilot is documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md); it deletes only the recorded diagnostic artifact when explicitly requested.
+
+Related: [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md) records the diagnostic effect plus exact rollback lifecycle without adding a new host effect.

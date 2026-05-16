@@ -91,6 +91,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         dry_run=args.dry_run,
         created_at=args.created_at,
     )
+    if not args.dry_run:
+        output_dir = Path(args.output_dir_scope).expanduser()
+        (output_dir / "rollback_receipt.json").write_text(json.dumps(records.receipt.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (output_dir / "rollback_postcondition_check.json").write_text(json.dumps(records.postcondition_check.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (output_dir / "rollback_audit.json").write_text(json.dumps(records.audit_receipt.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     summary = summarize_local_diagnostic_exact_rollback_wing(records)
     payload = _compact(summary, dry_run=args.dry_run) if args.summary else {
         "request": records.request.to_dict(),
