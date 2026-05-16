@@ -838,3 +838,661 @@ def run_local_diagnostic_effect_wing(
     rollback_receipt = build_local_diagnostic_rollback_receipt(rollback_plan, created_at=created_at)
     audit = build_local_diagnostic_production_audit_receipt(receipt, postcondition, rollback_plan, rollback_receipt, created_at=created_at)
     return LocalDiagnosticEffectWingRecords(request, result, receipt, postcondition, rollback_plan, rollback_receipt, audit)
+
+
+# Host Embodiment Exact Artifact Rollback Pilot Wing -----------------------
+# This deliberately narrow wing is the first intentionally real rollback pilot:
+# it may remove only the exact diagnostic artifact path proven by the local
+# diagnostic effect receipt and rollback plan.
+
+EXACT_ROLLBACK_REQUEST_STATUSES = frozenset({
+    "local_diagnostic_exact_rollback_requested",
+    "local_diagnostic_exact_rollback_blocked",
+    "local_diagnostic_exact_rollback_incomplete",
+    "local_diagnostic_exact_rollback_contradicted",
+})
+EXACT_ROLLBACK_RESULT_STATUSES = frozenset({
+    "local_diagnostic_exact_rollback_performed",
+    "local_diagnostic_exact_rollback_blocked",
+    "local_diagnostic_exact_rollback_missing_artifact",
+    "local_diagnostic_exact_rollback_digest_mismatch",
+    "local_diagnostic_exact_rollback_scope_mismatch",
+    "local_diagnostic_exact_rollback_incomplete",
+    "local_diagnostic_exact_rollback_contradicted",
+})
+EXACT_ROLLBACK_RECEIPT_STATUSES = frozenset({
+    "local_diagnostic_exact_rollback_receipt_recorded",
+    "local_diagnostic_exact_rollback_receipt_recorded_with_warnings",
+    "local_diagnostic_exact_rollback_receipt_blocked",
+    "local_diagnostic_exact_rollback_receipt_incomplete",
+    "local_diagnostic_exact_rollback_receipt_contradicted",
+})
+ROLLBACK_POSTCONDITION_STATUSES = frozenset({
+    "local_diagnostic_rollback_postcondition_passed",
+    "local_diagnostic_rollback_postcondition_failed",
+    "local_diagnostic_rollback_postcondition_blocked",
+    "local_diagnostic_rollback_postcondition_incomplete",
+    "local_diagnostic_rollback_postcondition_contradicted",
+})
+ROLLBACK_AUDIT_STATUSES = frozenset({
+    "local_diagnostic_rollback_audit_recorded",
+    "local_diagnostic_rollback_audit_recorded_with_warnings",
+    "local_diagnostic_rollback_audit_blocked",
+    "local_diagnostic_rollback_audit_incomplete",
+    "local_diagnostic_rollback_audit_contradicted",
+})
+EXACT_ROLLBACK_BLOCKED_ACTION_LABELS = (
+    "directory_cleanup",
+    "recursive_delete",
+    "wildcard_delete",
+    "unrelated_file_delete",
+    "file_delete_outside_artifact_scope",
+    "fan_pwm_write",
+    "thermal_actuation",
+    "power_profile_mutation",
+    "process_kill",
+    "service_restart",
+    "package_install",
+    "driver_install",
+    "provider_invocation",
+    "network_egress",
+    "prompt_assembly",
+    "federation_transport",
+    "remote_execution",
+    "subprocess_execution",
+    "shell_execution",
+    "os_backend_invocation",
+    "control_plane_admission_execution",
+    "hardware_control",
+)
+_EXACT_ROLLBACK_FORBIDDEN_RESULT_FLAGS = (
+    "directory_cleanup_performed",
+    "recursive_delete_performed",
+    "wildcard_delete_performed",
+    "unrelated_file_delete_performed",
+    "fan_pwm_write_performed",
+    "thermal_actuation_performed",
+    "power_profile_mutation_performed",
+    "process_kill_performed",
+    "service_restart_performed",
+    "package_install_performed",
+    "driver_install_performed",
+    "provider_invocation_performed",
+    "network_performed",
+    "prompt_assembly_performed",
+)
+_EXACT_ROLLBACK_FORBIDDEN_REQUEST_FLAGS = (
+    "general_cleanup_requested",
+    "recursive_delete_requested",
+    "wildcard_delete_requested",
+    "network_performed",
+    "provider_invocation_performed",
+    "prompt_assembly_performed",
+    "subprocess_performed",
+    "shell_performed",
+)
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticExactRollbackValidationResult:
+    ok: bool
+    findings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticExactRollbackRequest:
+    request_id: str
+    source_effect_receipt_id: str
+    source_effect_receipt_digest: str
+    source_rollback_plan_id: str
+    source_rollback_plan_digest: str
+    expected_output_path: str
+    expected_artifact_digest: str
+    output_dir_scope: str
+    allow_missing_artifact: bool
+    request_status: str
+    blocked_actions: tuple[str, ...]
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    created_at: str
+    digest: str
+    exact_artifact_rollback_requested: bool = True
+    general_cleanup_requested: bool = False
+    recursive_delete_requested: bool = False
+    wildcard_delete_requested: bool = False
+    network_performed: bool = False
+    provider_invocation_performed: bool = False
+    prompt_assembly_performed: bool = False
+    subprocess_performed: bool = False
+    shell_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticExactRollbackResult:
+    result_id: str
+    request_id: str
+    output_path: str
+    expected_artifact_digest: str
+    observed_artifact_digest: str | None
+    rollback_status: str
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    created_at: str
+    digest: str
+    real_rollback_performed: bool = False
+    file_delete_performed: bool = False
+    host_mutation_performed: bool = False
+    directory_cleanup_performed: bool = False
+    recursive_delete_performed: bool = False
+    wildcard_delete_performed: bool = False
+    unrelated_file_delete_performed: bool = False
+    fan_pwm_write_performed: bool = False
+    thermal_actuation_performed: bool = False
+    power_profile_mutation_performed: bool = False
+    process_kill_performed: bool = False
+    service_restart_performed: bool = False
+    package_install_performed: bool = False
+    driver_install_performed: bool = False
+    provider_invocation_performed: bool = False
+    network_performed: bool = False
+    prompt_assembly_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticExactRollbackReceipt:
+    receipt_id: str
+    request_id: str
+    result_id: str
+    source_effect_receipt_id: str
+    source_rollback_plan_id: str
+    output_path: str
+    expected_artifact_digest: str
+    observed_artifact_digest: str | None
+    rollback_status: str
+    evidence_summary: tuple[str, ...]
+    blocked_actions: tuple[str, ...]
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    created_at: str
+    digest: str
+    real_rollback_receipt_created: bool = False
+    real_rollback_performed: bool = False
+    file_delete_performed: bool = False
+    host_mutation_performed: bool = False
+    exact_artifact_only: bool = True
+    general_cleanup_performed: bool = False
+    directory_cleanup_performed: bool = False
+    recursive_delete_performed: bool = False
+    wildcard_delete_performed: bool = False
+    unrelated_file_delete_performed: bool = False
+    fan_pwm_write_performed: bool = False
+    thermal_actuation_performed: bool = False
+    power_profile_mutation_performed: bool = False
+    process_kill_performed: bool = False
+    service_restart_performed: bool = False
+    package_install_performed: bool = False
+    driver_install_performed: bool = False
+    provider_invocation_performed: bool = False
+    network_performed: bool = False
+    prompt_assembly_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticRollbackPostconditionCheck:
+    check_id: str
+    rollback_receipt_id: str
+    output_path: str
+    expected_absent: bool
+    observed_exists: bool
+    postcondition_status: str
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    created_at: str
+    digest: str
+    real_rollback_postcondition_check_performed: bool = True
+    host_mutation_performed: bool = False
+    network_performed: bool = False
+    provider_invocation_performed: bool = False
+    prompt_assembly_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LocalDiagnosticRollbackAuditReceipt:
+    audit_id: str
+    rollback_receipt_id: str
+    rollback_postcondition_check_id: str
+    source_effect_receipt_id: str
+    audit_status: str
+    evidence_summary: tuple[str, ...]
+    warning_codes: tuple[str, ...]
+    risk_codes: tuple[str, ...]
+    created_at: str
+    digest: str
+    production_rollback_audit_receipt_created: bool = True
+    audit_for_exact_local_diagnostic_artifact_only: bool = True
+    host_mutation_performed: bool = False
+    network_performed: bool = False
+    provider_invocation_performed: bool = False
+    prompt_assembly_performed: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+class LocalDiagnosticExactRollbackWingRecords(NamedTuple):
+    request: LocalDiagnosticExactRollbackRequest
+    result: LocalDiagnosticExactRollbackResult
+    receipt: LocalDiagnosticExactRollbackReceipt
+    postcondition_check: LocalDiagnosticRollbackPostconditionCheck
+    audit_receipt: LocalDiagnosticRollbackAuditReceipt
+
+
+local_diagnostic_exact_rollback_request_digest = local_diagnostic_effect_digest
+local_diagnostic_exact_rollback_result_digest = local_diagnostic_effect_digest
+local_diagnostic_exact_rollback_receipt_digest = local_diagnostic_effect_digest
+local_diagnostic_rollback_postcondition_check_digest = local_diagnostic_effect_digest
+local_diagnostic_rollback_audit_receipt_digest = local_diagnostic_effect_digest
+
+
+def _is_root_path(path: Path) -> bool:
+    resolved = path.expanduser().resolve(strict=False)
+    return str(resolved) == resolved.anchor
+
+
+def _path_inside_scope(path: Path, scope: Path) -> bool:
+    resolved_path = path.expanduser().resolve(strict=False)
+    resolved_scope = scope.expanduser().resolve(strict=False)
+    try:
+        resolved_path.relative_to(resolved_scope)
+    except ValueError:
+        return False
+    return True
+
+
+def _exact_rollback_common_findings(request: LocalDiagnosticExactRollbackRequest | Mapping[str, Any]) -> list[str]:
+    p = _source_payload(request)
+    findings: list[str] = []
+    output = Path(str(p.get("expected_output_path", ""))).expanduser()
+    scope = Path(str(p.get("output_dir_scope", ""))).expanduser()
+    if not str(p.get("expected_output_path", "")).strip():
+        findings.append("missing_expected_output_path")
+    if not str(p.get("output_dir_scope", "")).strip():
+        findings.append("missing_output_dir_scope")
+    elif _is_root_path(scope):
+        findings.append("output_dir_scope_is_filesystem_root")
+    if str(p.get("expected_output_path", "")).strip() and str(p.get("output_dir_scope", "")).strip() and not _path_inside_scope(output, scope):
+        findings.append("output_path_outside_scope")
+    if str(p.get("expected_output_path", "")).strip() and _is_root_path(output):
+        findings.append("output_path_is_filesystem_root")
+    if p.get("request_status") not in EXACT_ROLLBACK_REQUEST_STATUSES:
+        findings.append("unknown_request_status")
+    if not p.get("exact_artifact_rollback_requested"):
+        findings.append("exact_artifact_rollback_not_requested")
+    for flag in _EXACT_ROLLBACK_FORBIDDEN_REQUEST_FLAGS:
+        if p.get(flag):
+            findings.append(f"forbidden_{flag}")
+    blocked = tuple(p.get("blocked_actions", ()))
+    missing_blocked = tuple(label for label in EXACT_ROLLBACK_BLOCKED_ACTION_LABELS if label not in blocked)
+    if missing_blocked:
+        findings.append("missing_blocked_action_labels")
+    return findings
+
+
+def build_local_diagnostic_exact_rollback_request(
+    effect_receipt: LocalDiagnosticEffectReceipt | Mapping[str, Any],
+    rollback_plan: LocalDiagnosticRollbackPlan | Mapping[str, Any],
+    *,
+    output_dir_scope: str | Path,
+    allow_missing_artifact: bool = False,
+    created_at: str = DEFAULT_CREATED_AT,
+) -> LocalDiagnosticExactRollbackRequest:
+    receipt = _source_payload(effect_receipt)
+    plan = _source_payload(rollback_plan)
+    warnings: list[str] = []
+    status = "local_diagnostic_exact_rollback_requested"
+    if not receipt.get("real_effect_performed") or receipt.get("effect_status") != "local_diagnostic_effect_performed":
+        warnings.append("source_effect_receipt_not_successful")
+    if not receipt.get("digest"):
+        warnings.append("source_effect_receipt_digest_missing")
+    if not plan.get("digest"):
+        warnings.append("source_rollback_plan_digest_missing")
+    if plan.get("receipt_id") != receipt.get("receipt_id"):
+        warnings.append("rollback_plan_receipt_mismatch")
+    if str(plan.get("output_path", "")) != str(receipt.get("output_path", "")):
+        warnings.append("rollback_plan_output_path_mismatch")
+    expected_path = str(receipt.get("output_path", ""))
+    expected_digest = str(receipt.get("artifact_digest", ""))
+    payload = {
+        "request_id": "",
+        "source_effect_receipt_id": str(receipt.get("receipt_id", "")),
+        "source_effect_receipt_digest": str(receipt.get("digest", "")),
+        "source_rollback_plan_id": str(plan.get("plan_id", "")),
+        "source_rollback_plan_digest": str(plan.get("digest", "")),
+        "expected_output_path": expected_path,
+        "expected_artifact_digest": expected_digest,
+        "output_dir_scope": str(output_dir_scope),
+        "allow_missing_artifact": bool(allow_missing_artifact),
+        "request_status": status,
+        "blocked_actions": EXACT_ROLLBACK_BLOCKED_ACTION_LABELS,
+        "warning_codes": tuple(warnings),
+        "risk_codes": tuple(receipt.get("risk_codes", ())) + ("tier1_exact_artifact_rollback_is_real_host_mutation",),
+        "created_at": created_at,
+        "digest": "",
+        "exact_artifact_rollback_requested": True,
+        "general_cleanup_requested": False,
+        "recursive_delete_requested": False,
+        "wildcard_delete_requested": False,
+        "network_performed": False,
+        "provider_invocation_performed": False,
+        "prompt_assembly_performed": False,
+        "subprocess_performed": False,
+        "shell_performed": False,
+    }
+    preliminary = dict(payload)
+    preliminary["request_status"] = "local_diagnostic_exact_rollback_blocked" if warnings else status
+    common_findings = _exact_rollback_common_findings(preliminary)
+    if common_findings:
+        warnings.extend(item for item in common_findings if item not in warnings)
+    payload["warning_codes"] = tuple(warnings)
+    payload["request_status"] = "local_diagnostic_exact_rollback_requested" if not warnings else "local_diagnostic_exact_rollback_blocked"
+    payload["request_id"] = _digest_id("local-diagnostic-exact-rollback-request-", payload)
+    payload["digest"] = local_diagnostic_exact_rollback_request_digest(payload)
+    return LocalDiagnosticExactRollbackRequest(**payload)
+
+
+def validate_local_diagnostic_exact_rollback_request(request: LocalDiagnosticExactRollbackRequest | Mapping[str, Any]) -> LocalDiagnosticExactRollbackValidationResult:
+    p = _source_payload(request)
+    findings = _exact_rollback_common_findings(request)
+    if not p.get("source_effect_receipt_id"):
+        findings.append("missing_source_effect_receipt_id")
+    if not p.get("source_rollback_plan_id"):
+        findings.append("missing_source_rollback_plan_id")
+    ok = not findings and p.get("request_status") == "local_diagnostic_exact_rollback_requested"
+    return LocalDiagnosticExactRollbackValidationResult(ok=ok, findings=tuple(findings))
+
+
+def _rollback_result_payload(
+    request: LocalDiagnosticExactRollbackRequest,
+    *,
+    status: str,
+    observed_digest: str | None,
+    warnings: Sequence[str],
+    created_at: str,
+    performed: bool = False,
+) -> dict[str, Any]:
+    payload = {
+        "result_id": "",
+        "request_id": request.request_id,
+        "output_path": request.expected_output_path,
+        "expected_artifact_digest": request.expected_artifact_digest,
+        "observed_artifact_digest": observed_digest,
+        "rollback_status": status,
+        "warning_codes": tuple(warnings),
+        "risk_codes": request.risk_codes,
+        "created_at": created_at,
+        "digest": "",
+        "real_rollback_performed": performed,
+        "file_delete_performed": performed,
+        "host_mutation_performed": performed,
+    }
+    payload["result_id"] = _digest_id("local-diagnostic-exact-rollback-result-", payload)
+    payload["digest"] = local_diagnostic_exact_rollback_result_digest(payload)
+    return payload
+
+
+def perform_local_diagnostic_exact_rollback(
+    request: LocalDiagnosticExactRollbackRequest,
+    *,
+    dry_run: bool = False,
+    created_at: str | None = None,
+) -> LocalDiagnosticExactRollbackResult:
+    created = created_at or request.created_at
+    validation = validate_local_diagnostic_exact_rollback_request(request)
+    if not validation.ok:
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_blocked", observed_digest=None, warnings=validation.findings, created_at=created))
+    output = Path(request.expected_output_path).expanduser()
+    scope = Path(request.output_dir_scope).expanduser()
+    if _is_root_path(scope):
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_scope_mismatch", observed_digest=None, warnings=("output_dir_scope_is_filesystem_root",), created_at=created))
+    if _is_root_path(output):
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_scope_mismatch", observed_digest=None, warnings=("output_path_is_filesystem_root",), created_at=created))
+    if not _path_inside_scope(output, scope):
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_scope_mismatch", observed_digest=None, warnings=("output_path_outside_scope",), created_at=created))
+    if output.is_symlink():
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_blocked", observed_digest=None, warnings=("output_path_is_symlink",), created_at=created))
+    if not output.exists():
+        status = "local_diagnostic_exact_rollback_missing_artifact"
+        warnings = ("artifact_missing_no_deletion_performed",)
+        if request.allow_missing_artifact:
+            warnings = ("artifact_already_absent_no_deletion_performed",)
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status=status, observed_digest=None, warnings=warnings, created_at=created))
+    if output.is_dir():
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_blocked", observed_digest=None, warnings=("output_path_is_directory",), created_at=created))
+    data = output.read_bytes()
+    observed = _artifact_digest(data)
+    if observed != request.expected_artifact_digest:
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_digest_mismatch", observed_digest=observed, warnings=("artifact_digest_mismatch",), created_at=created))
+    if dry_run:
+        return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_blocked", observed_digest=observed, warnings=("dry_run_no_delete_performed",), created_at=created))
+    output.unlink()
+    return LocalDiagnosticExactRollbackResult(**_rollback_result_payload(request, status="local_diagnostic_exact_rollback_performed", observed_digest=observed, warnings=(), created_at=created, performed=True))
+
+
+def validate_local_diagnostic_exact_rollback_result(result: LocalDiagnosticExactRollbackResult | Mapping[str, Any]) -> LocalDiagnosticExactRollbackValidationResult:
+    p = _source_payload(result)
+    findings = []
+    if p.get("rollback_status") not in EXACT_ROLLBACK_RESULT_STATUSES:
+        findings.append("unknown_rollback_status")
+    performed = p.get("rollback_status") == "local_diagnostic_exact_rollback_performed"
+    for flag in ("real_rollback_performed", "file_delete_performed", "host_mutation_performed"):
+        if bool(p.get(flag)) != performed:
+            findings.append(f"{flag}_mismatch")
+    for flag in _EXACT_ROLLBACK_FORBIDDEN_RESULT_FLAGS:
+        if p.get(flag):
+            findings.append(f"forbidden_{flag}")
+    return LocalDiagnosticExactRollbackValidationResult(ok=not findings, findings=tuple(findings))
+
+
+def build_local_diagnostic_exact_rollback_receipt(
+    request: LocalDiagnosticExactRollbackRequest,
+    result: LocalDiagnosticExactRollbackResult,
+    *,
+    created_at: str | None = None,
+) -> LocalDiagnosticExactRollbackReceipt:
+    success = result.rollback_status == "local_diagnostic_exact_rollback_performed"
+    status = "local_diagnostic_exact_rollback_receipt_recorded" if success else "local_diagnostic_exact_rollback_receipt_recorded_with_warnings"
+    if result.rollback_status in {"local_diagnostic_exact_rollback_blocked", "local_diagnostic_exact_rollback_scope_mismatch", "local_diagnostic_exact_rollback_digest_mismatch"}:
+        status = "local_diagnostic_exact_rollback_receipt_blocked"
+    evidence = ("exact diagnostic artifact path deleted after receipt, plan, scope, and digest validation",) if success else ("no exact artifact deletion performed",)
+    payload = {
+        "receipt_id": "",
+        "request_id": request.request_id,
+        "result_id": result.result_id,
+        "source_effect_receipt_id": request.source_effect_receipt_id,
+        "source_rollback_plan_id": request.source_rollback_plan_id,
+        "output_path": result.output_path,
+        "expected_artifact_digest": result.expected_artifact_digest,
+        "observed_artifact_digest": result.observed_artifact_digest,
+        "rollback_status": status,
+        "evidence_summary": evidence,
+        "blocked_actions": request.blocked_actions,
+        "warning_codes": result.warning_codes,
+        "risk_codes": result.risk_codes,
+        "created_at": created_at or result.created_at,
+        "digest": "",
+        "real_rollback_receipt_created": success,
+        "real_rollback_performed": success,
+        "file_delete_performed": success,
+        "host_mutation_performed": success,
+        "exact_artifact_only": True,
+    }
+    payload["receipt_id"] = _digest_id("local-diagnostic-exact-rollback-receipt-", payload)
+    payload["digest"] = local_diagnostic_exact_rollback_receipt_digest(payload)
+    return LocalDiagnosticExactRollbackReceipt(**payload)
+
+
+def validate_local_diagnostic_exact_rollback_receipt(receipt: LocalDiagnosticExactRollbackReceipt | Mapping[str, Any]) -> LocalDiagnosticExactRollbackValidationResult:
+    p = _source_payload(receipt)
+    findings = []
+    if p.get("rollback_status") not in EXACT_ROLLBACK_RECEIPT_STATUSES:
+        findings.append("unknown_rollback_receipt_status")
+    success = p.get("rollback_status") == "local_diagnostic_exact_rollback_receipt_recorded"
+    for flag in ("real_rollback_receipt_created", "real_rollback_performed", "file_delete_performed", "host_mutation_performed"):
+        if bool(p.get(flag)) != success:
+            findings.append(f"{flag}_mismatch")
+    if not p.get("exact_artifact_only"):
+        findings.append("not_exact_artifact_only")
+    for flag in ("general_cleanup_performed",) + _EXACT_ROLLBACK_FORBIDDEN_RESULT_FLAGS:
+        if p.get(flag):
+            findings.append(f"forbidden_{flag}")
+    return LocalDiagnosticExactRollbackValidationResult(ok=not findings, findings=tuple(findings))
+
+
+def perform_local_diagnostic_rollback_postcondition_check(
+    rollback_receipt: LocalDiagnosticExactRollbackReceipt,
+    *,
+    created_at: str | None = None,
+) -> LocalDiagnosticRollbackPostconditionCheck:
+    exists = Path(rollback_receipt.output_path).expanduser().exists()
+    status = "local_diagnostic_rollback_postcondition_passed" if not exists else "local_diagnostic_rollback_postcondition_failed"
+    payload = {
+        "check_id": "",
+        "rollback_receipt_id": rollback_receipt.receipt_id,
+        "output_path": rollback_receipt.output_path,
+        "expected_absent": True,
+        "observed_exists": exists,
+        "postcondition_status": status,
+        "warning_codes": () if not exists else ("artifact_still_exists",),
+        "risk_codes": rollback_receipt.risk_codes,
+        "created_at": created_at or rollback_receipt.created_at,
+        "digest": "",
+        "real_rollback_postcondition_check_performed": True,
+        "host_mutation_performed": False,
+        "network_performed": False,
+        "provider_invocation_performed": False,
+        "prompt_assembly_performed": False,
+    }
+    payload["check_id"] = _digest_id("local-diagnostic-rollback-postcondition-", payload)
+    payload["digest"] = local_diagnostic_rollback_postcondition_check_digest(payload)
+    return LocalDiagnosticRollbackPostconditionCheck(**payload)
+
+
+def validate_local_diagnostic_rollback_postcondition_check(check: LocalDiagnosticRollbackPostconditionCheck | Mapping[str, Any]) -> LocalDiagnosticExactRollbackValidationResult:
+    p = _source_payload(check)
+    findings = []
+    if p.get("postcondition_status") not in ROLLBACK_POSTCONDITION_STATUSES:
+        findings.append("unknown_postcondition_status")
+    for flag in ("host_mutation_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed"):
+        if p.get(flag):
+            findings.append(f"forbidden_{flag}")
+    return LocalDiagnosticExactRollbackValidationResult(ok=not findings, findings=tuple(findings))
+
+
+def build_local_diagnostic_rollback_audit_receipt(
+    rollback_receipt: LocalDiagnosticExactRollbackReceipt,
+    postcondition_check: LocalDiagnosticRollbackPostconditionCheck,
+    *,
+    created_at: str | None = None,
+) -> LocalDiagnosticRollbackAuditReceipt:
+    ok = rollback_receipt.rollback_status == "local_diagnostic_exact_rollback_receipt_recorded" and postcondition_check.postcondition_status == "local_diagnostic_rollback_postcondition_passed"
+    status = "local_diagnostic_rollback_audit_recorded" if ok else "local_diagnostic_rollback_audit_recorded_with_warnings"
+    payload = {
+        "audit_id": "",
+        "rollback_receipt_id": rollback_receipt.receipt_id,
+        "rollback_postcondition_check_id": postcondition_check.check_id,
+        "source_effect_receipt_id": rollback_receipt.source_effect_receipt_id,
+        "audit_status": status,
+        "evidence_summary": ("exact artifact rollback receipt recorded", "postcondition confirms exact artifact path absent", "no cleanup, recursive, wildcard, sibling, hardware, service, network, provider, prompt, shell, subprocess, OS, or control-plane action recorded"),
+        "warning_codes": tuple(rollback_receipt.warning_codes + postcondition_check.warning_codes),
+        "risk_codes": rollback_receipt.risk_codes,
+        "created_at": created_at or rollback_receipt.created_at,
+        "digest": "",
+        "production_rollback_audit_receipt_created": True,
+        "audit_for_exact_local_diagnostic_artifact_only": True,
+        "host_mutation_performed": False,
+        "network_performed": False,
+        "provider_invocation_performed": False,
+        "prompt_assembly_performed": False,
+    }
+    payload["audit_id"] = _digest_id("local-diagnostic-rollback-audit-", payload)
+    payload["digest"] = local_diagnostic_rollback_audit_receipt_digest(payload)
+    return LocalDiagnosticRollbackAuditReceipt(**payload)
+
+
+def validate_local_diagnostic_rollback_audit_receipt(receipt: LocalDiagnosticRollbackAuditReceipt | Mapping[str, Any]) -> LocalDiagnosticExactRollbackValidationResult:
+    p = _source_payload(receipt)
+    findings = []
+    if p.get("audit_status") not in ROLLBACK_AUDIT_STATUSES:
+        findings.append("unknown_audit_status")
+    if not p.get("production_rollback_audit_receipt_created"):
+        findings.append("missing_production_rollback_audit_receipt")
+    if not p.get("audit_for_exact_local_diagnostic_artifact_only"):
+        findings.append("not_exact_local_diagnostic_artifact_only")
+    for flag in ("host_mutation_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed"):
+        if p.get(flag):
+            findings.append(f"forbidden_{flag}")
+    return LocalDiagnosticExactRollbackValidationResult(ok=not findings, findings=tuple(findings))
+
+
+def summarize_local_diagnostic_exact_rollback_request(record: LocalDiagnosticExactRollbackRequest | Mapping[str, Any]) -> dict[str, Any]:
+    p = _source_payload(record)
+    return {k: p.get(k) for k in ("request_id", "source_effect_receipt_id", "source_rollback_plan_id", "expected_output_path", "expected_artifact_digest", "output_dir_scope", "allow_missing_artifact", "request_status", "exact_artifact_rollback_requested", "general_cleanup_requested", "recursive_delete_requested", "wildcard_delete_requested", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "subprocess_performed", "shell_performed", "digest")}
+
+
+def summarize_local_diagnostic_exact_rollback_result(record: LocalDiagnosticExactRollbackResult | Mapping[str, Any]) -> dict[str, Any]:
+    p = _source_payload(record)
+    return {k: p.get(k) for k in ("result_id", "request_id", "output_path", "expected_artifact_digest", "observed_artifact_digest", "rollback_status", "real_rollback_performed", "file_delete_performed", "host_mutation_performed", "directory_cleanup_performed", "recursive_delete_performed", "wildcard_delete_performed", "unrelated_file_delete_performed", "fan_pwm_write_performed", "thermal_actuation_performed", "power_profile_mutation_performed", "service_restart_performed", "package_install_performed", "driver_install_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+
+
+def summarize_local_diagnostic_exact_rollback_receipt(record: LocalDiagnosticExactRollbackReceipt | Mapping[str, Any]) -> dict[str, Any]:
+    p = _source_payload(record)
+    return {k: p.get(k) for k in ("receipt_id", "request_id", "result_id", "source_effect_receipt_id", "source_rollback_plan_id", "output_path", "expected_artifact_digest", "observed_artifact_digest", "rollback_status", "real_rollback_receipt_created", "real_rollback_performed", "file_delete_performed", "host_mutation_performed", "exact_artifact_only", "general_cleanup_performed", "directory_cleanup_performed", "recursive_delete_performed", "wildcard_delete_performed", "unrelated_file_delete_performed", "fan_pwm_write_performed", "thermal_actuation_performed", "power_profile_mutation_performed", "service_restart_performed", "package_install_performed", "driver_install_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+
+
+def summarize_local_diagnostic_rollback_postcondition_check(record: LocalDiagnosticRollbackPostconditionCheck | Mapping[str, Any]) -> dict[str, Any]:
+    p = _source_payload(record)
+    return {k: p.get(k) for k in ("check_id", "rollback_receipt_id", "output_path", "expected_absent", "observed_exists", "postcondition_status", "real_rollback_postcondition_check_performed", "host_mutation_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+
+
+def summarize_local_diagnostic_rollback_audit_receipt(record: LocalDiagnosticRollbackAuditReceipt | Mapping[str, Any]) -> dict[str, Any]:
+    p = _source_payload(record)
+    return {k: p.get(k) for k in ("audit_id", "rollback_receipt_id", "rollback_postcondition_check_id", "source_effect_receipt_id", "audit_status", "production_rollback_audit_receipt_created", "audit_for_exact_local_diagnostic_artifact_only", "host_mutation_performed", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+
+
+def summarize_local_diagnostic_exact_rollback_wing(records: LocalDiagnosticExactRollbackWingRecords) -> dict[str, Any]:
+    return {
+        "request": summarize_local_diagnostic_exact_rollback_request(records.request),
+        "result": summarize_local_diagnostic_exact_rollback_result(records.result),
+        "receipt": summarize_local_diagnostic_exact_rollback_receipt(records.receipt),
+        "postcondition_check": summarize_local_diagnostic_rollback_postcondition_check(records.postcondition_check),
+        "rollback_audit_receipt": summarize_local_diagnostic_rollback_audit_receipt(records.audit_receipt),
+    }
+
+
+def run_local_diagnostic_exact_rollback_wing(
+    effect_receipt: LocalDiagnosticEffectReceipt | Mapping[str, Any],
+    rollback_plan: LocalDiagnosticRollbackPlan | Mapping[str, Any],
+    *,
+    output_dir_scope: str | Path,
+    allow_missing_artifact: bool = False,
+    dry_run: bool = False,
+    created_at: str = DEFAULT_CREATED_AT,
+) -> LocalDiagnosticExactRollbackWingRecords:
+    request = build_local_diagnostic_exact_rollback_request(effect_receipt, rollback_plan, output_dir_scope=output_dir_scope, allow_missing_artifact=allow_missing_artifact, created_at=created_at)
+    result = perform_local_diagnostic_exact_rollback(request, dry_run=dry_run, created_at=created_at)
+    receipt = build_local_diagnostic_exact_rollback_receipt(request, result, created_at=created_at)
+    postcondition = perform_local_diagnostic_rollback_postcondition_check(receipt, created_at=created_at)
+    audit = build_local_diagnostic_rollback_audit_receipt(receipt, postcondition, created_at=created_at)
+    return LocalDiagnosticExactRollbackWingRecords(request, result, receipt, postcondition, audit)

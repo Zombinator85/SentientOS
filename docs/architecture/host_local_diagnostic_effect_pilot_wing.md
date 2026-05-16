@@ -14,7 +14,7 @@ This is not general host control. It does not create general host executors, OS 
 - **LocalDiagnosticEffectResult** records the artifact path, artifact digest, byte count, and real-effect flags. `real_effect_performed=true`, `local_file_write_performed=true`, and `host_mutation_performed=true` only when the file write succeeds.
 - **LocalDiagnosticEffectReceipt** records a real effect receipt for the diagnostic file write only. Fan/PWM, thermal, power, process, service, package, driver, cleanup/delete, network, provider, and prompt flags remain false.
 - **LocalDiagnosticPostconditionCheck** reads back only the artifact path written by the pilot, compares digest and byte count, and performs no host mutation.
-- **LocalDiagnosticRollbackPlan** and **LocalDiagnosticRollbackReceipt** are plan/receipt scaffolds by default. Rollback execution and deletion are deferred; no automatic deletion is performed.
+- **LocalDiagnosticRollbackPlan** and **LocalDiagnosticRollbackReceipt** remain plan/receipt scaffolds during the effect pilot itself. The separate exact-artifact rollback pilot may delete only this recorded artifact when explicitly requested through its API/CLI.
 - **LocalDiagnosticProductionAuditReceipt** records production audit evidence for this local diagnostic effect only and performs no additional host mutation.
 
 ## CLI
@@ -45,7 +45,7 @@ The reviewer proof bundle documents this capability in `local_diagnostic_effect_
 
 ## Capability registry posture
 
-The capability registry marks `local_diagnostic_effect`, `local_diagnostic_effect_receipt`, `local_diagnostic_postcondition_check`, `local_diagnostic_production_audit_receipt`, and `local_diagnostic_rollback_plan` as implemented for this diagnostic artifact only. `local_diagnostic_rollback_execution` remains deferred unless a future exact-artifact rollback implementation is explicitly added. General real backends, real backend invocation, general fulfillment execution, fan/PWM, thermal, power, service, and unrelated cleanup actions remain deferred or blocked.
+The capability registry marks `local_diagnostic_effect`, `local_diagnostic_effect_receipt`, `local_diagnostic_postcondition_check`, `local_diagnostic_production_audit_receipt`, and `local_diagnostic_rollback_plan` as implemented for this diagnostic artifact only. `local_diagnostic_exact_rollback`, `local_diagnostic_rollback_postcondition_check`, and `local_diagnostic_rollback_audit_receipt` are implemented as exact-artifact-only surfaces in the separate rollback wing. General cleanup, recursive delete, wildcard delete, unrelated delete, real backends, real backend invocation, fan/PWM, thermal, power, service, and unrelated cleanup actions remain deferred or blocked.
 
 ## Implementation links
 
@@ -54,3 +54,5 @@ The capability registry marks `local_diagnostic_effect`, `local_diagnostic_effec
 - Reviewer bundle integration: `sentientos/reviewer_proof_bundle.py`
 - Capability registry integration: `sentientos/capability_registry.py`
 - Tests: `tests/test_local_diagnostic_effect.py`, `tests/test_run_local_diagnostic_effect_script.py`, `tests/test_reviewer_proof_bundle.py`, `tests/test_build_reviewer_proof_bundle_script.py`, `tests/test_capability_registry.py`, `tests/test_reviewer_release_readiness_index.py`
+
+The matching exact-artifact rollback pilot is documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md); it deletes only the recorded diagnostic artifact when explicitly requested.

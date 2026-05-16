@@ -640,3 +640,21 @@ def test_local_diagnostic_effect_registry_records_are_narrow_and_general_effects
         assert records[capability_id].status == "deferred"
     for capability_id in ["real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "real_file_cleanup"]:
         assert records[capability_id].status == "blocked"
+
+
+def test_local_diagnostic_exact_rollback_capabilities_are_exact_artifact_only() -> None:
+    records = build_default_capability_registry().by_id()
+    rollback = records["local_diagnostic_exact_rollback"]
+    postcondition = records["local_diagnostic_rollback_postcondition_check"]
+    audit = records["local_diagnostic_rollback_audit_receipt"]
+    assert rollback.status == "implemented"
+    assert rollback.authority_level == "exact_artifact_rollback_only"
+    assert "explicit exact-artifact rollback for local diagnostic artifact only" in rollback.implemented_surfaces
+    assert {"general cleanup", "recursive delete", "wildcard delete", "unrelated file delete"}.issubset(set(rollback.deferred_surfaces))
+    assert postcondition.status == "implemented"
+    assert postcondition.authority_level == "exact_artifact_postcondition_only"
+    assert audit.status == "implemented"
+    assert audit.authority_level == "exact_artifact_rollback_audit_only"
+    for capability_id in ["real_file_cleanup", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "provider_invocation", "federation_transport_sync_adoption"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+    assert validate_capability_registry(build_default_capability_registry()).ok

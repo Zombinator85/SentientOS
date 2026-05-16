@@ -118,3 +118,5 @@ Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
 
 The bundle documents but does not run the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md); its optional CLI command is listed as not run by default.
+
+The proof bundle lists, but does not run, the exact-artifact rollback CLI documented in [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md).

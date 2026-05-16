@@ -114,6 +114,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "dry_run_audit_closure_posture",
         "real_effect_admission_posture",
         "local_diagnostic_effect_capability",
+        "local_diagnostic_rollback_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -143,6 +144,7 @@ BUNDLE_FILE_NAMES = {
     "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
     "real_effect_admission_posture": "real_effect_admission.json",
     "local_diagnostic_effect_capability": "local_diagnostic_effect_capability.json",
+    "local_diagnostic_rollback_capability": "local_diagnostic_rollback_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -311,6 +313,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/build_docs.py"), "Build documentation locally."),
         (("python", "scripts/verify_context_hygiene_prompt_boundaries.py"), "Verify prompt/provider boundary hygiene."),
         (("python", "scripts/run_local_diagnostic_effect.py", "--output-dir", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit Tier-1 local diagnostic effect pilot; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_local_diagnostic_rollback.py", "--effect-receipt", "<receipt.json>", "--rollback-plan", "<rollback-plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect", "--summary"), "Optional explicit exact-artifact rollback pilot; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -719,7 +722,24 @@ def build_reviewer_proof_bundle_payload(
             "command": "python scripts/run_local_diagnostic_effect.py --output-dir /tmp/sentientos-local-effect --summary",
             "no_fan_pwm_thermal_power_service_cleanup": True,
             "no_network_provider_prompt_subprocess_shell_control_plane": True,
-            "rollback_execution_deferred_by_default": True,
+            "rollback_execution_deferred_by_default": False,
+            "matching_exact_artifact_rollback_available_by_explicit_command_only": True,
+        }),
+        "local_diagnostic_rollback_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "explicit_command_required": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_host_mutation_performed": False,
+            "first_intentionally_real_rollback_pilot": True,
+            "only_real_rollback_when_explicitly_run": "delete the exact diagnostic artifact proven by receipt, rollback plan, scope, and digest",
+            "command": "python scripts/run_local_diagnostic_rollback.py --effect-receipt <receipt.json> --rollback-plan <rollback-plan.json> --output-dir-scope /tmp/sentientos-local-effect --summary",
+            "not_general_cleanup": True,
+            "no_directory_recursive_wildcard_or_unrelated_delete": True,
+            "no_fan_pwm_thermal_power_service_package_driver": True,
+            "no_network_provider_prompt_subprocess_shell_control_plane": True,
         }),
         "reviewer_readme": _readme_text(manifest_id, trace.digest),
     }

@@ -422,3 +422,5 @@ See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_w
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
 
 The first bounded real-effect pilot is the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md): one explicit local diagnostic artifact write, not hardware/service/power/cleanup control.
+
+The trajectory now includes a bounded [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md): the first real rollback, limited to the exact diagnostic artifact and not general cleanup.
