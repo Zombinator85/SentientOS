@@ -57,6 +57,7 @@ def test_write_with_ledger_builds_rollback_pending_ledger_without_artifact_by_de
     assert records.result.ledger_artifact_written is False
     assert records.closure_report is not None
     assert records.closure_report.closure_status == "builtin_runner_transaction_closed_after_write"
+    assert records.closure_report.lifecycle_status == "local_effect_lifecycle_rollback_pending"
     assert not (tmp_path / "out" / "transaction_ledger.json").exists()
 
 
@@ -69,6 +70,7 @@ def test_write_rollback_with_ledger_writes_explicit_ledger_artifact(tmp_path: Pa
     assert out.exists()
     assert records.closure_report is not None
     assert records.closure_report.closure_status == "builtin_runner_transaction_closed_after_rollback"
+    assert records.closure_report.lifecycle_status == "local_effect_lifecycle_complete_with_rollback"
 
 
 def test_unsupported_mode_blocks(tmp_path: Path) -> None:

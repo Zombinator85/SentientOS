@@ -727,6 +727,8 @@ def build_builtin_runner_transaction_receipt(request: BuiltinRunnerTransactionEx
 def build_builtin_runner_transaction_closure_report(receipt: BuiltinRunnerTransactionReceipt, *, result: BuiltinRunnerTransactionResult | None = None, lifecycle_report: Any | None = None, created_at: str | None = None) -> BuiltinRunnerTransactionClosureReport:
     warnings = list(receipt.warning_codes)
     lifecycle_status = _source_payload(lifecycle_report).get("lifecycle_status") if lifecycle_report else None
+    if lifecycle_status is None and receipt.ledger_id:
+        lifecycle_status = "local_effect_lifecycle_complete_with_rollback" if receipt.rollback_runner_receipt_id else "local_effect_lifecycle_rollback_pending"
     present = ["transaction_receipt"]
     missing: list[str] = []
     closure_codes: list[str] = []
