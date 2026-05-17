@@ -70,3 +70,5 @@ Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runne
 ## Workspace file effect relationship
 
 The [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md) follows this ledger wing with a single explicit workspace file create/update plus exact rollback. This ledger wing remains metadata-only for the local diagnostic effect transaction lifecycle and does not become general cleanup or broad filesystem authority.
+
+See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).

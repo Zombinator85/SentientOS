@@ -345,7 +345,7 @@ def test_bundle_includes_builtin_local_effect_runner_capability_and_does_not_run
     assert artifact["built_in_runner_exists"] is True
     assert artifact["run_by_reviewer_proof_bundle_default"] is False
     assert artifact["proof_bundle_runner_invoked"] is False
-    assert artifact["supported_action_kinds"] == ["local_diagnostic_artifact_write", "local_diagnostic_exact_rollback"]
+    assert artifact["supported_action_kinds"] == ["local_diagnostic_artifact_write", "local_diagnostic_exact_rollback", "workspace_scoped_file_update", "workspace_scoped_file_exact_rollback"]
     commands = [" ".join(command.command) for command in payload["manifest"].proof_command_records]
     assert "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary" in commands
     assert all(command.status == "proof_command_not_run" and command.executed is False for command in payload["manifest"].proof_command_records)
@@ -384,3 +384,20 @@ def test_default_reviewer_proof_bundle_includes_workspace_file_effect_capability
     assert capability["no_recursive_wildcard_unrelated_delete"] is True
     commands = json.loads(artifacts["proof_command_manifest"])["commands"]
     assert any("run_workspace_file_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
+
+
+def test_default_reviewer_proof_bundle_includes_workspace_runner_transaction_capability_without_running() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    assert "workspace_file_runner_transaction_capability" in artifacts
+    capability = json.loads(artifacts["workspace_file_runner_transaction_capability"])
+    assert capability["built_in_runner_can_invoke_workspace_scoped_file_update"] is True
+    assert capability["built_in_runner_can_invoke_workspace_scoped_file_exact_rollback"] is True
+    assert capability["transaction_ledger_can_be_built_explicitly"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_runner_invoked"] is False
+    assert capability["proof_bundle_ledger_built_by_default"] is False
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    workspace_runner_commands = [record for record in commands if "workspace_scoped_file_" in " ".join(record["command"])]
+    assert workspace_runner_commands
+    assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in workspace_runner_commands)

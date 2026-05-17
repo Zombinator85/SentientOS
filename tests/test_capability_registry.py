@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
+import tempfile
 
 import pytest
 
@@ -713,7 +715,7 @@ def test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only() 
     records = build_default_capability_registry().by_id()
     assert records["builtin_local_effect_runner"].status == "implemented"
     assert records["builtin_local_effect_runner"].authority_level == "bounded_in_process_runner"
-    assert "only local diagnostic artifact write and exact-artifact rollback" in records["builtin_local_effect_runner"].implemented_surfaces
+    assert "local diagnostic artifact write, exact-artifact rollback, workspace-scoped file update, and workspace exact rollback" in records["builtin_local_effect_runner"].implemented_surfaces
     assert records["builtin_runner_local_diagnostic_artifact_write"].status == "implemented"
     assert records["builtin_runner_local_diagnostic_artifact_write"].authority_level == "builtin_runner_action_only"
     assert records["builtin_runner_exact_artifact_rollback"].status == "implemented"
@@ -786,3 +788,25 @@ def test_workspace_file_effect_capabilities_are_explicit_single_file_only() -> N
         updated = update_registry_from_workspace_file_effect_receipt(build_default_capability_registry(), wing.receipt).by_id()
     assert updated["workspace_scoped_file_effect"].status == "implemented"
     assert updated["general_filesystem_access"].status == "blocked"
+
+
+def test_workspace_file_runner_transaction_capabilities_are_bounded() -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_file_transaction_ledger
+    from sentientos.workspace_file_effect import run_workspace_file_effect_wing
+    from sentientos.workspace_file_transaction_ledger import build_transaction_ledger_from_workspace_file_records
+
+    records = build_default_capability_registry().by_id()
+    assert records["builtin_runner_workspace_scoped_file_update"].status == "implemented"
+    assert records["builtin_runner_workspace_file_exact_rollback"].status == "implemented"
+    assert records["workspace_file_transaction_ledger"].authority_level == "metadata_ledger_only"
+    assert records["workspace_file_lifecycle_report"].authority_level == "report_only"
+    assert records["workspace_file_transaction_ledger_artifact"].authority_level == "explicit-local-artifact-only"
+    assert records["workspace_file_transaction_orchestration"].status == "deferred"
+    assert records["general_filesystem_runner"].status == "blocked"
+    with tempfile.TemporaryDirectory() as td:
+        wing = run_workspace_file_effect_wing(workspace_root=Path(td), relative_target_path="demo.txt", payload_text="hello")
+        bundle = build_transaction_ledger_from_workspace_file_records(preimage=wing.preimage, effect_receipt=wing.receipt, postcondition_check=wing.postcondition, production_audit=wing.production_audit, rollback_plan=wing.rollback_plan)
+        updated = update_registry_from_workspace_file_transaction_ledger(build_default_capability_registry(), bundle.ledger).by_id()
+    assert updated["workspace_file_transaction_ledger"].status == "implemented"
+    assert updated["general_filesystem_access"].status == "blocked"
+    assert updated["general_cleanup"].status == "blocked"

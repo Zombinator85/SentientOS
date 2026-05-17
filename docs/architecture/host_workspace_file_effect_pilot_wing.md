@@ -68,3 +68,5 @@ python scripts/run_workspace_file_effect.py --workspace-root /tmp/sentientos-wor
 The reviewer proof bundle includes `workspace_file_effect_capability.json` and lists the workspace file commands as `proof_command_not_run`. The proof bundle does not run this effect by default.
 
 Built-in runner integration is deferred in this pass. The existing bounded runner transaction orchestrator still supports only the diagnostic write and exact diagnostic rollback actions.
+
+See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).

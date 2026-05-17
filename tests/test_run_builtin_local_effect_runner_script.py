@@ -75,3 +75,25 @@ def test_cli_rollback_default_deletes_exact_artifact(tmp_path: Path, capsys: pyt
     assert payload["execution_receipt"]["provider_invocation_performed"] is False
     assert payload["execution_receipt"]["prompt_assembly_performed"] is False
     assert not artifact.exists()
+
+
+def test_cli_workspace_update_and_rollback(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code = main(["--action", "workspace_scoped_file_update", "--workspace-root", str(tmp_path), "--target", "demo.txt", "--payload", "hello", "--summary"])
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["execution_receipt"]["host_mutation_performed"] is True
+    assert payload["execution_receipt"]["subprocess_used"] is False
+    assert (tmp_path / "demo.txt").read_text(encoding="utf-8") == "hello"
+    code = main(["--action", "workspace_scoped_file_exact_rollback", "--workspace-effect-receipt", str(tmp_path / "workspace_effect_receipt.json"), "--workspace-rollback-plan", str(tmp_path / "workspace_rollback_plan.json"), "--workspace-root-scope", str(tmp_path), "--summary"])
+    assert code == 0
+    rollback = json.loads(capsys.readouterr().out)
+    assert rollback["execution_receipt"]["host_mutation_performed"] is True
+    assert not (tmp_path / "demo.txt").exists()
+
+
+def test_cli_workspace_update_dry_run_writes_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code = main(["--action", "workspace_scoped_file_update", "--workspace-root", str(tmp_path), "--target", "demo.txt", "--payload", "hello", "--dry-run", "--summary"])
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["result"]["host_mutation_performed"] is False
+    assert not (tmp_path / "demo.txt").exists()

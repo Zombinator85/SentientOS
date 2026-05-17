@@ -2,7 +2,7 @@
 
 This module is the first in-process delegated runner implementation for the
 Host Steward / Delegated Runner Boundary model. It supports only the existing
-local diagnostic artifact write and exact-artifact rollback pilots. It is not a
+local diagnostic artifact write/exact-artifact rollback pilots plus the workspace-scoped single-file update/exact-target rollback pilot. It is not a
 general runner framework and it never uses subprocesses, shell execution,
 network egress, provider invocation, prompt assembly, plugin loading, generated
 code execution, control-plane admission execution, hardware control, service
@@ -22,6 +22,12 @@ from sentientos.local_diagnostic_effect import (
     DEFAULT_CREATED_AT,
     run_local_diagnostic_effect_wing,
     run_local_diagnostic_exact_rollback_wing,
+)
+from sentientos.workspace_file_effect import (
+    WorkspaceFileEffectReceipt,
+    WorkspaceFileRollbackPlan,
+    run_workspace_file_effect_wing,
+    run_workspace_file_rollback_wing,
 )
 
 RUNNER_DECLARATION_STATUSES = frozenset({
@@ -56,9 +62,9 @@ RUNNER_BLOCK_RECEIPT_STATUSES = frozenset({
     "builtin_runner_block_receipt_incomplete",
     "builtin_runner_block_receipt_contradicted",
 })
-RUNNER_ACTION_KINDS = ("local_diagnostic_artifact_write", "local_diagnostic_exact_rollback")
+RUNNER_ACTION_KINDS = ("local_diagnostic_artifact_write", "local_diagnostic_exact_rollback", "workspace_scoped_file_update", "workspace_scoped_file_exact_rollback")
 RUNNER_TRUST_CLASS = "bounded_builtin_runner"
-CONTAINMENT_CLASSES = ("local_file_effect_containment", "exact_artifact_rollback_containment")
+CONTAINMENT_CLASSES = ("local_file_effect_containment", "exact_artifact_rollback_containment", "workspace_file_effect_containment", "workspace_file_exact_rollback_containment")
 REQUIRED_RUNNER_LABELS = (
     "delegated_runners_do_not_inherit_ambient_authority",
     "runner_authority_must_be_scoped",
@@ -71,6 +77,12 @@ REQUIRED_RUNNER_LABELS = (
     "runner_must_have_transaction_ledger",
     "local_diagnostic_effect_only",
     "exact_artifact_rollback_only",
+    "workspace_scoped_file_effect_only",
+    "workspace_scoped_file_exact_rollback_only",
+    "single_workspace_target_only",
+    "preimage_capture_required",
+    "exact_target_rollback_required",
+    "no_general_filesystem_access",
 )
 BLOCKED_ACTIONS = (
     "ambient_authority_inheritance",
@@ -117,6 +129,7 @@ FORBIDDEN_TRUE_FLAGS = (
     "general_cleanup_performed",
     "recursive_delete_performed",
     "unrelated_file_delete_performed",
+    "wildcard_delete_performed",
     "hardware_control_performed",
     "control_plane_admission_execution_performed",
 )
@@ -201,6 +214,14 @@ class BuiltinRunnerInvocationRequest:
     effect_receipt_path: str | None
     rollback_plan_path: str | None
     output_dir_scope: str | None
+    workspace_root: str | None
+    relative_target_path: str | None
+    payload_text: str | None
+    records_dir: str | None
+    workspace_effect_receipt_path: str | None
+    workspace_rollback_plan_path: str | None
+    workspace_root_scope: str | None
+    allow_replace: bool
     force: bool
     dry_run: bool
     required_runner_labels: tuple[str, ...]
@@ -245,6 +266,10 @@ class BuiltinRunnerInvocationResult:
     prompt_assembly_performed: bool = False
     local_diagnostic_effect_performed: bool = False
     exact_artifact_rollback_performed: bool = False
+    workspace_scoped_file_effect_performed: bool = False
+    workspace_scoped_file_exact_rollback_performed: bool = False
+    general_filesystem_access_performed: bool = False
+    wildcard_delete_performed: bool = False
     host_mutation_performed: bool = False
     fan_pwm_write_performed: bool = False
     thermal_actuation_performed: bool = False
@@ -256,6 +281,7 @@ class BuiltinRunnerInvocationResult:
     general_cleanup_performed: bool = False
     recursive_delete_performed: bool = False
     unrelated_file_delete_performed: bool = False
+    wildcard_delete_performed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -383,7 +409,7 @@ def _record_ids_and_digests(records: Sequence[Any]) -> tuple[tuple[str, ...], tu
     digests: list[str] = []
     for record in records:
         payload = _source_payload(record)
-        for key in ("receipt_id", "check_id", "plan_id", "audit_id", "request_id", "result_id"):
+        for key in ("receipt_id", "check_id", "plan_id", "audit_id", "preimage_id", "request_id", "result_id"):
             if payload.get(key):
                 ids.append(str(payload[key]))
                 break
@@ -472,6 +498,14 @@ def build_builtin_runner_invocation_request(
     action_kind: str,
     output_dir: str | Path | None = None,
     artifact_name: str | None = None,
+    workspace_root: str | Path | None = None,
+    relative_target_path: str | None = None,
+    payload_text: str | None = None,
+    records_dir: str | Path | None = None,
+    workspace_effect_receipt_path: str | Path | None = None,
+    workspace_rollback_plan_path: str | Path | None = None,
+    workspace_root_scope: str | Path | None = None,
+    allow_replace: bool = True,
     effect_receipt_path: str | Path | None = None,
     rollback_plan_path: str | Path | None = None,
     output_dir_scope: str | Path | None = None,
@@ -507,6 +541,10 @@ def build_builtin_runner_invocation_request(
         warnings.append("missing_output_dir")
     if action_kind == "local_diagnostic_exact_rollback" and (not effect_receipt_path or not rollback_plan_path or not output_dir_scope):
         warnings.append("missing_exact_rollback_inputs")
+    if action_kind == "workspace_scoped_file_update" and (not workspace_root or not relative_target_path or payload_text is None):
+        warnings.append("missing_workspace_file_update_inputs")
+    if action_kind == "workspace_scoped_file_exact_rollback" and (not workspace_effect_receipt_path or not workspace_rollback_plan_path or not workspace_root_scope):
+        warnings.append("missing_workspace_file_rollback_inputs")
     if warnings:
         status = "builtin_runner_invocation_contradicted" if any(code in CONTRADICTION_WARNING_CODES or code.endswith("_blocked") for code in warnings) else "builtin_runner_invocation_blocked"
     payload = {
@@ -521,6 +559,14 @@ def build_builtin_runner_invocation_request(
         "effect_receipt_path": str(effect_receipt_path) if effect_receipt_path is not None else None,
         "rollback_plan_path": str(rollback_plan_path) if rollback_plan_path is not None else None,
         "output_dir_scope": str(output_dir_scope) if output_dir_scope is not None else None,
+        "workspace_root": str(workspace_root) if workspace_root is not None else None,
+        "relative_target_path": relative_target_path,
+        "payload_text": payload_text,
+        "records_dir": str(records_dir) if records_dir is not None else None,
+        "workspace_effect_receipt_path": str(workspace_effect_receipt_path) if workspace_effect_receipt_path is not None else None,
+        "workspace_rollback_plan_path": str(workspace_rollback_plan_path) if workspace_rollback_plan_path is not None else None,
+        "workspace_root_scope": str(workspace_root_scope) if workspace_root_scope is not None else None,
+        "allow_replace": allow_replace,
         "force": force,
         "dry_run": dry_run,
         "required_runner_labels": tuple(required_runner_labels),
@@ -541,9 +587,9 @@ def build_builtin_runner_invocation_request(
     return BuiltinRunnerInvocationRequest(**_with_digest("builtin-runner-invocation-request-", payload, "request_id"))
 
 
-def _result_payload(request: BuiltinRunnerInvocationRequest, *, status: str, evidence: Sequence[str], output_paths: Sequence[str] = (), produced_records: Sequence[Any] = (), warnings: Sequence[str] = (), local_effect: bool = False, exact_rollback: bool = False, invoked: bool = False, created_at: str | None = None) -> dict[str, Any]:
+def _result_payload(request: BuiltinRunnerInvocationRequest, *, status: str, evidence: Sequence[str], output_paths: Sequence[str] = (), produced_records: Sequence[Any] = (), warnings: Sequence[str] = (), local_effect: bool = False, exact_rollback: bool = False, workspace_effect: bool = False, workspace_rollback: bool = False, invoked: bool = False, created_at: str | None = None) -> dict[str, Any]:
     ids, digests = _record_ids_and_digests(produced_records)
-    performed = local_effect or exact_rollback
+    performed = local_effect or exact_rollback or workspace_effect or workspace_rollback
     payload = {
         "result_id": "",
         "request_id": request.request_id,
@@ -566,6 +612,10 @@ def _result_payload(request: BuiltinRunnerInvocationRequest, *, status: str, evi
         "prompt_assembly_performed": False,
         "local_diagnostic_effect_performed": local_effect,
         "exact_artifact_rollback_performed": exact_rollback,
+        "workspace_scoped_file_effect_performed": workspace_effect,
+        "workspace_scoped_file_exact_rollback_performed": workspace_rollback,
+        "general_filesystem_access_performed": False,
+        "wildcard_delete_performed": False,
         "host_mutation_performed": performed,
         "fan_pwm_write_performed": False,
         "thermal_actuation_performed": False,
@@ -623,6 +673,57 @@ def run_builtin_local_effect_runner(request: BuiltinRunnerInvocationRequest) -> 
         outputs = tuple(str(output_dir / name) for name in ("rollback_receipt.json", "rollback_postcondition_check.json", "rollback_audit.json")) + (records.result.output_path,)
         evidence = ("in-process exact-artifact rollback invoked through bounded built-in runner",) if success else ("exact-artifact rollback did not perform a host mutation",)
         return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=records.result.warning_codes, exact_rollback=success, invoked=True))
+    if request.action_kind == "workspace_scoped_file_update":
+        records = run_workspace_file_effect_wing(
+            workspace_root=request.workspace_root or "",
+            relative_target_path=request.relative_target_path or "",
+            payload_text=request.payload_text or "",
+            force_create=request.force,
+            allow_replace=request.allow_replace,
+            dry_run=False,
+            created_at=request.created_at,
+        )
+        output_dir = Path(request.records_dir or request.workspace_root or "").expanduser()
+        if records.result.real_effect_performed:
+            for name, payload in {
+                "workspace_request.json": records.request.to_dict(),
+                "workspace_preimage.json": records.preimage.to_dict(),
+                "workspace_effect_result.json": records.result.to_dict(),
+                "workspace_effect_receipt.json": records.receipt.to_dict(),
+                "workspace_postcondition_check.json": records.postcondition.to_dict(),
+                "workspace_rollback_plan.json": records.rollback_plan.to_dict(),
+                "workspace_production_audit.json": records.production_audit.to_dict(),
+            }.items():
+                _json_write(output_dir / name, payload)
+        produced = (records.preimage, records.receipt, records.postcondition, records.production_audit, records.rollback_plan)
+        success = records.result.real_effect_performed
+        status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
+        outputs = tuple(str(output_dir / name) for name in ("workspace_request.json", "workspace_preimage.json", "workspace_effect_result.json", "workspace_effect_receipt.json", "workspace_postcondition_check.json", "workspace_rollback_plan.json", "workspace_production_audit.json")) + (records.result.target_path,)
+        evidence = ("in-process workspace-scoped single-file update invoked through bounded built-in runner",) if success else ("workspace-scoped file update did not perform a host mutation",)
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=records.result.warning_codes, workspace_effect=success, invoked=True))
+    if request.action_kind == "workspace_scoped_file_exact_rollback":
+        effect_receipt_payload = _load_json(request.workspace_effect_receipt_path)
+        rollback_plan_payload = _load_json(request.workspace_rollback_plan_path)
+        output_dir = Path(request.workspace_root_scope or "").expanduser()
+        if Path(str(rollback_plan_payload.get("workspace_root", ""))).expanduser().resolve(strict=False) != output_dir.resolve(strict=False):
+            return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("workspace root scope did not match rollback plan",), warnings=("workspace_root_scope_mismatch",), invoked=False))
+        effect_receipt = WorkspaceFileEffectReceipt(**effect_receipt_payload)
+        rollback_plan = WorkspaceFileRollbackPlan(**rollback_plan_payload)
+        records = run_workspace_file_rollback_wing(effect_receipt=effect_receipt, rollback_plan=rollback_plan, created_at=request.created_at)
+        if records.rollback_result.real_rollback_performed:
+            for name, payload in {
+                "workspace_rollback_result.json": records.rollback_result.to_dict(),
+                "workspace_rollback_receipt.json": records.rollback_receipt.to_dict(),
+                "workspace_rollback_postcondition_check.json": records.rollback_postcondition.to_dict(),
+                "workspace_rollback_audit.json": records.production_audit.to_dict(),
+            }.items():
+                _json_write(output_dir / name, payload)
+        produced = (records.rollback_result, records.rollback_receipt, records.rollback_postcondition, records.production_audit)
+        success = records.rollback_result.real_rollback_performed
+        status = "builtin_runner_invocation_performed" if success else "builtin_runner_invocation_failed"
+        outputs = tuple(str(output_dir / name) for name in ("workspace_rollback_result.json", "workspace_rollback_receipt.json", "workspace_rollback_postcondition_check.json", "workspace_rollback_audit.json")) + (records.rollback_result.target_path,)
+        evidence = ("in-process workspace-scoped exact-target rollback invoked through bounded built-in runner",) if success else ("workspace-scoped exact rollback did not perform a host mutation",)
+        return BuiltinRunnerInvocationResult(**_result_payload(request, status=status, evidence=evidence, output_paths=outputs, produced_records=produced, warnings=records.rollback_result.warning_codes, workspace_rollback=success, invoked=True))
     return BuiltinRunnerInvocationResult(**_result_payload(request, status="builtin_runner_invocation_blocked", evidence=("unsupported action kind blocked",), warnings=("unsupported_action_kind",), invoked=False))
 
 
@@ -744,6 +845,10 @@ def validate_builtin_runner_invocation_request(record: BuiltinRunnerInvocationRe
         findings.append("missing_output_dir")
     if p.get("action_kind") == "local_diagnostic_exact_rollback" and (not p.get("effect_receipt_path") or not p.get("rollback_plan_path") or not p.get("output_dir_scope")):
         findings.append("missing_exact_rollback_inputs")
+    if p.get("action_kind") == "workspace_scoped_file_update" and (not p.get("workspace_root") or not p.get("relative_target_path") or p.get("payload_text") is None):
+        findings.append("missing_workspace_file_update_inputs")
+    if p.get("action_kind") == "workspace_scoped_file_exact_rollback" and (not p.get("workspace_effect_receipt_path") or not p.get("workspace_rollback_plan_path") or not p.get("workspace_root_scope")):
+        findings.append("missing_workspace_file_rollback_inputs")
     return BuiltinRunnerValidationResult(ok=not findings and p.get("request_status") == "builtin_runner_invocation_requested", findings=tuple(dict.fromkeys(findings)))
 
 
@@ -755,7 +860,8 @@ def validate_builtin_runner_invocation_result(record: BuiltinRunnerInvocationRes
     performed = p.get("result_status") == "builtin_runner_invocation_performed"
     if bool(p.get("host_mutation_performed")) != performed:
         findings.append("host_mutation_performed_mismatch")
-    if p.get("local_diagnostic_effect_performed") and p.get("exact_artifact_rollback_performed"):
+    action_claims = (p.get("local_diagnostic_effect_performed"), p.get("exact_artifact_rollback_performed"), p.get("workspace_scoped_file_effect_performed"), p.get("workspace_scoped_file_exact_rollback_performed"))
+    if sum(1 for claim in action_claims if claim) > 1:
         findings.append("multiple_action_effects_claimed")
     return BuiltinRunnerValidationResult(ok=not findings, findings=tuple(findings))
 
@@ -787,12 +893,12 @@ def summarize_builtin_local_effect_runner_declaration(record: BuiltinLocalEffect
 
 def summarize_builtin_runner_invocation_request(record: BuiltinRunnerInvocationRequest | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
-    return {k: p.get(k) for k in ("request_id", "runner_declaration_id", "action_kind", "output_dir", "artifact_name", "effect_receipt_path", "rollback_plan_path", "output_dir_scope", "dry_run", "request_status", "warning_codes", "runner_invocation_requested", "delegated_runner_invoked", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+    return {k: p.get(k) for k in ("request_id", "runner_declaration_id", "action_kind", "output_dir", "artifact_name", "effect_receipt_path", "rollback_plan_path", "output_dir_scope", "workspace_root", "relative_target_path", "records_dir", "workspace_effect_receipt_path", "workspace_rollback_plan_path", "workspace_root_scope", "dry_run", "request_status", "warning_codes", "runner_invocation_requested", "delegated_runner_invoked", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
 
 
 def summarize_builtin_runner_invocation_result(record: BuiltinRunnerInvocationResult | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
-    return {k: p.get(k) for k in ("result_id", "request_id", "action_kind", "result_status", "produced_record_ids", "produced_record_digests", "output_paths", "evidence_summary", "delegated_runner_invoked", "in_process_only", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "local_diagnostic_effect_performed", "exact_artifact_rollback_performed", "host_mutation_performed", "general_cleanup_performed", "recursive_delete_performed", "unrelated_file_delete_performed", "digest")}
+    return {k: p.get(k) for k in ("result_id", "request_id", "action_kind", "result_status", "produced_record_ids", "produced_record_digests", "output_paths", "evidence_summary", "delegated_runner_invoked", "in_process_only", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "local_diagnostic_effect_performed", "exact_artifact_rollback_performed", "workspace_scoped_file_effect_performed", "workspace_scoped_file_exact_rollback_performed", "general_filesystem_access_performed", "host_mutation_performed", "general_cleanup_performed", "recursive_delete_performed", "unrelated_file_delete_performed", "digest")}
 
 
 def summarize_builtin_runner_execution_receipt(record: BuiltinRunnerExecutionReceipt | Mapping[str, Any]) -> dict[str, Any]:
@@ -810,6 +916,14 @@ def run_builtin_local_effect_runner_wing(
     action_kind: str,
     output_dir: str | Path | None = None,
     artifact_name: str | None = None,
+    workspace_root: str | Path | None = None,
+    relative_target_path: str | None = None,
+    payload_text: str | None = None,
+    records_dir: str | Path | None = None,
+    workspace_effect_receipt_path: str | Path | None = None,
+    workspace_rollback_plan_path: str | Path | None = None,
+    workspace_root_scope: str | Path | None = None,
+    allow_replace: bool = True,
     effect_receipt_path: str | Path | None = None,
     rollback_plan_path: str | Path | None = None,
     output_dir_scope: str | Path | None = None,
@@ -826,6 +940,14 @@ def run_builtin_local_effect_runner_wing(
         effect_receipt_path=effect_receipt_path,
         rollback_plan_path=rollback_plan_path,
         output_dir_scope=output_dir_scope,
+        workspace_root=workspace_root,
+        relative_target_path=relative_target_path,
+        payload_text=payload_text,
+        records_dir=records_dir,
+        workspace_effect_receipt_path=workspace_effect_receipt_path,
+        workspace_rollback_plan_path=workspace_rollback_plan_path,
+        workspace_root_scope=workspace_root_scope,
+        allow_replace=allow_replace,
         force=force,
         dry_run=dry_run,
         created_at=created_at,
