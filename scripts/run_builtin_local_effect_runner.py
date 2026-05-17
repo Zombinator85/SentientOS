@@ -28,6 +28,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rollback-plan", help="rollback_plan.json for exact rollback")
     parser.add_argument("--output-dir-scope", help="scope directory for exact rollback")
     parser.add_argument("--allow-missing-artifact", action="store_true", help="accepted for CLI compatibility; exact rollback still preserves underlying safety posture")
+    parser.add_argument("--workspace-root", help="explicit workspace root for workspace_scoped_file_update")
+    parser.add_argument("--target", help="explicit relative target path for workspace_scoped_file_update")
+    parser.add_argument("--payload", help="text payload for workspace_scoped_file_update")
+    parser.add_argument("--records-dir", help="optional explicit record output directory for workspace_scoped_file_update")
+    parser.add_argument("--workspace-effect-receipt", help="workspace_effect_receipt.json for workspace exact rollback")
+    parser.add_argument("--workspace-rollback-plan", help="workspace_rollback_plan.json for workspace exact rollback")
+    parser.add_argument("--workspace-root-scope", help="workspace root scope for workspace exact rollback")
+    parser.add_argument("--allow-replace", dest="allow_replace", action="store_true", default=True, help="allow workspace target replacement (default)")
+    parser.add_argument("--no-allow-replace", dest="allow_replace", action="store_false", help="reject workspace target replacement")
     parser.add_argument("--dry-run", action="store_true", help="validate only; do not perform underlying write/delete")
     parser.add_argument("--summary", action="store_true", help="print compact summary")
     parser.add_argument("--created-at", default="1970-01-01T00:00:00+00:00", help="deterministic timestamp for records")
@@ -37,6 +46,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--output-dir is required for local_diagnostic_artifact_write")
     if args.action == "local_diagnostic_exact_rollback" and (not args.effect_receipt or not args.rollback_plan or not args.output_dir_scope):
         parser.error("--effect-receipt, --rollback-plan, and --output-dir-scope are required for local_diagnostic_exact_rollback")
+    if args.action == "workspace_scoped_file_update" and (not args.workspace_root or not args.target or args.payload is None):
+        parser.error("--workspace-root, --target, and --payload are required for workspace_scoped_file_update")
+    if args.action == "workspace_scoped_file_exact_rollback" and (not args.workspace_effect_receipt or not args.workspace_rollback_plan or not args.workspace_root_scope):
+        parser.error("--workspace-effect-receipt, --workspace-rollback-plan, and --workspace-root-scope are required for workspace_scoped_file_exact_rollback")
 
     records = run_builtin_local_effect_runner_wing(
         action_kind=args.action,
@@ -45,6 +58,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         effect_receipt_path=args.effect_receipt,
         rollback_plan_path=args.rollback_plan,
         output_dir_scope=args.output_dir_scope,
+        workspace_root=args.workspace_root,
+        relative_target_path=args.target,
+        payload_text=args.payload,
+        records_dir=args.records_dir,
+        workspace_effect_receipt_path=args.workspace_effect_receipt,
+        workspace_rollback_plan_path=args.workspace_rollback_plan,
+        workspace_root_scope=args.workspace_root_scope,
+        allow_replace=args.allow_replace,
         force=args.force,
         dry_run=args.dry_run,
         created_at=args.created_at,

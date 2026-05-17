@@ -303,3 +303,5 @@ Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runne
 - Proof bundle artifact: `workspace_file_effect_capability.json`
 
 This pilot creates or updates exactly one explicit file inside an explicit workspace root. It is not general filesystem access. It is not cleanup. It captures preimage for replacements, verifies exact-target postconditions, supports exact-target rollback only, and refuses recursive delete, wildcard delete, unrelated file delete, symlink targets, directory targets, path traversal, and absolute targets. It uses no subprocess/shell/network/provider/prompt path and does not touch hardware, services, power, fan/PWM, or thermal controls. The reviewer proof bundle documents it but does not run it by default.
+
+See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).

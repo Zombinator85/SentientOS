@@ -27,7 +27,7 @@ from sentientos.builtin_local_effect_runner import (
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_runner_declaration_supports_only_two_action_kinds() -> None:
+def test_runner_declaration_supports_exact_bounded_action_kinds() -> None:
     declaration = build_builtin_local_effect_runner_declaration()
     assert declaration.runner_trust_class == "bounded_builtin_runner"
     assert declaration.supported_action_kinds == RUNNER_ACTION_KINDS
@@ -173,3 +173,75 @@ def test_block_receipt_validates_without_invocation() -> None:
     receipt = build_builtin_runner_block_receipt(block_reason_codes=("unsupported_action_kind",), missing_labels=("runner_must_have_transaction_ledger",))
     assert receipt.delegated_runner_invoked is False
     assert validate_builtin_runner_block_receipt(receipt).ok
+
+
+def test_workspace_update_action_real_run_writes_one_target_and_records(tmp_path: Path) -> None:
+    sibling = tmp_path / "sibling.txt"
+    sibling.write_text("keep", encoding="utf-8")
+    records = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_update",
+        workspace_root=tmp_path,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+    )
+    assert records.execution_receipt is not None
+    assert records.result is not None
+    assert records.result.workspace_scoped_file_effect_performed is True
+    assert records.result.host_mutation_performed is True
+    assert records.result.general_filesystem_access_performed is False
+    assert (tmp_path / "demo.txt").read_text(encoding="utf-8") == "hello"
+    assert sibling.read_text(encoding="utf-8") == "keep"
+    assert (tmp_path / "workspace_effect_receipt.json").exists()
+    assert (tmp_path / "workspace_rollback_plan.json").exists()
+
+
+def test_workspace_update_dry_run_writes_nothing(tmp_path: Path) -> None:
+    records = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_update",
+        workspace_root=tmp_path,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+        dry_run=True,
+    )
+    assert records.result is not None
+    assert records.result.host_mutation_performed is False
+    assert not (tmp_path / "demo.txt").exists()
+    assert not (tmp_path / "workspace_effect_receipt.json").exists()
+
+
+def test_workspace_rollback_action_restores_exact_target_and_preserves_sibling(tmp_path: Path) -> None:
+    update = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_update",
+        workspace_root=tmp_path,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+    )
+    assert update.result and update.result.host_mutation_performed
+    sibling = tmp_path / "sibling.txt"
+    sibling.write_text("keep", encoding="utf-8")
+    records = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_exact_rollback",
+        workspace_effect_receipt_path=tmp_path / "workspace_effect_receipt.json",
+        workspace_rollback_plan_path=tmp_path / "workspace_rollback_plan.json",
+        workspace_root_scope=tmp_path,
+    )
+    assert records.execution_receipt is not None
+    assert records.result is not None
+    assert records.result.workspace_scoped_file_exact_rollback_performed is True
+    assert records.result.host_mutation_performed is True
+    assert not (tmp_path / "demo.txt").exists()
+    assert sibling.read_text(encoding="utf-8") == "keep"
+    assert (tmp_path / "workspace_rollback_receipt.json").exists()
+
+
+def test_workspace_update_rejects_path_traversal_via_underlying_checks(tmp_path: Path) -> None:
+    records = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_update",
+        workspace_root=tmp_path,
+        relative_target_path="../outside.txt",
+        payload_text="no",
+    )
+    assert records.result is not None
+    assert records.result.result_status == "builtin_runner_invocation_failed"
+    assert records.result.host_mutation_performed is False
+    assert not (tmp_path.parent / "outside.txt").exists()
