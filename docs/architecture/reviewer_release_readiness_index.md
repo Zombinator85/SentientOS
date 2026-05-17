@@ -291,3 +291,5 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 - It is not a general runner framework.
 - It does not broaden cleanup/hardware/service/power/fan/thermal control.
 - Proof command listed but not run by default: `python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary`.
+
+Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.

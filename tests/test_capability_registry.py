@@ -736,3 +736,26 @@ def test_builtin_local_effect_runner_capabilities_are_bounded_in_process_only() 
         assert records[capability_id].status == "blocked"
         assert records[capability_id].host_actuation_performed is False
     assert validate_capability_registry(build_default_capability_registry()).ok
+
+
+def test_builtin_runner_transaction_orchestrator_capabilities_are_bounded() -> None:
+    from sentientos.builtin_runner_transaction_orchestrator import run_builtin_runner_transaction_wing
+    from sentientos.capability_registry import update_registry_from_builtin_runner_transaction_receipt
+    import tempfile
+
+    records = build_default_capability_registry().by_id()
+    assert records["builtin_runner_transaction_orchestrator"].status == "implemented"
+    assert records["builtin_runner_transaction_orchestrator"].authority_level == "bounded-orchestrator"
+    assert records["builtin_runner_transaction_write_only"].status == "implemented"
+    assert records["builtin_runner_transaction_write_with_rollback"].status == "implemented"
+    assert records["builtin_runner_transaction_ledger_build"].status == "implemented"
+    assert records["general_runner_orchestration"].status == "deferred"
+    for capability_id in ["generated_code_runner", "plugin_runner", "federation_import_runner", "subprocess_runner", "shell_runner"]:
+        assert records[capability_id].status == "blocked"
+    for capability_id in ["network_runner", "provider_runner", "prompt_assembly_runner", "hardware_control_runner", "service_control_runner", "power_control_runner", "cleanup_runner"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+
+    with tempfile.TemporaryDirectory() as d:
+        wing = run_builtin_runner_transaction_wing(output_dir=d, transaction_mode="diagnostic_write_rollback_with_ledger", force=True)
+        updated = update_registry_from_builtin_runner_transaction_receipt(build_default_capability_registry(), wing.receipt)
+    assert validate_capability_registry(updated).ok

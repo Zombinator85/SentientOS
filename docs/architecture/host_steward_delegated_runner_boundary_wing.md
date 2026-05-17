@@ -80,3 +80,5 @@ The capability registry marks host-steward boundary surfaces as implemented meta
 ## Bounded Built-In Runner Pilot
 
 See `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` for the first actual delegated runner implementation. It remains in-process only, supports only local diagnostic artifact write and exact-artifact rollback, and is not a general runner framework.
+
+Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.

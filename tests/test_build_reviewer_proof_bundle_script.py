@@ -266,3 +266,17 @@ def test_reviewer_proof_bundle_cli_writes_builtin_runner_capability_without_runn
     assert payload["no_subprocess_shell_network_provider_prompt"] is True
     commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
     assert any("run_builtin_local_effect_runner.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
+
+
+def test_build_reviewer_proof_bundle_writes_transaction_orchestrator_capability(tmp_path):
+    from scripts.build_reviewer_proof_bundle import main
+    import json
+
+    output_dir = tmp_path / "bundle"
+    assert main(["--output-dir", str(output_dir), "--force"]) == 0
+    path = output_dir / "builtin_runner_transaction_orchestrator_capability.json"
+    assert path.exists()
+    artifact = json.loads(path.read_text(encoding="utf-8"))
+    assert artifact["run_by_reviewer_proof_bundle_default"] is False
+    commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
+    assert any("run_builtin_runner_transaction.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)

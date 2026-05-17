@@ -432,3 +432,5 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 ## Bounded Built-In Runner Pilot
 
 `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` closes the first delegated-runner organ only for bounded in-process local diagnostic artifact write and exact-artifact rollback. General runners and hardware/service/power/fan/thermal/cleanup authority remain missing or blocked/deferred.
+
+Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.

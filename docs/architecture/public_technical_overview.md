@@ -280,3 +280,5 @@ The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_le
 See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
 
 - `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` — first actual delegated runner implementation; in-process only; supports only local diagnostic artifact write and exact-artifact rollback; not a general runner framework; no subprocess/shell/network/provider/prompt.
+
+Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.

@@ -36,3 +36,5 @@ Related docs:
 - `docs/architecture/reviewer_first_run_proof_bundle.md`
 - `docs/architecture/public_technical_overview.md`
 - `docs/architecture/reviewer_release_readiness_index.md`
+
+Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
