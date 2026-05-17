@@ -280,3 +280,17 @@ def test_build_reviewer_proof_bundle_writes_transaction_orchestrator_capability(
     assert artifact["run_by_reviewer_proof_bundle_default"] is False
     commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
     assert any("run_builtin_runner_transaction.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
+
+
+def test_build_reviewer_proof_bundle_writes_workspace_file_effect_capability(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--force"])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "workspace_file_effect_capability.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["run_by_reviewer_proof_bundle_default"] is False
+    assert payload["proof_bundle_effect_performed"] is False
+    assert payload["supports_exactly_one_workspace_scoped_file_target"] is True
+    commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
+    assert any("run_workspace_file_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)

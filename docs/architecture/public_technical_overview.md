@@ -282,3 +282,7 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 - `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` — first actual delegated runner implementation; in-process only; supports only local diagnostic artifact write and exact-artifact rollback; not a general runner framework; no subprocess/shell/network/provider/prompt.
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Workspace-scoped file update pilot
+
+See [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md) (`docs/architecture/host_workspace_file_effect_pilot_wing.md`): the next bounded real-effect pilot after the runner transaction orchestrator creates or updates exactly one explicit file inside an explicit workspace root, captures preimage before replacement, verifies postcondition, supports exact-target rollback only, is not general filesystem access, is not cleanup, and does not use subprocess/shell/network/provider/prompt or hardware/service/power/fan/thermal authority.

@@ -123,6 +123,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_steward_boundary_posture",
         "builtin_local_effect_runner_capability",
         "builtin_runner_transaction_orchestrator_capability",
+        "workspace_file_effect_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -157,6 +158,7 @@ BUNDLE_FILE_NAMES = {
     "host_steward_boundary_posture": "host_steward_boundary.json",
     "builtin_local_effect_runner_capability": "builtin_local_effect_runner_capability.json",
     "builtin_runner_transaction_orchestrator_capability": "builtin_runner_transaction_orchestrator_capability.json",
+    "workspace_file_effect_capability": "workspace_file_effect_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -214,6 +216,7 @@ DEFERRED_ACTION_LABELS = (
     "cleanup_runner",
     "builtin_local_effect_runner_explicit_only",
     "builtin_runner_transaction_orchestrator_explicit_only",
+    "workspace_file_effect_pilot_explicit_only",
 )
 BLOCKED_ACTION_LABELS = (
     "fan_pwm_write",
@@ -239,6 +242,7 @@ BLOCKED_ACTION_LABELS = (
     "cleanup_runner",
     "builtin_local_effect_runner_explicit_only",
     "builtin_runner_transaction_orchestrator_explicit_only",
+    "workspace_file_effect_pilot_explicit_only",
 )
 
 
@@ -354,6 +358,8 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "local_diagnostic_exact_rollback", "--effect-receipt", "<effect_receipt.json>", "--rollback-plan", "<rollback_plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect-runner", "--summary"), "Optional explicit bounded built-in local effect runner exact rollback; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/build_local_effect_transaction_ledger.py", "--effect-receipt", "<effect_receipt.json>", "--postcondition-check", "<postcondition.json>", "--production-audit", "<audit.json>", "--rollback-plan", "<rollback_plan.json>", "--summary"), "Optional metadata-only local effect transaction ledger; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_builtin_runner_transaction.py", "--output-dir", "/tmp/sentientos-builtin-runner-transaction", "--mode", "diagnostic_write_rollback_with_ledger", "--ledger-output", "/tmp/sentientos-builtin-runner-transaction/transaction_ledger.json", "--summary"), "Optional explicit bounded runner transaction orchestrator; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_workspace_file_effect.py", "--workspace-root", "/tmp/sentientos-workspace-file-effect", "--target", "demo.txt", "--payload", "hello", "--summary"), "Optional explicit workspace-scoped single-file update pilot; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_workspace_file_effect.py", "--workspace-root", "/tmp/sentientos-workspace-file-effect", "--target", "demo.txt", "--payload", "hello", "--rollback", "--summary"), "Optional explicit workspace-scoped exact rollback pilot; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -848,6 +854,32 @@ def build_reviewer_proof_bundle_payload(
             "partial_state_not_hidden": True,
             "proof_command_status": "proof_command_not_run",
             "proof_command": "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary",
+        }),
+        "workspace_file_effect_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "explicit_command_required": True,
+            "api_available": True,
+            "command_available": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_host_mutation_performed": False,
+            "supports_exactly_one_workspace_scoped_file_target": True,
+            "captures_preimage_before_replacement": True,
+            "distinguishes_new_file_creation_from_replacement": True,
+            "supports_exact_rollback": True,
+            "rollback_removes_only_exact_created_target_or_restores_exact_preimage": True,
+            "not_general_filesystem_access": True,
+            "not_cleanup": True,
+            "no_recursive_wildcard_unrelated_delete": True,
+            "no_subprocess_shell_network_provider_prompt": True,
+            "no_hardware_service_power_general_cleanup": True,
+            "builtin_runner_support_deferred": True,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/run_workspace_file_effect.py --workspace-root /tmp/sentientos-workspace-file-effect --target demo.txt --payload \"hello\" --summary",
+            "rollback_proof_command": "python scripts/run_workspace_file_effect.py --workspace-root /tmp/sentientos-workspace-file-effect --target demo.txt --payload \"hello\" --rollback --summary",
         }),
         "host_steward_boundary_posture": _pretty_json({
             "metadata_only": True,
