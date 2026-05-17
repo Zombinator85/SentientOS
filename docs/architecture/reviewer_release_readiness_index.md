@@ -293,3 +293,13 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 - Proof command listed but not run by default: `python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary`.
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Host Workspace-Scoped File Effect Pilot Wing
+
+- Doc: `docs/architecture/host_workspace_file_effect_pilot_wing.md`
+- API: `sentientos/workspace_file_effect.py`
+- CLI: `scripts/run_workspace_file_effect.py`
+- Tests: `tests/test_workspace_file_effect.py`, `tests/test_run_workspace_file_effect_script.py`
+- Proof bundle artifact: `workspace_file_effect_capability.json`
+
+This pilot creates or updates exactly one explicit file inside an explicit workspace root. It is not general filesystem access. It is not cleanup. It captures preimage for replacements, verifies exact-target postconditions, supports exact-target rollback only, and refuses recursive delete, wildcard delete, unrelated file delete, symlink targets, directory targets, path traversal, and absolute targets. It uses no subprocess/shell/network/provider/prompt path and does not touch hardware, services, power, fan/PWM, or thermal controls. The reviewer proof bundle documents it but does not run it by default.

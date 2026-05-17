@@ -66,3 +66,7 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` preserves transaction ledger compatibility by emitting effect receipt, postcondition, production audit, and rollback plan paths, but it does not automatically build the ledger.
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Workspace file effect relationship
+
+The [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md) follows this ledger wing with a single explicit workspace file create/update plus exact rollback. This ledger wing remains metadata-only for the local diagnostic effect transaction lifecycle and does not become general cleanup or broad filesystem authority.

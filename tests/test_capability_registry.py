@@ -759,3 +759,30 @@ def test_builtin_runner_transaction_orchestrator_capabilities_are_bounded() -> N
         wing = run_builtin_runner_transaction_wing(output_dir=d, transaction_mode="diagnostic_write_rollback_with_ledger", force=True)
         updated = update_registry_from_builtin_runner_transaction_receipt(build_default_capability_registry(), wing.receipt)
     assert validate_capability_registry(updated).ok
+
+
+def test_workspace_file_effect_capabilities_are_explicit_single_file_only() -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_file_effect_receipt
+    from sentientos.workspace_file_effect import run_workspace_file_effect_wing
+    import tempfile
+    from pathlib import Path
+
+    records = build_default_capability_registry().by_id()
+    effect = records["workspace_scoped_file_effect"]
+    assert effect.status == "implemented"
+    assert "explicit single-file create/update inside caller-supplied workspace root" in effect.implemented_surfaces
+    assert "general filesystem access" in effect.deferred_surfaces
+    assert records["workspace_file_preimage_capture"].status == "implemented"
+    assert "exact-target preimage capture before replacement" in records["workspace_file_preimage_capture"].implemented_surfaces
+    assert records["workspace_file_postcondition_check"].status == "implemented"
+    assert records["workspace_file_exact_rollback"].status == "implemented"
+    assert records["workspace_file_production_audit"].status == "implemented"
+    for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+    for capability_id in ["real_service_restart", "real_power_profile_mutation", "real_fan_pwm_control", "real_thermal_actuation", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+    with tempfile.TemporaryDirectory() as td:
+        wing = run_workspace_file_effect_wing(workspace_root=Path(td), relative_target_path="demo.txt", payload_text="hello")
+        updated = update_registry_from_workspace_file_effect_receipt(build_default_capability_registry(), wing.receipt).by_id()
+    assert updated["workspace_scoped_file_effect"].status == "implemented"
+    assert updated["general_filesystem_access"].status == "blocked"

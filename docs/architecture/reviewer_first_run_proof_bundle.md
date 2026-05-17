@@ -130,3 +130,7 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 The proof bundle includes `builtin_local_effect_runner_capability.json` for `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md`. The proof bundle does not invoke the runner by default; listed runner commands remain `proof_command_not_run`.
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Workspace file effect capability artifact
+
+The proof bundle includes `workspace_file_effect_capability.json` for the [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md). The bundle lists `python scripts/run_workspace_file_effect.py --workspace-root /tmp/sentientos-workspace-file-effect --target demo.txt --payload "hello" --summary` as `proof_command_not_run` and does not run the workspace file effect by default. The capability is explicit command/API only, supports exactly one workspace-scoped file target, captures preimage, supports exact rollback, and does not perform recursive/wildcard/unrelated delete, subprocess/shell/network/provider/prompt, hardware/service/power, or general cleanup.

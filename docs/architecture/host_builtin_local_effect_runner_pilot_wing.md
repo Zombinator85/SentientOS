@@ -38,3 +38,7 @@ Related docs:
 - `docs/architecture/reviewer_release_readiness_index.md`
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Workspace file effect relationship
+
+The [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md) is available as an explicit API/CLI only in this pass. Built-in runner integration is deferred, so this runner remains limited to local diagnostic artifact write and exact-artifact rollback.

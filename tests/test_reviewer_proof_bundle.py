@@ -368,3 +368,19 @@ def test_bundle_includes_builtin_runner_transaction_orchestrator_capability_and_
     commands = [" ".join(command.command) for command in payload["manifest"].proof_command_records]
     assert "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary" in commands
     assert all(command.status == "proof_command_not_run" and command.executed is False for command in payload["manifest"].proof_command_records)
+
+
+def test_default_reviewer_proof_bundle_includes_workspace_file_effect_capability_without_running() -> None:
+    import json
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    assert "workspace_file_effect_capability" in artifacts
+    capability = json.loads(artifacts["workspace_file_effect_capability"])
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_effect_performed"] is False
+    assert capability["supports_exactly_one_workspace_scoped_file_target"] is True
+    assert capability["captures_preimage_before_replacement"] is True
+    assert capability["supports_exact_rollback"] is True
+    assert capability["no_recursive_wildcard_unrelated_delete"] is True
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    assert any("run_workspace_file_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)

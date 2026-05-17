@@ -44,3 +44,7 @@ The reviewer proof bundle documents this capability in `builtin_runner_transacti
 - Preceded by: [Bounded Built-In Local Effect Runner Pilot](host_builtin_local_effect_runner_pilot_wing.md)
 - Ledger: [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md)
 - Rollback: [Host Local Diagnostic Exact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md)
+
+## Next pilot link
+
+The next real-effect pilot is [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md). Runner transaction support for `workspace_scoped_file_update` and `workspace_scoped_file_exact_rollback` is deferred; this orchestrator still supports only the existing in-process bounded diagnostic write/exact-rollback actions.

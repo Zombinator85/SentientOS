@@ -434,3 +434,7 @@ See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated
 `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` closes the first delegated-runner organ only for bounded in-process local diagnostic artifact write and exact-artifact rollback. General runners and hardware/service/power/fan/thermal/cleanup authority remain missing or blocked/deferred.
 
 Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
+
+## Workspace-scoped file update pilot
+
+The trajectory now includes [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md): one explicit workspace-scoped file target, preimage capture, postcondition verification, production audit, and exact-target rollback. General filesystem access, cleanup, recursive/wildcard/unrelated deletion, subprocess/shell/network/provider/prompt, and hardware/service/power/fan/thermal authority remain missing or blocked/deferred organs.

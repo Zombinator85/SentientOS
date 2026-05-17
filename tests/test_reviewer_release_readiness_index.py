@@ -641,3 +641,19 @@ def test_builtin_runner_transaction_orchestrator_doc_linked_and_preserves_bounda
     assert "Partial state is never hidden" in doc
     assert "host_builtin_runner_transaction_orchestrator_wing.md" in overview
     assert "host_builtin_runner_transaction_orchestrator_wing.md" in index
+
+HOST_WORKSPACE_FILE_EFFECT = "docs/architecture/host_workspace_file_effect_pilot_wing.md"
+
+
+def test_workspace_file_effect_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_FILE_EFFECT)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_FILE_EFFECT in overview
+    assert HOST_WORKSPACE_FILE_EFFECT in index
+    assert "exactly one explicit file inside an explicit caller-supplied workspace root" in doc
+    assert "not general filesystem access" in doc
+    assert "not cleanup" in doc
+    assert "subprocess execution, shell execution, network egress, provider invocation, prompt assembly" in doc
+    assert "proof bundle does not run this effect by default" in doc
+    assert "Built-in runner integration is deferred" in doc
