@@ -44,3 +44,5 @@ Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runne
 The [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md) is available as an explicit API/CLI only in this pass. Built-in runner integration is deferred, so this runner remains limited to local diagnostic artifact write and exact-artifact rollback.
 
 See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).
+
+- Workspace file transaction orchestrator: see [Host Workspace File Transaction Orchestrator Wing](host_workspace_file_transaction_orchestrator_wing.md) for implemented single-target workspace update/rollback/ledger modes; the previous orchestration deferral is removed without adding general filesystem, cleanup, subprocess, shell, network, provider, prompt, or hardware/service/power/fan/thermal authority.

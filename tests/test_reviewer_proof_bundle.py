@@ -401,3 +401,19 @@ def test_default_reviewer_proof_bundle_includes_workspace_runner_transaction_cap
     workspace_runner_commands = [record for record in commands if "workspace_scoped_file_" in " ".join(record["command"])]
     assert workspace_runner_commands
     assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in workspace_runner_commands)
+
+
+def test_bundle_includes_workspace_transaction_orchestrator_capability_without_running() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    assert "workspace_file_transaction_orchestrator_capability" in artifacts
+    capability = json.loads(artifacts["workspace_file_transaction_orchestrator_capability"])
+    assert capability["workspace_transaction_orchestrator_support"] == "implemented"
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_orchestrator_invoked"] is False
+    assert capability["one_explicit_target_only"] is True
+    assert capability["not_general_filesystem_access"] is True
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    orch_commands = [record for record in commands if "workspace_file_update_rollback_with_ledger" in " ".join(record["command"])]
+    assert orch_commands
+    assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in orch_commands)

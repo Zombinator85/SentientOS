@@ -146,4 +146,82 @@ def test_digests_are_deterministic_and_change_on_metadata(tmp_path: Path) -> Non
 
 
 def test_all_modes_are_declared() -> None:
-    assert set(TRANSACTION_MODES) == {"diagnostic_write_only", "diagnostic_write_with_rollback", "diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger"}
+    assert set(TRANSACTION_MODES) == {"diagnostic_write_only", "diagnostic_write_with_rollback", "diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger", "workspace_file_update_only", "workspace_file_update_with_rollback", "workspace_file_update_with_ledger", "workspace_file_update_rollback_with_ledger"}
+
+
+def test_workspace_file_update_only_writes_one_target_without_rollback(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    records = run_builtin_runner_transaction_wing(
+        transaction_mode="workspace_file_update_only",
+        workspace_root=root,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+        force=True,
+    )
+    assert records.result is not None
+    assert records.result.workspace_scoped_file_update_performed is True
+    assert records.result.workspace_scoped_file_exact_rollback_performed is False
+    assert (root / "demo.txt").read_text(encoding="utf-8") == "hello"
+    assert not (root / "workspace_rollback_receipt.json").exists()
+
+
+def test_workspace_file_update_with_rollback_preserves_sibling(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    sibling = root / "sibling.txt"
+    sibling.write_text("keep", encoding="utf-8")
+    records = run_builtin_runner_transaction_wing(
+        transaction_mode="workspace_file_update_with_rollback",
+        workspace_root=root,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+        force=True,
+    )
+    assert records.result is not None
+    assert records.result.workspace_scoped_file_update_performed is True
+    assert records.result.workspace_scoped_file_exact_rollback_performed is True
+    assert not (root / "demo.txt").exists()
+    assert sibling.read_text(encoding="utf-8") == "keep"
+
+
+def test_workspace_file_update_with_ledger_builds_rollback_pending_ledger(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    records = run_builtin_runner_transaction_wing(
+        transaction_mode="workspace_file_update_with_ledger",
+        workspace_root=root,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+        force=True,
+    )
+    assert records.result is not None and records.closure_report is not None
+    assert records.result.transaction_ledger_built is True
+    assert records.result.ledger_artifact_written is False
+    assert records.closure_report.lifecycle_status == "workspace_file_lifecycle_rollback_pending"
+
+
+def test_workspace_file_update_rollback_with_ledger_writes_explicit_ledger(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    ledger = root / "workspace_transaction_ledger.json"
+    records = run_builtin_runner_transaction_wing(
+        transaction_mode="workspace_file_update_rollback_with_ledger",
+        workspace_root=root,
+        relative_target_path="demo.txt",
+        payload_text="hello",
+        ledger_output_path=ledger,
+        force=True,
+    )
+    assert records.result is not None and records.closure_report is not None
+    assert records.result.transaction_ledger_built is True
+    assert records.result.ledger_artifact_written is True
+    assert ledger.exists()
+    assert records.closure_report.lifecycle_status == "workspace_file_lifecycle_complete_with_rollback"
+
+
+def test_workspace_mode_missing_inputs_blocks(tmp_path: Path) -> None:
+    records = run_builtin_runner_transaction_wing(transaction_mode="workspace_file_update_only", workspace_root=tmp_path)
+    assert records.plan.plan_status == "builtin_runner_transaction_plan_incomplete"
+    assert records.result is not None
+    assert records.result.transaction_status == "builtin_runner_transaction_blocked"

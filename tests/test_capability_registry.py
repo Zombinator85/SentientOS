@@ -801,7 +801,7 @@ def test_workspace_file_runner_transaction_capabilities_are_bounded() -> None:
     assert records["workspace_file_transaction_ledger"].authority_level == "metadata_ledger_only"
     assert records["workspace_file_lifecycle_report"].authority_level == "report_only"
     assert records["workspace_file_transaction_ledger_artifact"].authority_level == "explicit-local-artifact-only"
-    assert records["workspace_file_transaction_orchestration"].status == "deferred"
+    assert records["workspace_file_transaction_orchestration"].status == "implemented"
     assert records["general_filesystem_runner"].status == "blocked"
     with tempfile.TemporaryDirectory() as td:
         wing = run_workspace_file_effect_wing(workspace_root=Path(td), relative_target_path="demo.txt", payload_text="hello")
@@ -810,3 +810,29 @@ def test_workspace_file_runner_transaction_capabilities_are_bounded() -> None:
     assert updated["workspace_file_transaction_ledger"].status == "implemented"
     assert updated["general_filesystem_access"].status == "blocked"
     assert updated["general_cleanup"].status == "blocked"
+
+
+def test_workspace_file_transaction_orchestrator_capabilities_are_implemented_and_bounded() -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_file_transaction_orchestrator
+    from sentientos.builtin_runner_transaction_orchestrator import run_builtin_runner_transaction_wing
+    import tempfile
+    from pathlib import Path
+
+    records = build_default_capability_registry().by_id()
+    for capability_id in [
+        "workspace_file_transaction_orchestration",
+        "workspace_file_transaction_update_only",
+        "workspace_file_transaction_update_with_rollback",
+        "workspace_file_transaction_update_with_ledger",
+        "workspace_file_transaction_update_rollback_with_ledger",
+    ]:
+        assert records[capability_id].status == "implemented"
+    for capability_id in ["general_filesystem_runner", "general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+    with tempfile.TemporaryDirectory() as td:
+        wing = run_builtin_runner_transaction_wing(transaction_mode="workspace_file_update_rollback_with_ledger", workspace_root=Path(td), relative_target_path="demo.txt", payload_text="hello", force=True)
+        updated = update_registry_from_workspace_file_transaction_orchestrator(build_default_capability_registry(), wing.receipt).by_id()
+    assert updated["workspace_file_transaction_orchestration"].status == "implemented"
+    assert updated["workspace_file_transaction_update_rollback_with_ledger"].status == "implemented"
+    assert updated["general_filesystem_access"].status == "blocked"
+    assert updated["recursive_delete"].status == "blocked"

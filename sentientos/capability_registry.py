@@ -51,6 +51,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "local_effect_transaction_ledger",
         "workspace_file_effect",
         "workspace_file_transaction_ledger",
+        "workspace_file_transaction_orchestrator",
         "host_steward_boundary",
         "delegated_runner_boundary",
         "runtime_supervision",
@@ -124,6 +125,11 @@ AUTHORITY_LEVELS = frozenset(
         "report_only",
         "explicit-local-artifact-only",
         "explicit_local_artifact_only",
+        "bounded_workspace_file_orchestration",
+        "single_target_workspace_update_orchestration",
+        "single_target_workspace_update_exact_rollback_orchestration",
+        "single_target_workspace_update_ledger_orchestration",
+        "single_target_workspace_update_exact_rollback_ledger_orchestration",
         "authority_profile_only",
         "boundary_profile_only",
         "containment_profile_only",
@@ -401,7 +407,11 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("workspace_file_transaction_ledger", "workspace_file_transaction_ledger", "implemented", "metadata_ledger_only", source_paths=("sentientos/workspace_file_transaction_ledger.py", "scripts/build_workspace_file_transaction_ledger.py"), proof_tests=("tests/test_workspace_file_transaction_ledger.py", "tests/test_build_workspace_file_transaction_ledger_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_workspace_file_transaction_ledger.py tests/test_build_workspace_file_transaction_ledger_script.py",), implemented_surfaces=("metadata-only digest-chained ledger over supplied workspace file records",), deferred_surfaces=("effect execution", "rollback execution"), forbidden_implications=("workspace file transaction ledger mutates target files",)),
         _record("workspace_file_lifecycle_report", "workspace_file_transaction_ledger", "implemented", "report_only", source_paths=("sentientos/workspace_file_transaction_ledger.py",), proof_tests=("tests/test_workspace_file_transaction_ledger.py",), implemented_surfaces=("metadata-only lifecycle classification for workspace file transactions",), deferred_surfaces=("effect execution",), forbidden_implications=("lifecycle report grants filesystem authority",)),
         _record("workspace_file_transaction_ledger_artifact", "workspace_file_transaction_ledger", "implemented", "explicit-local-artifact-only", source_paths=("sentientos/workspace_file_transaction_ledger.py", "scripts/build_workspace_file_transaction_ledger.py"), proof_tests=("tests/test_workspace_file_transaction_ledger.py", "tests/test_build_workspace_file_transaction_ledger_script.py"), implemented_surfaces=("optional explicit caller-supplied local ledger artifact write only",), deferred_surfaces=("target file mutation", "cleanup"), forbidden_implications=("ledger artifact write is workspace file effect",)),
-        _record("workspace_file_transaction_orchestration", "delegated_runner_boundary", "deferred", "none", deferred_surfaces=("workspace file update/rollback orchestration",), forbidden_implications=("diagnostic orchestrator implies workspace file orchestration",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_file_transaction_orchestration", "workspace_file_transaction_orchestrator", "implemented", "bounded_workspace_file_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py", "scripts/run_builtin_runner_transaction.py"), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py", "tests/test_run_builtin_runner_transaction_script.py"), proof_commands=("python scripts/run_builtin_runner_transaction.py --mode workspace_file_update_rollback_with_ledger --workspace-root /tmp/sentientos-workspace-transaction --target demo.txt --payload hello --ledger-output /tmp/sentientos-workspace-transaction/workspace_transaction_ledger.json --summary",), implemented_surfaces=("single explicit workspace target update through built-in runner", "optional exact-target rollback through built-in runner", "optional workspace transaction ledger build"), deferred_surfaces=("general filesystem access", "cleanup", "recursive delete", "wildcard delete", "unrelated file delete"), forbidden_implications=("workspace transaction orchestrator grants general filesystem or cleanup authority",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_file_transaction_update_only", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_only mode",), deferred_surfaces=("rollback unless explicitly requested", "ledger unless explicitly requested"), forbidden_implications=("update-only mode grants cleanup authority",), requires_operator_approval=True, requires_audit_receipt=True),
+        _record("workspace_file_transaction_update_with_rollback", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_exact_rollback_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_with_rollback mode",), deferred_surfaces=("ledger unless explicitly requested",), forbidden_implications=("workspace rollback deletes siblings or directories",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_file_transaction_update_with_ledger", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_ledger_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_with_ledger mode",), deferred_surfaces=("rollback unless explicitly requested",), forbidden_implications=("ledger build hides rollback-pending lifecycle",), requires_operator_approval=True, requires_audit_receipt=True),
+        _record("workspace_file_transaction_update_rollback_with_ledger", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_exact_rollback_ledger_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_rollback_with_ledger mode",), deferred_surfaces=("general runner orchestration",), forbidden_implications=("workspace transaction ledger grants broader file authority",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("general_filesystem_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("general filesystem runner",), forbidden_implications=("workspace runner actions grant general filesystem runner authority",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_transaction_orchestrator", "delegated_runner_boundary", "implemented", "bounded-orchestrator", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py", "scripts/run_builtin_runner_transaction.py"), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py", "tests/test_run_builtin_runner_transaction_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_builtin_runner_transaction_orchestrator.py tests/test_run_builtin_runner_transaction_script.py", "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary"), implemented_surfaces=("bounded transaction orchestration of built-in diagnostic write and exact rollback",), deferred_surfaces=("general runner orchestration",), forbidden_implications=("transaction orchestrator is general runner framework", "transaction orchestrator widens delegated authority"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_transaction_write_only", "delegated_runner_boundary", "implemented", "bounded diagnostic write orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("orchestrates existing bounded local diagnostic artifact write",), forbidden_implications=("write-only orchestration is new effect class",), requires_operator_approval=True, requires_audit_receipt=True),
@@ -1360,6 +1370,29 @@ def update_registry_from_workspace_file_transaction_ledger(registry: CapabilityR
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-workspace-file-runner-transaction-wing.v1")
+
+
+def update_registry_from_workspace_file_transaction_orchestrator(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect bounded workspace file transaction orchestration without widening file authority."""
+
+    payload = receipt.to_dict() if hasattr(receipt, "to_dict") else dict(receipt)
+    mode = str(payload.get("transaction_mode", ""))
+    implemented_by_mode = {
+        "workspace_file_update_only": {"workspace_file_transaction_orchestration", "workspace_file_transaction_update_only"},
+        "workspace_file_update_with_rollback": {"workspace_file_transaction_orchestration", "workspace_file_transaction_update_with_rollback"},
+        "workspace_file_update_with_ledger": {"workspace_file_transaction_orchestration", "workspace_file_transaction_update_with_ledger"},
+        "workspace_file_update_rollback_with_ledger": {"workspace_file_transaction_orchestration", "workspace_file_transaction_update_rollback_with_ledger", "workspace_file_transaction_update_with_rollback", "workspace_file_transaction_update_with_ledger"},
+    }
+    blocked_ids = {"general_filesystem_runner", "general_runner_orchestration", "general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install", "hardware_control_runner", "service_control_runner", "power_control_runner"}
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in implemented_by_mode.get(mode, set()):
+            records.append(replace(record, status="implemented", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in blocked_ids:
+            records.append(replace(record, status="deferred" if record.capability_id in {"general_runner_orchestration", "hardware_control_runner", "service_control_runner", "power_control_runner"} else "blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-workspace-file-transaction-orchestrator-wing.v1")
 
 def update_registry_from_host_steward_boundary(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
     """Reflect metadata-only host steward boundary records without adding runner execution."""

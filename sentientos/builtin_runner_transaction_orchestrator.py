@@ -26,13 +26,24 @@ from sentientos.local_effect_transaction_ledger import (
     summarize_local_effect_transaction_ledger_artifact_receipt,
     write_local_effect_transaction_ledger_artifact,
 )
+from sentientos.workspace_file_transaction_ledger import (
+    build_transaction_ledger_from_workspace_file_records,
+    write_workspace_file_transaction_ledger_artifact,
+)
 
-TRANSACTION_MODES = (
+DIAGNOSTIC_TRANSACTION_MODES = (
     "diagnostic_write_only",
     "diagnostic_write_with_rollback",
     "diagnostic_write_with_ledger",
     "diagnostic_write_rollback_with_ledger",
 )
+WORKSPACE_FILE_TRANSACTION_MODES = (
+    "workspace_file_update_only",
+    "workspace_file_update_with_rollback",
+    "workspace_file_update_with_ledger",
+    "workspace_file_update_rollback_with_ledger",
+)
+TRANSACTION_MODES = DIAGNOSTIC_TRANSACTION_MODES + WORKSPACE_FILE_TRANSACTION_MODES
 PLAN_STATUSES = frozenset({
     "builtin_runner_transaction_plan_ready",
     "builtin_runner_transaction_plan_ready_with_warnings",
@@ -71,6 +82,10 @@ REQUIRED_TRANSACTION_LABELS = (
     "local_diagnostic_artifact_write_only",
     "exact_artifact_rollback_only",
     "transaction_ledger_required_when_requested",
+    "workspace_scoped_file_update_only",
+    "workspace_scoped_file_exact_rollback_only",
+    "workspace_file_transaction_ledger_required_when_requested",
+    "single_explicit_workspace_target_only",
     "runner_receipt_required",
     "effect_receipt_required",
     "postcondition_check_required",
@@ -117,6 +132,7 @@ BLOCKED_ACTIONS = (
     "unrelated_file_delete",
     "remote_execution",
     "control_plane_admission_execution",
+    "general_filesystem_access",
 )
 FORBIDDEN_TRUE_FLAGS = (
     "subprocess_used",
@@ -172,6 +188,10 @@ class BuiltinRunnerTransactionPlan:
     runner_declaration_id: str | None
     output_dir: str
     artifact_name: str
+    workspace_root: str | None
+    relative_target_path: str | None
+    payload_text: str | None
+    allow_replace: bool
     ledger_output_path: str | None
     force: bool
     rollback_after_write: bool
@@ -204,6 +224,10 @@ class BuiltinRunnerTransactionExecutionRequest:
     transaction_mode: str
     output_dir: str
     artifact_name: str
+    workspace_root: str | None
+    relative_target_path: str | None
+    payload_text: str | None
+    allow_replace: bool
     ledger_output_path: str | None
     force: bool
     rollback_after_write: bool
@@ -249,6 +273,8 @@ class BuiltinRunnerTransactionResult:
     runner_invoked: bool = False
     local_diagnostic_write_performed: bool = False
     exact_artifact_rollback_performed: bool = False
+    workspace_scoped_file_update_performed: bool = False
+    workspace_scoped_file_exact_rollback_performed: bool = False
     transaction_ledger_built: bool = False
     ledger_artifact_written: bool = False
     host_mutation_performed: bool = False
@@ -434,14 +460,26 @@ def build_default_builtin_runner_transaction_policy(*, created_at: str = DEFAULT
 
 
 def _mode_flags(mode: str) -> tuple[bool, bool]:
-    return mode in {"diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger"}, mode in {"diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger"}
+    return mode in {"diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger", "workspace_file_update_with_rollback", "workspace_file_update_rollback_with_ledger"}, mode in {"diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger", "workspace_file_update_with_ledger", "workspace_file_update_rollback_with_ledger"}
+
+
+def _is_workspace_mode(mode: str) -> bool:
+    return mode in WORKSPACE_FILE_TRANSACTION_MODES
+
+
+def _is_diagnostic_mode(mode: str) -> bool:
+    return mode in DIAGNOSTIC_TRANSACTION_MODES
 
 
 def build_builtin_runner_transaction_plan(
     *,
-    output_dir: str | Path,
+    output_dir: str | Path = "",
     artifact_name: str = DEFAULT_ARTIFACT_NAME,
     transaction_mode: str = "diagnostic_write_only",
+    workspace_root: str | Path | None = None,
+    relative_target_path: str | None = None,
+    payload_text: str | None = None,
+    allow_replace: bool = True,
     ledger_output_path: str | Path | None = None,
     force: bool = False,
     runner_declaration_id: str | None = None,
@@ -452,9 +490,19 @@ def build_builtin_runner_transaction_plan(
     if transaction_mode not in TRANSACTION_MODES:
         warnings.append("unsupported_transaction_mode")
         status = "builtin_runner_transaction_plan_blocked"
-    if not str(output_dir):
+    workspace_mode = _is_workspace_mode(transaction_mode)
+    if _is_diagnostic_mode(transaction_mode) and not str(output_dir):
         warnings.append("missing_output_dir")
         status = "builtin_runner_transaction_plan_incomplete"
+    if workspace_mode:
+        if not workspace_root:
+            warnings.append("missing_workspace_root")
+        if not relative_target_path:
+            warnings.append("missing_relative_target_path")
+        if payload_text is None:
+            warnings.append("missing_payload_text")
+        if warnings and status == "builtin_runner_transaction_plan_ready":
+            status = "builtin_runner_transaction_plan_incomplete"
     rollback, write_ledger = _mode_flags(transaction_mode) if transaction_mode in TRANSACTION_MODES else (False, False)
     if ledger_output_path and not write_ledger:
         warnings.append("ledger_output_ignored_without_ledger_mode")
@@ -465,6 +513,10 @@ def build_builtin_runner_transaction_plan(
         "runner_declaration_id": runner_declaration_id,
         "output_dir": str(output_dir),
         "artifact_name": artifact_name,
+        "workspace_root": str(workspace_root) if workspace_root is not None else None,
+        "relative_target_path": relative_target_path,
+        "payload_text": payload_text,
+        "allow_replace": allow_replace,
         "ledger_output_path": str(ledger_output_path) if ledger_output_path is not None else None,
         "force": force,
         "rollback_after_write": rollback,
@@ -497,6 +549,10 @@ def build_builtin_runner_transaction_execution_request(plan: BuiltinRunnerTransa
         "transaction_mode": plan.transaction_mode,
         "output_dir": plan.output_dir,
         "artifact_name": plan.artifact_name,
+        "workspace_root": plan.workspace_root,
+        "relative_target_path": plan.relative_target_path,
+        "payload_text": plan.payload_text,
+        "allow_replace": plan.allow_replace,
         "ledger_output_path": plan.ledger_output_path,
         "force": plan.force,
         "rollback_after_write": plan.rollback_after_write,
@@ -522,6 +578,7 @@ def build_builtin_runner_transaction_execution_request(plan: BuiltinRunnerTransa
 
 def _result_from_request(request: BuiltinRunnerTransactionExecutionRequest, *, status: str, warnings: Sequence[str] = (), records: Sequence[Any] = (), paths: Sequence[str] = (), write_runner_receipt_id: str | None = None, rollback_runner_receipt_id: str | None = None, ledger_id: str | None = None, lifecycle_report_id: str | None = None, ledger_artifact_receipt_id: str | None = None, write_ok: bool = False, rollback_ok: bool = False, ledger_ok: bool = False, artifact_ok: bool = False, runner_invoked: bool = False) -> BuiltinRunnerTransactionResult:
     ids, digests = _record_ids_digests(records)
+    workspace_mode = _is_workspace_mode(request.transaction_mode)
     mutation = write_ok or rollback_ok or artifact_ok
     payload = {
         "result_id": "",
@@ -541,8 +598,10 @@ def _result_from_request(request: BuiltinRunnerTransactionExecutionRequest, *, s
         "created_at": request.created_at,
         "digest": "",
         "runner_invoked": runner_invoked,
-        "local_diagnostic_write_performed": write_ok,
-        "exact_artifact_rollback_performed": rollback_ok,
+        "local_diagnostic_write_performed": write_ok and not workspace_mode,
+        "exact_artifact_rollback_performed": rollback_ok and not workspace_mode,
+        "workspace_scoped_file_update_performed": write_ok and workspace_mode,
+        "workspace_scoped_file_exact_rollback_performed": rollback_ok and workspace_mode,
         "transaction_ledger_built": ledger_ok,
         "ledger_artifact_written": artifact_ok,
         "host_mutation_performed": mutation,
@@ -565,13 +624,108 @@ def _result_from_request(request: BuiltinRunnerTransactionExecutionRequest, *, s
     return BuiltinRunnerTransactionResult(**_with_digest("builtin-runner-transaction-result-", payload, "result_id"))
 
 
-def run_builtin_runner_transaction(request: BuiltinRunnerTransactionExecutionRequest, *, dry_run: bool = False) -> BuiltinRunnerTransactionResult:
-    validation = validate_builtin_runner_transaction_execution_request(request)
-    if not validation.ok:
-        return _result_from_request(request, status="builtin_runner_transaction_blocked", warnings=validation.findings)
-    if dry_run:
-        return _result_from_request(request, status="builtin_runner_transaction_requested", warnings=("dry_run_no_runner_invoked",))
+def _run_workspace_file_transaction(request: BuiltinRunnerTransactionExecutionRequest) -> BuiltinRunnerTransactionResult:
+    records: list[Any] = []
+    paths: list[str] = []
+    warnings: list[str] = []
+    write_receipt_id = rollback_receipt_id = ledger_id = report_id = artifact_receipt_id = None
+    write_ok = rollback_ok = ledger_ok = artifact_ok = False
+    workspace_root = Path(str(request.workspace_root or "")).expanduser()
 
+    write_wing = run_builtin_local_effect_runner_wing(
+        action_kind="workspace_scoped_file_update",
+        workspace_root=request.workspace_root,
+        relative_target_path=request.relative_target_path,
+        payload_text=request.payload_text,
+        records_dir=request.workspace_root,
+        allow_replace=request.allow_replace,
+        force=request.force,
+        dry_run=False,
+        created_at=request.created_at,
+    )
+    records.extend([write_wing.request])
+    if write_wing.result:
+        records.append(write_wing.result)
+        paths.extend(write_wing.result.output_paths)
+    if write_wing.execution_receipt:
+        records.append(write_wing.execution_receipt)
+        write_receipt_id = write_wing.execution_receipt.receipt_id
+    if write_wing.block_receipt:
+        records.append(write_wing.block_receipt)
+        warnings.extend(write_wing.block_receipt.block_reason_codes)
+    write_ok = bool(write_wing.result and write_wing.result.result_status == "builtin_runner_invocation_performed")
+    if not write_ok:
+        return _result_from_request(request, status="builtin_runner_transaction_failed", warnings=tuple(warnings) or ("workspace_file_update_failed",), records=records, paths=paths, write_runner_receipt_id=write_receipt_id, runner_invoked=bool(write_wing.result and write_wing.result.delegated_runner_invoked))
+
+    if request.rollback_after_write:
+        try:
+            rollback_wing = run_builtin_local_effect_runner_wing(
+                action_kind="workspace_scoped_file_exact_rollback",
+                workspace_effect_receipt_path=workspace_root / "workspace_effect_receipt.json",
+                workspace_rollback_plan_path=workspace_root / "workspace_rollback_plan.json",
+                workspace_root_scope=request.workspace_root,
+                dry_run=False,
+                created_at=request.created_at,
+            )
+            records.extend([rollback_wing.request])
+            if rollback_wing.result:
+                records.append(rollback_wing.result)
+                paths.extend(rollback_wing.result.output_paths)
+            if rollback_wing.execution_receipt:
+                records.append(rollback_wing.execution_receipt)
+                rollback_receipt_id = rollback_wing.execution_receipt.receipt_id
+            if rollback_wing.block_receipt:
+                records.append(rollback_wing.block_receipt)
+                warnings.extend(rollback_wing.block_receipt.block_reason_codes)
+            rollback_ok = bool(rollback_wing.result and rollback_wing.result.result_status == "builtin_runner_invocation_performed")
+        except Exception as exc:  # keep write-success / rollback-failure partial state visible
+            rollback_ok = False
+            warnings.append("workspace_rollback_failed:" + exc.__class__.__name__)
+        if not rollback_ok:
+            warnings.append("workspace_rollback_failed_transaction_left_open")
+
+    if request.write_ledger:
+        try:
+            bundle = build_transaction_ledger_from_workspace_file_records(
+                effect_request=_load(workspace_root / "workspace_request.json"),
+                preimage=_load(workspace_root / "workspace_preimage.json"),
+                effect_result=_load(workspace_root / "workspace_effect_result.json"),
+                effect_receipt=_load(workspace_root / "workspace_effect_receipt.json"),
+                postcondition_check=_load(workspace_root / "workspace_postcondition_check.json"),
+                production_audit=_load(workspace_root / "workspace_production_audit.json"),
+                rollback_plan=_load(workspace_root / "workspace_rollback_plan.json"),
+                rollback_result=_load(workspace_root / "workspace_rollback_result.json"),
+                rollback_receipt=_load(workspace_root / "workspace_rollback_receipt.json"),
+                rollback_postcondition_check=_load(workspace_root / "workspace_rollback_postcondition_check.json"),
+                rollback_audit=_load(workspace_root / "workspace_rollback_audit.json"),
+                created_at=request.created_at,
+            )
+            ledger, report = bundle.ledger, bundle.lifecycle_report
+            ledger_id, report_id = ledger.ledger_id, report.report_id
+            ledger_ok = True
+            records.extend([ledger, report])
+            if request.ledger_output_path:
+                artifact_receipt = write_workspace_file_transaction_ledger_artifact(ledger, request.ledger_output_path, lifecycle_report=report, created_at=request.created_at, force=request.force)
+                artifact_receipt_id = artifact_receipt.receipt_id
+                artifact_ok = True
+                records.append(artifact_receipt)
+                paths.append(artifact_receipt.output_path)
+        except Exception as exc:  # keep partial write/rollback state visible
+            warnings.append("workspace_ledger_failed:" + exc.__class__.__name__)
+
+    if request.rollback_after_write and not rollback_ok:
+        status = "builtin_runner_transaction_incomplete"
+    elif request.write_ledger and not ledger_ok:
+        status = "builtin_runner_transaction_incomplete"
+        warnings.append("workspace_ledger_pending")
+    elif warnings:
+        status = "builtin_runner_transaction_performed_with_warnings"
+    else:
+        status = "builtin_runner_transaction_performed"
+    return _result_from_request(request, status=status, warnings=warnings, records=records, paths=paths, write_runner_receipt_id=write_receipt_id, rollback_runner_receipt_id=rollback_receipt_id, ledger_id=ledger_id, lifecycle_report_id=report_id, ledger_artifact_receipt_id=artifact_receipt_id, write_ok=write_ok, rollback_ok=rollback_ok, ledger_ok=ledger_ok, artifact_ok=artifact_ok, runner_invoked=True)
+
+
+def _run_diagnostic_transaction(request: BuiltinRunnerTransactionExecutionRequest) -> BuiltinRunnerTransactionResult:
     records: list[Any] = []
     paths: list[str] = []
     warnings: list[str] = []
@@ -628,7 +782,6 @@ def run_builtin_runner_transaction(request: BuiltinRunnerTransactionExecutionReq
         if not rollback_ok:
             warnings.append("rollback_failed_transaction_left_open")
 
-    ledger = report = artifact_receipt = None
     if request.write_ledger:
         try:
             bundle = build_transaction_ledger_from_local_diagnostic_records(
@@ -666,6 +819,16 @@ def run_builtin_runner_transaction(request: BuiltinRunnerTransactionExecutionReq
     return _result_from_request(request, status=status, warnings=warnings, records=records, paths=paths, write_runner_receipt_id=write_receipt_id, rollback_runner_receipt_id=rollback_receipt_id, ledger_id=ledger_id, lifecycle_report_id=report_id, ledger_artifact_receipt_id=artifact_receipt_id, write_ok=write_ok, rollback_ok=rollback_ok, ledger_ok=ledger_ok, artifact_ok=artifact_ok, runner_invoked=True)
 
 
+def run_builtin_runner_transaction(request: BuiltinRunnerTransactionExecutionRequest, *, dry_run: bool = False) -> BuiltinRunnerTransactionResult:
+    validation = validate_builtin_runner_transaction_execution_request(request)
+    if not validation.ok:
+        return _result_from_request(request, status="builtin_runner_transaction_blocked", warnings=validation.findings)
+    if dry_run:
+        return _result_from_request(request, status="builtin_runner_transaction_requested", warnings=("dry_run_no_runner_invoked",))
+    if _is_workspace_mode(request.transaction_mode):
+        return _run_workspace_file_transaction(request)
+    return _run_diagnostic_transaction(request)
+
 def build_builtin_runner_transaction_receipt(request: BuiltinRunnerTransactionExecutionRequest, result: BuiltinRunnerTransactionResult, *, created_at: str | None = None) -> BuiltinRunnerTransactionReceipt:
     validation = validate_builtin_runner_transaction_result(result)
     if not validation.ok:
@@ -680,7 +843,7 @@ def build_builtin_runner_transaction_receipt(request: BuiltinRunnerTransactionEx
         status = "builtin_runner_transaction_receipt_recorded_with_warnings"
     else:
         status = "builtin_runner_transaction_receipt_recorded"
-    evidence = ("bounded runner transaction orchestrator used only built-in local diagnostic write/exact rollback actions",)
+    evidence = (("bounded runner transaction orchestrator used only built-in workspace file update/exact rollback actions",) if _is_workspace_mode(result.transaction_mode) else ("bounded runner transaction orchestrator used only built-in local diagnostic write/exact rollback actions",))
     payload = {
         "receipt_id": "",
         "request_id": request.request_id,
@@ -728,22 +891,27 @@ def build_builtin_runner_transaction_closure_report(receipt: BuiltinRunnerTransa
     warnings = list(receipt.warning_codes)
     lifecycle_status = _source_payload(lifecycle_report).get("lifecycle_status") if lifecycle_report else None
     if lifecycle_status is None and receipt.ledger_id:
-        lifecycle_status = "local_effect_lifecycle_complete_with_rollback" if receipt.rollback_runner_receipt_id else "local_effect_lifecycle_rollback_pending"
+        if _is_workspace_mode(receipt.transaction_mode):
+            lifecycle_status = "workspace_file_lifecycle_complete_with_rollback" if receipt.rollback_runner_receipt_id else "workspace_file_lifecycle_rollback_pending"
+        else:
+            lifecycle_status = "local_effect_lifecycle_complete_with_rollback" if receipt.rollback_runner_receipt_id else "local_effect_lifecycle_rollback_pending"
     present = ["transaction_receipt"]
     missing: list[str] = []
     closure_codes: list[str] = []
     open_issues: list[str] = []
+    write_kind = "workspace_file_update_runner_receipt" if _is_workspace_mode(receipt.transaction_mode) else "diagnostic_write_runner_receipt"
+    rollback_kind = "workspace_file_rollback_runner_receipt" if _is_workspace_mode(receipt.transaction_mode) else "diagnostic_rollback_runner_receipt"
     if receipt.write_runner_receipt_id:
-        present.append("diagnostic_write_runner_receipt")
+        present.append(write_kind)
     else:
-        missing.append("diagnostic_write_runner_receipt")
-    if receipt.transaction_mode in {"diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger"}:
+        missing.append(write_kind)
+    if receipt.transaction_mode in {"diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger", "workspace_file_update_with_rollback", "workspace_file_update_rollback_with_ledger"}:
         if receipt.rollback_runner_receipt_id:
-            present.append("diagnostic_rollback_runner_receipt")
+            present.append(rollback_kind)
         else:
-            missing.append("diagnostic_rollback_runner_receipt")
+            missing.append(rollback_kind)
             open_issues.append("rollback_pending")
-    if receipt.transaction_mode in {"diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger"}:
+    if receipt.transaction_mode in {"diagnostic_write_with_ledger", "diagnostic_write_rollback_with_ledger", "workspace_file_update_with_ledger", "workspace_file_update_rollback_with_ledger"}:
         if receipt.ledger_id:
             present.append("transaction_ledger")
         else:
@@ -822,8 +990,15 @@ def validate_builtin_runner_transaction_execution_request(record: BuiltinRunnerT
         findings.append("request_not_ready")
     if p.get("transaction_mode") not in TRANSACTION_MODES:
         findings.append("unsupported_transaction_mode")
-    if not p.get("output_dir"):
+    if _is_diagnostic_mode(str(p.get("transaction_mode"))) and not p.get("output_dir"):
         findings.append("missing_output_dir")
+    if _is_workspace_mode(str(p.get("transaction_mode"))):
+        if not p.get("workspace_root"):
+            findings.append("missing_workspace_root")
+        if not p.get("relative_target_path"):
+            findings.append("missing_relative_target_path")
+        if p.get("payload_text") is None:
+            findings.append("missing_payload_text")
     return BuiltinRunnerTransactionValidationResult(not findings, tuple(findings))
 
 
@@ -853,17 +1028,17 @@ def validate_builtin_runner_transaction_closure_report(record: BuiltinRunnerTran
 
 def summarize_builtin_runner_transaction_plan(record: BuiltinRunnerTransactionPlan | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
-    return {k: p.get(k) for k in ("plan_id", "transaction_mode", "output_dir", "artifact_name", "ledger_output_path", "force", "rollback_after_write", "write_ledger", "plan_status", "warning_codes", "metadata_only", "plan_only", "runner_invoked", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+    return {k: p.get(k) for k in ("plan_id", "transaction_mode", "output_dir", "artifact_name", "workspace_root", "relative_target_path", "payload_text", "allow_replace", "ledger_output_path", "force", "rollback_after_write", "write_ledger", "plan_status", "warning_codes", "metadata_only", "plan_only", "runner_invoked", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
 
 
 def summarize_builtin_runner_transaction_execution_request(record: BuiltinRunnerTransactionExecutionRequest | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
-    return {k: p.get(k) for k in ("request_id", "plan_id", "transaction_mode", "output_dir", "artifact_name", "ledger_output_path", "force", "rollback_after_write", "write_ledger", "request_status", "warning_codes", "transaction_requested", "runner_invoked", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
+    return {k: p.get(k) for k in ("request_id", "plan_id", "transaction_mode", "output_dir", "artifact_name", "workspace_root", "relative_target_path", "payload_text", "allow_replace", "ledger_output_path", "force", "rollback_after_write", "write_ledger", "request_status", "warning_codes", "transaction_requested", "runner_invoked", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "digest")}
 
 
 def summarize_builtin_runner_transaction_result(record: BuiltinRunnerTransactionResult | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
-    return {k: p.get(k) for k in ("result_id", "request_id", "transaction_mode", "write_runner_receipt_id", "rollback_runner_receipt_id", "ledger_id", "lifecycle_report_id", "ledger_artifact_receipt_id", "produced_record_ids", "produced_record_digests", "produced_paths", "transaction_status", "warning_codes", "runner_invoked", "local_diagnostic_write_performed", "exact_artifact_rollback_performed", "transaction_ledger_built", "ledger_artifact_written", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "general_cleanup_performed", "recursive_delete_performed", "unrelated_file_delete_performed", "digest")}
+    return {k: p.get(k) for k in ("result_id", "request_id", "transaction_mode", "write_runner_receipt_id", "rollback_runner_receipt_id", "ledger_id", "lifecycle_report_id", "ledger_artifact_receipt_id", "produced_record_ids", "produced_record_digests", "produced_paths", "transaction_status", "warning_codes", "runner_invoked", "local_diagnostic_write_performed", "exact_artifact_rollback_performed", "workspace_scoped_file_update_performed", "workspace_scoped_file_exact_rollback_performed", "transaction_ledger_built", "ledger_artifact_written", "host_mutation_performed", "subprocess_used", "shell_used", "network_used", "provider_invocation_performed", "prompt_assembly_performed", "general_cleanup_performed", "recursive_delete_performed", "unrelated_file_delete_performed", "digest")}
 
 
 def summarize_builtin_runner_transaction_receipt(record: BuiltinRunnerTransactionReceipt | Mapping[str, Any]) -> dict[str, Any]:
@@ -878,16 +1053,20 @@ def summarize_builtin_runner_transaction_closure_report(record: BuiltinRunnerTra
 
 def run_builtin_runner_transaction_wing(
     *,
-    output_dir: str | Path,
+    output_dir: str | Path = "",
     artifact_name: str = DEFAULT_ARTIFACT_NAME,
     transaction_mode: str = "diagnostic_write_only",
+    workspace_root: str | Path | None = None,
+    relative_target_path: str | None = None,
+    payload_text: str | None = None,
+    allow_replace: bool = True,
     ledger_output_path: str | Path | None = None,
     force: bool = False,
     dry_run: bool = False,
     created_at: str = DEFAULT_CREATED_AT,
 ) -> BuiltinRunnerTransactionWingRecords:
     policy = build_default_builtin_runner_transaction_policy(created_at=created_at)
-    plan = build_builtin_runner_transaction_plan(output_dir=output_dir, artifact_name=artifact_name, transaction_mode=transaction_mode, ledger_output_path=ledger_output_path, force=force, created_at=created_at)
+    plan = build_builtin_runner_transaction_plan(output_dir=output_dir, artifact_name=artifact_name, transaction_mode=transaction_mode, workspace_root=workspace_root, relative_target_path=relative_target_path, payload_text=payload_text, allow_replace=allow_replace, ledger_output_path=ledger_output_path, force=force, created_at=created_at)
     request = build_builtin_runner_transaction_execution_request(plan, created_at=created_at)
     if not validate_builtin_runner_transaction_plan(plan).ok or not validate_builtin_runner_transaction_execution_request(request).ok:
         result = _result_from_request(request, status="builtin_runner_transaction_blocked", warnings=plan.warning_codes)
@@ -907,7 +1086,9 @@ def summarize_builtin_runner_transaction_wing(records: BuiltinRunnerTransactionW
         "receipt": summarize_builtin_runner_transaction_receipt(records.receipt) if records.receipt else None,
         "closure_report": summarize_builtin_runner_transaction_closure_report(records.closure_report) if records.closure_report else None,
         "bounded_transaction_orchestrator_only": True,
-        "supported_runner_actions": ("local_diagnostic_artifact_write", "local_diagnostic_exact_rollback"),
+        "supported_runner_actions": ("local_diagnostic_artifact_write", "local_diagnostic_exact_rollback", "workspace_scoped_file_update", "workspace_scoped_file_exact_rollback"),
+        "single_explicit_workspace_target_only": True,
+        "no_general_filesystem_access": True,
         "transaction_ledger_explicit": True,
         "not_general_runner_framework": True,
     }

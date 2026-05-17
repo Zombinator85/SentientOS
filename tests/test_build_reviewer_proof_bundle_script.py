@@ -273,7 +273,7 @@ def test_build_reviewer_proof_bundle_writes_transaction_orchestrator_capability(
     import json
 
     output_dir = tmp_path / "bundle"
-    assert main(["--output-dir", str(output_dir), "--force"]) == 0
+    assert script.main(["--output-dir", str(output_dir), "--force"]) == 0
     path = output_dir / "builtin_runner_transaction_orchestrator_capability.json"
     assert path.exists()
     artifact = json.loads(path.read_text(encoding="utf-8"))
@@ -294,3 +294,16 @@ def test_build_reviewer_proof_bundle_writes_workspace_file_effect_capability(tmp
     assert payload["supports_exactly_one_workspace_scoped_file_target"] is True
     commands = json.loads((output_dir / "proof_commands.json").read_text(encoding="utf-8"))["commands"]
     assert any("run_workspace_file_effect.py" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
+
+
+def test_build_reviewer_proof_bundle_writes_workspace_transaction_orchestrator_capability(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    assert script.main(["--output-dir", str(output_dir), "--force"]) == 0
+    path = output_dir / "workspace_file_transaction_orchestrator_capability.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["workspace_transaction_orchestrator_support"] == "implemented"
+    assert payload["run_by_reviewer_proof_bundle_default"] is False
+    manifest = json.loads((output_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
+    commands = manifest["proof_command_records"]
+    assert any("workspace_file_update_rollback_with_ledger" in " ".join(record["command"]) and record["status"] == "proof_command_not_run" for record in commands)
