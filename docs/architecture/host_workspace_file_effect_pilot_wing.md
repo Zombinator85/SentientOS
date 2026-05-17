@@ -70,3 +70,5 @@ The reviewer proof bundle includes `workspace_file_effect_capability.json` and l
 Built-in runner integration is deferred in this pass. The existing bounded runner transaction orchestrator still supports only the diagnostic write and exact diagnostic rollback actions.
 
 See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).
+
+- Workspace file transaction orchestrator: see [Host Workspace File Transaction Orchestrator Wing](host_workspace_file_transaction_orchestrator_wing.md) for implemented single-target workspace update/rollback/ledger modes; the previous orchestration deferral is removed without adding general filesystem, cleanup, subprocess, shell, network, provider, prompt, or hardware/service/power/fan/thermal authority.

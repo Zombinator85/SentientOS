@@ -440,3 +440,5 @@ Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runne
 The trajectory now includes [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md): one explicit workspace-scoped file target, preimage capture, postcondition verification, production audit, and exact-target rollback. General filesystem access, cleanup, recursive/wildcard/unrelated deletion, subprocess/shell/network/provider/prompt, and hardware/service/power/fan/thermal authority remain missing or blocked/deferred organs.
 
 See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).
+
+- Workspace file transaction orchestrator: see [Host Workspace File Transaction Orchestrator Wing](host_workspace_file_transaction_orchestrator_wing.md) for implemented single-target workspace update/rollback/ledger modes; the previous orchestration deferral is removed without adding general filesystem, cleanup, subprocess, shell, network, provider, prompt, or hardware/service/power/fan/thermal authority.

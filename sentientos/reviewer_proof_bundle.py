@@ -125,6 +125,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "builtin_runner_transaction_orchestrator_capability",
         "workspace_file_effect_capability",
         "workspace_file_runner_transaction_capability",
+        "workspace_file_transaction_orchestrator_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -161,6 +162,7 @@ BUNDLE_FILE_NAMES = {
     "builtin_runner_transaction_orchestrator_capability": "builtin_runner_transaction_orchestrator_capability.json",
     "workspace_file_effect_capability": "workspace_file_effect_capability.json",
     "workspace_file_runner_transaction_capability": "workspace_file_runner_transaction_capability.json",
+    "workspace_file_transaction_orchestrator_capability": "workspace_file_transaction_orchestrator_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -365,6 +367,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "workspace_scoped_file_update", "--workspace-root", "/tmp/sentientos-workspace-runner", "--target", "demo.txt", "--payload", "hello", "--summary"), "Optional explicit built-in runner workspace-scoped file update; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "workspace_scoped_file_exact_rollback", "--workspace-effect-receipt", "<workspace_effect_receipt.json>", "--workspace-rollback-plan", "<workspace_rollback_plan.json>", "--workspace-root-scope", "/tmp/sentientos-workspace-runner", "--summary"), "Optional explicit built-in runner workspace exact rollback; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/build_workspace_file_transaction_ledger.py", "--effect-receipt", "<workspace_effect_receipt.json>", "--preimage", "<workspace_preimage.json>", "--postcondition-check", "<workspace_postcondition_check.json>", "--production-audit", "<workspace_production_audit.json>", "--rollback-plan", "<workspace_rollback_plan.json>", "--summary"), "Optional explicit workspace file transaction ledger build; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_builtin_runner_transaction.py", "--mode", "workspace_file_update_rollback_with_ledger", "--workspace-root", "/tmp/sentientos-workspace-transaction", "--target", "demo.txt", "--payload", "hello", "--ledger-output", "/tmp/sentientos-workspace-transaction/workspace_transaction_ledger.json", "--summary"), "Optional explicit workspace file transaction orchestrator; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -910,6 +913,33 @@ def build_reviewer_proof_bundle_payload(
             "runner_update_proof_command": "python scripts/run_builtin_local_effect_runner.py --action workspace_scoped_file_update --workspace-root /tmp/sentientos-workspace-runner --target demo.txt --payload \"hello\" --summary",
             "runner_rollback_proof_command": "python scripts/run_builtin_local_effect_runner.py --action workspace_scoped_file_exact_rollback --workspace-effect-receipt <workspace_effect_receipt.json> --workspace-rollback-plan <workspace_rollback_plan.json> --workspace-root-scope /tmp/sentientos-workspace-runner --summary",
             "ledger_proof_command": "python scripts/build_workspace_file_transaction_ledger.py --effect-receipt <workspace_effect_receipt.json> --preimage <workspace_preimage.json> --postcondition-check <workspace_postcondition_check.json> --production-audit <workspace_production_audit.json> --rollback-plan <workspace_rollback_plan.json> --summary",
+        }),
+
+        "workspace_file_transaction_orchestrator_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "workspace_transaction_orchestrator_support": "implemented",
+            "supports_only_workspace_file_update_exact_rollback_ledger_modes": True,
+            "supported_modes": ("workspace_file_update_only", "workspace_file_update_with_rollback", "workspace_file_update_with_ledger", "workspace_file_update_rollback_with_ledger"),
+            "uses_existing_builtin_runner_workspace_actions_only": True,
+            "uses_existing_workspace_transaction_ledger_helpers_only": True,
+            "one_explicit_target_only": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_orchestrator_invoked": False,
+            "proof_bundle_runner_invoked": False,
+            "proof_bundle_ledger_built_by_default": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_host_mutation_performed": False,
+            "not_general_filesystem_access": True,
+            "not_cleanup": True,
+            "no_recursive_wildcard_unrelated_delete": True,
+            "no_subprocess_shell_network_provider_prompt": True,
+            "no_hardware_service_power_fan_thermal": True,
+            "partial_state_visible_if_rollback_or_ledger_fails": True,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/run_builtin_runner_transaction.py --mode workspace_file_update_rollback_with_ledger --workspace-root /tmp/sentientos-workspace-transaction --target demo.txt --payload \"hello\" --ledger-output /tmp/sentientos-workspace-transaction/workspace_transaction_ledger.json --summary",
         }),
         "host_steward_boundary_posture": _pretty_json({
             "metadata_only": True,
