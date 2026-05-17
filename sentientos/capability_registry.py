@@ -111,6 +111,10 @@ AUTHORITY_LEVELS = frozenset(
         "exact_artifact_rollback_audit_only",
         "bounded_in_process_runner",
         "builtin_runner_action_only",
+        "bounded-orchestrator",
+        "bounded diagnostic write orchestration",
+        "bounded write/exact-rollback orchestration",
+        "explicit ledger build",
         "runner_execution_receipt_only",
         "local_effect_transaction_ledger_only",
         "local_effect_lifecycle_report_only",
@@ -380,6 +384,10 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("builtin_local_effect_runner", "delegated_runner_boundary", "implemented", "bounded_in_process_runner", source_paths=("sentientos/builtin_local_effect_runner.py", "scripts/run_builtin_local_effect_runner.py"), proof_tests=("tests/test_builtin_local_effect_runner.py", "tests/test_run_builtin_local_effect_runner_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_builtin_local_effect_runner.py tests/test_run_builtin_local_effect_runner_script.py", "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary"), implemented_surfaces=("bounded built-in in-process delegated runner", "only local diagnostic artifact write and exact-artifact rollback"), deferred_surfaces=("general runner framework", "generated-code runners", "plugin runners", "federation import runners", "external tool runners"), forbidden_implications=("built-in runner is general runner framework", "built-in runner grants ambient delegated authority", "built-in runner uses subprocess shell network provider prompt hardware service power or cleanup authority"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_local_diagnostic_artifact_write", "delegated_runner_boundary", "implemented", "builtin_runner_action_only", source_paths=("sentientos/builtin_local_effect_runner.py", "sentientos/local_diagnostic_effect.py"), proof_tests=("tests/test_builtin_local_effect_runner.py",), implemented_surfaces=("in-process invocation of existing local diagnostic artifact write path",), deferred_surfaces=("broader local effects",), forbidden_implications=("diagnostic runner action is general host mutation",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_exact_artifact_rollback", "delegated_runner_boundary", "implemented", "builtin_runner_action_only", source_paths=("sentientos/builtin_local_effect_runner.py", "sentientos/local_diagnostic_effect.py"), proof_tests=("tests/test_builtin_local_effect_runner.py",), implemented_surfaces=("in-process invocation of existing exact artifact rollback path",), deferred_surfaces=("general cleanup", "directory cleanup", "recursive delete", "unrelated file deletion"), forbidden_implications=("exact rollback runner action is general cleanup",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("builtin_runner_transaction_orchestrator", "delegated_runner_boundary", "implemented", "bounded-orchestrator", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py", "scripts/run_builtin_runner_transaction.py"), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py", "tests/test_run_builtin_runner_transaction_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_builtin_runner_transaction_orchestrator.py tests/test_run_builtin_runner_transaction_script.py", "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary"), implemented_surfaces=("bounded transaction orchestration of built-in diagnostic write and exact rollback",), deferred_surfaces=("general runner orchestration",), forbidden_implications=("transaction orchestrator is general runner framework", "transaction orchestrator widens delegated authority"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("builtin_runner_transaction_write_only", "delegated_runner_boundary", "implemented", "bounded diagnostic write orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("orchestrates existing bounded local diagnostic artifact write",), forbidden_implications=("write-only orchestration is new effect class",), requires_operator_approval=True, requires_audit_receipt=True),
+        _record("builtin_runner_transaction_write_with_rollback", "delegated_runner_boundary", "implemented", "bounded write/exact-rollback orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("orchestrates existing bounded diagnostic write and exact-artifact rollback",), forbidden_implications=("write-with-rollback orchestration is general cleanup",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("builtin_runner_transaction_ledger_build", "delegated_runner_boundary", "implemented", "explicit ledger build", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py", "sentientos/local_effect_transaction_ledger.py"), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("explicit local effect transaction ledger build from produced records",), forbidden_implications=("ledger build performs additional host effects",), requires_audit_receipt=True),
         _record("live_runner_execution", "delegated_runner_boundary", "deferred", "none", deferred_surfaces=("live delegated runner execution",), forbidden_implications=("host steward boundary wing implements runner execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
         _record("real_subprocess_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("subprocess runner",), forbidden_implications=("delegated runner subprocess execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
         _record("shell_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("shell runner",), forbidden_implications=("delegated runner shell execution",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
@@ -404,6 +412,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("real_effect_receipt_creation", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real effect receipt creation",), forbidden_implications=("dry-run audit closure creates real effect receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("real_postcondition_check", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("real host postcondition checking",), forbidden_implications=("dry-run audit closure checks real host postconditions",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("production_audit_receipt_for_host_effect", "dry_run_audit_closure", "deferred", "none", deferred_surfaces=("production audit receipts for real host effects",), forbidden_implications=("dry-run audit closure emits production audit receipts",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("general_runner_orchestration", "delegated_runner_boundary", "deferred", "none", deferred_surfaces=("general delegated runner orchestration",), forbidden_implications=("bounded transaction orchestrator is general runner orchestration",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("general_runner_framework", "delegated_runner_boundary", "deferred", "none", deferred_surfaces=("general delegated runner framework",), forbidden_implications=("bounded built-in runner is a general runner",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("generated_code_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("generated-code execution",), forbidden_implications=("bounded built-in runner executes generated code",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
         _record("plugin_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("plugin execution",), forbidden_implications=("bounded built-in runner loads plugins",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True),
@@ -580,17 +589,40 @@ def update_registry_from_builtin_runner_execution_receipt(registry: CapabilityRe
     records: list[CapabilityRecord] = []
     for record in registry.records:
         if record.capability_id == "builtin_local_effect_runner":
-            records.append(replace(record, status="implemented", authority_level="bounded_in_process_runner", host_actuation_performed=bool(payload.get("host_mutation_performed")), metadata_only=True))
+            records.append(replace(record, status="implemented", authority_level="bounded_in_process_runner", host_actuation_performed=False, metadata_only=True))
         elif record.capability_id == "builtin_runner_local_diagnostic_artifact_write" and action == "local_diagnostic_artifact_write":
-            records.append(replace(record, status="implemented", authority_level="builtin_runner_action_only", host_actuation_performed=bool(payload.get("host_mutation_performed")), metadata_only=True))
+            records.append(replace(record, status="implemented", authority_level="builtin_runner_action_only", host_actuation_performed=False, metadata_only=True))
         elif record.capability_id == "builtin_runner_exact_artifact_rollback" and action == "local_diagnostic_exact_rollback":
-            records.append(replace(record, status="implemented", authority_level="builtin_runner_action_only", host_actuation_performed=bool(payload.get("host_mutation_performed")), metadata_only=True))
+            records.append(replace(record, status="implemented", authority_level="builtin_runner_action_only", host_actuation_performed=False, metadata_only=True))
         elif record.capability_id in {"general_runner_framework", "generated_code_runner", "plugin_runner", "federation_import_runner", "subprocess_runner", "shell_runner", "network_runner", "provider_runner", "prompt_assembly_runner", "hardware_control_runner", "service_control_runner", "power_control_runner", "cleanup_runner"}:
             records.append(replace(record, status="deferred" if record.capability_id == "general_runner_framework" else "blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-builtin-local-effect-runner-pilot-wing.v1")
 
+
+
+def update_registry_from_builtin_runner_transaction_receipt(registry: CapabilityRegistry, receipt: Any) -> CapabilityRegistry:
+    """Reflect bounded runner transaction orchestration without widening authority."""
+
+    payload = receipt.to_dict() if hasattr(receipt, "to_dict") else dict(receipt)
+    mode = payload.get("transaction_mode")
+    records: list[CapabilityRecord] = []
+    blocked_ids = {"general_runner_orchestration", "general_runner_framework", "generated_code_runner", "plugin_runner", "federation_import_runner", "subprocess_runner", "shell_runner", "network_runner", "provider_runner", "prompt_assembly_runner", "hardware_control_runner", "service_control_runner", "power_control_runner", "cleanup_runner"}
+    for record in registry.records:
+        if record.capability_id == "builtin_runner_transaction_orchestrator":
+            records.append(replace(record, status="implemented", authority_level="bounded-orchestrator", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "builtin_runner_transaction_write_only" and mode in {"diagnostic_write_only", "diagnostic_write_with_ledger", "diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger"}:
+            records.append(replace(record, status="implemented", authority_level="bounded diagnostic write orchestration", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "builtin_runner_transaction_write_with_rollback" and mode in {"diagnostic_write_with_rollback", "diagnostic_write_rollback_with_ledger"}:
+            records.append(replace(record, status="implemented", authority_level="bounded write/exact-rollback orchestration", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id == "builtin_runner_transaction_ledger_build" and payload.get("ledger_id"):
+            records.append(replace(record, status="implemented", authority_level="explicit ledger build", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in blocked_ids:
+            records.append(replace(record, status="deferred" if record.capability_id in {"general_runner_orchestration", "general_runner_framework", "network_runner", "provider_runner", "prompt_assembly_runner", "hardware_control_runner", "service_control_runner", "power_control_runner", "cleanup_runner"} else "blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-builtin-runner-transaction-orchestrator-wing.v1")
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)

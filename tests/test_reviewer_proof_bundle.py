@@ -349,3 +349,22 @@ def test_bundle_includes_builtin_local_effect_runner_capability_and_does_not_run
     commands = [" ".join(command.command) for command in payload["manifest"].proof_command_records]
     assert "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary" in commands
     assert all(command.status == "proof_command_not_run" and command.executed is False for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_builtin_runner_transaction_orchestrator_capability_and_does_not_run_it() -> None:
+    import json
+
+    payload = build_reviewer_proof_bundle_payload()
+    artifacts = payload["artifacts"]
+    assert "builtin_runner_transaction_orchestrator_capability" in artifacts
+    artifact = json.loads(artifacts["builtin_runner_transaction_orchestrator_capability"])
+    assert artifact["orchestrator_exists"] is True
+    assert artifact["supports_only_bounded_builtin_runner_diagnostic_write_and_exact_rollback"] is True
+    assert artifact["can_build_transaction_ledger_explicitly"] is True
+    assert artifact["run_by_reviewer_proof_bundle_default"] is False
+    assert artifact["proof_bundle_orchestrator_invoked"] is False
+    assert artifact["no_subprocess_shell_network_provider_prompt"] is True
+    assert artifact["no_hardware_service_power_general_cleanup"] is True
+    commands = [" ".join(command.command) for command in payload["manifest"].proof_command_records]
+    assert "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary" in commands
+    assert all(command.status == "proof_command_not_run" and command.executed is False for command in payload["manifest"].proof_command_records)

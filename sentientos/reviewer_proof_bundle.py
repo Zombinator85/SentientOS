@@ -122,6 +122,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "local_effect_transaction_ledger_capability",
         "host_steward_boundary_posture",
         "builtin_local_effect_runner_capability",
+        "builtin_runner_transaction_orchestrator_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -155,6 +156,7 @@ BUNDLE_FILE_NAMES = {
     "local_effect_transaction_ledger_capability": "local_effect_transaction_ledger_capability.json",
     "host_steward_boundary_posture": "host_steward_boundary.json",
     "builtin_local_effect_runner_capability": "builtin_local_effect_runner_capability.json",
+    "builtin_runner_transaction_orchestrator_capability": "builtin_runner_transaction_orchestrator_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -211,6 +213,7 @@ DEFERRED_ACTION_LABELS = (
     "power_control_runner",
     "cleanup_runner",
     "builtin_local_effect_runner_explicit_only",
+    "builtin_runner_transaction_orchestrator_explicit_only",
 )
 BLOCKED_ACTION_LABELS = (
     "fan_pwm_write",
@@ -235,6 +238,7 @@ BLOCKED_ACTION_LABELS = (
     "power_control_runner",
     "cleanup_runner",
     "builtin_local_effect_runner_explicit_only",
+    "builtin_runner_transaction_orchestrator_explicit_only",
 )
 
 
@@ -349,6 +353,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "local_diagnostic_artifact_write", "--output-dir", "/tmp/sentientos-local-effect-runner", "--summary"), "Optional explicit bounded built-in local effect runner diagnostic write; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "local_diagnostic_exact_rollback", "--effect-receipt", "<effect_receipt.json>", "--rollback-plan", "<rollback_plan.json>", "--output-dir-scope", "/tmp/sentientos-local-effect-runner", "--summary"), "Optional explicit bounded built-in local effect runner exact rollback; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/build_local_effect_transaction_ledger.py", "--effect-receipt", "<effect_receipt.json>", "--postcondition-check", "<postcondition.json>", "--production-audit", "<audit.json>", "--rollback-plan", "<rollback_plan.json>", "--summary"), "Optional metadata-only local effect transaction ledger; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/run_builtin_runner_transaction.py", "--output-dir", "/tmp/sentientos-builtin-runner-transaction", "--mode", "diagnostic_write_rollback_with_ledger", "--ledger-output", "/tmp/sentientos-builtin-runner-transaction/transaction_ledger.json", "--summary"), "Optional explicit bounded runner transaction orchestrator; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -818,6 +823,31 @@ def build_reviewer_proof_bundle_payload(
             "delegated_runners_do_not_inherit_ambient_authority": True,
             "proof_command": "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_artifact_write --output-dir /tmp/sentientos-local-effect-runner --summary",
             "rollback_proof_command": "python scripts/run_builtin_local_effect_runner.py --action local_diagnostic_exact_rollback --effect-receipt <effect_receipt.json> --rollback-plan <rollback_plan.json> --output-dir-scope /tmp/sentientos-local-effect-runner --summary",
+        }),
+
+        "builtin_runner_transaction_orchestrator_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "orchestrator_exists": True,
+            "bounded_transaction_orchestrator_only": True,
+            "supports_only_bounded_builtin_runner_diagnostic_write_and_exact_rollback": True,
+            "supported_runner_actions": ["local_diagnostic_artifact_write", "local_diagnostic_exact_rollback"],
+            "can_build_transaction_ledger_explicitly": True,
+            "explicit_command_required": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_orchestrator_invoked": False,
+            "proof_bundle_effect_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_ledger_built_by_default": False,
+            "proof_bundle_host_mutation_performed": False,
+            "not_general_runner_framework": True,
+            "no_subprocess_shell_network_provider_prompt": True,
+            "no_hardware_service_power_general_cleanup": True,
+            "delegated_runners_do_not_inherit_ambient_authority": True,
+            "partial_state_not_hidden": True,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary",
         }),
         "host_steward_boundary_posture": _pretty_json({
             "metadata_only": True,

@@ -624,3 +624,20 @@ def test_builtin_local_effect_runner_doc_linked_and_preserves_boundaries() -> No
     assert "supports only local diagnostic artifact write and exact-artifact rollback" in doc
     assert "subprocess execution, shell execution, network egress, provider invocation, prompt assembly" in doc
     assert "not a general runner framework" in doc
+
+
+def test_builtin_runner_transaction_orchestrator_doc_linked_and_preserves_boundaries() -> None:
+    from pathlib import Path
+
+    doc_path = Path("docs/architecture/host_builtin_runner_transaction_orchestrator_wing.md")
+    doc = doc_path.read_text(encoding="utf-8")
+    overview = Path("docs/architecture/public_technical_overview.md").read_text(encoding="utf-8")
+    index = Path("docs/architecture/reviewer_release_readiness_index.md").read_text(encoding="utf-8")
+    assert "only the existing in-process bounded built-in runner actions" in doc
+    assert "local_diagnostic_artifact_write" in doc and "local_diagnostic_exact_rollback" in doc
+    assert "Ledger construction is explicit" in doc
+    assert "subprocesses, shell execution, network" in doc
+    assert "not a general runner framework" in doc
+    assert "Partial state is never hidden" in doc
+    assert "host_builtin_runner_transaction_orchestrator_wing.md" in overview
+    assert "host_builtin_runner_transaction_orchestrator_wing.md" in index
