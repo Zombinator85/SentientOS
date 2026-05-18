@@ -293,6 +293,8 @@ See also: [Host Workspace File Runner / Transaction Integration Wing](host_works
 
 ## Next workspace planning wing
 
+Workspace change-set admission is documented in [Host Workspace Change Set Admission Controller](host_workspace_change_set_admission_wing.md) (`docs/architecture/host_workspace_change_set_admission_wing.md`): it is a bounded metadata-only eligibility gate before preflight, inspects supplied proposal metadata only, may write one caller-supplied admission artifact, and does not read workspace target files, check filesystem existence, compute filesystem digests, preflight, plan transactions, execute, rollback, verify replay, close lifecycle state, cleanup, schedule, or invoke subprocess/shell/network/provider/prompt/hardware/service/power/fan/thermal paths.
+
 See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and is followed by bounded change-set transaction execution in the execution pilot wing.
 
 

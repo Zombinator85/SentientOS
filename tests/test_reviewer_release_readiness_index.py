@@ -722,3 +722,21 @@ def test_workspace_change_set_lifecycle_closure_doc_is_linked_and_preserves_boun
     assert "does not recompute target digests from the filesystem" in doc
     assert "does not run by default in the reviewer proof bundle" in doc
     assert "proof_command_not_run" in doc
+
+HOST_WORKSPACE_CHANGE_SET_ADMISSION = "docs/architecture/host_workspace_change_set_admission_wing.md"
+
+
+def test_workspace_change_set_admission_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_CHANGE_SET_ADMISSION)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_CHANGE_SET_ADMISSION in overview
+    assert HOST_WORKSPACE_CHANGE_SET_ADMISSION in index
+    assert "metadata-only eligibility gate before preflight" in overview
+    assert "Admission is metadata-only and non-authorizing" in doc
+    assert "does not read workspace target files" in doc
+    assert "does not check filesystem existence" in doc
+    assert "does not compute filesystem digests" in doc
+    assert "does not preflight" in doc
+    assert "does not authorize execution" in doc
+    assert "proof bundle documents but does not run admission by default" in doc
