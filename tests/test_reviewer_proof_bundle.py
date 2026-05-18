@@ -457,3 +457,25 @@ def test_bundle_includes_workspace_change_set_execution_artifact_and_not_run_com
     rendered = [" ".join(command["command"]) for command in commands]
     assert "python scripts/run_workspace_change_set_transaction.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=hello --target docs-demo.txt=docs --summary" in rendered
     assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_workspace_change_set_execution_verification_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_execution_verification_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_execution_verification_capability"])
+    assert capability["read_only_verification_exists"] is True
+    assert capability["verifies_completed_change_set_execution_evidence"] is True
+    assert capability["reads_only_explicitly_declared_targets"] is True
+    assert capability["checks_receipt_ledger_closure_consistency"] is True
+    assert capability["optional_audit_artifact_only_when_caller_supplies_path"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_verification_run"] is False
+    assert capability["proof_bundle_execution_performed"] is False
+    assert capability["proof_bundle_rollback_performed"] is False
+    assert capability["proof_bundle_cleanup_performed"] is False
+    assert capability["proof_command_status"] == "proof_command_not_run"
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rendered = [" ".join(command["command"]) for command in commands]
+    assert "python scripts/verify_workspace_change_set_execution.py --evidence <workspace_change_set_execution_evidence.json> --summary" in rendered
+    assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)

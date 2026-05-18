@@ -690,3 +690,18 @@ def test_workspace_change_set_execution_doc_is_linked_and_preserves_boundaries()
     assert "not general filesystem access" in doc
     assert "not cleanup" in doc
     assert "does not run workspace change-set execution by default" in doc
+
+HOST_WORKSPACE_CHANGE_SET_EXECUTION_VERIFICATION = "docs/architecture/host_workspace_change_set_execution_verification_wing.md"
+
+
+def test_workspace_change_set_execution_verification_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_CHANGE_SET_EXECUTION_VERIFICATION)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_CHANGE_SET_EXECUTION_VERIFICATION in overview
+    assert HOST_WORKSPACE_CHANGE_SET_EXECUTION_VERIFICATION in index
+    assert "read-only verification and replay-audit layer" in doc
+    assert "reads only the relative target paths declared" in doc
+    assert "does not recurse directories" in doc
+    assert "does not execute" in doc
+    assert "does not run by default in the reviewer proof bundle" in doc

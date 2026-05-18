@@ -886,3 +886,20 @@ def test_workspace_change_set_execution_registry_helper_marks_blocked_surfaces(t
     assert updated["workspace_change_set_execution_closure_report"].status == "implemented"
     for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
         assert updated[capability_id].status in {"blocked", "deferred"}
+
+
+def test_workspace_change_set_execution_verification_registry_helper_marks_read_only_and_blocks_broader_authority() -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_change_set_execution_verification
+
+    records = build_default_capability_registry().by_id()
+    assert records["workspace_change_set_execution_verification"].status == "implemented"
+    assert records["workspace_change_set_execution_verification"].authority_level == "read-only-verification"
+    assert "sentientos/workspace_change_set_execution_verification.py" in records["workspace_change_set_execution_verification"].source_paths
+    updated = update_registry_from_workspace_change_set_execution_verification(
+        build_default_capability_registry(),
+        {"request": {"request_id": "v"}, "verification_result": {"verification_status": "verified_clean"}},
+    ).by_id()
+    assert updated["workspace_change_set_execution_verification"].status == "implemented"
+    assert updated["workspace_change_set_execution_verification"].metadata_only is True
+    for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
+        assert updated[capability_id].status in {"blocked", "deferred"}

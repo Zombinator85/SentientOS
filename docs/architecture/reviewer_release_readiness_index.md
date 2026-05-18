@@ -314,3 +314,6 @@ See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_chang
 
 
 The [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md) (`docs/architecture/host_workspace_change_set_execution_wing.md`) adds the first bounded multi-target workspace execution layer after preflight/planning. It consumes passed preflight/transaction plans, uses existing single-target helpers, records partial state visibly, and the reviewer proof bundle documents but does not run it by default.
+
+
+The [Host Workspace Change Set Execution Verification / Replay Audit Wing](host_workspace_change_set_execution_verification_wing.md) (`docs/architecture/host_workspace_change_set_execution_verification_wing.md`) adds a read-only replay-audit layer for completed change-set executions. It reads only declared manifest targets, checks receipt/ledger/closure and optional rollback evidence, may write one caller-supplied verification artifact, and does not execute, rollback, cleanup, schedule, scan undeclared files, or invoke subprocess/shell/network/provider/prompt/hardware/service/power/fan/thermal paths.

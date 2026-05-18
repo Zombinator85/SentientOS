@@ -146,3 +146,6 @@ See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_chang
 ## Workspace change-set execution proof artifact
 
 The bundle includes `workspace_change_set_execution_capability.json` for [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md). It documents the bounded capability but does not run execution by default.
+
+
+The [Host Workspace Change Set Execution Verification / Replay Audit Wing](host_workspace_change_set_execution_verification_wing.md) (`docs/architecture/host_workspace_change_set_execution_verification_wing.md`) adds a read-only replay-audit layer for completed change-set executions. It reads only declared manifest targets, checks receipt/ledger/closure and optional rollback evidence, may write one caller-supplied verification artifact, and does not execute, rollback, cleanup, schedule, scan undeclared files, or invoke subprocess/shell/network/provider/prompt/hardware/service/power/fan/thermal paths.
