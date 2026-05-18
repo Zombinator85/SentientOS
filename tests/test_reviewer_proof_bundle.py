@@ -501,3 +501,23 @@ def test_bundle_includes_workspace_change_set_lifecycle_closure_artifact_and_not
     rendered = [" ".join(command["command"]) for command in commands]
     assert "python scripts/build_workspace_change_set_lifecycle_closure.py --evidence <workspace_change_set_lifecycle_evidence.json> --summary" in rendered
     assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_workspace_change_set_admission_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_admission_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_admission_capability"])
+    assert capability["change_set_admission_exists"] is True
+    assert capability["admission_review_only"] is True
+    assert capability["inspects_supplied_proposal_metadata_only"] is True
+    assert capability["target_payload_bodies_included"] is False
+    assert capability["workspace_target_files_read"] is False
+    assert capability["preflight_performed"] is False
+    assert capability["execution_performed"] is False
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_command_status"] == "proof_command_not_run"
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rendered = [" ".join(command["command"]) for command in commands]
+    assert "python scripts/admit_workspace_change_set.py --proposal <workspace_change_set_proposal_metadata.json> --summary" in rendered
+    assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
