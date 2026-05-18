@@ -333,3 +333,14 @@ def test_reviewer_proof_bundle_cli_writes_workspace_change_set_execution_capabil
     assert payload["run_by_reviewer_proof_bundle_default"] is False
     assert payload["proof_bundle_execution_performed"] is False
     assert payload["general_filesystem_access_remains_blocked"] is True
+
+
+def test_reviewer_proof_bundle_cli_writes_workspace_change_set_lifecycle_closure_capability(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, _stdout, _stderr = _run_main(["--output-dir", str(output_dir)])
+    assert code == 0
+    path = output_dir / "workspace_change_set_lifecycle_closure_capability.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["lifecycle_closure_manifest_exists"] is True
+    assert payload["run_by_reviewer_proof_bundle_default"] is False

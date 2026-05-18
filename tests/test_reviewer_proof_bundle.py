@@ -479,3 +479,25 @@ def test_bundle_includes_workspace_change_set_execution_verification_artifact_an
     rendered = [" ".join(command["command"]) for command in commands]
     assert "python scripts/verify_workspace_change_set_execution.py --evidence <workspace_change_set_execution_evidence.json> --summary" in rendered
     assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_workspace_change_set_lifecycle_closure_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_lifecycle_closure_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_lifecycle_closure_capability"])
+    assert capability["lifecycle_closure_manifest_exists"] is True
+    assert capability["consumes_supplied_evidence_json_only"] is True
+    assert capability["does_not_verify_replay"] is True
+    assert capability["does_not_read_target_files"] is True
+    assert capability["optional_closure_artifact_only_when_caller_supplies_path"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_closure_run"] is False
+    assert capability["proof_bundle_execution_performed"] is False
+    assert capability["proof_bundle_rollback_performed"] is False
+    assert capability["proof_bundle_cleanup_performed"] is False
+    assert capability["proof_command_status"] == "proof_command_not_run"
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rendered = [" ".join(command["command"]) for command in commands]
+    assert "python scripts/build_workspace_change_set_lifecycle_closure.py --evidence <workspace_change_set_lifecycle_evidence.json> --summary" in rendered
+    assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
