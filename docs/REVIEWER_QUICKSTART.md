@@ -22,7 +22,15 @@ federation posture using the current command surface.
    python -m sentientos.ops node health --json
    python -m sentientos.ops constitution verify --json
    ```
-6. Bootstrap and build public documentation from the explicit docs dependency
+6. Check the repo-wide mypy baseline ratchet and the focused workspace typed surface:
+   ```bash
+   python scripts/check_mypy_baseline.py
+   python -m mypy --follow-imports=skip --hide-error-context --no-color-output --show-column-numbers --show-error-codes sentientos/workspace_change_set_admission.py scripts/admit_workspace_change_set.py sentientos/workspace_change_set_preflight.py scripts/preflight_workspace_change_set.py sentientos/workspace_change_set_execution.py scripts/run_workspace_change_set_transaction.py sentientos/workspace_change_set_execution_verification.py scripts/verify_workspace_change_set_execution.py sentientos/workspace_change_set_lifecycle_closure.py scripts/build_workspace_change_set_lifecycle_closure.py sentientos/workspace_change_set_lifecycle_orchestrator.py scripts/run_workspace_change_set_lifecycle.py
+   ```
+
+   The baseline/ratchet contract is documented in [mypy_baseline_ratchet.md](architecture/mypy_baseline_ratchet.md).
+
+7. Bootstrap and build public documentation from the explicit docs dependency
    surface:
    ```bash
    python scripts/build_docs.py --check-deps

@@ -200,7 +200,8 @@ def deterministic_digest(prefix: str, payload: Mapping[str, Any]) -> str:
 def _target_digest(path: Path) -> str | None:
     if not path.exists() or path.is_symlink() or not path.is_file():
         return None
-    return bytes_digest(path.read_bytes())
+    digest = bytes_digest(path.read_bytes())
+    return digest if isinstance(digest, str) else str(digest)
 
 
 def _normalize_relative(path_text: str) -> str:
