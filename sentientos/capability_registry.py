@@ -52,6 +52,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "workspace_file_effect",
         "workspace_file_transaction_ledger",
         "workspace_file_transaction_orchestrator",
+        "workspace_change_set_preflight",
         "host_steward_boundary",
         "delegated_runner_boundary",
         "runtime_supervision",
@@ -125,6 +126,10 @@ AUTHORITY_LEVELS = frozenset(
         "report_only",
         "explicit-local-artifact-only",
         "explicit_local_artifact_only",
+        "metadata-manifest-only",
+        "metadata-plan-only",
+        "explicit-target-read-only",
+        "read-only/preflight-only",
         "bounded_workspace_file_orchestration",
         "single_target_workspace_update_orchestration",
         "single_target_workspace_update_exact_rollback_orchestration",
@@ -412,6 +417,16 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("workspace_file_transaction_update_with_rollback", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_exact_rollback_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_with_rollback mode",), deferred_surfaces=("ledger unless explicitly requested",), forbidden_implications=("workspace rollback deletes siblings or directories",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("workspace_file_transaction_update_with_ledger", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_ledger_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_with_ledger mode",), deferred_surfaces=("rollback unless explicitly requested",), forbidden_implications=("ledger build hides rollback-pending lifecycle",), requires_operator_approval=True, requires_audit_receipt=True),
         _record("workspace_file_transaction_update_rollback_with_ledger", "workspace_file_transaction_orchestrator", "implemented", "single_target_workspace_update_exact_rollback_ledger_orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("workspace_file_update_rollback_with_ledger mode",), deferred_surfaces=("general runner orchestration",), forbidden_implications=("workspace transaction ledger grants broader file authority",), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_change_set_preflight", "workspace_change_set_preflight", "implemented", "read-only/preflight-only", source_paths=("sentientos/workspace_change_set_preflight.py", "scripts/preflight_workspace_change_set.py"), proof_tests=("tests/test_workspace_change_set_preflight.py", "tests/test_preflight_workspace_change_set_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_workspace_change_set_preflight.py tests/test_preflight_workspace_change_set_script.py", "python scripts/preflight_workspace_change_set.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=hello --summary"), implemented_surfaces=("bounded explicit-target workspace change-set preflight", "metadata-only future transaction planning", "read-only declared-target digest capture"), deferred_surfaces=("workspace change-set execution", "multi-file runner", "bulk rollback", "general filesystem access", "cleanup"), forbidden_implications=("preflight performs target writes", "preflight invokes runner/orchestrator", "preflight grants general filesystem authority"), requires_audit_receipt=True),
+        _record("workspace_change_set_manifest", "workspace_change_set_preflight", "implemented", "metadata-manifest-only", source_paths=("sentientos/workspace_change_set_preflight.py",), proof_tests=("tests/test_workspace_change_set_preflight.py",), implemented_surfaces=("bounded manifest of explicit relative workspace targets",), deferred_surfaces=("manifest execution",), forbidden_implications=("manifest authorizes filesystem mutation")),
+        _record("workspace_change_target_preflight", "workspace_change_set_preflight", "implemented", "explicit-target-read-only", source_paths=("sentientos/workspace_change_set_preflight.py",), proof_tests=("tests/test_workspace_change_set_preflight.py",), implemented_surfaces=("read-only metadata and digest checks for declared targets only",), deferred_surfaces=("target writes", "target rollback"), forbidden_implications=("target preflight reads undeclared targets")),
+        _record("workspace_change_set_rollback_plan", "workspace_change_set_preflight", "implemented", "metadata-plan-only", source_paths=("sentientos/workspace_change_set_preflight.py",), proof_tests=("tests/test_workspace_change_set_preflight.py",), implemented_surfaces=("metadata-only rollback strategy entries",), deferred_surfaces=("bulk rollback execution",), forbidden_implications=("rollback plan performs rollback"), requires_rollback_receipt=True),
+        _record("workspace_change_set_transaction_plan", "workspace_change_set_preflight", "implemented", "metadata-plan-only", source_paths=("sentientos/workspace_change_set_preflight.py",), proof_tests=("tests/test_workspace_change_set_preflight.py",), implemented_surfaces=("metadata-only future transaction order and strategy",), deferred_surfaces=("workspace change-set transaction execution",), forbidden_implications=("transaction plan executes multi-file writes")),
+        _record("workspace_change_set_preflight_artifact", "workspace_change_set_preflight", "implemented", "explicit-local-artifact-only", source_paths=("scripts/preflight_workspace_change_set.py",), proof_tests=("tests/test_preflight_workspace_change_set_script.py",), implemented_surfaces=("optional exact caller-supplied preflight/plan JSON artifact",), deferred_surfaces=("implicit artifact writes", "target writes"), forbidden_implications=("artifact output writes target payloads")),
+        _record("workspace_change_set_execution", "workspace_change_set_preflight", "deferred", "none", deferred_surfaces=("workspace change-set execution", "multi-target writes"), forbidden_implications=("preflight wing implements future executor"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_change_set_transaction_execution", "workspace_change_set_preflight", "deferred", "none", deferred_surfaces=("workspace change-set transaction execution",), forbidden_implications=("transaction plan is transaction execution"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_change_set_multi_file_runner", "workspace_change_set_preflight", "deferred", "none", deferred_surfaces=("multi-file built-in runner",), forbidden_implications=("preflight adds runner actions"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
+        _record("workspace_change_set_bulk_rollback", "workspace_change_set_preflight", "deferred", "none", deferred_surfaces=("bulk rollback execution",), forbidden_implications=("rollback plan performs bulk rollback"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("general_filesystem_runner", "delegated_runner_boundary", "blocked", "none", deferred_surfaces=("general filesystem runner",), forbidden_implications=("workspace runner actions grant general filesystem runner authority",), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_transaction_orchestrator", "delegated_runner_boundary", "implemented", "bounded-orchestrator", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py", "scripts/run_builtin_runner_transaction.py"), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py", "tests/test_run_builtin_runner_transaction_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_builtin_runner_transaction_orchestrator.py tests/test_run_builtin_runner_transaction_script.py", "python scripts/run_builtin_runner_transaction.py --output-dir /tmp/sentientos-builtin-runner-transaction --mode diagnostic_write_rollback_with_ledger --ledger-output /tmp/sentientos-builtin-runner-transaction/transaction_ledger.json --summary"), implemented_surfaces=("bounded transaction orchestration of built-in diagnostic write and exact rollback",), deferred_surfaces=("general runner orchestration",), forbidden_implications=("transaction orchestrator is general runner framework", "transaction orchestrator widens delegated authority"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("builtin_runner_transaction_write_only", "delegated_runner_boundary", "implemented", "bounded diagnostic write orchestration", source_paths=("sentientos/builtin_runner_transaction_orchestrator.py",), proof_tests=("tests/test_builtin_runner_transaction_orchestrator.py",), implemented_surfaces=("orchestrates existing bounded local diagnostic artifact write",), forbidden_implications=("write-only orchestration is new effect class",), requires_operator_approval=True, requires_audit_receipt=True),
@@ -1431,3 +1446,58 @@ def update_registry_from_host_steward_boundary(registry: CapabilityRegistry, win
         else:
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-steward-delegated-runner-boundary-wing.v1")
+
+
+def update_registry_from_workspace_change_set_preflight(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
+    """Reflect read-only change-set preflight planning without adding execution."""
+
+    payload = wing.to_dict() if hasattr(wing, "to_dict") else dict(wing)
+    has_manifest = bool(payload.get("manifest") or payload.get("manifest_id"))
+    implemented_ids = {
+        "workspace_change_set_preflight",
+        "workspace_change_set_manifest",
+        "workspace_change_target_preflight",
+        "workspace_change_set_rollback_plan",
+        "workspace_change_set_transaction_plan",
+        "workspace_change_set_preflight_artifact",
+    }
+    deferred_ids = {
+        "workspace_change_set_execution",
+        "workspace_change_set_transaction_execution",
+        "workspace_change_set_multi_file_runner",
+        "workspace_change_set_bulk_rollback",
+    }
+    blocked_ids = {
+        "general_filesystem_access",
+        "general_cleanup",
+        "recursive_delete",
+        "wildcard_delete",
+        "unrelated_file_delete",
+        "real_file_cleanup",
+        "real_fan_pwm_control",
+        "real_thermal_actuation",
+        "real_power_profile_mutation",
+        "real_service_restart",
+        "package_install",
+        "driver_install",
+        "network_egress",
+        "provider_invocation",
+        "prompt_assembly",
+        "subprocess_runner",
+        "shell_runner",
+        "real_subprocess_runner",
+        "hardware_control_runner",
+        "service_control_runner",
+        "power_control_runner",
+    }
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in implemented_ids:
+            records.append(replace(record, status="implemented" if has_manifest else record.status, host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in deferred_ids:
+            records.append(replace(record, status="deferred", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in blocked_ids:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-workspace-change-set-preflight-wing.v1")

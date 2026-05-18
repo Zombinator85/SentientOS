@@ -657,3 +657,18 @@ def test_workspace_file_effect_doc_is_linked_and_preserves_boundaries() -> None:
     assert "subprocess execution, shell execution, network egress, provider invocation, prompt assembly" in doc
     assert "proof bundle does not run this effect by default" in doc
     assert "Built-in runner integration is deferred" in doc
+
+HOST_WORKSPACE_CHANGE_SET_PREFLIGHT = "docs/architecture/host_workspace_change_set_preflight_wing.md"
+
+
+def test_workspace_change_set_preflight_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_CHANGE_SET_PREFLIGHT)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_CHANGE_SET_PREFLIGHT in overview
+    assert HOST_WORKSPACE_CHANGE_SET_PREFLIGHT in index
+    assert "prepares multi-target workspace changes but does not execute them" in doc
+    assert "reads only explicitly declared target metadata/digests" in doc
+    assert "no target files are written" in doc
+    assert "no built-in runner or transaction orchestrator is invoked" in doc
+    assert "Future workspace change-set execution remains deferred" in doc

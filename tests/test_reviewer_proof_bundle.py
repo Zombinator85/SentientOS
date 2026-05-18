@@ -417,3 +417,21 @@ def test_bundle_includes_workspace_transaction_orchestrator_capability_without_r
     orch_commands = [record for record in commands if "workspace_file_update_rollback_with_ledger" in " ".join(record["command"])]
     assert orch_commands
     assert all(record["status"] == "proof_command_not_run" and record["executed"] is False for record in orch_commands)
+
+
+def test_bundle_includes_workspace_change_set_preflight_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_preflight_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_preflight_capability"])
+    assert capability["change_set_preflight_exists"] is True
+    assert capability["reads_only_explicitly_declared_targets"] is True
+    assert capability["target_writes_occur"] is False
+    assert capability["rollback_occurs"] is False
+    assert capability["runner_orchestrator_invocation_occurs"] is False
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_command_status"] == "proof_command_not_run"
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rendered = [" ".join(command["command"]) for command in commands]
+    assert "python scripts/preflight_workspace_change_set.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=hello --summary" in rendered
+    assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)

@@ -36,3 +36,7 @@ or thermal controls.
 If update succeeds but rollback or ledger construction fails, the transaction
 result and receipt remain incomplete and preserve the produced record IDs,
 digests, paths, and warnings so partial state is visible to reviewers.
+
+## Next workspace planning wing
+
+See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and leaves future change-set execution deferred.
