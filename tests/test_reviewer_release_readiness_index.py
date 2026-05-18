@@ -671,4 +671,22 @@ def test_workspace_change_set_preflight_doc_is_linked_and_preserves_boundaries()
     assert "reads only explicitly declared target metadata/digests" in doc
     assert "no target files are written" in doc
     assert "no built-in runner or transaction orchestrator is invoked" in doc
-    assert "Future workspace change-set execution remains deferred" in doc
+    assert "bounded successor" in doc
+    assert "passed preflight and ready transaction plans" in doc
+
+
+HOST_WORKSPACE_CHANGE_SET_EXECUTION = "docs/architecture/host_workspace_change_set_execution_wing.md"
+
+def test_workspace_change_set_execution_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_CHANGE_SET_EXECUTION)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_CHANGE_SET_EXECUTION in overview
+    assert HOST_WORKSPACE_CHANGE_SET_EXECUTION in index
+    assert "first bounded multi-target workspace execution layer" in doc
+    assert "consumes the explicit Workspace Change Set Manifest" in doc
+    assert "single-target workspace file effect helper" in doc
+    assert "Partial state is never hidden" in doc
+    assert "not general filesystem access" in doc
+    assert "not cleanup" in doc
+    assert "does not run workspace change-set execution by default" in doc

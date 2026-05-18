@@ -42,4 +42,8 @@ The reviewer proof bundle documents `workspace_change_set_preflight_capability.j
 
 ## Future work remains deferred
 
-Future workspace change-set transaction execution, multi-file runner actions, and bulk rollback remain deferred behind new authority, safety, audit, rollback, and operator approval gates.
+Workspace change-set transaction execution now follows in the bounded execution pilot wing; multi-file runner actions and bulk cleanup rollback remain deferred behind new authority, safety, audit, rollback, and operator approval gates.
+
+## Next wing
+
+The bounded successor is [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md), which consumes passed preflight and ready transaction plans before delegating each explicit target to the single-target workspace file helper.

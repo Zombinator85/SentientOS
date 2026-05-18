@@ -293,4 +293,7 @@ See also: [Host Workspace File Runner / Transaction Integration Wing](host_works
 
 ## Next workspace planning wing
 
-See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and leaves future change-set execution deferred.
+See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and is followed by bounded change-set transaction execution in the execution pilot wing.
+
+
+Workspace change-set transaction execution is documented in [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md) (`docs/architecture/host_workspace_change_set_execution_wing.md`): it is the first bounded multi-target workspace execution layer, consumes passed preflight/transaction plans, uses existing single-target helpers, records partial state visibly, and does not grant general filesystem access or cleanup authority.

@@ -849,10 +849,17 @@ def test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded(t
     assert records["workspace_change_target_preflight"].authority_level == "explicit-target-read-only"
     assert records["workspace_change_set_rollback_plan"].authority_level == "metadata-plan-only"
     assert records["workspace_change_set_transaction_plan"].authority_level == "metadata-plan-only"
-    assert records["workspace_change_set_execution"].status == "deferred"
-    assert records["workspace_change_set_transaction_execution"].status == "deferred"
+    assert records["workspace_change_set_execution"].status == "implemented"
+    assert records["workspace_change_set_execution_request"].authority_level == "request_only"
+    assert records["workspace_change_target_execution_result"].status == "implemented"
+    assert records["workspace_change_set_rollback_execution"].implemented_surfaces
+    assert records["workspace_change_set_execution_ledger"].authority_level == "metadata_ledger_only"
+    assert records["workspace_change_set_execution_closure_report"].authority_level == "report_only"
+    assert records["workspace_change_set_transaction_execution"].status == "implemented"
     assert records["workspace_change_set_multi_file_runner"].status == "deferred"
     assert records["workspace_change_set_bulk_rollback"].status == "deferred"
+    assert records["workspace_change_set_unbounded_execution"].status == "blocked"
+    assert records["workspace_change_set_bulk_cleanup"].status == "blocked"
     for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete"]:
         assert records[capability_id].status in {"blocked", "deferred"}
     for capability_id in ["real_service_restart", "real_power_profile_mutation", "real_fan_pwm_control", "real_thermal_actuation", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner"]:
@@ -864,3 +871,18 @@ def test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded(t
     assert updated["workspace_change_set_preflight"].status == "implemented"
     assert updated["general_filesystem_access"].status == "blocked"
     assert updated["real_fan_pwm_control"].status == "blocked"
+
+
+def test_workspace_change_set_execution_registry_helper_marks_blocked_surfaces(tmp_path) -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_change_set_execution
+
+    updated = update_registry_from_workspace_change_set_execution(
+        build_default_capability_registry(),
+        {"request": {"request_id": "r"}, "execution_result": {"result_id": "x"}, "execution_receipt": {"receipt_id": "e"}},
+    ).by_id()
+    assert updated["workspace_change_set_execution"].status == "implemented"
+    assert updated["workspace_change_set_rollback_execution"].status == "implemented"
+    assert updated["workspace_change_set_execution_ledger"].status == "implemented"
+    assert updated["workspace_change_set_execution_closure_report"].status == "implemented"
+    for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
+        assert updated[capability_id].status in {"blocked", "deferred"}
