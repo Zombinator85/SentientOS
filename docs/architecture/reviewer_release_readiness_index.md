@@ -132,7 +132,9 @@ expand runtime authority.
 Run from the repository root. Expected posture for each command is successful
 completion unless the local environment is missing an explicitly declared docs or
 test dependency, in which case the failure should be treated as a bootstrap issue
-and fixed through the documented wrapper path.
+and fixed through the documented wrapper path. Docs validation uses the
+`pyproject.toml` `docs` extra and the mirrored `scripts/build_docs.py` minimal
+bootstrap path; missing MkDocs is not a silent skip.
 
 ```bash
 # Test-runner bootstrap and docs tooling smoke coverage.
@@ -166,7 +168,9 @@ python scripts/verify_audits.py --strict
 # Immutable manifest verification.
 python scripts/audit_immutability_verifier.py --manifest vow/immutable_manifest.json
 
-# Docs dependency check and docs build.
+# Docs dependency check, explicit docs bootstrap, and docs build.
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py --bootstrap-docs
 python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```

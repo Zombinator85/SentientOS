@@ -22,6 +22,18 @@ federation posture using the current command surface.
    python -m sentientos.ops node health --json
    python -m sentientos.ops constitution verify --json
    ```
+6. Bootstrap and build public documentation from the explicit docs dependency
+   surface:
+   ```bash
+   python scripts/build_docs.py --check-deps
+   python scripts/build_docs.py --bootstrap-docs
+   python scripts/build_docs.py --check-deps
+   python scripts/build_docs.py
+   ```
+
+   `--bootstrap-docs` installs the same minimal docs requirements declared in
+   `pyproject.toml` under the `docs` extra. Reviewers who prefer one install
+   command may run `pip install -e .[docs]` instead.
 
 For terminology translation between public engineering language and internal
 codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).

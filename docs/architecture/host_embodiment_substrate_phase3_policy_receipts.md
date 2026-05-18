@@ -90,6 +90,8 @@ python -m scripts.run_tests -q tests/test_host_resource_policy.py tests/test_hos
 python -m scripts.run_tests -q tests/test_reviewer_release_readiness_index.py
 python scripts/verify_context_hygiene_prompt_boundaries.py
 python scripts/build_docs.py --check-deps
+python scripts/build_docs.py --bootstrap-docs
+python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```
 
