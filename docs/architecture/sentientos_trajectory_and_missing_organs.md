@@ -449,3 +449,6 @@ See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_chang
 
 
 Workspace change-set transaction execution now exists as a bounded pilot in [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md). It narrows multi-target workspace execution to explicit manifest targets and leaves general filesystem access, cleanup, services, power, hardware, fan/PWM, thermal, network, provider, prompt, subprocess, and shell authority blocked or deferred.
+
+
+The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_change_set_lifecycle_orchestration_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_orchestration_wing.md`) coordinates the existing admission, preflight/planning, optional execution, optional verification, and optional closure wings without adding target-file primitives, direct target reads, target digest recomputation, cleanup, scheduling, external tools, or provider/prompt authority.
