@@ -56,6 +56,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "workspace_change_set_preflight",
         "workspace_change_set_execution",
         "workspace_change_set_lifecycle_closure",
+        "workspace_change_set_lifecycle_orchestration",
         "host_steward_boundary",
         "delegated_runner_boundary",
         "runtime_supervision",
@@ -137,6 +138,7 @@ AUTHORITY_LEVELS = frozenset(
         "read-only-verification",
         "metadata_lifecycle_closure_only",
         "bounded_workspace_file_orchestration",
+        "bounded_lifecycle_orchestration",
         "single_target_workspace_update_orchestration",
         "single_target_workspace_update_exact_rollback_orchestration",
         "single_target_workspace_update_ledger_orchestration",
@@ -438,6 +440,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("workspace_change_set_execution_closure_report", "workspace_change_set_execution", "implemented", "report_only", source_paths=("sentientos/workspace_change_set_execution.py",), proof_tests=("tests/test_workspace_change_set_execution.py",), implemented_surfaces=("metadata-only closure report classifying open, partial, failed, execute-closed, and rollback-closed states",), forbidden_implications=("closure report mutates workspace")),
         _record("workspace_change_set_execution_verification", "workspace_change_set_execution", "implemented", "read-only-verification", source_paths=("sentientos/workspace_change_set_execution_verification.py", "scripts/verify_workspace_change_set_execution.py"), proof_tests=("tests/test_workspace_change_set_execution_verification.py", "tests/test_verify_workspace_change_set_execution_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_workspace_change_set_execution_verification.py tests/test_verify_workspace_change_set_execution_script.py", "python scripts/verify_workspace_change_set_execution.py --evidence <workspace_change_set_execution_evidence.json> --summary"), implemented_surfaces=("read-only explicit-target replay audit of completed workspace change-set execution evidence", "optional single caller-supplied verification artifact"), deferred_surfaces=("execution", "rollback", "cleanup", "scheduling"), forbidden_implications=("verification invokes execution or rollback helpers", "verification scans undeclared targets", "verification grants broader workspace authority"), requires_audit_receipt=True),
         _record("workspace_change_set_lifecycle_closure", "workspace_change_set_lifecycle_closure", "implemented", "metadata_lifecycle_closure_only", source_paths=("sentientos/workspace_change_set_lifecycle_closure.py", "scripts/build_workspace_change_set_lifecycle_closure.py"), proof_tests=("tests/test_workspace_change_set_lifecycle_closure.py", "tests/test_build_workspace_change_set_lifecycle_closure_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_workspace_change_set_lifecycle_closure.py tests/test_build_workspace_change_set_lifecycle_closure_script.py", "python scripts/build_workspace_change_set_lifecycle_closure.py --evidence <workspace_change_set_lifecycle_evidence.json> --summary"), implemented_surfaces=("metadata-only lifecycle closure manifest from supplied evidence JSON", "compact lifecycle status classification after verification", "optional single caller-supplied closure artifact"), deferred_surfaces=("execution", "rollback", "verification replay", "cleanup", "scheduling", "network", "provider invocation"), forbidden_implications=("closure manifest executes or rolls back changes", "closure manifest reads workspace targets", "closure manifest recomputes target digests from filesystem", "closure manifest grants future authority"), requires_audit_receipt=True),
+        _record("workspace_change_set_lifecycle_orchestration", "workspace_change_set_lifecycle_orchestration", "implemented", "bounded_lifecycle_orchestration", source_paths=("sentientos/workspace_change_set_lifecycle_orchestrator.py", "scripts/run_workspace_change_set_lifecycle.py"), proof_tests=("tests/test_workspace_change_set_lifecycle_orchestrator.py", "tests/test_run_workspace_change_set_lifecycle_script.py"), proof_commands=("python -m scripts.run_tests -q tests/test_workspace_change_set_lifecycle_orchestrator.py tests/test_run_workspace_change_set_lifecycle_script.py", "python scripts/run_workspace_change_set_lifecycle.py --proposal <workspace_change_set_proposal.json> --workspace-root <path> --mode admit_preflight_execute_verify_close --summary"), implemented_surfaces=("explicit admission-to-preflight-to-optional-execution-to-optional-verification-to-optional-closure coordination", "stage gating over existing workspace change-set wings", "optional caller-supplied lifecycle stage and orchestration artifacts"), deferred_surfaces=("new file-effect primitives", "new executor", "new verifier", "new closure system", "cleanup", "scheduling", "autonomy loop", "network", "provider invocation"), forbidden_implications=("orchestration creates target mutation authority", "orchestration bypasses admission/preflight/execution/verification/closure gates", "orchestration reads target files or recomputes target digests", "orchestration invokes external tools"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("workspace_change_set_transaction_execution", "workspace_change_set_execution", "implemented", "explicit_local_artifact_only", source_paths=("sentientos/workspace_change_set_execution.py", "scripts/run_workspace_change_set_transaction.py"), proof_tests=("tests/test_workspace_change_set_execution.py", "tests/test_run_workspace_change_set_transaction_script.py"), implemented_surfaces=("bounded multi-target workspace transaction execution",), deferred_surfaces=("unbounded execution",), forbidden_implications=("transaction execution skips passed preflight requirement"), requires_operator_approval=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("workspace_change_set_multi_file_runner", "workspace_change_set_execution", "deferred", "none", deferred_surfaces=("multi-file built-in runner",), forbidden_implications=("change-set execution adds broad runner actions"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
         _record("workspace_change_set_bulk_rollback", "workspace_change_set_execution", "deferred", "none", deferred_surfaces=("bulk cleanup rollback",), forbidden_implications=("exact-target rollback is bulk cleanup"), requires_control_plane_admission=True, requires_operator_approval=True, requires_panic_stop=True, requires_audit_receipt=True, requires_rollback_receipt=True),
@@ -1608,6 +1611,38 @@ def update_registry_from_workspace_change_set_lifecycle_closure(registry: Capabi
             records.append(record)
     return replace(registry, records=tuple(records), schema_version="host-workspace-change-set-lifecycle-closure-wing.v1")
 
+
+def update_registry_from_workspace_change_set_lifecycle_orchestration(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
+    """Reflect bounded lifecycle orchestration without adding new authority."""
+
+    payload = wing.to_dict() if hasattr(wing, "to_dict") else dict(wing) if isinstance(wing, Mapping) else {}
+    has_orchestration = bool(payload.get("result") or payload.get("request"))
+    implemented_ids = {
+        "workspace_change_set_lifecycle_orchestration",
+        "workspace_change_set_admission",
+        "workspace_change_set_preflight",
+        "workspace_change_set_execution",
+        "workspace_change_set_execution_verification",
+        "workspace_change_set_lifecycle_closure",
+    }
+    blocked_ids = {
+        "general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete",
+        "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "real_file_cleanup",
+        "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart",
+        "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly",
+        "subprocess_runner", "shell_runner", "network_runner", "provider_runner", "prompt_assembly_runner",
+        "cleanup_runner", "hardware_control_runner", "service_control_runner", "power_control_runner",
+    }
+    records: list[CapabilityRecord] = []
+    for record in registry.records:
+        if record.capability_id in implemented_ids:
+            authority = "bounded_lifecycle_orchestration" if record.capability_id == "workspace_change_set_lifecycle_orchestration" else record.authority_level
+            records.append(replace(record, status="implemented" if has_orchestration else record.status, authority_level=authority, host_actuation_performed=False, metadata_only=True))
+        elif record.capability_id in blocked_ids:
+            records.append(replace(record, status="blocked", authority_level="none", host_actuation_performed=False, metadata_only=True))
+        else:
+            records.append(record)
+    return replace(registry, records=tuple(records), schema_version="host-workspace-change-set-lifecycle-orchestration-wing.v1")
 
 def update_registry_from_workspace_change_set_execution(registry: CapabilityRegistry, wing: Any) -> CapabilityRegistry:
     """Reflect bounded change-set execution without broadening workspace authority."""

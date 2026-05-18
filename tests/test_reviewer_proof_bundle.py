@@ -521,3 +521,17 @@ def test_bundle_includes_workspace_change_set_admission_artifact_and_not_run_com
     rendered = [" ".join(command["command"]) for command in commands]
     assert "python scripts/admit_workspace_change_set.py --proposal <workspace_change_set_proposal_metadata.json> --summary" in rendered
     assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_workspace_change_set_lifecycle_orchestration_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_lifecycle_orchestration_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_lifecycle_orchestration_capability"])
+    assert capability["lifecycle_orchestration_exists"] is True
+    assert capability["coordinates_existing_workspace_change_set_wings_only"] is True
+    assert capability["dry_run_does_not_execute_or_verify"] is True
+    assert capability["does_not_read_target_files_directly"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_lifecycle_orchestration_run"] is False
+    assert capability["proof_command_status"] == "proof_command_not_run"
