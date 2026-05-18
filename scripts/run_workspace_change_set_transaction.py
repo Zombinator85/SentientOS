@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable, Mapping, Sequence, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -45,7 +45,7 @@ def _parse_target(value: str) -> tuple[str, str]:
 
 def _jsonify(value: object) -> object:
     if hasattr(value, "to_dict"):
-        return value.to_dict()  # type: ignore[no-any-return]
+        return cast(object, value.to_dict())
     if isinstance(value, tuple):
         return [_jsonify(item) for item in value]
     if isinstance(value, list):
@@ -55,12 +55,18 @@ def _jsonify(value: object) -> object:
     return value
 
 
+def _object_list(value: object) -> list[object]:
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
+        return list(value)
+    return []
+
 def _summary_text(payload: dict[str, object]) -> str:
     if payload.get("dry_run"):
-        summary = payload["preflight"]["summary"]  # type: ignore[index]
-        report = summary["preflight_report"]  # type: ignore[index]
-        manifest = summary["manifest"]  # type: ignore[index]
-        transaction = summary["transaction_plan"]  # type: ignore[index]
+        preflight = cast(Mapping[str, Mapping[str, Mapping[str, object]]], payload["preflight"])
+        summary = preflight["summary"]
+        report = summary["preflight_report"]
+        manifest = summary["manifest"]
+        transaction = summary["transaction_plan"]
         return "\n".join([
             "SentientOS Workspace Change Set Transaction (dry-run)",
             f"manifest_status: {manifest['manifest_status']}",
@@ -71,21 +77,21 @@ def _summary_text(payload: dict[str, object]) -> str:
             "rollback_performed: false",
             "ledger_artifact_written: false",
         ])
-    execution = payload["execution_summary"]  # type: ignore[index]
-    receipt = payload["execution_receipt_summary"]  # type: ignore[index]
-    rollback = payload["rollback_summary"]  # type: ignore[index]
-    closure = payload["closure_summary"]  # type: ignore[index]
-    ledger = payload.get("ledger_summary")
-    artifact = payload.get("ledger_artifact") or {}
+    execution = cast(Mapping[str, object], payload["execution_summary"])
+    receipt = cast(Mapping[str, object], payload["execution_receipt_summary"])
+    rollback = cast(Mapping[str, object], payload["rollback_summary"])
+    closure = cast(Mapping[str, object], payload["closure_summary"])
+    ledger = cast(Mapping[str, object] | None, payload.get("ledger_summary"))
+    artifact = cast(Mapping[str, object], payload.get("ledger_artifact") or {})
     return "\n".join([
         "SentientOS Workspace Change Set Transaction",
         f"execution_status: {execution['execution_status']}",
         f"receipt_status: {receipt['receipt_status']}",
-        f"applied_target_ids: {list(execution['applied_target_ids'])}",
-        f"failed_target_ids: {list(execution['failed_target_ids'])}",
-        f"skipped_target_ids: {list(execution['skipped_target_ids'])}",
+        f"applied_target_ids: {_object_list(execution['applied_target_ids'])}",
+        f"failed_target_ids: {_object_list(execution['failed_target_ids'])}",
+        f"skipped_target_ids: {_object_list(execution['skipped_target_ids'])}",
         f"rollback_status: {rollback['rollback_status']}",
-        f"rollback_target_order: {list(rollback['rollback_target_order'])}",
+        f"rollback_target_order: {_object_list(rollback['rollback_target_order'])}",
         f"closure_status: {closure['closure_status']}",
         f"ledger_status: {ledger['lifecycle_status'] if ledger else 'not_requested'}",
         f"ledger_artifact_written: {bool(artifact.get('artifact_written'))}",

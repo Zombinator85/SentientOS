@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -45,11 +45,11 @@ def _output_path_is_safe(path_text: str) -> tuple[bool, str]:
 
 
 def _summary_text(payload: dict[str, object]) -> str:
-    summary = payload["summary"]  # type: ignore[index]
-    report = summary["preflight_report"]  # type: ignore[index]
-    manifest = summary["manifest"]  # type: ignore[index]
-    rollback = summary["rollback_plan"]  # type: ignore[index]
-    transaction = summary["transaction_plan"]  # type: ignore[index]
+    summary = cast(Mapping[str, Mapping[str, object]], payload["summary"])
+    report = summary["preflight_report"]
+    manifest = summary["manifest"]
+    rollback = summary["rollback_plan"]
+    transaction = summary["transaction_plan"]
     return "\n".join(
         [
             "SentientOS Workspace Change Set Preflight",

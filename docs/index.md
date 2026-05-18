@@ -10,6 +10,7 @@ operator-directed automation.
 - [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md) — normalized public terminology policy.
 - [GLOSSARY.md](GLOSSARY.md) — canonical terminology definitions.
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md) — fast verification workflow.
+- [architecture/mypy_baseline_ratchet.md](architecture/mypy_baseline_ratchet.md) — repo-wide mypy debt baseline and targeted typed-surface gate.
 
 ```{toctree}
 :maxdepth: 2

@@ -213,11 +213,11 @@ class WorkspaceChangeSetLifecycleOrchestrationWing(NamedTuple):
         return {
             "request": self.request.to_dict(),
             "result": self.result.to_dict(),
-            "admission": self.admission_wing.to_dict() if hasattr(self.admission_wing, "to_dict") else self.admission_wing,
+            "admission": _jsonable(self.admission_wing),
             "preflight": self.preflight_wing,
-            "execution": self.execution_wing._asdict() if hasattr(self.execution_wing, "_asdict") else self.execution_wing,
-            "verification": self.verification_wing._asdict() if hasattr(self.verification_wing, "_asdict") else self.verification_wing,
-            "closure": self.closure_wing._asdict() if hasattr(self.closure_wing, "_asdict") else self.closure_wing,
+            "execution": _jsonable(self.execution_wing),
+            "verification": _jsonable(self.verification_wing),
+            "closure": _jsonable(self.closure_wing),
         }
 
 
@@ -306,17 +306,18 @@ def build_workspace_change_set_lifecycle_orchestration_request(
 ) -> WorkspaceChangeSetLifecycleOrchestrationRequest:
     if mode not in LIFECYCLE_MODES:
         raise ValueError(f"unsupported lifecycle mode: {mode}")
-    body = {
+    proposal_digest = _digest("workspace-change-set-lifecycle-proposal-", _admission_metadata(proposal))
+    body: dict[str, str | None] = {
         "mode": mode,
         "workspace_root": str(workspace_root) if workspace_root is not None else None,
-        "proposal_digest": _digest("workspace-change-set-lifecycle-proposal-", _admission_metadata(proposal)),
+        "proposal_digest": proposal_digest,
         "created_at": created_at,
     }
     record = WorkspaceChangeSetLifecycleOrchestrationRequest(
         request_id="workspace-change-set-lifecycle-orchestration-" + hashlib.sha256(_canonical_json(body).encode("utf-8")).hexdigest()[:16],
         mode=mode,
         workspace_root=str(workspace_root) if workspace_root is not None else None,
-        proposal_digest=body["proposal_digest"],
+        proposal_digest=proposal_digest,
         proposed_target_count=len(_targets_payload(proposal)),
         stages_requested=MODE_STAGES[mode],
         admission_artifact_output_path=str(admission_artifact_output_path) if admission_artifact_output_path else None,
