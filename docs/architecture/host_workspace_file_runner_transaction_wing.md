@@ -26,3 +26,7 @@ The reviewer proof bundle documents this capability with `workspace_file_runner_
 Built-in transaction orchestrator integration for workspace file modes is now implemented by the follow-up workspace transaction orchestrator wing. The runner integration and metadata-only workspace transaction ledger remain the bounded substrate; orchestration was added without broadening the diagnostic modes or granting general filesystem authority.
 
 - Workspace file transaction orchestrator: see [Host Workspace File Transaction Orchestrator Wing](host_workspace_file_transaction_orchestrator_wing.md) for implemented single-target workspace update/rollback/ledger modes; the previous orchestration deferral is removed without adding general filesystem, cleanup, subprocess, shell, network, provider, prompt, or hardware/service/power/fan/thermal authority.
+
+## Next workspace planning wing
+
+See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and leaves future change-set execution deferred.

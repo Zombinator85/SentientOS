@@ -836,3 +836,31 @@ def test_workspace_file_transaction_orchestrator_capabilities_are_implemented_an
     assert updated["workspace_file_transaction_update_rollback_with_ledger"].status == "implemented"
     assert updated["general_filesystem_access"].status == "blocked"
     assert updated["recursive_delete"].status == "blocked"
+
+
+def test_workspace_change_set_preflight_capabilities_are_read_only_and_bounded(tmp_path) -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_change_set_preflight
+    from sentientos.workspace_change_set_preflight import build_workspace_change_target_declaration, run_workspace_change_set_preflight_wing
+
+    records = build_default_capability_registry().by_id()
+    assert records["workspace_change_set_preflight"].status == "implemented"
+    assert records["workspace_change_set_preflight"].authority_level == "read-only/preflight-only"
+    assert records["workspace_change_set_manifest"].authority_level == "metadata-manifest-only"
+    assert records["workspace_change_target_preflight"].authority_level == "explicit-target-read-only"
+    assert records["workspace_change_set_rollback_plan"].authority_level == "metadata-plan-only"
+    assert records["workspace_change_set_transaction_plan"].authority_level == "metadata-plan-only"
+    assert records["workspace_change_set_execution"].status == "deferred"
+    assert records["workspace_change_set_transaction_execution"].status == "deferred"
+    assert records["workspace_change_set_multi_file_runner"].status == "deferred"
+    assert records["workspace_change_set_bulk_rollback"].status == "deferred"
+    for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+    for capability_id in ["real_service_restart", "real_power_profile_mutation", "real_fan_pwm_control", "real_thermal_actuation", "package_install", "driver_install", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner"]:
+        assert records[capability_id].status in {"blocked", "deferred"}
+
+    target = build_workspace_change_target_declaration(relative_target_path="demo.txt", payload_text="hello")
+    wing = run_workspace_change_set_preflight_wing(workspace_root=tmp_path, targets=[target])
+    updated = update_registry_from_workspace_change_set_preflight(build_default_capability_registry(), wing).by_id()
+    assert updated["workspace_change_set_preflight"].status == "implemented"
+    assert updated["general_filesystem_access"].status == "blocked"
+    assert updated["real_fan_pwm_control"].status == "blocked"

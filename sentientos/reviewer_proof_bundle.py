@@ -126,6 +126,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "workspace_file_effect_capability",
         "workspace_file_runner_transaction_capability",
         "workspace_file_transaction_orchestrator_capability",
+        "workspace_change_set_preflight_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -163,6 +164,7 @@ BUNDLE_FILE_NAMES = {
     "workspace_file_effect_capability": "workspace_file_effect_capability.json",
     "workspace_file_runner_transaction_capability": "workspace_file_runner_transaction_capability.json",
     "workspace_file_transaction_orchestrator_capability": "workspace_file_transaction_orchestrator_capability.json",
+    "workspace_change_set_preflight_capability": "workspace_change_set_preflight_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -368,6 +370,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/run_builtin_local_effect_runner.py", "--action", "workspace_scoped_file_exact_rollback", "--workspace-effect-receipt", "<workspace_effect_receipt.json>", "--workspace-rollback-plan", "<workspace_rollback_plan.json>", "--workspace-root-scope", "/tmp/sentientos-workspace-runner", "--summary"), "Optional explicit built-in runner workspace exact rollback; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/build_workspace_file_transaction_ledger.py", "--effect-receipt", "<workspace_effect_receipt.json>", "--preimage", "<workspace_preimage.json>", "--postcondition-check", "<workspace_postcondition_check.json>", "--production-audit", "<workspace_production_audit.json>", "--rollback-plan", "<workspace_rollback_plan.json>", "--summary"), "Optional explicit workspace file transaction ledger build; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_builtin_runner_transaction.py", "--mode", "workspace_file_update_rollback_with_ledger", "--workspace-root", "/tmp/sentientos-workspace-transaction", "--target", "demo.txt", "--payload", "hello", "--ledger-output", "/tmp/sentientos-workspace-transaction/workspace_transaction_ledger.json", "--summary"), "Optional explicit workspace file transaction orchestrator; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/preflight_workspace_change_set.py", "--workspace-root", "/tmp/sentientos-workspace-change-set", "--target", "demo.txt=hello", "--summary"), "Optional explicit workspace change-set preflight/planning command; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -762,6 +765,31 @@ def build_reviewer_proof_bundle_payload(
                 "plan_or_block_receipt": real_effect_admission.plan_or_block_receipt.to_dict(),
                 "admission_bundle": real_effect_admission.admission_bundle.to_dict(),
             },
+        }),
+        "workspace_change_set_preflight_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "change_set_preflight_exists": True,
+            "preflight_planning_only": True,
+            "reads_only_explicitly_declared_targets": True,
+            "target_count_bound": 8,
+            "payload_bound_per_target_bytes": 65536,
+            "total_payload_bound_bytes": 262144,
+            "target_writes_occur": False,
+            "rollback_occurs": False,
+            "runner_orchestrator_invocation_occurs": False,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/preflight_workspace_change_set.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=\"hello\" --summary",
+            "general_filesystem_access_remains_blocked": True,
+            "cleanup_remains_blocked": True,
+            "recursive_delete_remains_blocked": True,
+            "wildcard_delete_remains_blocked": True,
+            "unrelated_file_delete_remains_blocked": True,
+            "subprocess_shell_network_provider_prompt_control_plane_execution": False,
+            "hardware_service_power_fan_thermal_blocked_deferred": True,
+            "future_change_set_execution_deferred": True,
         }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
