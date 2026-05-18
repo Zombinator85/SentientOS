@@ -435,3 +435,25 @@ def test_bundle_includes_workspace_change_set_preflight_artifact_and_not_run_com
     rendered = [" ".join(command["command"]) for command in commands]
     assert "python scripts/preflight_workspace_change_set.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=hello --summary" in rendered
     assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)
+
+
+def test_bundle_includes_workspace_change_set_execution_artifact_and_not_run_command() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "workspace_change_set_execution_capability" in artifacts
+    capability = json.loads(artifacts["workspace_change_set_execution_capability"])
+    assert capability["bounded_change_set_execution_exists"] is True
+    assert capability["consumes_passed_preflight_and_transaction_plans"] is True
+    assert capability["executes_explicit_targets_only"] is True
+    assert capability["uses_single_target_workspace_file_effect_helpers"] is True
+    assert capability["rollback_is_reverse_order_exact_target_only"] is True
+    assert capability["partial_state_is_visible"] is True
+    assert capability["run_by_reviewer_proof_bundle_default"] is False
+    assert capability["proof_bundle_execution_performed"] is False
+    assert capability["general_filesystem_access_remains_blocked"] is True
+    assert capability["cleanup_remains_blocked"] is True
+    assert capability["proof_command_status"] == "proof_command_not_run"
+    commands = json.loads(artifacts["proof_command_manifest"])["commands"]
+    rendered = [" ".join(command["command"]) for command in commands]
+    assert "python scripts/run_workspace_change_set_transaction.py --workspace-root /tmp/sentientos-workspace-change-set --target demo.txt=hello --target docs-demo.txt=docs --summary" in rendered
+    assert all(command.status == "proof_command_not_run" for command in payload["manifest"].proof_command_records)

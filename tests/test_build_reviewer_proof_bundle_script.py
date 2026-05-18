@@ -320,3 +320,16 @@ def test_reviewer_proof_bundle_cli_writes_workspace_change_set_preflight_capabil
     assert payload["run_by_reviewer_proof_bundle_default"] is False
     assert payload["target_writes_occur"] is False
     assert payload["rollback_occurs"] is False
+
+
+def test_reviewer_proof_bundle_cli_writes_workspace_change_set_execution_capability(tmp_path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--force"])
+    assert code == 0, (stdout, stderr)
+    path = output_dir / "workspace_change_set_execution_capability.json"
+    assert path.exists()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["bounded_change_set_execution_exists"] is True
+    assert payload["run_by_reviewer_proof_bundle_default"] is False
+    assert payload["proof_bundle_execution_performed"] is False
+    assert payload["general_filesystem_access_remains_blocked"] is True
