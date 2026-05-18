@@ -18,5 +18,24 @@ api/index
 experimental_features
 ```
 
+## Documentation build dependency contract
+
+The MkDocs build is intentionally kept out of the runtime dependency set. For a
+clean reviewer environment, install or verify the explicit docs toolchain before
+running the build:
+
+```bash
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py --bootstrap-docs
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py
+```
+
+The equivalent project-extra install is `pip install -e .[docs]`. Missing docs
+dependencies are bootstrap failures, not skipped documentation validation. The
+current docs dependency surface is the `docs` optional dependency group in
+`pyproject.toml`, mirrored by `scripts/build_docs.py` for the minimal bootstrap
+path.
+
 SentientOS prioritizes operator accountability, auditability, and safe
 shutdown.
