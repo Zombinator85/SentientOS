@@ -705,3 +705,20 @@ def test_workspace_change_set_execution_verification_doc_is_linked_and_preserves
     assert "does not recurse directories" in doc
     assert "does not execute" in doc
     assert "does not run by default in the reviewer proof bundle" in doc
+
+
+HOST_WORKSPACE_CHANGE_SET_LIFECYCLE_CLOSURE = "docs/architecture/host_workspace_change_set_lifecycle_closure_wing.md"
+
+
+def test_workspace_change_set_lifecycle_closure_doc_is_linked_and_preserves_boundaries() -> None:
+    doc = _read(HOST_WORKSPACE_CHANGE_SET_LIFECYCLE_CLOSURE)
+    overview = _read(PUBLIC_OVERVIEW)
+    index = _read(READINESS_INDEX)
+    assert HOST_WORKSPACE_CHANGE_SET_LIFECYCLE_CLOSURE in overview
+    assert HOST_WORKSPACE_CHANGE_SET_LIFECYCLE_CLOSURE in index
+    assert "metadata-only sealing layer" in overview
+    assert "Lifecycle statuses" in doc
+    assert "does not read workspace target files" in doc
+    assert "does not recompute target digests from the filesystem" in doc
+    assert "does not run by default in the reviewer proof bundle" in doc
+    assert "proof_command_not_run" in doc

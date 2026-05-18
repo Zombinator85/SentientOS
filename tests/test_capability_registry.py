@@ -903,3 +903,20 @@ def test_workspace_change_set_execution_verification_registry_helper_marks_read_
     assert updated["workspace_change_set_execution_verification"].metadata_only is True
     for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
         assert updated[capability_id].status in {"blocked", "deferred"}
+
+
+def test_workspace_change_set_lifecycle_closure_registry_helper_marks_metadata_only_and_blocks_broader_authority() -> None:
+    from sentientos.capability_registry import update_registry_from_workspace_change_set_lifecycle_closure
+
+    records = build_default_capability_registry().by_id()
+    assert records["workspace_change_set_lifecycle_closure"].status == "implemented"
+    assert records["workspace_change_set_lifecycle_closure"].authority_level == "metadata_lifecycle_closure_only"
+    assert "sentientos/workspace_change_set_lifecycle_closure.py" in records["workspace_change_set_lifecycle_closure"].source_paths
+    updated = update_registry_from_workspace_change_set_lifecycle_closure(
+        build_default_capability_registry(),
+        {"request": {"request_id": "c"}, "closure_manifest": {"lifecycle_closure_status": "lifecycle_closed_clean"}},
+    ).by_id()
+    assert updated["workspace_change_set_lifecycle_closure"].status == "implemented"
+    assert updated["workspace_change_set_lifecycle_closure"].metadata_only is True
+    for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
+        assert updated[capability_id].status in {"blocked", "deferred"}

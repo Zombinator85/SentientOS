@@ -129,6 +129,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "workspace_change_set_preflight_capability",
         "workspace_change_set_execution_capability",
         "workspace_change_set_execution_verification_capability",
+        "workspace_change_set_lifecycle_closure_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -169,6 +170,7 @@ BUNDLE_FILE_NAMES = {
     "workspace_change_set_preflight_capability": "workspace_change_set_preflight_capability.json",
     "workspace_change_set_execution_capability": "workspace_change_set_execution_capability.json",
     "workspace_change_set_execution_verification_capability": "workspace_change_set_execution_verification_capability.json",
+    "workspace_change_set_lifecycle_closure_capability": "workspace_change_set_lifecycle_closure_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -377,6 +379,7 @@ def build_default_reviewer_proof_commands() -> tuple[ReviewerProofCommandRecord,
         (("python", "scripts/preflight_workspace_change_set.py", "--workspace-root", "/tmp/sentientos-workspace-change-set", "--target", "demo.txt=hello", "--summary"), "Optional explicit workspace change-set preflight/planning command; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/run_workspace_change_set_transaction.py", "--workspace-root", "/tmp/sentientos-workspace-change-set", "--target", "demo.txt=hello", "--target", "docs-demo.txt=docs", "--summary"), "Optional explicit bounded workspace change-set execution command; listed for reviewer awareness and not run by proof bundle generation."),
         (("python", "scripts/verify_workspace_change_set_execution.py", "--evidence", "<workspace_change_set_execution_evidence.json>", "--summary"), "Optional read-only workspace change-set execution verification/replay-audit command; listed for reviewer awareness and not run by proof bundle generation."),
+        (("python", "scripts/build_workspace_change_set_lifecycle_closure.py", "--evidence", "<workspace_change_set_lifecycle_evidence.json>", "--summary"), "Optional metadata-only workspace change-set lifecycle closure manifest command; listed for reviewer awareness and not run by proof bundle generation."),
     )
     return tuple(
         ReviewerProofCommandRecord(
@@ -844,6 +847,36 @@ def build_reviewer_proof_bundle_payload(
             "hardware_service_power_fan_thermal_remain_blocked_deferred": True,
             "proof_command_status": "proof_command_not_run",
             "proof_command": "python scripts/verify_workspace_change_set_execution.py --evidence <workspace_change_set_execution_evidence.json> --summary",
+        }),
+
+        "workspace_change_set_lifecycle_closure_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "lifecycle_closure_manifest_exists": True,
+            "consumes_supplied_evidence_json_only": True,
+            "requires_verification_evidence": True,
+            "does_not_verify_replay": True,
+            "does_not_read_target_files": True,
+            "does_not_recompute_target_digests": True,
+            "does_not_execute": True,
+            "does_not_rollback": True,
+            "does_not_cleanup": True,
+            "does_not_schedule": True,
+            "optional_closure_artifact_only_when_caller_supplies_path": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_closure_run": False,
+            "proof_bundle_execution_performed": False,
+            "proof_bundle_rollback_performed": False,
+            "proof_bundle_verification_replay_performed": False,
+            "proof_bundle_cleanup_performed": False,
+            "general_filesystem_access_remains_blocked": True,
+            "cleanup_remains_blocked": True,
+            "recursive_wildcard_unrelated_delete_remain_blocked": True,
+            "no_subprocess_shell_network_provider_prompt_control_plane_execution": True,
+            "hardware_service_power_fan_thermal_remain_blocked_deferred": True,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/build_workspace_change_set_lifecycle_closure.py --evidence <workspace_change_set_lifecycle_evidence.json> --summary",
         }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
