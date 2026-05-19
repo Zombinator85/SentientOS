@@ -48,6 +48,8 @@ Work-item producer surfaces (intake packet, handoff plan, dry-run adapter result
   1. a shared alias in `AUTHORITY_CLAIM_ALIASES` mapped to a canonical authority family, or
   2. listed in `NON_AUTHORITY_FIELD_ALLOWLIST` with explicit non-authority rationale.
 - Unknown authority-looking fields fail deterministically so upstream producers cannot silently introduce unmapped authority semantics.
+- Coverage walks nested mapping/list/tuple structures and reports deterministic dotted paths (for example `dry_run_result.lifecycle_summary.execution_performed` or `closure_manifest.artifacts[0].artifact_created`) so deeply nested drift is visible.
+- Coverage includes representative serialized artifact payload shapes for intake packet, handoff plan, dry-run adapter artifact payload, and dry-run closure manifest payload.
 
 ### Safe update procedure for new producer fields
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Any
 
 from sentientos.work_item_authority_claims import (
     ALIASES_TO_FAMILY,
@@ -62,6 +63,32 @@ def _unknown_authority_fields(fields: set[str]) -> tuple[str, ...]:
     return tuple(unknown)
 
 
+def _iter_field_paths(node: Any, *, root: str = ""):
+    if isinstance(node, dict):
+        for key in sorted(node):
+            key_str = str(key)
+            path = f"{root}.{key_str}" if root else key_str
+            yield key_str, path
+            yield from _iter_field_paths(node[key], root=path)
+    elif isinstance(node, (list, tuple)):
+        for idx, item in enumerate(node):
+            path = f"{root}[{idx}]" if root else f"[{idx}]"
+            yield from _iter_field_paths(item, root=path)
+
+
+def _unknown_authority_field_paths(payloads: dict[str, Any]) -> tuple[str, ...]:
+    unknown_paths = []
+    for label in sorted(payloads):
+        for field, path in _iter_field_paths(payloads[label], root=label):
+            if (
+                any(token in field for token in AUTHORITY_HEURISTIC_TOKENS)
+                and field not in ALIASES_TO_FAMILY
+                and field not in NON_AUTHORITY_FIELD_ALLOWLIST_VALUES
+            ):
+                unknown_paths.append(path)
+    return tuple(sorted(unknown_paths))
+
+
 def test_all_families_have_aliases():
     for family in CANONICAL_AUTHORITY_CLAIM_FAMILIES:
         assert family in AUTHORITY_CLAIM_ALIASES
@@ -107,7 +134,7 @@ def test_nested_evidence_extraction_and_deterministic_outputs():
     )
 
 
-def test_producer_authority_like_fields_have_alias_or_non_authority_classification():
+def _build_representative_producer_outputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     packet, _ = normalize_work_item_intake(
         {
             "source_kind": "manual_operator_task",
@@ -134,8 +161,78 @@ def test_producer_authority_like_fields_have_alias_or_non_authority_classificati
     closure = build_work_item_dry_run_closure_manifest(
         WorkItemDryRunClosureRequest(packet=packet_dict, handoff_plan=asdict(handoff), dry_run_result=dry.to_dict())
     )
-    observed = set(packet_dict) | set(asdict(handoff)) | set(dry.to_dict()) | set(closure.manifest.to_dict())
+    return packet_dict, asdict(handoff), dry.to_dict(), closure.manifest.to_dict()
+
+
+def test_producer_authority_like_fields_have_alias_or_non_authority_classification():
+    packet_dict, handoff_dict, dry_dict, closure_manifest = _build_representative_producer_outputs()
+    observed = set(packet_dict) | set(handoff_dict) | set(dry_dict) | set(closure_manifest)
     assert _unknown_authority_fields(observed) == ()
+
+
+def test_nested_producer_authority_like_paths_have_alias_or_non_authority_classification():
+    packet_dict, handoff_dict, dry_dict, closure_manifest = _build_representative_producer_outputs()
+    unknown = _unknown_authority_field_paths(
+        {
+            "intake_packet": packet_dict,
+            "handoff_plan": handoff_dict,
+            "dry_run_result": dry_dict,
+            "closure_manifest": closure_manifest,
+        }
+    )
+    assert unknown == ()
+
+
+def test_serialized_artifact_payload_authority_like_paths_have_alias_or_non_authority_classification():
+    packet_dict, handoff_dict, dry_dict, closure_manifest = _build_representative_producer_outputs()
+    intake_artifact = {"packet": packet_dict}
+    handoff_artifact = {"plan": handoff_dict}
+    dry_run_artifact = {
+        "request": {
+            "work_item_id": packet_dict.get("work_item_id"),
+            "handoff_plan_id": dry_dict.get("handoff_plan_id"),
+            "workspace_root": None,
+            "request_dry_run": False,
+        },
+        "result": {
+            "adapter_status": dry_dict.get("adapter_status"),
+            "dry_run_eligibility_status": dry_dict.get("dry_run_eligibility_status"),
+            "lifecycle_orchestration_invoked": dry_dict.get("lifecycle_orchestration_invoked"),
+            "lifecycle_mode_used": dry_dict.get("lifecycle_mode_used"),
+            "lifecycle_dry_run_status": dry_dict.get("lifecycle_dry_run_status"),
+            "lifecycle_stop_reason": dry_dict.get("lifecycle_stop_reason"),
+            "admission_status": dry_dict.get("admission_status"),
+            "preflight_status": dry_dict.get("preflight_status"),
+            "transaction_plan_status": dry_dict.get("transaction_plan_status"),
+            "transaction_plan_ready": dry_dict.get("transaction_plan_ready"),
+        },
+    }
+    closure_artifact = {"manifest": closure_manifest, "artifact_records": []}
+    unknown = _unknown_authority_field_paths(
+        {
+            "intake_packet_artifact": intake_artifact,
+            "handoff_plan_artifact": handoff_artifact,
+            "dry_run_adapter_artifact": dry_run_artifact,
+            "dry_run_closure_manifest_artifact": closure_artifact,
+        }
+    )
+    assert unknown == ()
+
+
+def test_nested_unknown_authority_looking_field_fails_with_dotted_path():
+    unknown = _unknown_authority_field_paths(
+        {"dry_run_result": {"lifecycle_summary": {"execution_performed": False, "new_scheduler_enabled": False}}}
+    )
+    assert unknown == (
+        "dry_run_result.lifecycle_summary.new_scheduler_enabled",
+    )
+
+
+def test_nested_known_non_authority_field_passes_with_dotted_path_scan():
+    unknown = _unknown_authority_field_paths(
+        {"closure_manifest": {"artifacts": [{"artifact_created": True}], "closure_status": "dry_run_closed_clean"}}
+    )
+    assert unknown == ()
 
 
 def test_unknown_authority_looking_field_fails_coverage():
