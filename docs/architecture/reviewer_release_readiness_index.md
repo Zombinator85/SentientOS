@@ -346,3 +346,9 @@ The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_chan
 `sentientos/work_item_dry_run_closure.py`, `scripts/build_work_item_dry_run_closure.py`, `tests/test_work_item_dry_run_closure.py`, and `tests/test_build_work_item_dry_run_closure_script.py` provide deterministic metadata-only closure manifest sealing for supplied packet/handoff/dry-run evidence. This wing does not invoke intake/handoff/dry-run/lifecycle helpers and does not execute workspace effects.
 
 See `docs/architecture/task_work_item_lifecycle_dry_run_closure_wing.md`.
+
+### Work item dry-run review packet orchestration
+
+`sentientos/work_item_review_packet.py` and `scripts/build_work_item_review_packet.py` orchestrate metadata-only intake → handoff → eligible dry-run adapter → optional dry-run closure into a compact reviewer-facing packet with deterministic operator-action mapping. This wing does not execute workspace effects, agents, scheduler paths, issue/PR/branch mutation, network/provider/prompt paths, or full lifecycle execution modes.
+
+See `docs/architecture/task_work_item_dry_run_review_packet_orchestration_wing.md`.
