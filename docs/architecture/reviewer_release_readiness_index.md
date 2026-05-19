@@ -72,6 +72,12 @@ unless explicitly opted in.
 and integration marker compatibility. The focused proof suites should not require
 a broad runtime dependency install before collection.
 
+### Work item lifecycle handoff planning
+
+`sentientos/work_item_lifecycle_handoff.py`, `scripts/plan_work_item_handoff.py`, `tests/test_work_item_lifecycle_handoff.py`, and `tests/test_plan_work_item_handoff_script.py` cover deterministic metadata-only next-surface planning from normalized intake packets. This surface does not invoke lifecycle orchestration and does not perform workspace execution.
+
+See `docs/architecture/task_work_item_lifecycle_handoff_planner_wing.md`.
+
 ### Docs build reliability
 
 `tests/test_build_docs_tooling.py`, `python scripts/build_docs.py --check-deps`,
