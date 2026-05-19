@@ -132,6 +132,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "workspace_change_set_execution_verification_capability",
         "workspace_change_set_lifecycle_closure_capability",
         "workspace_change_set_lifecycle_orchestration_capability",
+        "work_item_lifecycle_dry_run_adapter_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -175,6 +176,7 @@ BUNDLE_FILE_NAMES = {
     "workspace_change_set_execution_verification_capability": "workspace_change_set_execution_verification_capability.json",
     "workspace_change_set_lifecycle_closure_capability": "workspace_change_set_lifecycle_closure_capability.json",
     "workspace_change_set_lifecycle_orchestration_capability": "workspace_change_set_lifecycle_orchestration_capability.json",
+    "work_item_lifecycle_dry_run_adapter_capability": "work_item_lifecycle_dry_run_adapter_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -595,7 +597,6 @@ def build_reviewer_proof_bundle_payload(
                 "denial_deferral_receipt": live_grant_readiness.denial_deferral_receipt.to_dict(),
             },
         }),
-
         "local_authorization_posture": _pretty_json({
             "metadata_only": True,
             "reviewer_proof_only": True,
@@ -741,7 +742,6 @@ def build_reviewer_proof_bundle_payload(
                 "closure_bundle": dry_run_audit_closure.closure_bundle.to_dict(),
             },
         }),
-
         "real_effect_admission_posture": _pretty_json({
             "metadata_only": True,
             "reviewer_proof_only": True,
