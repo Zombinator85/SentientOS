@@ -92,6 +92,40 @@ AUTHORITY_CLAIM_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+NON_AUTHORITY_FIELD_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    "lifecycle_gate_metadata": (
+        "workspace_change_set_admission_may_be_attempted",
+        "workspace_change_set_proposal_candidate_id",
+        "workspace_change_set_proposal_candidate_digest",
+        "dry_run_lifecycle_may_be_attempted",
+        "full_lifecycle_may_be_reviewed",
+        "dry_run_eligibility_status",
+        "lifecycle_orchestration_invoked",
+        "lifecycle_mode_used",
+        "lifecycle_dry_run_status",
+        "handoff_recommended_surface",
+    ),
+    "review_and_artifact_metadata": (
+        "closure_status",
+        "dry_run_adapter_status",
+        "dry_run_artifact_records",
+        "fallback_token_scan_used",
+        "fallback_token_contradiction_codes",
+        "contradiction_source",
+    ),
+    "declarative_request_metadata": (
+        "declared_authority_requests",
+        "authority_request_summary",
+        "agent_execution_is_requested",
+        "agent_execution_is_permitted_by_this_packet",
+        "explicit_non_authority_boundaries",
+    ),
+}
+
+NON_AUTHORITY_FIELD_ALLOWLIST_VALUES: frozenset[str] = frozenset(
+    field for fields in NON_AUTHORITY_FIELD_ALLOWLIST.values() for field in fields
+)
+
 ALIASES_TO_FAMILY: dict[str, str] = {
     alias: family for family in CANONICAL_AUTHORITY_CLAIM_FAMILIES for alias in AUTHORITY_CLAIM_ALIASES[family]
 }
@@ -179,6 +213,8 @@ __all__ = [
     "AUTHORITY_CLAIM_ALIASES",
     "AUTHORITY_CONTRADICTION_CODES",
     "CANONICAL_AUTHORITY_CLAIM_FAMILIES",
+    "NON_AUTHORITY_FIELD_ALLOWLIST",
+    "NON_AUTHORITY_FIELD_ALLOWLIST_VALUES",
     "authority_claim_summary",
     "authority_claims_from_nested_evidence",
     "authority_contradiction_codes",
