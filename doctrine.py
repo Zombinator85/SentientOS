@@ -10,7 +10,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol, cast
 
 # Paths
 ROOT = Path(__file__).resolve().parent
@@ -186,24 +186,44 @@ def enforce_runtime() -> None:
         raise SystemExit("Doctrine violation detected")
 
 
+class WatchdogObserver(Protocol):
+    def schedule(self, event_handler: object, path: str, recursive: bool = False) -> object: ...
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+    def join(self) -> None: ...
+
+
+class _FallbackEventHandler:
+    pass
+
+
+_watchdog_observer_ctor: object | None = None
 try:
-    from watchdog.observers import Observer  # type: ignore[import-untyped]  # optional file watcher
-    from watchdog.events import FileSystemEventHandler  # type: ignore[import-untyped]  # optional file watcher
+    from watchdog.observers import Observer as _watchdog_observer_ctor_imported
+    _watchdog_observer_ctor = _watchdog_observer_ctor_imported
 except Exception:  # pragma: no cover - optional dependency
-    Observer = None  # type: ignore[import-untyped]  # watchdog not installed
-    FileSystemEventHandler = object  # type: ignore[import-untyped]  # placeholder
+    pass
+
+_runtime_observer_ctor: Optional[Callable[[], WatchdogObserver]] = cast(
+    Optional[Callable[[], WatchdogObserver]],
+    _watchdog_observer_ctor,
+)
 
 
-def start_watchdog(callback: Callable[[str], None]) -> Optional[object]:
+def start_watchdog(callback: Callable[[str], None]) -> Optional[WatchdogObserver]:
     """Watch master files for changes and invoke callback."""
-    if Observer is None:
+    if _runtime_observer_ctor is None:
         return None
 
-    class Handler(FileSystemEventHandler):
-        def on_any_event(self, event) -> None:  # type: ignore[override]  # watchdog callback
-            callback(event.src_path)
+    class Handler(_FallbackEventHandler):
+        def on_any_event(self, event: object) -> None:
+            src_path = getattr(event, "src_path", None)
+            if isinstance(src_path, str):
+                callback(src_path)
+            else:
+                callback(str(src_path))
 
-    obs = Observer()
+    obs = _runtime_observer_ctor()
     for file in _scan_master_files():
         fp = Path(file["file"])
         if not fp.is_absolute():
