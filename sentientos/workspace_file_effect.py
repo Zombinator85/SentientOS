@@ -516,17 +516,16 @@ class WorkspaceFileRollbackWingResult(NamedTuple):
 
 
 def build_default_workspace_file_effect_policy() -> WorkspaceFileEffectPolicy:
-    payload = {
-        "policy_id": "workspace-file-effect-default-policy",
-        "required_scope_labels": ("explicit_workspace_root", "relative_single_file_target", "exact_rollback_available"),
-        "blocked_actions": BLOCKED_ACTION_LABELS,
-        "create_allowed": True,
-        "parent_directory_creation_allowed": False,
-        "default_payload_media_type": "text/plain; charset=utf-8",
-        "warning_codes": (),
-        "risk_codes": ("workspace_scoped_single_file_write_is_real_host_mutation",),
-    }
-    return WorkspaceFileEffectPolicy(**payload)
+    return WorkspaceFileEffectPolicy(
+        policy_id="workspace-file-effect-default-policy",
+        required_scope_labels=("explicit_workspace_root", "relative_single_file_target", "exact_rollback_available"),
+        blocked_actions=BLOCKED_ACTION_LABELS,
+        create_allowed=True,
+        parent_directory_creation_allowed=False,
+        default_payload_media_type="text/plain; charset=utf-8",
+        warning_codes=(),
+        risk_codes=("workspace_scoped_single_file_write_is_real_host_mutation",),
+    )
 
 
 def build_workspace_file_effect_request(
@@ -582,7 +581,7 @@ def _resolve_target(workspace_root: str | Path, relative_target_path: str) -> tu
     except OSError:
         findings.append("workspace_root_unresolvable")
         return None, None, tuple(findings)
-    if root_resolved == root_resolved.anchor or str(root_resolved) == root_resolved.anchor:
+    if str(root_resolved) == root_resolved.anchor:
         findings.append("root_workspace_rejected")
     if PurePath(target_text).is_absolute():
         findings.append("absolute_target_path")
