@@ -109,3 +109,13 @@ def test_clean_has_no_fallback():
     manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), _dry())).manifest
     assert manifest.fallback_token_scan_used is False
     assert manifest.contradiction_source == "none"
+
+
+def test_structured_claims_use_shared_aliases():
+    dry = _dry()
+    dry["provider_invocation_performed"] = "yes"
+    dry["subprocess_used"] = 1
+    manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), dry)).manifest
+    assert manifest.closure_status == "dry_run_closed_contradicted"
+    assert manifest.structured_authority_claims["provider"] is True
+    assert manifest.structured_authority_claims["subprocess_or_shell"] is True

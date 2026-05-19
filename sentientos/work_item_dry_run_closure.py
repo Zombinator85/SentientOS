@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.work_item_intake import EXPLICIT_NON_AUTHORITY_BOUNDARIES
+from sentientos.work_item_authority_claims import (
+    authority_claim_summary,
+    authority_claims_from_nested_evidence,
+    authority_contradiction_codes,
+)
 
 DRY_RUN_CLOSURE_STATUSES = frozenset({
     "dry_run_closed_clean",
@@ -103,30 +108,6 @@ def _write_artifact(path: str | None, payload: Mapping[str, Any]) -> tuple[Mappi
     return ({"stage": "work_item_dry_run_closure", "path": str(p), "digest": digest},)
 
 
-_STRUCTURED_AUTHORITY_CLAIMS: tuple[tuple[str, tuple[str, ...], str], ...] = (
-    ("execution_authority_claimed", ("execution_permitted", "execution_performed", "rollback_performed", "target_write_performed"), "dry_run_claims_real_execution_authority"),
-    ("verification_replay_claimed", ("verification_replay_performed",), "dry_run_claims_verification_replay_authority"),
-    ("lifecycle_real_closure_claimed", ("real_lifecycle_closure_performed",), "dry_run_claims_real_lifecycle_closure_authority"),
-    ("agent_execution_claimed", ("agent_execution_permitted", "agent_execution_performed"), "dry_run_claims_agent_execution_authority"),
-    ("scheduler_claimed", ("scheduler_authority_claimed", "scheduler_invoked", "scheduler_permitted"), "dry_run_claims_scheduler_authority"),
-    ("live_tracker_claimed", ("live_tracker_authority_claimed", "live_tracker_mutation_claimed", "live_tracker_invoked"), "dry_run_claims_live_tracker_authority"),
-    ("network_claimed", ("network_authority_claimed", "network_permitted", "network_invoked"), "dry_run_claims_network_authority"),
-    ("provider_claimed", ("provider_authority_claimed", "provider_invocation_claimed", "provider_invoked"), "dry_run_claims_provider_authority"),
-    ("prompt_export_claimed", ("prompt_export_authority_claimed", "prompt_export_performed", "prompt_assembly_performed"), "dry_run_claims_prompt_export_authority"),
-    ("subprocess_or_shell_claimed", ("subprocess_authority_claimed", "subprocess_invoked", "shell_authority_claimed", "shell_invoked"), "dry_run_claims_subprocess_or_shell_authority"),
-    ("pr_branch_issue_mutation_claimed", ("pr_mutation_claimed", "pr_creation_claimed", "branch_mutation_claimed", "branch_creation_claimed", "issue_mutation_claimed", "issue_comment_mutation_claimed"), "dry_run_claims_pr_branch_issue_mutation_authority"),
-    ("workspace_execution_claimed", ("workspace_execution_performed",), "dry_run_claims_workspace_execution_authority"),
-)
-
-
-def _bool_claim_from_evidence(field_names: tuple[str, ...], packet: Mapping[str, Any], handoff: Mapping[str, Any], dry: Mapping[str, Any]) -> bool:
-    for evidence in (packet, handoff, dry):
-        for field in field_names:
-            if isinstance(evidence.get(field), bool) and bool(evidence.get(field)):
-                return True
-    return False
-
-
 def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureRequest, *, policy: WorkItemDryRunClosurePolicy | None = None) -> WorkItemDryRunClosureResult:
     _ = policy or WorkItemDryRunClosurePolicy()
     if request.packet is None or request.handoff_plan is None or request.dry_run_result is None:
@@ -166,13 +147,8 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
     if bool(packet.get("agent_execution_is_requested", False) or packet.get("agent_execution_is_permitted_by_this_packet", False)):
         contradictions.add("agent_execution_not_denied")
 
-    structured_claims = {
-        claim_name: _bool_claim_from_evidence(field_names, packet, handoff, dry)
-        for claim_name, field_names, _ in _STRUCTURED_AUTHORITY_CLAIMS
-    }
-    for claim_name, _, contradiction_code in _STRUCTURED_AUTHORITY_CLAIMS:
-        if structured_claims[claim_name]:
-            structured_contradictions.add(contradiction_code)
+    structured_claims = authority_claims_from_nested_evidence(packet, handoff, dry)
+    structured_contradictions.update(authority_contradiction_codes(structured_claims))
 
     forbidden = {"execution", "verification", "closure"}
     if any(tok in " ".join(_tuple(dry.get("blocker_codes")) + _tuple(dry.get("warning_codes"))).lower() for tok in forbidden):
@@ -227,7 +203,7 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
         fallback_token_contradiction_codes=tuple(sorted(fallback_contradictions)),
         contradiction_source=contradiction_source,
         missing_metadata_fields=tuple(sorted(missing)),
-        authority_request_summary=_tuple(packet.get("declared_authority_requests")),
+        authority_request_summary=authority_claim_summary(structured_claims),
         proposal_candidate_id=str(handoff.get("workspace_change_set_proposal_candidate_id", "")).strip() or None,
         proposal_candidate_digest=str(handoff.get("workspace_change_set_proposal_candidate_digest", "")).strip() or None,
         handoff_plan_id=_handoff_id(handoff),
