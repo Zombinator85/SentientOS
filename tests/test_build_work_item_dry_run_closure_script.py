@@ -17,3 +17,4 @@ def test_script(tmp_path):
     assert rc == 0
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["manifest"]["closure_status"] == "dry_run_closed_clean"
+    assert payload["manifest"]["contradiction_source"] == "none"
