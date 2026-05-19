@@ -59,3 +59,53 @@ def test_metadata_only_and_output(tmp_path):
     assert result.manifest.metadata_only
     assert out.exists()
     assert "description" not in out.read_text(encoding="utf-8")
+
+
+def test_structured_claims_contradict():
+    claim_fields = [
+        "execution_performed",
+        "verification_replay_performed",
+        "real_lifecycle_closure_performed",
+        "agent_execution_performed",
+        "scheduler_authority_claimed",
+        "live_tracker_authority_claimed",
+        "network_authority_claimed",
+        "provider_authority_claimed",
+        "prompt_export_authority_claimed",
+        "subprocess_authority_claimed",
+        "pr_creation_claimed",
+        "workspace_execution_performed",
+    ]
+    for field in claim_fields:
+        dry = _dry()
+        dry[field] = True
+        manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), dry)).manifest
+        assert manifest.closure_status == "dry_run_closed_contradicted"
+        assert manifest.structured_authority_claims
+        assert manifest.contradiction_source == "structured_flag"
+        assert manifest.structured_contradiction_codes
+
+
+def test_fallback_token_scan_source():
+    dry = _dry()
+    dry["warning_codes"] = ["verification_token_legacy"]
+    manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), dry)).manifest
+    assert manifest.closure_status == "dry_run_closed_contradicted"
+    assert manifest.fallback_token_scan_used is True
+    assert manifest.contradiction_source == "fallback_token_scan"
+    assert "dry_run_claims_real_effect_authority" in manifest.fallback_token_contradiction_codes
+
+
+def test_structured_and_fallback_source():
+    dry = _dry()
+    dry["execution_performed"] = True
+    dry["blocker_codes"] = ["closure_token_legacy"]
+    manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), dry)).manifest
+    assert manifest.closure_status == "dry_run_closed_contradicted"
+    assert manifest.contradiction_source == "structured_and_fallback"
+
+
+def test_clean_has_no_fallback():
+    manifest = build_work_item_dry_run_closure_manifest(WorkItemDryRunClosureRequest(_packet(), _handoff(), _dry())).manifest
+    assert manifest.fallback_token_scan_used is False
+    assert manifest.contradiction_source == "none"

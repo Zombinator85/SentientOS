@@ -53,6 +53,11 @@ class WorkItemDryRunClosureManifest:
     blocker_codes: tuple[str, ...]
     warning_codes: tuple[str, ...]
     contradiction_codes: tuple[str, ...]
+    structured_authority_claims: Mapping[str, bool]
+    structured_contradiction_codes: tuple[str, ...]
+    fallback_token_scan_used: bool
+    fallback_token_contradiction_codes: tuple[str, ...]
+    contradiction_source: str
     missing_metadata_fields: tuple[str, ...]
     authority_request_summary: tuple[str, ...]
     proposal_candidate_id: str | None
@@ -98,6 +103,30 @@ def _write_artifact(path: str | None, payload: Mapping[str, Any]) -> tuple[Mappi
     return ({"stage": "work_item_dry_run_closure", "path": str(p), "digest": digest},)
 
 
+_STRUCTURED_AUTHORITY_CLAIMS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("execution_authority_claimed", ("execution_permitted", "execution_performed", "rollback_performed", "target_write_performed"), "dry_run_claims_real_execution_authority"),
+    ("verification_replay_claimed", ("verification_replay_performed",), "dry_run_claims_verification_replay_authority"),
+    ("lifecycle_real_closure_claimed", ("real_lifecycle_closure_performed",), "dry_run_claims_real_lifecycle_closure_authority"),
+    ("agent_execution_claimed", ("agent_execution_permitted", "agent_execution_performed"), "dry_run_claims_agent_execution_authority"),
+    ("scheduler_claimed", ("scheduler_authority_claimed", "scheduler_invoked", "scheduler_permitted"), "dry_run_claims_scheduler_authority"),
+    ("live_tracker_claimed", ("live_tracker_authority_claimed", "live_tracker_mutation_claimed", "live_tracker_invoked"), "dry_run_claims_live_tracker_authority"),
+    ("network_claimed", ("network_authority_claimed", "network_permitted", "network_invoked"), "dry_run_claims_network_authority"),
+    ("provider_claimed", ("provider_authority_claimed", "provider_invocation_claimed", "provider_invoked"), "dry_run_claims_provider_authority"),
+    ("prompt_export_claimed", ("prompt_export_authority_claimed", "prompt_export_performed", "prompt_assembly_performed"), "dry_run_claims_prompt_export_authority"),
+    ("subprocess_or_shell_claimed", ("subprocess_authority_claimed", "subprocess_invoked", "shell_authority_claimed", "shell_invoked"), "dry_run_claims_subprocess_or_shell_authority"),
+    ("pr_branch_issue_mutation_claimed", ("pr_mutation_claimed", "pr_creation_claimed", "branch_mutation_claimed", "branch_creation_claimed", "issue_mutation_claimed", "issue_comment_mutation_claimed"), "dry_run_claims_pr_branch_issue_mutation_authority"),
+    ("workspace_execution_claimed", ("workspace_execution_performed",), "dry_run_claims_workspace_execution_authority"),
+)
+
+
+def _bool_claim_from_evidence(field_names: tuple[str, ...], packet: Mapping[str, Any], handoff: Mapping[str, Any], dry: Mapping[str, Any]) -> bool:
+    for evidence in (packet, handoff, dry):
+        for field in field_names:
+            if isinstance(evidence.get(field), bool) and bool(evidence.get(field)):
+                return True
+    return False
+
+
 def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureRequest, *, policy: WorkItemDryRunClosurePolicy | None = None) -> WorkItemDryRunClosureResult:
     _ = policy or WorkItemDryRunClosurePolicy()
     if request.packet is None or request.handoff_plan is None or request.dry_run_result is None:
@@ -105,8 +134,9 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
             closure_status="dry_run_closure_insufficient_evidence", work_item_id="", source_kind="", source_ref="", intake_status="", risk_class="",
             handoff_recommended_surface="", dry_run_adapter_status="", lifecycle_dry_run_invoked=False, lifecycle_mode_used=None, lifecycle_stop_reason=None,
             admission_status=None, preflight_status=None, transaction_plan_status=None, transaction_plan_ready=None, blocker_codes=(), warning_codes=(),
-            contradiction_codes=(), missing_metadata_fields=("packet", "handoff_plan", "dry_run_result"), authority_request_summary=(), proposal_candidate_id=None,
-            proposal_candidate_digest=None, handoff_plan_id=None, dry_run_artifact_records=(),
+            contradiction_codes=(), structured_authority_claims={}, structured_contradiction_codes=(), fallback_token_scan_used=False,
+            fallback_token_contradiction_codes=(), contradiction_source="none", missing_metadata_fields=("packet", "handoff_plan", "dry_run_result"),
+            authority_request_summary=(), proposal_candidate_id=None, proposal_candidate_digest=None, handoff_plan_id=None, dry_run_artifact_records=(),
         )
         return WorkItemDryRunClosureResult(manifest=manifest, artifact_records=())
 
@@ -118,6 +148,8 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
     warnings = set(_tuple(packet.get("warning_codes")) + _tuple(handoff.get("warning_codes")) + _tuple(dry.get("warning_codes")))
     missing = set(_tuple(handoff.get("missing_metadata_fields")) + _tuple(dry.get("missing_metadata_fields")))
     contradictions: set[str] = set()
+    structured_contradictions: set[str] = set()
+    fallback_contradictions: set[str] = set()
 
     work_item_id = str(packet.get("work_item_id", "")).strip()
     handoff_work_item_id = str(handoff.get("work_item_id", "")).strip()
@@ -134,9 +166,28 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
     if bool(packet.get("agent_execution_is_requested", False) or packet.get("agent_execution_is_permitted_by_this_packet", False)):
         contradictions.add("agent_execution_not_denied")
 
+    structured_claims = {
+        claim_name: _bool_claim_from_evidence(field_names, packet, handoff, dry)
+        for claim_name, field_names, _ in _STRUCTURED_AUTHORITY_CLAIMS
+    }
+    for claim_name, _, contradiction_code in _STRUCTURED_AUTHORITY_CLAIMS:
+        if structured_claims[claim_name]:
+            structured_contradictions.add(contradiction_code)
+
     forbidden = {"execution", "verification", "closure"}
     if any(tok in " ".join(_tuple(dry.get("blocker_codes")) + _tuple(dry.get("warning_codes"))).lower() for tok in forbidden):
-        contradictions.add("dry_run_claims_real_effect_authority")
+        fallback_contradictions.add("dry_run_claims_real_effect_authority")
+    contradictions.update(structured_contradictions)
+    contradictions.update(fallback_contradictions)
+
+    fallback_used = bool(fallback_contradictions)
+    contradiction_source = "none"
+    if structured_contradictions and fallback_contradictions:
+        contradiction_source = "structured_and_fallback"
+    elif structured_contradictions:
+        contradiction_source = "structured_flag"
+    elif fallback_contradictions:
+        contradiction_source = "fallback_token_scan"
 
     adapter_status = str(dry.get("adapter_status", "")).strip()
     closure_status = "dry_run_closed_clean"
@@ -170,6 +221,11 @@ def build_work_item_dry_run_closure_manifest(request: WorkItemDryRunClosureReque
         blocker_codes=tuple(sorted(blockers)),
         warning_codes=tuple(sorted(warnings)),
         contradiction_codes=tuple(sorted(contradictions)),
+        structured_authority_claims=structured_claims,
+        structured_contradiction_codes=tuple(sorted(structured_contradictions)),
+        fallback_token_scan_used=fallback_used,
+        fallback_token_contradiction_codes=tuple(sorted(fallback_contradictions)),
+        contradiction_source=contradiction_source,
         missing_metadata_fields=tuple(sorted(missing)),
         authority_request_summary=_tuple(packet.get("declared_authority_requests")),
         proposal_candidate_id=str(handoff.get("workspace_change_set_proposal_candidate_id", "")).strip() or None,

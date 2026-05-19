@@ -12,7 +12,7 @@ This wing seals completed work-item lifecycle dry-run adapter outputs into a det
 
 ## Output
 
-A single metadata-only closure manifest containing compact IDs/digests/statuses/counts and contradiction/missing-metadata findings. Optional explicit caller-supplied artifact write is supported.
+A single metadata-only closure manifest containing compact IDs/digests/statuses/counts and contradiction/missing-metadata findings. Contradiction detection is primarily structured via explicit authority-claim flags, with legacy blocker/warning token scans retained as compatibility fallback signals. Optional explicit caller-supplied artifact write is supported.
 
 ## Boundaries
 
