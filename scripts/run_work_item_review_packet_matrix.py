@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Callable
+from typing import Callable, TypedDict
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,23 @@ class MatrixCommand:
     label: str
     command: tuple[str, ...]
     required: bool = True
+
+
+class MatrixResult(TypedDict):
+    label: str
+    command: list[str]
+    required: bool
+    exit_code: int
+    duration_seconds: float
+    output_tail: str
+
+
+class MatrixReport(TypedDict):
+    status: str
+    command_count: int
+    required_failure_count: int
+    required_failures: list[str]
+    results: list[MatrixResult]
 
 
 def default_matrix_commands() -> list[MatrixCommand]:
@@ -40,7 +57,7 @@ def _tail(text: str, lines: int = 30) -> str:
     return "\n".join(parts[-lines:])
 
 
-def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> dict[str, object]:
+def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> MatrixResult:
     started = time.perf_counter()
     completed = runner(command.command)
     duration = round(time.perf_counter() - started, 3)
@@ -57,8 +74,8 @@ def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subproce
     }
 
 
-def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> dict[str, object]:
-    results: list[dict[str, object]] = []
+def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> MatrixReport:
+    results: list[MatrixResult] = []
     failed_required = False
     docs_check_passed = False
 
@@ -84,7 +101,7 @@ def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ..
             failed_required = True
 
     required_failures = [r["label"] for r in results if bool(r["required"]) and int(r["exit_code"]) != 0]
-    summary = {
+    summary: MatrixReport = {
         "status": "failed" if failed_required else "passed",
         "command_count": len(results),
         "required_failure_count": len(required_failures),

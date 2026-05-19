@@ -85,7 +85,7 @@ def _optional_int(value: Any) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError("optional integer field must be an integer or null")
-    return value
+    return int(value)
 
 
 def _optional_str(value: Any) -> str | None:
