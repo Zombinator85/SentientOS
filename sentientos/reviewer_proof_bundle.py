@@ -946,6 +946,21 @@ def build_reviewer_proof_bundle_payload(
             "proof_command_status": "proof_command_not_run",
             "proof_command": "python scripts/run_workspace_change_set_lifecycle.py --proposal <workspace_change_set_proposal.json> --workspace-root <path> --mode admit_preflight_execute_verify_close --summary",
         }),
+        "work_item_lifecycle_dry_run_adapter_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_available": True,
+            "dry_run_adapter_exists": True,
+            "requires_normalized_packet_and_handoff_plan": True,
+            "invokes_lifecycle_orchestrator_mode": "dry_run_full_lifecycle_only",
+            "full_lifecycle_execution_modes_not_invoked": True,
+            "workspace_execution_not_invoked": True,
+            "agent_execution_not_invoked": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_dry_run_adapter_run": False,
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/run_work_item_dry_run.py --packet <normalized_work_item_packet.json> --handoff <work_item_handoff_plan.json> --workspace-root <path> --summary",
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
             "metadata_only": True,
@@ -1281,7 +1296,8 @@ def write_reviewer_proof_bundle(
     path = Path(output_dir)
     if not str(output_dir):
         raise ValueError("output directory is required")
-    if path == path.anchor or path.resolve() == Path(path.anchor).resolve():
+    anchor_path = Path(path.anchor)
+    if path == anchor_path or path.resolve() == anchor_path.resolve():
         raise ValueError("refusing to write bundle to filesystem root")
     if path.exists() and not path.is_dir():
         raise ValueError("output path must be a directory, not a file")

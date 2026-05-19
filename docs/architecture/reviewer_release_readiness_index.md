@@ -78,6 +78,10 @@ a broad runtime dependency install before collection.
 
 See `docs/architecture/task_work_item_lifecycle_handoff_planner_wing.md`.
 
+`sentientos/work_item_lifecycle_dry_run_adapter.py`, `scripts/run_work_item_dry_run.py`, `tests/test_work_item_dry_run_adapter.py`, and `tests/test_run_work_item_dry_run_script.py` provide a bounded metadata-only adapter that consumes normalized intake + handoff artifacts and invokes workspace lifecycle orchestration in `dry_run_full_lifecycle` mode only when explicit eligibility checks pass.
+
+See `docs/architecture/task_work_item_lifecycle_dry_run_adapter_wing.md`.
+
 ### Docs build reliability
 
 `tests/test_build_docs_tooling.py`, `python scripts/build_docs.py --check-deps`,
