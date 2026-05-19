@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import dataclass
+from pathlib import Path
+import subprocess
+import sys
+import time
+from typing import Callable
+
+
+@dataclass(frozen=True)
+class MatrixCommand:
+    label: str
+    command: tuple[str, ...]
+    required: bool = True
+
+
+def default_matrix_commands() -> list[MatrixCommand]:
+    return [
+        MatrixCommand("review_packet_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_review_packet.py", "tests/test_build_work_item_review_packet_script.py")),
+        MatrixCommand("authority_closure_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_authority_claims.py", "tests/test_work_item_dry_run_closure.py", "tests/test_build_work_item_dry_run_closure_script.py")),
+        MatrixCommand("dry_run_adapter_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_dry_run_adapter.py", "tests/test_run_work_item_dry_run_script.py")),
+        MatrixCommand("handoff_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_lifecycle_handoff.py", "tests/test_plan_work_item_handoff_script.py")),
+        MatrixCommand("intake_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_intake.py", "tests/test_intake_work_item_script.py")),
+        MatrixCommand("proof_bundle_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_capability_registry.py", "tests/test_reviewer_proof_bundle.py", "tests/test_build_reviewer_proof_bundle_script.py", "tests/test_reviewer_release_readiness_index.py")),
+        MatrixCommand("targeted_mypy", ("python", "-m", "mypy", "sentientos/work_item_authority_claims.py", "sentientos/work_item_intake.py", "scripts/intake_work_item.py", "sentientos/work_item_lifecycle_handoff.py", "scripts/plan_work_item_handoff.py", "sentientos/work_item_lifecycle_dry_run_adapter.py", "scripts/run_work_item_dry_run.py", "sentientos/work_item_dry_run_closure.py", "scripts/build_work_item_dry_run_closure.py", "sentientos/work_item_review_packet.py", "scripts/build_work_item_review_packet.py")),
+        MatrixCommand("mypy_baseline", ("python", "scripts/check_mypy_baseline.py")),
+        MatrixCommand("docs_check_deps", ("python", "scripts/build_docs.py", "--check-deps"), required=False),
+        MatrixCommand("docs_build", ("python", "scripts/build_docs.py")),
+        MatrixCommand("prompt_boundaries", ("python", "scripts/verify_context_hygiene_prompt_boundaries.py")),
+        MatrixCommand("strict_audits", ("python", "verify_audits.py", "--strict")),
+        MatrixCommand("audit_immutability", ("python", "scripts/audit_immutability_verifier.py")),
+    ]
+
+
+def _tail(text: str, lines: int = 30) -> str:
+    parts = text.splitlines()
+    return "\n".join(parts[-lines:])
+
+
+def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> dict[str, object]:
+    started = time.perf_counter()
+    completed = runner(command.command)
+    duration = round(time.perf_counter() - started, 3)
+    output = completed.stdout
+    if completed.stderr:
+        output = f"{output}\n{completed.stderr}" if output else completed.stderr
+    return {
+        "label": command.label,
+        "command": list(command.command),
+        "required": command.required,
+        "exit_code": completed.returncode,
+        "duration_seconds": duration,
+        "output_tail": _tail(output),
+    }
+
+
+def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> dict[str, object]:
+    results: list[dict[str, object]] = []
+    failed_required = False
+    docs_check_passed = False
+
+    for command in commands:
+        if command.label == "docs_build" and not docs_check_passed:
+            probe = next(item for item in results if item["label"] == "docs_check_deps")
+            if probe["exit_code"] != 0:
+                bootstrap = run_one(MatrixCommand("docs_bootstrap", ("python", "scripts/build_docs.py", "--bootstrap-docs"), required=False), runner)
+                results.append(bootstrap)
+                recheck = run_one(MatrixCommand("docs_check_deps_recheck", ("python", "scripts/build_docs.py", "--check-deps")), runner)
+                results.append(recheck)
+                docs_check_passed = recheck["exit_code"] == 0
+                if recheck["exit_code"] != 0:
+                    failed_required = True
+            else:
+                docs_check_passed = True
+
+        result = run_one(command, runner)
+        results.append(result)
+        if command.label == "docs_check_deps":
+            docs_check_passed = result["exit_code"] == 0
+        if command.required and result["exit_code"] != 0:
+            failed_required = True
+
+    required_failures = [r["label"] for r in results if bool(r["required"]) and int(r["exit_code"]) != 0]
+    summary = {
+        "status": "failed" if failed_required else "passed",
+        "command_count": len(results),
+        "required_failure_count": len(required_failures),
+        "required_failures": required_failures,
+        "results": results,
+    }
+    return summary
+
+
+def _default_runner(command: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, check=False, capture_output=True, text=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run full work-item review packet proof matrix with continue-on-failure behavior.")
+    parser.add_argument("--summary", action="store_true", help="print compact human summary after JSON")
+    parser.add_argument("--output", type=Path, help="optional JSON output path")
+    args = parser.parse_args(argv)
+
+    report = run_matrix(commands=default_matrix_commands(), runner=_default_runner)
+    text = json.dumps(report, indent=2, sort_keys=True)
+    print(text)
+    if args.summary:
+        for row in report["results"]:
+            label = row["label"]
+            code = row["exit_code"]
+            print(f"[{label}] exit={code}")
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text + "\n", encoding="utf-8")
+    return 1 if report["status"] == "failed" else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

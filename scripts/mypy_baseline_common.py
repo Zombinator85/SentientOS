@@ -199,25 +199,59 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("baseline per_file_counts does not match errors")
 
 
+def _group_key(record: MypyErrorRecord) -> tuple[str, str | None, str]:
+    return (record.path, record.code, normalize_message(record.message))
+
+
 def compare_records(*, baseline_records: Sequence[MypyErrorRecord], current_records: Sequence[MypyErrorRecord]) -> dict[str, Any]:
-    baseline = Counter(normalize_records(baseline_records))
-    current = Counter(normalize_records(current_records))
-    matched_count = sum((baseline & current).values())
-    new_counter = current - baseline
-    retired_counter = baseline - current
-    new_records = list(new_counter.elements())
-    retired_records = list(retired_counter.elements())
-    baseline_paths = {record.path for record in baseline}
+    baseline_norm = normalize_records(baseline_records)
+    current_norm = normalize_records(current_records)
+    baseline_counter = Counter(_group_key(record) for record in baseline_norm)
+    current_counter = Counter(_group_key(record) for record in current_norm)
+
+    matched_existing_errors = 0
+    new_records: list[MypyErrorRecord] = []
+    retired_records: list[MypyErrorRecord] = []
+    drifted_files: set[str] = set()
+    matched_with_location_drift = 0
+
+    baseline_grouped: dict[tuple[str, str | None, str], list[MypyErrorRecord]] = {}
+    current_grouped: dict[tuple[str, str | None, str], list[MypyErrorRecord]] = {}
+    for record in baseline_norm:
+        baseline_grouped.setdefault(_group_key(record), []).append(record)
+    for record in current_norm:
+        current_grouped.setdefault(_group_key(record), []).append(record)
+
+    for key in sorted(set(baseline_counter) | set(current_counter)):
+        base_list = baseline_grouped.get(key, [])
+        cur_list = current_grouped.get(key, [])
+        matched = min(len(base_list), len(cur_list))
+        matched_existing_errors += matched
+        if matched:
+            exact = Counter((r.line, r.column) for r in base_list) & Counter((r.line, r.column) for r in cur_list)
+            exact_count = sum(exact.values())
+            drift = matched - exact_count
+            if drift > 0:
+                matched_with_location_drift += drift
+                drifted_files.add(key[0])
+        if len(cur_list) > len(base_list):
+            new_records.extend(cur_list[len(base_list):])
+        elif len(base_list) > len(cur_list):
+            retired_records.extend(base_list[len(cur_list):])
+
+    baseline_paths = {record.path for record in baseline_norm}
     affected_new_files = sorted({record.path for record in new_records if record.path not in baseline_paths})
-    status = _status_for(matched_count=matched_count, new_records=new_records, retired_records=retired_records, current_records=current_records)
+    status = _status_for(matched_count=matched_existing_errors, new_records=new_records, retired_records=retired_records, current_records=current_norm)
     return {
         "status": status,
-        "matched_existing_errors": matched_count,
+        "matched_existing_errors": matched_existing_errors,
+        "matched_with_location_drift": matched_with_location_drift,
+        "drifted_files": sorted(drifted_files),
         "new_errors": len(new_records),
         "retired_errors": len(retired_records),
         "affected_new_files": affected_new_files,
-        "current_error_count": len(current_records),
-        "baseline_error_count": len(baseline_records),
+        "current_error_count": len(current_norm),
+        "baseline_error_count": len(baseline_norm),
         "new_error_records": [record.to_json() for record in normalize_records(new_records)[:50]],
         "retired_error_records": [record.to_json() for record in normalize_records(retired_records)[:50]],
     }

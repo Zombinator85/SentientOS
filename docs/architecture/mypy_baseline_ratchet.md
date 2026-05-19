@@ -69,11 +69,15 @@ errors as improvement, and fails on new errors. The compact reviewer summary
 contains:
 
 - `matched_existing_errors`
+- `matched_with_location_drift`
+- `drifted_files`
 - `new_errors`
 - `retired_errors`
 - `affected_new_files`
 - `status`
 
+
+Matching is keyed by `(path, error code, normalized message)` with multiset counts. Line/column are retained as diagnostics. This keeps the ratchet strict but resilient to harmless line drift: existing debt that moves location remains matched, while additional duplicates, changed messages/codes, or new path/code/message tuples still fail as regressions.
 Statuses are deterministic:
 
 - `mypy_baseline_clean`
