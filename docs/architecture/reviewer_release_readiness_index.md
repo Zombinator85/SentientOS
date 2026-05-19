@@ -340,3 +340,9 @@ Workspace change-set lifecycle closure is documented in [Host Workspace Change S
 The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_change_set_lifecycle_orchestration_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_orchestration_wing.md`) adds explicit bounded lifecycle coordination across admission, preflight/planning, optional execution, optional verification, and optional closure. It delegates to the existing wings only, supports dry-run admission plus preflight without target execution, may write only caller-supplied stage/orchestration artifacts, and does not add file-effect primitives, direct target reads, target digest recomputation, cleanup, scheduling, subprocess/shell/network/provider/prompt paths, or new autonomy loops.
 
 - [Task Work Item Intake Adapter Wing](task_work_item_intake_adapter_wing.md)
+
+### Work item lifecycle dry-run closure manifest
+
+`sentientos/work_item_dry_run_closure.py`, `scripts/build_work_item_dry_run_closure.py`, `tests/test_work_item_dry_run_closure.py`, and `tests/test_build_work_item_dry_run_closure_script.py` provide deterministic metadata-only closure manifest sealing for supplied packet/handoff/dry-run evidence. This wing does not invoke intake/handoff/dry-run/lifecycle helpers and does not execute workspace effects.
+
+See `docs/architecture/task_work_item_lifecycle_dry_run_closure_wing.md`.
