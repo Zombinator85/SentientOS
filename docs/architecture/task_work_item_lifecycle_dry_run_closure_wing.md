@@ -38,3 +38,27 @@ A single metadata-only closure manifest containing compact IDs/digests/statuses/
 - Tests: `tests/test_work_item_dry_run_closure.py`, `tests/test_build_work_item_dry_run_closure_script.py`
 
 The reviewer proof bundle documents this capability and does not run the closure builder by default.
+
+## Shared authority vocabulary producer contract
+
+Work-item producer surfaces (intake packet, handoff plan, dry-run adapter result, and dry-run closure manifest) are contract-tested for authority-like field drift.
+
+- Authority-looking field names are detected in tests using reviewer-only heuristics (for example `*_requested`, `*_invoked`, `*_performed`, plus tokens such as `authority`, `workspace`, `provider`, `network`, `scheduler`, `verification`, and `closure`).
+- Every detected field must be either:
+  1. a shared alias in `AUTHORITY_CLAIM_ALIASES` mapped to a canonical authority family, or
+  2. listed in `NON_AUTHORITY_FIELD_ALLOWLIST` with explicit non-authority rationale.
+- Unknown authority-looking fields fail deterministically so upstream producers cannot silently introduce unmapped authority semantics.
+
+### Safe update procedure for new producer fields
+
+When adding a new authority-related producer field:
+
+1. Add the exact field name to the correct canonical family in `AUTHORITY_CLAIM_ALIASES` (no fuzzy matching in runtime logic).
+2. Ensure the field appears in representative producer output fixtures/tests.
+3. Run the work-item authority tests to confirm deterministic coverage.
+
+When adding a new non-authority field that happens to match heuristic tokens:
+
+1. Add it to `NON_AUTHORITY_FIELD_ALLOWLIST` under the most specific category.
+2. Include a compact rationale in code review/PR notes.
+3. Keep runtime claim normalization unchanged unless the field actually conveys authority.
