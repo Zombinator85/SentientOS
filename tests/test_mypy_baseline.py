@@ -101,6 +101,33 @@ def test_check_fails_when_new_errors_appear() -> None:
     assert result["affected_new_files"] == ["new_file.py"]
 
 
+
+
+def test_line_drift_is_matched_as_existing_debt() -> None:
+    baseline = [MypyErrorRecord("a.py", 10, 2, "attr-defined", "A")]
+    current = [MypyErrorRecord("a.py", 22, 4, "attr-defined", "A")]
+    result = compare_records(baseline_records=baseline, current_records=current)
+    assert result["status"] == STATUS_MATCHES
+    assert result["matched_existing_errors"] == 1
+    assert result["matched_with_location_drift"] == 1
+    assert result["drifted_files"] == ["a.py"]
+
+
+def test_duplicate_over_baseline_count_is_new_error() -> None:
+    baseline = [MypyErrorRecord("a.py", 10, 2, "attr-defined", "A")]
+    current = [MypyErrorRecord("a.py", 10, 2, "attr-defined", "A"), MypyErrorRecord("a.py", 12, 1, "attr-defined", "A")]
+    result = compare_records(baseline_records=baseline, current_records=current)
+    assert result["status"] == STATUS_REGRESSION
+    assert result["new_errors"] == 1
+
+
+def test_different_code_or_message_is_new_error() -> None:
+    baseline = [MypyErrorRecord("a.py", 10, 2, "attr-defined", "A")]
+    current = [MypyErrorRecord("a.py", 10, 2, "return-value", "A")]
+    result = compare_records(baseline_records=baseline, current_records=current)
+    assert result["new_errors"] == 1
+    assert result["retired_errors"] == 1
+
 def test_check_fails_when_baseline_missing(tmp_path: Path, capsys) -> None:
     exit_code = check_mypy_baseline.main(["--baseline", str(tmp_path / "missing.json"), "--current-output-file", str(tmp_path / "unused.txt")])
     out = json.loads(capsys.readouterr().out)

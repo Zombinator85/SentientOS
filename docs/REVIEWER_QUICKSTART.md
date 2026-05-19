@@ -22,26 +22,21 @@ federation posture using the current command surface.
    python -m sentientos.ops node health --json
    python -m sentientos.ops constitution verify --json
    ```
-6. Check the repo-wide mypy baseline ratchet and the focused workspace typed surface:
+6. Run the work-item review-packet validation matrix (continues after failures and reports every step):
    ```bash
-   python scripts/check_mypy_baseline.py
-   python -m mypy --follow-imports=skip --hide-error-context --no-color-output --show-column-numbers --show-error-codes sentientos/workspace_change_set_admission.py scripts/admit_workspace_change_set.py sentientos/workspace_change_set_preflight.py scripts/preflight_workspace_change_set.py sentientos/workspace_change_set_execution.py scripts/run_workspace_change_set_transaction.py sentientos/workspace_change_set_execution_verification.py scripts/verify_workspace_change_set_execution.py sentientos/workspace_change_set_lifecycle_closure.py scripts/build_workspace_change_set_lifecycle_closure.py sentientos/workspace_change_set_lifecycle_orchestrator.py scripts/run_workspace_change_set_lifecycle.py
+   python scripts/run_work_item_review_packet_matrix.py --summary
    ```
 
-   The baseline/ratchet contract is documented in [mypy_baseline_ratchet.md](architecture/mypy_baseline_ratchet.md).
+   The runner executes the full proof matrix (tests, targeted mypy, baseline ratchet, docs deps/build, prompt-boundary scan, strict audits, and audit immutability), auto-bootstraps docs deps when `--check-deps` fails, and exits non-zero at the end if required checks fail.
 
-7. Bootstrap and build public documentation from the explicit docs dependency
-   surface:
+7. Optional: run/inspect individual gates directly when debugging:
    ```bash
-   python scripts/build_docs.py --check-deps
-   python scripts/build_docs.py --bootstrap-docs
+   python scripts/check_mypy_baseline.py
    python scripts/build_docs.py --check-deps
    python scripts/build_docs.py
    ```
 
-   `--bootstrap-docs` installs the same minimal docs requirements declared in
-   `pyproject.toml` under the `docs` extra. Reviewers who prefer one install
-   command may run `pip install -e .[docs]` instead.
+   The baseline/ratchet contract is documented in [mypy_baseline_ratchet.md](architecture/mypy_baseline_ratchet.md).
 
 For terminology translation between public engineering language and internal
 codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).

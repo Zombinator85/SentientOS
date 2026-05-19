@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
         "matched_existing_errors": result["matched_existing_errors"],
         "new_errors": result["new_errors"],
         "retired_errors": result["retired_errors"],
+        "matched_with_location_drift": result["matched_with_location_drift"],
+        "drifted_files": result["drifted_files"],
         "affected_new_files": result["affected_new_files"],
     }
     if result["new_errors"]:
