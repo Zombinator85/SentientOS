@@ -137,6 +137,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "work_item_operator_admission_review_capability",
         "work_item_operator_confirmed_admission_run_capability",
         "work_item_operator_confirmed_preflight_run_capability",
+        "work_item_operator_execution_review_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -185,6 +186,8 @@ BUNDLE_FILE_NAMES = {
     "work_item_operator_admission_review_capability": "work_item_operator_admission_review_capability.json",
     "work_item_operator_confirmed_admission_run_capability": "work_item_operator_confirmed_admission_run_capability.json",
     "work_item_operator_confirmed_preflight_run_capability": "work_item_operator_confirmed_preflight_run_capability.json",
+    "work_item_operator_execution_review_capability": "work_item_operator_execution_review_capability.json",
+    "work_item_operator_execution_review_capability": "work_item_operator_execution_review_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1049,6 +1052,19 @@ def build_reviewer_proof_bundle_payload(
             "non_authority_boundaries": ["preflight invocation only", "never execute workspace changes"],
         }),
 
+        "work_item_operator_execution_review_capability": _pretty_json({
+            "artifact_kind": "work_item_operator_execution_review_capability",
+            "capability_id": "work_item_operator_execution_review",
+            "category": "task_work_item_operator_execution_review",
+            "status": "implemented",
+            "authority_level": "review_packet_only",
+            "proof_command_status": "proof_command_not_run",
+            "cli_reference": "scripts/build_operator_execution_review.py",
+            "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+            "docs_reference": "docs/architecture/task_work_item_operator_execution_review_wing.md",
+            "blocked_deferred_surfaces": ["workspace execution invocation","workspace mutation","verification replay","lifecycle closure","lifecycle orchestration","rollback","cleanup","scheduler/live tracker","agent execution","branch/PR/issue mutation","network/provider/prompt/subprocess/shell"],
+            "non_authority_boundaries": ["execution review metadata only", "manual command candidate is not authorization"],
+        }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
             "metadata_only": True,
