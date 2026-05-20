@@ -740,3 +740,8 @@ def test_workspace_change_set_admission_doc_is_linked_and_preserves_boundaries()
     assert "does not preflight" in doc
     assert "does not authorize execution" in doc
     assert "proof bundle documents but does not run admission by default" in doc
+
+def test_readiness_index_mentions_operator_confirmed_admission_run_wing() -> None:
+    from pathlib import Path
+    index = Path("docs/architecture/reviewer_release_readiness_index.md").read_text(encoding="utf-8")
+    assert "task_work_item_operator_confirmed_admission_run_wing.md" in index

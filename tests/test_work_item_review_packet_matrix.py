@@ -82,3 +82,8 @@ def test_default_matrix_includes_promotion_gate_steps() -> None:
 def test_default_matrix_includes_codex_doctrine_docs_test() -> None:
     proof = next(c for c in matrix.default_matrix_commands() if c.label == "proof_bundle_tests")
     assert "tests/test_codex_operating_doctrine_docs.py" in proof.command
+
+def test_matrix_includes_operator_confirmed_admission_run_steps() -> None:
+    from scripts.run_work_item_review_packet_matrix import default_matrix_commands
+    labels = [c.label for c in default_matrix_commands()]
+    assert "operator_confirmed_admission_run_tests" in labels
