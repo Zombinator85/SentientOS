@@ -549,3 +549,12 @@ def test_bundle_includes_workspace_change_set_lifecycle_orchestration_artifact_a
     assert capability["run_by_reviewer_proof_bundle_default"] is False
     assert capability["proof_bundle_lifecycle_orchestration_run"] is False
     assert capability["proof_command_status"] == "proof_command_not_run"
+
+
+def test_reviewer_bundle_includes_work_item_operator_admission_review_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "work_item_operator_admission_review_capability" in artifacts
+    text = artifacts["work_item_operator_admission_review_capability"]
+    assert "work_item_operator_admission_review" in text
+    assert "proof_command_not_run" in text
