@@ -353,6 +353,6 @@ See `docs/architecture/task_work_item_lifecycle_dry_run_closure_wing.md`.
 
 See `docs/architecture/task_work_item_dry_run_review_packet_orchestration_wing.md`.
 
-`sentientos/work_item_promotion_gate.py` and `scripts/evaluate_work_item_promotion.py` evaluate completed dry-run review packets into deterministic promotion dossiers that remain metadata-readiness only and never execute workspace change-set lifecycle helpers.
+`sentientos/work_item_promotion_gate.py` and `scripts/evaluate_work_item_promotion.py` evaluate completed dry-run review packets into deterministic promotion dossiers that remain metadata-readiness only and never execute workspace change-set lifecycle helpers. The reviewer proof bundle includes `work_item_promotion_gate_capability.json` with `proof_command_not_run` by default.
 
 See `docs/architecture/task_work_item_promotion_gate_wing.md`.
