@@ -564,3 +564,10 @@ def test_reviewer_bundle_includes_work_item_operator_confirmed_admission_run_cap
     artifacts = build_reviewer_proof_bundle_payload()["artifacts"]
     assert "work_item_operator_confirmed_admission_run_capability" in artifacts
     assert "work_item_operator_confirmed_admission_run" in artifacts["work_item_operator_confirmed_admission_run_capability"]
+
+
+def test_reviewer_bundle_includes_work_item_operator_confirmed_preflight_run_capability_artifact() -> None:
+    from sentientos.reviewer_proof_bundle import build_reviewer_proof_bundle_payload
+    artifacts = build_reviewer_proof_bundle_payload()["artifacts"]
+    assert "work_item_operator_confirmed_preflight_run_capability" in artifacts
+    assert "work_item_operator_confirmed_preflight_run" in artifacts["work_item_operator_confirmed_preflight_run_capability"]

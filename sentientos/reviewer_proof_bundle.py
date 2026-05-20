@@ -136,6 +136,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "work_item_promotion_gate_capability",
         "work_item_operator_admission_review_capability",
         "work_item_operator_confirmed_admission_run_capability",
+        "work_item_operator_confirmed_preflight_run_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -183,6 +184,7 @@ BUNDLE_FILE_NAMES = {
     "work_item_promotion_gate_capability": "work_item_promotion_gate_capability.json",
     "work_item_operator_admission_review_capability": "work_item_operator_admission_review_capability.json",
     "work_item_operator_confirmed_admission_run_capability": "work_item_operator_confirmed_admission_run_capability.json",
+    "work_item_operator_confirmed_preflight_run_capability": "work_item_operator_confirmed_preflight_run_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1033,6 +1035,20 @@ def build_reviewer_proof_bundle_payload(
             "blocked_deferred_surfaces": ["preflight invocation", "execution", "verification replay", "lifecycle closure", "lifecycle orchestration", "rollback", "cleanup", "workspace mutation outside admission metadata", "scheduler/live tracker", "agent execution", "branch/PR/issue mutation", "network/provider/prompt/subprocess/shell"],
             "non_authority_boundaries": ["not preflight", "not execution", "not rollback", "not lifecycle orchestration"],
         }),
+        "work_item_operator_confirmed_preflight_run_capability": _pretty_json({
+            "artifact_kind": "work_item_operator_confirmed_preflight_run_capability",
+            "capability_id": "work_item_operator_confirmed_preflight_run",
+            "category": "task_work_item_operator_confirmed_admission_run_wing",
+            "status": "implemented",
+            "authority_level": "preflight_read_only",
+            "proof_command_status": "proof_command_not_run",
+            "cli_reference": "scripts/run_operator_confirmed_preflight.py",
+            "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+            "docs_reference": "docs/architecture/task_work_item_operator_confirmed_preflight_run_wing.md",
+            "blocked_deferred_surfaces": ["execution","verification replay","lifecycle closure","lifecycle orchestration","rollback","cleanup","workspace mutation","scheduler/live tracker","agent execution","branch/PR/issue mutation","network/provider/prompt/subprocess/shell"],
+            "non_authority_boundaries": ["preflight invocation only", "never execute workspace changes"],
+        }),
+
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
             "metadata_only": True,
