@@ -352,3 +352,7 @@ See `docs/architecture/task_work_item_lifecycle_dry_run_closure_wing.md`.
 `sentientos/work_item_review_packet.py` and `scripts/build_work_item_review_packet.py` orchestrate metadata-only intake → handoff → eligible dry-run adapter → optional dry-run closure into a compact reviewer-facing packet with deterministic operator-action mapping. This wing does not execute workspace effects, agents, scheduler paths, issue/PR/branch mutation, network/provider/prompt paths, or full lifecycle execution modes.
 
 See `docs/architecture/task_work_item_dry_run_review_packet_orchestration_wing.md`.
+
+`sentientos/work_item_promotion_gate.py` and `scripts/evaluate_work_item_promotion.py` evaluate completed dry-run review packets into deterministic promotion dossiers that remain metadata-readiness only and never execute workspace change-set lifecycle helpers.
+
+See `docs/architecture/task_work_item_promotion_gate_wing.md`.
