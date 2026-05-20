@@ -161,6 +161,20 @@ def test_validation_rejects_unknown_artifact_kind() -> None:
     assert "unknown_artifact_kind:unknown" in result.findings
 
 
+
+def test_reviewer_bundle_includes_work_item_promotion_gate_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "work_item_promotion_gate_capability" in artifacts
+    assert "work_item_promotion_gate_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["work_item_promotion_gate_capability"]
+    assert '"capability_id": "work_item_promotion_gate"' in text
+    assert '"authority_level": "packet_only"' in text
+    assert "proof_command_not_run" in text
+    assert "evaluate_work_item_promotion.py" in text
+    assert "task_work_item_promotion_gate_wing.md" in text
+
+
 def test_bundle_includes_host_actuation_safety_gate_posture() -> None:
     payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
     assert "safety_gate_posture" in payload["artifacts"]
