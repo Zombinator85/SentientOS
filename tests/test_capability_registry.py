@@ -963,3 +963,9 @@ def test_work_item_promotion_gate_capability_is_metadata_only() -> None:
     assert record.status == "implemented"
     assert record.authority_level == "packet_only"
     assert record.host_actuation_performed is False
+
+
+def test_registry_has_operator_confirmed_preflight_run() -> None:
+    from sentientos.capability_registry import build_default_capability_registry
+    ids = {r.capability_id for r in build_default_capability_registry().records}
+    assert "work_item_operator_confirmed_preflight_run" in ids

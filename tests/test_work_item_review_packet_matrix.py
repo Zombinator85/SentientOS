@@ -87,3 +87,4 @@ def test_matrix_includes_operator_confirmed_admission_run_steps() -> None:
     from scripts.run_work_item_review_packet_matrix import default_matrix_commands
     labels = [c.label for c in default_matrix_commands()]
     assert "operator_confirmed_admission_run_tests" in labels
+    assert "operator_confirmed_preflight_run_tests" in labels
