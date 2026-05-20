@@ -77,3 +77,8 @@ def test_default_matrix_includes_promotion_gate_steps() -> None:
     labels = [c.label for c in matrix.default_matrix_commands()]
     assert "promotion_gate_tests" in labels
     assert "targeted_mypy" in labels
+
+
+def test_default_matrix_includes_codex_doctrine_docs_test() -> None:
+    proof = next(c for c in matrix.default_matrix_commands() if c.label == "proof_bundle_tests")
+    assert "tests/test_codex_operating_doctrine_docs.py" in proof.command

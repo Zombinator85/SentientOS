@@ -89,6 +89,38 @@ unless explicitly marked **sealed** or **deprecated**.
   are touched.
 
 
+### Whole-System Codex Operating Doctrine
+- Human turnaround bandwidth is scarce; optimize for complete landings, not ping-pong handoffs.
+- Default Codex unit of work is a complete bounded subsystem, not the smallest possible diff.
+- Tiny diffs are exceptional and only acceptable for explicit surgical repairs or localized blockers.
+- For system tasks, done means implementation + integration + docs + tests + typing + relevant proof/capability/matrix wiring + validation.
+- Do not report "feature exists but full matrix not run" as done.
+- Do not defer docs/proof bundle/capability registry/matrix integration to follow-up unless explicitly instructed.
+- If adjacent integration fallout is required to land the subsystem, fix it in the same task.
+- Run relevant matrix/checks before final reporting; if validation fails, continue feasible checks, classify failures, and fix failures caused by the task.
+- Preserve runtime authority boundaries; workflow/documentation/governance prompts may explicitly authorize `AGENTS.md`, `docs/`, `tests/`, and matrix-script edits.
+
+#### System-task completion contract (when relevant)
+A system task is not complete until the following are satisfied as applicable:
+- API/module implemented.
+- Operator-facing CLI present.
+- Deterministic artifacts produced.
+- Docs updated.
+- Tests added/updated.
+- Typed surface passing.
+- Capability registry integration complete.
+- Reviewer proof-bundle integration complete.
+- Matrix-runner integration complete.
+- Safety/boundary proofs present.
+- Full relevant validation matrix run.
+- Adjacent fallout caused by the task fixed.
+- Remaining failures classified as pre-existing, external, or environment/bootstrap.
+
+Use the linked guidance for task shaping and landing posture:
+- `docs/development/codex_whole_system_task_template.md`
+- `docs/development/codex_narrow_repair_task_template.md`
+- `docs/development/codex_validation_and_landing_contract.md`
+
 ### Procedure-Required Actions
 - Any invocation of `bless`, `animate`, or `reflect` must write a corresponding
   entry to `/logs/privileges/`.

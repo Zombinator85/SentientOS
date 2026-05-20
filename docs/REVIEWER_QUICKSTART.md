@@ -43,3 +43,11 @@ codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).
 
 SentientOS prioritizes operator accountability, auditability, and safe
 shutdown.
+
+
+## Codex landing doctrine and templates
+- Root doctrine: [`AGENTS.md` Codex operating instructions](../AGENTS.md)
+- Whole-system task template: [`docs/development/codex_whole_system_task_template.md`](development/codex_whole_system_task_template.md)
+- Narrow-repair template: [`docs/development/codex_narrow_repair_task_template.md`](development/codex_narrow_repair_task_template.md)
+- Validation/landing contract: [`docs/development/codex_validation_and_landing_contract.md`](development/codex_validation_and_landing_contract.md)
+- Validation matrix runner: [`scripts/run_work_item_review_packet_matrix.py`](../scripts/run_work_item_review_packet_matrix.py)
