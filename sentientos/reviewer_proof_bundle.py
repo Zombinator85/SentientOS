@@ -134,6 +134,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "workspace_change_set_lifecycle_orchestration_capability",
         "work_item_lifecycle_dry_run_adapter_capability",
         "work_item_promotion_gate_capability",
+        "work_item_operator_admission_review_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -179,6 +180,7 @@ BUNDLE_FILE_NAMES = {
     "workspace_change_set_lifecycle_orchestration_capability": "workspace_change_set_lifecycle_orchestration_capability.json",
     "work_item_lifecycle_dry_run_adapter_capability": "work_item_lifecycle_dry_run_adapter_capability.json",
     "work_item_promotion_gate_capability": "work_item_promotion_gate_capability.json",
+    "work_item_operator_admission_review_capability": "work_item_operator_admission_review_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -999,6 +1001,21 @@ def build_reviewer_proof_bundle_payload(
             "does_not_execute_agents": True,
             "does_not_mutate_branch_pr_issue": True,
             "does_not_invoke_network_provider_prompt_subprocess_shell": True,
+        }),
+        "work_item_operator_admission_review_capability": _pretty_json({
+            "metadata_only": True,
+            "reviewer_proof_only": True,
+            "capability_id": "work_item_operator_admission_review",
+            "capability_category": "task_work_item_operator_admission_review",
+            "status": "implemented",
+            "authority_level": "metadata-admission-only",
+            "proof_command_status": "proof_command_not_run",
+            "proof_command": "python scripts/build_operator_admission_review.py --promotion-dossier <promotion.json> --summary",
+            "cli_entry": "scripts/build_operator_admission_review.py",
+            "matrix_runner_coverage": "scripts/run_work_item_review_packet_matrix.py:operator_admission_review_tests",
+            "docs_reference": "docs/architecture/task_work_item_operator_admission_review_wing.md",
+            "blocked_or_deferred_surfaces": ["workspace admission invocation", "preflight", "execution", "verification", "lifecycle closure"],
+            "non_authority_boundary_summary": "Operator admission review packet is metadata-only and never authorization."
         }),
         "proof_command_manifest": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "default_execution": "not_run", "commands": [record.to_dict() for record in commands]}),
         "local_diagnostic_effect_capability": _pretty_json({
