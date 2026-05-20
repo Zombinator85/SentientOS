@@ -957,3 +957,9 @@ def test_workspace_change_set_lifecycle_orchestration_registry_marks_bounded_and
     assert updated["workspace_change_set_lifecycle_orchestration"].metadata_only is True
     for capability_id in ["general_filesystem_access", "general_cleanup", "recursive_delete", "wildcard_delete", "unrelated_file_delete", "workspace_change_set_unbounded_execution", "workspace_change_set_bulk_cleanup", "network_egress", "provider_invocation", "prompt_assembly", "subprocess_runner", "shell_runner", "real_fan_pwm_control", "real_thermal_actuation", "real_power_profile_mutation", "real_service_restart", "package_install", "driver_install"]:
         assert updated[capability_id].status in {"blocked", "deferred"}
+
+def test_work_item_promotion_gate_capability_is_metadata_only() -> None:
+    record = build_default_capability_registry().by_id()["work_item_promotion_gate"]
+    assert record.status == "implemented"
+    assert record.authority_level == "packet_only"
+    assert record.host_actuation_performed is False
