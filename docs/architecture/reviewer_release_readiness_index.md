@@ -5,6 +5,18 @@ The [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs
 
 Reviewers can generate the local non-mutating host-embodiment proof archive with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`; see [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). It uses fake/sample telemetry by default, performs no live host collection by default, and performs no host mutation.
 
+
+## Codex whole-system landing doctrine
+For Codex workflow/governance tasks, review the root doctrine and linked templates:
+
+- `AGENTS.md` (Codex Agent Operating Instructions + Whole-System Codex Operating Doctrine)
+- `docs/development/codex_whole_system_task_template.md`
+- `docs/development/codex_narrow_repair_task_template.md`
+- `docs/development/codex_validation_and_landing_contract.md`
+- `scripts/run_work_item_review_packet_matrix.py`
+
+These define whole-system default landing posture, narrow-repair exception posture, and validation/failure-classification reporting contract.
+
 ## What this index is
 
 This is a reviewer-facing map of the currently implemented proof surfaces for the
