@@ -160,7 +160,7 @@ def evaluate_operator_execution_review(request: OperatorExecutionReviewRequest, 
         operation_types=operation_types, proposed_paths_summary=path_summary, preflight_blockers=_tuple(pr.get("preflight_blocker_codes")), preflight_warnings=tuple(sorted(warnings)),
         execution_attempt_preconditions=("human_operator_review_required", "preflight_packet_accepted"), execution_attempt_blockers=tuple(sorted(blockers)), execution_attempt_warnings=tuple(sorted(warnings)),
         rollback_review_requirements=("review_rollback_policy_before_execution",), operator_acknowledgements=_tuple(pr.get("operator_acknowledgements")), operator_checklist=tuple(checklist),
-        evidence_references=tuple(sorted(set(_tuple(pr.get("evidence_references")) | {"preflight_run_packet", "proposal"}))), artifact_references=_tuple(pr.get("artifact_references")),
+        evidence_references=tuple(sorted(set(_tuple(pr.get("evidence_references"))) | {"preflight_run_packet", "proposal"})), artifact_references=_tuple(pr.get("artifact_references")),
         candidate_manual_execution_command=cmd, explicit_non_authority_boundaries=tuple(pr.get("explicit_non_authority_boundaries") or EXPLICIT_NON_AUTHORITY_BOUNDARIES)
     )
     return OperatorExecutionReviewResult(status=status, packet=packet)
