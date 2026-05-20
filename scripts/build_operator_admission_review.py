@@ -1,7 +1,7 @@
 from __future__ import annotations
 import argparse, json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from sentientos.work_item_operator_admission_review import (
     OperatorAdmissionReviewPolicy, OperatorAdmissionReviewRequest, evaluate_operator_admission_review, write_operator_admission_review_packet,
 )
@@ -9,7 +9,7 @@ from sentientos.work_item_operator_admission_review import (
 def _load(path: Path | None) -> dict[str, Any] | None:
     if path is None:
         return None
-    return json.loads(path.read_text(encoding='utf-8'))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding='utf-8')))
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description='Build metadata-only operator admission review packet from promotion dossier')
