@@ -571,3 +571,11 @@ def test_reviewer_bundle_includes_work_item_operator_confirmed_preflight_run_cap
     artifacts = build_reviewer_proof_bundle_payload()["artifacts"]
     assert "work_item_operator_confirmed_preflight_run_capability" in artifacts
     assert "work_item_operator_confirmed_preflight_run" in artifacts["work_item_operator_confirmed_preflight_run_capability"]
+
+def test_reviewer_bundle_includes_work_item_operator_execution_review_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "work_item_operator_execution_review_capability" in artifacts
+    text = artifacts["work_item_operator_execution_review_capability"]
+    assert '"capability_id": "work_item_operator_execution_review"' in text
+    assert "build_operator_execution_review.py" in text
