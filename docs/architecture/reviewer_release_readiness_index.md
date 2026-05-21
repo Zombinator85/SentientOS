@@ -385,3 +385,5 @@ See `docs/architecture/task_work_item_operator_lifecycle_closure_review_wing.md`
 - [Operator Confirmed Execution Run Wing](task_work_item_operator_confirmed_execution_run_wing.md)
 - [Operator Confirmed Verification Run Wing](task_work_item_operator_confirmed_verification_run_wing.md)
 - [Operator Lifecycle Closure Review Wing](task_work_item_operator_lifecycle_closure_review_wing.md)
+
+- docs/architecture/task_work_item_operator_confirmed_lifecycle_closure_run_wing.md
