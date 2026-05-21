@@ -94,3 +94,8 @@ def test_matrix_includes_operator_lifecycle_closure_review_steps() -> None:
     labels = [c.label for c in matrix.default_matrix_commands()]
     assert "operator_lifecycle_closure_review_tests" in labels
 
+
+
+def test_matrix_includes_operator_confirmed_lifecycle_closure_run_steps() -> None:
+    labels = [c.label for c in matrix.default_matrix_commands()]
+    assert "operator_confirmed_lifecycle_closure_run_tests" in labels
