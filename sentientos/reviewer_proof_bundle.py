@@ -1055,7 +1055,6 @@ def build_reviewer_proof_bundle_payload(
 
         "work_item_operator_execution_review_capability": _pretty_json({
             "artifact_kind": "work_item_operator_execution_review_capability",
-        "work_item_operator_confirmed_execution_run_capability",
             "capability_id": "work_item_operator_execution_review",
             "category": "task_work_item_operator_execution_review",
             "status": "implemented",

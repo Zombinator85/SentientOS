@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from sentientos.work_item_intake import EXPLICIT_NON_AUTHORITY_BOUNDARIES
 from sentientos.workspace_change_set_execution import run_workspace_change_set_execution_wing
@@ -115,7 +115,8 @@ def evaluate_operator_confirmed_execution(request: OperatorConfirmedExecutionReq
         status = "execution_run_completed"; warnings.add("review_only_execution_not_invoked")
     else:
         invoke = True
-        wing = run_workspace_change_set_execution_wing(proposal=dict(request.proposal), workspace_root=str(request.workspace_root))
+        runner = cast(Any, run_workspace_change_set_execution_wing)
+        wing = runner(proposal=dict(request.proposal), workspace_root=str(request.workspace_root))
         wing_status = str(wing.get("status") or wing.get("result", {}).get("execution_status") or "")
         warnings |= set(_tuple(wing.get("warning_codes")))
         blockers |= set(_tuple(wing.get("blocker_codes")))

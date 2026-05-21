@@ -147,6 +147,7 @@ AUTHORITY_LEVELS = frozenset(
         "read-only-verification",
         "metadata_lifecycle_closure_only",
         "bounded_workspace_file_orchestration",
+        "bounded_workspace_execution",
         "bounded_lifecycle_orchestration",
         "single_target_workspace_update_orchestration",
         "single_target_workspace_update_exact_rollback_orchestration",
