@@ -579,3 +579,12 @@ def test_reviewer_bundle_includes_work_item_operator_execution_review_capability
     text = artifacts["work_item_operator_execution_review_capability"]
     assert '"capability_id": "work_item_operator_execution_review"' in text
     assert "build_operator_execution_review.py" in text
+
+
+def test_reviewer_bundle_includes_work_item_operator_lifecycle_closure_review_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "work_item_operator_lifecycle_closure_review_capability" in artifacts
+    text = artifacts["work_item_operator_lifecycle_closure_review_capability"]
+    assert "work_item_operator_lifecycle_closure_review" in text
+    assert "build_operator_lifecycle_closure_review.py" in text

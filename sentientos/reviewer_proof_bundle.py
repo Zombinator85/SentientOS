@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.capability_registry import build_default_capability_registry, summarize_capability_registry
+from sentientos.work_item_intake import EXPLICIT_NON_AUTHORITY_BOUNDARIES
 from sentientos.host_embodiment_trace import build_host_embodiment_demo_trace, summarize_host_embodiment_trace
 from sentientos.host_actuation_safety import build_safety_gates_for_domain, summarize_safety_gate_satisfaction_manifest
 from sentientos.live_grant_readiness import (
@@ -140,6 +141,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "work_item_operator_execution_review_capability",
         "work_item_operator_confirmed_execution_run_capability",
         "work_item_operator_confirmed_verification_run_capability",
+        "work_item_operator_lifecycle_closure_review_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -191,6 +193,7 @@ BUNDLE_FILE_NAMES = {
     "work_item_operator_execution_review_capability": "work_item_operator_execution_review_capability.json",
     "work_item_operator_confirmed_execution_run_capability": "work_item_operator_confirmed_execution_run_capability.json",
     "work_item_operator_confirmed_verification_run_capability": "work_item_operator_confirmed_verification_run_capability.json",
+    "work_item_operator_lifecycle_closure_review_capability": "work_item_operator_lifecycle_closure_review_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1084,6 +1087,7 @@ def build_reviewer_proof_bundle_payload(
             "non_authority_boundaries": ["execution invocation only", "never verification or lifecycle closure"],
         }),
 
+        "work_item_operator_lifecycle_closure_review_capability": _pretty_json({"artifact_kind": "work_item_operator_lifecycle_closure_review_capability", "capability_id": "work_item_operator_lifecycle_closure_review", "category": "task_work_item_operator_lifecycle_closure_review", "status": "implemented", "authority_level": "review_packet_only", "proof_command_not_run": True, "cli_reference": "scripts/build_operator_lifecycle_closure_review.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_operator_lifecycle_closure_review_wing.md", "deferred_surfaces": ["lifecycle closure invocation", "lifecycle orchestration", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "work_item_operator_confirmed_verification_run_capability": _pretty_json({
             "artifact_kind": "work_item_operator_confirmed_verification_run_capability",
             "capability_id": "work_item_operator_confirmed_verification_run",
