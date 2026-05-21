@@ -379,3 +379,5 @@ See `docs/architecture/task_work_item_operator_confirmed_admission_run_wing.md`.
 See `docs/architecture/task_work_item_operator_confirmed_preflight_run_wing.md`.
 
 See `docs/architecture/task_work_item_operator_execution_review_wing.md`.
+
+- [Operator Confirmed Execution Run Wing](task_work_item_operator_confirmed_execution_run_wing.md)
