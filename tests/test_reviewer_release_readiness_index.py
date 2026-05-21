@@ -751,3 +751,8 @@ def test_readiness_index_mentions_operator_confirmed_preflight_run_wing() -> Non
     from pathlib import Path
     index = Path("docs/architecture/reviewer_release_readiness_index.md").read_text(encoding="utf-8")
     assert "task_work_item_operator_confirmed_preflight_run_wing.md" in index
+
+
+def test_readiness_index_links_operator_lifecycle_closure_review_doc() -> None:
+    index = _read(READINESS_INDEX)
+    assert "task_work_item_operator_lifecycle_closure_review_wing.md" in index

@@ -969,3 +969,9 @@ def test_registry_has_operator_confirmed_preflight_run() -> None:
     from sentientos.capability_registry import build_default_capability_registry
     ids = {r.capability_id for r in build_default_capability_registry().records}
     assert "work_item_operator_confirmed_preflight_run" in ids
+
+
+def test_registry_includes_operator_lifecycle_closure_review_capability() -> None:
+    record = build_default_capability_registry().by_id()["work_item_operator_lifecycle_closure_review"]
+    assert record.authority_level == "review_packet_only"
+    assert "lifecycle closure invocation" in record.deferred_surfaces
