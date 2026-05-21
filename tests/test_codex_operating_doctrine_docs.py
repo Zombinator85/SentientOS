@@ -15,6 +15,9 @@ def test_agents_mentions_whole_system_doctrine_and_links() -> None:
     assert "complete bounded subsystem" in agents
     assert "Tiny diffs are exceptional" in agents
     assert "full matrix not run" in agents
+    assert "after the final task-caused code/doc/test change" in agents
+    assert "No post-landing stabilization churn" in agents
+    assert "If you want, I can run the full matrix now" in agents
     assert "proof-bundle" in agents
     assert "capability registry" in agents
     for path in [
@@ -50,9 +53,12 @@ def test_templates_exist_and_have_required_sections() -> None:
         assert section in whole
     assert "Think in systems." in whole
     assert "Do not return piddly diffs" in whole
+    assert "After the last task-caused code/doc/test change" in whole
+    assert "Do not create PR metadata" in whole
 
     narrow = _read("docs/development/codex_narrow_repair_task_template.md")
     assert "Narrow repairs are exceptional" in narrow
+    assert "must not be used to defer task-caused subsystem fallout" in narrow
     assert "exact command" in narrow.lower() or "exact failure" in narrow.lower()
 
 
@@ -61,6 +67,11 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
     assert "continue running remaining feasible commands" in contract
     assert "failure as one of" in contract
     assert "Feature exists but full matrix not run" in contract
+    assert "Required order is strict" in contract
+    assert "1. Make the final task-caused code/doc/test change." in contract
+    assert "2. Run the full relevant validation matrix" in contract
+    assert "3. Only then produce final report and PR metadata." in contract
+    assert "If you want, I can run the full matrix now" in contract
 
     quick = _read("docs/REVIEWER_QUICKSTART.md")
     index = _read("docs/architecture/reviewer_release_readiness_index.md")

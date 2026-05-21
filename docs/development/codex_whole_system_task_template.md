@@ -5,6 +5,9 @@
 - Land the complete subsystem.
 - Fix validation fallout caused by the work.
 - Do not stop at local green.
+- After the last task-caused code/doc/test change, run the full relevant validation matrix again before finalization.
+- Do not create PR metadata or final "done" reporting before that post-final-change full matrix run passes.
+- Returning "If you want, I can run the full matrix now" is non-compliant for system tasks once finalization has started.
 - Do not return piddly diffs for subsystem tasks.
 - Do not leave proof bundle, capability registry, docs, or matrix integration for follow-up unless explicitly instructed.
 
@@ -54,10 +57,10 @@ Re-state no authority widening and no forbidden runtime semantics.
 List full relevant command matrix, not only local targeted tests.
 
 ## Failure handling
-Continue remaining feasible checks after failures, classify failures, and fix failures caused by this task.
+Continue remaining feasible checks after failures, classify failures, and fix failures caused by this task. Task-caused fallout discovered by the matrix must be fixed in this same task, not deferred to stabilization follow-ups.
 
 ## Done when
-Subsystem landing is complete only when implementation, integration, docs, tests, typing, proof/capability/matrix wiring, and relevant matrix validation are complete.
+Subsystem landing is complete only when implementation, integration, docs, tests, typing, proof/capability/matrix wiring, and relevant matrix validation are complete. Non-compliant outcomes include: "feature exists but full matrix not run," creating PR metadata before the post-final-change full matrix run, or proposing follow-up stabilization PRs for task-caused fallout.
 
 ## Final report format
-Include: files changed, validation command outcomes, failure classification, matrix summary/output paths, and unresolved risks.
+Include: files changed, validation command outcomes, failure classification, matrix summary/output paths, and unresolved risks. Final report/PR metadata order is strict: final task-caused change -> full matrix run -> final report and PR metadata.

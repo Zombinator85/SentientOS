@@ -98,6 +98,9 @@ unless explicitly marked **sealed** or **deprecated**.
 - Do not defer docs/proof bundle/capability registry/matrix integration to follow-up unless explicitly instructed.
 - If adjacent integration fallout is required to land the subsystem, fix it in the same task.
 - Run relevant matrix/checks before final reporting; if validation fails, continue feasible checks, classify failures, and fix failures caused by the task.
+- No post-landing stabilization churn: after the final task-caused code/doc/test change, run the full relevant validation matrix before any done-reporting or PR metadata creation.
+- Do not create PR metadata, say "feature exists but full matrix not run," or say "If you want, I can run the full matrix now" for a system task before that post-final-change matrix run completes.
+- Follow-up stabilization PRs for task-caused fallout are a failure mode; fix that fallout in the same task. Tiny stabilization diffs are acceptable only for pre-existing, external, environment/bootstrap issues, or explicitly requested narrow repairs.
 - Preserve runtime authority boundaries; workflow/documentation/governance prompts may explicitly authorize `AGENTS.md`, `docs/`, `tests/`, and matrix-script edits.
 
 #### System-task completion contract (when relevant)
