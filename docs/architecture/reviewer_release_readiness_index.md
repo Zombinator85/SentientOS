@@ -405,3 +405,10 @@ See `docs/architecture/task_work_item_lifecycle_completion_verifier_wing.md`.
 
 See `docs/architecture/task_work_item_lifecycle_final_attestation_wing.md`.
 
+
+
+### Work Item Lifecycle Attestation Index
+
+`sentientos/work_item_lifecycle_attestation_index.py` and `scripts/build_work_item_lifecycle_attestation_index.py` provide deterministic metadata-only indexing of lifecycle final attestation bundles.
+
+See `docs/architecture/task_work_item_lifecycle_attestation_index_wing.md`.
