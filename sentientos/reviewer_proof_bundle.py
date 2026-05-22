@@ -145,6 +145,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "work_item_lifecycle_completion_dossier_capability",
         "work_item_lifecycle_completion_verifier_capability",
         "work_item_lifecycle_final_attestation_capability",
+        "work_item_lifecycle_attestation_index_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -200,6 +201,7 @@ BUNDLE_FILE_NAMES = {
     "work_item_lifecycle_completion_dossier_capability": "work_item_lifecycle_completion_dossier_capability.json",
     "work_item_lifecycle_completion_verifier_capability": "work_item_lifecycle_completion_verifier_capability.json",
     "work_item_lifecycle_final_attestation_capability": "work_item_lifecycle_final_attestation_capability.json",
+    "work_item_lifecycle_attestation_index_capability": "work_item_lifecycle_attestation_index_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1317,7 +1319,9 @@ def build_reviewer_proof_bundle_payload(
         "reviewer_readme": _readme_text(manifest_id, trace.digest),        "work_item_lifecycle_completion_verifier_capability": _pretty_json({"artifact_kind": "work_item_lifecycle_completion_verifier_capability", "capability_id": "work_item_lifecycle_completion_verifier", "category": "task_work_item_lifecycle_completion_verifier", "status": "implemented", "authority_level": "metadata_verification_only", "proof_command_not_run": True, "cli_reference": "scripts/verify_work_item_lifecycle_completion_dossier.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_lifecycle_completion_verifier_wing.md", "blocked_or_deferred_surfaces": ["lifecycle completion dossier generation", "lifecycle closure invocation", "lifecycle orchestration", "workspace admission/preflight/execution/verification", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
 
         "work_item_lifecycle_final_attestation_capability": _pretty_json({"artifact_kind": "work_item_lifecycle_final_attestation_capability", "capability_id": "work_item_lifecycle_final_attestation", "category": "task_work_item_lifecycle_final_attestation", "status": "implemented", "authority_level": "metadata_attestation_only", "proof_command_not_run": True, "cli_reference": "scripts/build_work_item_lifecycle_final_attestation.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_lifecycle_final_attestation_wing.md", "blocked_or_deferred_surfaces": ["lifecycle completion verification", "lifecycle completion dossier generation", "lifecycle closure invocation", "lifecycle orchestration", "workspace admission/preflight/execution/verification", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
-    }
+
+
+        "work_item_lifecycle_attestation_index_capability": _pretty_json({"artifact_kind": "work_item_lifecycle_attestation_index_capability", "capability_id": "work_item_lifecycle_attestation_index", "category": "task_work_item_lifecycle_attestation_index", "status": "implemented", "authority_level": "metadata_attestation_only", "proof_command_not_run": True, "cli_reference": "scripts/build_work_item_lifecycle_attestation_index.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_lifecycle_attestation_index_wing.md", "blocked_or_deferred_surfaces": ["final attestation generation", "lifecycle completion verification", "lifecycle completion dossier generation", "lifecycle closure invocation", "lifecycle orchestration", "workspace admission/preflight/execution/verification", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),    }
     artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())
     # The manifest artifact record describes the canonical manifest payload before
     # the final pretty JSON wrapper is materialized; this avoids recursive digest
