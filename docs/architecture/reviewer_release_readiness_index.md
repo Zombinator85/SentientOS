@@ -416,3 +416,6 @@ See `docs/architecture/task_work_item_lifecycle_final_attestation_wing.md`.
 `sentientos/work_item_lifecycle_attestation_index.py` and `scripts/build_work_item_lifecycle_attestation_index.py` provide deterministic metadata-only indexing of lifecycle final attestation bundles.
 
 See `docs/architecture/task_work_item_lifecycle_attestation_index_wing.md`.
+
+
+Work item lifecycle attestation review digest verification is documented in `docs/architecture/task_work_item_lifecycle_attestation_review_digest_verifier_wing.md` with metadata-verification-only boundaries.
