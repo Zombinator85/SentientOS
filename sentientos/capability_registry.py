@@ -76,6 +76,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "task_work_item_operator_confirmed_verification_run",
         "task_work_item_operator_lifecycle_closure_review",
         "task_work_item_lifecycle_completion_dossier",
+        "task_work_item_lifecycle_completion_verifier",
     }
 )
 CAPABILITY_STATUSES = frozenset({"implemented", "partial", "scaffolded", "deferred", "blocked", "unknown"})
@@ -107,6 +108,7 @@ AUTHORITY_LEVELS = frozenset(
         "revocation_record_only",
         "expiry_evaluation_only",
         "verification_only",
+        "metadata_verification_only",
         "request_only",
         "assessment_only",
         "consumption_receipt_only",
