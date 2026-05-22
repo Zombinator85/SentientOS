@@ -391,3 +391,10 @@ See `docs/architecture/task_work_item_operator_lifecycle_closure_review_wing.md`
 `sentientos/work_item_lifecycle_completion_dossier.py`, `scripts/build_work_item_lifecycle_completion_dossier.py`, `tests/test_work_item_lifecycle_completion_dossier.py`, and `tests/test_build_work_item_lifecycle_completion_dossier_script.py` provide deterministic metadata-only lifecycle completion dossier generation from closure-run evidence and optional supporting chain packets.
 
 See `docs/architecture/task_work_item_lifecycle_completion_dossier_wing.md`.
+
+
+### Work Item Lifecycle Completion Verifier
+
+`sentientos/work_item_lifecycle_completion_verifier.py` and `scripts/verify_work_item_lifecycle_completion_dossier.py` provide deterministic metadata-only lifecycle completion dossier verification with optional supplied-stage digest/status/work-item alignment checks and explicit non-authority boundaries.
+
+See `docs/architecture/task_work_item_lifecycle_completion_verifier_wing.md`.
