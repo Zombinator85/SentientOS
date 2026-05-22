@@ -387,3 +387,7 @@ See `docs/architecture/task_work_item_operator_lifecycle_closure_review_wing.md`
 - [Operator Lifecycle Closure Review Wing](task_work_item_operator_lifecycle_closure_review_wing.md)
 
 - docs/architecture/task_work_item_operator_confirmed_lifecycle_closure_run_wing.md
+
+`sentientos/work_item_lifecycle_completion_dossier.py`, `scripts/build_work_item_lifecycle_completion_dossier.py`, `tests/test_work_item_lifecycle_completion_dossier.py`, and `tests/test_build_work_item_lifecycle_completion_dossier_script.py` provide deterministic metadata-only lifecycle completion dossier generation from closure-run evidence and optional supporting chain packets.
+
+See `docs/architecture/task_work_item_lifecycle_completion_dossier_wing.md`.

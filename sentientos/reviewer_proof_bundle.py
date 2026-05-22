@@ -142,6 +142,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "work_item_operator_confirmed_execution_run_capability",
         "work_item_operator_confirmed_verification_run_capability",
         "work_item_operator_lifecycle_closure_review_capability",
+        "work_item_lifecycle_completion_dossier_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -194,6 +195,7 @@ BUNDLE_FILE_NAMES = {
     "work_item_operator_confirmed_execution_run_capability": "work_item_operator_confirmed_execution_run_capability.json",
     "work_item_operator_confirmed_verification_run_capability": "work_item_operator_confirmed_verification_run_capability.json",
     "work_item_operator_lifecycle_closure_review_capability": "work_item_operator_lifecycle_closure_review_capability.json",
+    "work_item_lifecycle_completion_dossier_capability": "work_item_lifecycle_completion_dossier_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1088,6 +1090,7 @@ def build_reviewer_proof_bundle_payload(
         }),
 
         "work_item_operator_lifecycle_closure_review_capability": _pretty_json({"artifact_kind": "work_item_operator_lifecycle_closure_review_capability", "capability_id": "work_item_operator_lifecycle_closure_review", "category": "task_work_item_operator_lifecycle_closure_review", "status": "implemented", "authority_level": "review_packet_only", "proof_command_not_run": True, "cli_reference": "scripts/build_operator_lifecycle_closure_review.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_operator_lifecycle_closure_review_wing.md", "deferred_surfaces": ["lifecycle closure invocation", "lifecycle orchestration", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
+        "work_item_lifecycle_completion_dossier_capability": _pretty_json({"artifact_kind": "work_item_lifecycle_completion_dossier_capability", "capability_id": "work_item_lifecycle_completion_dossier", "category": "task_work_item_lifecycle_completion_dossier", "status": "implemented", "authority_level": "metadata_ledger_only", "proof_command_not_run": True, "cli_reference": "scripts/build_work_item_lifecycle_completion_dossier.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/task_work_item_lifecycle_completion_dossier_wing.md", "deferred_surfaces": ["lifecycle closure invocation", "lifecycle orchestration", "workspace admission/preflight/execution/verification", "rollback", "cleanup", "workspace mutation", "scheduler/live tracker", "agent execution", "branch/pr/issue mutation", "network/provider/prompt/subprocess/shell"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "work_item_operator_confirmed_verification_run_capability": _pretty_json({
             "artifact_kind": "work_item_operator_confirmed_verification_run_capability",
             "capability_id": "work_item_operator_confirmed_verification_run",
