@@ -398,3 +398,10 @@ See `docs/architecture/task_work_item_lifecycle_completion_dossier_wing.md`.
 `sentientos/work_item_lifecycle_completion_verifier.py` and `scripts/verify_work_item_lifecycle_completion_dossier.py` provide deterministic metadata-only lifecycle completion dossier verification with optional supplied-stage digest/status/work-item alignment checks and explicit non-authority boundaries.
 
 See `docs/architecture/task_work_item_lifecycle_completion_verifier_wing.md`.
+
+### Work Item Lifecycle Final Attestation
+
+`sentientos/work_item_lifecycle_final_attestation.py` and `scripts/build_work_item_lifecycle_final_attestation.py` provide deterministic metadata-only final attestation bundle generation from lifecycle completion dossier + completion verification report evidence.
+
+See `docs/architecture/task_work_item_lifecycle_final_attestation_wing.md`.
+
