@@ -595,3 +595,12 @@ def test_review_digest_capability_artifact_present() -> None:
     kinds = {a.artifact_kind for a in payload["manifest"].artifact_records}
     assert "work_item_lifecycle_attestation_review_digest_capability" in kinds
 
+
+def test_review_digest_verifier_capability_artifact_present() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "work_item_lifecycle_attestation_review_digest_verifier_capability" in artifacts
+    assert "work_item_lifecycle_attestation_review_digest_verifier_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["work_item_lifecycle_attestation_review_digest_verifier_capability"]
+    assert '"capability_id": "work_item_lifecycle_attestation_review_digest_verifier"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
