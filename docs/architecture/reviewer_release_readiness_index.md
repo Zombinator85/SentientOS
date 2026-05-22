@@ -94,6 +94,8 @@ See `docs/architecture/task_work_item_lifecycle_handoff_planner_wing.md`.
 
 See `docs/architecture/task_work_item_lifecycle_dry_run_adapter_wing.md`.
 
+Work item lifecycle attestation index verification is documented in `docs/architecture/task_work_item_lifecycle_attestation_index_verifier_wing.md` with metadata-only authority boundaries.
+
 ### Docs build reliability
 
 `tests/test_build_docs_tooling.py`, `python scripts/build_docs.py --check-deps`,
