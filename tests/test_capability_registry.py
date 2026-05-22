@@ -975,3 +975,10 @@ def test_registry_includes_operator_lifecycle_closure_review_capability() -> Non
     record = build_default_capability_registry().by_id()["work_item_operator_lifecycle_closure_review"]
     assert record.authority_level == "review_packet_only"
     assert "lifecycle closure invocation" in record.deferred_surfaces
+
+
+def test_review_digest_capability_registered() -> None:
+    record = build_default_capability_registry().by_id()["work_item_lifecycle_attestation_review_digest"]
+    assert record.category == "task_work_item_lifecycle_attestation_review_digest"
+    assert record.authority_level == "metadata_digest_only"
+

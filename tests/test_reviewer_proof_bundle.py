@@ -588,3 +588,10 @@ def test_reviewer_bundle_includes_work_item_operator_lifecycle_closure_review_ca
     text = artifacts["work_item_operator_lifecycle_closure_review_capability"]
     assert "work_item_operator_lifecycle_closure_review" in text
     assert "build_operator_lifecycle_closure_review.py" in text
+
+
+def test_review_digest_capability_artifact_present() -> None:
+    payload = build_reviewer_proof_bundle_payload()
+    kinds = {a.artifact_kind for a in payload["manifest"].artifact_records}
+    assert "work_item_lifecycle_attestation_review_digest_capability" in kinds
+
