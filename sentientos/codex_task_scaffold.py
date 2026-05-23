@@ -6,6 +6,7 @@ import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Sequence
+from sentientos.codex_task_scaffold_presets import get_preset, list_preset_ids
 
 STATUSES = frozenset({
     "codex_task_scaffold_ready",
@@ -121,13 +122,15 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     if request.prompt_mode == "whole_system" and not (request.new_module_path or request.new_cli_path or request.expected_test_paths or request.expected_doc_paths):
         warnings.append("whole_system_paths_missing")
 
+    preset = get_preset(request.subsystem_kind) if request.subsystem_kind in list_preset_ids() else None
     validation_commands = _norm(request.validation_commands or DEFAULT_VALIDATION_COMMANDS)
+    deliverables = _norm(request.deliverables or (preset.default_deliverables if preset else ()))
     expected_files = _norm(request.new_module_path + request.new_cli_path)
     expected_tests = _norm(request.expected_test_paths)
     expected_docs = _norm(request.expected_doc_paths)
-    forbidden = _norm(request.forbidden_behaviors or (
+    forbidden = _norm(request.forbidden_behaviors or (preset.default_forbidden_surfaces if preset else (
         "Do not invoke Codex.", "Do not call OpenAI/provider APIs.", "Do not call GitHub APIs.", "Do not invoke shell/subprocess from library code.",
-    ))
+    )))
     required_integrations = _norm(
         tuple(x for x, enabled in (
             ("capability_registry", request.require_capability_registry),
@@ -153,6 +156,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "If no changes are required, do not fabricate commit/PR metadata.\n"
             f"Goal: {request.task_goal}\nRepair target: {request.task_name} ({request.subsystem_kind})."
         )
+    final_report_contract = _norm(preset.default_final_report_items) if preset else ("exact files changed", "full command matrix results", "unresolved risks")
     payload = {
         "task_name": request.task_name,
         "task_goal": request.task_goal,
@@ -161,6 +165,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         "prompt": prompt,
         "validation_commands": validation_commands,
         "expected_files": expected_files,
+        "deliverables": deliverables,
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     scaffold = CodexTaskScaffold(
@@ -177,7 +182,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         expected_docs=expected_docs,
         required_integrations=required_integrations,
         forbidden_surfaces=forbidden,
-        final_report_contract=("exact files changed", "full command matrix results", "unresolved risks"),
+        final_report_contract=final_report_contract,
         commit_pr_title=request.commit_title,
         doctrine_references=("AGENTS.md", "docs/development/codex_whole_system_task_template.md", "docs/development/codex_validation_and_landing_contract.md"),
         artifact_references=("json_scaffold", "prompt_text"),

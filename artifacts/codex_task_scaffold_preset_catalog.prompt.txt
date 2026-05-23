@@ -1,0 +1,6 @@
+Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.
+Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.
+Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.
+Do not create PR metadata before green final validation.
+Goal: Add deterministic preset profiles for common SentientOS Codex subsystem types so the scaffold generator can expand compact task metadata into doctrine-compliant default deliverables, validation expectations, forbidden surfaces, and report contracts.
+Subsystem: Codex Task Scaffold Preset Catalog (developer_workflow_metadata).
