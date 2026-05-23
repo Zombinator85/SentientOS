@@ -1,0 +1,516 @@
+{
+  "command_count": 32,
+  "required_failure_count": 0,
+  "required_failures": [],
+  "results": [
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_review_packet.py",
+        "tests/test_build_work_item_review_packet_script.py"
+      ],
+      "duration_seconds": 3.38,
+      "exit_code": 0,
+      "label": "review_packet_tests",
+      "output_tail": "ssssss                                                                   [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_205df204b0eb4e00b01df795c5115a96.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_review_packet.py tests/test_build_work_item_review_packet_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_authority_claims.py",
+        "tests/test_work_item_dry_run_closure.py",
+        "tests/test_build_work_item_dry_run_closure_script.py"
+      ],
+      "duration_seconds": 3.459,
+      "exit_code": 0,
+      "label": "authority_closure_tests",
+      "output_tail": "ssssssssssssssssssss                                                     [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_3e2127b3b8b14838a10707dd6d7e048b.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_authority_claims.py tests/test_work_item_dry_run_closure.py tests/test_build_work_item_dry_run_closure_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_dry_run_adapter.py",
+        "tests/test_run_work_item_dry_run_script.py"
+      ],
+      "duration_seconds": 3.373,
+      "exit_code": 0,
+      "label": "dry_run_adapter_tests",
+      "output_tail": "ssssssssssssssssssssssssssss                                             [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_6a08009b7a68480b994fa2f3053766af.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_dry_run_adapter.py tests/test_run_work_item_dry_run_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_handoff.py",
+        "tests/test_plan_work_item_handoff_script.py"
+      ],
+      "duration_seconds": 3.161,
+      "exit_code": 0,
+      "label": "handoff_tests",
+      "output_tail": "sssssss                                                                  [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_fac45fe696814776afa180af49a57b8c.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_handoff.py tests/test_plan_work_item_handoff_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_intake.py",
+        "tests/test_intake_work_item_script.py"
+      ],
+      "duration_seconds": 3.374,
+      "exit_code": 0,
+      "label": "intake_tests",
+      "output_tail": "ssssssssss                                                               [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_0e313b74206446078116fe2c35980710.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_intake.py tests/test_intake_work_item_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_promotion_gate.py",
+        "tests/test_evaluate_work_item_promotion_script.py"
+      ],
+      "duration_seconds": 3.291,
+      "exit_code": 0,
+      "label": "promotion_gate_tests",
+      "output_tail": "sssssss                                                                  [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_075f44fa39d741e186d8f5edc224aaf7.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_promotion_gate.py tests/test_evaluate_work_item_promotion_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_operator_admission_review.py",
+        "tests/test_build_operator_admission_review_script.py"
+      ],
+      "duration_seconds": 3.237,
+      "exit_code": 0,
+      "label": "operator_admission_review_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_e4d3caeb10d54ab3a12ada2803f271d2.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_operator_admission_review.py tests/test_build_operator_admission_review_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_admission_run.py",
+        "tests/test_run_operator_confirmed_admission_script.py"
+      ],
+      "duration_seconds": 3.166,
+      "exit_code": 0,
+      "label": "operator_confirmed_admission_run_tests",
+      "output_tail": "sssssssss                                                                [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_5cdcc9615434404babafa6ec1e526691.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_admission_run.py tests/test_run_operator_confirmed_admission_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_preflight_run.py",
+        "tests/test_run_operator_confirmed_preflight_script.py"
+      ],
+      "duration_seconds": 3.261,
+      "exit_code": 0,
+      "label": "operator_confirmed_preflight_run_tests",
+      "output_tail": "ssssssss                                                                 [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_2d332b28ecff4f2782adace70151f70d.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_preflight_run.py tests/test_run_operator_confirmed_preflight_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_execution_review.py",
+        "tests/test_build_operator_execution_review_script.py"
+      ],
+      "duration_seconds": 3.22,
+      "exit_code": 0,
+      "label": "operator_execution_review_tests",
+      "output_tail": "ssssss                                                                   [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_b2c3c077254a43d5867d28287856573a.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_execution_review.py tests/test_build_operator_execution_review_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_execution_run.py",
+        "tests/test_run_operator_confirmed_execution_script.py"
+      ],
+      "duration_seconds": 3.264,
+      "exit_code": 0,
+      "label": "operator_confirmed_execution_run_tests",
+      "output_tail": "sss                                                                      [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_6af93d1911534875b82ae96975f1a0fe.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_execution_run.py tests/test_run_operator_confirmed_execution_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_verification_run.py",
+        "tests/test_run_operator_confirmed_verification_script.py"
+      ],
+      "duration_seconds": 3.151,
+      "exit_code": 0,
+      "label": "operator_confirmed_verification_run_tests",
+      "output_tail": "sssssss                                                                  [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_c9c7a1dad93e4ca99f57695bfc17976f.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_verification_run.py tests/test_run_operator_confirmed_verification_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_closure_review.py",
+        "tests/test_build_operator_lifecycle_closure_review_script.py"
+      ],
+      "duration_seconds": 3.177,
+      "exit_code": 0,
+      "label": "operator_lifecycle_closure_review_tests",
+      "output_tail": "ssssss                                                                   [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_cb4f1d0e32ab4984b7173dd3a42a12a1.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_closure_review.py tests/test_build_operator_lifecycle_closure_review_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_completion_dossier.py",
+        "tests/test_build_work_item_lifecycle_completion_dossier_script.py"
+      ],
+      "duration_seconds": 3.2,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_completion_dossier_tests",
+      "output_tail": "ssss                                                                     [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_80dda02683d44c23804a4c832b301eb0.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_completion_dossier.py tests/test_build_work_item_lifecycle_completion_dossier_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_codex_task_scaffold_verifier.py",
+        "tests/test_verify_codex_task_scaffold_script.py"
+      ],
+      "duration_seconds": 3.246,
+      "exit_code": 0,
+      "label": "codex_task_scaffold_verifier_tests",
+      "output_tail": "sss                                                                      [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_07a11b2943ff44eb9c73f03a8132ff86.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_codex_task_scaffold_verifier.py tests/test_verify_codex_task_scaffold_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_completion_verifier.py",
+        "tests/test_verify_work_item_lifecycle_completion_dossier_script.py"
+      ],
+      "duration_seconds": 3.218,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_completion_verifier_tests",
+      "output_tail": "ssssss                                                                   [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_4775cc43d2d9486793f41af0a4b157d5.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_completion_verifier.py tests/test_verify_work_item_lifecycle_completion_dossier_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_final_attestation.py",
+        "tests/test_build_work_item_lifecycle_final_attestation_script.py"
+      ],
+      "duration_seconds": 3.187,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_final_attestation_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_7120699f0ca440a9bd49b90eb3e33c34.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_final_attestation.py tests/test_build_work_item_lifecycle_final_attestation_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_index.py",
+        "tests/test_build_work_item_lifecycle_attestation_index_script.py"
+      ],
+      "duration_seconds": 3.109,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_index_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_6931aad8deb84865828efaeb0c2feda0.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_index.py tests/test_build_work_item_lifecycle_attestation_index_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_index_verifier.py",
+        "tests/test_verify_work_item_lifecycle_attestation_index_script.py"
+      ],
+      "duration_seconds": 3.143,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_index_verifier_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_d6a894b7c8754d2cb36dd8070c6cd223.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_index_verifier.py tests/test_verify_work_item_lifecycle_attestation_index_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest.py",
+        "tests/test_build_work_item_lifecycle_attestation_review_digest_script.py"
+      ],
+      "duration_seconds": 3.04,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_review_digest_tests",
+      "output_tail": "ssssssss                                                                 [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_9fc0c96c87c44280b3b1a0176f79037d.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_review_digest.py tests/test_build_work_item_lifecycle_attestation_review_digest_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest_verifier.py",
+        "tests/test_verify_work_item_lifecycle_attestation_review_digest_script.py"
+      ],
+      "duration_seconds": 3.169,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_review_digest_verifier_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_0d5ad226444e4e81b4f0765122fe6a0b.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_review_digest_verifier.py tests/test_verify_work_item_lifecycle_attestation_review_digest_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest_index.py",
+        "tests/test_build_work_item_lifecycle_attestation_review_digest_index_script.py"
+      ],
+      "duration_seconds": 3.143,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_review_digest_index_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_fb083d906b074b4e85fb85d7d4e8d6a4.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_review_digest_index.py tests/test_build_work_item_lifecycle_attestation_review_digest_index_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest_index_verifier.py",
+        "tests/test_verify_work_item_lifecycle_attestation_review_digest_index_script.py"
+      ],
+      "duration_seconds": 3.093,
+      "exit_code": 0,
+      "label": "work_item_lifecycle_attestation_review_digest_index_verifier_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_cf5d89875ce24f71948fee741e4001d6.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_attestation_review_digest_index_verifier.py tests/test_verify_work_item_lifecycle_attestation_review_digest_index_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_closure_run.py",
+        "tests/test_run_operator_confirmed_lifecycle_closure_script.py"
+      ],
+      "duration_seconds": 3.342,
+      "exit_code": 0,
+      "label": "operator_confirmed_lifecycle_closure_run_tests",
+      "output_tail": "sssss                                                                    [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_a0ea8b4b11eb44e8ab490552d38b3380.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_work_item_lifecycle_closure_run.py tests/test_run_operator_confirmed_lifecycle_closure_script.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_capability_registry.py",
+        "tests/test_reviewer_proof_bundle.py",
+        "tests/test_build_reviewer_proof_bundle_script.py",
+        "tests/test_reviewer_release_readiness_index.py",
+        "tests/test_codex_operating_doctrine_docs.py"
+      ],
+      "duration_seconds": 9.112,
+      "exit_code": 0,
+      "label": "proof_bundle_tests",
+      "output_tail": "........................................................................ [ 36%]\n........................................................................ [ 73%]\n................................................sss                      [100%]\n- generated xml file: /workspace/SentientOS/glow/test_runs/pytest_junitxml_2c869265dadf44658d5f64fe3192d9d3.xml -\nrun_tests: python=/root/.pyenv/versions/3.14.4/bin/python install_performed=False editable_ok=true install_mode=none repo_root=/workspace/SentientOS pytest_args=tests/test_capability_registry.py tests/test_reviewer_proof_bundle.py tests/test_build_reviewer_proof_bundle_script.py tests/test_reviewer_release_readiness_index.py tests/test_codex_operating_doctrine_docs.py -q",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "-m",
+        "mypy",
+        "sentientos/work_item_authority_claims.py",
+        "sentientos/work_item_intake.py",
+        "scripts/intake_work_item.py",
+        "sentientos/work_item_lifecycle_handoff.py",
+        "scripts/plan_work_item_handoff.py",
+        "sentientos/work_item_lifecycle_dry_run_adapter.py",
+        "scripts/run_work_item_dry_run.py",
+        "sentientos/work_item_dry_run_closure.py",
+        "scripts/build_work_item_dry_run_closure.py",
+        "sentientos/work_item_review_packet.py",
+        "scripts/build_work_item_review_packet.py",
+        "sentientos/work_item_promotion_gate.py",
+        "scripts/evaluate_work_item_promotion.py",
+        "sentientos/work_item_operator_admission_review.py",
+        "scripts/build_operator_admission_review.py",
+        "sentientos/work_item_admission_run.py",
+        "scripts/run_operator_confirmed_admission.py",
+        "sentientos/work_item_preflight_run.py",
+        "scripts/run_operator_confirmed_preflight.py",
+        "sentientos/work_item_execution_review.py",
+        "scripts/build_operator_execution_review.py",
+        "sentientos/work_item_execution_run.py",
+        "scripts/run_operator_confirmed_execution.py",
+        "sentientos/work_item_verification_run.py",
+        "scripts/run_operator_confirmed_verification.py",
+        "sentientos/work_item_lifecycle_closure_review.py",
+        "scripts/build_operator_lifecycle_closure_review.py",
+        "sentientos/work_item_lifecycle_closure_run.py",
+        "scripts/run_operator_confirmed_lifecycle_closure.py",
+        "sentientos/work_item_lifecycle_completion_dossier.py",
+        "scripts/build_work_item_lifecycle_completion_dossier.py",
+        "sentientos/work_item_lifecycle_completion_verifier.py",
+        "scripts/verify_work_item_lifecycle_completion_dossier.py",
+        "sentientos/codex_task_scaffold_verifier.py",
+        "scripts/verify_codex_task_scaffold.py",
+        "sentientos/work_item_lifecycle_final_attestation.py",
+        "scripts/build_work_item_lifecycle_final_attestation.py",
+        "sentientos/work_item_lifecycle_attestation_index.py",
+        "scripts/build_work_item_lifecycle_attestation_index.py",
+        "sentientos/work_item_lifecycle_attestation_index_verifier.py",
+        "scripts/verify_work_item_lifecycle_attestation_index.py",
+        "sentientos/work_item_lifecycle_attestation_review_digest.py",
+        "scripts/build_work_item_lifecycle_attestation_review_digest.py",
+        "sentientos/work_item_lifecycle_attestation_review_digest_verifier.py",
+        "scripts/verify_work_item_lifecycle_attestation_review_digest.py",
+        "sentientos/work_item_lifecycle_attestation_review_digest_index.py",
+        "scripts/build_work_item_lifecycle_attestation_review_digest_index.py",
+        "sentientos/work_item_lifecycle_attestation_review_digest_index_verifier.py",
+        "scripts/verify_work_item_lifecycle_attestation_review_digest_index.py"
+      ],
+      "duration_seconds": 0.345,
+      "exit_code": 0,
+      "label": "targeted_mypy",
+      "output_tail": "Success: no issues found in 49 source files",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "scripts/check_mypy_baseline.py"
+      ],
+      "duration_seconds": 1.469,
+      "exit_code": 0,
+      "label": "mypy_baseline",
+      "output_tail": "      \"column\": 34,\n      \"line\": 1004,\n      \"message\": \"Incompatible types in assignment (expression has type \\\"dict[str, Any]\\\", target has type \\\"str\\\")\",\n      \"path\": \"codex/amendments.py\"\n    },\n    {\n      \"code\": \"attr-defined\",\n      \"column\": 9,\n      \"line\": 1093,\n      \"message\": \"\\\"SpecAmender\\\" has no attribute \\\"_update_preferences\\\"\",\n      \"path\": \"codex/amendments.py\"\n    },\n    {\n      \"code\": \"attr-defined\",\n      \"column\": 9,\n      \"line\": 1113,\n      \"message\": \"\\\"SpecAmender\\\" has no attribute \\\"_update_preferences\\\"\",\n      \"path\": \"codex/amendments.py\"\n    },\n    {\n      \"code\": \"unused-ignore\",\n      \"column\": null,\n      \"line\": 293,\n      \"message\": \"Unused \\\"type: ignore\\\" comment, use narrower [method-assign] instead of [assignment] code\",\n      \"path\": \"codex/autogenesis.py\"\n    }\n  ],\n  \"retired_errors\": 361,\n  \"status\": \"mypy_baseline_improved\"\n}",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "scripts/build_docs.py",
+        "--check-deps"
+      ],
+      "duration_seconds": 0.303,
+      "exit_code": 0,
+      "label": "docs_check_deps",
+      "output_tail": "Docs build dependencies available.\n\n/workspace/SentientOS/scripts/build_docs.py:15: DeprecationWarning: require_lumos_approval() is deprecated; use require_covenant_alignment()\n  require_lumos_approval()",
+      "required": false
+    },
+    {
+      "command": [
+        "python",
+        "scripts/build_docs.py"
+      ],
+      "duration_seconds": 3.31,
+      "exit_code": 0,
+      "label": "docs_build",
+      "output_tail": "- enter_cathedral/index.html\n- experiments/index.html\n- global_validation_note/index.html\n- governance_claims_checklist/index.html\n- governance_tools/index.html\n- healing_guide/index.html\n- index.html\n- lived_liturgy/index.html\n- living_ledger/index.html\n- master_file_doctrine/index.html\n- music_rituals/index.html\n- orchestration_next_move_proposal_note/index.html\n- proof_validity/index.html\n- protected_corridor/index.html\n- protected_mutation_proof/index.html\n- pulse_trust_epoch_model/index.html\n- release_notes/index.html\n- release_notes_v1.0.0/index.html\n- runtime_posture_model/index.html\n- sanctuary_invocation/index.html\n- scoped_canonical_trace_coherence/index.html\n- search.html\n- treasury_federation/index.html\n- treasury_of_love/index.html\n- verifier_consensus/index.html\n- video_ritual_guide/index.html\n- vow_consensus_primitives/index.html\n\n/workspace/SentientOS/scripts/build_docs.py:15: DeprecationWarning: require_lumos_approval() is deprecated; use require_covenant_alignment()\n  require_lumos_approval()",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "scripts/verify_context_hygiene_prompt_boundaries.py"
+      ],
+      "duration_seconds": 2.342,
+      "exit_code": 0,
+      "label": "prompt_boundaries",
+      "output_tail": "Context hygiene prompt boundary scan: boundary_clean\nScanned files: 39\nFindings: 0\nNo prompt materialization, forbidden runtime import/call, or context-hygiene bypass findings detected.",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "verify_audits.py",
+        "--strict"
+      ],
+      "duration_seconds": 0.49,
+      "exit_code": 0,
+      "label": "strict_audits",
+      "output_tail": "/workspace/SentientOS/logs/federation_log.jsonl: valid\n/workspace/SentientOS/logs/migration_ledger.jsonl: valid\n/workspace/SentientOS/logs/privileged_audit.jsonl: valid\n/workspace/SentientOS/logs/support_log.jsonl: valid\n100.0% of logs valid\n\u2705 No mismatches.\n{\"audit_chain_report\": \"glow/forge/audit_reports/audit_chain_report_20260523T080357Z.json\", \"audit_chain_status\": \"ok\"}\n{\"baseline_path\": \"/workspace/SentientOS/logs/privileged_audit.jsonl\", \"baseline_status\": \"ok\", \"environment_issues\": [], \"runtime_error_examples\": [], \"runtime_error_kind\": \"unknown\", \"runtime_path\": \"/workspace/SentientOS/pulse/audit/privileged_audit.runtime.jsonl\", \"runtime_status\": \"ok\", \"strict_artifact_paths\": {\"final_strict_audit_digest\": \"glow/contracts/final_strict_audit_digest.json\", \"strict_audit_breakdown\": \"glow/contracts/strict_audit_breakdown.json\", \"strict_audit_manifest\": \"glow/contracts/strict_audit_manifest.json\", \"strict_audit_recovery_links\": \"glow/contracts/strict_audit_recovery_links.json\", \"strict_audit_status\": \"glow/contracts/strict_audit_status.json\"}, \"strict_bucket\": \"healthy_strict\", \"strict_readiness_class\": \"acceptable\", \"suggested_fix\": \"run: make audit-repair\"}\n{\"classification\": \"optional\", \"dependency\": null, \"non_blocking\": true, \"reason\": null, \"status\": \"passed\", \"tool\": \"verify_audits\"}",
+      "required": true
+    },
+    {
+      "command": [
+        "python",
+        "scripts/audit_immutability_verifier.py"
+      ],
+      "duration_seconds": 0.376,
+      "exit_code": 0,
+      "label": "audit_immutability",
+      "output_tail": "{\"classification\": \"artifact-dependent\", \"dependency\": \"/vow/immutable_manifest.json\", \"exit_code\": 0, \"non_blocking\": true, \"reason\": null, \"status\": \"passed\", \"tool\": \"audit_immutability_verifier\"}\n\n/workspace/SentientOS/scripts/audit_immutability_verifier.py:32: DeprecationWarning: require_lumos_approval() is deprecated; use require_covenant_alignment()\n  require_lumos_approval()",
+      "required": true
+    }
+  ],
+  "status": "passed"
+}
