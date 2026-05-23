@@ -419,3 +419,6 @@ See `docs/architecture/task_work_item_lifecycle_attestation_index_wing.md`.
 
 
 Work item lifecycle attestation review digest verification is documented in `docs/architecture/task_work_item_lifecycle_attestation_review_digest_verifier_wing.md` with metadata-verification-only boundaries.
+
+
+Work item lifecycle attestation review digest indexing is documented in `docs/architecture/task_work_item_lifecycle_attestation_review_digest_index_wing.md` with metadata-only digest-index boundaries.
