@@ -34,6 +34,7 @@ def test_summary_shape_is_metadata_only_and_digest_changes_on_metadata() -> None
     assert summary["no_runtime_authority_expansion"] is True
     assert "direct_fan_pwm_thermal_control" in summary["capability_ids"]
     assert "codex_task_scaffold_verifier" in summary["capability_ids"]
+    assert "codex_task_scaffold_path_planner" in summary["capability_ids"]
     changed = replace_capability_record(registry, "host_resource_telemetry", status="implemented")
     assert capability_registry_digest(changed) != summary["digest"]
 
