@@ -1,0 +1,17 @@
+{
+  "preset": {
+    "checked_preset_ids": [
+      "developer_workflow_metadata"
+    ],
+    "errors": [],
+    "status": "codex_task_scaffold_preset_verifier_ready"
+  },
+  "scaffold": {
+    "forbidden_surface_coverage_ok": true,
+    "missing_doctrine_clauses": [],
+    "missing_report_contract_items": [],
+    "missing_validation_commands": [],
+    "status": "codex_task_scaffold_verifier_ready",
+    "title_discipline_ok": true
+  }
+}
