@@ -84,6 +84,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "task_work_item_lifecycle_attestation_review_digest_verifier",
         "task_work_item_lifecycle_attestation_review_digest_index",
         "task_work_item_lifecycle_attestation_review_digest_index_verifier",
+        "developer_workflow_metadata",
     }
 )
 CAPABILITY_STATUSES = frozenset({"implemented", "partial", "scaffolded", "deferred", "blocked", "unknown"})
