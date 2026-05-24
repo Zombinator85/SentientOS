@@ -1,0 +1,10 @@
+{
+  "artifact_kind": "codex_pr_validation_evidence_verifier_capability",
+  "capability_id": "codex_pr_validation_evidence_verifier",
+  "status": "implemented",
+  "authority_level": "metadata_verification_only",
+  "cli_reference": "scripts/codex_pr_validation_evidence.py",
+  "module_reference": "sentientos/codex_pr_validation_evidence.py",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+  "docs_reference": "docs/development/codex_pr_validation_evidence.md"
+}
