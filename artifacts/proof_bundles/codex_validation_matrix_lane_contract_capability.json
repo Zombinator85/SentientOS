@@ -1,0 +1,19 @@
+{
+  "artifact_kind": "codex_validation_matrix_lane_contract_capability",
+  "capability_id": "codex_validation_matrix_lane_contract",
+  "status": "implemented",
+  "authority_level": "metadata_verification_only",
+  "source_paths": [
+    "sentientos/codex_validation_matrix_lane_contract.py",
+    "scripts/codex_validation_matrix_lane_contract.py"
+  ],
+  "proof_tests": [
+    "tests/test_codex_validation_matrix_lane_contract.py",
+    "tests/test_codex_validation_matrix_lane_contract_script.py"
+  ],
+  "deferred_surfaces": [
+    "codex invocation",
+    "provider/network/github/shell/subprocess action",
+    "branch/pr/issue mutation"
+  ]
+}
