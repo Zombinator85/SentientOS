@@ -18,7 +18,14 @@ _PRESETS: dict[str, CodexTaskScaffoldPreset] = {
     "developer_workflow_metadata": CodexTaskScaffoldPreset(
         preset_id="developer_workflow_metadata",
         default_deliverables=("typed_metadata_api", "deterministic_cli", "docs", "tests"),
-        default_forbidden_surfaces=("runtime_authority_expansion", "provider_calls", "github_mutation", "shell_from_library"),
+        default_forbidden_surfaces=(
+            "runtime_authority_expansion",
+            "provider_calls",
+            "network_egress",
+            "github_mutation",
+            "subprocess_from_library",
+            "action_wing_integration",
+        ),
         default_integration_expectations=("capability_registry", "reviewer_proof_bundle", "matrix_runner", "docs"),
         default_validation_command_families=("targeted_tests", "targeted_mypy", "docs_build", "prompt_boundary", "matrix_runner_summary", "matrix_runner_output", "audit"),
         default_final_report_items=("exact_files_changed", "module_api_summary", "cli_summary", "preset_ids_and_behavior", "generator_integration_behavior", "capability_proof_doc_integration", "matrix_runner_integration", "full_command_matrix_results", "unresolved_risks"),

@@ -19,10 +19,32 @@ REQUIRED_REPORT_CONTRACT = (
     "unresolved risks",
 )
 REQUIRED_TITLE_PREFIX = "[codex:"
+REQUIRED_FORBIDDEN_SURFACE_MARKERS: tuple[str, ...] = (
+    "provider",
+    "network",
+    "github",
+    "subprocess",
+    "action wing",
+)
 
 
 def _normalize_item(value: str) -> str:
     return " ".join(value.replace("_", " ").replace("-", " ").lower().split())
+
+
+def _has_required_forbidden_surface_coverage(
+    forbidden_surfaces: tuple[str, ...],
+    generated_prompt: str,
+    explicit_non_authority_boundaries: tuple[str, ...],
+) -> bool:
+    normalized_surfaces = {_normalize_item(item) for item in forbidden_surfaces}
+    normalized_prompt = _normalize_item(generated_prompt)
+    normalized_boundaries = {_normalize_item(item) for item in explicit_non_authority_boundaries}
+    coverage_haystacks = normalized_surfaces | normalized_boundaries | {normalized_prompt}
+    for marker in REQUIRED_FORBIDDEN_SURFACE_MARKERS:
+        if not any(marker in haystack for haystack in coverage_haystacks):
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -45,6 +67,7 @@ def verify_codex_task_scaffold_payload(payload: dict[str, Any]) -> CodexTaskScaf
     validation_commands = tuple(str(x) for x in scaffold.get("validation_commands", ()))
     report_contract = tuple(str(x) for x in scaffold.get("final_report_contract", ()))
     forbidden_surfaces = tuple(str(x).lower() for x in scaffold.get("forbidden_surfaces", ()))
+    explicit_non_authority_boundaries = tuple(str(x) for x in scaffold.get("explicit_non_authority_boundaries", ()))
     commit_title = str(scaffold.get("commit_pr_title", ""))
 
     missing_doctrine = tuple(clause for clause in REQUIRED_CLAUSES if clause not in generated_prompt)
@@ -52,8 +75,11 @@ def verify_codex_task_scaffold_payload(payload: dict[str, Any]) -> CodexTaskScaf
     normalized_report = {_normalize_item(item) for item in report_contract}
     missing_report = tuple(item for item in REQUIRED_REPORT_CONTRACT if _normalize_item(item) not in normalized_report)
     title_ok = commit_title.startswith(REQUIRED_TITLE_PREFIX) and "] " in commit_title
-    normalized_forbidden = {_normalize_item(item) for item in forbidden_surfaces}
-    forbidden_ok = any("codex" in item and "invoke" in item for item in normalized_forbidden) and any("provider" in item for item in normalized_forbidden)
+    forbidden_ok = _has_required_forbidden_surface_coverage(
+        forbidden_surfaces,
+        generated_prompt,
+        explicit_non_authority_boundaries,
+    )
 
     status = "codex_task_scaffold_verifier_ready"
     if missing_doctrine or missing_commands or missing_report or not title_ok or not forbidden_ok:
