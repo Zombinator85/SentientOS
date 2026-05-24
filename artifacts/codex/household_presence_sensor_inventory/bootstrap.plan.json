@@ -1,0 +1,10 @@
+{
+  "api_test_path": "tests/test_household_presence_sensor_surface_inventory.py",
+  "cli_path": "scripts/plan_household_presence_sensor_surface_inventory.py",
+  "cli_test_path": "tests/test_plan_household_presence_sensor_surface_inventory_script.py",
+  "dev_doc_path": "docs/development/household_presence_sensor_surface_inventory.md",
+  "module_path": "sentientos/household_presence_sensor_surface_inventory.py",
+  "proof_bundle_filename": "artifacts/proof_bundles/household_presence_sensor_surface_inventory_capability.json",
+  "status": "ready",
+  "task_slug": "household_presence_sensor_surface_inventory"
+}
