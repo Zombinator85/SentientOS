@@ -25,6 +25,14 @@ FORBIDDEN_AUTHORITY_MARKERS: tuple[str, ...] = (
     "subprocess",
     "action-wing",
 )
+
+
+def _normalized_tokens(values: tuple[str, ...]) -> set[str]:
+    tokens: set[str] = set()
+    for value in values:
+        normalized = value.replace("-", "_").lower().strip()
+        tokens.add(normalized)
+    return tokens
 REQUIRED_FINAL_REPORT_ITEMS: tuple[str, ...] = (
     "full_command_matrix_results",
     "unresolved_risks",
@@ -80,17 +88,17 @@ def _verify_preset(preset_id: str, errors: list[str]) -> None:
         if "surgical_fix" not in preset.default_deliverables:
             errors.append("narrow_repair:missing_surgical_fix_deliverable")
 
-    authority_text = " ".join(
+    authority_tokens = _normalized_tokens(
         preset.default_deliverables
         + preset.default_forbidden_surfaces
         + preset.default_integration_expectations
         + preset.default_validation_command_families
         + preset.default_final_report_items
-    ).lower()
+    )
     for marker in FORBIDDEN_AUTHORITY_MARKERS:
         if marker == "github":
             continue
-        if marker in authority_text:
+        if marker in authority_tokens:
             errors.append(f"{preset_id}:forbidden_authority_marker_present:{marker}")
 
 

@@ -25,4 +25,4 @@ def test_script_outputs_and_summary(tmp_path: Path) -> None:
     assert code == 0
     assert summary.exists() and plan.exists() and scaffold.exists() and prompt.exists() and verifier.exists()
     payload = json.loads(summary.read_text(encoding="utf-8"))
-    assert payload["status"] in {"ready", "ready_with_warnings"}
+    assert payload["status"] == "ready"

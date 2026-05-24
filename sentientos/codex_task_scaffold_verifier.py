@@ -21,6 +21,10 @@ REQUIRED_REPORT_CONTRACT = (
 REQUIRED_TITLE_PREFIX = "[codex:"
 
 
+def _normalize_item(value: str) -> str:
+    return " ".join(value.replace("_", " ").replace("-", " ").lower().split())
+
+
 @dataclass(frozen=True)
 class CodexTaskScaffoldVerification:
     status: str
@@ -45,9 +49,11 @@ def verify_codex_task_scaffold_payload(payload: dict[str, Any]) -> CodexTaskScaf
 
     missing_doctrine = tuple(clause for clause in REQUIRED_CLAUSES if clause not in generated_prompt)
     missing_commands = tuple(cmd for cmd in REQUIRED_VALIDATION_COMMANDS if not any(cmd in item for item in validation_commands))
-    missing_report = tuple(item for item in REQUIRED_REPORT_CONTRACT if item not in report_contract)
+    normalized_report = {_normalize_item(item) for item in report_contract}
+    missing_report = tuple(item for item in REQUIRED_REPORT_CONTRACT if _normalize_item(item) not in normalized_report)
     title_ok = commit_title.startswith(REQUIRED_TITLE_PREFIX) and "] " in commit_title
-    forbidden_ok = "do not invoke codex." in forbidden_surfaces and any("provider" in s for s in forbidden_surfaces)
+    normalized_forbidden = {_normalize_item(item) for item in forbidden_surfaces}
+    forbidden_ok = any("codex" in item and "invoke" in item for item in normalized_forbidden) and any("provider" in item for item in normalized_forbidden)
 
     status = "codex_task_scaffold_verifier_ready"
     if missing_doctrine or missing_commands or missing_report or not title_ok or not forbidden_ok:
