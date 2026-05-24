@@ -1,0 +1,118 @@
+{
+  "blocker_codes": [],
+  "explicit_non_authority_boundaries": [
+    "metadata-only bootstrap flow",
+    "no codex invocation",
+    "no provider/network/github/shell/subprocess/action-wing invocation",
+    "no repo mutation except explicit output artifacts"
+  ],
+  "generated_prompt_text": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nGoal: Compose deterministic metadata-only bootstrap orchestration for codex task scaffolding\nSubsystem: Codex Task Bootstrapper (developer_workflow_metadata).",
+  "generated_scaffold_json": {
+    "scaffold": {
+      "artifact_references": [
+        "json_scaffold",
+        "prompt_text"
+      ],
+      "blocker_codes": [],
+      "commit_pr_title": "[codex:developer] add Codex task bootstrapper",
+      "doctrine_references": [
+        "AGENTS.md",
+        "docs/development/codex_whole_system_task_template.md",
+        "docs/development/codex_validation_and_landing_contract.md"
+      ],
+      "expected_docs": [
+        "docs/development/codex_task_bootstrapper.md"
+      ],
+      "expected_files": [
+        "scripts/plan_codex_task_bootstrapper.py",
+        "sentientos/codex_task_bootstrapper.py"
+      ],
+      "expected_tests": [
+        "tests/test_codex_task_bootstrapper.py",
+        "tests/test_plan_codex_task_bootstrapper_script.py"
+      ],
+      "explicit_non_authority_boundaries": [
+        "developer workflow scaffolding only",
+        "no runtime authority expansion"
+      ],
+      "final_report_contract": [
+        "capability_proof_doc_integration",
+        "cli_summary",
+        "full_command_matrix_results",
+        "generator_integration_behavior",
+        "matrix_runner_integration",
+        "module_api_summary",
+        "preset_ids_and_behavior",
+        "unresolved_risks"
+      ],
+      "forbidden_surfaces": [
+        "github_mutation",
+        "provider_calls",
+        "runtime_authority_expansion",
+        "shell_from_library"
+      ],
+      "generated_prompt": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nGoal: Compose deterministic metadata-only bootstrap orchestration for codex task scaffolding\nSubsystem: Codex Task Bootstrapper (developer_workflow_metadata).",
+      "prompt_mode": "whole_system",
+      "required_integrations": [
+        "capability_registry",
+        "docs",
+        "matrix_runner",
+        "reviewer_proof_bundle",
+        "safety_tests"
+      ],
+      "scaffold_digest": "33cf760c93954edabb56e7ca6562609132f61f558c6133e197fe26388de53e16",
+      "scaffold_id": "codex-task-scaffold-33cf760c9395",
+      "subsystem_kind": "developer_workflow_metadata",
+      "task_goal": "Compose deterministic metadata-only bootstrap orchestration for codex task scaffolding",
+      "task_name": "Codex Task Bootstrapper",
+      "validation_commands": [
+        "python -m mypy sentientos/codex_task_scaffold.py scripts/build_codex_task_scaffold.py",
+        "python -m scripts.run_tests -q tests/test_codex_task_scaffold.py tests/test_build_codex_task_scaffold_script.py"
+      ],
+      "warning_codes": []
+    },
+    "status": "codex_task_scaffold_ready"
+  },
+  "planned_paths": {
+    "api_test_path": "tests/test_codex_task_bootstrapper.py",
+    "cli_path": "scripts/plan_codex_task_bootstrapper.py",
+    "cli_test_path": "tests/test_plan_codex_task_bootstrapper_script.py",
+    "dev_doc_path": "docs/development/codex_task_bootstrapper.md",
+    "module_path": "sentientos/codex_task_bootstrapper.py",
+    "proof_bundle_filename": "artifacts/proof_bundles/codex_task_bootstrapper_capability.json"
+  },
+  "planner_result_summary": {
+    "status": "ready",
+    "task_slug": "codex_task_bootstrapper"
+  },
+  "preset_verifier_result_summary": {
+    "checked_preset_ids": [
+      "developer_workflow_metadata"
+    ],
+    "errors": [
+      "developer_workflow_metadata:forbidden_authority_marker_present:provider"
+    ],
+    "status": "codex_task_scaffold_preset_verifier_incomplete"
+  },
+  "scaffold_result_summary": {
+    "scaffold_id": "codex-task-scaffold-33cf760c9395",
+    "status": "codex_task_scaffold_ready"
+  },
+  "scaffold_verifier_result_summary": {
+    "forbidden_surface_coverage_ok": false,
+    "missing_doctrine_clauses": [],
+    "missing_report_contract_items": [
+      "exact files changed",
+      "full command matrix results",
+      "unresolved risks"
+    ],
+    "missing_validation_commands": [],
+    "status": "codex_task_scaffold_verifier_incomplete",
+    "title_discipline_ok": true
+  },
+  "status": "ready_with_warnings",
+  "warning_codes": [
+    "preset_verifier_incomplete",
+    "scaffold_verifier_incomplete"
+  ]
+}
