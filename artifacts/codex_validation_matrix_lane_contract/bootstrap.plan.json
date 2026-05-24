@@ -1,0 +1,10 @@
+{
+  "api_test_path": "tests/test_codex_validation_matrix_lane_contract.py",
+  "cli_path": "scripts/plan_codex_validation_matrix_lane_contract.py",
+  "cli_test_path": "tests/test_plan_codex_validation_matrix_lane_contract_script.py",
+  "dev_doc_path": "docs/development/codex_validation_matrix_lane_contract.md",
+  "module_path": "sentientos/codex_validation_matrix_lane_contract.py",
+  "proof_bundle_filename": "artifacts/proof_bundles/codex_validation_matrix_lane_contract_capability.json",
+  "status": "ready",
+  "task_slug": "codex_validation_matrix_lane_contract"
+}

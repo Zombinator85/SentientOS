@@ -6,6 +6,7 @@ from typing import Any
 import json
 
 from sentientos.codex_pr_metadata_contract import FORBIDDEN_LOCAL_ONLY_MARKERS, _norm, verify_pr_metadata
+from sentientos.codex_validation_matrix_lane_contract import summarize_lane_contract, verify_lane_contract
 
 
 @dataclass(frozen=True)
@@ -60,24 +61,10 @@ def verify_pr_validation_evidence(*, pr_title: str, pr_body: str, intended_commi
             findings.append("required_failure_count_nonzero")
         if "matrix runner --output result/path" not in normalized_body and matrix_json_path is None:
             findings.append("matrix_output_reference_missing")
-        if not _lane_ok(matrix, "targeted_mypy"):
-            findings.append("targeted_mypy_not_passed")
-        if not _lane_ok(matrix, "mypy_baseline"):
-            findings.append("mypy_baseline_not_passed")
-        if not _lane_ok(matrix, "docs_build"):
-            findings.append("docs_build_not_passed")
-        if not _lane_ok(matrix, "prompt_boundaries"):
-            findings.append("prompt_boundary_not_passed")
-        if not _lane_ok(matrix, "strict_audits"):
-            findings.append("strict_audits_not_passed")
-        if not _lane_ok(matrix, "audit_immutability"):
-            findings.append("audit_immutability_not_passed")
-        # recovery path: docs_check_deps can fail if bootstrap + recheck succeed.
-        docs_check = _lane_ok(matrix, "docs_check_deps")
-        docs_recheck = _lane_ok(matrix, "docs_check_deps_recheck")
-        docs_bootstrap_seen = any(str(r.get("label")) == "docs_bootstrap" for r in matrix.get("results", []))
-        if not docs_check and not (docs_bootstrap_seen and docs_recheck):
-            findings.append("docs_check_or_recovery_not_passed")
+        lane_check = verify_lane_contract(matrix)
+        for finding in lane_check.findings:
+            if finding.severity == "error":
+                findings.append(finding.code)
 
     # optional payloads accepted to keep API contract stable and metadata-only.
     _ = bootstrap_summary_json_text, explicit_rollup_json_text
@@ -111,5 +98,6 @@ def build_validation_section_from_matrix(*, matrix_json_text: str | None = None,
             "## Prompt-boundary result\n" + ("passed" if _lane_ok(matrix, "prompt_boundaries") else "failed"),
             "## Strict audit result\n" + ("passed" if _lane_ok(matrix, "strict_audits") else "failed"),
             "## Immutability verifier result\n" + ("passed" if _lane_ok(matrix, "audit_immutability") else "failed"),
+            "## Lane contract behavior\n" + json.dumps(summarize_lane_contract(matrix), sort_keys=True),
         ]
     )
