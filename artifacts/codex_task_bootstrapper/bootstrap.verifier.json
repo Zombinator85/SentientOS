@@ -1,0 +1,23 @@
+{
+  "preset": {
+    "checked_preset_ids": [
+      "developer_workflow_metadata"
+    ],
+    "errors": [
+      "developer_workflow_metadata:forbidden_authority_marker_present:provider"
+    ],
+    "status": "codex_task_scaffold_preset_verifier_incomplete"
+  },
+  "scaffold": {
+    "forbidden_surface_coverage_ok": false,
+    "missing_doctrine_clauses": [],
+    "missing_report_contract_items": [
+      "exact files changed",
+      "full command matrix results",
+      "unresolved risks"
+    ],
+    "missing_validation_commands": [],
+    "status": "codex_task_scaffold_verifier_incomplete",
+    "title_discipline_ok": true
+  }
+}
