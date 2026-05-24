@@ -1,0 +1,6 @@
+Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.
+Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.
+Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.
+Do not create PR metadata before green final validation.
+Goal: Add a deterministic metadata-only verifier that compares proposed Codex PR metadata/body validation claims against supplied validation artifacts, especially the matrix JSON report, so PR bodies cannot merely contain required section markers without matching evidence.
+Subsystem: Codex PR Validation Evidence Verifier (developer_workflow_metadata).
