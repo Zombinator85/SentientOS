@@ -41,3 +41,22 @@ def test_bootstrap_keeps_real_warning_conditions() -> None:
     )
     assert result.status == "ready_with_warnings"
     assert "missing_commit_scope" in result.warning_codes
+
+
+def test_bootstrap_developer_workflow_metadata_strictness_harmonizer_is_ready() -> None:
+    result = bootstrap_codex_task(
+        CodexTaskBootstrapRequest(
+            task_name="Codex Scaffold Strictness Harmonizer",
+            task_goal=(
+                "Harmonize scaffold generator, scaffold verifier, preset catalog, and preset verifier "
+                "expectations so bootstrap results avoid avoidable ready_with_warnings outcomes caused "
+                "only by naming/formatting convention drift."
+            ),
+            preset_id="developer_workflow_metadata",
+            commit_scope="developer",
+            subsystem_kind="developer_workflow_metadata",
+        )
+    )
+    assert result.status == "ready"
+    assert not result.warning_codes
+    assert result.scaffold_verifier_result_summary["forbidden_surface_coverage_ok"] is True
