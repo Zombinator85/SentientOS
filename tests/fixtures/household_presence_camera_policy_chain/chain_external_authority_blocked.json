@@ -1,0 +1,53 @@
+{
+  "config": {
+    "generated_at": "2026-05-01T00:00:00Z",
+    "schema_version": "household_presence_camera_zone_config.v1",
+    "sources": [
+      {
+        "source_id": "cam-1",
+        "source_kind": "camera",
+        "zones": [
+          {
+            "region_shape": "named_region",
+            "zone_class": "deadzone",
+            "zone_id": "deadzone"
+          },
+          {
+            "region_shape": "named_region",
+            "zone_class": "exterior_sensitive_zone",
+            "zone_id": "exterior_sensitive_zone"
+          },
+          {
+            "region_shape": "named_region",
+            "zone_class": "wildlife_zone",
+            "zone_id": "wildlife_zone"
+          },
+          {
+            "region_shape": "named_region",
+            "zone_class": "exterior_security_zone",
+            "zone_id": "exterior_security_zone"
+          },
+          {
+            "region_shape": "named_region",
+            "zone_class": "adult_private_zone",
+            "zone_id": "adult_private_zone"
+          }
+        ]
+      }
+    ]
+  },
+  "event": {
+    "confidence": 0.9,
+    "entity_class": "person",
+    "event_id": "13",
+    "event_type": "sighting",
+    "metadata": {
+      "external_authority_contact": true
+    },
+    "named_region_reference": "exterior_security_zone",
+    "region_shape": "named_region",
+    "source_id": "cam-1",
+    "zone": "exterior_security_zone"
+  },
+  "policy_flags": {}
+}
