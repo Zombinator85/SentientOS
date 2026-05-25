@@ -54,3 +54,15 @@ def test_title_mismatch_blocks() -> None:
     req = CodexLandingSupervisorRequest(title="a", intended_commit_title="b", matrix_json_text=_matrix())
     result = evaluate_landing_supervisor(req)
     assert result.decision.status == "do_not_finalize"
+
+
+def test_landing_gate_missing_blocks() -> None:
+    req = CodexLandingSupervisorRequest(title="[codex:x] ok", intended_commit_title="[codex:x] ok", matrix_json_text=_matrix())
+    result = evaluate_landing_supervisor(req)
+    assert "landing_gate_missing" in result.report.reasons
+
+
+def test_landing_gate_failed_blocks() -> None:
+    req = CodexLandingSupervisorRequest(title="[codex:x] ok", intended_commit_title="[codex:x] ok", matrix_json_text=_matrix(), pr_landing_gate_result={"decision": "pr_metadata_blocked"})
+    result = evaluate_landing_supervisor(req)
+    assert result.decision.status == "repair_required_task_caused"

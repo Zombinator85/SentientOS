@@ -11,10 +11,20 @@ def _matrix_payload(required_failure_count: int = 0) -> str:
 
 
 def test_cli_accepts_inline_matrix_json() -> None:
-    proc = subprocess.run([sys.executable, "scripts/codex_landing_supervisor.py", "evaluate", "--title", "[codex:x] ok", "--intended-commit-title", "[codex:x] ok", "--matrix-json", _matrix_payload(), "--summary"], check=False, capture_output=True, text=True)
+    proc = subprocess.run([sys.executable, "scripts/codex_landing_supervisor.py", "evaluate", "--title", "[codex:x] ok", "--intended-commit-title", "[codex:x] ok", "--matrix-json", _matrix_payload(), "--landing-gate-status", "passed", "--summary"], check=False, capture_output=True, text=True)
     assert proc.returncode == 1
 
 
 def test_cli_exits_nonzero_for_failed_matrix() -> None:
     proc = subprocess.run([sys.executable, "scripts/codex_landing_supervisor.py", "evaluate", "--title", "[codex:x] ok", "--intended-commit-title", "[codex:x] ok", "--matrix-json", _matrix_payload(1)], check=False, capture_output=True, text=True)
+    assert proc.returncode == 1
+
+
+def test_cli_accepts_landing_gate_status_and_can_pass() -> None:
+    proc = subprocess.run([sys.executable, "scripts/codex_landing_supervisor.py", "evaluate", "--title", "[codex:x] ok", "--intended-commit-title", "[codex:x] ok", "--matrix-json", _matrix_payload(), "--landing-gate-status", "passed"], check=False, capture_output=True, text=True)
+    assert proc.returncode == 0
+
+
+def test_cli_blocks_when_landing_gate_missing() -> None:
+    proc = subprocess.run([sys.executable, "scripts/codex_landing_supervisor.py", "evaluate", "--title", "[codex:x] ok", "--intended-commit-title", "[codex:x] ok", "--matrix-json", _matrix_payload()], check=False, capture_output=True, text=True)
     assert proc.returncode == 1
