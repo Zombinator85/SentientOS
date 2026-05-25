@@ -60,3 +60,7 @@ After any task-caused code/doc/test/config/capability change:
 
 ## Mypy baseline doctrine
 Do not use raw repo-wide mypy as the landing gate when the repository contract uses targeted mypy plus baseline ratchet. Do not ignore mypy_baseline required-lane failures.
+
+
+## Codex Landing Supervisor
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.

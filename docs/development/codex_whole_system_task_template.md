@@ -65,3 +65,7 @@ Subsystem landing is complete only when implementation, integration, docs, tests
 
 ## Final report format
 Include: files changed, validation command outcomes, failure classification, matrix summary/output paths, and unresolved risks. Final report/PR metadata order is strict: final task-caused change -> full matrix run -> final report and PR metadata.
+
+
+## Codex Landing Supervisor
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.

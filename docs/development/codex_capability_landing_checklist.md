@@ -16,3 +16,7 @@ When adding or changing a capability ID, verify all adjacent integration surface
 - no runtime authority is widened accidentally
 
 Required posture: required validation lane failures are task-owned until proven otherwise.
+
+
+## Codex Landing Supervisor
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
