@@ -99,3 +99,9 @@ def test_matrix_includes_operator_lifecycle_closure_review_steps() -> None:
 def test_matrix_includes_operator_confirmed_lifecycle_closure_run_steps() -> None:
     labels = [c.label for c in matrix.default_matrix_commands()]
     assert "operator_confirmed_lifecycle_closure_run_tests" in labels
+
+
+def test_matrix_report_includes_generated_timestamp() -> None:
+    report = matrix.run_matrix(commands=[matrix.MatrixCommand("ok", ("python", "ok"))], runner=lambda _: FakeCompleted(0))
+    assert "generated_at" in report
+    assert report["generated_at"].endswith("Z")

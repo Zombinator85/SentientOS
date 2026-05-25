@@ -46,10 +46,16 @@ def main(argv: list[str] | None = None) -> int:
         s.add_argument("--changed-file", action="append", default=[])
         s.add_argument("--output")
         s.add_argument("--summary", action="store_true")
+        s.add_argument("--landing-gate-status", choices=("passed", "failed", "blocked", "missing"))
 
     a = p.parse_args(argv)
     baseline = load_json_file(a.baseline_json) if a.baseline_json else None
-    req = CodexLandingSupervisorRequest(title=a.title, intended_commit_title=a.intended_commit_title, matrix_json_text=_matrix_text(a), changed_files=tuple(a.changed_file), baseline_summary=baseline)
+    gate_result = None
+    if a.landing_gate_status == "passed":
+        gate_result = {"decision": "pr_metadata_allowed"}
+    elif a.landing_gate_status in {"failed", "blocked"}:
+        gate_result = {"decision": "pr_metadata_blocked"}
+    req = CodexLandingSupervisorRequest(title=a.title, intended_commit_title=a.intended_commit_title, matrix_json_text=_matrix_text(a), changed_files=tuple(a.changed_file), baseline_summary=baseline, pr_landing_gate_result=gate_result)
     result = evaluate_landing_supervisor(req).to_dict()
     if a.output:
         Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")

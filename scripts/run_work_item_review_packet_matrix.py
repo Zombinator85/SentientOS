@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Callable, TypedDict
 
 
@@ -27,6 +28,7 @@ class MatrixResult(TypedDict):
 
 
 class MatrixReport(TypedDict):
+    generated_at: str
     status: str
     command_count: int
     required_failure_count: int
@@ -125,6 +127,7 @@ def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ..
 
     required_failures = [r["label"] for r in results if bool(r["required"]) and int(r["exit_code"]) != 0]
     summary: MatrixReport = {
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "status": "failed" if failed_required else "passed",
         "command_count": len(results),
         "required_failure_count": len(required_failures),
