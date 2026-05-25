@@ -57,7 +57,8 @@ Re-state no authority widening and no forbidden runtime semantics.
 List full relevant command matrix, not only local targeted tests.
 
 ## Failure handling
-Continue remaining feasible checks after failures, classify failures, and fix failures caused by this task. Task-caused fallout discovered by the matrix must be fixed in this same task, not deferred to stabilization follow-ups.
+Required-lane failures are task-owned until proven otherwise.
+Continue remaining feasible checks after failures, classify failures, and fix failures caused by this task. Task-caused fallout discovered by the matrix must be fixed in this same task, not deferred to stabilization follow-ups. Do not finalize while required lane failures remain.
 
 ## Done when
 Subsystem landing is complete only when implementation, integration, docs, tests, typing, proof/capability/matrix wiring, and relevant matrix validation are complete. Non-compliant outcomes include: "feature exists but full matrix not run," creating PR metadata before the post-final-change full matrix run, or proposing follow-up stabilization PRs for task-caused fallout.

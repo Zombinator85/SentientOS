@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from scripts import codex_pr_landing_gate as cli
 
@@ -11,5 +12,21 @@ def _matrix() -> str:
 
 def test_gate_allows(capsys) -> None:  # type: ignore[no-untyped-def]
     rc = cli.main(["gate", "--title", "[codex:developer] ok", "--intended-commit-title", "[codex:developer] ok", "--matrix-json", _matrix()])
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out)["decision"] == "pr_metadata_allowed"
+
+
+def test_gate_accepts_matrix_json_path(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    matrix_path = tmp_path / "matrix.json"
+    matrix_path.write_text(_matrix(), encoding="utf-8")
+    rc = cli.main(["gate", "--title", "[codex:developer] ok", "--intended-commit-title", "[codex:developer] ok", "--matrix-json-path", str(matrix_path)])
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out)["decision"] == "pr_metadata_allowed"
+
+
+def test_gate_accepts_pathlike_matrix_json_compat(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    matrix_path = tmp_path / "matrix.json"
+    matrix_path.write_text(_matrix(), encoding="utf-8")
+    rc = cli.main(["gate", "--title", "[codex:developer] ok", "--intended-commit-title", "[codex:developer] ok", "--matrix-json", str(matrix_path)])
     assert rc == 0
     assert json.loads(capsys.readouterr().out)["decision"] == "pr_metadata_allowed"

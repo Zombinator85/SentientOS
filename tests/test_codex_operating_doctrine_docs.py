@@ -17,6 +17,7 @@ def test_agents_mentions_whole_system_doctrine_and_links() -> None:
     assert "full matrix not run" in agents
     assert "after the final task-caused code/doc/test change" in agents
     assert "No post-landing stabilization churn" in agents
+    assert "required validation lane failures are task-owned until proven otherwise" in agents
     assert "If you want, I can run the full matrix now" in agents
     assert "proof-bundle" in agents
     assert "capability registry" in agents
@@ -24,6 +25,7 @@ def test_agents_mentions_whole_system_doctrine_and_links() -> None:
         "docs/development/codex_whole_system_task_template.md",
         "docs/development/codex_narrow_repair_task_template.md",
         "docs/development/codex_validation_and_landing_contract.md",
+        "docs/development/codex_capability_landing_checklist.md",
     ]:
         assert path in agents
 
@@ -55,6 +57,7 @@ def test_templates_exist_and_have_required_sections() -> None:
     assert "Do not return piddly diffs" in whole
     assert "After the last task-caused code/doc/test change" in whole
     assert "Do not create PR metadata" in whole
+    assert "required lane failures" in whole.lower()
 
     narrow = _read("docs/development/codex_narrow_repair_task_template.md")
     assert "Narrow repairs are exceptional" in narrow
@@ -72,6 +75,11 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
     assert "2. Run the full relevant validation matrix" in contract
     assert "3. Only then produce final report and PR metadata." in contract
     assert "If you want, I can run the full matrix now" in contract
+    assert "Required-lane repair loop" in contract
+
+    checklist = _read("docs/development/codex_capability_landing_checklist.md")
+    for marker in ["capability category", "authority level", "proof bundle", "readiness/index", "matrix runner", "targeted mypy", "docs link/index coverage"]:
+        assert marker in checklist
 
     quick = _read("docs/REVIEWER_QUICKSTART.md")
     index = _read("docs/architecture/reviewer_release_readiness_index.md")
@@ -79,6 +87,7 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
         "docs/development/codex_whole_system_task_template.md",
         "docs/development/codex_narrow_repair_task_template.md",
         "docs/development/codex_validation_and_landing_contract.md",
+        "docs/development/codex_capability_landing_checklist.md",
         "scripts/run_work_item_review_packet_matrix.py",
     ]:
         assert doc in quick or doc.replace("docs/", "") in quick
