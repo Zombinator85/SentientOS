@@ -1,0 +1,10 @@
+{
+  "confidence": 0.85,
+  "entity_class": "vehicle",
+  "event_id": "evt-veh",
+  "event_type": "vehicle_seen",
+  "metadata": {
+    "license_plate_tracking_requested": true
+  },
+  "zone": "exterior_security_zone"
+}

@@ -1,0 +1,10 @@
+{
+  "confidence": 0.7,
+  "entity_class": "person",
+  "event_id": "evt-auth",
+  "event_type": "contact_request",
+  "metadata": {
+    "external_authority_contact": true
+  },
+  "zone": "home_zone"
+}

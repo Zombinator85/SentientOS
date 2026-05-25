@@ -429,5 +429,6 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence layer doctrine: `docs/architecture/household_presence_layer.md`
 - Household presence camera event bridge: `docs/architecture/household_presence_camera_event_bridge.md`
 - Household presence deadzone redaction contract: `docs/architecture/household_presence_deadzone_redaction.md`
+- Household presence camera redaction pipeline: `docs/architecture/household_presence_camera_redaction_pipeline.md`
 
 - docs/development/codex_landing_supervisor.md

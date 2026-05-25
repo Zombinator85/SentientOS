@@ -1,0 +1,10 @@
+{
+  "confidence": 0.66,
+  "entity_class": "person",
+  "event_id": "evt-adult",
+  "event_type": "privacy_context",
+  "metadata": {
+    "child_visible_output": true
+  },
+  "zone": "adult_private_zone"
+}

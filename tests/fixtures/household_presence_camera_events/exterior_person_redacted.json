@@ -1,0 +1,11 @@
+{
+  "confidence": 0.8,
+  "entity_class": "exterior_person",
+  "event_id": "evt-person-red",
+  "event_type": "motion",
+  "metadata": {
+    "named_profile_requested": true,
+    "redaction_applied": true
+  },
+  "zone": "exterior_sensitive_zone"
+}

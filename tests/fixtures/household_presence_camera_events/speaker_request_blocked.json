@@ -1,0 +1,10 @@
+{
+  "confidence": 0.7,
+  "entity_class": "person",
+  "event_id": "evt-speak",
+  "event_type": "talkback_request",
+  "metadata": {
+    "speaker_action_requested": true
+  },
+  "zone": "home_zone"
+}

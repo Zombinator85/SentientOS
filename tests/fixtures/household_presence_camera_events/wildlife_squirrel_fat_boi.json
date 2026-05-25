@@ -1,0 +1,11 @@
+{
+  "confidence": 0.92,
+  "entity_class": "wildlife_visitor",
+  "event_id": "evt-fatboi",
+  "event_type": "wildlife_event",
+  "metadata": {
+    "nickname": "Fat Boi",
+    "redaction_applied": true
+  },
+  "zone": "wildlife_zone"
+}
