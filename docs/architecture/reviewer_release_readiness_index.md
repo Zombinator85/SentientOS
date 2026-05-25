@@ -427,3 +427,4 @@ Work item lifecycle attestation review digest index verification is documented i
 
 
 - Household presence layer doctrine: `docs/architecture/household_presence_layer.md`
+- Household presence camera event bridge: `docs/architecture/household_presence_camera_event_bridge.md`
