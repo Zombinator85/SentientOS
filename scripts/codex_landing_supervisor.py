@@ -24,7 +24,11 @@ def _matrix_text(args: argparse.Namespace) -> str:
 
 def _print(result: dict[str, object], summary: bool) -> None:
     if summary:
-        print(json.dumps({"status": result["decision"]["status"], "reasons": result["report"]["reasons"]}, indent=2))
+        decision = result.get("decision")
+        report = result.get("report")
+        if not isinstance(decision, dict) or not isinstance(report, dict):
+            raise SystemExit("Landing supervisor result payload is malformed")
+        print(json.dumps({"status": decision.get("status"), "reasons": report.get("reasons")}, indent=2))
     else:
         print(json.dumps(result, indent=2, sort_keys=True))
 
