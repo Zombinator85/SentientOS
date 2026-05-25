@@ -47,6 +47,36 @@ LANE_CONTRACT: tuple[LaneContract, ...] = (
     LaneContract("audit_immutability", "Audit immutability", ("audit_immutability",), True),
     LaneContract("capability_proof_readiness", "Capability/proof/readiness", ("capability_registry", "proof_bundle", "readiness_checks"), False),
 )
+TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
+    "review_packet_tests",
+    "authority_closure_tests",
+    "dry_run_adapter_tests",
+    "handoff_tests",
+    "intake_tests",
+    "promotion_gate_tests",
+    "operator_admission_review_tests",
+    "operator_confirmed_admission_run_tests",
+    "operator_confirmed_preflight_run_tests",
+    "operator_execution_review_tests",
+    "operator_confirmed_execution_run_tests",
+    "operator_confirmed_verification_run_tests",
+    "operator_lifecycle_closure_review_tests",
+    "work_item_lifecycle_completion_dossier_tests",
+    "codex_task_scaffold_verifier_tests",
+    "work_item_lifecycle_completion_verifier_tests",
+    "work_item_lifecycle_final_attestation_tests",
+    "work_item_lifecycle_attestation_index_tests",
+    "work_item_lifecycle_attestation_index_verifier_tests",
+    "work_item_lifecycle_attestation_review_digest_tests",
+    "work_item_lifecycle_attestation_review_digest_verifier_tests",
+    "work_item_lifecycle_attestation_review_digest_index_tests",
+    "work_item_lifecycle_attestation_review_digest_index_verifier_tests",
+    "operator_confirmed_lifecycle_closure_run_tests",
+    "household_presence_layer_tests",
+    "proof_bundle_tests",
+    "codex_pr_validation_evidence_tests",
+    "codex_pr_landing_gate_tests",
+)
 
 
 def _rows(matrix: dict[str, Any]) -> list[dict[str, Any]]:
@@ -77,12 +107,31 @@ def verify_lane_contract(matrix: dict[str, Any], *, fail_on_unknown_lanes: bool 
     required_map = {lane.lane_id: lane for lane in LANE_CONTRACT if lane.required}
 
     targeted_tests_row = _find_row(rows, ("targeted_tests", "tests_targeted"))
-    if targeted_tests_row is None:
-        findings.append(LaneVerificationFinding("error", "missing_targeted_tests", "required lane targeted_tests is missing"))
-        required_failures += 1
-    elif not _exit_ok(targeted_tests_row):
-        findings.append(LaneVerificationFinding("error", "targeted_tests_failed", "required lane targeted_tests did not pass"))
-        required_failures += 1
+    if targeted_tests_row is not None:
+        if not _exit_ok(targeted_tests_row):
+            findings.append(LaneVerificationFinding("error", "targeted_tests_failed", "required lane targeted_tests did not pass"))
+            required_failures += 1
+    else:
+        missing_targeted_test_lanes = [alias for alias in TARGETED_TEST_LANE_ALIASES if _find_row(rows, (alias,)) is None]
+        failed_targeted_test_lanes = [alias for alias in TARGETED_TEST_LANE_ALIASES if (row := _find_row(rows, (alias,))) is not None and not _exit_ok(row)]
+        if missing_targeted_test_lanes:
+            findings.append(
+                LaneVerificationFinding(
+                    "error",
+                    "missing_targeted_tests",
+                    "required targeted test lanes are missing: " + ", ".join(missing_targeted_test_lanes),
+                )
+            )
+            required_failures += 1
+        if failed_targeted_test_lanes:
+            findings.append(
+                LaneVerificationFinding(
+                    "error",
+                    "targeted_tests_failed",
+                    "required targeted test lanes failed: " + ", ".join(failed_targeted_test_lanes),
+                )
+            )
+            required_failures += 1
 
     for lane_id, lane in required_map.items():
         if lane_id in {"targeted_tests", "docs_check_bootstrap_recheck_build"}:
@@ -110,6 +159,7 @@ def verify_lane_contract(matrix: dict[str, Any], *, fail_on_unknown_lanes: bool 
         findings.append(LaneVerificationFinding("error", "required_failure_count_mismatch", "matrix required_failure_count does not match required lane failures"))
 
     known_labels = {a for lane in LANE_CONTRACT for a in lane.aliases}
+    known_labels.update(TARGETED_TEST_LANE_ALIASES)
     known_labels.update({"docs_build"})
     for row in sorted(rows, key=lambda r: str(r.get("label", ""))):
         label = str(row.get("label"))
