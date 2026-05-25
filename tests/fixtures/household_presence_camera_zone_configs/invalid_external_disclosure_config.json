@@ -1,0 +1,28 @@
+[
+  {
+    "adult_private_risk": false,
+    "allowed_downstream_uses": [],
+    "child_visible_allowed": false,
+    "confidence": 0.9,
+    "configured_by": "ops",
+    "expires_at": "",
+    "exterior_sensitive_risk": false,
+    "external_disclosure_allowed": true,
+    "notes": "",
+    "observed_at": "2026-05-25T00:00:00+00:00",
+    "operator_review_required": false,
+    "prohibited_downstream_uses": [],
+    "protected_care_risk": false,
+    "purpose": "fixture",
+    "redaction_required": false,
+    "region_shape": "full_frame",
+    "review_after": "2026-05-25T00:00:00+00:00",
+    "risk_notes": "",
+    "source_id": "cam1",
+    "source_kind": "fixture_source",
+    "speaker_output_allowed": false,
+    "updated_at": "2026-05-25T00:00:00+00:00",
+    "zone_class": "home_zone",
+    "zone_id": "z1"
+  }
+]
