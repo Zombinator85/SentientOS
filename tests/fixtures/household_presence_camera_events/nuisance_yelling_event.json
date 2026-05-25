@@ -1,0 +1,10 @@
+{
+  "confidence": 0.65,
+  "entity_class": "person",
+  "event_id": "evt-noise",
+  "event_type": "nuisance",
+  "metadata": {
+    "nuisance_threshold_exceeded": true
+  },
+  "zone": "exterior_ambient_zone"
+}

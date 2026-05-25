@@ -1,0 +1,10 @@
+{
+  "confidence": 0.73,
+  "entity_class": "person",
+  "event_id": "evt-face",
+  "event_type": "orientation",
+  "metadata": {
+    "face_affect_gaze": true
+  },
+  "zone": "home_zone"
+}

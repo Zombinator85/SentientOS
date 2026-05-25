@@ -1,0 +1,10 @@
+{
+  "confidence": 0.7,
+  "entity_class": "exterior_person",
+  "event_id": "evt-person-dead",
+  "event_type": "motion",
+  "metadata": {
+    "redaction_applied": false
+  },
+  "zone": "deadzone"
+}

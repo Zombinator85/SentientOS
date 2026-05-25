@@ -1,0 +1,10 @@
+{
+  "confidence": 0.77,
+  "entity_class": "person",
+  "event_id": "evt-care",
+  "event_type": "protected_care_summary",
+  "metadata": {
+    "child_visible_output": false
+  },
+  "zone": "protected_care_zone"
+}
