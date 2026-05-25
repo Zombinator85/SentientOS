@@ -1,0 +1,9 @@
+{
+  "entity_class": "vehicle",
+  "event_id": "e4",
+  "metadata": {},
+  "named_region_reference": "zone_security",
+  "region_shape": "named_region",
+  "source_id": "cam1",
+  "source_kind": "fixture_source"
+}
