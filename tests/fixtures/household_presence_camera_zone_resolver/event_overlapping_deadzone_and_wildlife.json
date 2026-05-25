@@ -1,0 +1,8 @@
+{
+  "entity_class": "wildlife_visitor",
+  "event_id": "e7",
+  "metadata": {},
+  "region_shape": "full_frame",
+  "source_id": "cam1",
+  "source_kind": "fixture_source"
+}

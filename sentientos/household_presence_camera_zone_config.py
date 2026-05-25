@@ -57,6 +57,7 @@ class HouseholdCameraZoneConfig:
     operator_review_required: bool = False
     notes: str = ""
     risk_notes: str = ""
+    normalized_coordinates: tuple[float, ...] = ()
 
 @dataclass(frozen=True)
 class HouseholdCameraZoneConfigValidationFinding:
@@ -80,7 +81,7 @@ class HouseholdCameraZoneConfigResult:
 
 def build_default_config() -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    return [{"source_id":"default_fixture_source","source_kind":"fixture_source","zone_id":"zone_home","zone_class":"home_zone","region_shape":"full_frame","purpose":"baseline metadata-only camera zone","allowed_downstream_uses":["household_presence_summary"],"prohibited_downstream_uses":["external_disclosure","speaker_output"],"redaction_required":False,"child_visible_allowed":True,"adult_private_risk":False,"protected_care_risk":False,"exterior_sensitive_risk":False,"speaker_output_allowed":False,"external_disclosure_allowed":False,"confidence":0.99,"observed_at":now,"updated_at":now,"review_after":now,"expires_at":"","configured_by":"codex","operator_review_required":False,"notes":"default","risk_notes":""}]
+    return [{"source_id":"default_fixture_source","source_kind":"fixture_source","zone_id":"zone_home","zone_class":"home_zone","region_shape":"full_frame","purpose":"baseline metadata-only camera zone","normalized_coordinates":[],"allowed_downstream_uses":["household_presence_summary"],"prohibited_downstream_uses":["external_disclosure","speaker_output"],"redaction_required":False,"child_visible_allowed":True,"adult_private_risk":False,"protected_care_risk":False,"exterior_sensitive_risk":False,"speaker_output_allowed":False,"external_disclosure_allowed":False,"confidence":0.99,"observed_at":now,"updated_at":now,"review_after":now,"expires_at":"","configured_by":"codex","operator_review_required":False,"notes":"default","risk_notes":""}]
 
 def validate_zone_config(payload: Mapping[str, Any], policy: HouseholdCameraZoneConfigPolicy | None = None) -> HouseholdCameraZoneConfigResult:
     p = policy or HouseholdCameraZoneConfigPolicy()
@@ -88,7 +89,7 @@ def validate_zone_config(payload: Mapping[str, Any], policy: HouseholdCameraZone
     findings=[]; normalized=[]; sources=set()
     now=datetime.now(timezone.utc)
     for z in zones:
-        c=HouseholdCameraZoneConfig(**{**z,"allowed_downstream_uses":tuple(z.get("allowed_downstream_uses",[])),"prohibited_downstream_uses":tuple(z.get("prohibited_downstream_uses",[]))})
+        c=HouseholdCameraZoneConfig(**{**z,"normalized_coordinates":tuple(z.get("normalized_coordinates",[])),"allowed_downstream_uses":tuple(z.get("allowed_downstream_uses",[])),"prohibited_downstream_uses":tuple(z.get("prohibited_downstream_uses",[]))})
         normalized.append(c); sources.add(c.source_id)
         if c.source_kind not in SOURCE_KINDS: findings.append(HouseholdCameraZoneConfigValidationFinding("error","unknown_source_kind",c.source_kind))
         if c.zone_class not in ZONE_CLASSES: findings.append(HouseholdCameraZoneConfigValidationFinding("error","unknown_zone_class",c.zone_class))
