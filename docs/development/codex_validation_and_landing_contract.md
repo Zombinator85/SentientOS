@@ -45,3 +45,18 @@ The following are non-compliant for system tasks:
 - Deferring task-caused matrix fallout to a follow-up stabilization PR.
 
 Tiny stabilization diffs are acceptable only for pre-existing, external dependency, or environment/bootstrap issues, or when the user explicitly requested a narrow repair.
+
+
+## Required-lane repair loop
+After any task-caused code/doc/test/config/capability change:
+1. Run the required validation matrix.
+2. If any required lane fails, inspect failed lane output.
+3. Classify each failure as task-caused, pre-existing, or environment/bootstrap.
+4. Presume task-caused integration fallout for new subsystem/capability changes until proven otherwise.
+5. Fix task-caused failures in the same task.
+6. Re-run failed lane(s).
+7. Re-run the full required matrix after final fix.
+8. Commit and PR metadata are allowed only after required_failure_count is 0, unless remaining blockers are proven pre-existing/environmental and accepted by the repo ratchet flow.
+
+## Mypy baseline doctrine
+Do not use raw repo-wide mypy as the landing gate when the repository contract uses targeted mypy plus baseline ratchet. Do not ignore mypy_baseline required-lane failures.
