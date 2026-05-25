@@ -103,6 +103,7 @@ unless explicitly marked **sealed** or **deprecated**.
 - Capability landings must verify capability registry, reviewer proof bundle integration, readiness/index links, matrix lanes, targeted mypy scope, and docs link/index coverage before first finalization (see `docs/development/codex_capability_landing_checklist.md`).
 - No post-landing stabilization churn: after the final task-caused code/doc/test change, run the full relevant validation matrix before any done-reporting or PR metadata creation.
 - Do not create PR metadata, say "feature exists but full matrix not run," or say "If you want, I can run the full matrix now" for a system task before that post-final-change matrix run completes.
+- Run `python scripts/codex_landing_supervisor.py evaluate ...` after matrix + PR landing gate and obey its decision before commit/PR metadata/final report.
 - Follow-up stabilization PRs for task-caused fallout are a failure mode; fix that fallout in the same task. Tiny stabilization diffs are acceptable only for pre-existing, external, environment/bootstrap issues, or explicitly requested narrow repairs.
 - Preserve runtime authority boundaries; workflow/documentation/governance prompts may explicitly authorize `AGENTS.md`, `docs/`, `tests/`, and matrix-script edits.
 
