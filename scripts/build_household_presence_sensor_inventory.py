@@ -36,7 +36,11 @@ def main(argv: list[str] | None = None) -> int:
         print("inventory_valid")
         return 0
     summary = inventory_result_to_dict(result)
-    print(f"status={summary['status']} surfaces={len(summary['surfaces'])} warnings={len(summary['warnings'])}")
+    surfaces_obj = summary.get("surfaces", [])
+    warnings_obj = summary.get("warnings", [])
+    surfaces = surfaces_obj if isinstance(surfaces_obj, list) else []
+    warnings = warnings_obj if isinstance(warnings_obj, list) else []
+    print(f"status={summary['status']} surfaces={len(surfaces)} warnings={len(warnings)}")
     return 0
 
 
