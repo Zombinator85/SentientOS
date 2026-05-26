@@ -84,7 +84,7 @@ python scripts/codex_finalize_landing.py finalize \
   --matrix-json-path /tmp/work_item_review_packet_matrix.json \
   --focused-test-command "<TASK_FOCUSED_TEST_COMMAND>" \
   --targeted-mypy-command "<TASK_TARGETED_MYPY_COMMAND>" \
-  --changed-file "<EACH_INTENDED_CHANGED_FILE>" \
+  --allow-current-tracked-changes \
   --allow-docs-bootstrap \
   --allow-strict-audit-repair \
   --allow-generated-artifact-cleanup \

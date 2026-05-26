@@ -3,7 +3,7 @@
 Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 
 ## Phases
-- `--phase pre-commit`: permits intended task files (via `--changed-file`) to be dirty, but still requires validation evidence and blocks unknown/generated drift unless cleanup is allowed and succeeds.
+- `--phase pre-commit`: permits intended task files (via `--allow-current-tracked-changes` (or explicit `--changed-file` for tightly controlled tasks)) to be dirty, but still requires validation evidence and blocks unknown/generated drift unless cleanup is allowed and succeeds.
 - `--phase post-commit` / `--phase pr-metadata`: requires a clean source tree and only returns PR-metadata readiness when all required validation lanes pass.
 
 ## Decisions
@@ -19,7 +19,7 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 - `unknown_dirty_file`
 - `clean`
 
-Pre-commit allows `intended_task_change` only when declared by `--changed-file`. Post-commit/pr-metadata blocks all source dirty files.
+Pre-commit allows `intended_task_change` when declared by `--changed-file` or inferred from tracked git changes with `--allow-current-tracked-changes`. Post-commit/pr-metadata blocks all source dirty files.
 
 ## Why PR metadata is forbidden early
 Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata is forbidden until the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata`.
@@ -31,7 +31,7 @@ Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata i
 
 
 ## Canonical two-phase command examples
-Pre-commit: run finalize with `--phase pre-commit`, declared `--changed-file` entries, and require `ready_to_commit` before commit.
+Pre-commit: run finalize with `--phase pre-commit`, `--allow-current-tracked-changes` (or explicit `--changed-file` entries), and require `ready_to_commit` before commit.
 Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting.
 
 ## No-change validation-only example
