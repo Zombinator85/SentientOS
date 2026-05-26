@@ -61,7 +61,9 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 
 ## Codex Landing Authority (Streamlined)
 - After any task-caused repository change, run `python scripts/codex_finalize_landing.py finalize ...`.
-- Do not commit, create/update PR metadata, or final-report unless finalizer returns `ready_for_pr_metadata`.
+- Before committing task-caused changes, run finalizer in pre-commit mode and commit only if it returns `ready_to_commit`.
+- After commit and before PR metadata/final report, rerun finalizer in pr-metadata/post-commit mode.
+- Do not create/update PR metadata unless that second run returns `ready_for_pr_metadata`.
 - Focused tests alone are never sufficient; matrix alone is not sufficient; supervisor alone is not sufficient.
 - Repair known task-caused blockers in the same task and rerun finalizer.
 - Clean or explicitly classify generated artifacts before final report.

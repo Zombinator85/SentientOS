@@ -4,6 +4,9 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 
+VALID_PHASES = {"pre-commit", "post-commit", "pr-metadata"}
+
+
 @dataclass(frozen=True)
 class CodexFinalizeLandingPolicy:
     require_focused_tests: bool = True
@@ -29,6 +32,7 @@ class CodexFinalizeLandingRequest:
     title: str
     intended_commit_title: str
     matrix_json_path: str
+    phase: str = "pr-metadata"
     focused_test_commands: tuple[str, ...] = ()
     targeted_mypy_commands: tuple[str, ...] = ()
     extra_required_commands: tuple[str, ...] = ()
@@ -36,13 +40,6 @@ class CodexFinalizeLandingRequest:
     allow_no_focused_tests: bool = False
     workspace_root: str = "."
     summary: bool = False
-
-
-@dataclass(frozen=True)
-class CodexFinalizeLandingCommandSpec:
-    stage: str
-    command: str
-    required: bool = True
 
 
 @dataclass(frozen=True)
@@ -83,6 +80,13 @@ class CodexFinalizeLandingResult:
         return asdict(self)
 
 
+def _normalize_phase(phase: str) -> str:
+    normalized = phase.replace("_", "-")
+    if normalized not in VALID_PHASES:
+        return ""
+    return normalized
+
+
 def evaluate_finalize_landing(
     request: CodexFinalizeLandingRequest,
     command_results: tuple[CodexFinalizeLandingCommandResult, ...],
@@ -91,6 +95,10 @@ def evaluate_finalize_landing(
 ) -> CodexFinalizeLandingResult:
     pol = policy or CodexFinalizeLandingPolicy()
     reasons: list[str] = []
+    phase = _normalize_phase(request.phase)
+
+    if not phase:
+        reasons.append("invalid_phase")
 
     if request.title != request.intended_commit_title:
         reasons.append("title_mismatch")
@@ -101,12 +109,40 @@ def evaluate_finalize_landing(
         if result.required and result.exit_code != 0:
             reasons.append(f"stage_failed:{result.stage}")
 
-    unknown_dirty = any(a.classification == "unknown" for a in artifact_findings)
-    if pol.require_clean_working_tree and unknown_dirty:
+    changed_file_set = set(request.changed_files)
+    found_source_not_declared = False
+    found_unknown = False
+    found_generated = False
+    found_intended = False
+    for artifact in artifact_findings:
+        if artifact.classification == "unknown_dirty_file":
+            found_unknown = True
+        elif artifact.classification == "source_change_not_declared":
+            found_source_not_declared = True
+        elif artifact.classification == "generated_runtime_artifact":
+            found_generated = True
+        elif artifact.classification == "intended_task_change":
+            found_intended = True
+            if artifact.path not in changed_file_set and phase == "pre-commit":
+                found_source_not_declared = True
+
+    if found_unknown:
         reasons.append("unknown_dirty_tree")
+    if found_source_not_declared:
+        reasons.append("source_change_not_declared")
+    if found_generated and not pol.allow_generated_artifact_cleanup:
+        reasons.append("generated_artifacts_present")
+    if phase in {"post-commit", "pr-metadata"} and found_intended:
+        reasons.append("source_dirty_tree_post_commit")
 
     if reasons:
-        decision = "manual_review_required" if "unknown_dirty_tree" in reasons else "repair_required_task_caused"
-        return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(decision, tuple(reasons)), CodexFinalizeLandingReport(command_results, artifact_findings))
+        if "invalid_phase" in reasons:
+            status = "manual_review_required"
+        elif "unknown_dirty_tree" in reasons:
+            status = "manual_review_required"
+        else:
+            status = "repair_required_task_caused"
+        return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(status, tuple(reasons)), CodexFinalizeLandingReport(command_results, artifact_findings))
 
-    return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision("ready_for_pr_metadata", ()), CodexFinalizeLandingReport(command_results, artifact_findings))
+    ready_status = "ready_to_commit" if phase == "pre-commit" else "ready_for_pr_metadata"
+    return CodexFinalizeLandingResult(pol, CodexFinalizeLandingDecision(ready_status, ()), CodexFinalizeLandingReport(command_results, artifact_findings))
