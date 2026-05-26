@@ -1,0 +1,42 @@
+{
+  "events": [
+    {
+      "event_id": "e8",
+      "event_payload": {
+        "entity_class": "person",
+        "event_id": "e8",
+        "event_type": "motion",
+        "metadata": {
+          "confidence": 0.9,
+          "speaker_action_requested": true
+        },
+        "region_id": "north"
+      },
+      "source_id": "cam1",
+      "zone_config_payload": {
+        "version": "1",
+        "zones": [
+          {
+            "classification": "exterior_general",
+            "redaction_required": false,
+            "regions": [
+              "north"
+            ],
+            "zone_id": "driveway"
+          }
+        ]
+      }
+    }
+  ],
+  "operator_confirmation": {
+    "confirmation_scope": "household_presence_camera_dry_run",
+    "confirmed_at": "2026-05-26T00:00:00Z",
+    "dry_run_only": true,
+    "external_disclosure_allowed": false,
+    "live_hardware_allowed": false,
+    "operator_id": "op-1",
+    "policy_chain_required": true,
+    "raw_media_allowed": false,
+    "speaker_output_allowed": false
+  }
+}

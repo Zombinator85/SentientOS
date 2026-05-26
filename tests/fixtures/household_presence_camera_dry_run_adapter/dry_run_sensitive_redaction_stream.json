@@ -1,0 +1,43 @@
+{
+  "events": [
+    {
+      "event_id": "e5",
+      "event_payload": {
+        "entity_class": "person",
+        "event_id": "e5",
+        "event_type": "motion",
+        "metadata": {
+          "confidence": 0.9,
+          "intimate_profile_requested": true,
+          "redaction_applied": false
+        },
+        "region_id": "north"
+      },
+      "source_id": "cam1",
+      "zone_config_payload": {
+        "version": "1",
+        "zones": [
+          {
+            "classification": "adult_private",
+            "redaction_required": true,
+            "regions": [
+              "north"
+            ],
+            "zone_id": "adult_private"
+          }
+        ]
+      }
+    }
+  ],
+  "operator_confirmation": {
+    "confirmation_scope": "household_presence_camera_dry_run",
+    "confirmed_at": "2026-05-26T00:00:00Z",
+    "dry_run_only": true,
+    "external_disclosure_allowed": false,
+    "live_hardware_allowed": false,
+    "operator_id": "op-1",
+    "policy_chain_required": true,
+    "raw_media_allowed": false,
+    "speaker_output_allowed": false
+  }
+}
