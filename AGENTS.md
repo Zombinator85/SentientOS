@@ -59,6 +59,15 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 
 ## 🛠️ Codex Agent Operating Instructions
 
+## Codex Landing Authority (Streamlined)
+- After any task-caused repository change, run `python scripts/codex_finalize_landing.py finalize ...`.
+- Do not commit, create/update PR metadata, or final-report unless finalizer returns `ready_for_pr_metadata`.
+- Focused tests alone are never sufficient; matrix alone is not sufficient; supervisor alone is not sufficient.
+- Repair known task-caused blockers in the same task and rerun finalizer.
+- Clean or explicitly classify generated artifacts before final report.
+- See detailed contract in `docs/development/codex_finalize_landing.md` and `docs/development/codex_validation_and_landing_contract.md`.
+
+
 This section guides Codex agents that operate on this repository when invoked by
 humans. Internet access is enabled and agents may install packages as needed.
 Codex agents must obey all privilege and presence rules defined in this
