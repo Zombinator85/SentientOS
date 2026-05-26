@@ -72,3 +72,41 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 
 
 - For known strict_audits runtime chain drift on `pulse/audit/privileged_audit.runtime.jsonl`, run `python scripts/codex_strict_audit_repair.py diagnose --summary` and then `python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary`, then rerun strict audits + immutability + matrix/gate/supervisor before finalization.
+
+
+## Two-phase finalizer commands (required)
+Pre-commit finalizer (must return `ready_to_commit` before commit):
+```
+python scripts/codex_finalize_landing.py finalize \
+  --phase pre-commit \
+  --title "<COMMIT_TITLE>" \
+  --intended-commit-title "<COMMIT_TITLE>" \
+  --matrix-json-path /tmp/work_item_review_packet_matrix.json \
+  --focused-test-command "<TASK_FOCUSED_TEST_COMMAND>" \
+  --targeted-mypy-command "<TASK_TARGETED_MYPY_COMMAND>" \
+  --changed-file "<EACH_INTENDED_CHANGED_FILE>" \
+  --allow-docs-bootstrap \
+  --allow-strict-audit-repair \
+  --allow-generated-artifact-cleanup \
+  --summary
+```
+
+Post-commit PR-metadata finalizer (must return `ready_for_pr_metadata` before `make_pr` and final report):
+```
+python scripts/codex_finalize_landing.py finalize \
+  --phase pr-metadata \
+  --title "<COMMIT_TITLE>" \
+  --intended-commit-title "<COMMIT_TITLE>" \
+  --matrix-json-path /tmp/work_item_review_packet_matrix.json \
+  --focused-test-command "<TASK_FOCUSED_TEST_COMMAND>" \
+  --targeted-mypy-command "<TASK_TARGETED_MYPY_COMMAND>" \
+  --allow-docs-bootstrap \
+  --allow-strict-audit-repair \
+  --allow-generated-artifact-cleanup \
+  --summary
+```
+
+No-change path: when no source/doc/test changes were made, do not commit and do not call `make_pr`; report validation-only completion with evidence.
+
+## Final report required fields additions
+Include both `pre_commit_finalizer_result` and `post_commit_pr_metadata_finalizer_result`, plus explicit `pr_metadata_result` showing PR metadata was created only after `ready_for_pr_metadata`.

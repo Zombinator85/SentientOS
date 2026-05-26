@@ -28,3 +28,16 @@ Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata i
 1. Normal feature landing: run pre-commit finalizer (`ready_to_commit`) -> commit -> run post-commit finalizer (`ready_for_pr_metadata`) -> create/update PR metadata.
 2. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
 3. Stabilization with generated artifact cleanup only: allow cleanup flags, clean artifacts, then rerun finalizer for phase-appropriate readiness.
+
+
+## Canonical two-phase command examples
+Pre-commit: run finalize with `--phase pre-commit`, declared `--changed-file` entries, and require `ready_to_commit` before commit.
+Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting.
+
+## No-change validation-only example
+If repository source/doc/test files are unchanged, run the pr-metadata phase for validation evidence only and report completion without commit/`make_pr`.
+
+## Anti-patterns
+- Commit + `make_pr` after focused tests only.
+- Commit + `make_pr` after partial finalizer usage (pre-commit only).
+- Deferring post-commit finalizer to a later seal follow-up turn for task-caused changes.

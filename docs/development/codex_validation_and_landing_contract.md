@@ -18,3 +18,10 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Post-commit/pr-metadata: source dirty files block.
 - Unknown dirty files always block.
 - Generated runtime artifacts must be cleaned or block.
+
+
+## Self-sealing requirement
+- Validation-only seal turns should not be necessary for normal implementation tasks.
+- If finalizer tooling is available, the same task must self-seal using both phases.
+- Missing post-commit/pr-metadata finalizer before PR metadata is a task-owned failure.
+- Do not defer post-commit sealing to follow-up turns when implementation changes occurred.

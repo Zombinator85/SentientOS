@@ -21,6 +21,9 @@ def test_agents_mentions_whole_system_doctrine_and_links() -> None:
     assert "If you want, I can run the full matrix now" in agents
     assert "proof-bundle" in agents
     assert "capability registry" in agents
+    assert "two phases during the same implementation task" in agents
+    assert "Do not defer post-commit/pr-metadata finalizer" in agents
+    assert "do not run commit or `make_pr`" in agents
     for path in [
         "docs/development/codex_whole_system_task_template.md",
         "docs/development/codex_narrow_repair_task_template.md",
@@ -58,6 +61,10 @@ def test_templates_exist_and_have_required_sections() -> None:
     assert "After the last task-caused code/doc/test change" in whole
     assert "Do not create PR metadata" in whole
     assert "required lane failures" in whole.lower()
+    assert "## Two-phase finalizer commands (required)" in whole
+    assert "--phase pre-commit" in whole
+    assert "--phase pr-metadata" in whole
+    assert "before `make_pr`" in whole
 
     narrow = _read("docs/development/codex_narrow_repair_task_template.md")
     assert "Narrow repairs are exceptional" in narrow
@@ -76,6 +83,16 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
     assert "3. Only then produce final report and PR metadata." in contract
     assert "If you want, I can run the full matrix now" in contract
     assert "Required-lane repair loop" in contract
+    assert "Validation-only seal turns should not be necessary" in contract
+    assert "must self-seal using both phases" in contract
+    assert "Missing post-commit/pr-metadata finalizer" in contract
+    assert "Do not defer post-commit sealing" in contract
+
+    finalize = _read("docs/development/codex_finalize_landing.md")
+    assert "Canonical two-phase command examples" in finalize
+    assert "No-change validation-only example" in finalize
+    assert "Anti-patterns" in finalize
+    assert "partial finalizer usage" in finalize
 
     checklist = _read("docs/development/codex_capability_landing_checklist.md")
     for marker in ["capability category", "authority level", "proof bundle", "readiness/index", "matrix runner", "targeted mypy", "docs link/index coverage"]:
