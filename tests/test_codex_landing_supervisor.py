@@ -66,3 +66,11 @@ def test_landing_gate_failed_blocks() -> None:
     req = CodexLandingSupervisorRequest(title="[codex:x] ok", intended_commit_title="[codex:x] ok", matrix_json_text=_matrix(), pr_landing_gate_result={"decision": "pr_metadata_blocked"})
     result = evaluate_landing_supervisor(req)
     assert result.decision.status == "repair_required_task_caused"
+
+
+def test_supervisor_recommends_strict_audit_repair_for_strict_lane() -> None:
+    req = CodexLandingSupervisorRequest(title="[codex:x] ok", intended_commit_title="[codex:x] ok", matrix_json_text=_matrix(1, ["strict_audits"]), pr_landing_gate_result={"decision": "pr_metadata_allowed"})
+    result = evaluate_landing_supervisor(req)
+    lane = result.report.failed_lanes[0]
+    assert lane.lane == "strict_audits"
+    assert any("codex_strict_audit_repair.py" in c for c in lane.rerun_commands)

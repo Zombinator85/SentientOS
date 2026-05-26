@@ -101,7 +101,24 @@ def evaluate_landing_supervisor(request: CodexLandingSupervisorRequest, policy: 
     if required_failures > 0:
         reasons.append("matrix_failed")
         for lane in matrix.get("required_failures", []):
-            failed.append(CodexLandingSupervisorLaneResult(lane=str(lane), status="failed", classification="repair_required_task_caused", likely_affected_files=request.changed_files, rerun_commands=(f"python -m scripts.run_tests -q {lane}", "python scripts/run_work_item_review_packet_matrix.py --summary")))
+            reruns: tuple[str, ...] = (f"python -m scripts.run_tests -q {lane}", "python scripts/run_work_item_review_packet_matrix.py --summary")
+            if str(lane) == "strict_audits":
+                reruns = (
+                    "python scripts/codex_strict_audit_repair.py diagnose --summary",
+                    "python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary",
+                    "python verify_audits.py --strict",
+                    "python scripts/audit_immutability_verifier.py",
+                    "python scripts/run_work_item_review_packet_matrix.py --summary",
+                )
+            failed.append(
+                CodexLandingSupervisorLaneResult(
+                    lane=str(lane),
+                    status="failed",
+                    classification="repair_required_task_caused",
+                    likely_affected_files=request.changed_files,
+                    rerun_commands=reruns,
+                )
+            )
 
     baseline = request.baseline_summary or {}
     if int(baseline.get("new_errors", 0)) > 0:

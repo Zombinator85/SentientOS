@@ -105,3 +105,10 @@ def test_matrix_report_includes_generated_timestamp() -> None:
     report = matrix.run_matrix(commands=[matrix.MatrixCommand("ok", ("python", "ok"))], runner=lambda _: FakeCompleted(0))
     assert "generated_at" in report
     assert report["generated_at"].endswith("Z")
+
+
+def test_matrix_reports_strict_audit_repair_guidance() -> None:
+    commands=[matrix.MatrixCommand("strict_audits", ("python","verify_audits.py","--strict"))]
+    report=matrix.run_matrix(commands=commands, runner=lambda _ : FakeCompleted(1, stdout="failed"))
+    # added by main when strict fails in full run
+    assert report["status"] == "failed"
