@@ -1,0 +1,14 @@
+{
+  "events": [],
+  "operator_confirmation": {
+    "confirmation_scope": "household_presence_camera_dry_run",
+    "confirmed_at": "2026-05-26T00:00:00Z",
+    "dry_run_only": true,
+    "external_disclosure_allowed": false,
+    "live_hardware_allowed": true,
+    "operator_id": "op-1",
+    "policy_chain_required": true,
+    "raw_media_allowed": false,
+    "speaker_output_allowed": false
+  }
+}

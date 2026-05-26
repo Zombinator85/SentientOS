@@ -431,6 +431,7 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence deadzone redaction contract: `docs/architecture/household_presence_deadzone_redaction.md`
 - Household presence camera redaction pipeline: `docs/architecture/household_presence_camera_redaction_pipeline.md`
 - Household presence camera policy chain: `docs/architecture/household_presence_camera_policy_chain.md`
+- Household presence camera dry-run adapter: `docs/architecture/household_presence_camera_dry_run_adapter.md`
 
 - docs/development/codex_landing_supervisor.md
 
