@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {
+      "device_id": "usb1",
+      "device_type": "usb_camera",
+      "name": "USB Camera"
+    }
+  ],
+  "inventory_id": "mpc",
+  "policy_chain_present": false,
+  "zone_config_present": true
+}

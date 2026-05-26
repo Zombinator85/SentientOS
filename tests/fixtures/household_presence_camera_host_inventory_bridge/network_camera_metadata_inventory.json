@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "nc1",
+      "device_type": "network_camera_metadata",
+      "name": "ONVIF camera metadata"
+    }
+  ],
+  "inventory_id": "net"
+}

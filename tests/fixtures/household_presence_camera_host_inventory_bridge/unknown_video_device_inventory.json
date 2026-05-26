@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "u1",
+      "device_type": "video_device",
+      "name": "Video Device X"
+    }
+  ],
+  "inventory_id": "unk"
+}

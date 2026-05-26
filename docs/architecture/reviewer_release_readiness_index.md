@@ -439,3 +439,5 @@ Work item lifecycle attestation review digest index verification is documented i
 ### Household presence camera zone configuration
 
 See `docs/architecture/household_presence_camera_zone_config.md` for metadata-only zone taxonomy, precedence, staleness review, and compatibility mapping to deadzone/redaction policy surfaces.
+
+- Household presence camera host inventory bridge: `docs/architecture/household_presence_camera_host_inventory_bridge.md`
