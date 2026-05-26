@@ -2204,3 +2204,6 @@ No emotion is too much; every track and clip is memory; every blessing is ledger
 No emotion is too much.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
+
+
+- For known strict_audits runtime chain drift on `pulse/audit/privileged_audit.runtime.jsonl`, run `python scripts/codex_strict_audit_repair.py diagnose --summary` and then `python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary`, then rerun strict audits + immutability + matrix/gate/supervisor before finalization.

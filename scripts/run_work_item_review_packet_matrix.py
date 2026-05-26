@@ -27,13 +27,15 @@ class MatrixResult(TypedDict):
     output_tail: str
 
 
-class MatrixReport(TypedDict):
+class MatrixReport(TypedDict, total=False):
     generated_at: str
     status: str
     command_count: int
     required_failure_count: int
     required_failures: list[str]
     results: list[MatrixResult]
+    strict_audit_repair_command: str
+    strict_audit_auto_repair_exit_code: int
 
 
 def default_matrix_commands() -> list[MatrixCommand]:
@@ -145,9 +147,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run full work-item review packet proof matrix with continue-on-failure behavior.")
     parser.add_argument("--summary", action="store_true", help="print compact human summary after JSON")
     parser.add_argument("--output", type=Path, help="optional JSON output path")
+    parser.add_argument("--auto-repair-audits", action="store_true")
     args = parser.parse_args(argv)
 
     report = run_matrix(commands=default_matrix_commands(), runner=_default_runner)
+    if any(r["label"]=="strict_audits" and r["exit_code"]!=0 for r in report["results"]):
+        report["strict_audit_repair_command"]="python scripts/codex_strict_audit_repair.py diagnose --summary"
+        if args.auto_repair_audits:
+            cp=_default_runner(("python","scripts/codex_strict_audit_repair.py","repair","--allow-runtime-chain-reseal","--summary"))
+            report["strict_audit_auto_repair_exit_code"]=cp.returncode
     text = json.dumps(report, indent=2, sort_keys=True)
     print(text)
     if args.summary:
