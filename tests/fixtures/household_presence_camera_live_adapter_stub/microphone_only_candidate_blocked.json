@@ -1,0 +1,36 @@
+{
+  "binding": {
+    "candidate_recommendation": "microphone_only",
+    "confidence": 0.91,
+    "dry_run_report_digest": "digest-123",
+    "dry_run_status": "dry_run_ready",
+    "expires_at": "2026-06-30T00:00:00Z",
+    "host_inventory_candidate_id": "candidate-usb-1",
+    "notes": "fixture",
+    "policy_chain_id": "policy-chain-v1",
+    "readiness_status": "ready",
+    "review_after": "2026-06-01T00:00:00Z",
+    "source_kind": "usb_camera",
+    "source_label": "Kitchen USB Cam",
+    "zone_config_id": "zone-kitchen-v1"
+  },
+  "dry_run_proof": {
+    "dry_run_report_digest": "digest-123",
+    "dry_run_status": "dry_run_ready",
+    "is_stale": false,
+    "proof_matches_binding": true
+  },
+  "operator_confirmation": {
+    "confirmation_scope": "household_presence_camera_live_adapter_stub",
+    "confirmed_at": "2026-05-26T00:00:00Z",
+    "dry_run_required": true,
+    "external_disclosure_allowed": false,
+    "live_hardware_allowed": false,
+    "operator_id": "op-1",
+    "policy_chain_required": true,
+    "raw_media_allowed": false,
+    "speaker_output_allowed": false,
+    "stub_only": true,
+    "zone_config_required": true
+  }
+}
