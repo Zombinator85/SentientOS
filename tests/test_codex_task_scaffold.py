@@ -30,3 +30,19 @@ def test_deterministic_digest() -> None:
     b = build_codex_task_scaffold(req)
     assert a.scaffold.scaffold_digest == b.scaffold.scaffold_digest
     assert a.scaffold.expected_files == ("a", "b")
+
+
+def test_generated_prompt_includes_two_phase_finalizer_rules() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="z"))
+    prompt = result.scaffold.generated_prompt
+    assert "ready_to_commit" in prompt
+    assert "ready_for_pr_metadata" in prompt
+    assert "do not commit or make_pr" in prompt
+
+
+def test_preset_final_report_contract_includes_finalizer_results() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="developer_workflow_metadata"))
+    contract = result.scaffold.final_report_contract
+    assert "pre_commit_finalizer_result" in contract
+    assert "post_commit_pr_metadata_finalizer_result" in contract
+    assert "pr_metadata_result" in contract
