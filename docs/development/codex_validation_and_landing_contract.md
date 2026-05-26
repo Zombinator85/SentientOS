@@ -3,7 +3,7 @@
 ## Two-phase finalizer contract
 1. Before commit, run `python scripts/codex_finalize_landing.py finalize --phase pre-commit ...`.
    - Commit only if status is `ready_to_commit`.
-   - Intended source/doc/test changes may be present when declared via `--changed-file`.
+   - Intended source/doc/test changes may be present when declared via `--changed-file` or inferred from tracked changes with `--allow-current-tracked-changes` (pre-commit only).
 2. After commit and before PR metadata/final report, run `python scripts/codex_finalize_landing.py finalize --phase pr-metadata ...` (or `post-commit`).
    - Create/update PR metadata only if status is `ready_for_pr_metadata`.
    - Tree must be clean except allowed generated artifacts that are cleaned successfully.
