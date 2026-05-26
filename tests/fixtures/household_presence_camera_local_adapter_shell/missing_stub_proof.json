@@ -1,0 +1,31 @@
+{
+  "binding": {
+    "candidate_recommendation": "integrated_camera_metadata_only",
+    "dry_run_report_digest": "digest-001",
+    "host_inventory_candidate_id": "fixture-candidate-001",
+    "policy_chain_id": "policy-alpha",
+    "source_kind": "usb",
+    "source_label": "fixture-usb-cam",
+    "stub_status": "",
+    "zone_config_id": "zone-alpha"
+  },
+  "dry_run_proof_matches_binding": true,
+  "dry_run_status": "dry_run_ready",
+  "intent": {
+    "capture_requested": false,
+    "dry_run_required": true,
+    "external_disclosure_requested": false,
+    "live_hardware_requested": false,
+    "operator_confirmation_required": true,
+    "policy_chain_required": true,
+    "raw_media_requested": false,
+    "requested_mode": "capture_disabled_shell",
+    "speaker_output_requested": false,
+    "zone_config_required": true
+  },
+  "operator_confirmation": {
+    "confirmation_scope": "shell",
+    "confirmed_at": "2026-01-01T00:00:00Z",
+    "operator_id": "fixture-op"
+  }
+}
