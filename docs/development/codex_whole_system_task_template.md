@@ -68,7 +68,7 @@ Include: files changed, validation command outcomes, failure classification, mat
 
 
 ## Codex Landing Supervisor
-Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`. Use two-phase finalization: pre-commit (`--phase pre-commit`) must return `ready_to_commit`; post-commit (`--phase pr-metadata`) must return `ready_for_pr_metadata` before PR metadata.
 
 
 - For known strict_audits runtime chain drift on `pulse/audit/privileged_audit.runtime.jsonl`, run `python scripts/codex_strict_audit_repair.py diagnose --summary` and then `python scripts/codex_strict_audit_repair.py repair --allow-runtime-chain-reseal --summary`, then rerun strict audits + immutability + matrix/gate/supervisor before finalization.
