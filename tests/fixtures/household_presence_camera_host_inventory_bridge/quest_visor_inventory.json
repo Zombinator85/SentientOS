@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "q1",
+      "device_type": "quest_visor",
+      "name": "Quest visor"
+    }
+  ],
+  "inventory_id": "quest"
+}

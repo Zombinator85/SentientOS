@@ -1,0 +1,13 @@
+{
+  "devices": [
+    {
+      "device_id": "usb1",
+      "device_type": "usb_camera",
+      "host_inventory_path": "host.json",
+      "name": "USB Camera"
+    }
+  ],
+  "inventory_id": "usb",
+  "policy_chain_present": true,
+  "zone_config_present": true
+}

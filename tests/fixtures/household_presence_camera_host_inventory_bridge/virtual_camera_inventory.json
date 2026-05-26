@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "vc1",
+      "device_type": "virtual_camera",
+      "name": "Virtual Camera"
+    }
+  ],
+  "inventory_id": "virt"
+}

@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {
+      "device_id": "int1",
+      "device_type": "integrated_camera",
+      "name": "Integrated Camera"
+    }
+  ],
+  "inventory_id": "int",
+  "policy_chain_present": true,
+  "zone_config_present": true
+}

@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "spk1",
+      "device_type": "speaker_talkback",
+      "name": "Talkback Speaker"
+    }
+  ],
+  "inventory_id": "spk"
+}

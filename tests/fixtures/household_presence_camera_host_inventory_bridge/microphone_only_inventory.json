@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "device_id": "mic1",
+      "device_type": "microphone",
+      "name": "USB Microphone"
+    }
+  ],
+  "inventory_id": "mic"
+}
