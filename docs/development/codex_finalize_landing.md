@@ -41,3 +41,23 @@ If repository source/doc/test files are unchanged, run the pr-metadata phase for
 - Commit + `make_pr` after focused tests only.
 - Commit + `make_pr` after partial finalizer usage (pre-commit only).
 - Deferring post-commit finalizer to a later seal follow-up turn for task-caused changes.
+
+## Runtime reporting, output artifact, and timeouts
+- Finalizer progress is deterministic and grep-friendly:
+  - `[finalizer] stage start: <stage_id>`
+  - `[finalizer] stage end: <stage_id> status=<passed|failed|timed_out> exit_code=<n>`
+  - `[finalizer] decision: <status>`
+- Summary mode always prints: `Codex Finalize Landing decision: <status>`.
+- Use `--output /tmp/codex_finalize_landing.json` to persist conclusive proof on success or failure.
+- Use `--stage-timeout-seconds N` and `--overall-timeout-seconds N` to bound runtime.
+- Timed out stages return nonzero and classify as `finalizer_failed` (stage timeout) or `environment_blocked` (overall timeout).
+- Indeterminate/no-captured-output finalizer runs are not acceptable landing proof.
+
+### Canonical pr-metadata command with output
+`python scripts/codex_finalize_landing.py finalize --phase pr-metadata --title "[codex:developer] stabilize Codex finalizer runtime reporting" --intended-commit-title "[codex:developer] stabilize Codex finalizer runtime reporting" --matrix-json-path /tmp/work_item_review_packet_matrix.json --focused-test-command "python -m scripts.run_tests -q tests/test_codex_finalize_landing.py tests/test_codex_finalize_landing_script.py tests/test_codex_operating_doctrine_docs.py" --targeted-mypy-command "python -m mypy sentientos/codex_finalize_landing.py scripts/codex_finalize_landing.py sentientos/codex_landing_supervisor.py scripts/codex_landing_supervisor.py sentientos/codex_strict_audit_repair.py scripts/codex_strict_audit_repair.py scripts/run_work_item_review_packet_matrix.py" --allow-docs-bootstrap --allow-strict-audit-repair --allow-generated-artifact-cleanup --stage-timeout-seconds 900 --overall-timeout-seconds 3600 --output /tmp/codex_finalize_landing_pr_metadata.json --summary`
+
+### Troubleshooting long-running stages
+1. Identify the last stage-start line with no matching stage-end line.
+2. Rerun with higher `--stage-timeout-seconds` for legitimately slow lanes.
+3. Use `--output` artifact to inspect per-stage bounded output tails.
+4. Repair failing or hung stage command, then rerun finalizer.

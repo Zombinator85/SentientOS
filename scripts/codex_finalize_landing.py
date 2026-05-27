@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from sentientos.codex_finalize_landing import (
@@ -14,12 +16,102 @@ from sentientos.codex_finalize_landing import (
 )
 
 GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
+DEFAULT_STAGE_TIMEOUT_SECONDS = 900
+DEFAULT_OVERALL_TIMEOUT_SECONDS = 3600
+MAX_OUTPUT_LINES = 40
 
 
-def _run(stage: str, cmd: str, required: bool = True) -> CodexFinalizeLandingCommandResult:
-    p = subprocess.run(cmd, shell=True, text=True, capture_output=True)
-    tail = "\n".join((p.stdout + "\n" + p.stderr).strip().splitlines()[-20:])
-    return CodexFinalizeLandingCommandResult(stage=stage, command=cmd, exit_code=p.returncode, output_tail=tail, required=required)
+@dataclass(frozen=True)
+class StageRuntime:
+    stage_id: str
+    command: str
+    started_at: float
+    completed: bool
+    exit_code: int
+    duration_seconds: float
+    stdout_tail: str
+    stderr_tail: str
+    decision_impact: str
+    status: str
+    timed_out: bool
+
+
+class FinalizerTimeoutError(RuntimeError):
+    def __init__(self, stage_id: str, kind: str) -> None:
+        super().__init__(f"{kind}_timeout:{stage_id}")
+        self.stage_id = stage_id
+        self.kind = kind
+
+
+def _tail(text: str, limit: int = MAX_OUTPUT_LINES) -> str:
+    lines = [line for line in text.splitlines() if line.strip()]
+    return "\n".join(lines[-limit:])
+
+
+def _progress(enabled: bool, line: str) -> None:
+    if enabled:
+        print(line, flush=True)
+
+
+def _run_stage(
+    stage_id: str,
+    cmd: str,
+    required: bool,
+    progress: bool,
+    stage_timeout_seconds: int,
+    overall_deadline: float,
+) -> tuple[CodexFinalizeLandingCommandResult, StageRuntime]:
+    if time.monotonic() >= overall_deadline:
+        raise FinalizerTimeoutError(stage_id, "overall")
+    _progress(progress, f"[finalizer] stage start: {stage_id}")
+    started = time.monotonic()
+    timeout_seconds = min(stage_timeout_seconds, max(1, int(overall_deadline - started)))
+    try:
+        p = subprocess.run(cmd, shell=True, text=True, capture_output=True, timeout=timeout_seconds)
+        timed_out = False
+        status = "passed" if p.returncode == 0 else "failed"
+    except subprocess.TimeoutExpired as exc:
+        stdout_part = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+        stderr_part = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+        combined = stdout_part + "\n" + stderr_part
+        runtime = StageRuntime(
+            stage_id=stage_id,
+            command=cmd,
+            started_at=started,
+            completed=False,
+            exit_code=124,
+            duration_seconds=time.monotonic() - started,
+            stdout_tail=_tail(combined),
+            stderr_tail="",
+            decision_impact="required_stage_timeout" if required else "optional_stage_timeout",
+            status="timed_out",
+            timed_out=True,
+        )
+        _progress(progress, f"[finalizer] stage end: {stage_id} status=timed_out exit_code=124")
+        raise FinalizerTimeoutError(stage_id, "stage") from exc
+    duration = time.monotonic() - started
+    result = CodexFinalizeLandingCommandResult(
+        stage=stage_id,
+        command=cmd,
+        exit_code=p.returncode,
+        output_tail=_tail((p.stdout or "") + "\n" + (p.stderr or "")),
+        required=required,
+    )
+    runtime = StageRuntime(
+        stage_id=stage_id,
+        command=cmd,
+        started_at=started,
+        completed=True,
+        exit_code=p.returncode,
+        duration_seconds=duration,
+        stdout_tail=_tail(p.stdout or ""),
+        stderr_tail=_tail(p.stderr or ""),
+        decision_impact="required" if required else "optional",
+        status=status,
+        timed_out=timed_out,
+    )
+    _progress(progress, f"[finalizer] stage end: {stage_id} status={status} exit_code={p.returncode}")
+    return result, runtime
 
 
 def _git_status() -> list[str]:
@@ -65,6 +157,18 @@ def _cleanup_generated() -> None:
     subprocess.run("git clean -fd glow pulse artifacts/codex", shell=True)
 
 
+def _emit_and_optionally_write(payload: dict[str, object], output: str | None, summary: bool, decision_status: str) -> None:
+    if output:
+        Path(output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    if summary:
+        decision_payload = payload.get("decision")
+        reasons = decision_payload.get("reasons", []) if isinstance(decision_payload, dict) else []
+        print(json.dumps({"status": decision_status, "reasons": reasons}, indent=2))
+        print(f"Codex Finalize Landing decision: {decision_status}", flush=True)
+    else:
+        print(json.dumps(payload, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -85,6 +189,10 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--allow-generated-artifact-cleanup", action="store_true")
         s.add_argument("--allow-no-focused-tests", action="store_true")
         s.add_argument("--output")
+        s.add_argument("--stage-timeout-seconds", type=int, default=DEFAULT_STAGE_TIMEOUT_SECONDS)
+        s.add_argument("--overall-timeout-seconds", type=int, default=DEFAULT_OVERALL_TIMEOUT_SECONDS)
+        s.add_argument("--progress", action="store_true", default=True)
+        s.add_argument("--no-progress", action="store_false", dest="progress")
         s.add_argument("--summary", action="store_true")
     return p
 
@@ -121,48 +229,68 @@ def main(argv: list[str] | None = None) -> int:
         workspace_root=a.workspace_root,
         summary=a.summary,
     )
-    cmds = []
-    for c in a.focused_test_command:
-        cmds.append(_run("focused_tests", c))
-    for c in a.targeted_mypy_command:
-        cmds.append(_run("targeted_mypy", c))
-    cmds += [
-        _run("mypy_baseline", "python scripts/check_mypy_baseline.py"),
-        _run("matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary"),
-        _run("matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}"),
-        _run("pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}"),
-        _run("landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary"),
-        _run("docs_check_deps", "python scripts/build_docs.py --check-deps"),
-        _run("docs_build", "python scripts/build_docs.py"),
-        _run("prompt_boundary", "python scripts/verify_context_hygiene_prompt_boundaries.py"),
-        _run("strict_audits", "python verify_audits.py --strict"),
-        _run("audit_immutability", "python scripts/audit_immutability_verifier.py"),
-    ]
+
+    stage_specs: list[tuple[str, str, bool]] = [("preflight_hygiene", "git status --short", True)]
+    stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
+    stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
+    stage_specs.extend(
+        [
+            ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
+            ("matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True),
+            ("matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True),
+            ("pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
+            ("landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
+            ("docs_check_deps", "python scripts/build_docs.py --check-deps", True),
+            ("docs_build", "python scripts/build_docs.py", True),
+            ("prompt_boundary", "python scripts/verify_context_hygiene_prompt_boundaries.py", True),
+            ("strict_audits", "python verify_audits.py --strict", True),
+            ("audit_immutability", "python scripts/audit_immutability_verifier.py", True),
+        ]
+    )
+
+    started = time.monotonic()
+    deadline = started + max(1, a.overall_timeout_seconds)
+    commands: list[CodexFinalizeLandingCommandResult] = []
+    runtime: list[StageRuntime] = []
+    decision_status = "finalizer_failed"
+    decision_reasons: list[str] = []
+    try:
+        for stage_id, cmd, required in stage_specs:
+            result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
+            commands.append(result)
+            runtime.append(stage_runtime)
+    except FinalizerTimeoutError as exc:
+        decision_status = "environment_blocked" if exc.kind == "overall" else "finalizer_failed"
+        decision_reasons = [f"{exc.kind}_timeout:{exc.stage_id}", "rerun_with_higher_timeout_or_fix_hung_stage"]
+    except Exception as exc:  # noqa: BLE001
+        decision_status = "finalizer_failed"
+        decision_reasons = [f"runtime_exception:{type(exc).__name__}"]
+
     if a.allow_generated_artifact_cleanup:
+        _progress(a.progress, "[finalizer] stage start: generated_artifact_cleanup")
         _cleanup_generated()
+        _progress(a.progress, "[finalizer] stage end: generated_artifact_cleanup status=passed exit_code=0")
+
     findings = _classify(_git_status(), tuple(a.changed_file) + inferred_changed_files)
-    result = evaluate_finalize_landing(
-        req,
-        tuple(cmds),
-        findings,
-        policy=CodexFinalizeLandingPolicy(allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup),
-    )
-    payload = result.to_dict()
-    if a.output:
-        Path(a.output).write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(
-        json.dumps(
-            payload
-            if not a.summary
-            else {
-                "status": result.decision.status,
-                "reasons": result.decision.reasons,
-                "inferred_changed_files": inferred_changed_files,
-            },
-            indent=2,
-        )
-    )
-    return 0 if result.decision.status in {"ready_to_commit", "ready_for_pr_metadata"} else 1
+    landing_result = evaluate_finalize_landing(req, tuple(commands), findings, policy=CodexFinalizeLandingPolicy(allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup))
+
+    if not decision_reasons:
+        decision_status = landing_result.decision.status
+        decision_reasons = list(landing_result.decision.reasons)
+
+    payload = landing_result.to_dict()
+    payload["runtime"] = {
+        "stage_timeout_seconds": a.stage_timeout_seconds,
+        "overall_timeout_seconds": a.overall_timeout_seconds,
+        "stages": [asdict(item) for item in runtime],
+        "final_decision": {"status": decision_status, "reasons": decision_reasons},
+    }
+    payload["decision"]["status"] = decision_status
+    payload["decision"]["reasons"] = decision_reasons
+
+    _progress(a.progress, f"[finalizer] decision: {decision_status}")
+    _emit_and_optionally_write(payload, a.output, a.summary, decision_status)
+    return 0 if (a.phase.replace("_", "-") == "pre-commit" and decision_status == "ready_to_commit") or (a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and decision_status == "ready_for_pr_metadata") else 1
 
 
 if __name__ == "__main__":
