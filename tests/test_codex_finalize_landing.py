@@ -59,3 +59,19 @@ def test_pre_commit_ready_with_inferred_source_changes() -> None:
     artifacts = (CodexFinalizeLandingArtifactFinding("docs/development/codex_finalize_landing.md", "intended_task_change", "allow_pre_commit"),)
     res = evaluate_finalize_landing(req, _ok_cmds(), artifacts)
     assert res.decision.status == "ready_to_commit"
+
+
+def test_pre_commit_ready_with_inferred_untracked_task_files() -> None:
+    req = CodexFinalizeLandingRequest(
+        title="x",
+        intended_commit_title="x",
+        matrix_json_path="/tmp/m.json",
+        phase="pre-commit",
+        focused_test_commands=("t",),
+        inferred_untracked_task_files=("tests/test_new_case.py",),
+        allow_current_task_files=True,
+        dirty_file_classification_source="tracked+untracked_inferred",
+    )
+    artifacts = (CodexFinalizeLandingArtifactFinding("tests/test_new_case.py", "intended_task_change", "allow_pre_commit"),)
+    res = evaluate_finalize_landing(req, _ok_cmds(), artifacts)
+    assert res.decision.status == "ready_to_commit"

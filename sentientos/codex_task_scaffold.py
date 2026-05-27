@@ -144,6 +144,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         prompt = (
             "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\n"
             "Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\n"
+            "Pre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\n"
             "Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\n"
             "Do not create PR metadata before green final validation.\n"
             f"Goal: {request.task_goal}\nSubsystem: {request.task_name} ({request.subsystem_kind})."

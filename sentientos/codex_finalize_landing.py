@@ -38,7 +38,10 @@ class CodexFinalizeLandingRequest:
     extra_required_commands: tuple[str, ...] = ()
     changed_files: tuple[str, ...] = ()
     inferred_changed_files: tuple[str, ...] = ()
+    inferred_tracked_changed_files: tuple[str, ...] = ()
+    inferred_untracked_task_files: tuple[str, ...] = ()
     allow_current_tracked_changes: bool = False
+    allow_current_task_files: bool = False
     dirty_file_classification_source: str = "declared"
     allow_no_focused_tests: bool = False
     workspace_root: str = "."
@@ -112,7 +115,7 @@ def evaluate_finalize_landing(
         if result.required and result.exit_code != 0:
             reasons.append(f"stage_failed:{result.stage}")
 
-    changed_file_set = set(request.changed_files) | set(request.inferred_changed_files)
+    changed_file_set = set(request.changed_files) | set(request.inferred_changed_files) | set(request.inferred_tracked_changed_files) | set(request.inferred_untracked_task_files)
     found_source_not_declared = False
     found_unknown = False
     found_generated = False

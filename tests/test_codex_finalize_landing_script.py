@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.codex_finalize_landing import build_parser, main
+from scripts.codex_finalize_landing import _classify, build_parser, main
 
 
 def test_parser_has_phase_and_changed_file() -> None:
@@ -39,6 +39,23 @@ def test_parser_has_allow_current_tracked_changes() -> None:
         ]
     )
     assert args.allow_current_tracked_changes is True
+
+
+def test_parser_has_allow_current_task_files() -> None:
+    p = build_parser()
+    args = p.parse_args(["finalize", "--phase", "pre-commit", "--allow-current-task-files"])
+    assert args.allow_current_task_files is True
+
+
+def test_classify_untracked_task_file_inferred() -> None:
+    findings = _classify(["?? tests/test_new_case.py"], (), ("tests/test_new_case.py",))
+    assert findings[0].classification == "intended_task_change"
+
+
+def test_classify_untracked_unknown_root_and_media_blocked() -> None:
+    findings = _classify(["?? random.bin", "?? docs/image.png"], (), ())
+    assert findings[0].classification == "unknown_dirty_file"
+    assert findings[1].classification == "unknown_dirty_file"
 
 
 def test_parser_has_output_timeouts_and_progress_flags() -> None:

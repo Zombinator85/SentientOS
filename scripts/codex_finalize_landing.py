@@ -16,6 +16,8 @@ from sentientos.codex_finalize_landing import (
 )
 
 GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
+BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
+MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wav", ".mp3")
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
 DEFAULT_OVERALL_TIMEOUT_SECONDS = 3600
 MAX_OUTPUT_LINES = 40
@@ -125,18 +127,36 @@ def _git_tracked_changes() -> tuple[str, ...]:
     return tuple(sorted(set(names)))
 
 
-def _classify(status_lines: list[str], changed_files: tuple[str, ...]) -> tuple[CodexFinalizeLandingArtifactFinding, ...]:
+def _is_safe_untracked_task_file(path: str) -> bool:
+    if path == "AGENTS.md":
+        return True
+    if path.startswith(("sentientos/", "scripts/", "tests/", "docs/")) and path.endswith((".py", ".md")):
+        return True
+    if path.startswith("tests/fixtures/") and path.endswith(".json"):
+        return True
+    if path.startswith("artifacts/proof_bundles/") and path.endswith(".json"):
+        return True
+    return False
+
+
+def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_untracked_task_files: tuple[str, ...]) -> tuple[CodexFinalizeLandingArtifactFinding, ...]:
     out: list[CodexFinalizeLandingArtifactFinding] = []
     changed_file_set = set(changed_files)
     for line in status_lines:
         is_untracked = line.startswith("??")
         path = line[3:] if len(line) > 3 else line
-        if path.startswith(GENERATED_PREFIXES):
+        if path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS):
             cls = "generated_runtime_artifact"
             action = "cleanup"
+        elif path.lower().endswith(MEDIA_SUFFIXES):
+            cls = "unknown_dirty_file"
+            action = "block"
         elif path.startswith("pulse/audit/"):
             cls = "versioned_audit_artifact"
             action = "review"
+        elif is_untracked and path in set(inferred_untracked_task_files):
+            cls = "intended_task_change"
+            action = "allow_pre_commit"
         elif (not is_untracked) and path in changed_file_set:
             cls = "intended_task_change"
             action = "allow_pre_commit"
@@ -184,6 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--extra-required-command", action="append", default=[])
         s.add_argument("--changed-file", action="append", default=[])
         s.add_argument("--allow-current-tracked-changes", action="store_true")
+        s.add_argument("--allow-current-task-files", action="store_true")
         s.add_argument("--allow-docs-bootstrap", action="store_true")
         s.add_argument("--allow-strict-audit-repair", action="store_true")
         s.add_argument("--allow-generated-artifact-cleanup", action="store_true")
@@ -212,6 +233,20 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"status": "error", "reason": "allow_current_tracked_changes_requires_pre_commit"}, indent=2))
             return 2
         inferred_changed_files = _git_tracked_changes()
+    inferred_untracked_task_files: tuple[str, ...] = ()
+    if a.allow_current_task_files:
+        if a.phase.replace("_", "-") != "pre-commit":
+            print(json.dumps({"status": "error", "reason": "allow_current_task_files_requires_pre_commit"}, indent=2))
+            return 2
+        status_lines = _git_status()
+        candidates = []
+        for line in status_lines:
+            if not line.startswith("??"):
+                continue
+            path = line[3:] if len(line) > 3 else line
+            if _is_safe_untracked_task_file(path):
+                candidates.append(path)
+        inferred_untracked_task_files = tuple(sorted(set(candidates)))
 
     req = CodexFinalizeLandingRequest(
         title=a.title or "",
@@ -223,8 +258,11 @@ def main(argv: list[str] | None = None) -> int:
         extra_required_commands=tuple(a.extra_required_command),
         changed_files=tuple(a.changed_file),
         inferred_changed_files=inferred_changed_files,
+        inferred_tracked_changed_files=inferred_changed_files,
+        inferred_untracked_task_files=inferred_untracked_task_files,
         allow_current_tracked_changes=a.allow_current_tracked_changes,
-        dirty_file_classification_source="inferred" if a.allow_current_tracked_changes else "declared",
+        allow_current_task_files=a.allow_current_task_files,
+        dirty_file_classification_source="tracked+untracked_inferred" if (a.allow_current_tracked_changes or a.allow_current_task_files) else "declared",
         allow_no_focused_tests=a.allow_no_focused_tests,
         workspace_root=a.workspace_root,
         summary=a.summary,
@@ -271,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         _cleanup_generated()
         _progress(a.progress, "[finalizer] stage end: generated_artifact_cleanup status=passed exit_code=0")
 
-    findings = _classify(_git_status(), tuple(a.changed_file) + inferred_changed_files)
+    findings = _classify(_git_status(), tuple(a.changed_file) + inferred_changed_files, inferred_untracked_task_files)
     landing_result = evaluate_finalize_landing(req, tuple(commands), findings, policy=CodexFinalizeLandingPolicy(allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup))
 
     if not decision_reasons:
