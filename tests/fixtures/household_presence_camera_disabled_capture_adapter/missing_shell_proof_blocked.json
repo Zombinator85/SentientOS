@@ -1,0 +1,21 @@
+{
+  "base64_media_present": false,
+  "capture_attempted": false,
+  "capture_requested": false,
+  "confidence": 0.9,
+  "dry_run_proof_digest": "dry-proof",
+  "external_disclosure_requested": false,
+  "live_hardware_requested": false,
+  "notes": [
+    "fixture"
+  ],
+  "policy_chain_id": "policy-a",
+  "raw_media_payload_present": false,
+  "raw_media_requested": false,
+  "request_id": "req-001",
+  "requested_mode": "design_only",
+  "shell_proof_digest": "",
+  "speaker_output_requested": false,
+  "stub_proof_digest": "stub-proof",
+  "zone_config_id": "zone-a"
+}

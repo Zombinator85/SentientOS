@@ -434,6 +434,7 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence camera dry-run adapter: `docs/architecture/household_presence_camera_dry_run_adapter.md`
 - Household presence camera local adapter shell: `docs/architecture/household_presence_camera_local_adapter_shell.md`
 - Household presence camera live adapter stub: `docs/architecture/household_presence_camera_live_adapter_stub.md`
+- Household presence camera disabled-capture adapter: `docs/architecture/household_presence_camera_disabled_capture_adapter.md`
 
 - docs/development/codex_landing_supervisor.md
 
