@@ -85,6 +85,7 @@ python scripts/codex_finalize_landing.py finalize \
   --focused-test-command "<TASK_FOCUSED_TEST_COMMAND>" \
   --targeted-mypy-command "<TASK_TARGETED_MYPY_COMMAND>" \
   --allow-current-tracked-changes \
+  --allow-current-task-files \
   --allow-docs-bootstrap \
   --allow-strict-audit-repair \
   --allow-generated-artifact-cleanup \
