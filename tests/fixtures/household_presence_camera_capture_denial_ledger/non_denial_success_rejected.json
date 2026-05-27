@@ -1,0 +1,5 @@
+{
+  "observed_at": "2026-01-01T00:00:00Z",
+  "request_id": "ok1",
+  "status": "capture_authorization_ready_for_dry_run_only"
+}
