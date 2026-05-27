@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "denial_classification": "missing_operator_grant",
+      "observed_at": "2026-01-01T00:00:00Z",
+      "proof_digests": [
+        "proof:a"
+      ],
+      "request_id": "missing_operator_grant_denial",
+      "requested_mode": "capture_attempt",
+      "status": "capture_authorization_blocked_fixture"
+    },
+    {
+      "denial_classification": "external_authority_blocked",
+      "observed_at": "2026-01-01T00:00:00Z",
+      "proof_digests": [
+        "proof:a"
+      ],
+      "request_id": "external_authority_denial",
+      "requested_mode": "capture_attempt",
+      "status": "capture_authorization_blocked_fixture"
+    }
+  ]
+}
