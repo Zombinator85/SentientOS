@@ -1,0 +1,27 @@
+{
+  "operator_grant": {
+    "expires_at": "2027-01-01T00:00:00Z",
+    "external_disclosure_allowed": false,
+    "grant_id": "g1",
+    "grant_scope": "household_presence",
+    "granted_at": "2026-01-01T00:00:00Z",
+    "live_capture_allowed": false,
+    "operator_id": "op",
+    "raw_media_allowed": false,
+    "speaker_output_allowed": false
+  },
+  "request": {
+    "disabled_capture_proof_digest": "d1",
+    "dry_run_proof_digest": "dr1",
+    "host_inventory_candidate_digest": "h1",
+    "live_adapter_stub_proof_digest": "l1",
+    "local_shell_proof_digest": "s1",
+    "policy_chain_id": "pc1",
+    "raw_media_payload_present": true,
+    "request_id": "r1",
+    "requested_at": "2026-02-01T00:00:00Z",
+    "requested_mode": "design_only",
+    "source_candidate_id": "cam1",
+    "zone_config_id": "zone1"
+  }
+}
