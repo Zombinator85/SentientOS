@@ -1,4 +1,9 @@
-from scripts.codex_finalize_landing import build_parser
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from scripts.codex_finalize_landing import build_parser, main
 
 
 def test_parser_has_phase_and_changed_file() -> None:
@@ -34,3 +39,39 @@ def test_parser_has_allow_current_tracked_changes() -> None:
         ]
     )
     assert args.allow_current_tracked_changes is True
+
+
+def test_parser_has_output_timeouts_and_progress_flags() -> None:
+    p = build_parser()
+    args = p.parse_args(["finalize", "--output", "/tmp/out.json", "--stage-timeout-seconds", "5", "--overall-timeout-seconds", "10", "--no-progress"])
+    assert args.output == "/tmp/out.json"
+    assert args.stage_timeout_seconds == 5
+    assert args.overall_timeout_seconds == 10
+    assert args.progress is False
+
+
+def test_finalize_writes_output_and_decision_line(tmp_path: Path, capsys: object) -> None:
+    out = tmp_path / "finalizer.json"
+    code = main([
+        "finalize",
+        "--title",
+        "x",
+        "--intended-commit-title",
+        "x",
+        "--phase",
+        "pr-metadata",
+        "--focused-test-command",
+        "python -c \"print('ok')\"",
+        "--targeted-mypy-command",
+        "python -c \"print('ok')\"",
+        "--output",
+        str(out),
+        "--summary",
+    ])
+    assert code in {0, 1}
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "Codex Finalize Landing decision:" in captured.out
+    assert "[finalizer] stage start:" in captured.out
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert "runtime" in payload
+    assert "stages" in payload["runtime"]
