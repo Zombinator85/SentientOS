@@ -38,6 +38,19 @@ class StageRuntime:
     timed_out: bool
 
 
+@dataclass(frozen=True)
+class DirtyPathDiagnostic:
+    path: str
+    git_status: str
+    classification: str
+    classification_source: str
+    tracked: bool
+    cleanup_attempted: bool
+    cleanup_result: str
+    cleanup_reason: str
+    recommended_action: str
+
+
 class FinalizerTimeoutError(RuntimeError):
     def __init__(self, stage_id: str, kind: str) -> None:
         super().__init__(f"{kind}_timeout:{stage_id}")
@@ -139,6 +152,16 @@ def _is_safe_untracked_task_file(path: str) -> bool:
     return False
 
 
+def _recommended_action(classification: str, path: str) -> str:
+    if classification == "generated_runtime_artifact":
+        if path == "pulse/audit/privileged_audit.runtime.jsonl":
+            return "restore_runtime_audit_artifact"
+        return "remove_generated_artifact"
+    if classification == "source_change_not_declared":
+        return "add_to_task_file_allowlist" if path.startswith(("sentientos/", "scripts/", "tests/", "docs/")) else "explicitly_pass_changed_file"
+    return "manual_review_required"
+
+
 def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_untracked_task_files: tuple[str, ...]) -> tuple[CodexFinalizeLandingArtifactFinding, ...]:
     out: list[CodexFinalizeLandingArtifactFinding] = []
     changed_file_set = set(changed_files)
@@ -172,9 +195,49 @@ def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_
     return tuple(out)
 
 
-def _cleanup_generated() -> None:
-    subprocess.run("git restore pulse/audit/privileged_audit.runtime.jsonl", shell=True)
-    subprocess.run("git clean -fd glow pulse artifacts/codex", shell=True)
+def _collect_dirty_diagnostics(
+    status_lines: list[str],
+    findings: tuple[CodexFinalizeLandingArtifactFinding, ...],
+    classification_source: str,
+    cleanup_map: dict[str, tuple[bool, str, str]],
+) -> list[DirtyPathDiagnostic]:
+    by_path = {item.path: item for item in findings}
+    diagnostics: list[DirtyPathDiagnostic] = []
+    for line in status_lines:
+        git_status = line[:2]
+        path = line[3:] if len(line) > 3 else line
+        finding = by_path.get(path)
+        cleanup_attempted, cleanup_result, cleanup_reason = cleanup_map.get(path, (False, "not_attempted", "not_generated"))
+        diagnostics.append(
+            DirtyPathDiagnostic(
+                path=path,
+                git_status=git_status,
+                classification=finding.classification if finding else "unknown_dirty_file",
+                classification_source=classification_source,
+                tracked=not git_status.startswith("??"),
+                cleanup_attempted=cleanup_attempted,
+                cleanup_result=cleanup_result,
+                cleanup_reason=cleanup_reason,
+                recommended_action=_recommended_action(finding.classification if finding else "unknown_dirty_file", path),
+            )
+        )
+    return diagnostics
+
+
+def _cleanup_generated(status_lines: list[str]) -> dict[str, tuple[bool, str, str]]:
+    cleanup: dict[str, tuple[bool, str, str]] = {}
+    for line in status_lines:
+        path = line[3:] if len(line) > 3 else line
+        is_generated = path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS) or path == "pulse/audit/privileged_audit.runtime.jsonl"
+        if not is_generated:
+            continue
+        if path == "pulse/audit/privileged_audit.runtime.jsonl":
+            p = subprocess.run("git restore pulse/audit/privileged_audit.runtime.jsonl", shell=True)
+            cleanup[path] = (True, "restored" if p.returncode == 0 else "failed", "runtime_audit_restore")
+            continue
+        p = subprocess.run(f"git clean -fd -- '{path}'", shell=True)
+        cleanup[path] = (True, "removed" if p.returncode == 0 else "failed", "generated_artifact_cleanup")
+    return cleanup
 
 
 def _emit_and_optionally_write(payload: dict[str, object], output: str | None, summary: bool, decision_status: str) -> None:
@@ -304,12 +367,16 @@ def main(argv: list[str] | None = None) -> int:
         decision_status = "finalizer_failed"
         decision_reasons = [f"runtime_exception:{type(exc).__name__}"]
 
+    status_before_cleanup = _git_status()
+    cleanup_results: dict[str, tuple[bool, str, str]] = {}
     if a.allow_generated_artifact_cleanup:
         _progress(a.progress, "[finalizer] stage start: generated_artifact_cleanup")
-        _cleanup_generated()
+        cleanup_results = _cleanup_generated(status_before_cleanup)
         _progress(a.progress, "[finalizer] stage end: generated_artifact_cleanup status=passed exit_code=0")
 
-    findings = _classify(_git_status(), tuple(a.changed_file) + inferred_changed_files, inferred_untracked_task_files)
+    status_after_cleanup = _git_status()
+    findings = _classify(status_after_cleanup, tuple(a.changed_file) + inferred_changed_files, inferred_untracked_task_files)
+    diagnostics = _collect_dirty_diagnostics(status_after_cleanup, findings, req.dirty_file_classification_source, cleanup_results)
     landing_result = evaluate_finalize_landing(req, tuple(commands), findings, policy=CodexFinalizeLandingPolicy(allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup))
 
     if not decision_reasons:
@@ -317,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
         decision_reasons = list(landing_result.decision.reasons)
 
     payload = landing_result.to_dict()
+    payload["dirty_paths"] = [asdict(item) for item in diagnostics]
+    payload["cleanup_actions"] = {k: {"attempted": v[0], "result": v[1], "reason": v[2]} for k, v in cleanup_results.items()}
     payload["runtime"] = {
         "stage_timeout_seconds": a.stage_timeout_seconds,
         "overall_timeout_seconds": a.overall_timeout_seconds,
@@ -325,6 +394,12 @@ def main(argv: list[str] | None = None) -> int:
     }
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
+    if a.summary:
+        for item in diagnostics[:20]:
+            print(
+                f"[finalizer] dirty path: {item.git_status} {item.path} "
+                f"classification={item.classification} cleanup={item.cleanup_result}"
+            )
 
     _progress(a.progress, f"[finalizer] decision: {decision_status}")
     _emit_and_optionally_write(payload, a.output, a.summary, decision_status)

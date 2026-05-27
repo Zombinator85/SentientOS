@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.codex_finalize_landing import _classify, build_parser, main
+from scripts.codex_finalize_landing import _classify, _collect_dirty_diagnostics, build_parser, main
 
 
 def test_parser_has_phase_and_changed_file() -> None:
@@ -56,6 +56,17 @@ def test_classify_untracked_unknown_root_and_media_blocked() -> None:
     findings = _classify(["?? random.bin", "?? docs/image.png"], (), ())
     assert findings[0].classification == "unknown_dirty_file"
     assert findings[1].classification == "unknown_dirty_file"
+
+
+def test_dirty_diagnostics_include_exact_path_and_recommended_action() -> None:
+    status = ["?? glow/test_runs/run.json", "?? random.tmp"]
+    findings = _classify(status, (), ())
+    diagnostics = _collect_dirty_diagnostics(status, findings, "declared", {"glow/test_runs/run.json": (True, "removed", "generated_artifact_cleanup")})
+    assert diagnostics[0].path == "glow/test_runs/run.json"
+    assert diagnostics[0].git_status == "??"
+    assert diagnostics[0].recommended_action == "remove_generated_artifact"
+    assert diagnostics[1].path == "random.tmp"
+    assert diagnostics[1].recommended_action == "manual_review_required"
 
 
 def test_parser_has_output_timeouts_and_progress_flags() -> None:
