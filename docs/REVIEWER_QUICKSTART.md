@@ -50,4 +50,5 @@ shutdown.
 - Whole-system task template: [`docs/development/codex_whole_system_task_template.md`](development/codex_whole_system_task_template.md)
 - Narrow-repair template: [`docs/development/codex_narrow_repair_task_template.md`](development/codex_narrow_repair_task_template.md)
 - Validation/landing contract: [`docs/development/codex_validation_and_landing_contract.md`](development/codex_validation_and_landing_contract.md)
+- PR metadata guard: [`docs/development/codex_pr_metadata_guard.md`](development/codex_pr_metadata_guard.md)
 - Validation matrix runner: [`scripts/run_work_item_review_packet_matrix.py`](../scripts/run_work_item_review_packet_matrix.py)

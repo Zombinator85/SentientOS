@@ -94,3 +94,8 @@ This ordering applies to both pre-commit and pr-metadata phases.
 2. Rerun with higher `--stage-timeout-seconds` for legitimately slow lanes.
 3. Use `--output` artifact to inspect per-stage bounded output tails.
 4. Repair failing or hung stage command, then rerun finalizer.
+
+## PR metadata guard after finalizer
+The pr-metadata/post-commit finalizer is necessary but not sufficient for `make_pr`. After it returns `ready_for_pr_metadata`, run `python scripts/codex_pr_metadata_guard.py verify` with the pre-commit finalizer artifact, pr-metadata finalizer artifact, and matrix artifact. PR metadata is forbidden unless the guard returns `pr_metadata_guard_ready`.
+
+Blocked guard decisions are hard stops. Do not reinterpret a ready finalizer artifact as permission to create PR metadata when `codex_pr_metadata_guard.py verify` reports missing proof, title mismatch, stale evidence, dirty tree evidence, matrix failure, or validation-only mismatch.

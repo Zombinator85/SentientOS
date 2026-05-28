@@ -40,11 +40,29 @@ class CodexTaskBootstrapResult:
     preset_verifier_result_summary: dict[str, Any]
     generated_prompt_text: str
     generated_scaffold_json: dict[str, Any]
+    artifact_classification: str
     planned_paths: dict[str, str]
     explicit_non_authority_boundaries: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _blocked_bootstrap_prompt(request: CodexTaskBootstrapRequest, blocker_codes: tuple[str, ...]) -> str:
+    return (
+        "BLOCKED_DO_NOT_IMPLEMENT\n"
+        "This bootstrap output is diagnostic only and is not an implementation contract.\n"
+        "Stop now: repair the blocker or ask the operator for a new task.\n"
+        "Do not implement, do not commit, and do not make_pr from this blocked bootstrap artifact.\n"
+        f"Diagnostic goal: {request.task_goal}\nDiagnostic task: {request.task_name}.\n"
+        f"Blockers: {', '.join(blocker_codes) if blocker_codes else 'blocked'}."
+    )
+
+
+def _classified_scaffold_dict(payload: dict[str, Any], status: str) -> dict[str, Any]:
+    classified = dict(payload)
+    classified["artifact_classification"] = "diagnostic" if status == "blocked" else "implementation_contract"
+    return classified
 
 
 def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_verifier: bool = True) -> CodexTaskBootstrapResult:
@@ -102,8 +120,9 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         scaffold_result_summary={"status": scaffold.status, "scaffold_id": scaffold.scaffold.scaffold_id},
         scaffold_verifier_result_summary=verifier.to_dict(),
         preset_verifier_result_summary=preset_verifier_summary,
-        generated_prompt_text=scaffold.scaffold.generated_prompt,
-        generated_scaffold_json=scaffold.to_dict(),
+        generated_prompt_text=_blocked_bootstrap_prompt(request, tuple(sorted(set(blocker_codes)))) if status == "blocked" else scaffold.scaffold.generated_prompt,
+        generated_scaffold_json=_classified_scaffold_dict(scaffold.to_dict(), status),
+        artifact_classification="diagnostic" if status == "blocked" else "implementation_contract",
         planned_paths={
             "module_path": planned.module_path,
             "cli_path": planned.cli_path,

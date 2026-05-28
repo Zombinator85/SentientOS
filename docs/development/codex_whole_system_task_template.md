@@ -113,3 +113,36 @@ No-change path: when no source/doc/test changes were made, do not commit and do 
 
 ## Final report required fields additions
 Include both `pre_commit_finalizer_result` and `post_commit_pr_metadata_finalizer_result`, plus explicit `stale_evidence_refresh_result`, and `pr_metadata_result` showing PR metadata was created only after `ready_for_pr_metadata`.
+
+## Bootstrap and PR metadata guard sequence (required)
+1. Run bootstrapper.
+2. If bootstrap status is blocked, stop. Do not implement from blocked prompt/scaffold artifacts; report the blocker or ask for a new task.
+3. Implement only if bootstrap is ready or ready_with_warnings.
+4. Run required validation.
+5. Run pre-commit finalizer and require `ready_to_commit`.
+6. Commit.
+7. Run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`.
+8. Run PR metadata guard and require `pr_metadata_guard_ready`.
+9. Only then `make_pr`.
+
+Canonical normal-task guard command:
+```bash
+python scripts/codex_pr_metadata_guard.py verify \
+  --title "<COMMIT_TITLE>" \
+  --intended-commit-title "<COMMIT_TITLE>" \
+  --pre-commit-finalizer-json "/tmp/<task>_pre_commit.json" \
+  --pr-metadata-finalizer-json "/tmp/<task>_pr_metadata.json" \
+  --matrix-json-path /tmp/work_item_review_packet_matrix.json \
+  --summary
+```
+
+Canonical validation-only guard command:
+```bash
+python scripts/codex_pr_metadata_guard.py verify \
+  --title "<COMMIT_TITLE>" \
+  --intended-commit-title "<COMMIT_TITLE>" \
+  --validation-only \
+  --pr-metadata-finalizer-json "/tmp/<task>_pr_metadata.json" \
+  --matrix-json-path /tmp/work_item_review_packet_matrix.json \
+  --summary
+```

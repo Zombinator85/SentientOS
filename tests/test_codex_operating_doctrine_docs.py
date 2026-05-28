@@ -24,6 +24,8 @@ def test_agents_mentions_whole_system_doctrine_and_links() -> None:
     assert "two phases during the same implementation task" in agents
     assert "Do not defer post-commit/pr-metadata finalizer" in agents
     assert "do not run commit or `make_pr`" in agents
+    assert "pr_metadata_guard_ready" in agents
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in agents
     for path in [
         "docs/development/codex_whole_system_task_template.md",
         "docs/development/codex_narrow_repair_task_template.md",
@@ -65,6 +67,8 @@ def test_templates_exist_and_have_required_sections() -> None:
     assert "--phase pre-commit" in whole
     assert "--phase pr-metadata" in whole
     assert "before `make_pr`" in whole
+    assert "pr_metadata_guard_ready" in whole
+    assert "If bootstrap status is blocked, stop" in whole
 
     narrow = _read("docs/development/codex_narrow_repair_task_template.md")
     assert "Narrow repairs are exceptional" in narrow
@@ -87,12 +91,15 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
     assert "must self-seal using both phases" in contract
     assert "Missing post-commit/pr-metadata finalizer" in contract
     assert "Do not defer post-commit sealing" in contract
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in contract
+    assert "pr_metadata_guard_ready" in contract
 
     finalize = _read("docs/development/codex_finalize_landing.md")
     assert "Canonical two-phase command examples" in finalize
     assert "No-change validation-only example" in finalize
     assert "Anti-patterns" in finalize
     assert "partial finalizer usage" in finalize
+    assert "codex_pr_metadata_guard.py verify" in finalize
 
     checklist = _read("docs/development/codex_capability_landing_checklist.md")
     for marker in ["capability category", "authority level", "proof bundle", "readiness/index", "matrix runner", "targeted mypy", "docs link/index coverage"]:

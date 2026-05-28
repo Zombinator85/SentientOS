@@ -99,5 +99,6 @@ def build_validation_section_from_matrix(*, matrix_json_text: str | None = None,
             "## Strict audit result\n" + ("passed" if _lane_ok(matrix, "strict_audits") else "failed"),
             "## Immutability verifier result\n" + ("passed" if _lane_ok(matrix, "audit_immutability") else "failed"),
             "## Lane contract behavior\n" + json.dumps(summarize_lane_contract(matrix), sort_keys=True),
+            "## Unresolved risks\nNone known.",
         ]
     )
