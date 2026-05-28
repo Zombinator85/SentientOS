@@ -1,0 +1,10 @@
+{
+  "decision_id": "missing_review_packet_blocked",
+  "decision_reason": "defer review",
+  "decision_type": "defer_review",
+  "operator_label": "fixture-operator",
+  "requested_mode": "dry_run_only",
+  "reviewed_at": "2026-05-02T00:00:00Z",
+  "source_candidate_id": "fixture-camera-candidate",
+  "unresolved_denial_count": 0
+}

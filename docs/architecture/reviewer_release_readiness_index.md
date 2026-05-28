@@ -438,6 +438,7 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence camera disabled-capture adapter: `docs/architecture/household_presence_camera_disabled_capture_adapter.md`
 - Household presence camera capture-authorization envelope: `docs/architecture/household_presence_camera_capture_authorization.md`
 - Household presence camera capture review packet: `docs/architecture/household_presence_camera_capture_review_packet.md`
+- Household presence camera capture review decision ledger: `docs/architecture/household_presence_camera_capture_review_decision_ledger.md`
 
 - docs/development/codex_landing_supervisor.md
 
