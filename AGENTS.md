@@ -64,10 +64,12 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 - Before committing task-caused changes, run finalizer in pre-commit mode (normally with `--allow-current-tracked-changes`) and commit only if it returns `ready_to_commit`.
 - A pre-commit finalizer result of `manual_review_required` or `unknown_dirty_tree` blocks commit; resolve exact reported paths first.
 - After commit and before PR metadata/final report, rerun finalizer in pr-metadata/post-commit mode and require `ready_for_pr_metadata`.
+- After the pr-metadata/post-commit finalizer, run `python scripts/codex_pr_metadata_guard.py verify ...` and require `pr_metadata_guard_ready` before `make_pr` or PR metadata; finalizer artifacts alone are insufficient if the guard blocks.
 - Do not defer post-commit/pr-metadata finalizer to a later validation-only or seal follow-up turn.
 - If finalizer evidence becomes stale after strict-audit repair or generated-artifact cleanup, refresh matrix/gate/supervisor in the same task when allowed.
 - Do not final-report partial sealing when the only remaining blocker is stale validation evidence.
 - If no source/doc/test/code changes were made, report validation-only completion and do not run commit or `make_pr`.
+- If task bootstrap returns blocked, stop immediately; blocked prompt/scaffold artifacts are diagnostic only (`BLOCKED_DO_NOT_IMPLEMENT`) and must not be used as implementation contracts.
 - Focused tests alone are never sufficient; matrix alone is not sufficient; supervisor alone is not sufficient.
 - Repair known task-caused blockers in the same task and rerun finalizer.
 - Clean or explicitly classify generated artifacts before final report.

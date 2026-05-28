@@ -26,3 +26,21 @@ def test_script_outputs_and_summary(tmp_path: Path) -> None:
     assert summary.exists() and plan.exists() and scaffold.exists() and prompt.exists() and verifier.exists()
     payload = json.loads(summary.read_text(encoding="utf-8"))
     assert payload["status"] == "ready"
+
+
+def test_script_blocked_prompt_output_is_hard_stop(tmp_path: Path) -> None:
+    prompt = tmp_path / "prompt.txt"
+    summary = tmp_path / "summary.json"
+    code = main([
+        "--task-name", "Network Provider Bootstrap",
+        "--task-goal", "add provider network call",
+        "--subsystem-kind", "developer_workflow_metadata",
+        "--prompt-output", str(prompt),
+        "--summary-output", str(summary),
+    ])
+    assert code == 1
+    text = prompt.read_text(encoding="utf-8")
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in text
+    assert "Only then make_pr" not in text
+    assert payload["artifact_classification"] == "diagnostic"

@@ -77,6 +77,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "proof_bundle_tests",
     "codex_pr_validation_evidence_tests",
     "codex_pr_landing_gate_tests",
+    "codex_pr_metadata_guard_tests",
 )
 
 

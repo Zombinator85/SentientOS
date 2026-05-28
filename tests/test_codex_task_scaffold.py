@@ -46,3 +46,19 @@ def test_preset_final_report_contract_includes_finalizer_results() -> None:
     assert "pre_commit_finalizer_result" in contract
     assert "post_commit_pr_metadata_finalizer_result" in contract
     assert "pr_metadata_result" in contract
+
+
+def test_blocked_scaffold_prompt_is_diagnostic_hard_stop() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest())
+    assert result.status == "codex_task_scaffold_insufficient_metadata"
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in result.scaffold.generated_prompt
+    assert "diagnostic only" in result.scaffold.generated_prompt
+    assert "Only then make_pr" not in result.scaffold.generated_prompt
+    assert "commit with" not in result.scaffold.generated_prompt.lower()
+
+
+def test_ready_scaffold_includes_pr_metadata_guard_sequence() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="z"))
+    assert "Run bootstrapper" in result.scaffold.generated_prompt
+    assert "pr_metadata_guard_ready" in result.scaffold.generated_prompt
+    assert "Only then make_pr" in result.scaffold.generated_prompt

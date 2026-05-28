@@ -27,3 +27,12 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Missing stale-evidence refresh in the same task (when strict-audit/cleanup state changed) is task-owned failure.
 - Do not request a validation-only follow-up when the only blocker is stale matrix/gate/supervisor/finalizer evidence.
 - Do not defer post-commit sealing to follow-up turns when implementation changes occurred.
+
+## Bootstrap and PR metadata guard hard stops
+- Run the bootstrapper before implementation. If bootstrap status is `blocked`, generated prompt/scaffold artifacts are diagnostic only and must include `BLOCKED_DO_NOT_IMPLEMENT`; stop, report the blocker, and do not implement, commit, or `make_pr` from that artifact.
+- Implement only from `ready` or `ready_with_warnings` bootstrap output.
+- After the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata`, run `python scripts/codex_pr_metadata_guard.py verify ...` and require `pr_metadata_guard_ready` before PR metadata or `make_pr`.
+- A finalizer artifact alone is not enough when the PR metadata guard says blocked.
+- Focused tests passing without a ready PR metadata guard is not a complete landing.
+
+Strict landing sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; only then `make_pr`.

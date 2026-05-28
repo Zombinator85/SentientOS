@@ -430,6 +430,12 @@ def main(argv: list[str] | None = None) -> int:
         decision_reasons = list(landing_result.decision.reasons)
 
     payload = landing_result.to_dict()
+    payload["request"] = {
+        "title": req.title,
+        "intended_commit_title": req.intended_commit_title,
+        "phase": req.phase,
+        "matrix_json_path": req.matrix_json_path,
+    }
     payload["dirty_paths"] = [asdict(item) for item in diagnostics]
     payload["cleanup_actions"] = {k: {"attempted": v[0], "result": v[1], "reason": v[2]} for k, v in cleanup_results.items()}
     payload["runtime"] = {

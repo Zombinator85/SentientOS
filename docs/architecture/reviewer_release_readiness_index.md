@@ -13,6 +13,7 @@ For Codex workflow/governance tasks, review the root doctrine and linked templat
 - `docs/development/codex_whole_system_task_template.md`
 - `docs/development/codex_narrow_repair_task_template.md`
 - `docs/development/codex_validation_and_landing_contract.md`
+- `docs/development/codex_pr_metadata_guard.md`
 - `scripts/run_work_item_review_packet_matrix.py`
 
 These define whole-system default landing posture, narrow-repair exception posture, and validation/failure-classification reporting contract.
