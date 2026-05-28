@@ -271,6 +271,8 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--allow-docs-bootstrap", action="store_true")
         s.add_argument("--allow-strict-audit-repair", action="store_true")
         s.add_argument("--allow-generated-artifact-cleanup", action="store_true")
+        s.add_argument("--allow-stale-evidence-refresh", action="store_true")
+        s.add_argument("--max-stale-evidence-refreshes", type=int, default=1)
         s.add_argument("--allow-no-focused-tests", action="store_true")
         s.add_argument("--output")
         s.add_argument("--stage-timeout-seconds", type=int, default=DEFAULT_STAGE_TIMEOUT_SECONDS)
@@ -377,9 +379,53 @@ def main(argv: list[str] | None = None) -> int:
     status_after_cleanup = _git_status()
     findings = _classify(status_after_cleanup, tuple(a.changed_file) + inferred_changed_files, inferred_untracked_task_files)
     diagnostics = _collect_dirty_diagnostics(status_after_cleanup, findings, req.dirty_file_classification_source, cleanup_results)
-    landing_result = evaluate_finalize_landing(req, tuple(commands), findings, policy=CodexFinalizeLandingPolicy(allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup))
+    stale_reasons: list[str] = []
+    command_map = {item.stage: item for item in commands}
+    if command_map.get("strict_audits") and command_map.get("matrix_summary"):
+        if command_map["strict_audits"].exit_code == 0 and command_map["matrix_summary"].exit_code != 0:
+            stale_reasons.append("matrix_failed_before_strict_audits_healthy")
+    if cleanup_results:
+        stale_reasons.append("generated_artifact_cleanup_occurred")
 
-    if not decision_reasons:
+    refresh_attempted = False
+    refresh_status = "not_required"
+    refresh_runs = 0
+    if stale_reasons:
+        if a.allow_stale_evidence_refresh and a.max_stale_evidence_refreshes > 0:
+            refresh_attempted = True
+            refresh_status = "attempted"
+            refresh_plan = [
+                ("stale_evidence_matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True),
+                ("stale_evidence_matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True),
+                ("stale_evidence_pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
+                ("stale_evidence_landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
+            ]
+            try:
+                for stage_id, cmd, required in refresh_plan:
+                    result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
+                    commands.append(result)
+                    runtime.append(stage_runtime)
+                    refresh_runs += 1
+                refresh_status = "succeeded"
+            except Exception:  # noqa: BLE001
+                refresh_status = "failed"
+        else:
+            refresh_status = "required_not_allowed"
+
+    landing_result = evaluate_finalize_landing(
+        req,
+        tuple(commands),
+        findings,
+        policy=CodexFinalizeLandingPolicy(
+            allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup,
+            allow_stale_evidence_refresh=a.allow_stale_evidence_refresh,
+        ),
+    )
+
+    if stale_reasons and refresh_status == "required_not_allowed":
+        decision_status = "stale_evidence_refresh_required"
+        decision_reasons = list(stale_reasons)
+    elif not decision_reasons:
         decision_status = landing_result.decision.status
         decision_reasons = list(landing_result.decision.reasons)
 
@@ -391,6 +437,14 @@ def main(argv: list[str] | None = None) -> int:
         "overall_timeout_seconds": a.overall_timeout_seconds,
         "stages": [asdict(item) for item in runtime],
         "final_decision": {"status": decision_status, "reasons": decision_reasons},
+    }
+    payload["evidence_freshness"] = {
+        "stale_evidence_reasons": stale_reasons,
+        "stale_evidence_refresh_attempted": refresh_attempted,
+        "stale_evidence_refresh_result": refresh_status,
+        "refreshed_matrix_json_path": a.matrix_json_path if refresh_attempted else None,
+        "max_stale_evidence_refreshes": a.max_stale_evidence_refreshes,
+        "refresh_stage_runs": refresh_runs,
     }
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons

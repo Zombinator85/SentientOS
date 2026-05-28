@@ -24,4 +24,6 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Validation-only seal turns should not be necessary for normal implementation tasks.
 - If finalizer tooling is available, the same task must self-seal using both phases.
 - Missing post-commit/pr-metadata finalizer before PR metadata is a task-owned failure.
+- Missing stale-evidence refresh in the same task (when strict-audit/cleanup state changed) is task-owned failure.
+- Do not request a validation-only follow-up when the only blocker is stale matrix/gate/supervisor/finalizer evidence.
 - Do not defer post-commit sealing to follow-up turns when implementation changes occurred.
