@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
-from .change_narrator import build_default_change_narrator
+if TYPE_CHECKING:
+    class BaseModel:
+        def __init__(self, **data: object) -> None: ...
+else:
+    from pydantic import BaseModel
+
+from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
 from .local_model import LocalModel
 
@@ -15,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _MODEL: LocalModel | None = None
 try:
-    _CHANGE_NARRATOR = build_default_change_narrator()
+    _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
     LOGGER.exception("Unable to initialise change narrator")
     _CHANGE_NARRATOR = None
