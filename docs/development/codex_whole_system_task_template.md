@@ -89,6 +89,7 @@ python scripts/codex_finalize_landing.py finalize \
   --allow-docs-bootstrap \
   --allow-strict-audit-repair \
   --allow-generated-artifact-cleanup \
+  --allow-stale-evidence-refresh \
   --summary
 ```
 
@@ -104,10 +105,11 @@ python scripts/codex_finalize_landing.py finalize \
   --allow-docs-bootstrap \
   --allow-strict-audit-repair \
   --allow-generated-artifact-cleanup \
+  --allow-stale-evidence-refresh \
   --summary
 ```
 
 No-change path: when no source/doc/test changes were made, do not commit and do not call `make_pr`; report validation-only completion with evidence.
 
 ## Final report required fields additions
-Include both `pre_commit_finalizer_result` and `post_commit_pr_metadata_finalizer_result`, plus explicit `pr_metadata_result` showing PR metadata was created only after `ready_for_pr_metadata`.
+Include both `pre_commit_finalizer_result` and `post_commit_pr_metadata_finalizer_result`, plus explicit `stale_evidence_refresh_result`, and `pr_metadata_result` showing PR metadata was created only after `ready_for_pr_metadata`.

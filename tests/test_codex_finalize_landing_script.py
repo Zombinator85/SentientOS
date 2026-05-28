@@ -47,6 +47,13 @@ def test_parser_has_allow_current_task_files() -> None:
     assert args.allow_current_task_files is True
 
 
+def test_parser_has_stale_evidence_refresh_flags() -> None:
+    p = build_parser()
+    args = p.parse_args(["finalize", "--allow-stale-evidence-refresh", "--max-stale-evidence-refreshes", "1"])
+    assert args.allow_stale_evidence_refresh is True
+    assert args.max_stale_evidence_refreshes == 1
+
+
 def test_classify_untracked_task_file_inferred() -> None:
     findings = _classify(["?? tests/test_new_case.py"], (), ("tests/test_new_case.py",))
     assert findings[0].classification == "intended_task_change"

@@ -10,6 +10,7 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 - `ready_to_commit`: only valid in `pre-commit` phase.
 - `ready_for_pr_metadata`: only valid in `post-commit`/`pr-metadata` phase.
 - `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `do_not_finalize`, `finalizer_failed`.
+- `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
 
 ## Dirty-tree classes
 - `intended_task_change`
@@ -73,6 +74,17 @@ This ordering applies to both pre-commit and pr-metadata phases.
 - Use `--stage-timeout-seconds N` and `--overall-timeout-seconds N` to bound runtime.
 - Timed out stages return nonzero and classify as `finalizer_failed` (stage timeout) or `environment_blocked` (overall timeout).
 - Indeterminate/no-captured-output finalizer runs are not acceptable landing proof.
+
+## Stale evidence refresh
+- Validation evidence can become stale after strict-audit repair, runtime artifact restoration, or generated-artifact cleanup.
+- Use `--allow-stale-evidence-refresh` to permit an in-task refresh chain:
+  - `stale_evidence_matrix_summary`
+  - `stale_evidence_matrix_output`
+  - `stale_evidence_pr_landing_gate`
+  - `stale_evidence_landing_supervisor`
+- Refresh is bounded per invocation (`--max-stale-evidence-refreshes`, default `1`) to avoid loops.
+- If stale evidence is detected and refresh is not allowed, finalizer returns `stale_evidence_refresh_required`.
+- Do not rely on stale failed matrix snapshots after strict audits become healthy.
 
 ### Canonical pr-metadata command with output
 `python scripts/codex_finalize_landing.py finalize --phase pr-metadata --title "[codex:developer] stabilize Codex finalizer runtime reporting" --intended-commit-title "[codex:developer] stabilize Codex finalizer runtime reporting" --matrix-json-path /tmp/work_item_review_packet_matrix.json --focused-test-command "python -m scripts.run_tests -q tests/test_codex_finalize_landing.py tests/test_codex_finalize_landing_script.py tests/test_codex_operating_doctrine_docs.py" --targeted-mypy-command "python -m mypy sentientos/codex_finalize_landing.py scripts/codex_finalize_landing.py sentientos/codex_landing_supervisor.py scripts/codex_landing_supervisor.py sentientos/codex_strict_audit_repair.py scripts/codex_strict_audit_repair.py scripts/run_work_item_review_packet_matrix.py" --allow-docs-bootstrap --allow-strict-audit-repair --allow-generated-artifact-cleanup --stage-timeout-seconds 900 --overall-timeout-seconds 3600 --output /tmp/codex_finalize_landing_pr_metadata.json --summary`

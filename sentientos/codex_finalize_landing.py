@@ -24,6 +24,7 @@ class CodexFinalizeLandingPolicy:
     allow_docs_bootstrap: bool = False
     allow_strict_audit_repair: bool = False
     allow_generated_artifact_cleanup: bool = False
+    allow_stale_evidence_refresh: bool = False
     require_operator_supplied_task_commands: bool = True
 
 
@@ -84,6 +85,14 @@ class CodexFinalizeLandingResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class CodexFinalizeLandingEvidenceFreshness:
+    stale_evidence_reasons: tuple[str, ...] = ()
+    stale_evidence_refresh_attempted: bool = False
+    stale_evidence_refresh_result: str = "not_required"
+    refreshed_matrix_json_path: str | None = None
 
 
 def _normalize_phase(phase: str) -> str:

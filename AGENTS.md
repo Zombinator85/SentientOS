@@ -65,6 +65,8 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 - A pre-commit finalizer result of `manual_review_required` or `unknown_dirty_tree` blocks commit; resolve exact reported paths first.
 - After commit and before PR metadata/final report, rerun finalizer in pr-metadata/post-commit mode and require `ready_for_pr_metadata`.
 - Do not defer post-commit/pr-metadata finalizer to a later validation-only or seal follow-up turn.
+- If finalizer evidence becomes stale after strict-audit repair or generated-artifact cleanup, refresh matrix/gate/supervisor in the same task when allowed.
+- Do not final-report partial sealing when the only remaining blocker is stale validation evidence.
 - If no source/doc/test/code changes were made, report validation-only completion and do not run commit or `make_pr`.
 - Focused tests alone are never sufficient; matrix alone is not sufficient; supervisor alone is not sufficient.
 - Repair known task-caused blockers in the same task and rerun finalizer.
