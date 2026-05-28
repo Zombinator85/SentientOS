@@ -1,0 +1,32 @@
+{
+  "decision_id": "stale_review_blocked",
+  "decision_reason": "defer review",
+  "decision_type": "defer_review",
+  "operator_label": "fixture-operator",
+  "requested_mode": "dry_run_only",
+  "review_packet": {
+    "authorization_envelope_digest": "sha256-auth",
+    "capture_available": false,
+    "capture_enabled": false,
+    "denial_ledger_digest": "sha256-denial",
+    "digest": "sha256-review-packet-fixture",
+    "dry_run_proof_digest": "sha256-dry-run",
+    "expires_at": "2026-06-01T00:00:00Z",
+    "external_disclosure_enabled": false,
+    "live_hardware_enabled": false,
+    "no_live_capture_performed": true,
+    "packet_id": "review-packet-fixture-001",
+    "policy_chain_digest": "sha256-policy",
+    "raw_media_storage_enabled": false,
+    "requested_mode": "dry_run_only",
+    "reviewed_at": "2026-05-01T00:00:00Z",
+    "source_candidate_id": "fixture-camera-candidate",
+    "speaker_output_enabled": false,
+    "status": "capture_review_packet_ready_for_dry_run_only",
+    "unresolved_denial_count": 0,
+    "zone_config_digest": "sha256-zone"
+  },
+  "reviewed_at": "2026-06-02T00:00:00Z",
+  "source_candidate_id": "fixture-camera-candidate",
+  "unresolved_denial_count": 0
+}
