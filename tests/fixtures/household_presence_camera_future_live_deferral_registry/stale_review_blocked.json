@@ -1,0 +1,69 @@
+{
+  "authorization_envelope_digest": "auth_digest_fixture",
+  "decision_ledger": {
+    "decision_record_id": "decision_fixture_001",
+    "digest": "decision_digest_fixture",
+    "scope_key": "household_presence_camera:entry",
+    "status": "capture_review_decision_ledger_ready"
+  },
+  "deferral_id": "fixture-deferral-001",
+  "deferral_type": "future_live_review_deferred",
+  "denial_ledger_digest": "denial_digest_fixture",
+  "dry_run_gate": {
+    "capture_available": false,
+    "capture_enabled": false,
+    "digest": "gate_digest_fixture",
+    "external_disclosure_enabled": false,
+    "gate_confers_capture_authorization": false,
+    "gate_confers_live_readiness": false,
+    "gate_enables_external_disclosure": false,
+    "gate_enables_live_capture": false,
+    "gate_enables_live_hardware": false,
+    "gate_enables_raw_media_storage": false,
+    "gate_enables_speaker_output": false,
+    "gate_executes_dry_run": false,
+    "gate_grants_operator_consent": false,
+    "gate_id": "gate_fixture_001",
+    "gate_renews_operator_grant": false,
+    "live_hardware_enabled": false,
+    "raw_media_storage_enabled": false,
+    "scope_key": "household_presence_camera:entry",
+    "speaker_output_enabled": false,
+    "status": "dry_run_continuation_gate_ready"
+  },
+  "dry_run_proof_digest": "proof_digest_fixture",
+  "operator_label": "fixture_operator",
+  "policy": {
+    "stale_review_mode": "block"
+  },
+  "policy_chain_digest": "policy_digest_fixture",
+  "record_id": "fixture-deferral-record-001",
+  "registered_at": "2026-01-01T00:00:00Z",
+  "registry_id": "fixture-future-live-deferral-registry",
+  "renewal_request_packet": {
+    "digest": "renewal_digest_fixture",
+    "request_confers_live_readiness": false,
+    "request_grants_operator_consent": false,
+    "request_id": "request_fixture_001",
+    "request_renews_operator_grant": false,
+    "scope_key": "household_presence_camera:entry",
+    "status": "operator_grant_renewal_request_packet_ready"
+  },
+  "requested_mode": "dry_run_only",
+  "review_packet": {
+    "digest": "review_digest_fixture",
+    "review_packet_id": "review_fixture_001",
+    "scope_key": "household_presence_camera:entry",
+    "status": "capture_review_packet_ready"
+  },
+  "source_candidate_id": "fixture_candidate_001",
+  "stale_review_count": 1,
+  "trend_ledger": {
+    "digest": "trend_digest_fixture",
+    "scope_key": "household_presence_camera:entry",
+    "status": "operator_review_trend_ledger_ready",
+    "trend_confers_live_readiness": false,
+    "trend_id": "trend_fixture_001"
+  },
+  "zone_config_digest": "zone_digest_fixture"
+}
