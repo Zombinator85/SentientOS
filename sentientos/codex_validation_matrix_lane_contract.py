@@ -77,6 +77,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "household_presence_camera_capture_review_decision_ledger_tests",
     "household_presence_camera_operator_review_trend_ledger_tests",
     "household_presence_camera_operator_grant_renewal_request_packet_tests",
+    "household_presence_camera_dry_run_continuation_gate_tests",
     "proof_bundle_tests",
     "codex_pr_validation_evidence_tests",
     "codex_pr_landing_gate_tests",
