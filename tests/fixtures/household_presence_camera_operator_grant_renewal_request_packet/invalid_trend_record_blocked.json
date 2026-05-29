@@ -1,0 +1,14 @@
+{
+  "decision_ledger_digest": "decision-digest-fixture",
+  "requested_at": "2026-05-28T00:00:00Z",
+  "review_packet_digest": "review-digest-fixture",
+  "trend_ledger": {
+    "digest": "trend-digest-fixture",
+    "records": [
+      {
+        "record_id": "bad"
+      }
+    ]
+  },
+  "trend_ledger_digest": "trend-digest-fixture"
+}

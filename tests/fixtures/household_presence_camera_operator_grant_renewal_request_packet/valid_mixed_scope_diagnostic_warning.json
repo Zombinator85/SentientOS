@@ -1,0 +1,60 @@
+{
+  "decision_ledger_digest": "decision-digest-fixture",
+  "policy": {
+    "allow_mixed_scope_diagnostic_summary": true
+  },
+  "requested_at": "2026-05-28T00:00:00Z",
+  "review_packet_digest": "review-digest-fixture",
+  "trend_ledger": {
+    "digest": "trend-digest-fixture",
+    "records": [
+      {
+        "dry_run_continuation_count": 0,
+        "future_live_deferred_count": 0,
+        "grant_renewal_count": 1,
+        "operator_label": "fixture-operator",
+        "record_id": "trend-record-repeated_operator_grant_renewals",
+        "repair_count": 0,
+        "requested_mode": "dry_run_only",
+        "review_packet_ids": [
+          "review-packet-001"
+        ],
+        "scope_keys": [
+          "fixture-camera-candidate|dry_run_only|fixture-operator"
+        ],
+        "source_candidate_id": "fixture-camera-candidate",
+        "source_record_ids": [
+          "decision-record-001"
+        ],
+        "stale_review_count": 0,
+        "trend_id": "trend-repeated_operator_grant_renewals",
+        "trend_type": "repeated_operator_grant_renewals",
+        "unresolved_denial_count_total": 0
+      },
+      {
+        "dry_run_continuation_count": 0,
+        "future_live_deferred_count": 0,
+        "grant_renewal_count": 0,
+        "operator_label": "fixture-operator",
+        "record_id": "trend-record-repeated_dry_run_repairs",
+        "repair_count": 1,
+        "requested_mode": "dry_run_only",
+        "review_packet_ids": [
+          "review-packet-001"
+        ],
+        "scope_keys": [
+          "other-fixture-candidate|dry_run_only|fixture-operator"
+        ],
+        "source_candidate_id": "other-fixture-candidate",
+        "source_record_ids": [
+          "decision-record-001"
+        ],
+        "stale_review_count": 0,
+        "trend_id": "trend-repeated_dry_run_repairs",
+        "trend_type": "repeated_dry_run_repairs",
+        "unresolved_denial_count_total": 0
+      }
+    ]
+  },
+  "trend_ledger_digest": "trend-digest-fixture"
+}
