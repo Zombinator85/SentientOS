@@ -1,0 +1,65 @@
+{
+  "decision_ledger": {
+    "digest": "decision-digest-001",
+    "records": [
+      {
+        "decision_type": "allow_dry_run_only_continuation",
+        "operator_label": "fixture-operator",
+        "record_id": "decision-001",
+        "requested_mode": "dry_run_only",
+        "review_packet_id": "review-001",
+        "safe_next_action": "continue_dry_run_only",
+        "source_candidate_id": "fixture-camera-candidate"
+      }
+    ],
+    "status": "capture_review_decision_ledger_ready"
+  },
+  "decision_ledger_digest": "decision-digest-001",
+  "renewal_request_packet": {
+    "digest": "request-digest-001",
+    "records": [
+      {
+        "operator_label": "fixture-operator",
+        "request_confers_live_readiness": false,
+        "request_grants_operator_consent": false,
+        "request_id": "request-001",
+        "request_reason": "no_renewal_request_required",
+        "request_renews_operator_grant": false,
+        "requested_mode": "dry_run_only",
+        "requested_refresh_types": [],
+        "safe_next_action": "no_action_allowed",
+        "source_candidate_id": "fixture-camera-candidate"
+      }
+    ],
+    "status": "operator_grant_renewal_request_packet_ready"
+  },
+  "renewal_request_packet_digest": "request-digest-001",
+  "review_packet": {
+    "digest": "review-digest-001",
+    "gate_compatible_mode": "dry_run_only",
+    "operator_label": "fixture-operator",
+    "raw_media_storage_enabled": false,
+    "requested_mode": "dry_run_only",
+    "review_packet_id": "review-001",
+    "source_candidate_id": "fixture-camera-candidate",
+    "status": "capture_review_packet_ready"
+  },
+  "review_packet_digest": "review-digest-001",
+  "stale_request_count": 1,
+  "trend_ledger": {
+    "digest": "trend-digest-001",
+    "records": [
+      {
+        "operator_label": "fixture-operator",
+        "requested_mode": "dry_run_only",
+        "safe_next_action": "continue_dry_run_only_review",
+        "source_candidate_id": "fixture-camera-candidate",
+        "trend_confers_live_readiness": false,
+        "trend_id": "trend-001",
+        "trend_type": "dry_run_only_continuation_history"
+      }
+    ],
+    "status": "operator_review_trend_ledger_ready"
+  },
+  "trend_ledger_digest": "trend-digest-001"
+}

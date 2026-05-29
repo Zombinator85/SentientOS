@@ -441,6 +441,7 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence camera capture review decision ledger: `docs/architecture/household_presence_camera_capture_review_decision_ledger.md`
 - Household presence camera operator review trend ledger: `docs/architecture/household_presence_camera_operator_review_trend_ledger.md`
 - Household presence camera operator grant renewal request packet: `docs/architecture/household_presence_camera_operator_grant_renewal_request_packet.md`
+- Household presence camera dry-run continuation gate: `docs/architecture/household_presence_camera_dry_run_continuation_gate.md`
 
 - docs/development/codex_landing_supervisor.md
 
