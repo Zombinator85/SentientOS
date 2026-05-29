@@ -1,0 +1,37 @@
+{
+  "decision_ledger_digest": "decision-digest-fixture",
+  "policy": {
+    "stale_review_mode": "block"
+  },
+  "requested_at": "2026-05-28T00:00:00Z",
+  "review_packet_digest": "review-digest-fixture",
+  "trend_ledger": {
+    "digest": "trend-digest-fixture",
+    "records": [
+      {
+        "dry_run_continuation_count": 0,
+        "future_live_deferred_count": 0,
+        "grant_renewal_count": 0,
+        "operator_label": "fixture-operator",
+        "record_id": "trend-record-stale_review_pattern",
+        "repair_count": 0,
+        "requested_mode": "dry_run_only",
+        "review_packet_ids": [
+          "review-packet-001"
+        ],
+        "scope_keys": [
+          "fixture-camera-candidate|dry_run_only|fixture-operator"
+        ],
+        "source_candidate_id": "fixture-camera-candidate",
+        "source_record_ids": [
+          "decision-record-001"
+        ],
+        "stale_review_count": 1,
+        "trend_id": "trend-stale_review_pattern",
+        "trend_type": "stale_review_pattern",
+        "unresolved_denial_count_total": 0
+      }
+    ]
+  },
+  "trend_ledger_digest": "trend-digest-fixture"
+}
