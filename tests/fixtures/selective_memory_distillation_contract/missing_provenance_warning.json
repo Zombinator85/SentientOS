@@ -1,0 +1,26 @@
+{
+  "records": [
+    {
+      "distillation_decision": "no_distillation_needed",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "missing_provenance",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "2c27ecbf22e8874e5f36ef67078bab1f36b104e1cb2496004df7b044bb000d44",
+      "source_provenance_refs": [],
+      "source_record_kind": "audit_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for missing_provenance; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

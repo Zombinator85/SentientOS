@@ -1,0 +1,56 @@
+{
+  "policy": {
+    "allow_mixed_scope_diagnostic_packet": true,
+    "scope_mismatch_mode": "warn"
+  },
+  "records": [
+    {
+      "distillation_decision": "no_distillation_needed",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "scope_a",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "9330730ff31784aa388938ffd2b3fc1c4ec6a53f8a6ab6df137bbb693dd6ed56",
+      "source_provenance_refs": [
+        "fixture://scope_a"
+      ],
+      "source_record_kind": "audit_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for scope_a; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    },
+    {
+      "distillation_decision": "defer_for_operator_review",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "scope_b",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "operator_review_required",
+      "salience_score": 0.6,
+      "source_digest": "1817ca6b68e6e78f938a78510d14a4657d63d8b29b53c4b060ea928b9f051262",
+      "source_provenance_refs": [
+        "fixture://scope_b"
+      ],
+      "source_record_kind": "operator_note",
+      "source_scope_keys": [
+        "operator"
+      ],
+      "source_summary": "Metadata summary for scope_b; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

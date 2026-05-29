@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "distillation_decision": "reject_record",
+      "image": "fixture-image-ref",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "media",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "721c9525ade2ea8903d343ef25cf68b9bf4ab0aad56bb7b01fbe48d09bc7fcf4",
+      "source_provenance_refs": [
+        "fixture://media"
+      ],
+      "source_record_kind": "observation_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for media; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

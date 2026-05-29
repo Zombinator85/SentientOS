@@ -450,3 +450,8 @@ The checkpoint is strictly observational and comparative. It does not read artif
 The Phase 103 custody dimensions cover Phase 100 closure custody, Phase 101 enforcement custody, Phase 102 drift-review custody, strict audit verification custody, immutable manifest verification custody, architecture classification custody, prompt-boundary scan custody, release-blocker continuity, no-provider/no-network/no-export/no-runtime/no-prompt-text continuity, and no-clearance/no-unblock continuity. A clean checkpoint remains release-blocked and does not create clearance or unblock authority.
 
 Phase 103 fails closed for missing Phase 100/101/102 metadata, Phase 100/101/102 digest mismatch, Phase 100/101/102 status contradiction, missing or failed strict audit verification, missing or failed immutable manifest verification, architecture-classification contradiction, prompt-boundary coverage gaps for Phase 100/101/102/103, allowlist broadening beyond metadata-only labels, unblock/approval/clearance markers, sensitive material markers, provider/network/export/runtime/prompt-text markers, prompt assembler modification markers, and artifact body read markers.
+
+## Selective Memory Distillation Contract
+- The [selective memory distillation contract](selective_memory_distillation_contract.md) formalizes deferred Distiller/Pruner metadata decisions before any receipt/writer layer.
+- It evaluates supplied memory, observation, affective, embodiment, and proof-governance records only; it does not retrieve live context, write memory, delete memory, assemble prompts, call providers, or change runtime behavior.
+- Its AI-native capsules and tomb intents are non-authoritative metadata: retention is not truth, capsule output is not policy, and tomb intent is not deletion.

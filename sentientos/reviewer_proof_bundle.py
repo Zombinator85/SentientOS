@@ -157,6 +157,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "household_presence_camera_dry_run_continuation_gate_capability",
         "household_presence_camera_future_live_deferral_registry_capability",
         "household_presence_camera_review_chain_summary_packet_capability",
+        "selective_memory_distillation_contract_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -224,6 +225,7 @@ BUNDLE_FILE_NAMES = {
     "household_presence_camera_dry_run_continuation_gate_capability": "household_presence_camera_dry_run_continuation_gate_capability.json",
     "household_presence_camera_future_live_deferral_registry_capability": "household_presence_camera_future_live_deferral_registry_capability.json",
     "household_presence_camera_review_chain_summary_packet_capability": "household_presence_camera_review_chain_summary_packet_capability.json",
+    "selective_memory_distillation_contract_capability": "selective_memory_distillation_contract_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -626,6 +628,7 @@ def build_reviewer_proof_bundle_payload(
         "trace_markdown": serialize_host_embodiment_trace_markdown(trace),
         "trace_summary": _trace_summary_text(trace),
         "capability_registry_summary": _pretty_json({"summary": summarize_capability_registry(registry), "records": [record.to_dict() for record in registry.records], "metadata_only": True, "reviewer_proof_only": True}),
+        "selective_memory_distillation_contract_capability": _pretty_json({"artifact_kind": "selective_memory_distillation_contract_capability", "capability_id": "selective_memory_distillation_contract", "category": "memory_distillation", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_selective_memory_distillation_contract.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/selective_memory_distillation_contract.md", "blocked_or_deferred_surfaces": ["runtime memory write", "runtime memory deletion", "vector index mutation", "prompt assembly", "provider/network/GitHub calls", "external disclosure", "action execution", "authority escalation"], "forbidden_next_steps": ["delete_memory_now", "purge_memory_now", "write_memory_now", "mutate_vector_index", "call_append_memory", "call_purge_memory", "call_curate_memory", "assemble_prompt_now", "retrieve_live_context", "call_llm_provider", "call_network_api", "call_github_api", "execute_action_ingress", "infer_truth_from_retention", "infer_authority_from_memory", "convert_capsule_to_policy", "convert_distillation_to_action", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "deferred_action_inventory": _pretty_json(_deferred_action_inventory()),
         "safety_gate_posture": _pretty_json({"metadata_only": True, "reviewer_proof_only": True, "safety_gate_only": True, "proof_statement": "Safety gates declare prerequisites only; they are not authorization or fulfillment.", "summary": summarize_safety_gate_satisfaction_manifest(safety_gates.safety_gate_satisfaction_manifest), "records": safety_gates.to_dict()}),
         "live_grant_readiness_posture": _pretty_json({

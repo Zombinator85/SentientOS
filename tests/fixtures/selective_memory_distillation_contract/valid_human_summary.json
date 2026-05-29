@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "distill_to_human_summary",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_human_summary",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "faafbffcff8f4e7131d1fbd7a6260f9ed5a0017471e1ff3c563e522944a15e3f",
+      "source_provenance_refs": [
+        "fixture://valid_human_summary.json"
+      ],
+      "source_record_kind": "observation_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_human_summary.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

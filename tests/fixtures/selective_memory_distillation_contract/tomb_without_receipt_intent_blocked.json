@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "tomb_without_retention",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "tomb_missing",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "2a2fb75167a245ca204826134a56379c3ad1b70873abc359799bd75fed80fca7",
+      "source_provenance_refs": [
+        "fixture://tomb_missing"
+      ],
+      "source_record_kind": "raw_memory_fragment",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for tomb_missing; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

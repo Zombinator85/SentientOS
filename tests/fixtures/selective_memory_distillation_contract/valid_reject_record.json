@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "reject_record",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_reject_record",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "f55ade921cd60ff35b9189f185d3ea25e6cba1e06f5573661b2337ff8cfffdb3",
+      "source_provenance_refs": [
+        "fixture://valid_reject_record.json"
+      ],
+      "source_record_kind": "audit_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_reject_record.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

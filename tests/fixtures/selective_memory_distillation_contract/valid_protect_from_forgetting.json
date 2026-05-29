@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "protect_from_forgetting",
+      "importance_score": 0.9,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_protect_from_forgetting",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "protect_memory_later",
+      "salience_score": 0.6,
+      "source_digest": "19edb32d6397b5292c25d5669f4b6af719f20e3e0ff746847973369779a33832",
+      "source_provenance_refs": [
+        "fixture://valid_protect_from_forgetting.json"
+      ],
+      "source_record_kind": "operator_note",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_protect_from_forgetting.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

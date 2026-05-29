@@ -1,0 +1,42 @@
+{
+  "records": [
+    {
+      "ai_capsule": {
+        "capsule_type": "ai_task_handoff_state",
+        "expires_at": null,
+        "human_expandable": true,
+        "source_digests": [
+          "67162b5ddc51badf012d54ce54cbde3e920a39934ca3fd4bf87cb7727801ba1c"
+        ],
+        "symbols": [
+          "need:memory.distill",
+          "boundary:no_runtime_memory_mutation",
+          "retention:not_truth",
+          "next:inspect_distillation_packet"
+        ]
+      },
+      "distillation_decision": "distill_to_ai_capsule",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_ai_task_handoff_state_capsule",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "67162b5ddc51badf012d54ce54cbde3e920a39934ca3fd4bf87cb7727801ba1c",
+      "source_provenance_refs": [
+        "fixture://valid_ai_task_handoff_state_capsule.json"
+      ],
+      "source_record_kind": "codex_task_report",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_ai_task_handoff_state_capsule.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}
