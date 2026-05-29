@@ -1,0 +1,62 @@
+{
+  "decision_ledger": {
+    "digest": "digest-decision-001",
+    "ledger_id": "decision-ledger-001",
+    "records": [
+      {
+        "decision_record_id": "decision-001",
+        "scope_key": "household_presence_camera"
+      }
+    ],
+    "status": "capture_review_decision_ledger_ready"
+  },
+  "dry_run_gate": {
+    "digest": "digest-gate-001",
+    "dry_run_proof_digest": "digest-dry-run-proof-001",
+    "gate_executes_dry_run": false,
+    "gate_id": "gate-001",
+    "scope_key": "household_presence_camera",
+    "status": "dry_run_continuation_gate_ready"
+  },
+  "future_live_deferral_registry": {
+    "digest": "digest-deferral-001",
+    "records": [
+      {
+        "deferral_id": "deferral-001",
+        "future_live_deferred_count": 1,
+        "scope_key": "household_presence_camera"
+      }
+    ],
+    "registry_id": "deferral-registry-001",
+    "status": "future_live_deferral_registry_ready"
+  },
+  "generated_at": "2026-01-01T00:00:00Z",
+  "operator_label": "fixture_operator",
+  "record_id": "review-chain-summary-record-001",
+  "requested_mode": "dry_run_only",
+  "review_packet": {
+    "authorization_envelope_digest": "digest-auth-001",
+    "denial_ledger_digest": "digest-denial-001",
+    "digest": "digest-review-001",
+    "operator_label": "fixture_operator",
+    "policy_chain_digest": "digest-policy-001",
+    "requested_mode": "dry_run_only",
+    "review_packet_id": "review-001",
+    "scope_key": "household_presence_camera",
+    "status": "capture_review_packet_ready",
+    "zone_config_digest": "digest-zone-001"
+  },
+  "source_candidate_id": "fixture-candidate-001",
+  "summary_id": "review-chain-summary-001",
+  "trend_ledger": {
+    "digest": "digest-trend-001",
+    "ledger_id": "trend-ledger-001",
+    "records": [
+      {
+        "scope_key": "household_presence_camera",
+        "trend_id": "trend-001"
+      }
+    ],
+    "status": "operator_review_trend_ledger_ready"
+  }
+}

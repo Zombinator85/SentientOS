@@ -443,6 +443,7 @@ Work item lifecycle attestation review digest index verification is documented i
 - Household presence camera operator grant renewal request packet: `docs/architecture/household_presence_camera_operator_grant_renewal_request_packet.md`
 - Household presence camera dry-run continuation gate: `docs/architecture/household_presence_camera_dry_run_continuation_gate.md`
 - Household presence camera future live-candidate deferral registry: `docs/architecture/household_presence_camera_future_live_deferral_registry.md`
+- Household presence camera review chain summary packet: `docs/architecture/household_presence_camera_review_chain_summary_packet.md`
 
 - docs/development/codex_landing_supervisor.md
 
