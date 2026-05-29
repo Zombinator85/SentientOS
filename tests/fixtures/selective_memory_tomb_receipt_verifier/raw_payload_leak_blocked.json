@@ -1,0 +1,69 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-raw_payload_leak_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "digest": "record-digest-raw_payload_leak_blocked",
+        "distillation_decision": "tomb_after_distillation",
+        "privacy_posture": "metadata_only",
+        "record_id": "raw_payload_leak_blocked",
+        "source_digest": "sha256:raw_payload_leak_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": {
+          "digest": "1308f7508169e132b786de9b9bf9f0c1e89b76b435c6a66c2ac6f08cd8e40867",
+          "source_digest": "sha256:raw_payload_leak_blocked",
+          "tomb_intent_id": "tomb-intent-raw_payload_leak_blocked"
+        }
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-raw_payload_leak_blocked",
+        "gate_decision": "receipt_candidate_admissible",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "raw_payload_leak_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-raw_payload_leak_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "tomb_claim": {
+    "claim_id": "claim-raw_payload_leak_blocked",
+    "claimed_distillation_decision": "tomb_after_distillation",
+    "claimed_gate_decision_digest": "gate-digest-raw_payload_leak_blocked",
+    "claimed_packet_digest": "packet-digest-raw_payload_leak_blocked",
+    "raw_payload": "raw private fixture leak",
+    "receipt_metadata": {
+      "fixture": true
+    },
+    "record_id": "raw_payload_leak_blocked",
+    "requested_next_actions": [
+      "inspect_tomb_receipt_verification"
+    ],
+    "source_digest": "sha256:raw_payload_leak_blocked",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "tomb_claim_type": "tomb_after_distillation_observed_receipt",
+    "tomb_intent_digest": "1308f7508169e132b786de9b9bf9f0c1e89b76b435c6a66c2ac6f08cd8e40867",
+    "tomb_intent_id": "tomb-intent-raw_payload_leak_blocked",
+    "tomb_intent_source_digest": "sha256:raw_payload_leak_blocked"
+  }
+}

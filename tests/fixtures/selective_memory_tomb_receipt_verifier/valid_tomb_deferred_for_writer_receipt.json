@@ -1,0 +1,64 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-valid_tomb_deferred_for_writer_receipt",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "digest": "record-digest-valid_tomb_deferred_for_writer_receipt",
+        "distillation_decision": "defer_for_operator_review",
+        "privacy_posture": "metadata_only",
+        "record_id": "valid_tomb_deferred_for_writer_receipt",
+        "source_digest": "sha256:valid_tomb_deferred_for_writer_receipt",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": null
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-valid_tomb_deferred_for_writer_receipt",
+        "gate_decision": "receipt_candidate_deferred_for_operator_review",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "valid_tomb_deferred_for_writer_receipt",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-valid_tomb_deferred_for_writer_receipt",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "tomb_claim": {
+    "claim_id": "claim-valid_tomb_deferred_for_writer_receipt",
+    "claimed_distillation_decision": "defer_for_operator_review",
+    "claimed_gate_decision_digest": "gate-digest-valid_tomb_deferred_for_writer_receipt",
+    "claimed_packet_digest": "packet-digest-valid_tomb_deferred_for_writer_receipt",
+    "receipt_metadata": {
+      "fixture": true
+    },
+    "record_id": "valid_tomb_deferred_for_writer_receipt",
+    "requested_next_actions": [
+      "inspect_tomb_receipt_verification"
+    ],
+    "source_digest": "sha256:valid_tomb_deferred_for_writer_receipt",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "tomb_claim_type": "tomb_deferred_for_writer_receipt",
+    "tomb_intent_digest": "78bdc0644cf8906e3366e6fdf7ea2f88f8066d17b91adccd6dfeb8254c069a72",
+    "tomb_intent_id": "tomb-intent-valid_tomb_deferred_for_writer_receipt",
+    "tomb_intent_source_digest": "sha256:valid_tomb_deferred_for_writer_receipt"
+  }
+}

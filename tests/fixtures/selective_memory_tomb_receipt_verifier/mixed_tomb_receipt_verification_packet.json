@@ -1,0 +1,147 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-mixed",
+    "records": [
+      {
+        "digest": "record-digest-mixed-a",
+        "distillation_decision": "tomb_after_distillation",
+        "privacy_posture": "metadata_only",
+        "record_id": "mixed-a",
+        "source_digest": "sha256:mixed-a",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": {
+          "digest": "271f42e2012f5ed8601a02fcf619293d0f9d55e173f29cb8dfc871931a0d99ed",
+          "source_digest": "sha256:mixed-a",
+          "tomb_intent_id": "tomb-intent-mixed-a"
+        }
+      },
+      {
+        "digest": "record-digest-mixed-b",
+        "distillation_decision": "reject_record",
+        "privacy_posture": "metadata_only",
+        "record_id": "mixed-b",
+        "source_digest": "sha256:mixed-b",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": null
+      },
+      {
+        "digest": "record-digest-mixed-c",
+        "distillation_decision": "no_distillation_needed",
+        "privacy_posture": "metadata_only",
+        "record_id": "mixed-c",
+        "source_digest": "sha256:mixed-c",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": null
+      }
+    ],
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-mixed-a",
+        "gate_decision": "receipt_candidate_admissible",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "mixed-a",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      },
+      {
+        "digest": "gate-digest-mixed-b",
+        "gate_decision": "receipt_candidate_rejected",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "mixed-b",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      },
+      {
+        "digest": "gate-digest-mixed-c",
+        "gate_decision": "receipt_candidate_noop",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "mixed-c",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-mixed",
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "tomb_claims": [
+    {
+      "claim_id": "claim-mixed-a",
+      "claimed_distillation_decision": "tomb_after_distillation",
+      "claimed_gate_decision_digest": "gate-digest-mixed-a",
+      "claimed_packet_digest": "packet-digest-mixed",
+      "receipt_metadata": {
+        "fixture": true
+      },
+      "record_id": "mixed-a",
+      "requested_next_actions": [
+        "inspect_tomb_receipt_verification"
+      ],
+      "source_digest": "sha256:mixed-a",
+      "source_scope_keys": [
+        "fixture.scope.alpha"
+      ],
+      "tomb_claim_type": "tomb_after_distillation_observed_receipt",
+      "tomb_intent_digest": "271f42e2012f5ed8601a02fcf619293d0f9d55e173f29cb8dfc871931a0d99ed",
+      "tomb_intent_id": "tomb-intent-mixed-a",
+      "tomb_intent_source_digest": "sha256:mixed-a"
+    },
+    {
+      "claim_id": "claim-mixed-b",
+      "claimed_distillation_decision": "reject_record",
+      "claimed_gate_decision_digest": "gate-digest-mixed-b",
+      "claimed_packet_digest": "packet-digest-mixed",
+      "receipt_metadata": {
+        "fixture": true
+      },
+      "record_id": "mixed-b",
+      "requested_next_actions": [
+        "inspect_tomb_receipt_verification"
+      ],
+      "source_digest": "sha256:mixed-b",
+      "source_scope_keys": [
+        "fixture.scope.alpha"
+      ],
+      "tomb_claim_type": "tomb_rejected_receipt",
+      "tomb_intent_digest": "96fd51171758cb45b1a165ba277dfa22902de863d9a8f53b7c0d6104f97eb307",
+      "tomb_intent_id": "tomb-intent-mixed-b",
+      "tomb_intent_source_digest": "sha256:mixed-b"
+    },
+    {
+      "claim_id": "claim-mixed-c",
+      "claimed_distillation_decision": "no_distillation_needed",
+      "claimed_gate_decision_digest": "gate-digest-mixed-c",
+      "claimed_packet_digest": "packet-digest-mixed",
+      "receipt_metadata": {
+        "fixture": true
+      },
+      "record_id": "mixed-c",
+      "requested_next_actions": [
+        "inspect_tomb_receipt_verification"
+      ],
+      "source_digest": "sha256:mixed-c",
+      "source_scope_keys": [
+        "fixture.scope.alpha"
+      ],
+      "tomb_claim_type": "tomb_noop_receipt",
+      "tomb_intent_digest": "3d694f5323404ef349b4968017a9ddfd09db006b03fa36937b47203199073150",
+      "tomb_intent_id": "tomb-intent-mixed-c",
+      "tomb_intent_source_digest": "sha256:mixed-c"
+    }
+  ]
+}
