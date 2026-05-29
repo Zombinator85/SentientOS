@@ -1,0 +1,26 @@
+{
+  "artifact_kind": "governed_memory_writer_adapter_capability",
+  "authority_level": "metadata_verification_only",
+  "blocked_or_deferred_surfaces": [
+    "runtime memory write",
+    "runtime memory deletion",
+    "capsule persistence",
+    "tomb completion",
+    "vector index mutation",
+    "prompt assembly",
+    "external disclosure",
+    "action execution",
+    "authority escalation",
+    "policy creation",
+    "consent inference",
+    "truth inference"
+  ],
+  "capability_id": "governed_memory_writer_adapter",
+  "category": "memory_distillation",
+  "cli_reference": "scripts/build_governed_memory_writer_adapter.py",
+  "docs_reference": "docs/architecture/governed_memory_writer_adapter.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+  "metadata_only": true,
+  "proof_command_not_run": true,
+  "status": "implemented"
+}

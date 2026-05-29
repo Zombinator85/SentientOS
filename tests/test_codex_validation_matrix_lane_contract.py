@@ -9,6 +9,7 @@ def _matrix() -> dict[str, object]:
         "required_failure_count": 0,
         "results": [
             {"label": "targeted_tests", "exit_code": 0},
+            {"label": "governed_memory_writer_adapter_tests", "exit_code": 0},
             {"label": "targeted_mypy", "exit_code": 0},
             {"label": "mypy_baseline", "exit_code": 0},
             {"label": "docs_check_deps", "exit_code": 0},

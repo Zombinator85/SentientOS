@@ -1,0 +1,65 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-external_disclosure_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "distillation_decision": "create_ai_capsule",
+        "privacy_posture": "metadata_only",
+        "record_id": "external_disclosure_blocked",
+        "source_digest": "sha256:external_disclosure_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only governed writer fixture summary."
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "output_root": "/tmp/governed-memory-writer-fixture-output",
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-external_disclosure_blocked",
+        "gate_decision": "receipt_candidate_admissible",
+        "receipt_candidate_type": "ai_capsule_receipt_candidate",
+        "record_id": "external_disclosure_blocked",
+        "source_digest": "sha256:external_disclosure_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-external_disclosure_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "writer_candidate": {
+    "artifact_timestamp": "2026-01-02T03:04:05Z",
+    "candidate_id": "candidate-external_disclosure_blocked",
+    "candidate_type": "ai_capsule_artifact_candidate",
+    "claimed_distillation_decision": "create_ai_capsule",
+    "claimed_receipt_gate_decision": "receipt_candidate_admissible",
+    "external_disclosure_requested": true,
+    "metadata": {
+      "artifact_kind": "ai_capsule_artifact_candidate",
+      "fixture": true
+    },
+    "output_path": "artifacts/ai_capsule.json",
+    "record_id": "external_disclosure_blocked",
+    "requested_next_actions": [
+      "inspect_writer_packet"
+    ],
+    "source_digest": "sha256:external_disclosure_blocked",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "writer_mode": "dry_run_preview"
+  }
+}

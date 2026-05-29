@@ -1,0 +1,64 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-valid_operator_review_archive_write",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "distillation_decision": "defer_for_operator_review",
+        "privacy_posture": "metadata_only",
+        "record_id": "valid_operator_review_archive_write",
+        "source_digest": "sha256:valid_operator_review_archive_write",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only governed writer fixture summary."
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "output_root": "/tmp/governed-memory-writer-fixture-output",
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-valid_operator_review_archive_write",
+        "gate_decision": "receipt_candidate_deferred_for_operator_review",
+        "receipt_candidate_type": "operator_review_receipt_candidate",
+        "record_id": "valid_operator_review_archive_write",
+        "source_digest": "sha256:valid_operator_review_archive_write",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-valid_operator_review_archive_write",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "writer_candidate": {
+    "artifact_timestamp": "2026-01-02T03:04:05Z",
+    "candidate_id": "candidate-valid_operator_review_archive_write",
+    "candidate_type": "operator_review_archive_candidate",
+    "claimed_distillation_decision": "defer_for_operator_review",
+    "claimed_receipt_gate_decision": "receipt_candidate_deferred_for_operator_review",
+    "metadata": {
+      "artifact_kind": "operator_review_archive_candidate",
+      "fixture": true
+    },
+    "output_path": "artifacts/operator_review.json",
+    "record_id": "valid_operator_review_archive_write",
+    "requested_next_actions": [
+      "inspect_writer_packet"
+    ],
+    "source_digest": "sha256:valid_operator_review_archive_write",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "writer_mode": "explicit_artifact_write"
+  }
+}
