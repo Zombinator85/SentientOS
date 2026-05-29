@@ -1,0 +1,16 @@
+{
+  "distillation_packet": {
+    "records": [
+      {
+        "record_id": "bad"
+      }
+    ]
+  },
+  "receipt_candidate": {
+    "candidate_id": "bad-packet",
+    "claimed_distillation_decision": "distill_to_ai_capsule",
+    "receipt_candidate_type": "ai_capsule_write_receipt_candidate",
+    "record_id": "bad",
+    "source_digest": "sha256:bad"
+  }
+}

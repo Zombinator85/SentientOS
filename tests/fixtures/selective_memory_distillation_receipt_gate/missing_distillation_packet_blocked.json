@@ -1,0 +1,9 @@
+{
+  "receipt_candidate": {
+    "candidate_id": "missing-packet",
+    "claimed_distillation_decision": "distill_to_ai_capsule",
+    "receipt_candidate_type": "ai_capsule_write_receipt_candidate",
+    "record_id": "x",
+    "source_digest": "sha256:x"
+  }
+}
