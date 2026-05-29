@@ -1,0 +1,23 @@
+{
+  "artifact_kind": "selective_memory_tomb_receipt_verifier_capability",
+  "authority_level": "metadata_verification_only",
+  "blocked_or_deferred_surfaces": [
+    "runtime memory write",
+    "runtime memory deletion",
+    "tomb completion",
+    "capsule persistence",
+    "prompt assembly",
+    "external disclosure",
+    "action execution",
+    "authority escalation",
+    "policy creation"
+  ],
+  "capability_id": "selective_memory_tomb_receipt_verifier",
+  "category": "memory_distillation",
+  "cli_reference": "scripts/build_selective_memory_tomb_receipt_verifier.py",
+  "docs_reference": "docs/architecture/selective_memory_tomb_receipt_verifier.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+  "metadata_only": true,
+  "proof_command_not_run": true,
+  "status": "implemented"
+}

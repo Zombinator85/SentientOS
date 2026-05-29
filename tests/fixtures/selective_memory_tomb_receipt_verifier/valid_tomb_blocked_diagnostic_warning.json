@@ -1,0 +1,71 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-valid_tomb_blocked_diagnostic_warning",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "digest": "record-digest-valid_tomb_blocked_diagnostic_warning",
+        "distillation_decision": "tomb_after_distillation",
+        "privacy_posture": "metadata_only",
+        "record_id": "valid_tomb_blocked_diagnostic_warning",
+        "source_digest": "sha256:valid_tomb_blocked_diagnostic_warning",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only tomb receipt fixture summary.",
+        "tomb_intent": {
+          "digest": "0d498d9cc889e3aa8b9509dccde9b521ddf9fd7915313fff1bfe8d7e5e6791a9",
+          "source_digest": "sha256:valid_tomb_blocked_diagnostic_warning",
+          "tomb_intent_id": "tomb-intent-valid_tomb_blocked_diagnostic_warning"
+        }
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "policy": {
+    "allow_diagnostic_blocked_verification": true
+  },
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-valid_tomb_blocked_diagnostic_warning",
+        "gate_decision": "receipt_candidate_blocked",
+        "receipt_candidate_type": "tomb_after_distillation_receipt_candidate",
+        "record_id": "valid_tomb_blocked_diagnostic_warning",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-valid_tomb_blocked_diagnostic_warning",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "tomb_claim": {
+    "claim_id": "claim-valid_tomb_blocked_diagnostic_warning",
+    "claimed_distillation_decision": "tomb_after_distillation",
+    "claimed_gate_decision_digest": "gate-digest-valid_tomb_blocked_diagnostic_warning",
+    "claimed_packet_digest": "packet-digest-valid_tomb_blocked_diagnostic_warning",
+    "receipt_metadata": {
+      "fixture": true
+    },
+    "record_id": "valid_tomb_blocked_diagnostic_warning",
+    "requested_next_actions": [
+      "inspect_tomb_receipt_verification"
+    ],
+    "source_digest": "sha256:valid_tomb_blocked_diagnostic_warning",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "tomb_claim_type": "tomb_blocked_receipt",
+    "tomb_intent_digest": "0d498d9cc889e3aa8b9509dccde9b521ddf9fd7915313fff1bfe8d7e5e6791a9",
+    "tomb_intent_id": "tomb-intent-valid_tomb_blocked_diagnostic_warning",
+    "tomb_intent_source_digest": "sha256:valid_tomb_blocked_diagnostic_warning"
+  }
+}

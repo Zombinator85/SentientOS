@@ -454,5 +454,6 @@ Phase 103 fails closed for missing Phase 100/101/102 metadata, Phase 100/101/102
 ## Selective Memory Distillation Contract
 - The [selective memory distillation contract](selective_memory_distillation_contract.md) formalizes deferred Distiller/Pruner metadata decisions before any receipt/writer layer.
 - The [selective memory distillation receipt gate](selective_memory_distillation_receipt_gate.md) validates future receipt candidates over distillation packets without writing memory, completing tombs, assembling prompts, or granting authority.
+- The [selective memory tomb receipt verifier](selective_memory_tomb_receipt_verifier.md) verifies tomb receipt claims against distillation and receipt-gate metadata without writing memory, proving deletion, completing tombs, creating policy, granting authority, assembling prompts, or disclosing externally.
 - It evaluates supplied memory, observation, affective, embodiment, and proof-governance records only; it does not retrieve live context, write memory, delete memory, assemble prompts, call providers, or change runtime behavior.
 - Its AI-native capsules and tomb intents are non-authoritative metadata: retention is not truth, capsule output is not policy, and tomb intent is not deletion.
