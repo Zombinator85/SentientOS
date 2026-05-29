@@ -1,0 +1,43 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-missing_writer_candidate_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "distillation_decision": "create_ai_capsule",
+        "privacy_posture": "metadata_only",
+        "record_id": "missing_writer_candidate_blocked",
+        "source_digest": "sha256:missing_writer_candidate_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only governed writer fixture summary."
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "output_root": "/tmp/governed-memory-writer-fixture-output",
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-missing_writer_candidate_blocked",
+        "gate_decision": "receipt_candidate_admissible",
+        "receipt_candidate_type": "ai_capsule_receipt_candidate",
+        "record_id": "missing_writer_candidate_blocked",
+        "source_digest": "sha256:missing_writer_candidate_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-missing_writer_candidate_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  }
+}

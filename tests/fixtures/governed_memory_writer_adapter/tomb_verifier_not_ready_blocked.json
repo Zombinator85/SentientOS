@@ -1,0 +1,87 @@
+{
+  "distillation_packet": {
+    "digest": "packet-digest-tomb_verifier_not_ready_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "distillation_decision": "tomb_after_distillation",
+        "privacy_posture": "metadata_only",
+        "record_id": "tomb_verifier_not_ready_blocked",
+        "source_digest": "sha256:tomb_verifier_not_ready_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only governed writer fixture summary."
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "output_root": "/tmp/governed-memory-writer-fixture-output",
+  "receipt_gate_packet": {
+    "decisions": [
+      {
+        "digest": "gate-digest-tomb_verifier_not_ready_blocked",
+        "gate_decision": "receipt_candidate_admissible",
+        "receipt_candidate_type": "tomb_receipt_receipt_candidate",
+        "record_id": "tomb_verifier_not_ready_blocked",
+        "source_digest": "sha256:tomb_verifier_not_ready_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ]
+      }
+    ],
+    "digest": "gate-packet-digest-tomb_verifier_not_ready_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "tomb_verifier_packet": {
+    "digest": "tomb-packet-digest-tomb_verifier_not_ready_blocked",
+    "external_disclosure_enabled": false,
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "claim_id": "claim-tomb_verifier_not_ready_blocked",
+        "claimed_distillation_decision": "tomb_after_distillation",
+        "digest": "tomb-record-digest-tomb_verifier_not_ready_blocked",
+        "receipt_gate_decision": "receipt_candidate_admissible",
+        "record_id": "tomb_verifier_not_ready_blocked",
+        "source_digest": "sha256:tomb_verifier_not_ready_blocked",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "tomb_claim_type": "tomb_after_distillation_observed_receipt",
+        "verification_outcome": "tomb_receipt_rejected"
+      }
+    ],
+    "remote_service_enabled": false,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-tomb-receipt-verifier.v1"
+  },
+  "writer_candidate": {
+    "artifact_timestamp": "2026-01-02T03:04:05Z",
+    "candidate_id": "candidate-tomb_verifier_not_ready_blocked",
+    "candidate_type": "tomb_receipt_archive_candidate",
+    "claimed_distillation_decision": "tomb_after_distillation",
+    "claimed_receipt_gate_decision": "receipt_candidate_admissible",
+    "metadata": {
+      "artifact_kind": "tomb_receipt_archive_candidate",
+      "fixture": true
+    },
+    "output_path": "artifacts/ai_capsule.json",
+    "record_id": "tomb_verifier_not_ready_blocked",
+    "requested_next_actions": [
+      "inspect_writer_packet"
+    ],
+    "source_digest": "sha256:tomb_verifier_not_ready_blocked",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ],
+    "writer_mode": "explicit_artifact_write"
+  }
+}

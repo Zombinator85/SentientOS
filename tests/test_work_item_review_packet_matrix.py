@@ -76,6 +76,7 @@ def test_output_written_only_when_explicit(tmp_path: Path, monkeypatch) -> None:
 def test_default_matrix_includes_promotion_gate_steps() -> None:
     labels = [c.label for c in matrix.default_matrix_commands()]
     assert "promotion_gate_tests" in labels
+    assert "governed_memory_writer_adapter_tests" in labels
     assert "targeted_mypy" in labels
 
 
