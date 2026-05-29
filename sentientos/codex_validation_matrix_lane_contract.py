@@ -49,6 +49,7 @@ LANE_CONTRACT: tuple[LaneContract, ...] = (
 )
 TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "selective_memory_distillation_contract_tests",
+    "selective_memory_distillation_receipt_gate_tests",
     "review_packet_tests",
     "authority_closure_tests",
     "dry_run_adapter_tests",

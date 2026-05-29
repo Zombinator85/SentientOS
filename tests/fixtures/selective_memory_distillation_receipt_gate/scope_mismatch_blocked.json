@@ -1,0 +1,153 @@
+{
+  "distillation_packet": {
+    "capsule_is_not_authority": true,
+    "capsule_is_not_policy": true,
+    "deletion_recommendation_is_not_deletion": true,
+    "digest": "bca7222f542a4943d5bf142b6892b98976138df4464c1190aef901c22a67eef3",
+    "distillation_is_not_memory_write": true,
+    "distillation_is_not_prompt_assembly": true,
+    "external_disclosure_enabled": false,
+    "forbidden_next_steps": [
+      "delete_memory_now",
+      "purge_memory_now",
+      "write_memory_now",
+      "mutate_raw_fragment",
+      "mutate_vector_index",
+      "mutate_distilled_memory",
+      "call_append_memory",
+      "call_purge_memory",
+      "call_apply_forgetting_curve",
+      "call_curate_memory",
+      "call_summarize_memory",
+      "assemble_prompt_now",
+      "retrieve_live_context",
+      "call_llm_provider",
+      "call_network_api",
+      "call_github_api",
+      "execute_action_ingress",
+      "infer_truth_from_retention",
+      "infer_consent_from_affect",
+      "infer_authority_from_memory",
+      "convert_capsule_to_policy",
+      "convert_distillation_to_action",
+      "bypass_context_hygiene",
+      "bypass_memory_tomb",
+      "bypass_operator_review",
+      "enable_external_disclosure"
+    ],
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "access_count": null,
+        "ai_capsule": {
+          "capsule_type": "ai_memory_digest",
+          "digest": "2b71af48c7814c6cce1c62342af7df4ac71752daf86137c11e98c6293efc4d96",
+          "expires_at": null,
+          "human_expandable": true,
+          "source_digests": [
+            "sha256:blocked-base"
+          ],
+          "symbols": [
+            "need:selective_memory_distillation.distill_to_ai_capsule",
+            "boundary:no_runtime_memory_mutation,no_prompt_assembly,no_external_disclosure",
+            "retention:not_truth,not_policy,not_authority",
+            "next:inspect_distillation_packet",
+            "scope:fixture.scope.alpha",
+            "source:operator_note"
+          ]
+        },
+        "capsule_is_not_authority": true,
+        "capsule_is_not_policy": true,
+        "deletion_recommendation_is_not_deletion": true,
+        "digest": "825fc61814d0f3893dda02190f0be37b5788f9f4a36546a3d2fd6f30ae186c66",
+        "distillation_decision": "distill_to_ai_capsule",
+        "distillation_is_not_memory_write": true,
+        "distillation_is_not_prompt_assembly": true,
+        "external_disclosure_enabled": false,
+        "forbidden_next_steps": [
+          "delete_memory_now",
+          "purge_memory_now",
+          "write_memory_now",
+          "mutate_raw_fragment",
+          "mutate_vector_index",
+          "mutate_distilled_memory",
+          "call_append_memory",
+          "call_purge_memory",
+          "call_apply_forgetting_curve",
+          "call_curate_memory",
+          "call_summarize_memory",
+          "assemble_prompt_now",
+          "retrieve_live_context",
+          "call_llm_provider",
+          "call_network_api",
+          "call_github_api",
+          "execute_action_ingress",
+          "infer_truth_from_retention",
+          "infer_consent_from_affect",
+          "infer_authority_from_memory",
+          "convert_capsule_to_policy",
+          "convert_distillation_to_action",
+          "bypass_context_hygiene",
+          "bypass_memory_tomb",
+          "bypass_operator_review",
+          "enable_external_disclosure"
+        ],
+        "human_summary": null,
+        "importance_score": null,
+        "last_accessed": null,
+        "novelty_score": null,
+        "privacy_posture": "metadata_only",
+        "prompt_materialization_enabled": false,
+        "record_id": "blocked-base",
+        "remote_service_enabled": false,
+        "retention_is_not_truth": true,
+        "retention_pressure": "normal",
+        "risk_flags": [],
+        "runtime_memory_mutation_enabled": false,
+        "safe_next_action": "inspect_distillation_packet",
+        "salience_score": 0.0,
+        "source_digest": "sha256:blocked-base",
+        "source_provenance_refs": [
+          "fixture://selective-memory/blocked-base"
+        ],
+        "source_record_id": null,
+        "source_record_kind": "operator_note",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only fixture summary for distill_to_ai_capsule.",
+        "source_tags": [],
+        "source_timestamp": null,
+        "tomb_intent": null
+      }
+    ],
+    "remote_service_enabled": false,
+    "retention_is_not_truth": true,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "receipt_candidate": {
+    "candidate_id": "cand-blocked-base",
+    "capsule_metadata": {
+      "capsule_kind": "metadata_summary",
+      "symbols": [
+        "fixture-boundary:no-raw-payload"
+      ]
+    },
+    "claimed_distillation_decision": "distill_to_ai_capsule",
+    "claimed_packet_digest": "bca7222f542a4943d5bf142b6892b98976138df4464c1190aef901c22a67eef3",
+    "future_intent_only": true,
+    "receipt_candidate_type": "ai_capsule_write_receipt_candidate",
+    "receipt_metadata": {
+      "fixture": true
+    },
+    "record_id": "blocked-base",
+    "requested_next_actions": [
+      "inspect_receipt_gate_packet"
+    ],
+    "source_digest": "sha256:blocked-base",
+    "source_scope_keys": [
+      "fixture.scope.other"
+    ]
+  }
+}

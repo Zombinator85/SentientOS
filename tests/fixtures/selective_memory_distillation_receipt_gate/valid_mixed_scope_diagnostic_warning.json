@@ -1,0 +1,223 @@
+{
+  "distillation_packet": {
+    "capsule_is_not_authority": true,
+    "capsule_is_not_policy": true,
+    "deletion_recommendation_is_not_deletion": true,
+    "digest": "f8e09d3d3c740fb69b3236a97cbb8ecb13bf4e3787a4d627333e8880c189245e",
+    "distillation_is_not_memory_write": true,
+    "distillation_is_not_prompt_assembly": true,
+    "external_disclosure_enabled": false,
+    "forbidden_next_steps": [
+      "delete_memory_now",
+      "purge_memory_now",
+      "write_memory_now",
+      "mutate_raw_fragment",
+      "mutate_vector_index",
+      "mutate_distilled_memory",
+      "call_append_memory",
+      "call_purge_memory",
+      "call_apply_forgetting_curve",
+      "call_curate_memory",
+      "call_summarize_memory",
+      "assemble_prompt_now",
+      "retrieve_live_context",
+      "call_llm_provider",
+      "call_network_api",
+      "call_github_api",
+      "execute_action_ingress",
+      "infer_truth_from_retention",
+      "infer_consent_from_affect",
+      "infer_authority_from_memory",
+      "convert_capsule_to_policy",
+      "convert_distillation_to_action",
+      "bypass_context_hygiene",
+      "bypass_memory_tomb",
+      "bypass_operator_review",
+      "enable_external_disclosure"
+    ],
+    "prompt_materialization_enabled": false,
+    "records": [
+      {
+        "access_count": null,
+        "ai_capsule": {
+          "capsule_type": "ai_memory_digest",
+          "digest": "3997e70e8db1ba91a5e6cb3a466aa484f2aac3db696e5a94c581178aa431c1ae",
+          "expires_at": null,
+          "human_expandable": true,
+          "source_digests": [
+            "sha256:mixed-one"
+          ],
+          "symbols": [
+            "need:selective_memory_distillation.distill_to_ai_capsule",
+            "boundary:no_runtime_memory_mutation,no_prompt_assembly,no_external_disclosure",
+            "retention:not_truth,not_policy,not_authority",
+            "next:inspect_distillation_packet",
+            "scope:fixture.scope.alpha",
+            "source:operator_note"
+          ]
+        },
+        "capsule_is_not_authority": true,
+        "capsule_is_not_policy": true,
+        "deletion_recommendation_is_not_deletion": true,
+        "digest": "4b1ab861a9a24f2b1b85e0a9f4ec530c3bcb17dda511a3a46dfb4e5a904dc6fd",
+        "distillation_decision": "distill_to_ai_capsule",
+        "distillation_is_not_memory_write": true,
+        "distillation_is_not_prompt_assembly": true,
+        "external_disclosure_enabled": false,
+        "forbidden_next_steps": [
+          "delete_memory_now",
+          "purge_memory_now",
+          "write_memory_now",
+          "mutate_raw_fragment",
+          "mutate_vector_index",
+          "mutate_distilled_memory",
+          "call_append_memory",
+          "call_purge_memory",
+          "call_apply_forgetting_curve",
+          "call_curate_memory",
+          "call_summarize_memory",
+          "assemble_prompt_now",
+          "retrieve_live_context",
+          "call_llm_provider",
+          "call_network_api",
+          "call_github_api",
+          "execute_action_ingress",
+          "infer_truth_from_retention",
+          "infer_consent_from_affect",
+          "infer_authority_from_memory",
+          "convert_capsule_to_policy",
+          "convert_distillation_to_action",
+          "bypass_context_hygiene",
+          "bypass_memory_tomb",
+          "bypass_operator_review",
+          "enable_external_disclosure"
+        ],
+        "human_summary": null,
+        "importance_score": null,
+        "last_accessed": null,
+        "novelty_score": null,
+        "privacy_posture": "metadata_only",
+        "prompt_materialization_enabled": false,
+        "record_id": "mixed-one",
+        "remote_service_enabled": false,
+        "retention_is_not_truth": true,
+        "retention_pressure": "normal",
+        "risk_flags": [],
+        "runtime_memory_mutation_enabled": false,
+        "safe_next_action": "inspect_distillation_packet",
+        "salience_score": 0.0,
+        "source_digest": "sha256:mixed-one",
+        "source_provenance_refs": [
+          "fixture://selective-memory/mixed-one"
+        ],
+        "source_record_id": null,
+        "source_record_kind": "operator_note",
+        "source_scope_keys": [
+          "fixture.scope.alpha"
+        ],
+        "source_summary": "Metadata-only fixture summary for distill_to_ai_capsule.",
+        "source_tags": [],
+        "source_timestamp": null,
+        "tomb_intent": null
+      },
+      {
+        "access_count": null,
+        "ai_capsule": null,
+        "capsule_is_not_authority": true,
+        "capsule_is_not_policy": true,
+        "deletion_recommendation_is_not_deletion": true,
+        "digest": "c794a7d977899668539cfec017e1ca5aed4289dfeb04b4c69d6dd8f3c0e2811d",
+        "distillation_decision": "distill_to_human_summary",
+        "distillation_is_not_memory_write": true,
+        "distillation_is_not_prompt_assembly": true,
+        "external_disclosure_enabled": false,
+        "forbidden_next_steps": [
+          "delete_memory_now",
+          "purge_memory_now",
+          "write_memory_now",
+          "mutate_raw_fragment",
+          "mutate_vector_index",
+          "mutate_distilled_memory",
+          "call_append_memory",
+          "call_purge_memory",
+          "call_apply_forgetting_curve",
+          "call_curate_memory",
+          "call_summarize_memory",
+          "assemble_prompt_now",
+          "retrieve_live_context",
+          "call_llm_provider",
+          "call_network_api",
+          "call_github_api",
+          "execute_action_ingress",
+          "infer_truth_from_retention",
+          "infer_consent_from_affect",
+          "infer_authority_from_memory",
+          "convert_capsule_to_policy",
+          "convert_distillation_to_action",
+          "bypass_context_hygiene",
+          "bypass_memory_tomb",
+          "bypass_operator_review",
+          "enable_external_disclosure"
+        ],
+        "human_summary": "Metadata-only fixture summary for distill_to_human_summary.",
+        "importance_score": null,
+        "last_accessed": null,
+        "novelty_score": null,
+        "privacy_posture": "metadata_only",
+        "prompt_materialization_enabled": false,
+        "record_id": "mixed-two",
+        "remote_service_enabled": false,
+        "retention_is_not_truth": true,
+        "retention_pressure": "normal",
+        "risk_flags": [],
+        "runtime_memory_mutation_enabled": false,
+        "safe_next_action": "inspect_distillation_packet",
+        "salience_score": 0.0,
+        "source_digest": "sha256:mixed-two",
+        "source_provenance_refs": [
+          "fixture://selective-memory/mixed-two"
+        ],
+        "source_record_id": null,
+        "source_record_kind": "operator_note",
+        "source_scope_keys": [
+          "fixture.scope.beta"
+        ],
+        "source_summary": "Metadata-only fixture summary for distill_to_human_summary.",
+        "source_tags": [],
+        "source_timestamp": null,
+        "tomb_intent": null
+      }
+    ],
+    "remote_service_enabled": false,
+    "retention_is_not_truth": true,
+    "runtime_memory_mutation_enabled": false,
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "policy": {
+    "allow_mixed_scope_diagnostic_packet": true
+  },
+  "receipt_candidate": {
+    "candidate_id": "cand-mixed-one",
+    "capsule_metadata": {
+      "capsule_kind": "metadata_summary",
+      "symbols": [
+        "fixture-boundary:no-raw-payload"
+      ]
+    },
+    "claimed_distillation_decision": "distill_to_ai_capsule",
+    "claimed_packet_digest": "f8e09d3d3c740fb69b3236a97cbb8ecb13bf4e3787a4d627333e8880c189245e",
+    "future_intent_only": true,
+    "receipt_candidate_type": "ai_capsule_write_receipt_candidate",
+    "receipt_metadata": {
+      "fixture": true
+    },
+    "record_id": "mixed-one",
+    "requested_next_actions": [
+      "inspect_receipt_gate_packet"
+    ],
+    "source_digest": "sha256:mixed-one",
+    "source_scope_keys": [
+      "fixture.scope.alpha"
+    ]
+  }
+}
