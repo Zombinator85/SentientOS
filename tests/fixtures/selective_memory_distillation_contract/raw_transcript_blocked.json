@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "distillation_decision": "distill_to_human_summary",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "raw_transcript": "raw transcript: words",
+      "record_id": "transcript",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "54e6289e14c7b0e7ad9acc2dfc4c1e3d027d0eef7f5c4c3fe7c292761d0e06a6",
+      "source_provenance_refs": [
+        "fixture://transcript"
+      ],
+      "source_record_kind": "observation_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for transcript; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

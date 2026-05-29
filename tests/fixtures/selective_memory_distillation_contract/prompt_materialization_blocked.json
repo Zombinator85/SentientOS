@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "distill_to_ai_capsule",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "prompt",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "cf07194ee232eb531e15f690000d19846dea69cf05504782658afcfacb9228a2",
+      "source_provenance_refs": [
+        "fixture://prompt"
+      ],
+      "source_record_kind": "context_hygiene_candidate",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "request prompt materialization now",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

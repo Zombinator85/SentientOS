@@ -1,0 +1,34 @@
+{
+  "records": [
+    {
+      "affective_summary": {
+        "bounded": false,
+        "descriptors": [
+          "overbroad"
+        ]
+      },
+      "distillation_decision": "distill_to_ai_capsule",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "affective_unbounded",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "e0073f2d03fec5550b34d8c6e8075b6d9176e6649c1290883a6fffe44c7eac78",
+      "source_provenance_refs": [
+        "fixture://affective_unbounded"
+      ],
+      "source_record_kind": "affective_overlay",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for affective_unbounded; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

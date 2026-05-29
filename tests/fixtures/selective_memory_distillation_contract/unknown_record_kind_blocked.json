@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "no_distillation_needed",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "unknown",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "b23a6a8439c0dde5515893e7c90c1e3233b8616e634470f20dc4928bcf3609bc",
+      "source_provenance_refs": [
+        "fixture://unknown"
+      ],
+      "source_record_kind": "unknown_record_kind",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for unknown; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

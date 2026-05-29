@@ -1,0 +1,76 @@
+{
+  "records": [
+    {
+      "distillation_decision": "retain_raw_temporarily",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "mixed1",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "3c605063f0e88cb98f7fc7df701c677c105b6eb0e56cb8bdceee906345db621a",
+      "source_provenance_refs": [
+        "fixture://mixed1"
+      ],
+      "source_record_kind": "raw_memory_fragment",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for mixed1; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    },
+    {
+      "distillation_decision": "distill_to_ai_capsule",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "mixed2",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "5d649f1bdd385fb9093121cdca31faa1e9481795d4d74ce6474dfe623a8bebfa",
+      "source_provenance_refs": [
+        "fixture://mixed2"
+      ],
+      "source_record_kind": "observation_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for mixed2; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    },
+    {
+      "distillation_decision": "protect_from_forgetting",
+      "importance_score": 0.91,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "mixed3",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "protect_memory_later",
+      "salience_score": 0.6,
+      "source_digest": "b2fa6fa692394a015873374ecac204678b916e214b30ad00c988ff22fcd9a058",
+      "source_provenance_refs": [
+        "fixture://mixed3"
+      ],
+      "source_record_kind": "operator_note",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for mixed3; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

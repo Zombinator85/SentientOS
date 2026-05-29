@@ -1,0 +1,28 @@
+{
+  "records": [
+    {
+      "distillation_decision": "defer_for_operator_review",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_defer_for_operator_review",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "operator_review_required",
+      "salience_score": 0.6,
+      "source_digest": "2b49674239e0499368ce61def9cbe79e2040b60791b244d7089a7b4074a630b7",
+      "source_provenance_refs": [
+        "fixture://valid_defer_for_operator_review.json"
+      ],
+      "source_record_kind": "operator_note",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_defer_for_operator_review.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

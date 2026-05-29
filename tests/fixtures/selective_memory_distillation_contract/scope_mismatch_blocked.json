@@ -1,0 +1,52 @@
+{
+  "records": [
+    {
+      "distillation_decision": "no_distillation_needed",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "scope1",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "db1a3497637fd7c27c3cbe97f72bfab44ea9c9be45476f068387d60bb763a64a",
+      "source_provenance_refs": [
+        "fixture://scope1"
+      ],
+      "source_record_kind": "audit_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for scope1; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    },
+    {
+      "distillation_decision": "no_distillation_needed",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "scope2",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "1226ae9dca6c290705f5a081e96b3a0ec7d13f79e6109d220d45122e5443953c",
+      "source_provenance_refs": [
+        "fixture://scope2"
+      ],
+      "source_record_kind": "operator_note",
+      "source_scope_keys": [
+        "operator"
+      ],
+      "source_summary": "Metadata summary for scope2; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

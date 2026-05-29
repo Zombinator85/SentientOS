@@ -1,0 +1,49 @@
+{
+  "records": [
+    {
+      "affective_summary": {
+        "bounded": true,
+        "descriptors": [
+          "hope=0.61",
+          "restlessness=0.34"
+        ]
+      },
+      "ai_capsule": {
+        "capsule_type": "ai_affective_state",
+        "expires_at": null,
+        "human_expandable": true,
+        "source_digests": [
+          "8a1a371468247b5145147e4bb0c2d780fe694e810462bcf69d41c82af0ef8575"
+        ],
+        "symbols": [
+          "need:memory.distill",
+          "boundary:no_runtime_memory_mutation",
+          "retention:not_truth",
+          "next:inspect_distillation_packet"
+        ]
+      },
+      "distillation_decision": "distill_to_ai_capsule",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_ai_affective_state_capsule",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "8a1a371468247b5145147e4bb0c2d780fe694e810462bcf69d41c82af0ef8575",
+      "source_provenance_refs": [
+        "fixture://valid_ai_affective_state_capsule.json"
+      ],
+      "source_record_kind": "affective_overlay",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_ai_affective_state_capsule.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

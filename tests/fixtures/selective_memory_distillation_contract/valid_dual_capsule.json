@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "distillation_decision": "distill_to_dual_capsule",
+      "human_summary": "Short human summary.",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_dual_capsule",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "fecef94aecfe6e2418a2264329224633994c78a8c243d359529a1884f2967bc5",
+      "source_provenance_refs": [
+        "fixture://valid_dual_capsule.json"
+      ],
+      "source_record_kind": "curiosity_reflection",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_dual_capsule.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

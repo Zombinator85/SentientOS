@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "distillation_decision": "reject_record",
+      "encoded_payload": "data:image/png;base64,AAAA",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "base64",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "371a286d5872a3730d644327581546ec3e658bbf1a3c7f7f0de2bc19905d4402",
+      "source_provenance_refs": [
+        "fixture://base64"
+      ],
+      "source_record_kind": "observation_summary",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for base64; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "records": [
+    {
+      "distillation_decision": "tomb_after_distillation",
+      "importance_score": 0.55,
+      "novelty_score": 0.5,
+      "privacy_posture": "metadata_only",
+      "record_id": "valid_tomb_after_distillation",
+      "retention_pressure": "normal",
+      "risk_flags": [],
+      "safe_next_action": "inspect_distillation_packet",
+      "salience_score": 0.6,
+      "source_digest": "b3764ffd7bd26773b472267cc8d2df944da645236fc4089e6c681e19a7d7f5c7",
+      "source_provenance_refs": [
+        "fixture://valid_tomb_after_distillation.json"
+      ],
+      "source_record_kind": "raw_memory_fragment",
+      "source_scope_keys": [
+        "memory"
+      ],
+      "source_summary": "Metadata summary for valid_tomb_after_distillation.json; no raw payload included.",
+      "source_tags": [
+        "fixture",
+        "metadata"
+      ],
+      "tomb_intent": {
+        "deletion_performed": false,
+        "reason": "distilled metadata supersedes raw retention",
+        "requires_later_receipt": true,
+        "source_digests": [
+          "b3764ffd7bd26773b472267cc8d2df944da645236fc4089e6c681e19a7d7f5c7"
+        ],
+        "tomb_intent_id": "tomb-fixture-after"
+      }
+    }
+  ]
+}
