@@ -91,6 +91,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         new_cli_path=tuple(scaffold_payload["new_cli_path"]),
         expected_test_paths=tuple(scaffold_payload["expected_test_paths"]),
         expected_doc_paths=tuple(scaffold_payload["expected_doc_paths"]),
+        expected_fixture_roots=tuple(scaffold_payload.get("expected_fixture_roots", ())),
         capability_id=str(scaffold_payload["capability_id"]),
         proof_bundle_artifact_kind=str(scaffold_payload["proof_bundle_artifact_kind"]),
         commit_title=str(scaffold_payload["commit_title"]),
@@ -130,6 +131,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
             "cli_test_path": planned.cli_test_path,
             "dev_doc_path": planned.dev_doc_path,
             "proof_bundle_filename": planned.proof_bundle_filename,
+            "fixture_root": planned.fixture_root,
         },
         explicit_non_authority_boundaries=(
             "metadata-only bootstrap flow",

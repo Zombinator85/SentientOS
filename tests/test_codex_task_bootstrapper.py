@@ -1,3 +1,4 @@
+import pytest
 from sentientos.codex_task_bootstrapper import CodexTaskBootstrapRequest, bootstrap_codex_task
 
 
@@ -93,3 +94,20 @@ def test_ready_with_warnings_still_emits_usable_implementation_prompt() -> None:
     assert result.artifact_classification == "implementation_contract"
     assert "pr_metadata_guard_ready" in result.generated_prompt_text
     assert "Only then make_pr" in result.generated_prompt_text
+
+
+@pytest.mark.no_legacy_skip
+def test_bootstrap_metadata_verification_declares_fixture_root() -> None:
+    result = bootstrap_codex_task(
+        CodexTaskBootstrapRequest(
+            task_name="Memory Commit Execution Gate",
+            task_goal="metadata-only execution gate",
+            preset_id="metadata_verification",
+            subsystem_kind="metadata_verification",
+            capability_id="memory_commit_execution_gate",
+            commit_title="[codex:memory] add memory commit execution gate",
+        )
+    )
+    assert result.planned_paths["fixture_root"] == "tests/fixtures/memory_commit_execution_gate/"
+    assert tuple(result.generated_scaffold_json["scaffold"]["expected_fixture_roots"]) == ("tests/fixtures/memory_commit_execution_gate/",)
+    assert "Expected task-owned fixture roots: tests/fixtures/memory_commit_execution_gate/" in result.generated_prompt_text

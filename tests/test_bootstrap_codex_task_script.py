@@ -1,3 +1,4 @@
+import pytest
 import json
 from pathlib import Path
 
@@ -44,3 +45,20 @@ def test_script_blocked_prompt_output_is_hard_stop(tmp_path: Path) -> None:
     assert "BLOCKED_DO_NOT_IMPLEMENT" in text
     assert "Only then make_pr" not in text
     assert payload["artifact_classification"] == "diagnostic"
+
+
+@pytest.mark.no_legacy_skip
+def test_script_plan_output_includes_metadata_fixture_root(tmp_path: Path) -> None:
+    plan = tmp_path / "plan.json"
+    code = main([
+        "--task-name", "Memory Commit Execution Gate",
+        "--task-goal", "metadata-only execution gate",
+        "--preset-id", "metadata_verification",
+        "--subsystem-kind", "metadata_verification",
+        "--capability-id", "memory_commit_execution_gate",
+        "--commit-title", "[codex:memory] add memory commit execution gate",
+        "--plan-output", str(plan),
+    ])
+    assert code == 0
+    payload = json.loads(plan.read_text(encoding="utf-8"))
+    assert payload["fixture_root"] == "tests/fixtures/memory_commit_execution_gate/"

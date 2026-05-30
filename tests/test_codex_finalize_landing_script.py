@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import pytest
 import json
 from pathlib import Path
 
-from scripts.codex_finalize_landing import _classify, _collect_dirty_diagnostics, build_parser, main
+from scripts.codex_finalize_landing import (
+    _classify,
+    _collect_dirty_diagnostics,
+    _infer_task_slugs,
+    _is_safe_untracked_task_file,
+    build_parser,
+    main,
+)
 
 
 def test_parser_has_phase_and_changed_file() -> None:
@@ -110,3 +118,34 @@ def test_finalize_writes_output_and_decision_line(tmp_path: Path, capsys: object
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert "runtime" in payload
     assert "stages" in payload["runtime"]
+
+
+@pytest.mark.no_legacy_skip
+def test_fixture_root_inferred_only_for_matching_task_slug() -> None:
+    status = [
+        "?? sentientos/memory_commit_execution_gate.py",
+        "?? tests/test_memory_commit_execution_gate.py",
+        "?? tests/fixtures/memory_commit_execution_gate/",
+        "?? tests/fixtures/other_capability/",
+    ]
+    task_slugs = _infer_task_slugs(status, ())
+    assert _is_safe_untracked_task_file("tests/fixtures/memory_commit_execution_gate/", task_slugs) is True
+    assert _is_safe_untracked_task_file("tests/fixtures/memory_commit_execution_gate/nested/case.json", task_slugs) is True
+    assert _is_safe_untracked_task_file("tests/fixtures/other_capability/", task_slugs) is False
+
+
+@pytest.mark.no_legacy_skip
+def test_classify_allows_current_capability_fixture_root_but_blocks_other_root() -> None:
+    findings = _classify(
+        [
+            "?? tests/fixtures/memory_commit_execution_gate/",
+            "?? tests/fixtures/other_capability/",
+            "?? glow/test_runs/report.json",
+        ],
+        (),
+        ("tests/fixtures/memory_commit_execution_gate/",),
+    )
+    by_path = {item.path: item.classification for item in findings}
+    assert by_path["tests/fixtures/memory_commit_execution_gate/"] == "intended_task_change"
+    assert by_path["tests/fixtures/other_capability/"] == "unknown_dirty_file"
+    assert by_path["glow/test_runs/report.json"] == "generated_runtime_artifact"
