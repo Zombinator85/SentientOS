@@ -1,0 +1,99 @@
+{
+  "boundary_admission_packet": {
+    "records": [
+      {
+        "admission_decision": "boundary_review_candidate_ready",
+        "record_id": "memory-record-001",
+        "source_digest": "sha256:synthetic-memory-source-digest",
+        "source_scope_keys": [
+          "synthetic_memory_scope"
+        ]
+      }
+    ],
+    "schema_version": "live-memory-boundary-admission-gate.v1"
+  },
+  "distillation_packet": {
+    "records": [
+      {
+        "distillation_decision": "distillation_capsule_candidate",
+        "record_id": "memory-record-001",
+        "source_digest": "sha256:synthetic-memory-source-digest",
+        "source_scope_keys": [
+          "synthetic_memory_scope"
+        ]
+      }
+    ],
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "plan_candidate": {
+    "candidate_id": "commit-plan-candidate-001",
+    "candidate_type": "tomb_archive_commit_plan_candidate",
+    "claimed_boundary_admission_decision": "boundary_review_candidate_ready",
+    "claimed_distillation_decision": "distillation_capsule_candidate",
+    "claimed_receipt_gate_decision": "receipt_gate_admissible",
+    "claimed_tomb_verifier_outcome": "tomb_receipt_verified",
+    "claimed_writer_decision": "writer_artifact_ready",
+    "metadata": {
+      "synthetic_metadata_only": true
+    },
+    "operations": [
+      {
+        "applied": false,
+        "future_only": true,
+        "operation_type": "propose_tomb_archive_commit",
+        "target_ref": "future-memory-target"
+      }
+    ],
+    "receipt_expectation": {
+      "expectation_id": "receipt-001",
+      "future_receipt_required": true,
+      "receipt_not_written": true,
+      "required": true
+    },
+    "record_id": "memory-record-001",
+    "rollback_expectation": {
+      "expectation_id": "rollback-001",
+      "future_receipt_required": true,
+      "required": true,
+      "rollback_not_performed": true
+    },
+    "source_digest": "sha256:synthetic-memory-source-digest",
+    "source_scope_keys": [
+      "synthetic_memory_scope"
+    ]
+  },
+  "receipt_gate_packet": {
+    "records": [
+      {
+        "receipt_gate_decision": "receipt_gate_admissible",
+        "record_id": "memory-record-001",
+        "source_digest": "sha256:synthetic-memory-source-digest",
+        "source_scope_keys": [
+          "synthetic_memory_scope"
+        ]
+      }
+    ],
+    "schema_version": "selective-memory-receipt-gate.v1"
+  },
+  "tomb_verifier_packet": {
+    "records": [
+      {
+        "record_id": "x",
+        "source_digest": "sha256:synthetic-memory-source-digest"
+      }
+    ]
+  },
+  "writer_packet": {
+    "records": [
+      {
+        "record_id": "memory-record-001",
+        "source_digest": "sha256:synthetic-memory-source-digest",
+        "source_scope_keys": [
+          "synthetic_memory_scope"
+        ],
+        "writer_decision": "writer_artifact_ready"
+      }
+    ],
+    "schema_version": "governed-memory-writer-adapter.v1"
+  }
+}
