@@ -604,3 +604,17 @@ def test_review_digest_verifier_capability_artifact_present() -> None:
     text = artifacts["work_item_lifecycle_attestation_review_digest_verifier_capability"]
     assert '"capability_id": "work_item_lifecycle_attestation_review_digest_verifier"' in text
     assert '"authority_level": "metadata_verification_only"' in text
+
+
+def test_reviewer_bundle_includes_live_memory_commit_dry_run_adapter_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "live_memory_commit_dry_run_adapter_capability" in artifacts
+    assert "live_memory_commit_dry_run_adapter_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["live_memory_commit_dry_run_adapter_capability"]
+    assert '"capability_id": "live_memory_commit_dry_run_adapter"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
+    assert "scripts/build_live_memory_commit_dry_run_adapter.py" in text
+    assert "docs/architecture/live_memory_commit_dry_run_adapter.md" in text
+    assert "execute_dry_run_as_commit" in text
+    assert "bypass_execution_gate" in text
