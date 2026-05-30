@@ -1,0 +1,72 @@
+{
+  "commit_plan_packet": {
+    "digest": "sha256:7db7bcf27cf29ea2de3caeb463e4ef7dce133941a2cbad4ab641e2c91d09019b",
+    "records": [
+      {
+        "candidate_id": "plan-candidate-001",
+        "candidate_type": "ai_capsule_commit_plan_candidate",
+        "digest": "sha256:record",
+        "plan_decision": "commit_plan_ready_for_review",
+        "record_id": "plan-record-001",
+        "source_scope_keys": [
+          "memory:capsule:alpha"
+        ]
+      }
+    ],
+    "schema_version": "memory-commit-plan-packet.v1"
+  },
+  "execution_candidate": {
+    "candidate_id": "execution-candidate-001",
+    "candidate_type": "warning_commit_execution_candidate",
+    "claimed_approval_decision": "commit_approval_ready_for_future_adapter",
+    "claimed_approval_digest": "sha256:4153f4ac1145b2b95117af81f7fbd966590152a127b6de4320271b0c3878d0b5",
+    "claimed_plan_decision": "commit_plan_ready_for_review",
+    "claimed_plan_digest": "sha256:7db7bcf27cf29ea2de3caeb463e4ef7dce133941a2cbad4ab641e2c91d09019b",
+    "execution_claims": {},
+    "gate_preconditions": {
+      "default_deny_live_commit": true,
+      "future_commit_adapter_required": true,
+      "future_live_dry_run_required": true,
+      "operator_approval_required": true
+    },
+    "metadata": {
+      "metadata_only": true,
+      "warning_only": true
+    },
+    "operator_scope_keys": [
+      "memory:capsule:alpha"
+    ],
+    "receipt_expectation": {
+      "mode": "future_commit_receipt",
+      "required": true
+    },
+    "record_id": "execution-record-001",
+    "rollback_expectation": {
+      "mode": "future_adapter_rollback_receipt",
+      "required": true
+    }
+  },
+  "operator_approval_packet": {
+    "digest": "sha256:4153f4ac1145b2b95117af81f7fbd966590152a127b6de4320271b0c3878d0b5",
+    "records": [
+      {
+        "approval_decision": "commit_approval_ready_for_future_adapter",
+        "candidate_id": "approval-candidate-001",
+        "candidate_type": "ai_capsule_commit_approval_candidate",
+        "digest": "sha256:record",
+        "operator_scope": {
+          "operator_scope_keys": [
+            "memory:capsule:alpha"
+          ],
+          "plan_scope_keys": [
+            "memory:capsule:alpha"
+          ]
+        },
+        "plan_decision": "commit_plan_ready_for_review",
+        "plan_digest": "sha256:plan",
+        "record_id": "approval-record-001"
+      }
+    ],
+    "schema_version": "memory-commit-operator-approval-packet.v1"
+  }
+}
