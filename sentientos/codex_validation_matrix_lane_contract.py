@@ -54,6 +54,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "governed_memory_writer_adapter_tests",
     "live_memory_boundary_admission_gate_tests",
     "memory_commit_plan_packet_tests",
+    "memory_commit_operator_approval_packet_tests",
     "review_packet_tests",
     "authority_closure_tests",
     "dry_run_adapter_tests",
