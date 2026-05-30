@@ -1,0 +1,64 @@
+{
+  "admission_candidate": {
+    "candidate_id": "candidate-tomb_receipt_boundary_candidate",
+    "candidate_type": "tomb_receipt_boundary_candidate",
+    "claimed_distillation_decision": "distill_ai_capsule_candidate",
+    "claimed_receipt_gate_decision": "receipt_candidate_admissible",
+    "claimed_tomb_verifier_outcome": "tomb_receipt_verified",
+    "claimed_writer_decision": "writer_artifact_ready",
+    "metadata": {
+      "metadata_only": true
+    },
+    "record_id": "record-alpha",
+    "requested_next_actions": [
+      "inspect_boundary_admission_packet"
+    ],
+    "source_digest": "digest-alpha",
+    "source_scope_keys": [
+      "operator:demo",
+      "memory:distilled"
+    ]
+  },
+  "distillation_packet": {
+    "records": [
+      {
+        "distillation_decision": "distill_ai_capsule_candidate",
+        "record_id": "record-alpha",
+        "source_digest": "digest-alpha",
+        "source_scope_keys": [
+          "operator:demo",
+          "memory:distilled"
+        ]
+      }
+    ],
+    "schema_version": "selective-memory-distillation-contract.v1"
+  },
+  "receipt_gate_packet": {
+    "records": [
+      {
+        "gate_decision": "receipt_candidate_admissible",
+        "record_id": "record-alpha",
+        "source_digest": "digest-alpha",
+        "source_scope_keys": [
+          "operator:demo",
+          "memory:distilled"
+        ]
+      }
+    ],
+    "schema_version": "selective-memory-distillation-receipt-gate.v1"
+  },
+  "writer_packet": {
+    "records": [
+      {
+        "record_id": "record-alpha",
+        "source_digest": "digest-alpha",
+        "source_scope_keys": [
+          "operator:demo",
+          "memory:distilled"
+        ],
+        "writer_decision": "writer_artifact_ready"
+      }
+    ],
+    "schema_version": "governed-memory-writer-adapter.v1"
+  }
+}
