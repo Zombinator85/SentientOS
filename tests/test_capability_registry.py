@@ -984,3 +984,17 @@ def test_review_digest_capability_registered() -> None:
     assert record.category == "task_work_item_lifecycle_attestation_review_digest"
     assert record.authority_level == "metadata_digest_only"
 
+
+
+def test_live_memory_commit_dry_run_adapter_capability_is_metadata_only() -> None:
+    record = build_default_capability_registry().by_id()["live_memory_commit_dry_run_adapter"]
+    assert record.status == "implemented"
+    assert record.authority_level == "metadata_verification_only"
+    assert record.metadata_only is True
+    assert "sentientos/live_memory_commit_dry_run_adapter.py" in record.source_paths
+    assert "scripts/build_live_memory_commit_dry_run_adapter.py" in record.source_paths
+    assert "docs/architecture/live_memory_commit_dry_run_adapter.md" in record.source_paths
+    assert "live memory commit adapter" in record.deferred_surfaces
+    assert "live commit safety interlock" in record.deferred_surfaces
+    assert "dry run is live commit" in record.forbidden_implications
+    assert record.host_actuation_performed is False

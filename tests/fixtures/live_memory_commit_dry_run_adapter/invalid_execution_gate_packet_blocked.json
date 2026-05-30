@@ -1,0 +1,9 @@
+{
+  "commit_candidate": {
+    "candidate_id": "dry-run-candidate-invalid-gate"
+  },
+  "execution_gate_packet": {
+    "digest": "sha256:invalid",
+    "records": []
+  }
+}

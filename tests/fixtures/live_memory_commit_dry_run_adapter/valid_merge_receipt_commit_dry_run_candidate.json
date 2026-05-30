@@ -1,0 +1,176 @@
+{
+  "commit_candidate": {
+    "candidate_id": "dry-run-candidate-merge",
+    "candidate_type": "merge_receipt_commit_dry_run_candidate",
+    "claimed_execution_gate_decision": "commit_execution_eligible_for_future_adapter",
+    "claimed_execution_gate_digest": "sha256:9823f19724e62bb350a868d04526ec3a9d6b24f22895bc7dff870e96216112cb",
+    "dry_run_claims": {},
+    "metadata": {
+      "metadata_only": true
+    },
+    "operation_preview": {
+      "applied": false,
+      "hypothetical_only": true,
+      "operation_kind": "merge_receipt",
+      "preview_id": "op-merge",
+      "target_scope_keys": [
+        "memory:capsule:alpha"
+      ]
+    },
+    "operator_scope_keys": [
+      "memory:capsule:alpha"
+    ],
+    "receipt_preview": {
+      "hypothetical_only": true,
+      "preview_id": "receipt-merge",
+      "receipt_emitted": false,
+      "receipt_kind": "future_commit_receipt_preview"
+    },
+    "record_id": "dry-run-record-merge",
+    "rollback_preview": {
+      "hypothetical_only": true,
+      "preview_id": "rollback-merge",
+      "rollback_applied": false,
+      "rollback_kind": "future_rollback_receipt_preview"
+    }
+  },
+  "execution_gate_packet": {
+    "capsule_persistence_enabled": false,
+    "default_deny_live_commit": true,
+    "digest": "sha256:9823f19724e62bb350a868d04526ec3a9d6b24f22895bc7dff870e96216112cb",
+    "execution_gate_does_not_disclose_externally": true,
+    "execution_gate_does_not_execute_action": true,
+    "execution_gate_is_not_authority": true,
+    "execution_gate_is_not_capsule_persistence": true,
+    "execution_gate_is_not_consent": true,
+    "execution_gate_is_not_execution": true,
+    "execution_gate_is_not_index_mutation": true,
+    "execution_gate_is_not_live_commit": true,
+    "execution_gate_is_not_memory_deletion": true,
+    "execution_gate_is_not_memory_write": true,
+    "execution_gate_is_not_policy": true,
+    "execution_gate_is_not_prompt_assembly": true,
+    "execution_gate_is_not_truth": true,
+    "external_disclosure_enabled": false,
+    "forbidden_next_steps": [
+      "write_live_memory_now",
+      "delete_live_memory_now",
+      "purge_live_memory_now",
+      "mutate_raw_fragment",
+      "mutate_vector_index",
+      "mutate_distilled_memory",
+      "persist_capsule_now",
+      "persist_summary_now",
+      "apply_protection_now",
+      "apply_merge_now",
+      "complete_tomb_now",
+      "run_live_commit_now",
+      "execute_commit_plan_now",
+      "execute_operator_approval_now",
+      "execute_memory_commit_execution_gate_now",
+      "treat_gate_as_execution",
+      "call_append_memory",
+      "call_purge_memory",
+      "call_apply_forgetting_curve",
+      "call_curate_memory",
+      "call_summarize_memory",
+      "assemble_prompt_now",
+      "retrieve_live_context",
+      "execute_action_ingress",
+      "infer_truth_from_execution_gate",
+      "infer_authority_from_execution_gate",
+      "infer_consent_from_execution_gate",
+      "convert_execution_gate_to_policy",
+      "convert_execution_gate_to_action",
+      "bypass_commit_plan_packet",
+      "bypass_operator_approval_packet",
+      "bypass_live_boundary_admission",
+      "bypass_governed_memory_writer_adapter",
+      "bypass_tomb_verifier",
+      "bypass_receipt_gate",
+      "bypass_distillation_contract",
+      "bypass_operator_review",
+      "enable_external_disclosure"
+    ],
+    "future_commit_adapter_required": true,
+    "future_live_dry_run_required": true,
+    "live_index_mutation_enabled": false,
+    "live_memory_deletion_enabled": false,
+    "live_memory_write_enabled": false,
+    "operator_approval_required": true,
+    "prompt_materialization_enabled": false,
+    "receipt_expectation_required": true,
+    "records": [
+      {
+        "action_execution_claimed": false,
+        "approval_decision": "commit_approval_ready_for_future_adapter",
+        "approval_digest": "sha256:4153f4ac1145b2b95117af81f7fbd966590152a127b6de4320271b0c3878d0b5",
+        "approval_scope_keys": [
+          "memory:capsule:alpha"
+        ],
+        "candidate_id": "execution-candidate-001",
+        "candidate_type": "merge_receipt_commit_execution_candidate",
+        "capsule_persistence_claimed": false,
+        "consent_claimed": false,
+        "digest": "sha256:fe7c1dfc0d373fef098e599dc270b5e99b7bc0d6ceb948f0abc02817387017a7",
+        "execution_claimed": false,
+        "execution_decision": "commit_execution_eligible_for_future_adapter",
+        "execution_gate_future_consideration_only": true,
+        "execution_overclaim_detected": false,
+        "external_disclosure_claimed": false,
+        "gate_preconditions": [
+          {
+            "actual": true,
+            "expected": true,
+            "key": "default_deny_live_commit"
+          },
+          {
+            "actual": true,
+            "expected": true,
+            "key": "future_commit_adapter_required"
+          },
+          {
+            "actual": true,
+            "expected": true,
+            "key": "future_live_dry_run_required"
+          },
+          {
+            "actual": true,
+            "expected": true,
+            "key": "operator_approval_required"
+          }
+        ],
+        "index_mutation_claimed": false,
+        "live_memory_delete_claimed": false,
+        "live_memory_write_claimed": false,
+        "operator_scope_keys": [
+          "memory:capsule:alpha"
+        ],
+        "plan_decision": "commit_plan_ready_for_review",
+        "plan_digest": "sha256:7db7bcf27cf29ea2de3caeb463e4ef7dce133941a2cbad4ab641e2c91d09019b",
+        "policy_authority_claimed": false,
+        "prompt_assembly_claimed": false,
+        "receipt_expectation": {
+          "mode": "future_commit_receipt",
+          "required": true
+        },
+        "record_id": "execution-record-001",
+        "rollback_expectation": {
+          "mode": "future_adapter_rollback_receipt",
+          "required": true
+        },
+        "safe_next_actions": [
+          "no_action_allowed",
+          "inspect_memory_commit_execution_gate_packet",
+          "sustain_default_deny",
+          "prepare_live_memory_commit_adapter_later",
+          "prepare_live_memory_dry_run_later"
+        ],
+        "truth_claimed": false
+      }
+    ],
+    "remote_service_enabled": false,
+    "rollback_expectation_required": true,
+    "schema_version": "memory-commit-execution-gate.v1"
+  }
+}
