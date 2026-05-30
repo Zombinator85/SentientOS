@@ -78,6 +78,7 @@ def test_default_matrix_includes_promotion_gate_steps() -> None:
     assert "promotion_gate_tests" in labels
     assert "governed_memory_writer_adapter_tests" in labels
     assert "memory_commit_operator_approval_packet_tests" in labels
+    assert "memory_commit_execution_gate_tests" in labels
     assert "targeted_mypy" in labels
 
 
