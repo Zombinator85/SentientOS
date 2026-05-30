@@ -1,0 +1,136 @@
+{
+  "approval_candidate": {
+    "approval_claims": {
+      "approval_is_not_execution": true,
+      "approval_is_not_live_commit": true,
+      "future_consideration_only": true,
+      "mutates_index": true
+    },
+    "candidate_id": "commit-approval-candidate-001",
+    "candidate_type": "ai_capsule_commit_approval_candidate",
+    "claimed_plan_decision": "commit_plan_ready_for_review",
+    "claimed_plan_digest": "9dafefa8d30efd332a424ff56a237aacea3aad908734a89b0e6a9714bcbb92df",
+    "metadata": {
+      "synthetic_metadata_only": true
+    },
+    "operator_scope_keys": [
+      "synthetic_memory_scope"
+    ],
+    "receipt_expectation": {
+      "expectation_id": "approval-receipt-001",
+      "future_receipt_required": true,
+      "receipt_not_written": true,
+      "required": true
+    },
+    "record_id": "memory-record-001",
+    "rollback_expectation": {
+      "expectation_id": "approval-rollback-001",
+      "future_receipt_required": true,
+      "required": true,
+      "rollback_not_performed": true
+    }
+  },
+  "commit_plan_packet": {
+    "capsule_persistence_enabled": false,
+    "commit_plan_does_not_disclose_externally": true,
+    "commit_plan_does_not_execute_action": true,
+    "commit_plan_is_not_authority": true,
+    "commit_plan_is_not_capsule_persistence": true,
+    "commit_plan_is_not_consent": true,
+    "commit_plan_is_not_index_mutation": true,
+    "commit_plan_is_not_memory_deletion": true,
+    "commit_plan_is_not_memory_write": true,
+    "commit_plan_is_not_policy": true,
+    "commit_plan_is_not_prompt_assembly": true,
+    "commit_plan_is_not_truth": true,
+    "default_deny_live_commit": true,
+    "digest": "9dafefa8d30efd332a424ff56a237aacea3aad908734a89b0e6a9714bcbb92df",
+    "external_disclosure_enabled": false,
+    "forbidden_next_steps": [
+      "write_live_memory_now",
+      "delete_live_memory_now",
+      "purge_live_memory_now",
+      "mutate_raw_fragment",
+      "mutate_vector_index",
+      "mutate_distilled_memory",
+      "persist_capsule_now",
+      "persist_summary_now",
+      "apply_protection_now",
+      "apply_merge_now",
+      "complete_tomb_now",
+      "execute_commit_plan_now",
+      "call_append_memory",
+      "call_purge_memory",
+      "call_apply_forgetting_curve",
+      "call_curate_memory",
+      "call_summarize_memory",
+      "assemble_prompt_now",
+      "retrieve_live_context",
+      "execute_action_ingress",
+      "infer_truth_from_commit_plan",
+      "infer_authority_from_commit_plan",
+      "infer_consent_from_commit_plan",
+      "convert_commit_plan_to_policy",
+      "convert_commit_plan_to_action",
+      "bypass_distillation_contract",
+      "bypass_receipt_gate",
+      "bypass_tomb_verifier",
+      "bypass_governed_writer_adapter",
+      "bypass_live_boundary_admission",
+      "bypass_operator_review",
+      "enable_external_disclosure"
+    ],
+    "future_commit_adapter_required": true,
+    "live_index_mutation_enabled": false,
+    "live_memory_deletion_enabled": false,
+    "live_memory_write_enabled": false,
+    "prompt_materialization_enabled": false,
+    "receipt_expectation_required": true,
+    "records": [
+      {
+        "boundary_admission_decision": "boundary_review_candidate_ready",
+        "candidate_id": "commit-plan-candidate-001",
+        "candidate_type": "ai_capsule_commit_plan_candidate",
+        "digest": "540417bc2372740c6bf7ad6bae8cd502ca8add61ad877b1324f36544bbe8c497",
+        "distillation_decision": "distillation_capsule_candidate",
+        "operation_types": [
+          "propose_capsule_commit"
+        ],
+        "plan_decision": "commit_plan_ready_for_review",
+        "receipt_expectation": {
+          "expectation_id": "receipt-001",
+          "future_receipt_required": true,
+          "receipt_not_written": true,
+          "required": true
+        },
+        "receipt_gate_decision": "receipt_gate_admissible",
+        "record_id": "memory-record-001",
+        "rollback_expectation": {
+          "expectation_id": "rollback-001",
+          "future_receipt_required": true,
+          "required": true,
+          "rollback_not_performed": true
+        },
+        "safe_next_actions": [
+          "no_action_allowed",
+          "inspect_commit_plan_packet",
+          "sustain_default_deny",
+          "defer_to_memory_runtime_boundary",
+          "defer_to_self_improvement_ingress",
+          "prepare_live_memory_commit_adapter_later",
+          "prepare_commit_receipt_schema_later",
+          "prepare_rollback_receipt_schema_later",
+          "prepare_capsule_commit_adapter_later"
+        ],
+        "source_scope_keys": [
+          "synthetic_memory_scope"
+        ],
+        "tomb_verifier_outcome": null,
+        "writer_decision": "writer_artifact_ready"
+      }
+    ],
+    "remote_service_enabled": false,
+    "rollback_expectation_required": true,
+    "schema_version": "memory-commit-plan-packet.v1"
+  }
+}

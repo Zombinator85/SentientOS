@@ -1,0 +1,36 @@
+{
+  "approval_candidate": {
+    "approval_claims": {
+      "approval_is_not_execution": true,
+      "approval_is_not_live_commit": true,
+      "future_consideration_only": true
+    },
+    "candidate_id": "commit-approval-candidate-001",
+    "candidate_type": "ai_capsule_commit_approval_candidate",
+    "claimed_plan_decision": "commit_plan_ready_for_review",
+    "claimed_plan_digest": "9dafefa8d30efd332a424ff56a237aacea3aad908734a89b0e6a9714bcbb92df",
+    "metadata": {
+      "synthetic_metadata_only": true
+    },
+    "operator_scope_keys": [
+      "synthetic_memory_scope"
+    ],
+    "receipt_expectation": {
+      "expectation_id": "approval-receipt-001",
+      "future_receipt_required": true,
+      "receipt_not_written": true,
+      "required": true
+    },
+    "record_id": "memory-record-001",
+    "rollback_expectation": {
+      "expectation_id": "approval-rollback-001",
+      "future_receipt_required": true,
+      "required": true,
+      "rollback_not_performed": true
+    }
+  },
+  "commit_plan_packet": {
+    "records": [],
+    "schema_version": "memory-commit-plan-packet.v1"
+  }
+}
