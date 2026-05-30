@@ -1,0 +1,32 @@
+{
+  "dry_run_packet": {
+    "digest": "sha256:3c74bee1febce586e085c821de4ba7402ca57da7ea666ed8283d4b395fd212ef",
+    "records": [
+      {
+        "candidate_id": "dry-candidate",
+        "dry_run_decision": "dry_run_commit_preview_ready",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "dry-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  },
+  "execution_gate_packet": {
+    "digest": "sha256:99d354a80076f9d08e16d9dfa19b3389fed918e12489fb5ee631d32c367aae25",
+    "records": [
+      {
+        "candidate_id": "gate-candidate",
+        "execution_decision": "commit_execution_eligible_for_future_adapter",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "gate-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  }
+}

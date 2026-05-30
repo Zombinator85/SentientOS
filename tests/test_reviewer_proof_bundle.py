@@ -618,3 +618,17 @@ def test_reviewer_bundle_includes_live_memory_commit_dry_run_adapter_capability_
     assert "docs/architecture/live_memory_commit_dry_run_adapter.md" in text
     assert "execute_dry_run_as_commit" in text
     assert "bypass_execution_gate" in text
+
+
+def test_reviewer_bundle_includes_live_commit_safety_interlock_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "live_commit_safety_interlock_capability" in artifacts
+    assert "live_commit_safety_interlock_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["live_commit_safety_interlock_capability"]
+    assert '"capability_id": "live_commit_safety_interlock"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
+    assert "scripts/build_live_commit_safety_interlock.py" in text
+    assert "docs/architecture/live_commit_safety_interlock.md" in text
+    assert "execute_interlock_as_commit" in text
+    assert "bypass_dry_run_adapter" in text
