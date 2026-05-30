@@ -140,13 +140,61 @@ def _git_tracked_changes() -> tuple[str, ...]:
     return tuple(sorted(set(names)))
 
 
-def _is_safe_untracked_task_file(path: str) -> bool:
+def _strip_fixture_path(path: str) -> str:
+    if path.startswith("tests/fixtures/"):
+        rest = path[len("tests/fixtures/"):].strip("/")
+        return rest.split("/", 1)[0] if rest else ""
+    return ""
+
+
+def _task_slug_from_path(path: str) -> str:
+    name = Path(path.rstrip("/")).name
+    if path.startswith("sentientos/") and name.endswith(".py"):
+        return name[:-3]
+    if path.startswith("tests/test_") and name.startswith("test_") and name.endswith(".py"):
+        stem = name[:-3]
+        if stem.endswith("_script"):
+            stem = stem[: -len("_script")]
+        return stem[len("test_"):]
+    if path.startswith("docs/") and name.endswith(".md"):
+        return name[:-3]
+    if path.startswith("scripts/") and name.endswith(".py"):
+        stem = name[:-3]
+        for prefix in ("build_", "plan_", "run_", "verify_", "evaluate_"):
+            if stem.startswith(prefix):
+                return stem[len(prefix):]
+        return stem
+    return ""
+
+
+def _infer_task_slugs(status_lines: list[str], changed_files: tuple[str, ...]) -> frozenset[str]:
+    slugs: set[str] = set()
+    for path in changed_files:
+        slug = _task_slug_from_path(path)
+        if slug:
+            slugs.add(slug)
+    for line in status_lines:
+        path = line[3:] if len(line) > 3 else line
+        if path.startswith("tests/fixtures/"):
+            continue
+        slug = _task_slug_from_path(path)
+        if slug:
+            slugs.add(slug)
+    return frozenset(slugs)
+
+
+def _is_task_scoped_fixture_path(path: str, task_slugs: frozenset[str]) -> bool:
+    fixture_slug = _strip_fixture_path(path)
+    return bool(fixture_slug and fixture_slug in task_slugs)
+
+
+def _is_safe_untracked_task_file(path: str, task_slugs: frozenset[str] = frozenset()) -> bool:
     if path == "AGENTS.md":
         return True
     if path.startswith(("sentientos/", "scripts/", "tests/", "docs/")) and path.endswith((".py", ".md")):
         return True
-    if path.startswith("tests/fixtures/") and path.endswith(".json"):
-        return True
+    if path.startswith("tests/fixtures/") and (path.endswith("/") or path.endswith(".json")):
+        return _is_task_scoped_fixture_path(path, task_slugs)
     if path.startswith("artifacts/proof_bundles/") and path.endswith(".json"):
         return True
     return False
@@ -304,12 +352,13 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"status": "error", "reason": "allow_current_task_files_requires_pre_commit"}, indent=2))
             return 2
         status_lines = _git_status()
+        task_slugs = _infer_task_slugs(status_lines, inferred_changed_files + tuple(a.changed_file))
         candidates = []
         for line in status_lines:
             if not line.startswith("??"):
                 continue
             path = line[3:] if len(line) > 3 else line
-            if _is_safe_untracked_task_file(path):
+            if _is_safe_untracked_task_file(path, task_slugs):
                 candidates.append(path)
         inferred_untracked_task_files = tuple(sorted(set(candidates)))
 

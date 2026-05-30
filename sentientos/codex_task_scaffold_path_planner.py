@@ -46,6 +46,7 @@ class PlannerOutput:
     capability_id: str
     proof_bundle_artifact_kind: str
     proof_bundle_filename: str
+    fixture_root: str
     commit_title: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -83,6 +84,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     cap_default = _snake(request.capability_id or slug)
     proof_kind_default = _snake(request.proof_bundle_artifact_kind or f"{cap_default}_capability")
     proof_filename_default = f"artifacts/proof_bundles/{proof_kind_default}.json"
+    fixture_root_default = f"tests/fixtures/{cap_default}/" if (request.subsystem_kind or request.preset_id) == "metadata_verification" and cap_default else ""
     commit_default = f"[codex:{scope}] {action} {slug.replace('_', ' ')}"
 
     module_path = _choose(request.new_module, module_default)
@@ -98,7 +100,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
             blockers.append("forbidden_authority_surface_requested")
             break
 
-    for path in (module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, proof_filename_default):
+    for path in tuple(x for x in (module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, proof_filename_default, fixture_root_default) if x):
         if _bad_path(path):
             blockers.append("path_traversal_or_metacharacters")
             break
@@ -114,7 +116,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
         status = "blocked"
     elif warnings:
         status = "ready_with_warnings"
-    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, proof_kind_default, proof_filename_default, commit_title)
+    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, proof_kind_default, proof_filename_default, fixture_root_default, commit_title)
 
 
 def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutput) -> dict[str, Any]:
@@ -126,6 +128,7 @@ def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutp
         "new_cli_path": [planned.cli_path],
         "expected_test_paths": [planned.api_test_path, planned.cli_test_path],
         "expected_doc_paths": [planned.dev_doc_path],
+        "expected_fixture_roots": [planned.fixture_root] if planned.fixture_root else [],
         "capability_id": planned.capability_id,
         "proof_bundle_artifact_kind": planned.proof_bundle_artifact_kind,
         "commit_title": planned.commit_title,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sentientos.codex_task_scaffold import CodexTaskScaffoldRequest, build_codex_task_scaffold
 
 
@@ -62,3 +63,23 @@ def test_ready_scaffold_includes_pr_metadata_guard_sequence() -> None:
     assert "Run bootstrapper" in result.scaffold.generated_prompt
     assert "pr_metadata_guard_ready" in result.scaffold.generated_prompt
     assert "Only then make_pr" in result.scaffold.generated_prompt
+
+
+@pytest.mark.no_legacy_skip
+def test_metadata_verification_scaffold_declares_capability_fixture_root() -> None:
+    result = build_codex_task_scaffold(
+        CodexTaskScaffoldRequest(
+            task_name="Memory Commit Execution Gate",
+            task_goal="metadata gate",
+            subsystem_kind="metadata_verification",
+            capability_id="memory_commit_execution_gate",
+        )
+    )
+    assert result.scaffold.expected_fixture_roots == ("tests/fixtures/memory_commit_execution_gate/",)
+    assert "Expected task-owned fixture roots: tests/fixtures/memory_commit_execution_gate/" in result.scaffold.generated_prompt
+
+
+@pytest.mark.no_legacy_skip
+def test_non_metadata_scaffold_does_not_declare_fixture_root_by_default() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="developer_workflow_metadata", capability_id="x"))
+    assert result.scaffold.expected_fixture_roots == ()

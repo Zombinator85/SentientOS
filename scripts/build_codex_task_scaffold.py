@@ -39,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--new-cli", action="append", default=[])
     p.add_argument("--test-path", action="append", default=[])
     p.add_argument("--doc-path", action="append", default=[])
+    p.add_argument("--fixture-root", action="append", default=[])
     p.add_argument("--capability-id")
     p.add_argument("--proof-bundle-artifact-kind")
     p.add_argument("--allowed-behavior", action="append", default=[])
@@ -63,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         new_cli_path=_list(base, "new_cli_path", a.new_cli),
         expected_test_paths=_list(base, "expected_test_paths", a.test_path),
         expected_doc_paths=_list(base, "expected_doc_paths", a.doc_path),
+        expected_fixture_roots=_list(base, "expected_fixture_roots", a.fixture_root),
         capability_id=str(base.get("capability_id", a.capability_id or "")),
         proof_bundle_artifact_kind=str(base.get("proof_bundle_artifact_kind", a.proof_bundle_artifact_kind or "")),
         allowed_behaviors=_list(base, "allowed_behaviors", a.allowed_behavior),

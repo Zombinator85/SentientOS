@@ -45,6 +45,7 @@ class CodexTaskScaffoldRequest:
     new_cli_path: tuple[str, ...] = ()
     expected_test_paths: tuple[str, ...] = ()
     expected_doc_paths: tuple[str, ...] = ()
+    expected_fixture_roots: tuple[str, ...] = ()
     capability_id: str = ""
     proof_bundle_artifact_kind: str = ""
     allowed_behaviors: tuple[str, ...] = ()
@@ -78,6 +79,7 @@ class CodexTaskScaffold:
     expected_files: tuple[str, ...]
     expected_tests: tuple[str, ...]
     expected_docs: tuple[str, ...]
+    expected_fixture_roots: tuple[str, ...]
     required_integrations: tuple[str, ...]
     forbidden_surfaces: tuple[str, ...]
     final_report_contract: tuple[str, ...]
@@ -128,6 +130,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     expected_files = _norm(request.new_module_path + request.new_cli_path)
     expected_tests = _norm(request.expected_test_paths)
     expected_docs = _norm(request.expected_doc_paths)
+    expected_fixture_roots = _norm(request.expected_fixture_roots or ((f"tests/fixtures/{request.capability_id}/",) if request.subsystem_kind == "metadata_verification" and request.capability_id else ()))
     forbidden = _norm(request.forbidden_behaviors or (preset.default_forbidden_surfaces if preset else (
         "Do not invoke Codex.", "Do not call OpenAI/provider APIs.", "Do not call GitHub APIs.", "Do not invoke shell/subprocess from library code.",
     )))
@@ -163,6 +166,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\n"
             "Do not create PR metadata before green final validation and a ready PR metadata guard; do not commit or make_pr if either finalizer phase or guard is blocked.\n"
             f"Goal: {request.task_goal}\nSubsystem: {request.task_name} ({request.subsystem_kind})."
+            + (f"\nExpected task-owned fixture roots: {', '.join(expected_fixture_roots)}." if expected_fixture_roots else "")
         )
     else:
         prompt = (
@@ -183,6 +187,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         "prompt": prompt,
         "validation_commands": validation_commands,
         "expected_files": expected_files,
+        "expected_fixture_roots": expected_fixture_roots,
         "deliverables": deliverables,
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -198,6 +203,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         expected_files=expected_files,
         expected_tests=expected_tests,
         expected_docs=expected_docs,
+        expected_fixture_roots=expected_fixture_roots,
         required_integrations=required_integrations,
         forbidden_surfaces=forbidden,
         final_report_contract=final_report_contract,
