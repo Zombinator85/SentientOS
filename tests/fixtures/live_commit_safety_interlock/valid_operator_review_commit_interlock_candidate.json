@@ -1,0 +1,84 @@
+{
+  "dry_run_packet": {
+    "digest": "sha256:d545e91d50b32f2c7c40f55f18b305aa12504ab98726b0719e38e4dcedff43c7",
+    "records": [
+      {
+        "candidate_id": "dry-candidate",
+        "dry_run_decision": "dry_run_deferred_for_operator_review",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "dry-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  },
+  "execution_gate_packet": {
+    "digest": "sha256:512209f9f56fb48605082f5bf922ff001b126dedca08c5c7600863a60178019e",
+    "records": [
+      {
+        "candidate_id": "gate-candidate",
+        "execution_decision": "commit_execution_deferred_for_operator_review",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "gate-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  },
+  "interlock_candidate": {
+    "candidate_id": "interlock-candidate-001",
+    "candidate_type": "operator_review_commit_interlock_candidate",
+    "claimed_dry_run_decision": "dry_run_deferred_for_operator_review",
+    "claimed_dry_run_digest": "sha256:d545e91d50b32f2c7c40f55f18b305aa12504ab98726b0719e38e4dcedff43c7",
+    "claimed_execution_gate_decision": "commit_execution_deferred_for_operator_review",
+    "claimed_execution_gate_digest": "sha256:512209f9f56fb48605082f5bf922ff001b126dedca08c5c7600863a60178019e",
+    "interlock_claims": {},
+    "metadata": {},
+    "operation_preview": {
+      "applied": false,
+      "digest": "sha256:804e780f5ab25246e80535caaf19310dc5e2956cd7f90bd987ed11b1f815284e",
+      "hypothetical_only": true,
+      "operation_kind": "operator_review",
+      "preview_id": "op-operator_review",
+      "target_scope_keys": [
+        "tenant:fixture",
+        "project:memory"
+      ]
+    },
+    "operator_scope_keys": [
+      "tenant:fixture",
+      "project:memory"
+    ],
+    "receipt_preview": {
+      "digest": "sha256:2b6e7d451bce6830002b892244225b235d849d17a807199357efcfa1e3ea272b",
+      "hypothetical_only": true,
+      "preview_id": "receipt-operator_review",
+      "receipt_emitted": false,
+      "receipt_kind": "operator_review_receipt"
+    },
+    "record_id": "interlock-record-001",
+    "rollback_preview": {
+      "digest": "sha256:1e0b849cc999e52c0e034fce3a47b336774bcc59db041a6ceb4364ad87cb64d1",
+      "hypothetical_only": true,
+      "preview_id": "rollback-operator_review",
+      "rollback_applied": false,
+      "rollback_kind": "operator_review_rollback"
+    },
+    "safety_preconditions": [
+      {
+        "dry_run_digest": "sha256:d545e91d50b32f2c7c40f55f18b305aa12504ab98726b0719e38e4dcedff43c7",
+        "execution_gate_digest": "sha256:512209f9f56fb48605082f5bf922ff001b126dedca08c5c7600863a60178019e",
+        "operation_preview_digest": "sha256:804e780f5ab25246e80535caaf19310dc5e2956cd7f90bd987ed11b1f815284e",
+        "precondition_id": "precondition-001",
+        "receipt_preview_digest": "sha256:2b6e7d451bce6830002b892244225b235d849d17a807199357efcfa1e3ea272b",
+        "rollback_preview_digest": "sha256:1e0b849cc999e52c0e034fce3a47b336774bcc59db041a6ceb4364ad87cb64d1",
+        "satisfied": true,
+        "scope_digest": "sha256:12c01cddc812a7b7cad1e66bd5f5787903320d8c7910d2d47727faa353d59f0b"
+      }
+    ]
+  }
+}

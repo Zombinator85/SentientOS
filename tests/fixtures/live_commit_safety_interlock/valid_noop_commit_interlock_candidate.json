@@ -1,0 +1,47 @@
+{
+  "dry_run_packet": {
+    "digest": "sha256:008c38135bc325f89d8feb1a357ef9a2eee0efc259b53891464b9d462d851713",
+    "records": [
+      {
+        "candidate_id": "dry-candidate",
+        "dry_run_decision": "dry_run_noop",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "dry-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  },
+  "execution_gate_packet": {
+    "digest": "sha256:6662ea52a84d79c409e08255a4dd5b11f088d1b6286cbec0619e56c3d5f5fdf6",
+    "records": [
+      {
+        "candidate_id": "gate-candidate",
+        "execution_decision": "commit_execution_noop",
+        "operator_scope_keys": [
+          "tenant:fixture",
+          "project:memory"
+        ],
+        "record_id": "gate-record"
+      }
+    ],
+    "schema_version": "fixture.v1"
+  },
+  "interlock_candidate": {
+    "candidate_id": "interlock-candidate-001",
+    "candidate_type": "noop_commit_interlock_candidate",
+    "claimed_dry_run_decision": "dry_run_noop",
+    "claimed_dry_run_digest": "sha256:008c38135bc325f89d8feb1a357ef9a2eee0efc259b53891464b9d462d851713",
+    "claimed_execution_gate_decision": "commit_execution_noop",
+    "claimed_execution_gate_digest": "sha256:6662ea52a84d79c409e08255a4dd5b11f088d1b6286cbec0619e56c3d5f5fdf6",
+    "interlock_claims": {},
+    "metadata": {},
+    "operator_scope_keys": [
+      "tenant:fixture",
+      "project:memory"
+    ],
+    "record_id": "interlock-record-001"
+  }
+}
