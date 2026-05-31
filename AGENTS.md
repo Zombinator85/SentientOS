@@ -59,6 +59,25 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 
 ## 🛠️ Codex Agent Operating Instructions
 
+### Codex Quick Law / Agent Hot Path
+- Bootstrap first. If bootstrap returns `blocked`, stop immediately; blocked prompt/scaffold artifacts are diagnostic only and must not be used as implementation contracts.
+- `unknown_dirty_tree` and `manual_review_required` block commit until the exact reported paths are resolved.
+- Focused tests alone are insufficient when the landing contract requires matrix, governance, audit, supervisor, or proof validation.
+- Pre-commit finalizer must return `ready_to_commit` before commit.
+- Post-commit/pr-metadata finalizer must return `ready_for_pr_metadata` before PR metadata.
+- PR metadata guard must return `pr_metadata_guard_ready` before `make_pr`.
+- Memory-chain tasks should use the canonical memory-chain task profile or recovery profile unless a prompt explicitly justifies deviation.
+- Metadata-only, dry-run, sandbox, and review-only work grants no authority, truth, consent, policy, prompt assembly, action execution, external disclosure, or real live-memory mutation.
+
+### Canonical Profile and Template Index
+- Whole-system task template: `docs/development/codex_whole_system_task_template.md`
+- Narrow-repair task template: `docs/development/codex_narrow_repair_task_template.md`
+- Memory-chain task profile: `docs/development/codex_memory_chain_task_profile.md`
+- Memory-chain recovery profile: `docs/development/codex_memory_chain_recovery_profile.md`
+- Validation and landing contract: `docs/development/codex_validation_and_landing_contract.md`
+- Finalizer landing authority: `docs/development/codex_finalize_landing.md`
+- Capability landing checklist: `docs/development/codex_capability_landing_checklist.md`
+
 ## Codex Landing Authority (Streamlined)
 - After any task-caused repository change, run `python scripts/codex_finalize_landing.py finalize ...` in two phases during the same implementation task.
 - Before committing task-caused changes, run finalizer in pre-commit mode (normally with `--allow-current-tracked-changes`) and commit only if it returns `ready_to_commit`.
@@ -143,7 +162,11 @@ A system task is not complete until the following are satisfied as applicable:
 Use the linked guidance for task shaping and landing posture:
 - `docs/development/codex_whole_system_task_template.md`
 - `docs/development/codex_narrow_repair_task_template.md`
+- `docs/development/codex_memory_chain_task_profile.md`
+- `docs/development/codex_memory_chain_recovery_profile.md`
 - `docs/development/codex_validation_and_landing_contract.md`
+- `docs/development/codex_finalize_landing.md`
+- `docs/development/codex_capability_landing_checklist.md`
 
 ### Procedure-Required Actions
 - Any invocation of `bless`, `animate`, or `reflect` must write a corresponding

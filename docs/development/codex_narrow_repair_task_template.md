@@ -20,6 +20,9 @@ Run targeted tests that prove the localized fix.
 ## Baseline/matrix/docs impact statement
 State whether mypy baseline, matrix lanes, and docs are impacted. This template must not be used to defer task-caused subsystem fallout that belongs in a whole-system landing.
 
+## Recurring memory-chain recovery note
+Recurring memory-chain metadata-verification failures should use [`codex_memory_chain_recovery_profile.md`](codex_memory_chain_recovery_profile.md) when applicable, unless the task is explicitly scoped as a narrower repair and explains why this narrower template controls.
+
 ## Safety constraints
 No authority widening, no runtime boundary expansion.
 
