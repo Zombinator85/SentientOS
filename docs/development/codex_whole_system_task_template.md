@@ -53,6 +53,9 @@ List unit/integration/docs tests and expected assertions.
 ## Safety constraints
 Re-state no authority widening and no forbidden runtime semantics.
 
+## Compact subsystem profiles
+Recurring subsystem families may define compact task profiles so future prompts can reference stable requirements and provide only task-specific deltas. A profile can reduce prompt bulk, but it cannot override `AGENTS.md`, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, fixture-root, proof, capability, docs, or authority-boundary requirements. For recurring memory-chain metadata-verification work, use [`codex_memory_chain_task_profile.md`](codex_memory_chain_task_profile.md) unless the prompt explicitly justifies a different profile.
+
 ## Validation commands
 List full relevant command matrix, not only local targeted tests.
 
