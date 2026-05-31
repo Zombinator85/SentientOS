@@ -52,6 +52,7 @@ def default_matrix_commands() -> list[MatrixCommand]:
         MatrixCommand("live_commit_safety_interlock_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_live_commit_safety_interlock.py", "tests/test_build_live_commit_safety_interlock_script.py")),
         MatrixCommand("sandboxed_live_memory_commit_adapter_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_sandboxed_live_memory_commit_adapter.py", "tests/test_build_sandboxed_live_memory_commit_adapter_script.py")),
         MatrixCommand("real_memory_root_admission_gate_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_real_memory_root_admission_gate.py", "tests/test_build_real_memory_root_admission_gate_script.py")),
+        MatrixCommand("final_live_memory_commit_review_gate_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_final_live_memory_commit_review_gate.py", "tests/test_build_final_live_memory_commit_review_gate_script.py")),
         MatrixCommand("review_packet_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_review_packet.py", "tests/test_build_work_item_review_packet_script.py")),
         MatrixCommand("authority_closure_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_authority_claims.py", "tests/test_work_item_dry_run_closure.py", "tests/test_build_work_item_dry_run_closure_script.py")),
         MatrixCommand("dry_run_adapter_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_dry_run_adapter.py", "tests/test_run_work_item_dry_run_script.py")),

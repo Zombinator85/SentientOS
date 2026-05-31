@@ -1,0 +1,33 @@
+{
+  "real_root_admission_packet": {
+    "digest": "sha256:real-root-ready",
+    "records": [
+      {
+        "admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+        "digest": "sha256:real-root-record",
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "record_id": "rec-1",
+        "sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+        "sandbox_commit_digest": "sha256:sandbox-ready"
+      }
+    ]
+  },
+  "sandbox_commit_packet": {
+    "digest": "sha256:sandbox-ready",
+    "records": [
+      {
+        "decision": "sandbox_commit_artifacts_ready",
+        "digest": "sha256:sandbox-record",
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "record_id": "rec-1",
+        "sandbox_commit_decision": "sandbox_commit_artifacts_ready"
+      }
+    ]
+  }
+}

@@ -1033,3 +1033,17 @@ def test_real_memory_root_admission_gate_registered() -> None:
     assert "tests/test_real_memory_root_admission_gate.py" in record.proof_tests
     assert "future real live memory commit adapter" in record.deferred_surfaces
     assert "real-root admission writes live memory" in record.forbidden_implications
+
+
+def test_final_live_memory_commit_review_gate_registered() -> None:
+    record = build_default_capability_registry().by_id()["final_live_memory_commit_review_gate"]
+    assert record.status == "implemented"
+    assert record.authority_level == "metadata_verification_only"
+    assert "sentientos/final_live_memory_commit_review_gate.py" in record.source_paths
+    assert "scripts/build_final_live_memory_commit_review_gate.py" in record.source_paths
+    assert "docs/architecture/final_live_memory_commit_review_gate.md" in record.source_paths
+    assert "tests/test_final_live_memory_commit_review_gate.py" in record.proof_tests
+    assert "future real live memory commit adapter implementation" in record.deferred_surfaces
+    assert "later explicit operator runtime execution" in record.deferred_surfaces
+    assert "final review writes live memory" in record.forbidden_implications
+    assert "final review is real adapter execution" in record.forbidden_implications
