@@ -1,0 +1,31 @@
+{
+  "sandbox_commit_packet": {
+    "digest": "sha256:af403b2c06f79c4bd3611e0e204d361bd770a684d20009d820ec8de123a428d2",
+    "records": [
+      {
+        "artifact_name": "sandbox-candidate-1.json",
+        "candidate_id": "sandbox-candidate-1",
+        "candidate_type": "ai_capsule_sandbox_commit_candidate",
+        "deleted_live_memory": false,
+        "digest": "sha256:e6762a93f5f8e4ac659557de254df6a62c29288bb8789afea8ffe40705fb6fca",
+        "mutated_live_index": false,
+        "operator_scope_keys": [
+          "memory:alpha"
+        ],
+        "purged_live_memory": false,
+        "record_id": "sandbox-record-1",
+        "safety_interlock_decision": "live_commit_adapter_consideration_eligible",
+        "safety_interlock_digest": "sha256:interlock",
+        "safety_interlock_scope_keys": [
+          "memory:alpha"
+        ],
+        "sandbox_decision": "sandbox_commit_artifacts_ready",
+        "sandbox_only": true,
+        "sandbox_relative_path": "records/sandbox-candidate-1.json",
+        "written_to_live_memory": false
+      }
+    ],
+    "sandbox_only": true,
+    "schema_version": "sandboxed-live-memory-commit-adapter/v1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "artifact_kind": "real_memory_root_admission_gate_capability",
+  "authority_level": "metadata_verification_only",
+  "blocked_or_deferred_surfaces": [
+    "future real live memory commit adapter",
+    "real memory-root access",
+    "runtime memory write",
+    "runtime memory deletion",
+    "runtime memory purge",
+    "live index mutation",
+    "prompt assembly",
+    "live context retrieval",
+    "external disclosure",
+    "action execution",
+    "authority escalation",
+    "policy creation",
+    "consent inference",
+    "truth inference"
+  ],
+  "capability_id": "real_memory_root_admission_gate",
+  "category": "memory_distillation",
+  "cli_reference": "scripts/build_real_memory_root_admission_gate.py",
+  "docs_reference": "docs/architecture/real_memory_root_admission_gate.md",
+  "forbidden_next_steps": [
+    "write_live_memory_now",
+    "delete_live_memory_now",
+    "purge_live_memory_now",
+    "mutate_vector_index",
+    "mutate_live_index",
+    "assemble_prompt_now",
+    "retrieve_live_context",
+    "execute_action_ingress",
+    "bypass_sandbox_commit_adapter",
+    "bypass_real_root_admission_gate",
+    "enable_external_disclosure"
+  ],
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+  "metadata_only": true,
+  "proof_command_not_run": true,
+  "status": "implemented"
+}
