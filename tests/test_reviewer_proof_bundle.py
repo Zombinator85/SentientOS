@@ -632,3 +632,16 @@ def test_reviewer_bundle_includes_live_commit_safety_interlock_capability_artifa
     assert "docs/architecture/live_commit_safety_interlock.md" in text
     assert "execute_interlock_as_commit" in text
     assert "bypass_dry_run_adapter" in text
+
+
+def test_reviewer_bundle_includes_sandboxed_live_memory_commit_adapter_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "sandboxed_live_memory_commit_adapter_capability" in artifacts
+    assert "sandboxed_live_memory_commit_adapter_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["sandboxed_live_memory_commit_adapter_capability"]
+    assert '"capability_id": "sandboxed_live_memory_commit_adapter"' in text
+    assert "scripts/build_sandboxed_live_memory_commit_adapter.py" in text
+    assert "docs/architecture/sandboxed_live_memory_commit_adapter.md" in text
+    assert "write_live_memory_now" in text
+    assert "bypass_safety_interlock" in text
