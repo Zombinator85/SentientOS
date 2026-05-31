@@ -1009,3 +1009,15 @@ def test_live_commit_safety_interlock_registered() -> None:
     assert record.metadata_only is True
     assert record.host_actuation_performed is False
     assert "live memory commit adapter" in record.deferred_surfaces
+
+
+def test_sandboxed_live_memory_commit_adapter_registered() -> None:
+    record = build_default_capability_registry().by_id()["sandboxed_live_memory_commit_adapter"]
+    assert record.category == "memory_distillation"
+    assert record.authority_level == "metadata_verification_only"
+    assert "sentientos/sandboxed_live_memory_commit_adapter.py" in record.source_paths
+    assert "scripts/build_sandboxed_live_memory_commit_adapter.py" in record.source_paths
+    assert "docs/architecture/sandboxed_live_memory_commit_adapter.md" in record.source_paths
+    assert "tests/test_sandboxed_live_memory_commit_adapter.py" in record.proof_tests
+    assert "real live memory commit adapter" in record.deferred_surfaces
+    assert "sandbox commit is a real memory write" in record.forbidden_implications
