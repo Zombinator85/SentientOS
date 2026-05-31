@@ -1,0 +1,60 @@
+{
+  "real_root_admission_candidates": [
+    {
+      "admission_claims": {
+        "authority": true
+      },
+      "candidate_id": "real-root-candidate-1",
+      "candidate_type": "ai_capsule_real_root_admission_candidate",
+      "claimed_sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+      "claimed_sandbox_commit_digest": "sha256:af403b2c06f79c4bd3611e0e204d361bd770a684d20009d820ec8de123a428d2",
+      "claimed_sandbox_receipt_manifest_digest": "sha256:receiptmanifest",
+      "claimed_sandbox_rollback_manifest_digest": "sha256:rollbackmanifest",
+      "metadata": {},
+      "operator_scope_keys": [
+        "memory:alpha"
+      ],
+      "real_root_path_metadata": {
+        "explicitly_allowed_for_review": false,
+        "inert_metadata_only": true,
+        "path": "review://future-real-root/memory-alpha"
+      },
+      "record_id": "real-root-record-1",
+      "sandbox_artifact_plan": {
+        "artifact_count": 1,
+        "metadata_only": true,
+        "plan_id": "sandbox-plan-1",
+        "sandbox_packet_digest": "sha256:af403b2c06f79c4bd3611e0e204d361bd770a684d20009d820ec8de123a428d2"
+      }
+    }
+  ],
+  "sandbox_commit_packet": {
+    "digest": "sha256:af403b2c06f79c4bd3611e0e204d361bd770a684d20009d820ec8de123a428d2",
+    "records": [
+      {
+        "artifact_name": "sandbox-candidate-1.json",
+        "candidate_id": "sandbox-candidate-1",
+        "candidate_type": "ai_capsule_sandbox_commit_candidate",
+        "deleted_live_memory": false,
+        "digest": "sha256:e6762a93f5f8e4ac659557de254df6a62c29288bb8789afea8ffe40705fb6fca",
+        "mutated_live_index": false,
+        "operator_scope_keys": [
+          "memory:alpha"
+        ],
+        "purged_live_memory": false,
+        "record_id": "sandbox-record-1",
+        "safety_interlock_decision": "live_commit_adapter_consideration_eligible",
+        "safety_interlock_digest": "sha256:interlock",
+        "safety_interlock_scope_keys": [
+          "memory:alpha"
+        ],
+        "sandbox_decision": "sandbox_commit_artifacts_ready",
+        "sandbox_only": true,
+        "sandbox_relative_path": "records/sandbox-candidate-1.json",
+        "written_to_live_memory": false
+      }
+    ],
+    "sandbox_only": true,
+    "schema_version": "sandboxed-live-memory-commit-adapter/v1"
+  }
+}
