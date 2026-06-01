@@ -1,0 +1,75 @@
+{
+  "real_live_memory_commit_adapter_readiness_envelope_packet": {
+    "digest": "sha256:x",
+    "records": []
+  },
+  "runtime_execution_gate_candidates": [
+    {
+      "abort_panic_stop_condition_metadata": {
+        "panic_stop_required": true,
+        "plan_id": "abort-panic-stop"
+      },
+      "candidate_id": "runtime-cand-1",
+      "candidate_type": "ai_capsule_runtime_execution_gate_candidate",
+      "claimed_final_review_decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+      "claimed_final_review_digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467",
+      "claimed_readiness_envelope_decision": "live_adapter_readiness_ready_for_later_runtime_gate",
+      "claimed_readiness_envelope_digest": "sha256:09b289c665b7c5fc1f0b11a7aea60e7bd254b5f7f9310762f10458200a055fce",
+      "claimed_real_root_admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+      "claimed_real_root_admission_digest": "sha256:real-root-ready",
+      "claimed_sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+      "claimed_sandbox_commit_digest": "sha256:sandbox-ready",
+      "claimed_sandbox_receipt_manifest_digest": "sha256:sandbox-receipts",
+      "claimed_sandbox_rollback_manifest_digest": "sha256:sandbox-rollback",
+      "dry_run_to_live_equivalence_metadata": {
+        "dry_run_artifacts_matched": true,
+        "equivalence_id": "dry-to-live-1"
+      },
+      "execution_window_metadata": {
+        "expires": "2030-01-01T01:00:00Z",
+        "not_before": "2030-01-01T00:00:00Z",
+        "window_id": "future-window-1"
+      },
+      "live_receipt_schema_metadata": {
+        "required_later": true,
+        "schema_id": "future-live-receipt/v1"
+      },
+      "live_rollback_schema_metadata": {
+        "required_later": true,
+        "schema_id": "future-live-rollback/v1"
+      },
+      "metadata": {},
+      "operator_identity_role_metadata": {
+        "authenticated_later": true,
+        "operator_id": "operator-1",
+        "role": "memory_keeper"
+      },
+      "operator_runtime_confirmation_metadata": {
+        "confirmation_id": "operator-runtime-confirmation-1",
+        "explicit_confirmation_required_later": true
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "post_commit_verification_plan": {
+        "plan_id": "future-post-commit-verification",
+        "required_later": true
+      },
+      "post_execution_audit_metadata": {
+        "audit_id": "post-exec-audit-1",
+        "audit_required_later": true
+      },
+      "record_id": "rec-1",
+      "rollback_rehearsal_metadata": {
+        "completed_in_sandbox": true,
+        "rehearsal_id": "rollback-rehearsal-1"
+      },
+      "runtime_execution_claims": {},
+      "sandbox_artifact_plan": {
+        "artifact_plan_id": "sandbox-plan-1",
+        "sandbox_only": true
+      }
+    }
+  ]
+}
