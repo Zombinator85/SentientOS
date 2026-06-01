@@ -85,6 +85,7 @@ def test_default_matrix_includes_promotion_gate_steps() -> None:
     assert "final_live_memory_commit_review_gate_tests" in labels
     assert "real_live_memory_commit_adapter_readiness_envelope_tests" in labels
     assert "explicit_live_memory_runtime_execution_gate_tests" in labels
+    assert "real_live_memory_commit_executor_plan_packet_tests" in labels
     assert "targeted_mypy" in labels
 
 
