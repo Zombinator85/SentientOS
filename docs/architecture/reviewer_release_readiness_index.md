@@ -458,3 +458,5 @@ See `docs/architecture/household_presence_camera_zone_config.md` for metadata-on
 - Real live memory commit adapter readiness envelope: `docs/architecture/real_live_memory_commit_adapter_readiness_envelope.md`
 - Explicit live memory runtime execution gate: `docs/architecture/explicit_live_memory_runtime_execution_gate.md`
 - Real live memory commit executor plan packet: `docs/architecture/real_live_memory_commit_executor_plan_packet.md`
+- Live executor lock lease gate: `docs/architecture/live_executor_lock_lease_gate.md`
+- Live executor preflight packet: `docs/architecture/live_executor_preflight_packet.md`
