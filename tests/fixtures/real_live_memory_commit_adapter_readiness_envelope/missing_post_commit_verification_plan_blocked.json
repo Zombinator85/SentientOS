@@ -1,0 +1,219 @@
+{
+  "final_live_memory_commit_review_packet": {
+    "digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467",
+    "explicit_operator_runtime_execution_required_later": true,
+    "external_disclosure_enabled": false,
+    "final_live_commit_review_does_not_disclose_externally": true,
+    "final_live_commit_review_does_not_execute_action": true,
+    "final_live_commit_review_is_not_authority": true,
+    "final_live_commit_review_is_not_capsule_persistence": true,
+    "final_live_commit_review_is_not_consent": true,
+    "final_live_commit_review_is_not_execution": true,
+    "final_live_commit_review_is_not_index_mutation": true,
+    "final_live_commit_review_is_not_live_commit": true,
+    "final_live_commit_review_is_not_memory_deletion": true,
+    "final_live_commit_review_is_not_memory_purge": true,
+    "final_live_commit_review_is_not_memory_write": true,
+    "final_live_commit_review_is_not_policy": true,
+    "final_live_commit_review_is_not_prompt_assembly": true,
+    "final_live_commit_review_is_not_real_adapter": true,
+    "final_live_commit_review_is_not_truth": true,
+    "forbidden_next_steps": [
+      "write_live_memory_now",
+      "delete_live_memory_now",
+      "purge_live_memory_now",
+      "mutate_vector_index",
+      "mutate_live_index",
+      "persist_capsule_now",
+      "persist_summary_now",
+      "apply_protection_now",
+      "apply_merge_now",
+      "complete_tomb_now",
+      "run_real_live_commit_adapter_now",
+      "implement_real_live_commit_adapter_from_review_alone",
+      "treat_final_review_as_execution_permission",
+      "treat_final_review_as_real_commit",
+      "treat_sandbox_commit_as_real_commit",
+      "treat_sandbox_receipt_as_live_receipt",
+      "treat_sandbox_rollback_as_applied_rollback",
+      "treat_real_root_admission_as_memory_root_access",
+      "touch_real_memory_root",
+      "open_real_memory_path_for_write",
+      "chmod_real_memory_path",
+      "assemble_prompt_now",
+      "retrieve_live_context",
+      "execute_action_ingress",
+      "infer_truth_from_review",
+      "infer_authority_from_review",
+      "infer_consent_from_review",
+      "convert_review_to_policy",
+      "convert_review_to_action",
+      "bypass_sandbox_commit_adapter",
+      "bypass_real_root_admission_gate",
+      "bypass_final_live_commit_review_gate",
+      "bypass_safety_interlock",
+      "bypass_execution_gate",
+      "bypass_operator_approval_packet",
+      "bypass_commit_plan_packet",
+      "bypass_live_boundary_admission",
+      "bypass_governed_writer_adapter",
+      "bypass_tomb_verifier",
+      "bypass_receipt_gate",
+      "bypass_distillation_contract",
+      "bypass_operator_runtime_execution",
+      "enable_external_disclosure"
+    ],
+    "future_real_live_commit_adapter_required": true,
+    "live_context_retrieval_enabled": false,
+    "live_index_mutation_enabled": false,
+    "live_memory_deletion_enabled": false,
+    "live_memory_purge_enabled": false,
+    "live_memory_write_enabled": false,
+    "prompt_materialization_enabled": false,
+    "real_memory_root_access_enabled": false,
+    "records": [
+      {
+        "abort_panic_stop_condition_plan": {
+          "panic_stop_required": true,
+          "plan_id": "abort-panic-stop"
+        },
+        "action_execution_claimed": false,
+        "authority_claimed": false,
+        "candidate_id": "final-cand-1",
+        "candidate_type": "ai_capsule_final_live_commit_review_candidate",
+        "consent_claimed": false,
+        "digest": "sha256:1c6491a056c29595f1f4ff7f877dabfc582e4d43e719d175072da3737c731f5b",
+        "external_disclosure_claimed": false,
+        "final_operator_review_metadata": {
+          "hard_blockers_overrideable": false,
+          "review_id": "operator-final-review-1",
+          "review_required_later": true
+        },
+        "final_review_future_consideration_only": true,
+        "final_review_is_execution_permission": false,
+        "final_review_is_real_commit": false,
+        "future_adapter_implementation_consideration_record": {
+          "candidate_id": "final-cand-1",
+          "decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+          "eligible_for_future_real_live_commit_adapter_implementation_consideration": true,
+          "explicit_operator_runtime_execution_required_later": true,
+          "future_real_live_commit_adapter_required": true,
+          "operator_review_cannot_override_hard_blockers": true,
+          "real_adapter_implemented_or_invoked": false,
+          "real_live_commit_performed": false,
+          "real_memory_root_access_performed": false
+        },
+        "future_real_adapter_implementation_metadata": {
+          "implementation_required_later": true,
+          "not_implemented_by_gate": true
+        },
+        "live_context_retrieval_claimed": false,
+        "live_index_mutation_claimed": false,
+        "live_memory_delete_claimed": false,
+        "live_memory_purge_claimed": false,
+        "live_memory_write_claimed": false,
+        "live_receipt_schema_metadata": {
+          "required_later": true,
+          "schema_id": "future-live-receipt/v1"
+        },
+        "live_rollback_schema_metadata": {
+          "required_later": true,
+          "schema_id": "future-live-rollback/v1"
+        },
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "policy_claimed": false,
+        "post_commit_verification_plan": {
+          "plan_id": "future-post-commit-verification",
+          "required_later": true
+        },
+        "prompt_assembly_claimed": false,
+        "real_memory_root_access_performed": false,
+        "real_root_admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+        "real_root_admission_digest": "sha256:real-root-ready",
+        "real_root_admission_is_memory_root_access": false,
+        "real_root_admission_record_digest": "sha256:real-root-record",
+        "real_root_admission_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "record_id": "rec-1",
+        "review_decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+        "safe_next_actions": [
+          "no_action_allowed",
+          "inspect_final_live_commit_review_packet",
+          "operator_review_required",
+          "prepare_future_real_live_commit_adapter_implementation_later",
+          "prepare_later_explicit_operator_runtime_execution_later",
+          "sustain_default_deny"
+        ],
+        "sandbox_artifact_plan": {
+          "artifact_plan_id": "sandbox-plan-1",
+          "sandbox_only": true
+        },
+        "sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+        "sandbox_commit_digest": "sha256:sandbox-ready",
+        "sandbox_commit_is_real_commit": false,
+        "sandbox_receipt_is_live_receipt": false,
+        "sandbox_receipt_manifest_digest": "sha256:sandbox-receipts",
+        "sandbox_rollback_is_applied_rollback": false,
+        "sandbox_rollback_manifest_digest": "sha256:sandbox-rollback",
+        "sandbox_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "truth_claimed": false
+      }
+    ],
+    "remote_service_enabled": false,
+    "schema_version": "final-live-memory-commit-review-gate/v1"
+  },
+  "live_adapter_readiness_candidates": [
+    {
+      "abort_panic_stop_condition_metadata": {
+        "panic_stop_required": true,
+        "plan_id": "abort-panic-stop"
+      },
+      "candidate_id": "readiness-cand-1",
+      "candidate_type": "ai_capsule_live_adapter_readiness_candidate",
+      "claimed_final_review_decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+      "claimed_final_review_digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467",
+      "claimed_real_root_admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+      "claimed_real_root_admission_digest": "sha256:real-root-ready",
+      "claimed_sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+      "claimed_sandbox_commit_digest": "sha256:sandbox-ready",
+      "claimed_sandbox_receipt_manifest_digest": "sha256:sandbox-receipts",
+      "claimed_sandbox_rollback_manifest_digest": "sha256:sandbox-rollback",
+      "live_receipt_schema_metadata": {
+        "required_later": true,
+        "schema_id": "future-live-receipt/v1"
+      },
+      "live_rollback_schema_metadata": {
+        "required_later": true,
+        "schema_id": "future-live-rollback/v1"
+      },
+      "metadata": {},
+      "operator_runtime_confirmation_metadata": {
+        "confirmation_required_later": true,
+        "runtime_confirmation_id": "future-runtime-confirmation"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "post_commit_verification_plan": {},
+      "readiness_claims": {},
+      "real_adapter_implementation_metadata": {
+        "implementation_required_later": true,
+        "not_implemented_by_readiness": true
+      },
+      "record_id": "rec-1",
+      "sandbox_artifact_plan": {
+        "artifact_plan_id": "sandbox-plan-1",
+        "sandbox_only": true
+      }
+    }
+  ]
+}
