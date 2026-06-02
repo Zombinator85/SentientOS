@@ -461,3 +461,4 @@ See `docs/architecture/household_presence_camera_zone_config.md` for metadata-on
 - Live executor lock lease gate: `docs/architecture/live_executor_lock_lease_gate.md`
 - Live executor preflight packet: `docs/architecture/live_executor_preflight_packet.md`
 - Live executor activation record: `docs/architecture/live_executor_activation_record.md`
+- Live executor invocation harness: `docs/architecture/live_executor_invocation_harness.md`
