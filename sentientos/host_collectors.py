@@ -190,7 +190,7 @@ def collect_disk_observation(
 ) -> HostCollectorResult:
     try:
         usage = (disk_provider or shutil.disk_usage)(path)
-        values = _disk_usage_dict(usage)
+        values: dict[str, Any] = _disk_usage_dict(usage)
         total = values["total_bytes"]
         values["used_percent"] = round((values["used_bytes"] / total) * 100, 6) if total else None
         values["path_label"] = path
@@ -316,7 +316,7 @@ def collect_thermal_sensor_observation(
                     zones.append({"id": f"{hwmon}/{child}", "label": f"{hwmon}:{child}", "temperature_c": temp_c, "control_available": False, "telemetry_only": True})
     if not zones:
         status = "partial" if findings else "unavailable"
-        warnings = ("sensor_unavailable:thermal",) if not findings else ("thermal_values_malformed",)
+        warnings: tuple[str, ...] = ("sensor_unavailable:thermal",) if not findings else ("thermal_values_malformed",)
     else:
         status = "partial" if findings else "available"
         warnings = ("thermal_values_malformed",) if findings else ()
@@ -358,7 +358,7 @@ def collect_fan_pwm_observation(
     }
     if not fans and not pwm_signals:
         status = "partial" if findings else "unavailable"
-        warnings = ("sensor_unavailable:fan_pwm",) if not findings else ("fan_pwm_values_malformed",)
+        warnings: tuple[str, ...] = ("sensor_unavailable:fan_pwm",) if not findings else ("fan_pwm_values_malformed",)
     else:
         status = "partial" if findings else "available"
         warnings = ("fan_pwm_values_malformed",) if findings else ()

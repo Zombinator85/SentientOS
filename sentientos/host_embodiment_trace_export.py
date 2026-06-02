@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from sentientos.host_embodiment_trace import (
     HOST_EMBODIMENT_TRACE_STEP_KINDS,
@@ -86,7 +86,7 @@ LADDER_STAGE_LABELS = (
 
 def _plain(value: Any) -> Any:
     if is_dataclass(value):
-        return asdict(value)
+        return asdict(cast(Any, value))
     if hasattr(value, "to_dict"):
         return value.to_dict()
     if isinstance(value, Mapping):
