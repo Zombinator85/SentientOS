@@ -182,6 +182,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_live_memory_commit_executor_implementation_skeleton_capability",
         "real_live_memory_commit_executor_enablement_gate_capability",
         "constrained_executor_enablement_path_packet_capability",
+        "future_live_memory_commit_execution_gate_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -270,6 +271,7 @@ BUNDLE_FILE_NAMES = {
     "real_live_memory_commit_executor_implementation_skeleton_capability": "real_live_memory_commit_executor_implementation_skeleton_capability.json",
     "real_live_memory_commit_executor_enablement_gate_capability": "real_live_memory_commit_executor_enablement_gate_capability.json",
     "constrained_executor_enablement_path_packet_capability": "constrained_executor_enablement_path_packet_capability.json",
+    "future_live_memory_commit_execution_gate_capability": "future_live_memory_commit_execution_gate_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1426,6 +1428,30 @@ def build_reviewer_proof_bundle_payload(
         "household_presence_camera_operator_review_trend_ledger_capability": _pretty_json({"artifact_kind": "household_presence_camera_operator_review_trend_ledger_capability", "capability_id": "household_presence_camera_operator_review_trend_ledger", "category": "embodiment_governance", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_household_presence_camera_operator_review_trend_ledger.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/household_presence_camera_operator_review_trend_ledger.md", "blocked_or_deferred_surfaces": ["live camera execution", "media processing", "speaker runtime output", "external authority disclosure", "network/provider/subprocess/hardware authority"], "forbidden_next_steps": ["open_camera_now", "attempt_capture", "enable_live_capture", "enable_live_recording", "store_raw_media", "attach_media_payload", "bypass_authorization_envelope", "bypass_denial_ledger", "bypass_review_packet", "bypass_review_decision_ledger", "bypass_policy_chain", "bypass_zone_config", "bypass_disabled_capture_boundary", "bypass_dry_run", "infer_operator_consent_from_trends", "convert_trend_to_live_readiness", "enable_speaker_output", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "household_presence_camera_capture_review_decision_ledger_capability": _pretty_json({"artifact_kind": "household_presence_camera_capture_review_decision_ledger_capability", "capability_id": "household_presence_camera_capture_review_decision_ledger", "category": "embodiment_governance", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_household_presence_camera_capture_review_decision_ledger.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/household_presence_camera_capture_review_decision_ledger.md", "blocked_or_deferred_surfaces": ["live camera execution", "media processing", "speaker runtime output", "external authority disclosure", "network/provider/subprocess/hardware authority"], "forbidden_next_steps": ["open_camera_now", "attempt_capture", "enable_live_capture", "enable_live_recording", "store_raw_media", "attach_media_payload", "bypass_authorization_envelope", "bypass_denial_ledger", "bypass_review_packet", "bypass_policy_chain", "bypass_zone_config", "bypass_disabled_capture_boundary", "bypass_dry_run", "enable_speaker_output", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
     }
+    future_gate_record = registry.by_id()["future_live_memory_commit_execution_gate"]
+    contents["future_live_memory_commit_execution_gate_capability"] = _pretty_json({
+        "artifact_kind": "future_live_memory_commit_execution_gate_capability",
+        **future_gate_record.to_dict(),
+        "metadata_only": True,
+        "proof_command_not_run": True,
+        "cli_reference": "scripts/build_future_live_memory_commit_execution_gate.py",
+        "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        "docs_reference": "docs/architecture/future_live_memory_commit_execution_gate.md",
+        "blocked_or_deferred_surfaces": list(future_gate_record.deferred_surfaces),
+        "forbidden_next_steps": [
+            "execute_live_commit_now", "enable_executor", "invoke_executor", "activate_executor",
+            "acquire_real_lock", "create_lockfile", "write_real_live_memory",
+            "delete_real_live_memory", "purge_real_live_memory", "mutate_live_index",
+            "assemble_prompt", "retrieve_live_context", "execute_action", "disclose_externally",
+            "bypass_constrained_path", "bypass_enablement_gate", "bypass_executor_skeleton",
+            "bypass_invocation_harness", "bypass_activation_record", "bypass_preflight_packet",
+            "bypass_lock_lease_gate", "bypass_executor_plan_packet", "bypass_runtime_execution_gate",
+            "bypass_readiness_envelope", "bypass_final_review", "bypass_real_root_admission",
+            "bypass_sandbox_commit",
+        ],
+        "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+    })
+
     artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())
     # The manifest artifact record describes the canonical manifest payload before
     # the final pretty JSON wrapper is materialized; this avoids recursive digest
