@@ -68,6 +68,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "live_executor_preflight_packet_tests",
     "live_executor_activation_record_tests",
     "live_executor_invocation_harness_tests",
+    "real_live_memory_commit_executor_implementation_skeleton_tests",
     "review_packet_tests",
     "authority_closure_tests",
     "dry_run_adapter_tests",
