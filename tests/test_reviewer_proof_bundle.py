@@ -659,3 +659,17 @@ def test_reviewer_bundle_includes_live_executor_invocation_harness_capability_ar
     assert "docs/architecture/live_executor_invocation_harness.md" in text
     assert "invoke_executor" in text
     assert "direct_executor_execution" in text
+
+
+def test_reviewer_bundle_includes_future_live_memory_commit_execution_gate_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "future_live_memory_commit_execution_gate_capability" in artifacts
+    assert "future_live_memory_commit_execution_gate_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["future_live_memory_commit_execution_gate_capability"]
+    assert '"capability_id": "future_live_memory_commit_execution_gate"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
+    assert "scripts/build_future_live_memory_commit_execution_gate.py" in text
+    assert "docs/architecture/future_live_memory_commit_execution_gate.md" in text
+    assert "future live-memory commit execution gate packets" in text
+    assert "future execution gate executes a live commit" in text
