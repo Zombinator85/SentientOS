@@ -44,6 +44,8 @@ from sentientos.fulfillment_executor_contract import (
     summarize_fulfillment_executor_contract,
 )
 from sentientos.dry_run_execution_harness import (
+    DryRunExecutionBlockReceipt,
+    DryRunExecutionResult,
     build_dry_run_execution_harness_wing,
     summarize_dry_run_execution_block_receipt,
     summarize_dry_run_execution_receipt,
@@ -61,6 +63,8 @@ from sentientos.dry_run_audit_closure import (
     summarize_dry_run_rollback_rehearsal,
 )
 from sentientos.real_effect_admission import (
+    RealEffectCapabilityBlockReceipt,
+    RealEffectImplementationPlanScaffold,
     build_real_effect_admission_wing,
     summarize_real_effect_admission_bundle,
     summarize_real_effect_capability_admission_decision,
@@ -653,6 +657,8 @@ def build_reviewer_proof_bundle_payload(
         requested_simulated_backend_class="cooling_backend_simulated",
         created_at=created_at,
     )
+    if dry_run_execution.receipt is None:
+        raise ValueError("reviewer proof scenario expected dry-run execution receipt")
     dry_run_audit_closure = build_dry_run_audit_closure_wing(dry_run_execution.receipt, created_at=created_at)
     real_effect_admission = build_real_effect_admission_wing(dry_run_audit_closure.closure_bundle, created_at=created_at)
     host_steward_boundary = build_host_steward_boundary_wing(created_at=created_at)
@@ -784,8 +790,8 @@ def build_reviewer_proof_bundle_payload(
             "proof_statement": "Dry-run execution runs only inert simulated in-process backend mappings against executor contract records; it is not real fulfillment, not an effect receipt, and not proof of host mutation.",
             "registry_summary": summarize_simulated_backend_registry(dry_run_execution.registry),
             "request_summary": summarize_dry_run_execution_request(dry_run_execution.request),
-            "result_summary": summarize_dry_run_execution_result(dry_run_execution.result_or_block_receipt) if dry_run_execution.receipt else None,
-            "block_receipt_summary": summarize_dry_run_execution_block_receipt(dry_run_execution.result_or_block_receipt) if dry_run_execution.receipt is None else None,
+            "result_summary": summarize_dry_run_execution_result(dry_run_execution.result_or_block_receipt) if isinstance(dry_run_execution.result_or_block_receipt, DryRunExecutionResult) else None,
+            "block_receipt_summary": summarize_dry_run_execution_block_receipt(dry_run_execution.result_or_block_receipt) if isinstance(dry_run_execution.result_or_block_receipt, DryRunExecutionBlockReceipt) else None,
             "receipt_summary": summarize_dry_run_execution_receipt(dry_run_execution.receipt) if dry_run_execution.receipt else None,
             "dry_run_executed": bool(dry_run_execution.receipt and dry_run_execution.receipt.dry_run_executed),
             "real_backend_invoked": False,
@@ -850,8 +856,8 @@ def build_reviewer_proof_bundle_payload(
             "proof_statement": "Dry-run audit closure does not automatically permit real effects; real-effect admission is implementation planning metadata only, not implementation, backend loading, execution, fulfillment, effect receipt creation, postcondition checking, rollback, production audit, or host mutation.",
             "candidate_summary": summarize_real_effect_capability_candidate(real_effect_admission.candidate),
             "decision_summary": summarize_real_effect_capability_admission_decision(real_effect_admission.decision),
-            "plan_scaffold_summary": summarize_real_effect_implementation_plan_scaffold(real_effect_admission.plan_or_block_receipt) if hasattr(real_effect_admission.plan_or_block_receipt, "plan_id") else None,
-            "block_receipt_summary": summarize_real_effect_capability_block_receipt(real_effect_admission.plan_or_block_receipt) if hasattr(real_effect_admission.plan_or_block_receipt, "receipt_id") else None,
+            "plan_scaffold_summary": summarize_real_effect_implementation_plan_scaffold(real_effect_admission.plan_or_block_receipt) if isinstance(real_effect_admission.plan_or_block_receipt, RealEffectImplementationPlanScaffold) else None,
+            "block_receipt_summary": summarize_real_effect_capability_block_receipt(real_effect_admission.plan_or_block_receipt) if isinstance(real_effect_admission.plan_or_block_receipt, RealEffectCapabilityBlockReceipt) else None,
             "admission_bundle_summary": summarize_real_effect_admission_bundle(real_effect_admission.admission_bundle),
             "authorizes_implementation": False,
             "authorizes_execution": False,

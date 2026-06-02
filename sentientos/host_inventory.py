@@ -258,28 +258,36 @@ def build_host_inventory_from_collector_results(
         warnings.extend(f"{result.collector_id}:{finding.code}" for finding in result.findings)
         warnings.extend(f"risk:{risk}" for risk in result.risks)
 
-    platform_values = dict(by_id.get("platform").values) if by_id.get("platform") else {}
-    cpu_values = dict(by_id.get("cpu").values) if by_id.get("cpu") else {}
-    memory_values = dict(by_id.get("memory").values) if by_id.get("memory") else {}
-    disk_values = dict(by_id.get("disk").values) if by_id.get("disk") else {}
-    network_values = dict(by_id.get("network_interfaces").values) if by_id.get("network_interfaces") else {}
-    service_values = dict(by_id.get("service_manager").values) if by_id.get("service_manager") else {}
-    thermal_values = dict(by_id.get("thermal_sensors").values) if by_id.get("thermal_sensors") else {}
-    fan_values = dict(by_id.get("fan_pwm").values) if by_id.get("fan_pwm") else {}
+    def _collector_values(collector_id: str) -> dict[str, Any]:
+        result = by_id.get(collector_id)
+        return dict(result.values) if result is not None else {}
+
+    def _collector_status(collector_id: str, default: str = "partial") -> str:
+        result = by_id.get(collector_id)
+        return result.status if result is not None else default
+
+    platform_values = _collector_values("platform")
+    cpu_values = _collector_values("cpu")
+    memory_values = _collector_values("memory")
+    disk_values = _collector_values("disk")
+    network_values = _collector_values("network_interfaces")
+    service_values = _collector_values("service_manager")
+    thermal_values = _collector_values("thermal_sensors")
+    fan_values = _collector_values("fan_pwm")
 
     if platform_values:
-        devices.append(HostInventoryDevice(device_id="host-platform", kind="other", label="Host platform", summary=platform_values, status=by_id["platform"].status, source_label="collector:platform"))
+        devices.append(HostInventoryDevice(device_id="host-platform", kind="other", label="Host platform", summary=platform_values, status=_collector_status("platform"), source_label="collector:platform"))
     if cpu_values or platform_values.get("cpu_count") is not None:
         merged_cpu = {**({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None else {}), **cpu_values}
-        devices.append(HostInventoryDevice(device_id="cpu-summary", kind="cpu", label="CPU summary", summary=merged_cpu, status=by_id.get("cpu").status if by_id.get("cpu") else "partial", source_label="collector:cpu"))
+        devices.append(HostInventoryDevice(device_id="cpu-summary", kind="cpu", label="CPU summary", summary=merged_cpu, status=_collector_status("cpu"), source_label="collector:cpu"))
     if memory_values:
-        devices.append(HostInventoryDevice(device_id="ram-summary", kind="ram", label="RAM summary", summary=memory_values, status=by_id["memory"].status, source_label="collector:memory"))
+        devices.append(HostInventoryDevice(device_id="ram-summary", kind="ram", label="RAM summary", summary=memory_values, status=_collector_status("memory"), source_label="collector:memory"))
     if disk_values:
-        devices.append(HostInventoryDevice(device_id="disk-summary", kind="disk", label="Disk summary", summary=disk_values, status=by_id["disk"].status, source_label="collector:disk"))
+        devices.append(HostInventoryDevice(device_id="disk-summary", kind="disk", label="Disk summary", summary=disk_values, status=_collector_status("disk"), source_label="collector:disk"))
     if network_values:
-        devices.append(HostInventoryDevice(device_id="network-interfaces", kind="network", label="Network interfaces", summary=network_values, status=by_id["network_interfaces"].status, source_label="collector:network_interfaces"))
+        devices.append(HostInventoryDevice(device_id="network-interfaces", kind="network", label="Network interfaces", summary=network_values, status=_collector_status("network_interfaces"), source_label="collector:network_interfaces"))
     if service_values:
-        devices.append(HostInventoryDevice(device_id="service-manager", kind="service_manager", label="Service manager", summary=service_values, status=by_id["service_manager"].status, source_label="collector:service_manager"))
+        devices.append(HostInventoryDevice(device_id="service-manager", kind="service_manager", label="Service manager", summary=service_values, status=_collector_status("service_manager"), source_label="collector:service_manager"))
 
     zones = tuple(thermal_values.get("zones") or ())
     for index, zone in enumerate(zones):
@@ -292,7 +300,7 @@ def build_host_inventory_from_collector_results(
 
     fan_summary = {
         **fan_values,
-        "status": by_id.get("fan_pwm").status if by_id.get("fan_pwm") else "unavailable",
+        "status": _collector_status("fan_pwm", "unavailable"),
         "telemetry_only": True,
         "pwm_signal_observed": bool(fan_values.get("pwm_signal_observed", False)),
         "control_available": False,

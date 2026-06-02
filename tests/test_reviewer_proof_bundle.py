@@ -645,3 +645,17 @@ def test_reviewer_bundle_includes_sandboxed_live_memory_commit_adapter_capabilit
     assert "docs/architecture/sandboxed_live_memory_commit_adapter.md" in text
     assert "write_live_memory_now" in text
     assert "bypass_safety_interlock" in text
+
+
+def test_reviewer_bundle_includes_live_executor_invocation_harness_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "live_executor_invocation_harness_capability" in artifacts
+    assert "live_executor_invocation_harness_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["live_executor_invocation_harness_capability"]
+    assert '"capability_id": "live_executor_invocation_harness"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
+    assert "scripts/build_live_executor_invocation_harness.py" in text
+    assert "docs/architecture/live_executor_invocation_harness.md" in text
+    assert "invoke_executor" in text
+    assert "direct_executor_execution" in text

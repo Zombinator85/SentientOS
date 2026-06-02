@@ -282,13 +282,17 @@ def build_host_resource_telemetry_from_collector_results(
             if value:
                 forbidden_markers[key] = True
 
-    cpu_values = dict(by_id.get("cpu").values) if by_id.get("cpu") else {}
-    memory_values = dict(by_id.get("memory").values) if by_id.get("memory") else {}
-    disk_values = dict(by_id.get("disk").values) if by_id.get("disk") else {}
-    process_values = dict(by_id.get("process").values) if by_id.get("process") else {}
-    thermal_values = dict(by_id.get("thermal_sensors").values) if by_id.get("thermal_sensors") else {}
-    fan_values = dict(by_id.get("fan_pwm").values) if by_id.get("fan_pwm") else {}
-    service_values = dict(by_id.get("service_manager").values) if by_id.get("service_manager") else {}
+    def _collector_values(collector_id: str) -> dict[str, Any]:
+        result = by_id.get(collector_id)
+        return dict(result.values) if result is not None else {}
+
+    cpu_values = _collector_values("cpu")
+    memory_values = _collector_values("memory")
+    disk_values = _collector_values("disk")
+    process_values = _collector_values("process")
+    thermal_values = _collector_values("thermal_sensors")
+    fan_values = _collector_values("fan_pwm")
+    service_values = _collector_values("service_manager")
 
     cpu_utilization_percent = cpu_values.get("utilization_percent")
     if cpu_utilization_percent is None and any(key in cpu_values for key in ("load_average_1m", "load_average_5m", "load_average_15m")):

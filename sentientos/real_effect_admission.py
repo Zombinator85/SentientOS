@@ -735,7 +735,7 @@ def build_real_effect_admission_wing(
     )
     decision = evaluate_real_effect_capability_admission(candidate, policy=policy, created_at=created_at)
     if decision.admission_status in {"real_effect_admission_eligible_for_planning", "real_effect_admission_eligible_with_conditions"}:
-        plan_or_block = build_real_effect_implementation_plan_scaffold(decision, created_at=created_at)
+        plan_or_block: RealEffectImplementationPlanScaffold | RealEffectCapabilityBlockReceipt = build_real_effect_implementation_plan_scaffold(decision, created_at=created_at)
     else:
         plan_or_block = build_real_effect_capability_block_receipt(candidate, decision, created_at=created_at)
     bundle = build_real_effect_admission_bundle(candidate, decision, plan_or_block, created_at=created_at)

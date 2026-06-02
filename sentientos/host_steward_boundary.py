@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, TypeVar, cast
 
 HOST_STEWARD_PROFILE_STATUSES = frozenset({
     "host_steward_authority_profile_ready",
@@ -176,8 +176,11 @@ def _digest_payload(payload: Mapping[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
-def _with_digest(record: Any) -> Any:
-    return replace(record, digest=_digest_payload(asdict(record)))
+_DigestRecord = TypeVar("_DigestRecord")
+
+
+def _with_digest(record: _DigestRecord) -> _DigestRecord:
+    return cast(_DigestRecord, replace(cast(Any, record), digest=_digest_payload(asdict(cast(Any, record)))))
 
 
 @dataclass(frozen=True)
@@ -454,7 +457,7 @@ def build_delegated_runner_boundary_profile(*, boundary_id: str, runner_trust_cl
     if final_containment in {"local_file_effect_containment", "exact_artifact_rollback_containment"} and runner_trust_class != "bounded_builtin_runner":
         allowed = ()
         status = "delegated_runner_boundary_blocked"
-        risks = ("local_file_or_rollback_containment_requires_bounded_builtin_runner",)
+        risks: tuple[str, ...] = ("local_file_or_rollback_containment_requires_bounded_builtin_runner",)
     else:
         status = "delegated_runner_boundary_ready"
         risks = ()

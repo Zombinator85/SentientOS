@@ -761,3 +761,9 @@ def test_readiness_index_links_operator_lifecycle_closure_review_doc() -> None:
 def test_readiness_index_links_operator_confirmed_lifecycle_closure_run_doc() -> None:
     index = _read(READINESS_INDEX)
     assert "task_work_item_operator_confirmed_lifecycle_closure_run_wing.md" in index
+
+
+def test_readiness_index_links_live_executor_invocation_harness_doc() -> None:
+    index = _read(READINESS_INDEX)
+    assert "docs/architecture/live_executor_activation_record.md" in index
+    assert "docs/architecture/live_executor_invocation_harness.md" in index

@@ -503,10 +503,10 @@ def validate_controlled_authorization_ledger(ledger: ControlledAuthorizationLedg
     if ledger.live_authorization_granted: findings.append("ledger_claims_live_authorization")
     if ledger.host_mutation_performed: findings.append("ledger_claims_host_mutation")
     if ledger.digest and ledger.digest != controlled_authorization_ledger_digest(ledger): findings.append("ledger_digest_mismatch")
-    for record in ledger.grant_records:
-        if not validate_controlled_authorization_grant_record(record).ok: findings.append(f"ledger_invalid_grant_record:{record.grant_record_id}")
-    for record in ledger.revocation_records:
-        if not validate_controlled_authorization_revocation_record(record).ok: findings.append(f"ledger_invalid_revocation_record:{record.revocation_id}")
+    for grant_record in ledger.grant_records:
+        if not validate_controlled_authorization_grant_record(grant_record).ok: findings.append(f"ledger_invalid_grant_record:{grant_record.grant_record_id}")
+    for revocation_record in ledger.revocation_records:
+        if not validate_controlled_authorization_revocation_record(revocation_record).ok: findings.append(f"ledger_invalid_revocation_record:{revocation_record.revocation_id}")
     return ControlledAuthorizationValidationResult(not findings, tuple(findings))
 
 
