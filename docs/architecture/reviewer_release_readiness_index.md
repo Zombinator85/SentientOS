@@ -463,3 +463,4 @@ See `docs/architecture/household_presence_camera_zone_config.md` for metadata-on
 - Live executor activation record: `docs/architecture/live_executor_activation_record.md`
 - Live executor invocation harness: `docs/architecture/live_executor_invocation_harness.md`
 - Real live memory commit executor implementation skeleton: `docs/architecture/real_live_memory_commit_executor_implementation_skeleton.md`
+- Real live memory commit executor enablement gate: `docs/architecture/real_live_memory_commit_executor_enablement_gate.md`
