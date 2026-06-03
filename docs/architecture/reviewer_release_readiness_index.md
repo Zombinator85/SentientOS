@@ -138,6 +138,20 @@ These receipts and artifacts are custody/evidence/readiness surfaces only. They
 do not transport, sync, adopt, execute, merge, apply, install, force updates, or
 expand runtime authority.
 
+### Real executor runtime enablement packet
+
+`docs/architecture/real_executor_runtime_enablement_packet.md`,
+`sentientos/real_executor_runtime_enablement_packet.py`,
+`scripts/build_real_executor_runtime_enablement_packet.py`, and
+`artifacts/proof_bundles/real_executor_runtime_enablement_packet_capability.json`
+cover deterministic metadata-only runtime-enable transition requirements after
+the live commit execution packet. This packet keeps real executor runtime
+enablement, runtime flag flipping, executor enablement, executor invocation,
+executor activation, real lock acquisition, lockfile creation, live execution,
+real memory-root access, live memory write/delete/purge, index mutation, prompt
+assembly, live context retrieval, action execution, external disclosure, and
+external service calls disabled.
+
 ## Hard invariants currently proven
 
 - Authority is explicit and admitted.
