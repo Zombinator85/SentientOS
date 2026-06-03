@@ -1,0 +1,35 @@
+{
+  "artifact_kind": "real_executor_runtime_enablement_packet_capability",
+  "authority_level": "metadata_verification_only",
+  "capability_id": "real_executor_runtime_enablement_packet",
+  "cli_reference": "scripts/build_real_executor_runtime_enablement_packet.py",
+  "docs_reference": "docs/architecture/real_executor_runtime_enablement_packet.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py:real_executor_runtime_enablement_packet_tests",
+  "module_reference": "sentientos/real_executor_runtime_enablement_packet.py",
+  "proof_command": "python -m scripts.run_tests -q tests/test_real_executor_runtime_enablement_packet.py tests/test_build_real_executor_runtime_enablement_packet_script.py",
+  "proof_tests": [
+    "tests/test_real_executor_runtime_enablement_packet.py",
+    "tests/test_build_real_executor_runtime_enablement_packet_script.py"
+  ],
+  "runtime_authority": {
+    "action_execution_enabled": false,
+    "external_disclosure_enabled": false,
+    "external_service_enabled": false,
+    "live_context_retrieval_enabled": false,
+    "live_index_mutation_enabled": false,
+    "live_memory_deletion_enabled": false,
+    "live_memory_purge_enabled": false,
+    "live_memory_write_enabled": false,
+    "lockfile_creation_enabled": false,
+    "prompt_materialization_enabled": false,
+    "real_executor_activation_enabled": false,
+    "real_executor_enabled": false,
+    "real_executor_enablement_enabled": false,
+    "real_executor_invocation_enabled": false,
+    "real_executor_runtime_enablement_enabled": false,
+    "real_lock_acquisition_enabled": false,
+    "real_memory_root_write_enabled": false,
+    "runtime_flag_flipping_enabled": false
+  },
+  "summary": "Deterministic metadata-only packet describing later real executor runtime-enable gate requirements without enabling executors, flipping flags, executing live commits, creating lockfiles, acquiring real locks, touching real memory roots, or granting authority."
+}
