@@ -12,6 +12,7 @@ operator-directed automation.
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md) — fast verification workflow.
 - [architecture/mypy_baseline_ratchet.md](architecture/mypy_baseline_ratchet.md) — repo-wide mypy debt baseline and targeted typed-surface gate.
 - [architecture/real_executor_runtime_enablement_packet.md](architecture/real_executor_runtime_enablement_packet.md) — metadata-only real executor runtime-enable transition requirements packet.
+- [architecture/real_executor_runtime_gate.md](architecture/real_executor_runtime_gate.md) — metadata-only real executor runtime gate for later guarded executor path review.
 
 ```{toctree}
 :maxdepth: 2

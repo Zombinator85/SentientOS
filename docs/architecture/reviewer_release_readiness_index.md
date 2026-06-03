@@ -481,3 +481,5 @@ See `docs/architecture/household_presence_camera_zone_config.md` for metadata-on
 - Constrained executor enablement path packet: `docs/architecture/constrained_executor_enablement_path_packet.md`
 - Future live memory commit execution gate: `docs/architecture/future_live_memory_commit_execution_gate.md`
 - Live commit execution packet: `docs/architecture/live_commit_execution_packet.md`
+
+Runtime gate reviewers should also inspect `docs/architecture/real_executor_runtime_gate.md`, `sentientos/real_executor_runtime_gate.py`, `scripts/build_real_executor_runtime_gate.py`, and `artifacts/proof_bundles/real_executor_runtime_gate_capability.json` to confirm the gate remains metadata-only and disabled.

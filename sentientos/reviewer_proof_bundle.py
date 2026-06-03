@@ -183,6 +183,8 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_live_memory_commit_executor_enablement_gate_capability",
         "constrained_executor_enablement_path_packet_capability",
         "future_live_memory_commit_execution_gate_capability",
+        "real_executor_runtime_enablement_packet_capability",
+        "real_executor_runtime_gate_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -272,6 +274,8 @@ BUNDLE_FILE_NAMES = {
     "real_live_memory_commit_executor_enablement_gate_capability": "real_live_memory_commit_executor_enablement_gate_capability.json",
     "constrained_executor_enablement_path_packet_capability": "constrained_executor_enablement_path_packet_capability.json",
     "future_live_memory_commit_execution_gate_capability": "future_live_memory_commit_execution_gate_capability.json",
+    "real_executor_runtime_enablement_packet_capability": "real_executor_runtime_enablement_packet_capability.json",
+    "real_executor_runtime_gate_capability": "real_executor_runtime_gate_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1449,6 +1453,33 @@ def build_reviewer_proof_bundle_payload(
             "bypass_readiness_envelope", "bypass_final_review", "bypass_real_root_admission",
             "bypass_sandbox_commit",
         ],
+        "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+    })
+
+    runtime_enablement_record = registry.by_id()["real_executor_runtime_enablement_packet"]
+    contents["real_executor_runtime_enablement_packet_capability"] = _pretty_json({
+        "artifact_kind": "real_executor_runtime_enablement_packet_capability",
+        **runtime_enablement_record.to_dict(),
+        "metadata_only": True,
+        "proof_command_not_run": True,
+        "cli_reference": "scripts/build_real_executor_runtime_enablement_packet.py",
+        "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        "docs_reference": "docs/architecture/real_executor_runtime_enablement_packet.md",
+        "blocked_or_deferred_surfaces": list(runtime_enablement_record.deferred_surfaces),
+        "forbidden_next_steps": ["enable_executor", "flip_runtime_flags", "execute_live_commit", "invoke_executor", "activate_executor", "acquire_real_lock", "create_lockfile", "write_real_live_memory", "delete_real_live_memory", "purge_real_live_memory", "mutate_live_index", "assemble_prompt", "retrieve_live_context", "execute_action", "disclose_externally"],
+        "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+    })
+    runtime_gate_record = registry.by_id()["real_executor_runtime_gate"]
+    contents["real_executor_runtime_gate_capability"] = _pretty_json({
+        "artifact_kind": "real_executor_runtime_gate_capability",
+        **runtime_gate_record.to_dict(),
+        "metadata_only": True,
+        "proof_command_not_run": True,
+        "cli_reference": "scripts/build_real_executor_runtime_gate.py",
+        "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        "docs_reference": "docs/architecture/real_executor_runtime_gate.md",
+        "blocked_or_deferred_surfaces": list(runtime_gate_record.deferred_surfaces),
+        "forbidden_next_steps": ["runtime_enablement", "runtime_flag_flipping", "guarded_executor_invocation", "live_execution", "executor_enablement", "executor_invocation", "executor_activation", "real_lock_acquisition", "lockfile_creation", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
         "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
     })
 
