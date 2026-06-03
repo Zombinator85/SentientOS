@@ -1,0 +1,13 @@
+{
+  "artifact_kind": "live_commit_execution_packet_capability",
+  "authority_level": "metadata_verification_only",
+  "capability_id": "live_commit_execution_packet",
+  "category": "memory_distillation",
+  "cli_reference": "scripts/build_live_commit_execution_packet.py",
+  "docs_reference": "docs/architecture/live_commit_execution_packet.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py:live_commit_execution_packet_tests",
+  "metadata_only": true,
+  "proof_command": "python -m scripts.run_tests -q tests/test_live_commit_execution_packet.py tests/test_build_live_commit_execution_packet_script.py",
+  "proof_command_not_run": true,
+  "status": "implemented"
+}
