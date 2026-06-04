@@ -99,6 +99,19 @@ Final reports for memory-chain profile tasks should include:
 - docs build, prompt-boundary, strict audit, immutability, focused test, matrix/landing gate/supervisor, finalizer, PR metadata guard, clean-tree, and PR metadata results;
 - unresolved risks or a statement that none are known.
 
+## Metadata-verification landing evidence and recovery
+
+Memory-chain metadata-verification rungs should treat bootstrap output as the canonical task contract and keep prompts compact. Provide only task deltas that differ from this profile: capability IDs, changed paths, fixtures, blockers, validation deltas, and final-report additions. Do not paste duplicated giant prompt bodies when bootstrap and this profile already define the stable contract.
+
+Generate PR-body evidence with `scripts/build_codex_landing_evidence_body.py` from canonical matrix and landing-supervisor artifacts. The generated body must preserve the matrix output path, unresolved risks, and PR metadata guard markers so late landing failures can be repaired surgically without reconstructing ad hoc PR text.
+
+Recovery handling must be explicit:
+
+- same-workspace recovery can continue when task-owned files, commits, branches, or patch artifacts are present;
+- `no-files-found` in a fresh workspace means uncommitted task-owned implementation is not recoverable from the closed task;
+- late PR metadata, finalizer, or stale-evidence failures should be repaired in the same task by refreshing canonical evidence and rerunning the finalizer/guard sequence, not by rerunning the whole rung;
+- landing-rail repair tasks must not advance the memory chain, invoke executors, assemble prompts, retrieve live context, mutate live memory roots, or enable runtime execution.
+
 ## Future prompt compression pattern
 
 Future memory-chain prompts should reference this profile and provide only task-specific deltas where possible:
