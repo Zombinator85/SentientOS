@@ -186,6 +186,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_executor_runtime_enablement_packet_capability",
         "real_executor_runtime_gate_capability",
         "real_executor_invocation_gate_capability",
+        "real_executor_run_packet_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -278,6 +279,7 @@ BUNDLE_FILE_NAMES = {
     "real_executor_runtime_enablement_packet_capability": "real_executor_runtime_enablement_packet_capability.json",
     "real_executor_runtime_gate_capability": "real_executor_runtime_gate_capability.json",
     "real_executor_invocation_gate_capability": "real_executor_invocation_gate_capability.json",
+    "real_executor_run_packet_capability": "real_executor_run_packet_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1495,6 +1497,20 @@ def build_reviewer_proof_bundle_payload(
         "docs_reference": "docs/architecture/real_executor_invocation_gate.md",
         "blocked_or_deferred_surfaces": list(invocation_gate_record.deferred_surfaces),
         "forbidden_next_steps": ["real_executor_run_packet", "executor_invocation", "executor_activation", "runtime_enablement", "runtime_flag_flipping", "live_execution", "real_lock_acquisition", "lockfile_creation", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
+        "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+    })
+
+    run_packet_record = registry.by_id()["real_executor_run_packet"]
+    contents["real_executor_run_packet_capability"] = _pretty_json({
+        "artifact_kind": "real_executor_run_packet_capability",
+        **run_packet_record.to_dict(),
+        "metadata_only": True,
+        "proof_command_not_run": True,
+        "cli_reference": "scripts/build_real_executor_run_packet.py",
+        "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        "docs_reference": "docs/architecture/real_executor_run_packet.md",
+        "blocked_or_deferred_surfaces": list(run_packet_record.deferred_surfaces),
+        "forbidden_next_steps": ["real_executor_run_gate", "executor_run", "executor_invocation", "executor_activation", "runtime_enablement", "runtime_flag_flipping", "live_execution", "real_lock_acquisition", "lockfile_creation", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
         "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
     })
 
