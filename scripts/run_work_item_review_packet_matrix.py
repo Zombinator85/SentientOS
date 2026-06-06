@@ -72,6 +72,7 @@ def default_matrix_commands() -> list[MatrixCommand]:
         MatrixCommand("real_executor_invocation_gate_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_real_executor_invocation_gate.py", "tests/test_build_real_executor_invocation_gate_script.py")),
         MatrixCommand("real_executor_run_packet_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_real_executor_run_packet.py", "tests/test_build_real_executor_run_packet_script.py")),
         MatrixCommand("real_executor_run_gate_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_real_executor_run_gate.py", "tests/test_build_real_executor_run_gate_script.py")),
+        MatrixCommand("real_executor_execution_plan_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_real_executor_execution_plan.py", "tests/test_build_real_executor_execution_plan_script.py")),
         MatrixCommand("review_packet_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_review_packet.py", "tests/test_build_work_item_review_packet_script.py")),
         MatrixCommand("authority_closure_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_authority_claims.py", "tests/test_work_item_dry_run_closure.py", "tests/test_build_work_item_dry_run_closure_script.py")),
         MatrixCommand("dry_run_adapter_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_work_item_dry_run_adapter.py", "tests/test_run_work_item_dry_run_script.py")),
