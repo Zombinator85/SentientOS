@@ -1,0 +1,14 @@
+{
+  "artifact_kind": "real_executor_execution_authorization_packet_capability",
+  "authority_boundary": "metadata_verification_only",
+  "capability_id": "real_executor_execution_authorization_packet",
+  "cli_reference": "scripts/build_real_executor_execution_authorization_packet.py",
+  "docs_reference": "docs/architecture/real_executor_execution_authorization_packet.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py:real_executor_execution_authorization_packet_tests",
+  "module_reference": "sentientos/real_executor_execution_authorization_packet.py",
+  "proof_command": "python -m scripts.run_tests -q tests/test_real_executor_execution_authorization_packet.py tests/test_build_real_executor_execution_authorization_packet_script.py",
+  "proof_tests": [
+    "tests/test_real_executor_execution_authorization_packet.py",
+    "tests/test_build_real_executor_execution_authorization_packet_script.py"
+  ]
+}
