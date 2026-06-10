@@ -1,0 +1,609 @@
+{
+  "real_executor_execution_commit_plan_gate_candidates": [
+    {
+      "audit_readiness_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "audit_readiness_metadata",
+        "metadata_only": true
+      },
+      "candidate_id": "commit-plan-gate-noop",
+      "candidate_type": "noop_real_executor_execution_commit_plan_gate_candidate",
+      "claimed_activation_record_decision": "activation_record_ready_for_later_live_executor",
+      "claimed_activation_record_digest": "sha256:7d53667bcd23acbd369cf3d9d66b10c142bdc6e747904107223c08a7317f6374",
+      "claimed_constrained_enablement_path_decision": "constrained_enable_path_ready_for_future_live_execution_gate",
+      "claimed_constrained_enablement_path_packet_digest": "sha256:6e7518836f6537174cad36e4470983409405f078971eecef9b72a124a2282486",
+      "claimed_executor_enablement_gate_decision": "executor_enablement_ready_for_later_constrained_enable_path",
+      "claimed_executor_enablement_gate_digest": "sha256:ac518cc7ee399a9e6b061ff57736643874e7f134e31b8e29b0e1b2d1ad9392b2",
+      "claimed_executor_skeleton_decision": "executor_skeleton_ready_for_later_enablement_gate",
+      "claimed_executor_skeleton_digest": "sha256:f06645557f61c7ded5e0c9082c924c77d8373a3f7374b443b49c1eb451c231b8",
+      "claimed_final_review_decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+      "claimed_final_review_digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467",
+      "claimed_future_execution_gate_decision": "future_execution_gate_ready_for_later_live_commit_execution_packet",
+      "claimed_future_execution_gate_digest": "sha256:5b86795df57836c171885dc726bcc0b8a3bf37fb4c7b14ea7d226de8c970971d",
+      "claimed_guarded_executor_path_packet_decision": "guarded_executor_path_ready_for_later_real_executor_runtime_gate",
+      "claimed_guarded_executor_path_packet_digest": "sha256:guarded-path-carried-through-ready",
+      "claimed_invocation_harness_decision": "invocation_harness_ready_for_later_live_executor",
+      "claimed_invocation_harness_digest": "sha256:878d38480610fa889811a8114875de6cad6bc92ebeb55d1b6da3d057197710eb",
+      "claimed_live_commit_execution_packet_decision": "live_commit_execution_packet_ready_for_later_real_executor",
+      "claimed_live_commit_execution_packet_digest": "sha256:363ad9e2c0041a031a927000d34d58e75e2c2a69292a085d01bce43f51442af2",
+      "claimed_readiness_envelope_decision": "live_adapter_readiness_ready_for_later_runtime_gate",
+      "claimed_readiness_envelope_digest": "sha256:09b289c665b7c5fc1f0b11a7aea60e7bd254b5f7f9310762f10458200a055fce",
+      "claimed_real_executor_execution_activation_gate_decision": "real_executor_execution_activation_gate_noop",
+      "claimed_real_executor_execution_activation_gate_digest": "sha256:7b4595924060609ae090af22d3b30c98c8a6ecfb43737655a7f462f71bfbb074",
+      "claimed_real_executor_execution_activation_packet_decision": "real_executor_execution_activation_packet_noop",
+      "claimed_real_executor_execution_activation_packet_digest": "sha256:ba1c23621d071ac2c2a4897c2171f4186c684482b2c4ea5fb1fea8d9e93a079b",
+      "claimed_real_executor_execution_authorization_gate_decision": "real_executor_execution_authorization_gate_noop",
+      "claimed_real_executor_execution_authorization_gate_digest": "sha256:db305421f187e97f59da051c42591eefc3c9c0cdb99c5f2cc4dfe87642ddd385",
+      "claimed_real_executor_execution_authorization_packet_decision": "real_executor_execution_authorization_packet_noop",
+      "claimed_real_executor_execution_authorization_packet_digest": "sha256:e027511e7c0f5dc9a3341e95c3805b9fc88a9635b92c87339818bb1a58195f00",
+      "claimed_real_executor_execution_commit_plan_packet_decision": "real_executor_execution_commit_plan_packet_noop",
+      "claimed_real_executor_execution_commit_plan_packet_digest": "sha256:cead697ce88f8df3e3f00240473eb04c1c9b618830741b99566f03e952c78dde",
+      "claimed_real_executor_execution_gate_decision": "real_executor_execution_gate_noop",
+      "claimed_real_executor_execution_gate_digest": "sha256:0fcf9154f758865d8279c25b995bfc9be52d1f0a958bb1dce5dd0f7d470a66d8",
+      "claimed_real_executor_execution_invocation_gate_decision": "real_executor_execution_invocation_gate_noop",
+      "claimed_real_executor_execution_invocation_gate_digest": "sha256:6ba05c8199ae4ef4756e968c1ae77ca40e6bd337bcb5d6dbd39d89122232fa03",
+      "claimed_real_executor_execution_invocation_packet_decision": "real_executor_execution_invocation_packet_noop",
+      "claimed_real_executor_execution_invocation_packet_digest": "sha256:396c36dbf14b89523b3cb9dd39e99e09185cfde56e104983cd4bdebb4d5826af",
+      "claimed_real_executor_execution_lock_lease_gate_decision": "real_executor_execution_lock_lease_gate_noop",
+      "claimed_real_executor_execution_lock_lease_gate_digest": "sha256:c4625a75cee480a0ff94ca837588c13bd4d14f4da9130eea525f80f571bfc73a",
+      "claimed_real_executor_execution_lock_lease_packet_decision": "real_executor_execution_lock_lease_packet_noop",
+      "claimed_real_executor_execution_lock_lease_packet_digest": "sha256:14aa1faba06ee00084dcf5df8fc86db4bb1887e6c92694055e6224ce1b39c373",
+      "claimed_real_executor_execution_permit_gate_decision": "real_executor_execution_permit_gate_noop",
+      "claimed_real_executor_execution_permit_gate_digest": "sha256:61690dae96863c2dbe3e65d2d9475b6a1f68c8bd581dcc4ffd5ee5bfd4dccbc5",
+      "claimed_real_executor_execution_permit_packet_decision": "real_executor_execution_permit_packet_noop",
+      "claimed_real_executor_execution_permit_packet_digest": "sha256:104e5f17fc572f10f34233c3da4e5e08584ff2343b09e45c67c924fd2210822d",
+      "claimed_real_executor_execution_plan_decision": "real_executor_execution_plan_noop",
+      "claimed_real_executor_execution_plan_digest": "sha256:5795f96f985939122230f466795d417ea278a2e18351b9876647631ff2042835",
+      "claimed_real_executor_execution_preflight_gate_decision": "real_executor_execution_preflight_gate_noop",
+      "claimed_real_executor_execution_preflight_gate_digest": "sha256:16ceeb6ca366f5ad6d503f82893e8761e952307313cd23e9d2839bd7a08b669f",
+      "claimed_real_executor_execution_preflight_packet_decision": "real_executor_execution_preflight_packet_noop",
+      "claimed_real_executor_execution_preflight_packet_digest": "sha256:b36bb9ee6ea0a7e6f703f92db16dd52a973874ae44f6f7c140e5f9913d7d7f86",
+      "claimed_real_executor_execution_release_gate_decision": "real_executor_execution_release_gate_noop",
+      "claimed_real_executor_execution_release_gate_digest": "sha256:6f969a3ca9e604c266fc837614114681ab3f64927b33c914ca71dd35a9a3752d",
+      "claimed_real_executor_execution_release_packet_decision": "real_executor_execution_release_packet_noop",
+      "claimed_real_executor_execution_release_packet_digest": "sha256:4c09064184dddd1a76c45b68a250d11e6a05c23910eceee7a3bd7943c0303f7c",
+      "claimed_real_executor_invocation_gate_decision": "real_executor_invocation_gate_ready_for_later_real_executor_run_packet",
+      "claimed_real_executor_invocation_gate_digest": "sha256:eaf2da465125a74872199728d74c7c68d52d51fbd314a629e247ee8f32886925",
+      "claimed_real_executor_run_gate_decision": "real_executor_run_gate_noop",
+      "claimed_real_executor_run_gate_digest": "sha256:95fa4117e274125fc73c9815fe5c39ed73af24a1242a4fe9a5716fb5c5f23b22",
+      "claimed_real_executor_run_packet_decision": "real_executor_run_packet_noop",
+      "claimed_real_executor_run_packet_digest": "sha256:2c9aeb8cded22cae4965b13e117a1372df04ca8a50cbf4c5f2af78cb1f74e39f",
+      "claimed_real_root_admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+      "claimed_real_root_admission_digest": "sha256:real-root-ready",
+      "claimed_runtime_enablement_packet_decision": "runtime_enablement_packet_ready_for_later_real_executor_runtime_gate",
+      "claimed_runtime_enablement_packet_digest": "sha256:2c38f163f2099dcd66b7a994d1fd114d3ceb89169b8adc1c6e38ff6e678f985a",
+      "claimed_runtime_gate_decision": "runtime_gate_ready_for_later_guarded_executor_path",
+      "claimed_runtime_gate_digest": "sha256:df2261898e4463ae2ef4f9a19e730a3f8db652b40fd0127ad1d7bdef4dc8fa16",
+      "claimed_sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+      "claimed_sandbox_commit_digest": "sha256:sandbox-ready",
+      "commit_plan_gate_readiness_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "commit_plan_gate_readiness_metadata",
+        "metadata_only": true
+      },
+      "commit_plan_packet_confirmation_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "commit_plan_packet_confirmation_metadata",
+        "metadata_only": true
+      },
+      "commit_window_deferral_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "commit_window_deferral_metadata",
+        "metadata_only": true
+      },
+      "emergency_stop_confirmation_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "emergency_stop_confirmation_metadata",
+        "metadata_only": true
+      },
+      "future_real_executor_execution_commit_window_packet_requirement_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "future_real_executor_execution_commit_window_packet_requirement_metadata",
+        "metadata_only": true
+      },
+      "live_commit_execution_denial_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "live_commit_execution_denial_metadata",
+        "metadata_only": true
+      },
+      "live_memory_write_denial_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "live_memory_write_denial_metadata",
+        "metadata_only": true
+      },
+      "lock_lease_gate_confirmation_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "lock_lease_gate_confirmation_metadata",
+        "metadata_only": true
+      },
+      "metadata": {
+        "diagnostic_warning": false,
+        "kind": "lock_lease_gate_candidate_metadata",
+        "sequence": "noop"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "real_executor_execution_commit_plan_gate_claims": {},
+      "record_id": "commit-plan-gate-noop",
+      "rollback_readiness_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "rollback_readiness_metadata",
+        "metadata_only": true
+      },
+      "verification_readiness_metadata": {
+        "candidate_id": "commit-plan-gate-noop",
+        "kind": "verification_readiness_metadata",
+        "metadata_only": true
+      }
+    }
+  ],
+  "real_executor_execution_commit_plan_packet": {
+    "default_deny": true,
+    "digest": "sha256:cead697ce88f8df3e3f00240473eb04c1c9b618830741b99566f03e952c78dde",
+    "metadata_only": true,
+    "not_permission_to_execute": true,
+    "records": [
+      {
+        "action_execution_enabled": false,
+        "audit_readiness_is_metadata_only": true,
+        "audit_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:b157e016e5a4aa87572d7db3979c92c9d46ae93370198e395c47f4ab0e73a00e",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "audit_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "candidate_id": "lock-lease-gate-noop",
+        "candidate_type": "noop_real_executor_execution_commit_plan_packet_candidate",
+        "carried_evidence": {
+          "activation_record": {
+            "decision": "activation_record_ready_for_later_live_executor",
+            "digest": "sha256:7d53667bcd23acbd369cf3d9d66b10c142bdc6e747904107223c08a7317f6374"
+          },
+          "commit_plan_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "constrained_enablement_path": {
+            "decision": "constrained_enable_path_ready_for_future_live_execution_gate",
+            "digest": "sha256:6e7518836f6537174cad36e4470983409405f078971eecef9b72a124a2282486"
+          },
+          "executor_enablement_gate": {
+            "decision": "executor_enablement_ready_for_later_constrained_enable_path",
+            "digest": "sha256:ac518cc7ee399a9e6b061ff57736643874e7f134e31b8e29b0e1b2d1ad9392b2"
+          },
+          "executor_plan_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "executor_skeleton": {
+            "decision": "executor_skeleton_ready_for_later_enablement_gate",
+            "digest": "sha256:f06645557f61c7ded5e0c9082c924c77d8373a3f7374b443b49c1eb451c231b8"
+          },
+          "final_review": {
+            "decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+            "digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467"
+          },
+          "future_execution_gate": {
+            "decision": "future_execution_gate_ready_for_later_live_commit_execution_packet",
+            "digest": "sha256:5b86795df57836c171885dc726bcc0b8a3bf37fb4c7b14ea7d226de8c970971d"
+          },
+          "guarded_executor_invocation_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "guarded_executor_path_packet": {
+            "decision": "guarded_executor_path_ready_for_later_real_executor_runtime_gate",
+            "digest": "sha256:guarded-path-carried-through-ready"
+          },
+          "invocation_harness": {
+            "decision": "invocation_harness_ready_for_later_live_executor",
+            "digest": "sha256:878d38480610fa889811a8114875de6cad6bc92ebeb55d1b6da3d057197710eb"
+          },
+          "live_commit_execution_packet": {
+            "decision": "live_commit_execution_packet_ready_for_later_real_executor",
+            "digest": "sha256:363ad9e2c0041a031a927000d34d58e75e2c2a69292a085d01bce43f51442af2"
+          },
+          "lock_lease_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "readiness_envelope": {
+            "decision": "live_adapter_readiness_ready_for_later_runtime_gate",
+            "digest": "sha256:09b289c665b7c5fc1f0b11a7aea60e7bd254b5f7f9310762f10458200a055fce"
+          },
+          "real_executor_execution_activation_gate": {
+            "decision": "real_executor_execution_activation_gate_noop",
+            "digest": "sha256:7b4595924060609ae090af22d3b30c98c8a6ecfb43737655a7f462f71bfbb074"
+          },
+          "real_executor_execution_activation_packet": {
+            "decision": "real_executor_execution_activation_packet_noop",
+            "digest": "sha256:ba1c23621d071ac2c2a4897c2171f4186c684482b2c4ea5fb1fea8d9e93a079b"
+          },
+          "real_executor_execution_authorization_gate": {
+            "decision": "real_executor_execution_authorization_gate_noop",
+            "digest": "sha256:db305421f187e97f59da051c42591eefc3c9c0cdb99c5f2cc4dfe87642ddd385"
+          },
+          "real_executor_execution_authorization_packet": {
+            "decision": "real_executor_execution_authorization_packet_noop",
+            "digest": "sha256:e027511e7c0f5dc9a3341e95c3805b9fc88a9635b92c87339818bb1a58195f00"
+          },
+          "real_executor_execution_gate": {
+            "decision": "real_executor_execution_gate_noop",
+            "digest": "sha256:0fcf9154f758865d8279c25b995bfc9be52d1f0a958bb1dce5dd0f7d470a66d8"
+          },
+          "real_executor_execution_invocation_gate": {
+            "decision": "real_executor_execution_invocation_gate_noop",
+            "digest": "sha256:6ba05c8199ae4ef4756e968c1ae77ca40e6bd337bcb5d6dbd39d89122232fa03"
+          },
+          "real_executor_execution_invocation_packet": {
+            "decision": "real_executor_execution_invocation_packet_noop",
+            "digest": "sha256:396c36dbf14b89523b3cb9dd39e99e09185cfde56e104983cd4bdebb4d5826af"
+          },
+          "real_executor_execution_lock_lease_packet": {
+            "decision": "real_executor_execution_lock_lease_packet_noop",
+            "digest": "sha256:14aa1faba06ee00084dcf5df8fc86db4bb1887e6c92694055e6224ce1b39c373"
+          },
+          "real_executor_execution_permit_gate": {
+            "decision": "real_executor_execution_permit_gate_noop",
+            "digest": "sha256:61690dae96863c2dbe3e65d2d9475b6a1f68c8bd581dcc4ffd5ee5bfd4dccbc5"
+          },
+          "real_executor_execution_permit_packet": {
+            "decision": "real_executor_execution_permit_packet_noop",
+            "digest": "sha256:104e5f17fc572f10f34233c3da4e5e08584ff2343b09e45c67c924fd2210822d"
+          },
+          "real_executor_execution_plan": {
+            "decision": "real_executor_execution_plan_noop",
+            "digest": "sha256:5795f96f985939122230f466795d417ea278a2e18351b9876647631ff2042835"
+          },
+          "real_executor_execution_preflight_gate": {
+            "decision": "real_executor_execution_preflight_gate_noop",
+            "digest": "sha256:16ceeb6ca366f5ad6d503f82893e8761e952307313cd23e9d2839bd7a08b669f"
+          },
+          "real_executor_execution_preflight_packet": {
+            "decision": "real_executor_execution_preflight_packet_noop",
+            "digest": "sha256:b36bb9ee6ea0a7e6f703f92db16dd52a973874ae44f6f7c140e5f9913d7d7f86"
+          },
+          "real_executor_execution_release_gate": {
+            "decision": "real_executor_execution_release_gate_noop",
+            "digest": "sha256:6f969a3ca9e604c266fc837614114681ab3f64927b33c914ca71dd35a9a3752d"
+          },
+          "real_executor_execution_release_packet": {
+            "decision": "real_executor_execution_release_packet_noop",
+            "digest": "sha256:4c09064184dddd1a76c45b68a250d11e6a05c23910eceee7a3bd7943c0303f7c"
+          },
+          "real_executor_invocation_gate": {
+            "decision": "real_executor_invocation_gate_ready_for_later_real_executor_run_packet",
+            "digest": "sha256:eaf2da465125a74872199728d74c7c68d52d51fbd314a629e247ee8f32886925"
+          },
+          "real_executor_run_gate": {
+            "decision": "real_executor_run_gate_noop",
+            "digest": "sha256:95fa4117e274125fc73c9815fe5c39ed73af24a1242a4fe9a5716fb5c5f23b22"
+          },
+          "real_executor_run_packet": {
+            "decision": "real_executor_run_packet_noop",
+            "digest": "sha256:2c9aeb8cded22cae4965b13e117a1372df04ca8a50cbf4c5f2af78cb1f74e39f"
+          },
+          "real_root_admission": {
+            "decision": "real_root_admission_candidate_ready_for_future_adapter",
+            "digest": "sha256:real-root-ready"
+          },
+          "runtime_authorization_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "runtime_enablement_packet": {
+            "decision": "runtime_enablement_packet_ready_for_later_real_executor_runtime_gate",
+            "digest": "sha256:2c38f163f2099dcd66b7a994d1fd114d3ceb89169b8adc1c6e38ff6e678f985a"
+          },
+          "runtime_gate": {
+            "decision": "runtime_gate_ready_for_later_guarded_executor_path",
+            "digest": "sha256:df2261898e4463ae2ef4f9a19e730a3f8db652b40fd0127ad1d7bdef4dc8fa16"
+          },
+          "sandbox_commit": {
+            "decision": "sandbox_commit_artifacts_ready",
+            "digest": "sha256:sandbox-ready"
+          }
+        },
+        "commit_plan_packet_readiness_is_metadata_only": true,
+        "commit_plan_packet_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:4dc00f375c19ded0c784de5cfedf8b889ad0292be8e9c5a0f8c62ff3148239e0",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "commit_plan_packet_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "digest": "sha256:4fad6b9b6ff481e198cdfa81eb4d35df6f6f7bac1295532025201ef7c0836210",
+        "emergency_stop_confirmation_is_metadata_only": true,
+        "emergency_stop_confirmation_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:8a9b8348d358e7cbd76d09de752e33c2e4ec87ee40011c4304dd0e3236f48656",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "emergency_stop_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "external_disclosure_enabled": false,
+        "external_service_enabled": false,
+        "final_commit_plan_hold_point_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:f473c8ff2be04feac792771479dd298c48a5149f820b026e0ff2e1a84112c399",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "final_commit_plan_hold_point",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "final_commit_plan_hold_points_are_metadata_only": true,
+        "forbidden_next_steps": [
+          "preflight_execution",
+          "enabled_preflight",
+          "real_executor_invocation",
+          "enabled_invocation",
+          "real_executor_activation",
+          "enabled_activation",
+          "execution_release",
+          "execution_permit",
+          "execution_authorization",
+          "executor_enablement",
+          "runtime_flag_flipping",
+          "live_commit_execution",
+          "real_executor_run",
+          "execution_plan_run",
+          "commit_plan_gate_creation",
+          "real_lock_acquisition",
+          "lockfile_creation",
+          "real_live_memory_write",
+          "real_live_memory_delete",
+          "real_live_memory_purge",
+          "index_mutation",
+          "capsule_persistence",
+          "tomb_completion",
+          "prompt_assembly",
+          "live_context_retrieval",
+          "action_execution",
+          "external_disclosure",
+          "external_service_call",
+          "authority_grant"
+        ],
+        "future_post_execution_audit_required": true,
+        "future_real_executor_execution_commit_plan_gate_required": true,
+        "future_real_executor_execution_commit_window_packet_required": true,
+        "future_real_live_memory_commit_execution_required": true,
+        "live_commit_applied": false,
+        "live_commit_apply_enabled": false,
+        "live_commit_executed": false,
+        "live_commit_execution_denial_is_metadata_only": true,
+        "live_commit_execution_denial_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:28f96d9d520c7c56c1b3f9c13f0c451fa942f471564dc7e03ad437e4d4b0777b",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "live_commit_execution_denial",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "live_commit_execution_enabled": false,
+        "live_context_retrieval_enabled": false,
+        "live_memory_write_denial_is_metadata_only": true,
+        "live_memory_write_denial_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:6ad1d88e15571f241c3cedb0416ebf0ccd11119a98f4b694edea79085237dbc9",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "live_memory_write_denial",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "live_memory_write_enabled": false,
+        "lock_lease_gate_confirmation_is_metadata_only": true,
+        "lock_lease_gate_confirmation_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:02a98908d3b266d3dc8d871f1c307191b1c1339232d3a88bb8cf4344ca4bce31",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "lock_lease_gate_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "lock_lease_release_enabled": false,
+        "lock_lease_renewal_enabled": false,
+        "lockfile_created": false,
+        "lockfile_creation_enabled": false,
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "prompt_materialization_enabled": false,
+        "real_executor_activation_enabled": false,
+        "real_executor_authorization_gate_passed": false,
+        "real_executor_enabled": false,
+        "real_executor_execution_activation_enabled": false,
+        "real_executor_execution_activation_gate_passed": false,
+        "real_executor_execution_activation_packet_created": false,
+        "real_executor_execution_authorized": false,
+        "real_executor_execution_commit_plan_enabled": false,
+        "real_executor_execution_commit_plan_gate_passed": false,
+        "real_executor_execution_commit_plan_packet_created": false,
+        "real_executor_execution_commit_plan_packet_decision": "real_executor_execution_commit_plan_packet_noop",
+        "real_executor_execution_commit_plan_packet_does_not_acquire_locks": true,
+        "real_executor_execution_commit_plan_packet_does_not_activate_executor": true,
+        "real_executor_execution_commit_plan_packet_does_not_apply_a_commit": true,
+        "real_executor_execution_commit_plan_packet_does_not_apply_commit": true,
+        "real_executor_execution_commit_plan_packet_does_not_create_lockfiles": true,
+        "real_executor_execution_commit_plan_packet_does_not_create_real_lock_leases": true,
+        "real_executor_execution_commit_plan_packet_does_not_execute_a_commit": true,
+        "real_executor_execution_commit_plan_packet_does_not_execute_commit": true,
+        "real_executor_execution_commit_plan_packet_does_not_execute_preflight": true,
+        "real_executor_execution_commit_plan_packet_does_not_invoke_executor": true,
+        "real_executor_execution_commit_plan_packet_does_not_issue_permit": true,
+        "real_executor_execution_commit_plan_packet_does_not_release_execution": true,
+        "real_executor_execution_commit_plan_packet_does_not_write_live_memory": true,
+        "real_executor_execution_commit_plan_packet_is_not_action_execution": true,
+        "real_executor_execution_commit_plan_packet_is_not_capsule_persistence": true,
+        "real_executor_execution_commit_plan_packet_is_not_enabled_executor": true,
+        "real_executor_execution_commit_plan_packet_is_not_execution_authorization": true,
+        "real_executor_execution_commit_plan_packet_is_not_execution_permit": true,
+        "real_executor_execution_commit_plan_packet_is_not_execution_release": true,
+        "real_executor_execution_commit_plan_packet_is_not_executor_activation": true,
+        "real_executor_execution_commit_plan_packet_is_not_executor_enablement": true,
+        "real_executor_execution_commit_plan_packet_is_not_executor_execution": true,
+        "real_executor_execution_commit_plan_packet_is_not_executor_invocation": true,
+        "real_executor_execution_commit_plan_packet_is_not_executor_run": true,
+        "real_executor_execution_commit_plan_packet_is_not_external_disclosure": true,
+        "real_executor_execution_commit_plan_packet_is_not_index_mutation": true,
+        "real_executor_execution_commit_plan_packet_is_not_live_commit_execution": true,
+        "real_executor_execution_commit_plan_packet_is_not_live_context_retrieval": true,
+        "real_executor_execution_commit_plan_packet_is_not_lock_acquisition": true,
+        "real_executor_execution_commit_plan_packet_is_not_lockfile_creation": true,
+        "real_executor_execution_commit_plan_packet_is_not_memory_write_deletion_purge": true,
+        "real_executor_execution_commit_plan_packet_is_not_permission_to_execute": true,
+        "real_executor_execution_commit_plan_packet_is_not_preflight_execution": true,
+        "real_executor_execution_commit_plan_packet_is_not_prompt_assembly": true,
+        "real_executor_execution_commit_plan_packet_is_not_runtime_enablement": true,
+        "real_executor_execution_commit_plan_packet_is_not_runtime_flag_flip": true,
+        "real_executor_execution_commit_plan_packet_is_not_tomb_completion": true,
+        "real_executor_execution_commit_plan_packet_is_not_truth_policy_authority_or_consent": true,
+        "real_executor_execution_commit_plan_packet_passed": false,
+        "real_executor_execution_enabled": false,
+        "real_executor_execution_invocation_enabled": false,
+        "real_executor_execution_invocation_gate_passed": false,
+        "real_executor_execution_invocation_packet_created": false,
+        "real_executor_execution_lock_lease_created": false,
+        "real_executor_execution_lock_lease_enabled": false,
+        "real_executor_execution_lock_lease_gate_decision": "real_executor_execution_lock_lease_gate_noop",
+        "real_executor_execution_lock_lease_gate_digest": "sha256:c4625a75cee480a0ff94ca837588c13bd4d14f4da9130eea525f80f571bfc73a",
+        "real_executor_execution_lock_lease_gate_passed": false,
+        "real_executor_execution_lock_lease_packet_created": false,
+        "real_executor_execution_permit_gate_passed": false,
+        "real_executor_execution_permit_issued": false,
+        "real_executor_execution_preflight_enabled": false,
+        "real_executor_execution_preflight_executed": false,
+        "real_executor_execution_preflight_gate_passed": false,
+        "real_executor_execution_preflight_packet_created": false,
+        "real_executor_execution_release_gate_passed": false,
+        "real_executor_execution_released": false,
+        "real_executor_invocation_enabled": false,
+        "real_executor_invoked": false,
+        "real_executor_run_enabled": false,
+        "real_lock_acquired": false,
+        "real_lock_acquisition_enabled": false,
+        "real_memory_root_write_enabled": false,
+        "record_id": "lock-lease-gate-noop",
+        "rollback_readiness_is_metadata_only": true,
+        "rollback_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:ee89b92db73ba79f98ada1bb22b5a09b54296f708933a8d1bd816dcedebb8ac1",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "rollback_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "safe_next_actions": [
+          "record_noop_metadata",
+          "continue_review_without_executor_authority"
+        ],
+        "verification_readiness_is_metadata_only": true,
+        "verification_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "lock-lease-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:baf2448a36d178bffe366ba1f19aaca2e9e5a1a3260b973a88054c16b216ce5c",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "lock-lease-gate-noop",
+            "record_type": "verification_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ]
+      }
+    ],
+    "schema_version": "real-executor-execution-commit-plan-packet.v1"
+  }
+}
