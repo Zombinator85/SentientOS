@@ -1,0 +1,561 @@
+{
+  "boundary": {
+    "default_deny": true,
+    "metadata_only": true,
+    "real_executor_execution_lock_lease_gate_required": true
+  },
+  "real_executor_execution_lock_lease_packet_candidates": [
+    {
+      "audit_readiness_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "audit_readiness_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "candidate_id": "lock-lease-packet-noop",
+      "candidate_type": "noop_real_executor_execution_lock_lease_packet_candidate",
+      "claimed_activation_record_decision": "activation_record_ready_for_later_live_executor",
+      "claimed_activation_record_digest": "sha256:7d53667bcd23acbd369cf3d9d66b10c142bdc6e747904107223c08a7317f6374",
+      "claimed_constrained_enablement_path_decision": "constrained_enable_path_ready_for_future_live_execution_gate",
+      "claimed_constrained_enablement_path_packet_digest": "sha256:6e7518836f6537174cad36e4470983409405f078971eecef9b72a124a2282486",
+      "claimed_executor_enablement_gate_decision": "executor_enablement_ready_for_later_constrained_enable_path",
+      "claimed_executor_enablement_gate_digest": "sha256:ac518cc7ee399a9e6b061ff57736643874e7f134e31b8e29b0e1b2d1ad9392b2",
+      "claimed_executor_plan_packet_decision": "executor_plan_ready_for_later_live_executor",
+      "claimed_executor_plan_packet_digest": "sha256:11c7b5eb2ff38ee8541e4e06bb64b8cfc9be7918c9616ad6b10df69a0d064c96",
+      "claimed_executor_skeleton_decision": "executor_skeleton_ready_for_later_enablement_gate",
+      "claimed_executor_skeleton_digest": "sha256:f06645557f61c7ded5e0c9082c924c77d8373a3f7374b443b49c1eb451c231b8",
+      "claimed_final_review_decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+      "claimed_final_review_digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467",
+      "claimed_future_execution_gate_decision": "future_execution_gate_ready_for_later_live_commit_execution_packet",
+      "claimed_future_execution_gate_digest": "sha256:5b86795df57836c171885dc726bcc0b8a3bf37fb4c7b14ea7d226de8c970971d",
+      "claimed_guarded_executor_invocation_packet_decision": "",
+      "claimed_guarded_executor_invocation_packet_digest": "",
+      "claimed_guarded_executor_path_packet_decision": "guarded_executor_path_ready_for_later_real_executor_runtime_gate",
+      "claimed_guarded_executor_path_packet_digest": "sha256:guarded-path-carried-through-ready",
+      "claimed_invocation_harness_decision": "invocation_harness_ready_for_later_live_executor",
+      "claimed_invocation_harness_digest": "sha256:878d38480610fa889811a8114875de6cad6bc92ebeb55d1b6da3d057197710eb",
+      "claimed_live_commit_execution_packet_decision": "live_commit_execution_packet_ready_for_later_real_executor",
+      "claimed_live_commit_execution_packet_digest": "sha256:363ad9e2c0041a031a927000d34d58e75e2c2a69292a085d01bce43f51442af2",
+      "claimed_lock_lease_gate_decision": "lock_lease_ready_for_later_live_executor",
+      "claimed_lock_lease_gate_digest": "sha256:6742ea36bcaae0ec25359b26bc313e199e3c43724ab34cbfc5446c8da9cf7c2c",
+      "claimed_preflight_packet_decision": "preflight_ready_for_later_live_executor",
+      "claimed_preflight_packet_digest": "sha256:6aeb4f10e46f4e7d3835dfd26deaa2d70be8f7747b2f81edd065730355136170",
+      "claimed_readiness_envelope_decision": "live_adapter_readiness_ready_for_later_runtime_gate",
+      "claimed_readiness_envelope_digest": "sha256:09b289c665b7c5fc1f0b11a7aea60e7bd254b5f7f9310762f10458200a055fce",
+      "claimed_real_executor_execution_activation_gate_decision": "real_executor_execution_activation_gate_noop",
+      "claimed_real_executor_execution_activation_gate_digest": "sha256:7b4595924060609ae090af22d3b30c98c8a6ecfb43737655a7f462f71bfbb074",
+      "claimed_real_executor_execution_activation_packet_decision": "real_executor_execution_activation_packet_noop",
+      "claimed_real_executor_execution_activation_packet_digest": "sha256:ba1c23621d071ac2c2a4897c2171f4186c684482b2c4ea5fb1fea8d9e93a079b",
+      "claimed_real_executor_execution_authorization_gate_decision": "real_executor_execution_authorization_gate_noop",
+      "claimed_real_executor_execution_authorization_gate_digest": "sha256:db305421f187e97f59da051c42591eefc3c9c0cdb99c5f2cc4dfe87642ddd385",
+      "claimed_real_executor_execution_authorization_packet_decision": "real_executor_execution_authorization_packet_noop",
+      "claimed_real_executor_execution_authorization_packet_digest": "sha256:e027511e7c0f5dc9a3341e95c3805b9fc88a9635b92c87339818bb1a58195f00",
+      "claimed_real_executor_execution_gate_decision": "real_executor_execution_gate_noop",
+      "claimed_real_executor_execution_gate_digest": "sha256:0fcf9154f758865d8279c25b995bfc9be52d1f0a958bb1dce5dd0f7d470a66d8",
+      "claimed_real_executor_execution_invocation_gate_decision": "real_executor_execution_invocation_gate_noop",
+      "claimed_real_executor_execution_invocation_gate_digest": "sha256:6ba05c8199ae4ef4756e968c1ae77ca40e6bd337bcb5d6dbd39d89122232fa03",
+      "claimed_real_executor_execution_invocation_packet_decision": "real_executor_execution_invocation_packet_noop",
+      "claimed_real_executor_execution_invocation_packet_digest": "sha256:396c36dbf14b89523b3cb9dd39e99e09185cfde56e104983cd4bdebb4d5826af",
+      "claimed_real_executor_execution_permit_gate_decision": "real_executor_execution_permit_gate_noop",
+      "claimed_real_executor_execution_permit_gate_digest": "sha256:61690dae96863c2dbe3e65d2d9475b6a1f68c8bd581dcc4ffd5ee5bfd4dccbc5",
+      "claimed_real_executor_execution_permit_packet_decision": "real_executor_execution_permit_packet_noop",
+      "claimed_real_executor_execution_permit_packet_digest": "sha256:104e5f17fc572f10f34233c3da4e5e08584ff2343b09e45c67c924fd2210822d",
+      "claimed_real_executor_execution_plan_decision": "real_executor_execution_plan_noop",
+      "claimed_real_executor_execution_plan_digest": "sha256:5795f96f985939122230f466795d417ea278a2e18351b9876647631ff2042835",
+      "claimed_real_executor_execution_preflight_gate_decision": "real_executor_execution_preflight_gate_noop",
+      "claimed_real_executor_execution_preflight_gate_digest": "sha256:16ceeb6ca366f5ad6d503f82893e8761e952307313cd23e9d2839bd7a08b669f",
+      "claimed_real_executor_execution_preflight_packet_decision": "real_executor_execution_preflight_packet_noop",
+      "claimed_real_executor_execution_preflight_packet_digest": "sha256:b36bb9ee6ea0a7e6f703f92db16dd52a973874ae44f6f7c140e5f9913d7d7f86",
+      "claimed_real_executor_execution_release_gate_decision": "real_executor_execution_release_gate_noop",
+      "claimed_real_executor_execution_release_gate_digest": "sha256:6f969a3ca9e604c266fc837614114681ab3f64927b33c914ca71dd35a9a3752d",
+      "claimed_real_executor_execution_release_packet_decision": "real_executor_execution_release_packet_noop",
+      "claimed_real_executor_execution_release_packet_digest": "sha256:4c09064184dddd1a76c45b68a250d11e6a05c23910eceee7a3bd7943c0303f7c",
+      "claimed_real_executor_invocation_gate_decision": "real_executor_invocation_gate_ready_for_later_real_executor_run_packet",
+      "claimed_real_executor_invocation_gate_digest": "sha256:eaf2da465125a74872199728d74c7c68d52d51fbd314a629e247ee8f32886925",
+      "claimed_real_executor_run_gate_decision": "real_executor_run_gate_noop",
+      "claimed_real_executor_run_gate_digest": "sha256:95fa4117e274125fc73c9815fe5c39ed73af24a1242a4fe9a5716fb5c5f23b22",
+      "claimed_real_executor_run_packet_decision": "real_executor_run_packet_noop",
+      "claimed_real_executor_run_packet_digest": "sha256:2c9aeb8cded22cae4965b13e117a1372df04ca8a50cbf4c5f2af78cb1f74e39f",
+      "claimed_real_root_admission_decision": "real_root_admission_candidate_ready_for_future_adapter",
+      "claimed_real_root_admission_digest": "sha256:real-root-ready",
+      "claimed_runtime_authorization_packet_decision": "",
+      "claimed_runtime_authorization_packet_digest": "",
+      "claimed_runtime_enablement_packet_decision": "runtime_enablement_packet_ready_for_later_real_executor_runtime_gate",
+      "claimed_runtime_enablement_packet_digest": "sha256:2c38f163f2099dcd66b7a994d1fd114d3ceb89169b8adc1c6e38ff6e678f985a",
+      "claimed_runtime_gate_decision": "runtime_gate_ready_for_later_guarded_executor_path",
+      "claimed_runtime_gate_digest": "sha256:df2261898e4463ae2ef4f9a19e730a3f8db652b40fd0127ad1d7bdef4dc8fa16",
+      "claimed_sandbox_commit_decision": "sandbox_commit_artifacts_ready",
+      "claimed_sandbox_commit_digest": "sha256:sandbox-ready",
+      "emergency_stop_confirmation_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "emergency_stop_confirmation_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "final_lock_hold_point_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "final_lock_hold_point_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "lock_acquisition_denial_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "lock_acquisition_denial_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "lock_lease_packet_readiness_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "lock_lease_packet_readiness_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "lockfile_creation_denial_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "lockfile_creation_denial_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "metadata": {
+        "diagnostic_warning": false,
+        "source": "fixture"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "preflight_gate_confirmation_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "preflight_gate_confirmation_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "real_executor_execution_lock_lease_packet_claims": {},
+      "record_id": "lock-lease-packet-noop-record",
+      "rollback_readiness_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "rollback_readiness_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      },
+      "verification_readiness_metadata": {
+        "candidate_id": "lock-lease-packet-noop",
+        "kind": "verification_readiness_metadata",
+        "metadata_only": true,
+        "sequence": "noop"
+      }
+    }
+  ],
+  "real_executor_execution_preflight_gate": {
+    "default_deny": true,
+    "digest": "sha256:16ceeb6ca366f5ad6d503f82893e8761e952307313cd23e9d2839bd7a08b669f",
+    "metadata_only": true,
+    "not_permission_to_execute": true,
+    "records": [
+      {
+        "action_execution_enabled": false,
+        "audit_readiness_is_metadata_only": true,
+        "audit_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:7914a5046daed8ee92a006b44b7eed8ec94b5882956b15f5a856eac7ae884077",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "audit_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "candidate_id": "preflight-gate-noop",
+        "candidate_type": "noop_real_executor_execution_preflight_gate_candidate",
+        "carried_evidence": {
+          "activation_record": {
+            "decision": "activation_record_ready_for_later_live_executor",
+            "digest": "sha256:7d53667bcd23acbd369cf3d9d66b10c142bdc6e747904107223c08a7317f6374"
+          },
+          "constrained_enablement_path": {
+            "decision": "constrained_enable_path_ready_for_future_live_execution_gate",
+            "digest": "sha256:6e7518836f6537174cad36e4470983409405f078971eecef9b72a124a2282486"
+          },
+          "executor_enablement_gate": {
+            "decision": "executor_enablement_ready_for_later_constrained_enable_path",
+            "digest": "sha256:ac518cc7ee399a9e6b061ff57736643874e7f134e31b8e29b0e1b2d1ad9392b2"
+          },
+          "executor_plan_packet": {
+            "decision": "executor_plan_ready_for_later_live_executor",
+            "digest": "sha256:11c7b5eb2ff38ee8541e4e06bb64b8cfc9be7918c9616ad6b10df69a0d064c96"
+          },
+          "executor_skeleton": {
+            "decision": "executor_skeleton_ready_for_later_enablement_gate",
+            "digest": "sha256:f06645557f61c7ded5e0c9082c924c77d8373a3f7374b443b49c1eb451c231b8"
+          },
+          "final_review": {
+            "decision": "final_live_commit_review_ready_for_future_adapter_implementation",
+            "digest": "sha256:c0989930ca64379beeae8bba44af2e9847b109a9292b345d987bc2854b20a467"
+          },
+          "future_execution_gate": {
+            "decision": "future_execution_gate_ready_for_later_live_commit_execution_packet",
+            "digest": "sha256:5b86795df57836c171885dc726bcc0b8a3bf37fb4c7b14ea7d226de8c970971d"
+          },
+          "guarded_executor_invocation_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "guarded_executor_path_packet": {
+            "decision": "guarded_executor_path_ready_for_later_real_executor_runtime_gate",
+            "digest": "sha256:guarded-path-carried-through-ready"
+          },
+          "invocation_harness": {
+            "decision": "invocation_harness_ready_for_later_live_executor",
+            "digest": "sha256:878d38480610fa889811a8114875de6cad6bc92ebeb55d1b6da3d057197710eb"
+          },
+          "live_commit_execution_packet": {
+            "decision": "live_commit_execution_packet_ready_for_later_real_executor",
+            "digest": "sha256:363ad9e2c0041a031a927000d34d58e75e2c2a69292a085d01bce43f51442af2"
+          },
+          "lock_lease_gate": {
+            "decision": "lock_lease_ready_for_later_live_executor",
+            "digest": "sha256:6742ea36bcaae0ec25359b26bc313e199e3c43724ab34cbfc5446c8da9cf7c2c"
+          },
+          "preflight_packet": {
+            "decision": "preflight_ready_for_later_live_executor",
+            "digest": "sha256:6aeb4f10e46f4e7d3835dfd26deaa2d70be8f7747b2f81edd065730355136170"
+          },
+          "readiness_envelope": {
+            "decision": "live_adapter_readiness_ready_for_later_runtime_gate",
+            "digest": "sha256:09b289c665b7c5fc1f0b11a7aea60e7bd254b5f7f9310762f10458200a055fce"
+          },
+          "real_executor_execution_activation_gate": {
+            "decision": "real_executor_execution_activation_gate_noop",
+            "digest": "sha256:7b4595924060609ae090af22d3b30c98c8a6ecfb43737655a7f462f71bfbb074"
+          },
+          "real_executor_execution_activation_packet": {
+            "decision": "real_executor_execution_activation_packet_noop",
+            "digest": "sha256:ba1c23621d071ac2c2a4897c2171f4186c684482b2c4ea5fb1fea8d9e93a079b"
+          },
+          "real_executor_execution_authorization_gate": {
+            "decision": "real_executor_execution_authorization_gate_noop",
+            "digest": "sha256:db305421f187e97f59da051c42591eefc3c9c0cdb99c5f2cc4dfe87642ddd385"
+          },
+          "real_executor_execution_authorization_packet": {
+            "decision": "real_executor_execution_authorization_packet_noop",
+            "digest": "sha256:e027511e7c0f5dc9a3341e95c3805b9fc88a9635b92c87339818bb1a58195f00"
+          },
+          "real_executor_execution_gate": {
+            "decision": "real_executor_execution_gate_noop",
+            "digest": "sha256:0fcf9154f758865d8279c25b995bfc9be52d1f0a958bb1dce5dd0f7d470a66d8"
+          },
+          "real_executor_execution_invocation_gate": {
+            "decision": "real_executor_execution_invocation_gate_noop",
+            "digest": "sha256:6ba05c8199ae4ef4756e968c1ae77ca40e6bd337bcb5d6dbd39d89122232fa03"
+          },
+          "real_executor_execution_invocation_packet": {
+            "decision": "real_executor_execution_invocation_packet_noop",
+            "digest": "sha256:396c36dbf14b89523b3cb9dd39e99e09185cfde56e104983cd4bdebb4d5826af"
+          },
+          "real_executor_execution_permit_gate": {
+            "decision": "real_executor_execution_permit_gate_noop",
+            "digest": "sha256:61690dae96863c2dbe3e65d2d9475b6a1f68c8bd581dcc4ffd5ee5bfd4dccbc5"
+          },
+          "real_executor_execution_permit_packet": {
+            "decision": "real_executor_execution_permit_packet_noop",
+            "digest": "sha256:104e5f17fc572f10f34233c3da4e5e08584ff2343b09e45c67c924fd2210822d"
+          },
+          "real_executor_execution_plan": {
+            "decision": "real_executor_execution_plan_noop",
+            "digest": "sha256:5795f96f985939122230f466795d417ea278a2e18351b9876647631ff2042835"
+          },
+          "real_executor_execution_release_gate": {
+            "decision": "real_executor_execution_release_gate_noop",
+            "digest": "sha256:6f969a3ca9e604c266fc837614114681ab3f64927b33c914ca71dd35a9a3752d"
+          },
+          "real_executor_execution_release_packet": {
+            "decision": "real_executor_execution_release_packet_noop",
+            "digest": "sha256:4c09064184dddd1a76c45b68a250d11e6a05c23910eceee7a3bd7943c0303f7c"
+          },
+          "real_executor_invocation_gate": {
+            "decision": "real_executor_invocation_gate_ready_for_later_real_executor_run_packet",
+            "digest": "sha256:eaf2da465125a74872199728d74c7c68d52d51fbd314a629e247ee8f32886925"
+          },
+          "real_executor_run_gate": {
+            "decision": "real_executor_run_gate_noop",
+            "digest": "sha256:95fa4117e274125fc73c9815fe5c39ed73af24a1242a4fe9a5716fb5c5f23b22"
+          },
+          "real_executor_run_packet": {
+            "decision": "real_executor_run_packet_noop",
+            "digest": "sha256:2c9aeb8cded22cae4965b13e117a1372df04ca8a50cbf4c5f2af78cb1f74e39f"
+          },
+          "real_root_admission": {
+            "decision": "real_root_admission_candidate_ready_for_future_adapter",
+            "digest": "sha256:real-root-ready"
+          },
+          "runtime_authorization_packet": {
+            "decision": "",
+            "digest": ""
+          },
+          "runtime_enablement_packet": {
+            "decision": "runtime_enablement_packet_ready_for_later_real_executor_runtime_gate",
+            "digest": "sha256:2c38f163f2099dcd66b7a994d1fd114d3ceb89169b8adc1c6e38ff6e678f985a"
+          },
+          "runtime_gate": {
+            "decision": "runtime_gate_ready_for_later_guarded_executor_path",
+            "digest": "sha256:df2261898e4463ae2ef4f9a19e730a3f8db652b40fd0127ad1d7bdef4dc8fa16"
+          },
+          "sandbox_commit": {
+            "decision": "sandbox_commit_artifacts_ready",
+            "digest": "sha256:sandbox-ready"
+          }
+        },
+        "digest": "sha256:94e6e225cf15febc6b8a5ee8f3b0e069a536866d240a62726cb6b43320802d02",
+        "emergency_stop_confirmation_is_metadata_only": true,
+        "emergency_stop_confirmation_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:e8c12085498670e0afbd6a294667265051027766bfa22c0fb94c94c13c76f88e",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "emergency_stop_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "execution_preflight_denial_is_metadata_only": true,
+        "execution_preflight_denial_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:ab1cc02802499a0e88bc5439c4af14ba561cd8489ead831cee406f28f27ed90a",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "execution_preflight_denial",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "external_disclosure_enabled": false,
+        "external_service_enabled": false,
+        "final_preflight_hold_point_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:0a6b1845258c0049de775cf3c4d0376f496d9b6cd87a6c3f97c1294d6d1152b1",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "final_preflight_hold_point",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "final_preflight_hold_points_are_metadata_only": true,
+        "forbidden_next_steps": [
+          "preflight_execution",
+          "enabled_preflight",
+          "real_executor_invocation",
+          "enabled_invocation",
+          "real_executor_activation",
+          "enabled_activation",
+          "execution_release",
+          "execution_permit",
+          "execution_authorization",
+          "executor_enablement",
+          "runtime_flag_flipping",
+          "live_commit_execution",
+          "real_executor_run",
+          "execution_plan_run",
+          "lock_lease_packet_creation",
+          "real_lock_acquisition",
+          "lockfile_creation",
+          "real_live_memory_write",
+          "real_live_memory_delete",
+          "real_live_memory_purge",
+          "index_mutation",
+          "capsule_persistence",
+          "tomb_completion",
+          "prompt_assembly",
+          "live_context_retrieval",
+          "action_execution",
+          "external_disclosure",
+          "external_service_call",
+          "authority_grant"
+        ],
+        "future_post_execution_audit_required": true,
+        "future_real_executor_execution_lock_lease_packet_required": true,
+        "future_real_live_memory_commit_execution_required": true,
+        "live_context_retrieval_enabled": false,
+        "live_memory_write_enabled": false,
+        "lockfile_creation_enabled": false,
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "preflight_gate_readiness_is_metadata_only": true,
+        "preflight_gate_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:39e8e911df2d3dd4fcfb012f6799d93eb519fff0212e7dba66d93211fe3ba541",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "preflight_gate_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "preflight_packet_confirmation_is_metadata_only": true,
+        "preflight_packet_confirmation_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:54ce862a01bb644b8b546f948bd336970fefb6893d6a5228bffc3401651a08a7",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "preflight_packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "prompt_materialization_enabled": false,
+        "real_executor_activation_enabled": false,
+        "real_executor_authorization_gate_passed": false,
+        "real_executor_enabled": false,
+        "real_executor_execution_activation_enabled": false,
+        "real_executor_execution_activation_gate_passed": false,
+        "real_executor_execution_activation_packet_created": false,
+        "real_executor_execution_authorized": false,
+        "real_executor_execution_enabled": false,
+        "real_executor_execution_invocation_enabled": false,
+        "real_executor_execution_invocation_gate_passed": false,
+        "real_executor_execution_invocation_packet_created": false,
+        "real_executor_execution_lock_lease_packet_created": false,
+        "real_executor_execution_permit_gate_passed": false,
+        "real_executor_execution_permit_issued": false,
+        "real_executor_execution_preflight_enabled": false,
+        "real_executor_execution_preflight_executed": false,
+        "real_executor_execution_preflight_gate_decision": "real_executor_execution_preflight_gate_noop",
+        "real_executor_execution_preflight_gate_does_not_activate_executor": true,
+        "real_executor_execution_preflight_gate_does_not_execute_preflight": true,
+        "real_executor_execution_preflight_gate_does_not_invoke_executor": true,
+        "real_executor_execution_preflight_gate_does_not_issue_permit": true,
+        "real_executor_execution_preflight_gate_does_not_release_execution": true,
+        "real_executor_execution_preflight_gate_is_not_action_execution": true,
+        "real_executor_execution_preflight_gate_is_not_capsule_persistence": true,
+        "real_executor_execution_preflight_gate_is_not_enabled_executor": true,
+        "real_executor_execution_preflight_gate_is_not_execution_authorization": true,
+        "real_executor_execution_preflight_gate_is_not_execution_permit": true,
+        "real_executor_execution_preflight_gate_is_not_execution_release": true,
+        "real_executor_execution_preflight_gate_is_not_executor_activation": true,
+        "real_executor_execution_preflight_gate_is_not_executor_enablement": true,
+        "real_executor_execution_preflight_gate_is_not_executor_execution": true,
+        "real_executor_execution_preflight_gate_is_not_executor_invocation": true,
+        "real_executor_execution_preflight_gate_is_not_executor_run": true,
+        "real_executor_execution_preflight_gate_is_not_external_disclosure": true,
+        "real_executor_execution_preflight_gate_is_not_index_mutation": true,
+        "real_executor_execution_preflight_gate_is_not_live_commit_execution": true,
+        "real_executor_execution_preflight_gate_is_not_live_context_retrieval": true,
+        "real_executor_execution_preflight_gate_is_not_lock_acquisition": true,
+        "real_executor_execution_preflight_gate_is_not_lockfile_creation": true,
+        "real_executor_execution_preflight_gate_is_not_memory_write_deletion_purge": true,
+        "real_executor_execution_preflight_gate_is_not_permission_to_execute": true,
+        "real_executor_execution_preflight_gate_is_not_preflight_execution": true,
+        "real_executor_execution_preflight_gate_is_not_prompt_assembly": true,
+        "real_executor_execution_preflight_gate_is_not_runtime_enablement": true,
+        "real_executor_execution_preflight_gate_is_not_runtime_flag_flip": true,
+        "real_executor_execution_preflight_gate_is_not_tomb_completion": true,
+        "real_executor_execution_preflight_gate_is_not_truth_policy_authority_or_consent": true,
+        "real_executor_execution_preflight_gate_passed": false,
+        "real_executor_execution_preflight_packet_created": false,
+        "real_executor_execution_preflight_packet_decision": "real_executor_execution_preflight_packet_noop",
+        "real_executor_execution_preflight_packet_digest": "sha256:b36bb9ee6ea0a7e6f703f92db16dd52a973874ae44f6f7c140e5f9913d7d7f86",
+        "real_executor_execution_release_gate_passed": false,
+        "real_executor_execution_released": false,
+        "real_executor_invocation_enabled": false,
+        "real_executor_invoked": false,
+        "real_executor_run_enabled": false,
+        "real_lock_acquisition_enabled": false,
+        "real_memory_root_write_enabled": false,
+        "record_id": "preflight-gate-record-noop",
+        "rollback_readiness_is_metadata_only": true,
+        "rollback_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:1e50627a9f1117d87d29be3bfcba80c090cda434ef83a7b9bd62665fd365eee5",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "rollback_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "safe_next_actions": [
+          "record_noop_metadata",
+          "continue_review_without_executor_authority"
+        ],
+        "verification_readiness_is_metadata_only": true,
+        "verification_readiness_records": [
+          {
+            "active_runtime_state": false,
+            "authoritative": false,
+            "candidate_id": "preflight-gate-noop",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:2cf5bbcff0031e717ee914d277d8e0ad5ab9861a60579302117b152454776ba7",
+            "metadata_only": true,
+            "permission_granted": false,
+            "record_id": "preflight-gate-record-noop",
+            "record_type": "verification_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ]
+      }
+    ],
+    "schema_version": "real-executor-execution-preflight-gate.v1"
+  }
+}
