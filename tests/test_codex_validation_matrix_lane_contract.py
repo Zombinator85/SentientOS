@@ -12,6 +12,7 @@ def _matrix() -> dict[str, object]:
             {"label": "governed_memory_writer_adapter_tests", "exit_code": 0},
             {"label": "real_memory_root_admission_gate_tests", "exit_code": 0},
             {"label": "real_executor_execution_preflight_gate_tests", "exit_code": 0},
+            {"label": "real_executor_execution_lock_lease_packet_tests", "exit_code": 0},
             {"label": "targeted_mypy", "exit_code": 0},
             {"label": "mypy_baseline", "exit_code": 0},
             {"label": "docs_check_deps", "exit_code": 0},
