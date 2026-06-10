@@ -194,6 +194,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_executor_execution_preflight_packet_capability",
         "real_executor_execution_preflight_gate_capability",
         "real_executor_execution_lock_lease_packet_capability",
+        "real_executor_execution_lock_lease_gate_capability",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -294,6 +295,7 @@ BUNDLE_FILE_NAMES = {
     "real_executor_execution_preflight_packet_capability": "real_executor_execution_preflight_packet_capability.json",
     "real_executor_execution_preflight_gate_capability": "real_executor_execution_preflight_gate_capability.json",
     "real_executor_execution_lock_lease_packet_capability": "real_executor_execution_lock_lease_packet_capability.json",
+    "real_executor_execution_lock_lease_gate_capability": "real_executor_execution_lock_lease_gate_capability.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -1611,6 +1613,21 @@ def build_reviewer_proof_bundle_payload(
         "docs_reference": "docs/architecture/real_executor_execution_preflight_gate.md",
         "blocked_or_deferred_surfaces": list(preflight_gate_record.deferred_surfaces),
         "forbidden_next_steps": ["real_executor_execution_lock_lease_packet", "executor_preflight_execution", "executor_execution", "executor_run", "executor_invocation", "executor_activation", "execution_release", "execution_permit", "execution_authorization", "runtime_enablement", "runtime_flag_flipping", "live_execution", "real_lock_acquisition", "lockfile_creation", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
+        "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+    })
+
+
+    lock_lease_gate_record = registry.by_id()["real_executor_execution_lock_lease_gate"]
+    contents["real_executor_execution_lock_lease_gate_capability"] = _pretty_json({
+        "artifact_kind": "real_executor_execution_lock_lease_gate_capability",
+        **lock_lease_gate_record.to_dict(),
+        "metadata_only": True,
+        "proof_command_not_run": True,
+        "cli_reference": "scripts/build_real_executor_execution_lock_lease_gate.py",
+        "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        "docs_reference": "docs/architecture/real_executor_execution_lock_lease_gate.md",
+        "blocked_or_deferred_surfaces": list(lock_lease_gate_record.deferred_surfaces),
+        "forbidden_next_steps": ["real_executor_execution_commit_plan_packet", "real_lock_acquisition", "real_lock_lease_creation", "lockfile_creation", "executor_preflight_execution", "executor_execution", "executor_run", "executor_invocation", "executor_activation", "execution_release", "execution_permit", "execution_authorization", "runtime_enablement", "runtime_flag_flipping", "live_execution", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
         "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
     })
 
