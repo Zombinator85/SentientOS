@@ -122,6 +122,7 @@ def _serialize_for_signature(event: PulseEvent) -> bytes:
     payload.pop("ingress_status", None)
     payload.pop("ingress_reason", None)
     payload.pop("ingress_classification", None)
+    payload.pop("federation_protocol_posture", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 

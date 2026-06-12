@@ -42,6 +42,7 @@ def reset_state(tmp_path, monkeypatch):
 def _sign_event(signing_key: SigningKey, event: dict) -> dict:
     payload = pulse_bus.apply_pulse_defaults(copy.deepcopy(event))
     payload.setdefault("priority", "info")
+    payload.setdefault("pulse_protocol", pulse_federation._local_protocol_identity())
     signature = signing_key.sign(pulse_bus._serialize_for_signature(payload)).signature
     payload["signature"] = base64.b64encode(signature).decode("ascii")
     return payload
@@ -197,7 +198,9 @@ def test_duplicate_remote_events_suppressed(monkeypatch):
 
     ingested = pulse_federation.request_recent_events(15)
     assert len(ingested) == 2
-    pending = pulse_bus.pending_events()
+    pending = [
+        evt for evt in pulse_bus.pending_events() if str(evt.get("event_type")) == "heartbeat"
+    ]
     assert len(pending) == 1
     assert pending[0]["payload"]["note"] == "dup"
     classifications = Path(os.environ["SENTIENTOS_FEDERATION_ROOT"]) / "ingest_classifications.jsonl"

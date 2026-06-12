@@ -1189,6 +1189,7 @@ def _handle_local_publish(event: pulse_bus.PulseEvent) -> None:
         return
     outbound = copy.deepcopy(event)
     outbound["pulse_protocol"] = _local_protocol_identity()
+    outbound["signature"] = pulse_bus._SIGNATURE_MANAGER.sign(outbound)
 
     for peer in _PEER_MAP.values():
         endpoint = peer.api_base()
