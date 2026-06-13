@@ -647,6 +647,20 @@ def test_reviewer_bundle_includes_sandboxed_live_memory_commit_adapter_capabilit
     assert "bypass_safety_interlock" in text
 
 
+
+def test_reviewer_bundle_includes_real_live_memory_commit_adapter_readiness_gate_capability_artifact() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "real_live_memory_commit_adapter_readiness_gate_capability" in artifacts
+    assert "real_live_memory_commit_adapter_readiness_gate_capability.json" in artifacts["bundle_manifest"]
+    text = artifacts["real_live_memory_commit_adapter_readiness_gate_capability"]
+    assert '"capability_id": "real_live_memory_commit_adapter_readiness_gate"' in text
+    assert '"authority_level": "metadata_verification_only"' in text
+    assert "scripts/build_real_live_memory_commit_adapter_readiness_gate.py" in text
+    assert "docs/architecture/real_live_memory_commit_adapter_readiness_gate.md" in text
+    assert "create_adapter_readiness_envelope" in text
+    assert "bypass_adapter_admission_packet" in text
+
 def test_reviewer_bundle_includes_live_executor_invocation_harness_capability_artifact() -> None:
     payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
     artifacts = payload["artifacts"]
