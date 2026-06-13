@@ -1,53 +1,49 @@
 from __future__ import annotations
 
 import json
+
+import pytest
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 SCRIPT = Path("scripts/build_final_live_memory_commit_review_gate.py")
 pytestmark = pytest.mark.no_legacy_skip
 
-FIXTURES = Path("tests/fixtures/final_live_memory_commit_review_gate")
+FIXTURE_ROOT = Path("tests/fixtures/final_live_memory_commit_review_gate")
 
 
-def _run(*args: str) -> subprocess.CompletedProcess[str]:
+def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run([sys.executable, str(SCRIPT), *args], check=False, text=True, capture_output=True)
 
 
-def test_build_default_and_validate() -> None:
-    default = _run("build-default")
-    assert default.returncode == 0
-    assert json.loads(default.stdout)["policy"]["default_posture"] == "deny"
-    validate = _run("validate")
-    assert validate.returncode == 0
-    assert json.loads(validate.stdout)["status"] == "valid"
+def test_cli_evaluate_validate_summarize_and_inspect_fixture() -> None:
+    ready = str(FIXTURE_ROOT / "ready_final_live_memory_commit_review_gate_candidate.json")
+    evaluated = run_cli("evaluate", ready)
+    assert evaluated.returncode == 0, evaluated.stderr
+    payload = json.loads(evaluated.stdout)
+    assert payload["status"] == "final_live_memory_commit_review_gate_ready"
+
+    validated = run_cli("validate", ready)
+    assert validated.returncode == 0, validated.stderr
+    assert json.loads(validated.stdout)["status"] == "final_live_memory_commit_review_gate_ready"
+
+    summarized = run_cli("summarize", ready)
+    assert summarized.returncode == 0, summarized.stderr
+    summary = json.loads(summarized.stdout)
+    assert summary["status"] == "final_live_memory_commit_review_gate_ready"
+    assert summary["gate_digest"].startswith("sha256:")
+
+    inspected = run_cli("inspect-fixture", "ready_final_live_memory_commit_review_gate_candidate")
+    assert inspected.returncode == 0, inspected.stderr
+    assert "final_live_memory_commit_review_gate_candidates" in json.loads(inspected.stdout)
 
 
-def test_inspect_fixture_and_evaluate_write_nothing(tmp_path: Path) -> None:
-    fixture = "valid_ai_capsule_final_live_commit_review_candidate.json"
-    inspect = _run("inspect-fixture", "--fixture-name", fixture)
-    assert inspect.returncode == 0
-    assert json.loads(inspect.stdout)["final_live_commit_review_candidates"][0]["candidate_type"] == "ai_capsule_final_live_commit_review_candidate"
-    before = sorted(tmp_path.rglob("*"))
-    evaluate = _run("evaluate", "--input", str(FIXTURES / fixture))
-    assert evaluate.returncode == 0
-    assert json.loads(evaluate.stdout)["status"] == "final_live_commit_review_ready"
-    assert sorted(tmp_path.rglob("*")) == before
+def test_cli_build_default_and_blocked_exit_nonzero() -> None:
+    defaulted = run_cli("build-default")
+    assert defaulted.returncode == 0, defaulted.stderr
+    assert json.loads(defaulted.stdout)["validation"]["status"] == "valid"
 
-
-def test_summarize_and_blocked_exit_nonzero() -> None:
-    summary = _run("summarize", "--input", str(FIXTURES / "valid_ai_capsule_final_live_commit_review_candidate.json"))
-    assert summary.returncode == 0
-    assert json.loads(summary.stdout)["packet_digest"].startswith("sha256:")
-    blocked = _run("evaluate", "--input", str(FIXTURES / "real_root_admission_digest_mismatch_blocked.json"))
-    assert blocked.returncode != 0
-    assert json.loads(blocked.stdout)["status"] == "final_live_commit_review_blocked"
-
-
-def test_validate_input_metadata_uses_embedded_policy() -> None:
-    validate = _run("validate", "--input", str(FIXTURES / "mixed_final_live_commit_review_candidate.json"))
-    assert validate.returncode == 0
-    assert json.loads(validate.stdout)["status"] == "final_live_commit_review_ready_with_warnings"
+    blocked = run_cli("evaluate", str(FIXTURE_ROOT / "digest_mismatch_blocked.json"))
+    assert blocked.returncode == 1
+    assert json.loads(blocked.stdout)["status"] == "final_live_memory_commit_review_gate_blocked"
