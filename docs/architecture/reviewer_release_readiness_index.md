@@ -507,3 +507,5 @@ Guarded executor path reviewers should also inspect `docs/architecture/guarded_e
 
 - Real live memory commit execution gate: `docs/architecture/real_live_memory_commit_execution_gate.md`
 - Real live memory commit execution packet: `docs/architecture/real_live_memory_commit_execution_packet.md`
+- Real live memory commit adapter admission gate: `docs/architecture/real_live_memory_commit_adapter_admission_gate.md`
+- Real live memory commit adapter admission packet: `docs/architecture/real_live_memory_commit_adapter_admission_packet.md`
