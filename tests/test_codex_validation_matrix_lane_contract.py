@@ -21,6 +21,7 @@ def _matrix() -> dict[str, object]:
             {"label": "real_live_memory_commit_execution_packet_tests", "exit_code": 0},
             {"label": "real_live_memory_commit_adapter_admission_gate_tests", "exit_code": 0},
             {"label": "real_live_memory_commit_adapter_admission_packet_tests", "exit_code": 0},
+            {"label": "real_live_memory_commit_adapter_readiness_gate_tests", "exit_code": 0},
             {"label": "targeted_mypy", "exit_code": 0},
             {"label": "mypy_baseline", "exit_code": 0},
             {"label": "docs_check_deps", "exit_code": 0},

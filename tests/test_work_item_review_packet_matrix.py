@@ -93,6 +93,7 @@ def test_default_matrix_includes_promotion_gate_steps() -> None:
     assert "real_live_memory_commit_execution_packet_tests" in labels
     assert "real_live_memory_commit_adapter_admission_gate_tests" in labels
     assert "real_live_memory_commit_adapter_admission_packet_tests" in labels
+    assert "real_live_memory_commit_adapter_readiness_gate_tests" in labels
     assert "live_executor_preflight_packet_tests" in labels
     assert "live_executor_activation_record_tests" in labels
     assert "live_executor_invocation_harness_tests" in labels

@@ -32,7 +32,7 @@ Successful evaluation emits metadata-only packet records containing:
 - emergency-stop confirmation metadata;
 - rollback-readiness, verification-readiness, and audit-readiness metadata.
 
-The ready decision is `real_live_memory_commit_adapter_admission_packet_ready_for_later_real_live_memory_commit_adapter_readiness_gate`. That decision is safe only as metadata for a later adapter-readiness gate metadata rung.
+The ready decision is `real_live_memory_commit_adapter_admission_packet_ready_for_later_real_live_memory_commit_adapter_readiness_gate`. That decision is safe only as metadata for a later [adapter-readiness gate](real_live_memory_commit_adapter_readiness_gate.md) metadata rung.
 
 ## CLI
 
