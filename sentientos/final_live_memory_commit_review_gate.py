@@ -1,13 +1,11 @@
-"""Deterministic metadata-only final live-memory commit review gate.
 
-This gate consumes supplied real memory-root admission evidence, sandboxed live
-memory commit evidence, sandbox receipt/rollback/artifact-plan evidence, and
-explicit final review candidates to decide only whether a future real
-live-memory commit adapter implementation may be considered later. It never
-writes, deletes, purges, indexes, persists, applies, merges, completes tombs,
-assembles prompts, retrieves live context, executes actions, discloses
-externally, touches real memory roots, invokes a real adapter, or grants truth,
-policy, consent, or authority.
+"""Deterministic metadata-only Final Live Memory Commit Review Gate.
+
+The gate consumes a supplied Real Live Memory Commit Adapter Readiness Envelope
+and explicit final-review-gate candidates.  It produces only reviewable metadata
+for a later Real Memory Root Admission Gate rung.  It never executes, approves,
+applies, admits, enables, invokes, locks, writes, discloses, or grants runtime
+authority.
 """
 
 from __future__ import annotations
@@ -18,681 +16,589 @@ import re
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal, Mapping, Sequence
 
-FinalLiveCommitReviewStatus = Literal[
-    "final_live_commit_review_ready",
-    "final_live_commit_review_ready_with_warnings",
-    "final_live_commit_review_deferred_for_operator_review",
-    "final_live_commit_review_rejected",
-    "final_live_commit_review_blocked",
-    "final_live_commit_review_noop",
-    "final_live_commit_review_invalid",
-    "final_live_commit_review_failed",
+FinalLiveMemoryCommitReviewGateStatus = Literal[
+    "final_live_memory_commit_review_gate_ready",
+    "final_live_memory_commit_review_gate_ready_with_warnings",
+    "final_live_memory_commit_review_gate_deferred_for_operator_review",
+    "final_live_memory_commit_review_gate_rejected",
+    "final_live_memory_commit_review_gate_blocked",
+    "final_live_memory_commit_review_gate_noop",
+    "final_live_memory_commit_review_gate_invalid",
+    "final_live_memory_commit_review_gate_failed",
+]
+FinalLiveMemoryCommitReviewGateDecision = Literal[
+    "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
+    "final_live_memory_commit_review_gate_ready_with_warnings",
+    "final_live_memory_commit_review_gate_deferred_for_operator_review",
+    "final_live_memory_commit_review_gate_rejected",
+    "final_live_memory_commit_review_gate_blocked",
+    "final_live_memory_commit_review_gate_noop",
 ]
 
-FinalLiveCommitReviewDecision = Literal[
-    "final_live_commit_review_ready_for_future_adapter_implementation",
-    "final_live_commit_review_ready_with_warnings",
-    "final_live_commit_review_deferred_for_operator_review",
-    "final_live_commit_review_rejected",
-    "final_live_commit_review_blocked",
-    "final_live_commit_review_noop",
-]
-
-FINAL_LIVE_COMMIT_REVIEW_CANDIDATE_TYPES = frozenset({
-    "ai_capsule_final_live_commit_review_candidate",
-    "human_summary_final_live_commit_review_candidate",
-    "dual_capsule_final_live_commit_review_candidate",
-    "protect_receipt_final_live_commit_review_candidate",
-    "merge_receipt_final_live_commit_review_candidate",
-    "tomb_archive_final_live_commit_review_candidate",
-    "tomb_deferred_final_live_commit_review_candidate",
-    "operator_review_final_live_commit_review_candidate",
-    "noop_final_live_commit_review_candidate",
-    "mixed_final_live_commit_review_candidate",
+FINAL_LIVE_MEMORY_COMMIT_REVIEW_GATE_CANDIDATE_TYPES = frozenset({
+    "ai_capsule_final_live_memory_commit_review_gate_candidate",
+    "human_summary_final_live_memory_commit_review_gate_candidate",
+    "dual_capsule_final_live_memory_commit_review_gate_candidate",
+    "protect_receipt_final_live_memory_commit_review_gate_candidate",
+    "merge_receipt_final_live_memory_commit_review_gate_candidate",
+    "tomb_archive_final_live_memory_commit_review_gate_candidate",
+    "tomb_deferred_final_live_memory_commit_review_gate_candidate",
+    "operator_review_final_live_memory_commit_review_gate_candidate",
+    "noop_final_live_memory_commit_review_gate_candidate",
+    "mixed_final_live_memory_commit_review_gate_candidate",
 })
-
-READY_REAL_ROOT_ADMISSION_DECISIONS = frozenset({
-    "real_root_admission_candidate_ready_for_future_adapter",
-    "real_root_admission_candidate_ready_with_warnings",
-    "real_root_admission_deferred_for_operator_review",
-    "real_root_admission_rejected",
-    "real_root_admission_noop",
+READY_REAL_LIVE_MEMORY_COMMIT_ADAPTER_READINESS_ENVELOPE_DECISIONS = frozenset({
+    "real_live_memory_commit_adapter_readiness_envelope_ready_for_later_final_live_memory_commit_review_gate",
+    "real_live_memory_commit_adapter_readiness_envelope_ready_with_warnings",
+    "real_live_memory_commit_adapter_readiness_envelope_noop",
 })
+FAIL_STATUSES = {
+    "final_live_memory_commit_review_gate_blocked",
+    "final_live_memory_commit_review_gate_invalid",
+    "final_live_memory_commit_review_gate_failed",
+}
 
-READY_SANDBOX_DECISIONS = frozenset({
-    "sandbox_commit_artifacts_ready",
-    "sandbox_commit_artifacts_ready_with_warnings",
-    "sandbox_commit_deferred_for_operator_review",
-    "sandbox_commit_rejected",
-    "sandbox_commit_noop",
-})
+CARRIED_EVIDENCE_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("real_live_memory_commit_adapter_readiness_gate", "real_live_memory_commit_adapter_readiness_gate_digest", "real_live_memory_commit_adapter_readiness_gate_decision"),
+    ("real_live_memory_commit_adapter_admission_packet", "real_live_memory_commit_adapter_admission_packet_digest", "real_live_memory_commit_adapter_admission_packet_decision"),
+    ("real_live_memory_commit_adapter_admission_gate", "real_live_memory_commit_adapter_admission_gate_digest", "real_live_memory_commit_adapter_admission_gate_decision"),
+    ("real_live_memory_commit_execution_packet", "real_live_memory_commit_execution_packet_digest", "real_live_memory_commit_execution_packet_decision"),
+    ("real_live_memory_commit_execution_gate", "real_live_memory_commit_execution_gate_digest", "real_live_memory_commit_execution_gate_decision"),
+    ("real_executor_execution_commit_window_packet", "real_executor_execution_commit_window_packet_digest", "real_executor_execution_commit_window_packet_decision"),
+    ("real_executor_execution_commit_plan_gate", "real_executor_execution_commit_plan_gate_digest", "real_executor_execution_commit_plan_gate_decision"),
+    ("real_executor_execution_commit_plan_packet", "real_executor_execution_commit_plan_packet_digest", "real_executor_execution_commit_plan_packet_decision"),
+    ("real_executor_execution_lock_lease_gate", "real_executor_execution_lock_lease_gate_digest", "real_executor_execution_lock_lease_gate_decision"),
+    ("real_executor_execution_lock_lease_packet", "real_executor_execution_lock_lease_packet_digest", "real_executor_execution_lock_lease_packet_decision"),
+    ("real_executor_execution_preflight_gate", "real_executor_execution_preflight_gate_digest", "real_executor_execution_preflight_gate_decision"),
+    ("real_executor_execution_preflight_packet", "real_executor_execution_preflight_packet_digest", "real_executor_execution_preflight_packet_decision"),
+    ("real_executor_execution_invocation_gate", "real_executor_execution_invocation_gate_digest", "real_executor_execution_invocation_gate_decision"),
+    ("real_executor_execution_invocation_packet", "real_executor_execution_invocation_packet_digest", "real_executor_execution_invocation_packet_decision"),
+    ("real_executor_execution_activation_gate", "real_executor_execution_activation_gate_digest", "real_executor_execution_activation_gate_decision"),
+    ("real_executor_execution_activation_packet", "real_executor_execution_activation_packet_digest", "real_executor_execution_activation_packet_decision"),
+    ("real_executor_execution_release_gate", "real_executor_execution_release_gate_digest", "real_executor_execution_release_gate_decision"),
+    ("real_executor_execution_release_packet", "real_executor_execution_release_packet_digest", "real_executor_execution_release_packet_decision"),
+    ("real_executor_execution_permit_gate", "real_executor_execution_permit_gate_digest", "real_executor_execution_permit_gate_decision"),
+    ("real_executor_execution_permit_packet", "real_executor_execution_permit_packet_digest", "real_executor_execution_permit_packet_decision"),
+    ("real_executor_execution_authorization_gate", "real_executor_execution_authorization_gate_digest", "real_executor_execution_authorization_gate_decision"),
+    ("real_executor_execution_authorization_packet", "real_executor_execution_authorization_packet_digest", "real_executor_execution_authorization_packet_decision"),
+    ("real_executor_execution_gate", "real_executor_execution_gate_digest", "real_executor_execution_gate_decision"),
+    ("real_executor_execution_plan", "real_executor_execution_plan_digest", "real_executor_execution_plan_decision"),
+    ("real_executor_run_gate", "real_executor_run_gate_digest", "real_executor_run_gate_decision"),
+    ("real_executor_run_packet", "real_executor_run_packet_digest", "real_executor_run_packet_decision"),
+    ("real_executor_invocation_gate", "real_executor_invocation_gate_digest", "real_executor_invocation_gate_decision"),
+    ("guarded_executor_invocation_packet", "guarded_executor_invocation_packet_digest", "guarded_executor_invocation_packet_decision"),
+    ("guarded_executor_path_packet", "guarded_executor_path_packet_digest", "guarded_executor_path_packet_decision"),
+    ("real_executor_runtime_gate", "runtime_gate_digest", "runtime_gate_decision"),
+    ("real_executor_runtime_enablement_packet", "runtime_enablement_packet_digest", "runtime_enablement_packet_decision"),
+    ("live_commit_execution_packet", "live_commit_execution_packet_digest", "live_commit_execution_packet_decision"),
+    ("future_live_memory_commit_execution_gate", "future_execution_gate_digest", "future_execution_gate_decision"),
+    ("constrained_executor_enablement_path_packet", "constrained_enablement_path_digest", "constrained_enablement_path_decision"),
+    ("real_live_memory_commit_executor_enablement_gate", "executor_enablement_gate_digest", "executor_enablement_gate_decision"),
+    ("real_live_memory_commit_executor_implementation_skeleton", "executor_skeleton_digest", "executor_skeleton_decision"),
+    ("live_executor_invocation_harness", "invocation_harness_digest", "invocation_harness_decision"),
+    ("live_executor_activation_record", "activation_record_digest", "activation_record_decision"),
+    ("live_executor_preflight_packet", "live_executor_preflight_packet_digest", "live_executor_preflight_packet_decision"),
+    ("live_executor_lock_lease_gate", "live_executor_lock_lease_gate_digest", "live_executor_lock_lease_gate_decision"),
+    ("real_live_memory_commit_executor_plan_packet", "executor_plan_packet_digest", "executor_plan_packet_decision"),
+    ("explicit_live_memory_runtime_execution_gate", "runtime_authorization_packet_digest", "runtime_authorization_packet_decision"),
+    ("final_live_memory_commit_review_gate", "final_review_digest", "final_review_decision"),
+    ("real_memory_root_admission_gate", "real_root_admission_digest", "real_root_admission_decision"),
+    ("sandboxed_live_memory_commit_adapter", "sandbox_commit_digest", "sandbox_commit_decision"),
+)
+
+NON_NOOP_METADATA_FIELDS = (
+    "final_review_gate_readiness_metadata",
+    "adapter_readiness_envelope_confirmation_metadata",
+    "adapter_readiness_gate_confirmation_metadata",
+    "adapter_admission_packet_confirmation_metadata",
+    "adapter_admission_gate_confirmation_metadata",
+    "live_memory_commit_execution_packet_confirmation_metadata",
+    "live_memory_commit_execution_gate_confirmation_metadata",
+    "commit_window_packet_confirmation_metadata",
+    "commit_plan_gate_confirmation_metadata",
+    "commit_plan_packet_confirmation_metadata",
+    "lock_lease_gate_confirmation_metadata",
+    "live_commit_execution_denial_metadata",
+    "live_memory_write_denial_metadata",
+    "real_memory_root_admission_deferral_metadata",
+    "emergency_stop_confirmation_metadata",
+    "rollback_readiness_metadata",
+    "verification_readiness_metadata",
+    "audit_readiness_metadata",
+)
 
 INVARIANTS: dict[str, bool] = {
-    "final_live_commit_review_is_not_memory_write": True,
-    "final_live_commit_review_is_not_memory_deletion": True,
-    "final_live_commit_review_is_not_memory_purge": True,
-    "final_live_commit_review_is_not_index_mutation": True,
-    "final_live_commit_review_is_not_capsule_persistence": True,
-    "final_live_commit_review_is_not_prompt_assembly": True,
-    "final_live_commit_review_is_not_execution": True,
-    "final_live_commit_review_is_not_live_commit": True,
-    "final_live_commit_review_is_not_real_adapter": True,
-    "final_live_commit_review_is_not_truth": True,
-    "final_live_commit_review_is_not_policy": True,
-    "final_live_commit_review_is_not_authority": True,
-    "final_live_commit_review_is_not_consent": True,
-    "final_live_commit_review_does_not_execute_action": True,
-    "final_live_commit_review_does_not_disclose_externally": True,
-    "real_memory_root_access_enabled": False,
-    "live_memory_write_enabled": False,
-    "live_memory_deletion_enabled": False,
-    "live_memory_purge_enabled": False,
-    "live_index_mutation_enabled": False,
-    "prompt_materialization_enabled": False,
-    "live_context_retrieval_enabled": False,
-    "external_disclosure_enabled": False,
-    "remote_service_enabled": False,
-    "future_real_live_commit_adapter_required": True,
-    "explicit_operator_runtime_execution_required_later": True,
+    "final_review_gate_is_not_live_commit_execution": True,
+    "final_review_gate_does_not_approve_live_execution": True,
+    "final_review_gate_does_not_execute_a_commit": True,
+    "final_review_gate_does_not_apply_a_commit": True,
+    "final_review_gate_does_not_write_live_memory": True,
+    "final_review_gate_is_not_enabled_commit_window_authority": True,
+    "final_review_gate_does_not_open_a_live_commit_window": True,
+    "final_review_gate_does_not_execute_a_commit_window": True,
+    "final_review_gate_does_not_create_a_live_execution_adapter": True,
+    "final_review_gate_does_not_create_a_live_adapter": True,
+    "final_review_gate_does_not_admit_a_live_adapter": True,
+    "final_review_gate_does_not_create_a_real_memory_root_admission_gate": True,
+    "final_review_gate_does_not_admit_real_memory_roots": True,
+    "final_review_gate_is_not_lock_acquisition": True,
+    "final_review_gate_does_not_acquire_locks": True,
+    "final_review_gate_does_not_create_real_lock_leases": True,
+    "final_review_gate_does_not_create_lockfiles": True,
+    "final_review_gate_is_not_preflight_execution": True,
+    "final_review_gate_does_not_execute_preflight": True,
+    "final_review_gate_is_not_executor_invocation": True,
+    "final_review_gate_does_not_invoke_executor": True,
+    "final_review_gate_is_not_executor_activation": True,
+    "final_review_gate_does_not_activate_executor": True,
+    "final_review_gate_is_not_execution_release": True,
+    "final_review_gate_does_not_release_execution": True,
+    "final_review_gate_is_not_execution_permit": True,
+    "final_review_gate_does_not_issue_permit": True,
+    "final_review_gate_is_not_execution_authorization": True,
+    "final_review_gate_is_not_permission_to_execute": True,
+    "final_review_gate_is_not_executor_execution": True,
+    "final_review_gate_is_not_executor_run": True,
+    "final_review_gate_is_not_runtime_enablement": True,
+    "final_review_gate_is_not_runtime_flag_flip": True,
+    "final_review_gate_is_not_enabled_executor": True,
+    "final_review_gate_is_not_executor_enablement": True,
+    "final_review_gate_is_not_memory_write_deletion_purge": True,
+    "final_review_gate_is_not_index_mutation": True,
+    "final_review_gate_is_not_capsule_persistence": True,
+    "final_review_gate_is_not_tomb_completion": True,
+    "final_review_gate_is_not_prompt_assembly": True,
+    "final_review_gate_is_not_live_context_retrieval": True,
+    "final_review_gate_is_not_action_execution": True,
+    "final_review_gate_is_not_external_disclosure": True,
+    "final_review_gate_is_not_truth_policy_authority_or_consent": True,
+    "final_review_gate_readiness_is_metadata_only": True,
+    "adapter_readiness_envelope_confirmation_is_metadata_only": True,
+    "adapter_readiness_gate_confirmation_is_metadata_only": True,
+    "adapter_admission_packet_confirmation_is_metadata_only": True,
+    "adapter_admission_gate_confirmation_is_metadata_only": True,
+    "live_memory_commit_execution_packet_confirmation_is_metadata_only": True,
+    "live_memory_commit_execution_gate_confirmation_is_metadata_only": True,
+    "commit_window_packet_confirmation_is_metadata_only": True,
+    "commit_plan_gate_confirmation_is_metadata_only": True,
+    "commit_plan_packet_confirmation_is_metadata_only": True,
+    "lock_lease_gate_confirmation_is_metadata_only": True,
+    "live_commit_execution_denial_is_metadata_only": True,
+    "live_memory_write_denial_is_metadata_only": True,
+    "real_memory_root_admission_deferral_is_metadata_only": True,
+    "emergency_stop_confirmation_is_metadata_only": True,
+    "rollback_readiness_is_metadata_only": True,
+    "verification_readiness_is_metadata_only": True,
+    "audit_readiness_is_metadata_only": True,
+}
+
+FORBIDDEN_CLAIMS = {
+    "real_executor_enabled", "real_executor_run_enabled", "real_executor_execution_enabled",
+    "real_executor_execution_authorized", "real_executor_authorization_gate_passed",
+    "real_executor_execution_permit_issued", "real_executor_execution_permit_gate_passed",
+    "real_executor_execution_released", "real_executor_execution_release_gate_passed",
+    "real_executor_execution_activation_packet_created", "real_executor_execution_activation_gate_passed",
+    "real_executor_execution_activation_enabled", "real_executor_activation_enabled",
+    "real_executor_execution_invocation_packet_created", "real_executor_execution_invocation_gate_passed",
+    "real_executor_execution_invocation_enabled", "real_executor_invocation_enabled", "real_executor_invoked",
+    "real_executor_execution_preflight_packet_created", "real_executor_execution_preflight_gate_passed",
+    "real_executor_execution_preflight_enabled", "real_executor_execution_preflight_executed",
+    "real_executor_execution_lock_lease_packet_created", "real_executor_execution_lock_lease_gate_passed",
+    "real_executor_execution_lock_lease_enabled", "real_executor_execution_lock_lease_created",
+    "real_lock_acquisition_enabled", "real_lock_acquired", "lockfile_creation_enabled", "lockfile_created",
+    "lock_lease_renewal_enabled", "lock_lease_release_enabled",
+    "real_executor_execution_commit_plan_packet_created", "real_executor_execution_commit_plan_gate_passed",
+    "real_executor_execution_commit_plan_enabled", "real_executor_execution_commit_window_packet_created",
+    "real_executor_execution_commit_window_gate_passed", "real_executor_execution_commit_window_enabled",
+    "commit_window_authority_enabled", "real_live_memory_commit_execution_gate_passed",
+    "real_live_memory_commit_execution_enabled", "real_live_memory_commit_execution_packet_created",
+    "live_execution_adapter_created", "live_adapter_created", "live_adapter_admitted",
+    "live_adapter_admission_gate_passed", "live_adapter_admission_enabled",
+    "real_live_memory_commit_adapter_admission_gate_passed", "real_live_memory_commit_adapter_admission_enabled",
+    "real_live_memory_commit_adapter_admission_packet_created", "real_live_memory_commit_adapter_readiness_gate_passed",
+    "real_live_memory_commit_adapter_readiness_enabled", "real_live_memory_commit_adapter_readiness_envelope_created",
+    "final_live_memory_commit_review_gate_passed", "final_live_memory_commit_review_enabled",
+    "real_memory_root_admission_gate_passed", "real_memory_root_admission_enabled", "real_memory_root_admitted",
+    "live_commit_execution_enabled", "live_commit_executed", "live_commit_apply_enabled", "live_commit_applied",
+    "real_memory_root_write_enabled", "live_memory_write_enabled", "prompt_materialization_enabled",
+    "live_context_retrieval_enabled", "action_execution_enabled", "external_disclosure_enabled", "external_service_enabled",
+}
+FALSE_FLAGS = {name: False for name in sorted(FORBIDDEN_CLAIMS)}
+FUTURE_FLAGS = {
+    "future_real_memory_root_admission_gate_required": True,
+    "future_real_live_memory_commit_execution_required": True,
+    "future_post_execution_audit_required": True,
 }
 
 SAFE_NEXT_ACTIONS = (
-    "no_action_allowed",
-    "inspect_final_live_commit_review_packet",
-    "operator_review_required",
-    "prepare_future_real_live_commit_adapter_implementation_later",
-    "prepare_later_explicit_operator_runtime_execution_later",
-    "rerun_with_ready_real_root_admission_packet",
-    "rerun_with_matching_real_root_admission_digest",
-    "rerun_with_matching_real_root_admission_decision",
-    "rerun_with_matching_sandbox_commit_digest",
-    "rerun_with_matching_sandbox_commit_decision",
-    "rerun_with_sandbox_receipt_manifest_digest",
-    "rerun_with_sandbox_rollback_manifest_digest",
-    "rerun_with_sandbox_artifact_plan",
-    "rerun_with_final_operator_review_metadata",
-    "rerun_with_future_real_adapter_implementation_metadata",
-    "rerun_with_live_receipt_schema_metadata",
-    "rerun_with_live_rollback_schema_metadata",
-    "rerun_with_post_commit_verification_plan",
-    "rerun_with_abort_panic_stop_condition_plan",
-    "rerun_with_scope_alignment",
+    "review_final_live_memory_commit_review_gate_metadata",
+    "prepare_later_real_memory_root_admission_gate_metadata_request",
     "sustain_default_deny",
 )
+FORBIDDEN_NEXT_STEPS = tuple(sorted(FORBIDDEN_CLAIMS | {
+    "execute_final_review_gate", "treat_final_review_gate_as_permission_to_execute",
+    "create_real_memory_root_admission_gate_now", "admit_real_memory_root_now",
+}))
 
-FORBIDDEN_NEXT_STEPS = (
-    "write_live_memory_now",
-    "delete_live_memory_now",
-    "purge_live_memory_now",
-    "mutate_vector_index",
-    "mutate_live_index",
-    "persist_capsule_now",
-    "persist_summary_now",
-    "apply_protection_now",
-    "apply_merge_now",
-    "complete_tomb_now",
-    "run_real_live_commit_adapter_now",
-    "implement_real_live_commit_adapter_from_review_alone",
-    "treat_final_review_as_execution_permission",
-    "treat_final_review_as_real_commit",
-    "treat_sandbox_commit_as_real_commit",
-    "treat_sandbox_receipt_as_live_receipt",
-    "treat_sandbox_rollback_as_applied_rollback",
-    "treat_real_root_admission_as_memory_root_access",
-    "touch_real_memory_root",
-    "open_real_memory_path_for_write",
-    "chmod_real_memory_path",
-    "assemble_prompt_now",
-    "retrieve_live_context",
-    "execute_action_ingress",
-    "infer_truth_from_review",
-    "infer_authority_from_review",
-    "infer_consent_from_review",
-    "convert_review_to_policy",
-    "convert_review_to_action",
-    "bypass_sandbox_commit_adapter",
-    "bypass_real_root_admission_gate",
-    "bypass_final_live_commit_review_gate",
-    "bypass_safety_interlock",
-    "bypass_execution_gate",
-    "bypass_operator_approval_packet",
-    "bypass_commit_plan_packet",
-    "bypass_live_boundary_admission",
-    "bypass_governed_writer_adapter",
-    "bypass_tomb_verifier",
-    "bypass_receipt_gate",
-    "bypass_distillation_contract",
-    "bypass_operator_runtime_execution",
-    "enable_external_disclosure",
-)
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateFinding:
+    severity: str
+    code: str
+    message: str
+    candidate_id: str = ""
+    record_id: str = ""
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
 
-RAW_PAYLOAD_KEYS = frozenset({"raw_payload", "private_payload", "secret", "secrets", "media", "audio", "video", "image", "prompt", "prompt_payload", "provider_prompt", "private_memory"})
-RAW_PAYLOAD_PATTERN = re.compile(r"(begin private|secret:|data:(?:image|audio|video)|provider prompt text|raw/private/media/secret/provider-prompt|private memory)", re.I)
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGatePolicy:
+    schema_version: str = "final-live-memory-commit-review-gate/v1"
+    metadata_only: bool = True
+    default_deny: bool = True
+    require_scope_alignment: bool = True
+    allow_mixed_scope_diagnostic_packet: bool = True
+    real_executor_enabled: bool = False
+    real_lock_acquisition_enabled: bool = False
+    lockfile_creation_enabled: bool = False
+    real_memory_root_admission_enabled: bool = False
+    live_memory_write_enabled: bool = False
+    external_disclosure_enabled: bool = False
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateCandidate:
+    candidate_id: str
+    record_id: str
+    candidate_type: str
+    operator_scope_keys: tuple[str, ...]
+    is_noop: bool
+    metadata: Mapping[str, Any]
 
-def _stable_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateMetadataRecord:
+    record_type: str
+    candidate_id: str
+    record_id: str
+    metadata_digest: str
+    metadata_only: bool = True
+    authoritative: bool = False
+    runtime_enabled: bool = False
+    runtime_flag_flipped: bool = False
+    executed: bool = False
+    permission_granted: bool = False
+    active_runtime_state: bool = False
+    executor_invoked: bool = False
+    live_receipt: bool = False
+    rollback_applied: bool = False
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateRecord:
+    candidate_id: str
+    record_id: str
+    candidate_type: str
+    final_live_memory_commit_review_gate_decision: FinalLiveMemoryCommitReviewGateDecision
+    real_live_memory_commit_adapter_readiness_envelope_digest: str
+    real_live_memory_commit_adapter_readiness_envelope_decision: str
+    real_live_memory_commit_adapter_readiness_gate_digest: str
+    real_live_memory_commit_adapter_readiness_gate_decision: str
+    real_live_memory_commit_adapter_admission_packet_digest: str
+    real_live_memory_commit_adapter_admission_packet_decision: str
+    real_live_memory_commit_adapter_admission_gate_digest: str
+    real_live_memory_commit_adapter_admission_gate_decision: str
+    real_live_memory_commit_execution_packet_digest: str
+    real_live_memory_commit_execution_packet_decision: str
+    real_live_memory_commit_execution_gate_digest: str
+    real_live_memory_commit_execution_gate_decision: str
+    real_executor_execution_commit_window_packet_digest: str
+    real_executor_execution_commit_window_packet_decision: str
+    real_executor_execution_commit_plan_gate_digest: str
+    real_executor_execution_commit_plan_gate_decision: str
+    real_executor_execution_commit_plan_packet_digest: str
+    real_executor_execution_commit_plan_packet_decision: str
+    real_executor_execution_lock_lease_gate_digest: str
+    real_executor_execution_lock_lease_gate_decision: str
+    carried_evidence: Mapping[str, Mapping[str, str]]
+    operator_scope_keys: tuple[str, ...]
+    final_review_gate_readiness_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    adapter_readiness_envelope_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    adapter_readiness_gate_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    adapter_admission_packet_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    adapter_admission_gate_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    live_memory_commit_execution_packet_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    live_memory_commit_execution_gate_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    commit_window_packet_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    commit_plan_gate_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    commit_plan_packet_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    lock_lease_gate_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    live_commit_execution_denial_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    live_memory_write_denial_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    real_memory_root_admission_deferral_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    emergency_stop_confirmation_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    rollback_readiness_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    verification_readiness_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    audit_readiness_records: tuple[FinalLiveMemoryCommitReviewGateMetadataRecord, ...]
+    safe_next_actions: tuple[str, ...]
+    forbidden_next_steps: tuple[str, ...] = FORBIDDEN_NEXT_STEPS
+    digest: str = ""
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data.update(INVARIANTS)
+        data.update(FALSE_FLAGS)
+        data.update(FUTURE_FLAGS)
+        return data
+    def with_digest(self) -> "FinalLiveMemoryCommitReviewGateRecord":
+        return replace(self, digest=_digest({k: v for k, v in self.to_dict().items() if k != "digest"}))
 
-def _digest(value: Any) -> str:
-    return "sha256:" + hashlib.sha256(_stable_json(value).encode("utf-8")).hexdigest()
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGate:
+    schema_version: str
+    records: tuple[FinalLiveMemoryCommitReviewGateRecord, ...]
+    metadata_only: bool = True
+    default_deny: bool = True
+    not_permission_to_execute: bool = True
+    digest: str = ""
+    def to_dict(self) -> dict[str, Any]:
+        return {"schema_version": self.schema_version, "records": [r.to_dict() for r in self.records], "metadata_only": self.metadata_only, "default_deny": self.default_deny, "not_permission_to_execute": self.not_permission_to_execute, "digest": self.digest}
+    def with_digest(self) -> "FinalLiveMemoryCommitReviewGate":
+        return replace(self, digest=_digest({k: v for k, v in self.to_dict().items() if k != "digest"}))
 
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateReport:
+    status: FinalLiveMemoryCommitReviewGateStatus
+    findings: tuple[FinalLiveMemoryCommitReviewGateFinding, ...]
+    summary_counts: Mapping[str, int]
+    digest: str = ""
+    def to_dict(self) -> dict[str, Any]:
+        return {"status": self.status, "findings": [f.to_dict() for f in self.findings], "summary_counts": dict(self.summary_counts), "digest": self.digest}
+
+@dataclass(frozen=True)
+class FinalLiveMemoryCommitReviewGateResult:
+    status: FinalLiveMemoryCommitReviewGateStatus
+    gate: FinalLiveMemoryCommitReviewGate | None
+    report: FinalLiveMemoryCommitReviewGateReport
+    digest: str
+    def to_dict(self) -> dict[str, Any]:
+        return {"status": self.status, "gate": self.gate.to_dict() if self.gate else None, "report": self.report.to_dict(), "digest": self.digest}
+
+def build_default_policy() -> FinalLiveMemoryCommitReviewGatePolicy:
+    return FinalLiveMemoryCommitReviewGatePolicy()
+
+def validate_policy(policy: FinalLiveMemoryCommitReviewGatePolicy | None = None) -> dict[str, Any]:
+    active = policy or build_default_policy()
+    findings: list[FinalLiveMemoryCommitReviewGateFinding] = []
+    if not active.metadata_only or not active.default_deny:
+        findings.append(FinalLiveMemoryCommitReviewGateFinding("error", "policy_not_metadata_only_default_deny", "policy must remain metadata-only and default-deny"))
+    for name in ("real_executor_enabled", "real_lock_acquisition_enabled", "lockfile_creation_enabled", "real_memory_root_admission_enabled", "live_memory_write_enabled", "external_disclosure_enabled"):
+        if bool(getattr(active, name)):
+            findings.append(FinalLiveMemoryCommitReviewGateFinding("error", name, f"{name} must remain false"))
+    return {"status": "valid" if not findings else "invalid", "policy": active.to_dict(), "findings": [f.to_dict() for f in findings]}
+
+def _digest(data: Any) -> str:
+    return "sha256:" + hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 def _as_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
+def _stable_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "record"
 
-def _as_tuple(value: Any) -> tuple[str, ...]:
-    if isinstance(value, str):
-        return (value,)
-    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray, str)):
-        return tuple(str(item) for item in value)
-    return ()
-
-
-def _records(packet: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-    raw = packet.get("records", ())
-    if isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray, str)):
-        return tuple(_as_mapping(item) for item in raw)
-    return ()
-
-
-def _flag(mapping: Mapping[str, Any], *names: str) -> bool:
-    return any(mapping.get(name) is True for name in names)
-
-
-def _has_raw_payload(value: Any) -> bool:
-    if isinstance(value, Mapping):
-        return any(str(key).lower() in RAW_PAYLOAD_KEYS or _has_raw_payload(item) for key, item in value.items())
-    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray, str)):
-        return any(_has_raw_payload(item) for item in value)
-    if isinstance(value, str):
-        return bool(RAW_PAYLOAD_PATTERN.search(value))
-    return False
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewPolicy:
-    schema_version: str = "final-live-memory-commit-review-gate/v1"
-    default_posture: str = "deny"
-    require_real_root_admission_ready: bool = True
-    require_matching_real_root_admission_digest: bool = True
-    require_matching_real_root_admission_decision: bool = True
-    require_matching_sandbox_commit_digest: bool = True
-    require_matching_sandbox_commit_decision: bool = True
-    require_sandbox_receipt_manifest_digest_for_non_noop: bool = True
-    require_sandbox_rollback_manifest_digest_for_non_noop: bool = True
-    require_sandbox_artifact_plan_for_non_noop: bool = True
-    require_final_operator_review_metadata_for_non_noop: bool = True
-    require_future_real_adapter_implementation_metadata_for_non_noop: bool = True
-    require_live_receipt_schema_metadata_for_non_noop: bool = True
-    require_live_rollback_schema_metadata_for_non_noop: bool = True
-    require_post_commit_verification_plan_for_non_noop: bool = True
-    require_abort_panic_stop_condition_plan_for_non_noop: bool = True
-    require_scope_alignment: bool = True
-    allow_mixed_scope_diagnostic_packet: bool = False
-    block_real_memory_root_access_claims: bool = True
-    block_live_mutation_claims: bool = True
-    block_final_review_conversion_claims: bool = True
-    block_sandbox_conversion_claims: bool = True
-    block_real_root_admission_conversion_claims: bool = True
-    block_prompt_materialization: bool = True
-    block_live_context_retrieval: bool = True
-    block_action_execution: bool = True
-    block_external_disclosure: bool = True
-    block_authority_smuggling: bool = True
-    block_consent_smuggling: bool = True
-    block_policy_smuggling: bool = True
-    block_truth_smuggling: bool = True
-    block_raw_payload_leakage: bool = True
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewFinding:
-    severity: Literal["error", "warning", "info"]
-    code: str
-    message: str
-    candidate_id: str | None = None
-    record_id: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewCandidate:
-    candidate_id: str
-    record_id: str
-    candidate_type: str
-    claimed_real_root_admission_digest: str
-    claimed_real_root_admission_decision: str
-    claimed_sandbox_commit_digest: str
-    claimed_sandbox_commit_decision: str
-    claimed_sandbox_receipt_manifest_digest: str
-    claimed_sandbox_rollback_manifest_digest: str
-    operator_scope_keys: tuple[str, ...]
-    sandbox_artifact_plan: Mapping[str, Any]
-    final_operator_review_metadata: Mapping[str, Any]
-    future_real_adapter_implementation_metadata: Mapping[str, Any]
-    live_receipt_schema_metadata: Mapping[str, Any]
-    live_rollback_schema_metadata: Mapping[str, Any]
-    post_commit_verification_plan: Mapping[str, Any]
-    abort_panic_stop_condition_plan: Mapping[str, Any]
-    review_claims: Mapping[str, Any]
-    metadata: Mapping[str, Any]
-
-    @classmethod
-    def from_mapping(cls, raw: Mapping[str, Any]) -> "FinalLiveCommitReviewCandidate | None":
-        candidate_type = str(raw.get("candidate_type") or "")
-        candidate_id = str(raw.get("candidate_id") or "")
-        record_id = str(raw.get("record_id") or "")
-        if not candidate_id or not record_id or candidate_type not in FINAL_LIVE_COMMIT_REVIEW_CANDIDATE_TYPES:
-            return None
-        return cls(
-            candidate_id=candidate_id,
-            record_id=record_id,
-            candidate_type=candidate_type,
-            claimed_real_root_admission_digest=str(raw.get("claimed_real_root_admission_digest") or raw.get("real_root_admission_digest") or ""),
-            claimed_real_root_admission_decision=str(raw.get("claimed_real_root_admission_decision") or raw.get("real_root_admission_decision") or ""),
-            claimed_sandbox_commit_digest=str(raw.get("claimed_sandbox_commit_digest") or raw.get("sandbox_commit_digest") or ""),
-            claimed_sandbox_commit_decision=str(raw.get("claimed_sandbox_commit_decision") or raw.get("sandbox_commit_decision") or ""),
-            claimed_sandbox_receipt_manifest_digest=str(raw.get("claimed_sandbox_receipt_manifest_digest") or raw.get("sandbox_receipt_manifest_digest") or ""),
-            claimed_sandbox_rollback_manifest_digest=str(raw.get("claimed_sandbox_rollback_manifest_digest") or raw.get("sandbox_rollback_manifest_digest") or ""),
-            operator_scope_keys=_as_tuple(raw.get("operator_scope_keys")),
-            sandbox_artifact_plan=_as_mapping(raw.get("sandbox_artifact_plan")),
-            final_operator_review_metadata=_as_mapping(raw.get("final_operator_review_metadata")),
-            future_real_adapter_implementation_metadata=_as_mapping(raw.get("future_real_adapter_implementation_metadata")),
-            live_receipt_schema_metadata=_as_mapping(raw.get("live_receipt_schema_metadata")),
-            live_rollback_schema_metadata=_as_mapping(raw.get("live_rollback_schema_metadata")),
-            post_commit_verification_plan=_as_mapping(raw.get("post_commit_verification_plan")),
-            abort_panic_stop_condition_plan=_as_mapping(raw.get("abort_panic_stop_condition_plan")),
-            review_claims=_as_mapping(raw.get("review_claims") or raw.get("claims")),
-            metadata=_as_mapping(raw.get("metadata")),
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewRecord:
-    candidate_id: str
-    record_id: str
-    candidate_type: str
-    review_decision: FinalLiveCommitReviewDecision
-    real_root_admission_decision: str
-    real_root_admission_digest: str
-    real_root_admission_record_digest: str
-    sandbox_commit_decision: str
-    sandbox_commit_digest: str
-    sandbox_receipt_manifest_digest: str
-    sandbox_rollback_manifest_digest: str
-    operator_scope_keys: tuple[str, ...]
-    real_root_admission_scope_keys: tuple[str, ...]
-    sandbox_scope_keys: tuple[str, ...]
-    sandbox_artifact_plan: Mapping[str, Any]
-    final_operator_review_metadata: Mapping[str, Any]
-    future_real_adapter_implementation_metadata: Mapping[str, Any]
-    live_receipt_schema_metadata: Mapping[str, Any]
-    live_rollback_schema_metadata: Mapping[str, Any]
-    post_commit_verification_plan: Mapping[str, Any]
-    abort_panic_stop_condition_plan: Mapping[str, Any]
-    safe_next_actions: tuple[str, ...]
-    future_adapter_implementation_consideration_record: Mapping[str, Any]
-    final_review_future_consideration_only: bool = True
-    final_review_is_execution_permission: bool = False
-    final_review_is_real_commit: bool = False
-    sandbox_commit_is_real_commit: bool = False
-    sandbox_receipt_is_live_receipt: bool = False
-    sandbox_rollback_is_applied_rollback: bool = False
-    real_root_admission_is_memory_root_access: bool = False
-    real_memory_root_access_performed: bool = False
-    live_memory_write_claimed: bool = False
-    live_memory_delete_claimed: bool = False
-    live_memory_purge_claimed: bool = False
-    live_index_mutation_claimed: bool = False
-    prompt_assembly_claimed: bool = False
-    live_context_retrieval_claimed: bool = False
-    action_execution_claimed: bool = False
-    external_disclosure_claimed: bool = False
-    authority_claimed: bool = False
-    consent_claimed: bool = False
-    policy_claimed: bool = False
-    truth_claimed: bool = False
-    digest: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-    def with_digest(self) -> "FinalLiveCommitReviewRecord":
-        data = self.to_dict(); data.pop("digest", None)
-        return replace(self, digest=_digest(data))
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewPacket:
-    schema_version: str
-    records: tuple[FinalLiveCommitReviewRecord, ...]
-    forbidden_next_steps: tuple[str, ...] = FORBIDDEN_NEXT_STEPS
-    digest: str = ""
-    final_live_commit_review_is_not_memory_write: bool = True
-    final_live_commit_review_is_not_memory_deletion: bool = True
-    final_live_commit_review_is_not_memory_purge: bool = True
-    final_live_commit_review_is_not_index_mutation: bool = True
-    final_live_commit_review_is_not_capsule_persistence: bool = True
-    final_live_commit_review_is_not_prompt_assembly: bool = True
-    final_live_commit_review_is_not_execution: bool = True
-    final_live_commit_review_is_not_live_commit: bool = True
-    final_live_commit_review_is_not_real_adapter: bool = True
-    final_live_commit_review_is_not_truth: bool = True
-    final_live_commit_review_is_not_policy: bool = True
-    final_live_commit_review_is_not_authority: bool = True
-    final_live_commit_review_is_not_consent: bool = True
-    final_live_commit_review_does_not_execute_action: bool = True
-    final_live_commit_review_does_not_disclose_externally: bool = True
-    real_memory_root_access_enabled: bool = False
-    live_memory_write_enabled: bool = False
-    live_memory_deletion_enabled: bool = False
-    live_memory_purge_enabled: bool = False
-    live_index_mutation_enabled: bool = False
-    prompt_materialization_enabled: bool = False
-    live_context_retrieval_enabled: bool = False
-    external_disclosure_enabled: bool = False
-    remote_service_enabled: bool = False
-    future_real_live_commit_adapter_required: bool = True
-    explicit_operator_runtime_execution_required_later: bool = True
-
-    def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        data["records"] = [record.to_dict() for record in self.records]
-        return data
-
-    def with_digest(self) -> "FinalLiveCommitReviewPacket":
-        data = self.to_dict(); data.pop("digest", None)
-        return replace(self, digest=_digest(data))
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewReport:
-    status: FinalLiveCommitReviewStatus
-    findings: tuple[FinalLiveCommitReviewFinding, ...]
-    summary_counts: Mapping[str, int]
-    digest: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"status": self.status, "findings": [finding.to_dict() for finding in self.findings], "summary_counts": dict(sorted(self.summary_counts.items())), "digest": self.digest}
-
-
-@dataclass(frozen=True)
-class FinalLiveCommitReviewResult:
-    status: FinalLiveCommitReviewStatus
-    packet: FinalLiveCommitReviewPacket | None
-    report: FinalLiveCommitReviewReport
-    digest: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"status": self.status, "packet": self.packet.to_dict() if self.packet else None, "report": self.report.to_dict(), "digest": self.digest}
-
-
-def build_default_policy() -> FinalLiveCommitReviewPolicy:
-    return FinalLiveCommitReviewPolicy()
-
-
-def validate_policy(policy: FinalLiveCommitReviewPolicy | Mapping[str, Any] | None = None) -> dict[str, Any]:
-    raw = asdict(policy) if isinstance(policy, FinalLiveCommitReviewPolicy) else dict(policy or asdict(build_default_policy()))
-    findings: list[dict[str, str]] = []
-    if raw.get("default_posture") != "deny":
-        findings.append({"severity": "error", "code": "default_posture_not_deny", "message": "final live commit review must default deny"})
-    for key, expected in INVARIANTS.items():
-        if raw.get(key, expected) != expected:
-            findings.append({"severity": "error", "code": f"invariant_{key}_changed", "message": f"{key} must remain {expected}"})
-    status = "invalid" if findings else "valid"
-    return {"status": status, "findings": findings, "policy": raw, "digest": _digest({"status": status, "findings": findings, "policy": raw})}
-
-
-def _policy_from_payload(payload: Mapping[str, Any], policy: FinalLiveCommitReviewPolicy | None) -> FinalLiveCommitReviewPolicy:
-    if policy is not None:
-        return policy
-    raw = _as_mapping(payload.get("policy"))
-    if raw:
-        allowed = set(FinalLiveCommitReviewPolicy.__dataclass_fields__)
-        return FinalLiveCommitReviewPolicy(**{str(k): v for k, v in raw.items() if str(k) in allowed})
-    return build_default_policy()
-
-
-def _candidate_payloads(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-    raw = payload.get("final_live_commit_review_candidates", payload.get("final_live_commit_review_candidate", payload.get("candidates", ())))
-    if isinstance(raw, Mapping):
-        return (_as_mapping(raw),)
-    if isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray, str)):
-        return tuple(_as_mapping(item) for item in raw)
-    return ()
-
-
-def _blocked(code: str, findings: Sequence[FinalLiveCommitReviewFinding] | None = None) -> FinalLiveCommitReviewResult:
-    finding_list = tuple(findings or (FinalLiveCommitReviewFinding("error", code, code.replace("_", " ")),))
-    report = FinalLiveCommitReviewReport("final_live_commit_review_blocked", finding_list, {"candidate_count": 0, "error_count": sum(1 for f in finding_list if f.severity == "error")})
+def _blocked(code: str, findings: Sequence[FinalLiveMemoryCommitReviewGateFinding] = ()) -> FinalLiveMemoryCommitReviewGateResult:
+    all_findings = tuple(findings) or (FinalLiveMemoryCommitReviewGateFinding("error", code, code),)
+    report = FinalLiveMemoryCommitReviewGateReport("final_live_memory_commit_review_gate_blocked", all_findings, {"blocked": 1})
     report = replace(report, digest=_digest(report.to_dict()))
-    return FinalLiveCommitReviewResult("final_live_commit_review_blocked", None, report, _digest({"packet": None, "report": report.to_dict()}))
+    return FinalLiveMemoryCommitReviewGateResult("final_live_memory_commit_review_gate_blocked", None, report, _digest(report.to_dict()))
 
+def _extract_envelope(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    envelope = _as_mapping(payload.get("real_live_memory_commit_adapter_readiness_envelope"))
+    if envelope.get("gate"):
+        envelope = _as_mapping(envelope.get("gate"))
+    records = envelope.get("records")
+    if not isinstance(records, Sequence) or isinstance(records, (str, bytes)) or not records:
+        raise ValueError("missing_real_live_memory_commit_adapter_readiness_envelope")
+    record = _as_mapping(records[0])
+    return envelope, record
 
-def _claims_blocker(candidate: FinalLiveCommitReviewCandidate, policy: FinalLiveCommitReviewPolicy) -> str | None:
-    claims = candidate.review_claims
-    metadata = candidate.metadata
-    all_data = {"claims": claims, "metadata": metadata, "sandbox_artifact_plan": candidate.sandbox_artifact_plan, "final_operator_review_metadata": candidate.final_operator_review_metadata, "future_real_adapter_implementation_metadata": candidate.future_real_adapter_implementation_metadata, "live_receipt_schema_metadata": candidate.live_receipt_schema_metadata, "live_rollback_schema_metadata": candidate.live_rollback_schema_metadata, "post_commit_verification_plan": candidate.post_commit_verification_plan, "abort_panic_stop_condition_plan": candidate.abort_panic_stop_condition_plan}
-    if policy.block_raw_payload_leakage and _has_raw_payload(all_data):
-        return "raw_payload_leak"
-    if policy.block_real_memory_root_access_claims and (_flag(claims, "real_memory_root_access", "touches_real_memory_root", "opens_real_memory_path", "chmod_real_memory_path") or metadata.get("real_memory_root_access_claimed") is True):
-        return "real_memory_root_access_claim"
-    if policy.block_live_mutation_claims and (_flag(claims, "live_write", "writes_live_memory", "real_memory_write") or metadata.get("live_write_claimed") is True):
-        return "live_write_claim"
-    if policy.block_live_mutation_claims and (_flag(claims, "live_delete", "deletes_live_memory") or metadata.get("live_delete_claimed") is True):
-        return "live_delete_claim"
-    if policy.block_live_mutation_claims and (_flag(claims, "live_purge", "purges_live_memory") or metadata.get("live_purge_claimed") is True):
-        return "live_purge_claim"
-    if policy.block_live_mutation_claims and (_flag(claims, "index_mutation", "mutates_index", "mutates_live_index") or metadata.get("index_mutation_claimed") is True):
-        return "index_mutation_claim"
-    if policy.block_final_review_conversion_claims and (_flag(claims, "final_review_is_execution_permission", "final_review_is_real_commit", "convert_final_review_to_live_adapter_execution") or metadata.get("final_review_is_execution_permission") is True or metadata.get("final_review_is_real_commit") is True):
-        return "final_review_conversion_claim"
-    if policy.block_sandbox_conversion_claims and (_flag(claims, "sandbox_commit_is_real_commit", "convert_sandbox_commit_to_live_commit") or metadata.get("sandbox_commit_is_real_commit") is True):
-        return "sandbox_commit_conversion_claim"
-    if policy.block_sandbox_conversion_claims and (_flag(claims, "sandbox_receipt_is_live_receipt") or metadata.get("sandbox_receipt_is_live_receipt") is True):
-        return "sandbox_receipt_conversion_claim"
-    if policy.block_sandbox_conversion_claims and (_flag(claims, "sandbox_rollback_is_applied_rollback") or metadata.get("sandbox_rollback_is_applied_rollback") is True):
-        return "sandbox_rollback_conversion_claim"
-    if policy.block_real_root_admission_conversion_claims and (_flag(claims, "real_root_admission_is_memory_root_access", "convert_real_root_admission_to_memory_root_access") or metadata.get("real_root_admission_is_memory_root_access") is True):
-        return "real_root_admission_conversion_claim"
-    if policy.block_prompt_materialization and (_flag(claims, "prompt_materialization", "prompt_assembly", "assembles_prompt") or metadata.get("prompt_materialization_requested") is True):
-        return "prompt_materialization"
-    if policy.block_live_context_retrieval and (_flag(claims, "live_context_retrieval", "retrieves_live_context") or metadata.get("live_context_retrieval_requested") is True):
-        return "live_context_retrieval"
-    if policy.block_action_execution and (_flag(claims, "action_execution", "executes_action", "action_ingress") or metadata.get("action_execution_requested") is True):
-        return "action_execution"
-    if policy.block_external_disclosure and (_flag(claims, "external_disclosure", "discloses_externally", "remote_service") or metadata.get("external_disclosure_requested") is True):
-        return "external_disclosure"
-    if policy.block_authority_smuggling and (_flag(claims, "authority", "grants_authority") or metadata.get("authority_claimed") is True):
-        return "authority_smuggling"
-    if policy.block_consent_smuggling and (_flag(claims, "consent") or metadata.get("consent_claimed") is True):
-        return "consent_smuggling"
-    if policy.block_policy_smuggling and (_flag(claims, "policy") or metadata.get("policy_claimed") is True):
-        return "policy_smuggling"
-    if policy.block_truth_smuggling and (_flag(claims, "truth") or metadata.get("truth_claimed") is True):
-        return "truth_smuggling"
-    return None
+def _extract_candidates(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    candidates = payload.get("final_live_memory_commit_review_gate_candidates")
+    if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)) or not candidates:
+        raise ValueError("missing_final_live_memory_commit_review_gate_candidate")
+    return [_as_mapping(c) for c in candidates]
 
+def _candidate(raw: Mapping[str, Any]) -> FinalLiveMemoryCommitReviewGateCandidate:
+    candidate_type = str(raw.get("candidate_type") or "")
+    candidate_id = str(raw.get("candidate_id") or _stable_token(candidate_type))
+    record_id = str(raw.get("record_id") or candidate_id)
+    scope = raw.get("operator_scope_keys") or []
+    if not isinstance(scope, Sequence) or isinstance(scope, (str, bytes)):
+        scope = []
+    metadata = _as_mapping(raw.get("metadata"))
+    return FinalLiveMemoryCommitReviewGateCandidate(candidate_id, record_id, candidate_type, tuple(str(s) for s in scope), bool(raw.get("is_noop", False)), metadata)
 
-def _decision_for(candidate: FinalLiveCommitReviewCandidate, real_root_decision: str, sandbox_decision: str, warning: bool) -> FinalLiveCommitReviewDecision:
-    if candidate.candidate_type == "noop_final_live_commit_review_candidate" or real_root_decision == "real_root_admission_noop" or sandbox_decision == "sandbox_commit_noop":
-        return "final_live_commit_review_noop"
-    if candidate.candidate_type == "operator_review_final_live_commit_review_candidate" or real_root_decision == "real_root_admission_deferred_for_operator_review" or sandbox_decision == "sandbox_commit_deferred_for_operator_review" or candidate.metadata.get("operator_review_requested") is True:
-        return "final_live_commit_review_deferred_for_operator_review"
-    if real_root_decision == "real_root_admission_rejected" or sandbox_decision == "sandbox_commit_rejected" or candidate.metadata.get("rejected") is True:
-        return "final_live_commit_review_rejected"
-    if warning or real_root_decision.endswith("with_warnings") or sandbox_decision.endswith("with_warnings"):
-        return "final_live_commit_review_ready_with_warnings"
-    return "final_live_commit_review_ready_for_future_adapter_implementation"
+def _metadata_record(record_type: str, candidate: FinalLiveMemoryCommitReviewGateCandidate, metadata: Mapping[str, Any]) -> FinalLiveMemoryCommitReviewGateMetadataRecord:
+    return FinalLiveMemoryCommitReviewGateMetadataRecord(record_type, candidate.candidate_id, candidate.record_id, _digest(dict(sorted((str(k), v) for k, v in metadata.items()))))
 
+def _carried_evidence(record: Mapping[str, Any]) -> dict[str, dict[str, str]]:
+    carried = _as_mapping(record.get("carried_evidence"))
+    evidence: dict[str, dict[str, str]] = {}
+    for name, digest_field, decision_field in CARRIED_EVIDENCE_FIELDS:
+        sub = _as_mapping(carried.get(name))
+        digest = str(record.get(digest_field) or sub.get("digest") or "")
+        decision = str(record.get(decision_field) or sub.get("decision") or "")
+        if digest or decision:
+            evidence[name] = {"digest": digest, "decision": decision}
+    return dict(sorted(evidence.items()))
+
+def _decision(candidate: FinalLiveMemoryCommitReviewGateCandidate, findings: Sequence[FinalLiveMemoryCommitReviewGateFinding]) -> FinalLiveMemoryCommitReviewGateDecision:
+    if candidate.is_noop or candidate.candidate_type == "noop_final_live_memory_commit_review_gate_candidate":
+        return "final_live_memory_commit_review_gate_noop"
+    if candidate.candidate_type == "operator_review_final_live_memory_commit_review_gate_candidate":
+        return "final_live_memory_commit_review_gate_deferred_for_operator_review"
+    if any(f.severity == "warning" for f in findings) or candidate.candidate_type == "mixed_final_live_memory_commit_review_gate_candidate":
+        return "final_live_memory_commit_review_gate_ready_with_warnings"
+    return "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate"
 
 def _safe_actions(decision: str) -> tuple[str, ...]:
-    if decision == "final_live_commit_review_noop":
-        return ("no_action_allowed", "inspect_final_live_commit_review_packet", "sustain_default_deny")
-    if decision == "final_live_commit_review_deferred_for_operator_review":
-        return ("no_action_allowed", "inspect_final_live_commit_review_packet", "operator_review_required", "sustain_default_deny")
-    if decision == "final_live_commit_review_rejected":
-        return ("no_action_allowed", "inspect_final_live_commit_review_packet", "sustain_default_deny")
-    return ("no_action_allowed", "inspect_final_live_commit_review_packet", "operator_review_required", "prepare_future_real_live_commit_adapter_implementation_later", "prepare_later_explicit_operator_runtime_execution_later", "sustain_default_deny")
+    if decision == "final_live_memory_commit_review_gate_noop":
+        return ("no_action_allowed", "sustain_default_deny")
+    if decision == "final_live_memory_commit_review_gate_deferred_for_operator_review":
+        return ("operator_review_required", "sustain_default_deny")
+    return SAFE_NEXT_ACTIONS
 
+def _check_candidate(raw: Mapping[str, Any], candidate: FinalLiveMemoryCommitReviewGateCandidate, envelope: Mapping[str, Any], record: Mapping[str, Any], policy: FinalLiveMemoryCommitReviewGatePolicy) -> list[FinalLiveMemoryCommitReviewGateFinding]:
+    findings: list[FinalLiveMemoryCommitReviewGateFinding] = []
+    if candidate.candidate_type not in FINAL_LIVE_MEMORY_COMMIT_REVIEW_GATE_CANDIDATE_TYPES:
+        return [FinalLiveMemoryCommitReviewGateFinding("error", "invalid_final_live_memory_commit_review_gate_candidate", "invalid final review gate candidate", candidate.candidate_id, candidate.record_id)]
+    claims = _as_mapping(raw.get("final_live_memory_commit_review_gate_claims"))
+    for name in sorted(FORBIDDEN_CLAIMS):
+        if bool(claims.get(name)) or bool(raw.get(name)):
+            return [FinalLiveMemoryCommitReviewGateFinding("error", name, f"{name} is forbidden", candidate.candidate_id, candidate.record_id)]
+    gate_digest = str(envelope.get("digest") or "")
+    record_decision = str(record.get("real_live_memory_commit_adapter_readiness_envelope_decision") or "")
+    if record_decision not in READY_REAL_LIVE_MEMORY_COMMIT_ADAPTER_READINESS_ENVELOPE_DECISIONS:
+        return [FinalLiveMemoryCommitReviewGateFinding("error", "real_live_memory_commit_adapter_readiness_envelope_not_ready", "adapter readiness envelope is not ready", candidate.candidate_id, candidate.record_id)]
+    if str(raw.get("claimed_real_live_memory_commit_adapter_readiness_envelope_digest") or "") != gate_digest:
+        return [FinalLiveMemoryCommitReviewGateFinding("error", "real_live_memory_commit_adapter_readiness_envelope_digest_mismatch", "adapter readiness envelope digest mismatch", candidate.candidate_id, candidate.record_id)]
+    if str(raw.get("claimed_real_live_memory_commit_adapter_readiness_envelope_decision") or "") != record_decision:
+        return [FinalLiveMemoryCommitReviewGateFinding("error", "real_live_memory_commit_adapter_readiness_envelope_decision_mismatch", "adapter readiness envelope decision mismatch", candidate.candidate_id, candidate.record_id)]
+    if policy.require_scope_alignment and tuple(str(s) for s in record.get("operator_scope_keys") or ()) != candidate.operator_scope_keys:
+        if candidate.candidate_type == "mixed_final_live_memory_commit_review_gate_candidate" and policy.allow_mixed_scope_diagnostic_packet:
+            findings.append(FinalLiveMemoryCommitReviewGateFinding("warning", "mixed_scope_diagnostic", "mixed candidate scope mismatch is diagnostic only", candidate.candidate_id, candidate.record_id))
+        else:
+            return [FinalLiveMemoryCommitReviewGateFinding("error", "scope_mismatch", "candidate scope must match adapter readiness envelope scope", candidate.candidate_id, candidate.record_id)]
+    if not candidate.is_noop:
+        missing = [field for field in NON_NOOP_METADATA_FIELDS if not _as_mapping(raw.get(field))]
+        if missing:
+            return [FinalLiveMemoryCommitReviewGateFinding("error", f"missing_{missing[0]}", f"missing required metadata field {missing[0]}", candidate.candidate_id, candidate.record_id)]
+    for name, digest_field, decision_field in CARRIED_EVIDENCE_FIELDS:
+        claimed_digest = str(raw.get(f"claimed_{digest_field}") or "")
+        claimed_decision = str(raw.get(f"claimed_{decision_field}") or "")
+        actual_digest = str(record.get(digest_field) or _as_mapping(record.get("carried_evidence")).get(name, {}).get("digest") or "")
+        actual_decision = str(record.get(decision_field) or _as_mapping(record.get("carried_evidence")).get(name, {}).get("decision") or "")
+        if actual_digest and claimed_digest and claimed_digest != actual_digest:
+            return [FinalLiveMemoryCommitReviewGateFinding("error", f"{digest_field}_mismatch", f"{name} digest mismatch", candidate.candidate_id, candidate.record_id)]
+        if actual_decision and claimed_decision and claimed_decision != actual_decision:
+            return [FinalLiveMemoryCommitReviewGateFinding("error", f"{decision_field}_mismatch", f"{name} decision mismatch", candidate.candidate_id, candidate.record_id)]
+    return findings
 
-def _required_metadata_blocker(candidate: FinalLiveCommitReviewCandidate, policy: FinalLiveCommitReviewPolicy) -> str | None:
-    if candidate.candidate_type == "noop_final_live_commit_review_candidate":
-        return None
-    required: tuple[tuple[bool, str, Any], ...] = (
-        (policy.require_sandbox_receipt_manifest_digest_for_non_noop, "missing_sandbox_receipt_manifest_digest", candidate.claimed_sandbox_receipt_manifest_digest),
-        (policy.require_sandbox_rollback_manifest_digest_for_non_noop, "missing_sandbox_rollback_manifest_digest", candidate.claimed_sandbox_rollback_manifest_digest),
-        (policy.require_sandbox_artifact_plan_for_non_noop, "missing_sandbox_artifact_plan", candidate.sandbox_artifact_plan),
-        (policy.require_final_operator_review_metadata_for_non_noop, "missing_final_operator_review_metadata", candidate.final_operator_review_metadata),
-        (policy.require_future_real_adapter_implementation_metadata_for_non_noop, "missing_future_real_adapter_implementation_metadata", candidate.future_real_adapter_implementation_metadata),
-        (policy.require_live_receipt_schema_metadata_for_non_noop, "missing_live_receipt_schema_metadata", candidate.live_receipt_schema_metadata),
-        (policy.require_live_rollback_schema_metadata_for_non_noop, "missing_live_rollback_schema_metadata", candidate.live_rollback_schema_metadata),
-        (policy.require_post_commit_verification_plan_for_non_noop, "missing_post_commit_verification_plan", candidate.post_commit_verification_plan),
-        (policy.require_abort_panic_stop_condition_plan_for_non_noop, "missing_abort_panic_stop_condition_plan", candidate.abort_panic_stop_condition_plan),
-    )
-    for enabled, code, value in required:
-        if enabled and not value:
-            return code
-    return None
-
-
-def evaluate_final_live_memory_commit_review_gate(payload: Mapping[str, Any], policy: FinalLiveCommitReviewPolicy | None = None) -> FinalLiveCommitReviewResult:
+def evaluate_final_live_memory_commit_review_gate(payload: Mapping[str, Any], policy: FinalLiveMemoryCommitReviewGatePolicy | None = None) -> FinalLiveMemoryCommitReviewGateResult:
+    active_policy = policy or build_default_policy()
+    validation = validate_policy(active_policy)
+    if validation["status"] != "valid":
+        return _blocked("invalid_policy", [FinalLiveMemoryCommitReviewGateFinding("error", "invalid_policy", "policy failed validation")])
     try:
-        active_policy = _policy_from_payload(payload, policy)
-        real_root = _as_mapping(payload.get("real_root_admission_packet") or payload.get("real_memory_root_admission_packet"))
-        if not real_root:
-            return _blocked("missing_real_root_admission_packet")
-        real_root_records = _records(real_root)
-        real_root_digest = str(real_root.get("digest") or "")
-        if not real_root_records or not real_root_digest:
-            return _blocked("invalid_real_root_admission_packet")
-        sandbox = _as_mapping(payload.get("sandbox_commit_packet") or payload.get("sandboxed_live_memory_commit_packet"))
-        if not sandbox:
-            return _blocked("missing_sandbox_commit_packet")
-        sandbox_records = _records(sandbox)
-        sandbox_digest = str(sandbox.get("digest") or "")
-        if not sandbox_records or not sandbox_digest:
-            return _blocked("invalid_sandbox_commit_packet")
-        candidates_raw = _candidate_payloads(payload)
-        if not candidates_raw:
-            return _blocked("missing_final_live_commit_review_candidate")
-        records: list[FinalLiveCommitReviewRecord] = []
-        findings: list[FinalLiveCommitReviewFinding] = []
-        real_root_record_by_id = {str(record.get("record_id") or ""): record for record in real_root_records}
-        sandbox_record_by_id = {str(record.get("record_id") or ""): record for record in sandbox_records}
-        for raw_candidate in candidates_raw:
-            candidate = FinalLiveCommitReviewCandidate.from_mapping(raw_candidate)
-            if candidate is None:
-                return _blocked("invalid_final_live_commit_review_candidate")
-            real_root_record = real_root_record_by_id.get(candidate.record_id) or real_root_records[0]
-            sandbox_record = sandbox_record_by_id.get(candidate.record_id) or sandbox_records[0]
-            real_root_decision = str(real_root_record.get("admission_decision") or real_root_record.get("decision") or "")
-            sandbox_decision = str(sandbox_record.get("sandbox_commit_decision") or sandbox_record.get("decision") or "")
-            real_root_record_digest = str(real_root_record.get("digest") or "")
-            sandbox_record_digest = str(sandbox_record.get("digest") or "")
-            if active_policy.require_real_root_admission_ready and real_root_decision not in READY_REAL_ROOT_ADMISSION_DECISIONS:
-                return _blocked("real_root_admission_not_ready", [FinalLiveCommitReviewFinding("error", "real_root_admission_not_ready", "real-root admission evidence is not ready for final review", candidate.candidate_id, candidate.record_id)])
-            if sandbox_decision not in READY_SANDBOX_DECISIONS:
-                return _blocked("sandbox_commit_not_ready", [FinalLiveCommitReviewFinding("error", "sandbox_commit_not_ready", "sandbox commit evidence is not ready for final review", candidate.candidate_id, candidate.record_id)])
-            if active_policy.require_matching_real_root_admission_digest and candidate.claimed_real_root_admission_digest != real_root_digest:
-                return _blocked("real_root_admission_digest_mismatch", [FinalLiveCommitReviewFinding("error", "real_root_admission_digest_mismatch", "candidate real-root admission digest does not match supplied packet", candidate.candidate_id, candidate.record_id)])
-            if active_policy.require_matching_real_root_admission_decision and candidate.claimed_real_root_admission_decision != real_root_decision:
-                return _blocked("real_root_admission_decision_mismatch", [FinalLiveCommitReviewFinding("error", "real_root_admission_decision_mismatch", "candidate real-root admission decision does not match supplied record", candidate.candidate_id, candidate.record_id)])
-            if active_policy.require_matching_sandbox_commit_digest and candidate.claimed_sandbox_commit_digest != sandbox_digest:
-                return _blocked("sandbox_commit_digest_mismatch", [FinalLiveCommitReviewFinding("error", "sandbox_commit_digest_mismatch", "candidate sandbox commit digest does not match supplied packet", candidate.candidate_id, candidate.record_id)])
-            if active_policy.require_matching_sandbox_commit_decision and candidate.claimed_sandbox_commit_decision != sandbox_decision:
-                return _blocked("sandbox_commit_decision_mismatch", [FinalLiveCommitReviewFinding("error", "sandbox_commit_decision_mismatch", "candidate sandbox commit decision does not match supplied record", candidate.candidate_id, candidate.record_id)])
-            blocker = _required_metadata_blocker(candidate, active_policy) or _claims_blocker(candidate, active_policy)
-            if blocker:
-                return _blocked(blocker, [FinalLiveCommitReviewFinding("error", blocker, blocker.replace("_", " "), candidate.candidate_id, candidate.record_id)])
-            real_root_scope = _as_tuple(real_root_record.get("operator_scope_keys") or real_root_record.get("real_root_admission_scope_keys"))
-            sandbox_scope = _as_tuple(sandbox_record.get("operator_scope_keys") or sandbox_record.get("sandbox_scope_keys"))
-            if active_policy.require_scope_alignment:
-                scope_sets = [set(scope) for scope in (candidate.operator_scope_keys, real_root_scope, sandbox_scope) if scope]
-                aligned = not scope_sets or all(scope == scope_sets[0] for scope in scope_sets)
-                if not aligned:
-                    if active_policy.allow_mixed_scope_diagnostic_packet and candidate.candidate_type == "mixed_final_live_commit_review_candidate" and candidate.metadata.get("diagnostic_warning") is True:
-                        findings.append(FinalLiveCommitReviewFinding("warning", "scope_mismatch_diagnostic", "scope mismatch allowed for diagnostic packet", candidate.candidate_id, candidate.record_id))
-                    else:
-                        return _blocked("scope_mismatch", [FinalLiveCommitReviewFinding("error", "scope_mismatch", "candidate scope does not match real-root admission and sandbox commit scope", candidate.candidate_id, candidate.record_id)])
-            warning = bool(candidate.metadata.get("warning_only") or candidate.metadata.get("diagnostic_warning")) or real_root_decision.endswith("with_warnings") or sandbox_decision.endswith("with_warnings") or any(f.severity == "warning" and f.candidate_id == candidate.candidate_id for f in findings)
-            if warning:
-                findings.append(FinalLiveCommitReviewFinding("warning", "final_live_commit_review_warning", "candidate is warning/diagnostic metadata", candidate.candidate_id, candidate.record_id))
-            decision = _decision_for(candidate, real_root_decision, sandbox_decision, warning)
-            future_record = {
-                "candidate_id": candidate.candidate_id,
-                "eligible_for_future_real_live_commit_adapter_implementation_consideration": decision in {"final_live_commit_review_ready_for_future_adapter_implementation", "final_live_commit_review_ready_with_warnings"},
-                "decision": decision,
-                "real_live_commit_performed": False,
-                "real_memory_root_access_performed": False,
-                "real_adapter_implemented_or_invoked": False,
-                "future_real_live_commit_adapter_required": True,
-                "explicit_operator_runtime_execution_required_later": True,
-                "operator_review_cannot_override_hard_blockers": True,
-            }
-            records.append(FinalLiveCommitReviewRecord(
+        envelope, upstream = _extract_envelope(payload)
+        raw_candidates = _extract_candidates(payload)
+        records: list[FinalLiveMemoryCommitReviewGateRecord] = []
+        findings: list[FinalLiveMemoryCommitReviewGateFinding] = []
+        for raw in raw_candidates:
+            candidate = _candidate(raw)
+            candidate_findings = _check_candidate(raw, candidate, envelope, upstream, active_policy)
+            if any(f.severity == "error" for f in candidate_findings):
+                return _blocked(candidate_findings[0].code, candidate_findings)
+            findings.extend(candidate_findings)
+            decision = _decision(candidate, candidate_findings)
+            carried = _carried_evidence(upstream)
+            records.append(FinalLiveMemoryCommitReviewGateRecord(
                 candidate.candidate_id,
                 candidate.record_id,
                 candidate.candidate_type,
                 decision,
-                real_root_decision,
-                real_root_digest,
-                real_root_record_digest,
-                sandbox_decision,
-                sandbox_digest,
-                candidate.claimed_sandbox_receipt_manifest_digest,
-                candidate.claimed_sandbox_rollback_manifest_digest,
+                str(envelope.get("digest") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_readiness_envelope_decision") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_readiness_gate_digest") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_readiness_gate_decision") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_admission_packet_digest") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_admission_packet_decision") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_admission_gate_digest") or carried.get("real_live_memory_commit_adapter_admission_gate", {}).get("digest") or ""),
+                str(upstream.get("real_live_memory_commit_adapter_admission_gate_decision") or carried.get("real_live_memory_commit_adapter_admission_gate", {}).get("decision") or ""),
+                str(upstream.get("real_live_memory_commit_execution_packet_digest") or ""),
+                str(upstream.get("real_live_memory_commit_execution_packet_decision") or ""),
+                str(upstream.get("real_live_memory_commit_execution_gate_digest") or ""),
+                str(upstream.get("real_live_memory_commit_execution_gate_decision") or ""),
+                str(upstream.get("real_executor_execution_commit_window_packet_digest") or ""),
+                str(upstream.get("real_executor_execution_commit_window_packet_decision") or ""),
+                str(upstream.get("real_executor_execution_commit_plan_gate_digest") or ""),
+                str(upstream.get("real_executor_execution_commit_plan_gate_decision") or ""),
+                str(upstream.get("real_executor_execution_commit_plan_packet_digest") or ""),
+                str(upstream.get("real_executor_execution_commit_plan_packet_decision") or ""),
+                str(upstream.get("real_executor_execution_lock_lease_gate_digest") or ""),
+                str(upstream.get("real_executor_execution_lock_lease_gate_decision") or ""),
+                carried,
                 candidate.operator_scope_keys,
-                real_root_scope,
-                sandbox_scope,
-                dict(candidate.sandbox_artifact_plan),
-                dict(candidate.final_operator_review_metadata),
-                dict(candidate.future_real_adapter_implementation_metadata),
-                dict(candidate.live_receipt_schema_metadata),
-                dict(candidate.live_rollback_schema_metadata),
-                dict(candidate.post_commit_verification_plan),
-                dict(candidate.abort_panic_stop_condition_plan),
+                (_metadata_record("final_review_gate_readiness", candidate, _as_mapping(raw.get("final_review_gate_readiness_metadata") or raw.get("metadata"))),),
+                (_metadata_record("adapter_readiness_envelope_confirmation", candidate, _as_mapping(raw.get("adapter_readiness_envelope_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("adapter_readiness_gate_confirmation", candidate, _as_mapping(raw.get("adapter_readiness_gate_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("adapter_admission_packet_confirmation", candidate, _as_mapping(raw.get("adapter_admission_packet_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("adapter_admission_gate_confirmation", candidate, _as_mapping(raw.get("adapter_admission_gate_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("live_memory_commit_execution_packet_confirmation", candidate, _as_mapping(raw.get("live_memory_commit_execution_packet_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("live_memory_commit_execution_gate_confirmation", candidate, _as_mapping(raw.get("live_memory_commit_execution_gate_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("commit_window_packet_confirmation", candidate, _as_mapping(raw.get("commit_window_packet_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("commit_plan_gate_confirmation", candidate, _as_mapping(raw.get("commit_plan_gate_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("commit_plan_packet_confirmation", candidate, _as_mapping(raw.get("commit_plan_packet_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("lock_lease_gate_confirmation", candidate, _as_mapping(raw.get("lock_lease_gate_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("live_commit_execution_denial", candidate, _as_mapping(raw.get("live_commit_execution_denial_metadata") or raw.get("metadata"))),),
+                (_metadata_record("live_memory_write_denial", candidate, _as_mapping(raw.get("live_memory_write_denial_metadata") or raw.get("metadata"))),),
+                (_metadata_record("real_memory_root_admission_deferral", candidate, _as_mapping(raw.get("real_memory_root_admission_deferral_metadata") or raw.get("metadata"))),),
+                (_metadata_record("emergency_stop_confirmation", candidate, _as_mapping(raw.get("emergency_stop_confirmation_metadata") or raw.get("metadata"))),),
+                (_metadata_record("rollback_readiness", candidate, _as_mapping(raw.get("rollback_readiness_metadata") or raw.get("metadata"))),),
+                (_metadata_record("verification_readiness", candidate, _as_mapping(raw.get("verification_readiness_metadata") or raw.get("metadata"))),),
+                (_metadata_record("audit_readiness", candidate, _as_mapping(raw.get("audit_readiness_metadata") or raw.get("metadata"))),),
                 _safe_actions(decision),
-                future_record,
             ).with_digest())
-        counts: dict[str, int] = {"candidate_count": len(records), "warning_count": sum(1 for finding in findings if finding.severity == "warning")}
+        counts: dict[str, int] = {"candidate_count": len(records), "warning_count": sum(1 for f in findings if f.severity == "warning")}
         for record in records:
-            counts[record.review_decision] = counts.get(record.review_decision, 0) + 1
+            counts[record.final_live_memory_commit_review_gate_decision] = counts.get(record.final_live_memory_commit_review_gate_decision, 0) + 1
             counts[record.candidate_type] = counts.get(record.candidate_type, 0) + 1
-        decisions = {record.review_decision for record in records}
-        if counts["warning_count"]:
-            status: FinalLiveCommitReviewStatus = "final_live_commit_review_ready_with_warnings"
-        elif decisions <= {"final_live_commit_review_noop"}:
-            status = "final_live_commit_review_noop"
-        elif decisions <= {"final_live_commit_review_deferred_for_operator_review"}:
-            status = "final_live_commit_review_deferred_for_operator_review"
-        elif decisions <= {"final_live_commit_review_rejected"}:
-            status = "final_live_commit_review_rejected"
-        elif "final_live_commit_review_ready_with_warnings" in decisions:
-            status = "final_live_commit_review_ready_with_warnings"
+        decisions = {r.final_live_memory_commit_review_gate_decision for r in records}
+        if counts["warning_count"] or "final_live_memory_commit_review_gate_ready_with_warnings" in decisions:
+            status: FinalLiveMemoryCommitReviewGateStatus = "final_live_memory_commit_review_gate_ready_with_warnings"
+        elif decisions <= {"final_live_memory_commit_review_gate_noop"}:
+            status = "final_live_memory_commit_review_gate_noop"
+        elif decisions <= {"final_live_memory_commit_review_gate_deferred_for_operator_review"}:
+            status = "final_live_memory_commit_review_gate_deferred_for_operator_review"
         else:
-            status = "final_live_commit_review_ready"
-        packet = FinalLiveCommitReviewPacket(active_policy.schema_version, tuple(records)).with_digest()
-        report = FinalLiveCommitReviewReport(status, tuple(findings), dict(sorted(counts.items())))
+            status = "final_live_memory_commit_review_gate_ready"
+        gate = FinalLiveMemoryCommitReviewGate(active_policy.schema_version, tuple(records)).with_digest()
+        report = FinalLiveMemoryCommitReviewGateReport(status, tuple(findings), dict(sorted(counts.items())))
         report = replace(report, digest=_digest(report.to_dict()))
-        return FinalLiveCommitReviewResult(status, packet, report, _digest({"packet": packet.to_dict(), "report": report.to_dict()}))
+        return FinalLiveMemoryCommitReviewGateResult(status, gate, report, _digest({"gate": gate.to_dict(), "report": report.to_dict()}))
+    except ValueError as exc:
+        return _blocked(str(exc))
     except Exception as exc:
-        return _blocked("failed", [FinalLiveCommitReviewFinding("error", "failed", str(exc))])
+        return _blocked("failed", [FinalLiveMemoryCommitReviewGateFinding("error", "failed", str(exc))])
 
-
-def evaluate_packet(payload: Mapping[str, Any], policy: FinalLiveCommitReviewPolicy | None = None) -> FinalLiveCommitReviewResult:
+def evaluate_gate(payload: Mapping[str, Any], policy: FinalLiveMemoryCommitReviewGatePolicy | None = None) -> FinalLiveMemoryCommitReviewGateResult:
     return evaluate_final_live_memory_commit_review_gate(payload, policy)
 
-
 __all__ = [
-    "FINAL_LIVE_COMMIT_REVIEW_CANDIDATE_TYPES", "FORBIDDEN_NEXT_STEPS", "INVARIANTS", "READY_REAL_ROOT_ADMISSION_DECISIONS", "READY_SANDBOX_DECISIONS", "SAFE_NEXT_ACTIONS",
-    "FinalLiveCommitReviewCandidate", "FinalLiveCommitReviewFinding", "FinalLiveCommitReviewPacket", "FinalLiveCommitReviewPolicy", "FinalLiveCommitReviewRecord", "FinalLiveCommitReviewReport", "FinalLiveCommitReviewResult",
-    "build_default_policy", "validate_policy", "evaluate_final_live_memory_commit_review_gate", "evaluate_packet",
+    "CARRIED_EVIDENCE_FIELDS", "FAIL_STATUSES", "FALSE_FLAGS", "FORBIDDEN_CLAIMS", "FORBIDDEN_NEXT_STEPS",
+    "FUTURE_FLAGS", "INVARIANTS", "NON_NOOP_METADATA_FIELDS", "FINAL_LIVE_MEMORY_COMMIT_REVIEW_GATE_CANDIDATE_TYPES",
+    "READY_REAL_LIVE_MEMORY_COMMIT_ADAPTER_READINESS_ENVELOPE_DECISIONS",
+    "FinalLiveMemoryCommitReviewGate", "FinalLiveMemoryCommitReviewGateCandidate", "FinalLiveMemoryCommitReviewGateFinding",
+    "FinalLiveMemoryCommitReviewGateMetadataRecord", "FinalLiveMemoryCommitReviewGatePolicy", "FinalLiveMemoryCommitReviewGateRecord",
+    "FinalLiveMemoryCommitReviewGateReport", "FinalLiveMemoryCommitReviewGateResult", "build_default_policy", "evaluate_gate",
+    "evaluate_final_live_memory_commit_review_gate", "validate_policy",
 ]
