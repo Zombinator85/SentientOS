@@ -26,27 +26,27 @@ def test_build_default_and_validate() -> None:
 
 
 def test_inspect_fixture_and_evaluate_write_nothing(tmp_path: Path) -> None:
-    fixture = "valid_ai_capsule_real_root_admission_candidate.json"
+    fixture = "valid_ai_capsule_real_memory_root_admission_gate_candidate.json"
     inspect = _run("inspect-fixture", "--fixture-name", fixture)
     assert inspect.returncode == 0
-    assert json.loads(inspect.stdout)["real_root_admission_candidates"][0]["candidate_type"] == "ai_capsule_real_root_admission_candidate"
+    assert json.loads(inspect.stdout)["real_memory_root_admission_gate_candidates"][0]["candidate_type"] == "ai_capsule_real_memory_root_admission_gate_candidate"
     before = sorted(tmp_path.rglob("*"))
     evaluate = _run("evaluate", "--input", str(FIXTURES / fixture))
     assert evaluate.returncode == 0
-    assert json.loads(evaluate.stdout)["status"] == "real_root_admission_ready"
+    assert json.loads(evaluate.stdout)["status"] == "real_memory_root_admission_gate_ready"
     assert sorted(tmp_path.rglob("*")) == before
 
 
 def test_summarize_and_blocked_exit_nonzero() -> None:
-    summary = _run("summarize", "--input", str(FIXTURES / "valid_ai_capsule_real_root_admission_candidate.json"))
+    summary = _run("summarize", "--input", str(FIXTURES / "valid_ai_capsule_real_memory_root_admission_gate_candidate.json"))
     assert summary.returncode == 0
     assert json.loads(summary.stdout)["packet_digest"].startswith("sha256:")
     blocked = _run("evaluate", "--input", str(FIXTURES / "digest_mismatch_blocked.json"))
     assert blocked.returncode != 0
-    assert json.loads(blocked.stdout)["status"] == "real_root_admission_blocked"
+    assert json.loads(blocked.stdout)["status"] == "real_memory_root_admission_gate_blocked"
 
 
 def test_validate_input_metadata_uses_embedded_policy() -> None:
-    validate = _run("validate", "--input", str(FIXTURES / "mixed_real_root_admission_candidate.json"))
+    validate = _run("validate", "--input", str(FIXTURES / "mixed_real_memory_root_admission_gate_candidate.json"))
     assert validate.returncode == 0
-    assert json.loads(validate.stdout)["status"] == "real_root_admission_ready_with_warnings"
+    assert json.loads(validate.stdout)["status"] == "real_memory_root_admission_gate_ready_with_warnings"

@@ -1,8 +1,8 @@
 """Deterministic metadata-only real memory-root admission gate.
 
-The gate consumes supplied sandboxed live memory commit evidence and explicit
-real-root admission candidates to decide whether a future real live-memory
-commit adapter may be considered. It never writes, deletes, purges, indexes,
+The gate consumes supplied final live memory commit review evidence and
+explicit real memory root admission gate candidates to decide whether a later
+Real Memory Root Admission Packet metadata rung may be considered. It never writes, deletes, purges, indexes,
 persists, applies, merges, completes tombs, assembles prompts, retrieves live
 context, executes actions, discloses externally, touches real memory roots, or
 grants truth, policy, consent, or authority.
@@ -18,39 +18,44 @@ from pathlib import PurePath
 from typing import Any, Literal, Mapping, Sequence
 
 RealRootAdmissionStatus = Literal[
-    "real_root_admission_ready",
-    "real_root_admission_ready_with_warnings",
-    "real_root_admission_deferred_for_operator_review",
-    "real_root_admission_rejected",
-    "real_root_admission_blocked",
-    "real_root_admission_noop",
-    "real_root_admission_invalid",
-    "real_root_admission_failed",
+    "real_memory_root_admission_gate_ready",
+    "real_memory_root_admission_gate_ready_with_warnings",
+    "real_memory_root_admission_gate_deferred_for_operator_review",
+    "real_memory_root_admission_gate_rejected",
+    "real_memory_root_admission_gate_blocked",
+    "real_memory_root_admission_gate_noop",
+    "real_memory_root_admission_gate_invalid",
+    "real_memory_root_admission_gate_failed",
 ]
 
 RealRootAdmissionDecision = Literal[
-    "real_root_admission_candidate_ready_for_future_adapter",
-    "real_root_admission_candidate_ready_with_warnings",
-    "real_root_admission_deferred_for_operator_review",
-    "real_root_admission_rejected",
-    "real_root_admission_blocked",
-    "real_root_admission_noop",
+    "real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet",
+    "real_memory_root_admission_gate_ready_with_warnings",
+    "real_memory_root_admission_gate_deferred_for_operator_review",
+    "real_memory_root_admission_gate_rejected",
+    "real_memory_root_admission_gate_blocked",
+    "real_memory_root_admission_gate_noop",
 ]
 
 REAL_ROOT_ADMISSION_CANDIDATE_TYPES = frozenset({
-    "ai_capsule_real_root_admission_candidate",
-    "human_summary_real_root_admission_candidate",
-    "dual_capsule_real_root_admission_candidate",
-    "protect_receipt_real_root_admission_candidate",
-    "merge_receipt_real_root_admission_candidate",
-    "tomb_archive_real_root_admission_candidate",
-    "tomb_deferred_real_root_admission_candidate",
-    "operator_review_real_root_admission_candidate",
-    "noop_real_root_admission_candidate",
-    "mixed_real_root_admission_candidate",
+    "ai_capsule_real_memory_root_admission_gate_candidate",
+    "human_summary_real_memory_root_admission_gate_candidate",
+    "dual_capsule_real_memory_root_admission_gate_candidate",
+    "protect_receipt_real_memory_root_admission_gate_candidate",
+    "merge_receipt_real_memory_root_admission_gate_candidate",
+    "tomb_archive_real_memory_root_admission_gate_candidate",
+    "tomb_deferred_real_memory_root_admission_gate_candidate",
+    "operator_review_real_memory_root_admission_gate_candidate",
+    "noop_real_memory_root_admission_gate_candidate",
+    "mixed_real_memory_root_admission_gate_candidate",
 })
 
 READY_SANDBOX_DECISIONS = frozenset({
+    "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
+    "final_live_memory_commit_review_gate_ready_with_warnings",
+    "final_live_memory_commit_review_gate_deferred_for_operator_review",
+    "final_live_memory_commit_review_gate_rejected",
+    "final_live_memory_commit_review_gate_noop",
     "sandbox_commit_artifacts_ready",
     "sandbox_commit_artifacts_ready_with_warnings",
     "sandbox_commit_deferred_for_operator_review",
@@ -59,20 +64,20 @@ READY_SANDBOX_DECISIONS = frozenset({
 })
 
 INVARIANTS: dict[str, bool] = {
-    "real_root_admission_is_not_memory_write": True,
-    "real_root_admission_is_not_memory_deletion": True,
-    "real_root_admission_is_not_memory_purge": True,
-    "real_root_admission_is_not_index_mutation": True,
-    "real_root_admission_is_not_capsule_persistence": True,
-    "real_root_admission_is_not_prompt_assembly": True,
-    "real_root_admission_is_not_execution": True,
-    "real_root_admission_is_not_live_commit": True,
-    "real_root_admission_is_not_truth": True,
-    "real_root_admission_is_not_policy": True,
-    "real_root_admission_is_not_authority": True,
-    "real_root_admission_is_not_consent": True,
-    "real_root_admission_does_not_execute_action": True,
-    "real_root_admission_does_not_disclose_externally": True,
+    "real_memory_root_admission_gate_is_not_memory_write": True,
+    "real_memory_root_admission_gate_is_not_memory_deletion": True,
+    "real_memory_root_admission_gate_is_not_memory_purge": True,
+    "real_memory_root_admission_gate_is_not_index_mutation": True,
+    "real_memory_root_admission_gate_is_not_capsule_persistence": True,
+    "real_memory_root_admission_gate_is_not_prompt_assembly": True,
+    "real_memory_root_admission_gate_is_not_execution": True,
+    "real_memory_root_admission_gate_is_not_live_commit": True,
+    "real_memory_root_admission_gate_is_not_truth": True,
+    "real_memory_root_admission_gate_is_not_policy": True,
+    "real_memory_root_admission_gate_is_not_authority": True,
+    "real_memory_root_admission_gate_is_not_consent": True,
+    "real_memory_root_admission_gate_does_not_execute_action": True,
+    "real_memory_root_admission_gate_does_not_disclose_externally": True,
     "real_memory_root_access_enabled": False,
     "live_memory_write_enabled": False,
     "live_memory_deletion_enabled": False,
@@ -81,15 +86,15 @@ INVARIANTS: dict[str, bool] = {
     "prompt_materialization_enabled": False,
     "external_disclosure_enabled": False,
     "remote_service_enabled": False,
-    "future_real_live_commit_adapter_required": True,
+    "future_real_memory_root_admission_packet_required": True,
     "final_operator_review_required": True,
 }
 
 SAFE_NEXT_ACTIONS = (
     "no_action_allowed",
-    "inspect_real_root_admission_packet",
+    "inspect_real_memory_root_admission_gate_metadata",
     "operator_review_required",
-    "prepare_future_real_live_commit_adapter_later",
+    "prepare_later_real_memory_root_admission_packet",
     "prepare_final_operator_review_later",
     "rerun_with_ready_sandbox_commit_packet",
     "rerun_with_matching_sandbox_commit_digest",
@@ -128,7 +133,7 @@ FORBIDDEN_NEXT_STEPS = (
     "convert_admission_to_policy",
     "convert_admission_to_action",
     "bypass_sandbox_commit_adapter",
-    "bypass_real_root_admission_gate",
+    "bypass_real_memory_root_admission_gate",
     "bypass_safety_interlock",
     "bypass_execution_gate",
     "bypass_operator_approval_packet",
@@ -312,20 +317,20 @@ class RealRootAdmissionPacket:
     records: tuple[RealRootAdmissionRecord, ...]
     forbidden_next_steps: tuple[str, ...] = FORBIDDEN_NEXT_STEPS
     digest: str = ""
-    real_root_admission_is_not_memory_write: bool = True
-    real_root_admission_is_not_memory_deletion: bool = True
-    real_root_admission_is_not_memory_purge: bool = True
-    real_root_admission_is_not_index_mutation: bool = True
-    real_root_admission_is_not_capsule_persistence: bool = True
-    real_root_admission_is_not_prompt_assembly: bool = True
-    real_root_admission_is_not_execution: bool = True
-    real_root_admission_is_not_live_commit: bool = True
-    real_root_admission_is_not_truth: bool = True
-    real_root_admission_is_not_policy: bool = True
-    real_root_admission_is_not_authority: bool = True
-    real_root_admission_is_not_consent: bool = True
-    real_root_admission_does_not_execute_action: bool = True
-    real_root_admission_does_not_disclose_externally: bool = True
+    real_memory_root_admission_gate_is_not_memory_write: bool = True
+    real_memory_root_admission_gate_is_not_memory_deletion: bool = True
+    real_memory_root_admission_gate_is_not_memory_purge: bool = True
+    real_memory_root_admission_gate_is_not_index_mutation: bool = True
+    real_memory_root_admission_gate_is_not_capsule_persistence: bool = True
+    real_memory_root_admission_gate_is_not_prompt_assembly: bool = True
+    real_memory_root_admission_gate_is_not_execution: bool = True
+    real_memory_root_admission_gate_is_not_live_commit: bool = True
+    real_memory_root_admission_gate_is_not_truth: bool = True
+    real_memory_root_admission_gate_is_not_policy: bool = True
+    real_memory_root_admission_gate_is_not_authority: bool = True
+    real_memory_root_admission_gate_is_not_consent: bool = True
+    real_memory_root_admission_gate_does_not_execute_action: bool = True
+    real_memory_root_admission_gate_does_not_disclose_externally: bool = True
     real_memory_root_access_enabled: bool = False
     live_memory_write_enabled: bool = False
     live_memory_deletion_enabled: bool = False
@@ -334,7 +339,22 @@ class RealRootAdmissionPacket:
     prompt_materialization_enabled: bool = False
     external_disclosure_enabled: bool = False
     remote_service_enabled: bool = False
-    future_real_live_commit_adapter_required: bool = True
+    real_memory_root_admission_gate_passed: bool = False
+    real_memory_root_admission_enabled: bool = False
+    real_memory_root_admission_packet_created: bool = False
+    real_memory_root_admitted: bool = False
+    live_commit_execution_enabled: bool = False
+    live_commit_applied: bool = False
+    live_adapter_admitted: bool = False
+    executor_invocation_authority_granted: bool = False
+    executor_activation_authority_granted: bool = False
+    executor_release_authority_granted: bool = False
+    executor_permit_authority_granted: bool = False
+    executor_authorization_granted: bool = False
+    runtime_enablement_authority_granted: bool = False
+    lock_acquisition_authority_granted: bool = False
+    lockfile_creation_authority_granted: bool = False
+    future_real_memory_root_admission_packet_required: bool = True
     final_operator_review_required: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -396,7 +416,7 @@ def _policy_from_payload(payload: Mapping[str, Any], policy: RealMemoryRootAdmis
 
 
 def _candidate_payloads(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-    raw = payload.get("real_root_admission_candidates", payload.get("real_root_admission_candidate", payload.get("candidates", ())))
+    raw = payload.get("real_memory_root_admission_gate_candidates", payload.get("real_memory_root_admission_gate_candidate", payload.get("real_root_admission_candidates", payload.get("real_root_admission_candidate", payload.get("candidates", ())))))
     if isinstance(raw, Mapping):
         return (_as_mapping(raw),)
     if isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray, str)):
@@ -413,9 +433,9 @@ def _records(packet: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
 
 def _blocked(code: str, findings: Sequence[RealRootAdmissionFinding] | None = None) -> RealRootAdmissionResult:
     finding_list = tuple(findings or (RealRootAdmissionFinding("error", code, code.replace("_", " ")),))
-    report = RealRootAdmissionReport("real_root_admission_blocked", finding_list, {"candidate_count": 0, "error_count": sum(1 for f in finding_list if f.severity == "error")})
+    report = RealRootAdmissionReport("real_memory_root_admission_gate_blocked", finding_list, {"candidate_count": 0, "error_count": sum(1 for f in finding_list if f.severity == "error")})
     report = replace(report, digest=_digest(report.to_dict()))
-    return RealRootAdmissionResult("real_root_admission_blocked", None, report, _digest({"packet": None, "report": report.to_dict()}))
+    return RealRootAdmissionResult("real_memory_root_admission_gate_blocked", None, report, _digest({"packet": None, "report": report.to_dict()}))
 
 
 def _path_metadata_blocker(metadata: Mapping[str, Any], policy: RealMemoryRootAdmissionPolicy) -> str | None:
@@ -487,31 +507,31 @@ def _claims_blocker(candidate: RealRootAdmissionCandidate, policy: RealMemoryRoo
 
 
 def _decision_for(candidate: RealRootAdmissionCandidate, sandbox_decision: str, warning: bool) -> RealRootAdmissionDecision:
-    if candidate.candidate_type == "noop_real_root_admission_candidate" or sandbox_decision == "sandbox_commit_noop":
-        return "real_root_admission_noop"
-    if candidate.candidate_type == "operator_review_real_root_admission_candidate" or sandbox_decision == "sandbox_commit_deferred_for_operator_review" or candidate.metadata.get("operator_review_requested") is True:
-        return "real_root_admission_deferred_for_operator_review"
-    if sandbox_decision == "sandbox_commit_rejected" or candidate.metadata.get("rejected") is True:
-        return "real_root_admission_rejected"
+    if candidate.candidate_type == "noop_real_memory_root_admission_gate_candidate" or sandbox_decision == "final_live_memory_commit_review_gate_noop":
+        return "real_memory_root_admission_gate_noop"
+    if candidate.candidate_type == "operator_review_real_memory_root_admission_gate_candidate" or sandbox_decision == "final_live_memory_commit_review_gate_deferred_for_operator_review" or candidate.metadata.get("operator_review_requested") is True:
+        return "real_memory_root_admission_gate_deferred_for_operator_review"
+    if sandbox_decision == "final_live_memory_commit_review_gate_rejected" or candidate.metadata.get("rejected") is True:
+        return "real_memory_root_admission_gate_rejected"
     if warning or sandbox_decision.endswith("with_warnings"):
-        return "real_root_admission_candidate_ready_with_warnings"
-    return "real_root_admission_candidate_ready_for_future_adapter"
+        return "real_memory_root_admission_gate_ready_with_warnings"
+    return "real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet"
 
 
 def _safe_actions(decision: str) -> tuple[str, ...]:
-    if decision == "real_root_admission_noop":
-        return ("no_action_allowed", "inspect_real_root_admission_packet", "sustain_default_deny")
-    if decision == "real_root_admission_deferred_for_operator_review":
-        return ("no_action_allowed", "inspect_real_root_admission_packet", "operator_review_required", "sustain_default_deny")
-    if decision == "real_root_admission_rejected":
-        return ("no_action_allowed", "inspect_real_root_admission_packet", "sustain_default_deny")
-    return ("no_action_allowed", "inspect_real_root_admission_packet", "operator_review_required", "prepare_future_real_live_commit_adapter_later", "prepare_final_operator_review_later", "sustain_default_deny")
+    if decision == "real_memory_root_admission_gate_noop":
+        return ("no_action_allowed", "inspect_real_memory_root_admission_gate_metadata", "sustain_default_deny")
+    if decision == "real_memory_root_admission_gate_deferred_for_operator_review":
+        return ("no_action_allowed", "inspect_real_memory_root_admission_gate_metadata", "operator_review_required", "sustain_default_deny")
+    if decision == "real_memory_root_admission_gate_rejected":
+        return ("no_action_allowed", "inspect_real_memory_root_admission_gate_metadata", "sustain_default_deny")
+    return ("no_action_allowed", "inspect_real_memory_root_admission_gate_metadata", "operator_review_required", "prepare_later_real_memory_root_admission_packet", "prepare_final_operator_review_later", "sustain_default_deny")
 
 
 def evaluate_real_memory_root_admission_gate(payload: Mapping[str, Any], policy: RealMemoryRootAdmissionPolicy | None = None) -> RealRootAdmissionResult:
     try:
         active_policy = _policy_from_payload(payload, policy)
-        sandbox = _as_mapping(payload.get("sandbox_commit_packet") or payload.get("sandboxed_live_memory_commit_packet"))
+        sandbox = _as_mapping(payload.get("final_live_memory_commit_review_gate") or payload.get("sandbox_commit_packet") or payload.get("sandboxed_live_memory_commit_packet"))
         if not sandbox:
             return _blocked("missing_sandbox_commit_packet")
         sandbox_records = _records(sandbox)
@@ -519,28 +539,28 @@ def evaluate_real_memory_root_admission_gate(payload: Mapping[str, Any], policy:
         if not sandbox_records or not sandbox_digest:
             return _blocked("invalid_sandbox_commit_packet")
         sandbox_record = sandbox_records[0]
-        sandbox_decision = str(sandbox_record.get("sandbox_decision") or sandbox_record.get("decision") or "")
+        sandbox_decision = str(sandbox_record.get("final_live_memory_commit_review_gate_decision") or sandbox_record.get("final_review_decision") or sandbox_record.get("review_decision") or sandbox_record.get("sandbox_decision") or sandbox_record.get("decision") or "")
         sandbox_scope = _as_tuple(sandbox_record.get("operator_scope_keys"))
         sandbox_record_digest = str(sandbox_record.get("digest") or "")
         if active_policy.require_sandbox_commit_ready and sandbox_decision not in READY_SANDBOX_DECISIONS:
             return _blocked("sandbox_commit_not_ready")
         raw_candidates = _candidate_payloads(payload)
         if not raw_candidates:
-            return _blocked("missing_real_root_admission_candidate")
+            return _blocked("missing_real_memory_root_admission_gate_candidate")
         records: list[RealRootAdmissionRecord] = []
         findings: list[RealRootAdmissionFinding] = []
         for raw in raw_candidates:
             candidate = RealRootAdmissionCandidate.from_mapping(raw)
             if candidate is None:
-                return _blocked("invalid_real_root_admission_candidate")
-            non_noop = candidate.candidate_type != "noop_real_root_admission_candidate" and sandbox_decision != "sandbox_commit_noop"
+                return _blocked("invalid_real_memory_root_admission_gate_candidate")
+            non_noop = candidate.candidate_type != "noop_real_memory_root_admission_gate_candidate" and sandbox_decision != "final_live_memory_commit_review_gate_noop"
             blocker = _claims_blocker(candidate, active_policy)
             if blocker:
                 return _blocked(blocker, [RealRootAdmissionFinding("error", blocker, blocker.replace("_", " "), candidate.candidate_id, candidate.record_id)])
             if active_policy.require_matching_sandbox_commit_digest and candidate.claimed_sandbox_commit_digest != sandbox_digest:
-                return _blocked("sandbox_commit_digest_mismatch", [RealRootAdmissionFinding("error", "sandbox_commit_digest_mismatch", "candidate sandbox commit digest does not match", candidate.candidate_id, candidate.record_id)])
+                return _blocked("sandbox_commit_digest_mismatch", [RealRootAdmissionFinding("error", "sandbox_commit_digest_mismatch", "candidate final live memory commit review gate digest does not match", candidate.candidate_id, candidate.record_id)])
             if active_policy.require_matching_sandbox_commit_decision and candidate.claimed_sandbox_commit_decision != sandbox_decision:
-                return _blocked("sandbox_commit_decision_mismatch", [RealRootAdmissionFinding("error", "sandbox_commit_decision_mismatch", "candidate sandbox commit decision does not match", candidate.candidate_id, candidate.record_id)])
+                return _blocked("sandbox_commit_decision_mismatch", [RealRootAdmissionFinding("error", "sandbox_commit_decision_mismatch", "candidate final live memory commit review gate decision does not match", candidate.candidate_id, candidate.record_id)])
             if non_noop and active_policy.require_receipt_manifest_digest_for_non_noop and not candidate.claimed_sandbox_receipt_manifest_digest:
                 return _blocked("missing_sandbox_receipt_manifest_digest", [RealRootAdmissionFinding("error", "missing_sandbox_receipt_manifest_digest", "sandbox receipt manifest digest is required for non-noop candidates", candidate.candidate_id, candidate.record_id)])
             if non_noop and active_policy.require_rollback_manifest_digest_for_non_noop and not candidate.claimed_sandbox_rollback_manifest_digest:
@@ -548,21 +568,21 @@ def evaluate_real_memory_root_admission_gate(payload: Mapping[str, Any], policy:
             if non_noop and active_policy.require_artifact_plan_for_non_noop and not candidate.sandbox_artifact_plan:
                 return _blocked("missing_sandbox_artifact_plan", [RealRootAdmissionFinding("error", "missing_sandbox_artifact_plan", "sandbox artifact plan evidence is required for non-noop candidates", candidate.candidate_id, candidate.record_id)])
             if active_policy.require_scope_alignment and candidate.operator_scope_keys and set(candidate.operator_scope_keys) != set(sandbox_scope):
-                if active_policy.allow_mixed_scope_diagnostic_packet and candidate.candidate_type == "mixed_real_root_admission_candidate" and candidate.metadata.get("diagnostic_warning") is True:
+                if active_policy.allow_mixed_scope_diagnostic_packet and candidate.candidate_type == "mixed_real_memory_root_admission_gate_candidate" and candidate.metadata.get("diagnostic_warning") is True:
                     findings.append(RealRootAdmissionFinding("warning", "scope_mismatch_diagnostic", "scope mismatch allowed for diagnostic packet", candidate.candidate_id, candidate.record_id))
                 else:
                     return _blocked("scope_mismatch", [RealRootAdmissionFinding("error", "scope_mismatch", "candidate scope does not match sandbox commit scope", candidate.candidate_id, candidate.record_id)])
             warning = bool(candidate.metadata.get("warning_only") or candidate.metadata.get("diagnostic_warning")) or sandbox_decision.endswith("with_warnings") or any(f.severity == "warning" and f.candidate_id == candidate.candidate_id for f in findings)
             if warning:
-                findings.append(RealRootAdmissionFinding("warning", "real_root_admission_warning", "candidate is warning/diagnostic metadata", candidate.candidate_id, candidate.record_id))
+                findings.append(RealRootAdmissionFinding("warning", "real_memory_root_admission_gate_warning", "candidate is warning/diagnostic metadata", candidate.candidate_id, candidate.record_id))
             decision = _decision_for(candidate, sandbox_decision, warning)
             future_record = {
                 "candidate_id": candidate.candidate_id,
-                "eligible_for_future_real_live_commit_adapter_consideration": decision in {"real_root_admission_candidate_ready_for_future_adapter", "real_root_admission_candidate_ready_with_warnings"},
+                "eligible_for_future_real_live_commit_adapter_consideration": decision in {"real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet", "real_memory_root_admission_gate_ready_with_warnings"},
                 "decision": decision,
                 "real_live_commit_performed": False,
                 "real_memory_root_access_performed": False,
-                "future_real_live_commit_adapter_required": True,
+                "future_real_memory_root_admission_packet_required": True,
                 "final_operator_review_required": True,
             }
             records.append(RealRootAdmissionRecord(
@@ -588,17 +608,17 @@ def evaluate_real_memory_root_admission_gate(payload: Mapping[str, Any], policy:
             counts[record.candidate_type] = counts.get(record.candidate_type, 0) + 1
         decisions = {record.admission_decision for record in records}
         if counts["warning_count"]:
-            status: RealRootAdmissionStatus = "real_root_admission_ready_with_warnings"
-        elif decisions <= {"real_root_admission_noop"}:
-            status = "real_root_admission_noop"
-        elif decisions <= {"real_root_admission_deferred_for_operator_review"}:
-            status = "real_root_admission_deferred_for_operator_review"
-        elif decisions <= {"real_root_admission_rejected"}:
-            status = "real_root_admission_rejected"
-        elif "real_root_admission_candidate_ready_with_warnings" in decisions:
-            status = "real_root_admission_ready_with_warnings"
+            status: RealRootAdmissionStatus = "real_memory_root_admission_gate_ready_with_warnings"
+        elif decisions <= {"real_memory_root_admission_gate_noop"}:
+            status = "real_memory_root_admission_gate_noop"
+        elif decisions <= {"real_memory_root_admission_gate_deferred_for_operator_review"}:
+            status = "real_memory_root_admission_gate_deferred_for_operator_review"
+        elif decisions <= {"real_memory_root_admission_gate_rejected"}:
+            status = "real_memory_root_admission_gate_rejected"
+        elif "real_memory_root_admission_gate_ready_with_warnings" in decisions:
+            status = "real_memory_root_admission_gate_ready_with_warnings"
         else:
-            status = "real_root_admission_ready"
+            status = "real_memory_root_admission_gate_ready"
         packet = RealRootAdmissionPacket(active_policy.schema_version, tuple(records)).with_digest()
         report = RealRootAdmissionReport(status, tuple(findings), dict(sorted(counts.items())))
         report = replace(report, digest=_digest(report.to_dict()))

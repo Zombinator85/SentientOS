@@ -1,6 +1,6 @@
 # SentientOS Real Memory Root Admission Gate
 
-The real memory root admission gate is a deterministic, metadata-only checkpoint after the [sandboxed live memory commit adapter](sandboxed_live_memory_commit_adapter.md). It consumes supplied sandbox commit packet evidence and explicit real-root admission candidates to decide whether a future real live-memory commit adapter may be considered later.
+The real memory root admission gate is a deterministic, metadata-only checkpoint after the [Final Live Memory Commit Review Gate](final_live_memory_commit_review_gate.md). It consumes supplied final live memory commit review gate evidence and explicit real memory root admission gate candidates to produce readiness metadata for a later Real Memory Root Admission Packet.
 
 This gate is not the real live-memory commit adapter. It does not write real memory, delete memory, purge memory, mutate live indexes, persist capsules, complete tombs, assemble prompts, retrieve live context, execute actions, disclose externally, create policy, infer truth, infer consent, or grant authority.
 
@@ -8,17 +8,17 @@ This gate is not the real live-memory commit adapter. It does not write real mem
 
 Sandboxed commit evidence can show that a proposed memory-chain change has deterministic artifact, receipt-manifest, and rollback-manifest metadata. That evidence still cannot touch the real memory root. The admission gate gives reviewers a separate, default-deny place to check whether explicit future real-root admission metadata is internally consistent before any future adapter is even considered.
 
-## Relationship to sandboxed live memory commit adapter
+## Relationship to Final Live Memory Commit Review Gate
 
-The upstream sandbox adapter may emit sandbox-only artifacts under a caller-provided sandbox root. The admission gate consumes the resulting sandbox commit packet as evidence only. It requires:
+The upstream Final Live Memory Commit Review Gate emits metadata-only review evidence. The admission gate consumes that evidence only. It requires:
 
-- a sandbox commit packet with records and packet digest;
-- a ready sandbox decision such as `sandbox_commit_artifacts_ready`, warning, operator-review, rejection, or noop;
-- candidate `claimed_sandbox_commit_digest` matching the sandbox packet digest;
-- candidate `claimed_sandbox_commit_decision` matching the sandbox record decision;
-- matching operator scope unless mixed diagnostic warning policy explicitly allows diagnostic mismatch.
+- a final live memory commit review gate evidence object with records and digest;
+- a ready final review decision such as `final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate`, warning, operator-review, rejection, or noop;
+- candidate claimed upstream digest matching the final review gate digest;
+- candidate claimed upstream decision matching the final review gate decision;
+- matching operator scope between final review evidence and the admission candidate unless mixed diagnostic warning policy explicitly allows diagnostic mismatch.
 
-Sandbox commits are not real commits. Sandbox receipts are not live receipts. Sandbox rollback manifests are not applied rollback. The gate blocks any candidate that claims otherwise.
+Final review evidence is not execution approval, root admission, a live commit, a live receipt, an applied rollback, authority, or permission to execute. The gate blocks any candidate that claims otherwise.
 
 ## Required non-noop evidence
 
@@ -35,29 +35,29 @@ Noop candidates remain deterministic and non-mutating without receipt, rollback,
 
 The allowed candidate types are:
 
-- `ai_capsule_real_root_admission_candidate`
-- `human_summary_real_root_admission_candidate`
-- `dual_capsule_real_root_admission_candidate`
-- `protect_receipt_real_root_admission_candidate`
-- `merge_receipt_real_root_admission_candidate`
-- `tomb_archive_real_root_admission_candidate`
-- `tomb_deferred_real_root_admission_candidate`
-- `operator_review_real_root_admission_candidate`
-- `noop_real_root_admission_candidate`
-- `mixed_real_root_admission_candidate`
+- `ai_capsule_real_memory_root_admission_gate_candidate`
+- `human_summary_real_memory_root_admission_gate_candidate`
+- `dual_capsule_real_memory_root_admission_gate_candidate`
+- `protect_receipt_real_memory_root_admission_gate_candidate`
+- `merge_receipt_real_memory_root_admission_gate_candidate`
+- `tomb_archive_real_memory_root_admission_gate_candidate`
+- `tomb_deferred_real_memory_root_admission_gate_candidate`
+- `operator_review_real_memory_root_admission_gate_candidate`
+- `noop_real_memory_root_admission_gate_candidate`
+- `mixed_real_memory_root_admission_gate_candidate`
 
 ## Decisions and statuses
 
 Candidate decisions are:
 
-- `real_root_admission_candidate_ready_for_future_adapter`
-- `real_root_admission_candidate_ready_with_warnings`
-- `real_root_admission_deferred_for_operator_review`
-- `real_root_admission_rejected`
-- `real_root_admission_blocked`
-- `real_root_admission_noop`
+- `real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet`
+- `real_memory_root_admission_gate_ready_with_warnings`
+- `real_memory_root_admission_gate_deferred_for_operator_review`
+- `real_memory_root_admission_gate_rejected`
+- `real_memory_root_admission_gate_blocked`
+- `real_memory_root_admission_gate_noop`
 
-Result statuses are `real_root_admission_ready`, `real_root_admission_ready_with_warnings`, `real_root_admission_deferred_for_operator_review`, `real_root_admission_rejected`, `real_root_admission_blocked`, `real_root_admission_noop`, `real_root_admission_invalid`, and `real_root_admission_failed`.
+Result statuses are `real_memory_root_admission_gate_ready`, `real_memory_root_admission_gate_ready_with_warnings`, `real_memory_root_admission_gate_deferred_for_operator_review`, `real_memory_root_admission_gate_rejected`, `real_memory_root_admission_gate_blocked`, `real_memory_root_admission_gate_noop`, `real_memory_root_admission_gate_invalid`, and `real_memory_root_admission_gate_failed`.
 
 ## Real-root path metadata rules
 
@@ -73,7 +73,7 @@ Operator review cannot override hard blockers.
 
 ## Safe next actions and forbidden next steps
 
-Safe next actions are limited to inspecting the admission packet, operator review, preparing a future real live-memory commit adapter later, preparing final operator review later, rerunning with corrected metadata, and sustaining default deny.
+Safe next actions are limited to inspecting the admission packet, operator review, preparing a later Real Memory Root Admission Packet metadata rung, rerunning with corrected metadata, and sustaining default deny.
 
 Forbidden next steps include real live-memory write/delete/purge, live index mutation, prompt assembly, live context retrieval, action ingress, treating sandbox commits as real commits, treating sandbox receipts as live receipts, treating sandbox rollback as applied rollback, sandbox bypass, real-root admission bypass, upstream gate bypass, and external disclosure.
 
@@ -92,10 +92,11 @@ The intended lifecycle remains:
 9. Live memory commit dry-run adapter.
 10. Live commit safety interlock.
 11. Sandboxed live memory commit adapter.
-12. Real memory root admission gate.
-13. Future real live-memory commit adapter only after separate implementation and final operator review.
+12. Final Live Memory Commit Review Gate.
+13. Real Memory Root Admission Gate.
+14. Later Real Memory Root Admission Packet metadata rung.
 
-Step 12 does not perform step 13. Future real live commit adapter implementation remains required, and final operator review remains required.
+Step 13 does not perform step 14. It does not admit real roots, create an admission packet, approve live execution, apply commits, acquire locks, create lockfiles, invoke executors, enable runtime, create/admit adapters, or grant permission to execute.
 
 ## CLI and validation
 

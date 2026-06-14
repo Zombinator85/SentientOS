@@ -1,5 +1,5 @@
 {
-  "sandbox_commit_packet": {
+  "final_live_memory_commit_review_gate": {
     "digest": "sha256:af403b2c06f79c4bd3611e0e204d361bd770a684d20009d820ec8de123a428d2",
     "records": [
       {
@@ -19,7 +19,7 @@
         "safety_interlock_scope_keys": [
           "memory:alpha"
         ],
-        "sandbox_decision": "sandbox_commit_artifacts_ready",
+        "sandbox_decision": "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
         "sandbox_only": true,
         "sandbox_relative_path": "records/sandbox-candidate-1.json",
         "written_to_live_memory": false

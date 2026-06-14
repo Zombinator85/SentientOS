@@ -43,13 +43,14 @@ def _fixture_path(fixtures_dir: str, input_name: str | None, fixture_name: str |
 
 
 def _bad(status: str) -> bool:
-    return status in {"real_root_admission_blocked", "real_root_admission_invalid", "real_root_admission_failed"} or "blocked" in status or status.endswith(("invalid", "failed"))
+    return status in {"real_memory_root_admission_gate_blocked", "real_memory_root_admission_gate_invalid", "real_memory_root_admission_gate_failed"} or "blocked" in status or status.endswith(("invalid", "failed"))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build or evaluate real memory-root admission gate metadata packets.")
     parser.add_argument("command", choices=["build-default", "evaluate", "validate", "summarize", "inspect-fixture"])
-    parser.add_argument("--input")
+    parser.add_argument("input", nargs="?")
+    parser.add_argument("--input", dest="input_opt")
     parser.add_argument("--fixtures-dir", default="tests/fixtures/real_memory_root_admission_gate")
     parser.add_argument("--fixture-name")
     parser.add_argument("--fixture")
@@ -59,12 +60,12 @@ def main() -> int:
     if args.command == "build-default":
         out: dict[str, Any] = {"policy": asdict(build_default_policy())}
     elif args.command == "inspect-fixture":
-        out = _read(str(_fixture_path(args.fixtures_dir, args.input, args.fixture_name or args.fixture)))
-    elif args.command == "validate" and not args.input:
+        out = _read(str(_fixture_path(args.fixtures_dir, args.input_opt or args.input, args.fixture_name or args.fixture)))
+    elif args.command == "validate" and not (args.input_opt or args.input):
         out = validate_policy(build_default_policy())
     else:
-        payload = _read(args.input)
-        if args.command == "validate" and "sandbox_commit_packet" not in payload and "sandboxed_live_memory_commit_packet" not in payload:
+        payload = _read(args.input_opt or args.input)
+        if args.command == "validate" and "sandbox_commit_packet" not in payload and "sandboxed_live_memory_commit_packet" not in payload and "final_live_memory_commit_review_gate" not in payload:
             out = validate_policy(_policy(payload))
         else:
             result = evaluate_real_memory_root_admission_gate(payload, _policy(payload))

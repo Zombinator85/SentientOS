@@ -19,26 +19,26 @@ def _fixture(name: str) -> dict[str, object]:
 
 
 def test_valid_candidate_builds_metadata_only_admission_packet() -> None:
-    result = evaluate_real_memory_root_admission_gate(_fixture("valid_ai_capsule_real_root_admission_candidate.json"))
-    assert result.status == "real_root_admission_ready"
+    result = evaluate_real_memory_root_admission_gate(_fixture("valid_ai_capsule_real_memory_root_admission_gate_candidate.json"))
+    assert result.status == "real_memory_root_admission_gate_ready"
     assert result.packet is not None
     packet = result.packet.to_dict()
     for key in [
-        "real_root_admission_is_not_memory_write",
-        "real_root_admission_is_not_memory_deletion",
-        "real_root_admission_is_not_memory_purge",
-        "real_root_admission_is_not_index_mutation",
-        "real_root_admission_is_not_capsule_persistence",
-        "real_root_admission_is_not_prompt_assembly",
-        "real_root_admission_is_not_execution",
-        "real_root_admission_is_not_live_commit",
-        "real_root_admission_is_not_truth",
-        "real_root_admission_is_not_policy",
-        "real_root_admission_is_not_authority",
-        "real_root_admission_is_not_consent",
-        "real_root_admission_does_not_execute_action",
-        "real_root_admission_does_not_disclose_externally",
-        "future_real_live_commit_adapter_required",
+        "real_memory_root_admission_gate_is_not_memory_write",
+        "real_memory_root_admission_gate_is_not_memory_deletion",
+        "real_memory_root_admission_gate_is_not_memory_purge",
+        "real_memory_root_admission_gate_is_not_index_mutation",
+        "real_memory_root_admission_gate_is_not_capsule_persistence",
+        "real_memory_root_admission_gate_is_not_prompt_assembly",
+        "real_memory_root_admission_gate_is_not_execution",
+        "real_memory_root_admission_gate_is_not_live_commit",
+        "real_memory_root_admission_gate_is_not_truth",
+        "real_memory_root_admission_gate_is_not_policy",
+        "real_memory_root_admission_gate_is_not_authority",
+        "real_memory_root_admission_gate_is_not_consent",
+        "real_memory_root_admission_gate_does_not_execute_action",
+        "real_memory_root_admission_gate_does_not_disclose_externally",
+        "future_real_memory_root_admission_packet_required",
         "final_operator_review_required",
     ]:
         assert packet[key] is True
@@ -54,18 +54,18 @@ def test_valid_candidate_builds_metadata_only_admission_packet() -> None:
     ]:
         assert packet[key] is False
     record = packet["records"][0]
-    assert record["admission_decision"] == "real_root_admission_candidate_ready_for_future_adapter"
+    assert record["admission_decision"] == "real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet"
     assert record["real_memory_root_access_performed"] is False
     assert record["future_adapter_consideration_record"]["real_live_commit_performed"] is False
-    assert {"write_live_memory_now", "delete_live_memory_now", "purge_live_memory_now", "mutate_live_index", "assemble_prompt_now", "retrieve_live_context", "execute_action_ingress", "bypass_real_root_admission_gate", "enable_external_disclosure"}.issubset(set(FORBIDDEN_NEXT_STEPS))
+    assert {"write_live_memory_now", "delete_live_memory_now", "purge_live_memory_now", "mutate_live_index", "assemble_prompt_now", "retrieve_live_context", "execute_action_ingress", "bypass_real_memory_root_admission_gate", "enable_external_disclosure"}.issubset(set(FORBIDDEN_NEXT_STEPS))
 
 
 def test_expected_decision_fixtures() -> None:
     expected = {
-        "valid_ai_capsule_real_root_admission_candidate.json": "real_root_admission_ready",
-        "operator_review_real_root_admission_candidate.json": "real_root_admission_deferred_for_operator_review",
-        "noop_real_root_admission_candidate.json": "real_root_admission_noop",
-        "mixed_real_root_admission_candidate.json": "real_root_admission_ready_with_warnings",
+        "valid_ai_capsule_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_ready",
+        "operator_review_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_deferred_for_operator_review",
+        "noop_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_noop",
+        "mixed_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_ready_with_warnings",
     }
     for fixture, status in expected.items():
         assert evaluate_real_memory_root_admission_gate(_fixture(fixture)).status == status
@@ -75,8 +75,8 @@ def test_blocker_fixtures_cover_evidence_and_boundaries() -> None:
     expected_codes = {
         "missing_sandbox_commit_packet_blocked.json": "missing_sandbox_commit_packet",
         "invalid_sandbox_commit_packet_blocked.json": "invalid_sandbox_commit_packet",
-        "missing_candidate_blocked.json": "missing_real_root_admission_candidate",
-        "invalid_candidate_blocked.json": "invalid_real_root_admission_candidate",
+        "missing_candidate_blocked.json": "missing_real_memory_root_admission_gate_candidate",
+        "invalid_candidate_blocked.json": "invalid_real_memory_root_admission_gate_candidate",
         "sandbox_commit_not_ready_blocked.json": "sandbox_commit_not_ready",
         "digest_mismatch_blocked.json": "sandbox_commit_digest_mismatch",
         "decision_mismatch_blocked.json": "sandbox_commit_decision_mismatch",
@@ -105,13 +105,13 @@ def test_blocker_fixtures_cover_evidence_and_boundaries() -> None:
     }
     for fixture, code in expected_codes.items():
         result = evaluate_real_memory_root_admission_gate(_fixture(fixture))
-        assert result.status == "real_root_admission_blocked", fixture
+        assert result.status == "real_memory_root_admission_gate_blocked", fixture
         assert result.report.findings[0].code == code
         assert result.packet is None
 
 
 def test_evaluate_mode_is_deterministic_and_non_mutating(tmp_path: Path) -> None:
-    payload = _fixture("valid_ai_capsule_real_root_admission_candidate.json")
+    payload = _fixture("valid_ai_capsule_real_memory_root_admission_gate_candidate.json")
     probe = tmp_path / "probe"
     probe.mkdir()
     before = sorted(p.relative_to(probe) for p in probe.rglob("*"))
@@ -123,22 +123,22 @@ def test_evaluate_mode_is_deterministic_and_non_mutating(tmp_path: Path) -> None
 
 
 def test_noop_is_deterministic_non_mutating_and_needs_no_manifest_digests(tmp_path: Path) -> None:
-    first = evaluate_real_memory_root_admission_gate(_fixture("noop_real_root_admission_candidate.json"))
-    second = evaluate_real_memory_root_admission_gate(_fixture("noop_real_root_admission_candidate.json"))
+    first = evaluate_real_memory_root_admission_gate(_fixture("noop_real_memory_root_admission_gate_candidate.json"))
+    second = evaluate_real_memory_root_admission_gate(_fixture("noop_real_memory_root_admission_gate_candidate.json"))
     assert first.to_dict() == second.to_dict()
-    assert first.status == "real_root_admission_noop"
+    assert first.status == "real_memory_root_admission_gate_noop"
     probe = tmp_path / "noop-probe"
     probe.mkdir()
     assert list(probe.rglob("*")) == []
 
 
 def test_mixed_diagnostics_warn_only_when_policy_allows_them() -> None:
-    allowed = evaluate_real_memory_root_admission_gate(_fixture("mixed_real_root_admission_candidate.json"))
-    assert allowed.status == "real_root_admission_ready_with_warnings"
-    payload = _fixture("mixed_real_root_admission_candidate.json")
+    allowed = evaluate_real_memory_root_admission_gate(_fixture("mixed_real_memory_root_admission_gate_candidate.json"))
+    assert allowed.status == "real_memory_root_admission_gate_ready_with_warnings"
+    payload = _fixture("mixed_real_memory_root_admission_gate_candidate.json")
     payload["policy"] = {"allow_mixed_scope_diagnostic_packet": False}
     blocked = evaluate_real_memory_root_admission_gate(payload)
-    assert blocked.status == "real_root_admission_blocked"
+    assert blocked.status == "real_memory_root_admission_gate_blocked"
     assert blocked.report.findings[0].code == "scope_mismatch"
 
 
