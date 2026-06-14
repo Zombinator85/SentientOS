@@ -716,7 +716,7 @@
       "candidate_id": "ready-real-memory-root-admission-gate",
       "candidate_type": "ai_capsule_real_memory_root_admission_gate_candidate",
       "claimed_final_live_memory_commit_review_gate_decision": "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
-      "claimed_final_live_memory_commit_review_gate_digest": "sha256:bad",
+      "claimed_final_live_memory_commit_review_gate_digest": "sha256:a8d910f06c0aede710b20e6190dbba26f1bb7b88fd2c07b5b216f1c4622fa0d7",
       "commit_plan_gate_confirmation_metadata": {
         "fixture": "ready-real-memory-root-admission-gate",
         "record_type": "commit_plan_gate_confirmation_metadata"
@@ -758,8 +758,7 @@
         "fixture": "ready-real-memory-root-admission-gate"
       },
       "operator_scope_keys": [
-        "capsule:a",
-        "memory:summary"
+        "different"
       ],
       "real_memory_root_admission_deferral_metadata": {
         "fixture": "ready-real-memory-root-admission-gate",

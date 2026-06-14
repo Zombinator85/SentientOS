@@ -1,0 +1,91 @@
+{
+  "real_memory_root_admission_gate_candidates": [
+    {
+      "adapter_admission_gate_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "adapter_admission_gate_confirmation_metadata"
+      },
+      "adapter_admission_packet_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "adapter_admission_packet_confirmation_metadata"
+      },
+      "adapter_readiness_envelope_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "adapter_readiness_envelope_confirmation_metadata"
+      },
+      "adapter_readiness_gate_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "adapter_readiness_gate_confirmation_metadata"
+      },
+      "audit_readiness_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "audit_readiness_metadata"
+      },
+      "candidate_id": "ready-real-memory-root-admission-gate",
+      "candidate_type": "ai_capsule_real_memory_root_admission_gate_candidate",
+      "claimed_final_live_memory_commit_review_gate_decision": "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
+      "claimed_final_live_memory_commit_review_gate_digest": "sha256:a8d910f06c0aede710b20e6190dbba26f1bb7b88fd2c07b5b216f1c4622fa0d7",
+      "commit_plan_gate_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "commit_plan_gate_confirmation_metadata"
+      },
+      "commit_plan_packet_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "commit_plan_packet_confirmation_metadata"
+      },
+      "commit_window_packet_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "commit_window_packet_confirmation_metadata"
+      },
+      "emergency_stop_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "emergency_stop_confirmation_metadata"
+      },
+      "final_review_gate_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "final_review_gate_confirmation_metadata"
+      },
+      "is_noop": false,
+      "live_commit_execution_denial_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "live_commit_execution_denial_metadata"
+      },
+      "live_memory_commit_execution_gate_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "live_memory_commit_execution_gate_confirmation_metadata"
+      },
+      "live_memory_commit_execution_packet_confirmation_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "live_memory_commit_execution_packet_confirmation_metadata"
+      },
+      "live_memory_write_denial_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "live_memory_write_denial_metadata"
+      },
+      "metadata": {
+        "fixture": "ready-real-memory-root-admission-gate"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "real_memory_root_admission_deferral_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "real_memory_root_admission_deferral_metadata"
+      },
+      "real_memory_root_admission_readiness_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "real_memory_root_admission_readiness_metadata"
+      },
+      "record_id": "ready-real-memory-root-admission-gate-record",
+      "rollback_readiness_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "rollback_readiness_metadata"
+      },
+      "verification_readiness_metadata": {
+        "fixture": "ready-real-memory-root-admission-gate",
+        "record_type": "verification_readiness_metadata"
+      }
+    }
+  ]
+}
