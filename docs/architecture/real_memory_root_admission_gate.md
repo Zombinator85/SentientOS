@@ -1,104 +1,111 @@
-# SentientOS Real Memory Root Admission Gate
+# Real Memory Root Admission Gate
 
-The real memory root admission gate is a deterministic, metadata-only checkpoint after the [sandboxed live memory commit adapter](sandboxed_live_memory_commit_adapter.md). It consumes supplied sandbox commit packet evidence and explicit real-root admission candidates to decide whether a future real live-memory commit adapter may be considered later.
+The Real Memory Root Admission Gate is a deterministic, metadata-only memory-chain rung after the merged [Final Live Memory Commit Review Gate](final_live_memory_commit_review_gate.md). It consumes supplied `final_live_memory_commit_review_gate` evidence and explicit `real_memory_root_admission_gate_candidates` to produce reviewable readiness metadata for a later Real Memory Root Admission Packet rung.
 
-This gate is not the real live-memory commit adapter. It does not write real memory, delete memory, purge memory, mutate live indexes, persist capsules, complete tombs, assemble prompts, retrieve live context, execute actions, disclose externally, create policy, infer truth, infer consent, or grant authority.
+The gate is default-deny. It does not admit real memory roots, create a real memory root admission packet, approve live execution, execute or apply commits, write live memory, create or admit live adapters, invoke or activate executors, release execution, issue permits, authorize execution, enable runtime, acquire locks, create lockfiles, disclose externally, retrieve live context, materialize prompts, grant authority, or grant permission to execute.
 
-## Why the gate exists
+## Inputs
 
-Sandboxed commit evidence can show that a proposed memory-chain change has deterministic artifact, receipt-manifest, and rollback-manifest metadata. That evidence still cannot touch the real memory root. The admission gate gives reviewers a separate, default-deny place to check whether explicit future real-root admission metadata is internally consistent before any future adapter is even considered.
+- `final_live_memory_commit_review_gate`: evaluated Final Live Memory Commit Review Gate metadata, normally the `gate` object emitted by `scripts/build_final_live_memory_commit_review_gate.py evaluate`.
+- `real_memory_root_admission_gate_candidates`: one or more explicit candidate records.
 
-## Relationship to sandboxed live memory commit adapter
-
-The upstream sandbox adapter may emit sandbox-only artifacts under a caller-provided sandbox root. The admission gate consumes the resulting sandbox commit packet as evidence only. It requires:
-
-- a sandbox commit packet with records and packet digest;
-- a ready sandbox decision such as `sandbox_commit_artifacts_ready`, warning, operator-review, rejection, or noop;
-- candidate `claimed_sandbox_commit_digest` matching the sandbox packet digest;
-- candidate `claimed_sandbox_commit_decision` matching the sandbox record decision;
-- matching operator scope unless mixed diagnostic warning policy explicitly allows diagnostic mismatch.
-
-Sandbox commits are not real commits. Sandbox receipts are not live receipts. Sandbox rollback manifests are not applied rollback. The gate blocks any candidate that claims otherwise.
-
-## Required non-noop evidence
-
-For every non-noop candidate the gate requires:
-
-- `claimed_sandbox_receipt_manifest_digest`;
-- `claimed_sandbox_rollback_manifest_digest`;
-- `sandbox_artifact_plan` metadata;
-- explicit inert `real_root_path_metadata`.
-
-Noop candidates remain deterministic and non-mutating without receipt, rollback, or artifact-plan digests.
+The preexisting compatibility fixture names using `real_root_admission` remain accepted for repository callers and tests, but the canonical post-#1855 input key is `real_memory_root_admission_gate_candidates`.
 
 ## Candidate types
 
-The allowed candidate types are:
+Canonical candidate types are:
 
-- `ai_capsule_real_root_admission_candidate`
-- `human_summary_real_root_admission_candidate`
-- `dual_capsule_real_root_admission_candidate`
-- `protect_receipt_real_root_admission_candidate`
-- `merge_receipt_real_root_admission_candidate`
-- `tomb_archive_real_root_admission_candidate`
-- `tomb_deferred_real_root_admission_candidate`
-- `operator_review_real_root_admission_candidate`
-- `noop_real_root_admission_candidate`
-- `mixed_real_root_admission_candidate`
+- `ai_capsule_real_memory_root_admission_gate_candidate`
+- `human_summary_real_memory_root_admission_gate_candidate`
+- `dual_capsule_real_memory_root_admission_gate_candidate`
+- `protect_receipt_real_memory_root_admission_gate_candidate`
+- `merge_receipt_real_memory_root_admission_gate_candidate`
+- `tomb_archive_real_memory_root_admission_gate_candidate`
+- `tomb_deferred_real_memory_root_admission_gate_candidate`
+- `operator_review_real_memory_root_admission_gate_candidate`
+- `noop_real_memory_root_admission_gate_candidate`
+- `mixed_real_memory_root_admission_gate_candidate`
+
+Compatibility candidate type aliases using the older `real_root_admission` token are accepted only as inert metadata aliases.
 
 ## Decisions and statuses
 
-Candidate decisions are:
+Candidate decisions include:
 
-- `real_root_admission_candidate_ready_for_future_adapter`
-- `real_root_admission_candidate_ready_with_warnings`
-- `real_root_admission_deferred_for_operator_review`
-- `real_root_admission_rejected`
-- `real_root_admission_blocked`
-- `real_root_admission_noop`
+- `real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet`
+- `real_memory_root_admission_gate_ready_with_warnings`
+- `real_memory_root_admission_gate_deferred_for_operator_review`
+- `real_memory_root_admission_gate_rejected`
+- `real_memory_root_admission_gate_blocked`
+- `real_memory_root_admission_gate_noop`
 
-Result statuses are `real_root_admission_ready`, `real_root_admission_ready_with_warnings`, `real_root_admission_deferred_for_operator_review`, `real_root_admission_rejected`, `real_root_admission_blocked`, `real_root_admission_noop`, `real_root_admission_invalid`, and `real_root_admission_failed`.
+Result statuses are `real_memory_root_admission_gate_ready`, `real_memory_root_admission_gate_ready_with_warnings`, `real_memory_root_admission_gate_deferred_for_operator_review`, `real_memory_root_admission_gate_rejected`, `real_memory_root_admission_gate_blocked`, `real_memory_root_admission_gate_noop`, `real_memory_root_admission_gate_invalid`, and `real_memory_root_admission_gate_failed`.
 
-## Real-root path metadata rules
+## Required evidence
 
-Admission is not memory-root access. Path evidence must be inert metadata, not a filesystem operation. By default the gate blocks missing, absolute, traversal, device, symlink-risk, ambiguous, operator-home, or real/live-memory-root-looking path metadata. Unsafe path strings may be represented only as inert metadata for review when policy explicitly enables `allow_inert_review_path_metadata` and the candidate marks the metadata as explicitly allowed for review.
+The gate requires matching upstream digest and decision evidence from the Final Live Memory Commit Review Gate:
 
-The library does not validate by touching real memory roots. It does not create, delete, purge, rename, chmod, open for write, or mutate any real memory path.
+- `claimed_final_live_memory_commit_review_gate_digest`
+- `claimed_final_live_memory_commit_review_gate_decision`
+
+Candidate scope must align with the Final Live Memory Commit Review Gate record scope. Mixed candidates may report warning-only diagnostic scope mismatch when policy allows mixed-scope diagnostics.
+
+The gate preserves carried upstream evidence from the Final Live Memory Commit Review Gate record, including adapter readiness, adapter admission, live memory commit execution, commit window, and commit plan metadata when present.
+
+## Metadata-only record families
+
+Non-noop candidates carry deterministic metadata-only readiness and evidence records for:
+
+- real memory root admission readiness
+- final review gate confirmation
+- adapter readiness envelope, adapter readiness gate, adapter admission packet, and adapter admission gate confirmation
+- live memory commit execution packet and live memory commit execution gate confirmation
+- commit window packet, commit plan gate, and commit plan packet confirmation
+- live commit execution denial
+- live memory write denial
+- real memory root admission deferral
+- emergency-stop confirmation
+- rollback readiness
+- verification readiness
+- audit readiness
+
+Each record is inert metadata. It is not a packet, approval, execution permission, runtime state, lock lease, lockfile, live adapter, live receipt, applied rollback, or live-memory write.
+
+## Default-deny flags
+
+The emitted gate and records keep default-deny flags false, including:
+
+- `real_memory_root_admission_gate_passed`
+- `real_memory_root_admission_enabled`
+- `real_memory_root_admission_packet_created`
+- `real_memory_root_admitted`
+- `live_memory_write_enabled`
+- `live_commit_execution_enabled`
+- `live_commit_applied`
+- `live_adapter_created`
+- `live_adapter_admitted`
+- executor, runtime, lock, and lockfile authority flags
+
+The emitted future-only flag `future_real_memory_root_admission_packet_required` is true. The only safe forward step is a later Real Memory Root Admission Packet metadata rung.
 
 ## Blockers
 
-Hard blockers include missing or invalid sandbox packets, missing or invalid candidates, sandbox not-ready evidence, sandbox digest mismatch, sandbox decision mismatch, missing non-noop receipt manifest digest, missing non-noop rollback manifest digest, missing non-noop sandbox artifact plan, real-memory-root access claims, live write/delete/purge/index mutation claims, path traversal, unsafe root metadata, sandbox-to-real conversion claims, prompt materialization, live context retrieval, action execution, external disclosure, authority/consent/policy/truth smuggling, raw/private/media/secret/provider-prompt payload leakage, and scope mismatch.
+Hard blockers include missing Final Live Memory Commit Review Gate evidence, missing candidates, invalid candidate types, final-review digest mismatch, final-review decision mismatch, non-ready final-review evidence, scope mismatch outside diagnostic mixed mode, and any claim that would admit roots, create an admission packet, approve or execute commits, write live memory, create/admit adapters, invoke/activate/release/authorize executors, issue permits, enable runtime, acquire locks, create lockfiles, retrieve live context, materialize prompts, disclose externally, or grant authority or permission to execute.
 
 Operator review cannot override hard blockers.
 
-## Safe next actions and forbidden next steps
+## CLI
 
-Safe next actions are limited to inspecting the admission packet, operator review, preparing a future real live-memory commit adapter later, preparing final operator review later, rerunning with corrected metadata, and sustaining default deny.
+Use `scripts/build_real_memory_root_admission_gate.py`:
 
-Forbidden next steps include real live-memory write/delete/purge, live index mutation, prompt assembly, live context retrieval, action ingress, treating sandbox commits as real commits, treating sandbox receipts as live receipts, treating sandbox rollback as applied rollback, sandbox bypass, real-root admission bypass, upstream gate bypass, and external disclosure.
+```bash
+python scripts/build_real_memory_root_admission_gate.py build-default
+python scripts/build_real_memory_root_admission_gate.py evaluate tests/fixtures/real_memory_root_admission_gate/ready_real_memory_root_admission_gate_candidate.json
+python scripts/build_real_memory_root_admission_gate.py validate tests/fixtures/real_memory_root_admission_gate/ready_real_memory_root_admission_gate_candidate.json
+python scripts/build_real_memory_root_admission_gate.py summarize tests/fixtures/real_memory_root_admission_gate/ready_real_memory_root_admission_gate_candidate.json
+python scripts/build_real_memory_root_admission_gate.py inspect-fixture ready_real_memory_root_admission_gate_candidate
+```
 
-## Lifecycle
+`evaluate` emits deterministic JSON and writes nothing. Blocked, invalid, or failed outcomes exit nonzero.
 
-The intended lifecycle remains:
-
-1. Selective memory distillation contract.
-2. Selective memory distillation receipt gate.
-3. Selective memory tomb receipt verifier.
-4. Governed memory writer adapter.
-5. Live memory boundary admission gate.
-6. Memory commit plan packet.
-7. Memory commit operator approval packet.
-8. Memory commit execution gate.
-9. Live memory commit dry-run adapter.
-10. Live commit safety interlock.
-11. Sandboxed live memory commit adapter.
-12. Real memory root admission gate.
-13. Future real live-memory commit adapter only after separate implementation and final operator review.
-
-Step 12 does not perform step 13. Future real live commit adapter implementation remains required, and final operator review remains required.
-
-## CLI and validation
-
-`scripts/build_real_memory_root_admission_gate.py` supports `build-default`, `evaluate`, `validate`, `summarize`, and `inspect-fixture`. `evaluate` emits deterministic JSON and writes nothing. Blocked, invalid, or failed outcomes exit nonzero.
-
-Fixtures live under `tests/fixtures/real_memory_root_admission_gate/`. The capability is registered as `real_memory_root_admission_gate`, appears in the reviewer proof bundle, and is covered by the work-item review packet matrix lane `real_memory_root_admission_gate_tests`.
+Fixtures live under `tests/fixtures/real_memory_root_admission_gate/`. Canonical ready/noop/mixed fixtures are `ready_real_memory_root_admission_gate_candidate.json`, `noop_real_memory_root_admission_gate_candidate.json`, and `mixed_real_memory_root_admission_gate_candidate.json`; compatibility fixtures using older names are retained for callers. The capability is registered as `real_memory_root_admission_gate`, appears in the reviewer proof bundle, and is covered by the work-item review packet matrix lane `real_memory_root_admission_gate_tests`.

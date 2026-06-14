@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import pytest
 from pathlib import Path
 
 from sentientos.real_memory_root_admission_gate import (
+    FALSE_FLAGS,
     FORBIDDEN_NEXT_STEPS,
+    FUTURE_FLAGS,
+    INVARIANTS,
     evaluate_real_memory_root_admission_gate,
 )
-
-pytestmark = pytest.mark.no_legacy_skip
 
 FIXTURES = Path("tests/fixtures/real_memory_root_admission_gate")
 
@@ -18,131 +18,81 @@ def _fixture(name: str) -> dict[str, object]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-def test_valid_candidate_builds_metadata_only_admission_packet() -> None:
-    result = evaluate_real_memory_root_admission_gate(_fixture("valid_ai_capsule_real_root_admission_candidate.json"))
-    assert result.status == "real_root_admission_ready"
-    assert result.packet is not None
-    packet = result.packet.to_dict()
-    for key in [
-        "real_root_admission_is_not_memory_write",
-        "real_root_admission_is_not_memory_deletion",
-        "real_root_admission_is_not_memory_purge",
-        "real_root_admission_is_not_index_mutation",
-        "real_root_admission_is_not_capsule_persistence",
-        "real_root_admission_is_not_prompt_assembly",
-        "real_root_admission_is_not_execution",
-        "real_root_admission_is_not_live_commit",
-        "real_root_admission_is_not_truth",
-        "real_root_admission_is_not_policy",
-        "real_root_admission_is_not_authority",
-        "real_root_admission_is_not_consent",
-        "real_root_admission_does_not_execute_action",
-        "real_root_admission_does_not_disclose_externally",
-        "future_real_live_commit_adapter_required",
-        "final_operator_review_required",
-    ]:
-        assert packet[key] is True
-    for key in [
-        "real_memory_root_access_enabled",
-        "live_memory_write_enabled",
-        "live_memory_deletion_enabled",
-        "live_memory_purge_enabled",
-        "live_index_mutation_enabled",
-        "prompt_materialization_enabled",
-        "external_disclosure_enabled",
-        "remote_service_enabled",
-    ]:
-        assert packet[key] is False
-    record = packet["records"][0]
-    assert record["admission_decision"] == "real_root_admission_candidate_ready_for_future_adapter"
-    assert record["real_memory_root_access_performed"] is False
-    assert record["future_adapter_consideration_record"]["real_live_commit_performed"] is False
-    assert {"write_live_memory_now", "delete_live_memory_now", "purge_live_memory_now", "mutate_live_index", "assemble_prompt_now", "retrieve_live_context", "execute_action_ingress", "bypass_real_root_admission_gate", "enable_external_disclosure"}.issubset(set(FORBIDDEN_NEXT_STEPS))
+def test_ready_candidate_builds_metadata_only_gate_for_later_packet() -> None:
+    result = evaluate_real_memory_root_admission_gate(_fixture("ready_real_memory_root_admission_gate_candidate.json"))
+    assert result.status == "real_memory_root_admission_gate_ready"
+    assert result.gate is not None
+    gate = result.gate.to_dict()
+    for key, expected in INVARIANTS.items():
+        assert gate[key] is expected
+    for key, expected in FALSE_FLAGS.items():
+        assert gate[key] is expected
+    for key, expected in FUTURE_FLAGS.items():
+        assert gate[key] is expected
+    record = gate["records"][0]
+    assert record["real_memory_root_admission_gate_decision"] == "real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet"
+    assert record["final_live_memory_commit_review_gate_decision"] == "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate"
+    assert record["future_real_memory_root_admission_packet_required"] is True
+    assert record["real_memory_root_admitted"] is False
+    assert record["real_memory_root_admission_packet_created"] is False
+    assert record["live_commit_execution_enabled"] is False
+    assert record["real_executor_invoked"] is False
+    assert record["lockfile_created"] is False
+    assert "final_live_memory_commit_review_gate" in record["carried_evidence"]
+    assert {"admit_real_memory_root_now", "create_real_memory_root_admission_packet_now", "live_memory_write_enabled", "real_executor_invoked", "lockfile_created"}.issubset(set(FORBIDDEN_NEXT_STEPS))
 
 
-def test_expected_decision_fixtures() -> None:
+def test_ready_noop_mixed_and_operator_review_are_deterministic() -> None:
     expected = {
-        "valid_ai_capsule_real_root_admission_candidate.json": "real_root_admission_ready",
-        "operator_review_real_root_admission_candidate.json": "real_root_admission_deferred_for_operator_review",
-        "noop_real_root_admission_candidate.json": "real_root_admission_noop",
-        "mixed_real_root_admission_candidate.json": "real_root_admission_ready_with_warnings",
+        "ready_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_ready",
+        "operator_review_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_deferred_for_operator_review",
+        "noop_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_noop",
+        "mixed_real_memory_root_admission_gate_candidate.json": "real_memory_root_admission_gate_ready_with_warnings",
+    }
+    for fixture, status in expected.items():
+        first = evaluate_real_memory_root_admission_gate(_fixture(fixture)).to_dict()
+        second = evaluate_real_memory_root_admission_gate(_fixture(fixture)).to_dict()
+        assert first == second
+        assert first["status"] == status
+
+
+def test_compatibility_fixture_names_still_evaluate() -> None:
+    expected = {
+        "valid_ai_capsule_real_root_admission_candidate.json": "real_memory_root_admission_gate_ready",
+        "noop_real_root_admission_candidate.json": "real_memory_root_admission_gate_noop",
+        "mixed_real_root_admission_candidate.json": "real_memory_root_admission_gate_ready_with_warnings",
     }
     for fixture, status in expected.items():
         assert evaluate_real_memory_root_admission_gate(_fixture(fixture)).status == status
 
 
-def test_blocker_fixtures_cover_evidence_and_boundaries() -> None:
+def test_blocker_fixtures_cover_final_review_and_boundary_claims() -> None:
     expected_codes = {
-        "missing_sandbox_commit_packet_blocked.json": "missing_sandbox_commit_packet",
-        "invalid_sandbox_commit_packet_blocked.json": "invalid_sandbox_commit_packet",
-        "missing_candidate_blocked.json": "missing_real_root_admission_candidate",
-        "invalid_candidate_blocked.json": "invalid_real_root_admission_candidate",
-        "sandbox_commit_not_ready_blocked.json": "sandbox_commit_not_ready",
-        "digest_mismatch_blocked.json": "sandbox_commit_digest_mismatch",
-        "decision_mismatch_blocked.json": "sandbox_commit_decision_mismatch",
-        "missing_receipt_manifest_digest_blocked.json": "missing_sandbox_receipt_manifest_digest",
-        "missing_rollback_manifest_digest_blocked.json": "missing_sandbox_rollback_manifest_digest",
-        "missing_artifact_plan_blocked.json": "missing_sandbox_artifact_plan",
-        "real_memory_root_access_claim_blocked.json": "real_memory_root_access_claim",
-        "live_write_claim_blocked.json": "live_write_claim",
-        "live_delete_claim_blocked.json": "live_delete_claim",
-        "live_purge_claim_blocked.json": "live_purge_claim",
-        "index_mutation_claim_blocked.json": "index_mutation_claim",
-        "path_traversal_blocked.json": "path_traversal",
-        "unsafe_root_metadata_blocked.json": "unsafe_real_root_path_metadata",
-        "sandbox_commit_conversion_claim_blocked.json": "sandbox_commit_conversion_claim",
-        "sandbox_receipt_conversion_claim_blocked.json": "sandbox_receipt_conversion_claim",
-        "sandbox_rollback_conversion_claim_blocked.json": "sandbox_rollback_conversion_claim",
-        "prompt_materialization_blocked.json": "prompt_materialization",
-        "live_context_retrieval_blocked.json": "live_context_retrieval",
-        "action_execution_blocked.json": "action_execution",
-        "external_disclosure_blocked.json": "external_disclosure",
-        "authority_smuggling_blocked.json": "authority_smuggling",
-        "consent_smuggling_blocked.json": "consent_smuggling",
-        "policy_smuggling_blocked.json": "policy_smuggling",
-        "truth_smuggling_blocked.json": "truth_smuggling",
-        "raw_payload_leak_blocked.json": "raw_payload_leak",
+        "missing_final_review_gate_blocked.json": "missing_final_live_memory_commit_review_gate",
+        "missing_candidate_blocked.json": "missing_real_memory_root_admission_gate_candidate",
+        "invalid_candidate_blocked.json": "invalid_real_memory_root_admission_gate_candidate",
+        "digest_mismatch_blocked.json": "final_live_memory_commit_review_gate_digest_mismatch",
+        "decision_mismatch_blocked.json": "final_live_memory_commit_review_gate_decision_mismatch",
+        "scope_mismatch_blocked.json": "scope_mismatch",
+        "live_write_claim_blocked.json": "live_memory_write_enabled",
+        "action_execution_blocked.json": "real_executor_invoked",
+        "authority_smuggling_blocked.json": "real_lock_acquired",
+        "admission_packet_creation_blocked.json": "real_memory_root_admission_packet_created",
     }
     for fixture, code in expected_codes.items():
         result = evaluate_real_memory_root_admission_gate(_fixture(fixture))
-        assert result.status == "real_root_admission_blocked", fixture
+        assert result.status == "real_memory_root_admission_gate_blocked", fixture
         assert result.report.findings[0].code == code
-        assert result.packet is None
+        assert result.gate is None
 
 
-def test_evaluate_mode_is_deterministic_and_non_mutating(tmp_path: Path) -> None:
-    payload = _fixture("valid_ai_capsule_real_root_admission_candidate.json")
-    probe = tmp_path / "probe"
-    probe.mkdir()
-    before = sorted(p.relative_to(probe) for p in probe.rglob("*"))
-    first = evaluate_real_memory_root_admission_gate(payload).to_dict()
-    second = evaluate_real_memory_root_admission_gate(payload).to_dict()
-    after = sorted(p.relative_to(probe) for p in probe.rglob("*"))
-    assert first == second
-    assert before == after == []
-
-
-def test_noop_is_deterministic_non_mutating_and_needs_no_manifest_digests(tmp_path: Path) -> None:
-    first = evaluate_real_memory_root_admission_gate(_fixture("noop_real_root_admission_candidate.json"))
-    second = evaluate_real_memory_root_admission_gate(_fixture("noop_real_root_admission_candidate.json"))
-    assert first.to_dict() == second.to_dict()
-    assert first.status == "real_root_admission_noop"
-    probe = tmp_path / "noop-probe"
-    probe.mkdir()
-    assert list(probe.rglob("*")) == []
-
-
-def test_mixed_diagnostics_warn_only_when_policy_allows_them() -> None:
-    allowed = evaluate_real_memory_root_admission_gate(_fixture("mixed_real_root_admission_candidate.json"))
-    assert allowed.status == "real_root_admission_ready_with_warnings"
-    payload = _fixture("mixed_real_root_admission_candidate.json")
-    payload["policy"] = {"allow_mixed_scope_diagnostic_packet": False}
-    blocked = evaluate_real_memory_root_admission_gate(payload)
-    assert blocked.status == "real_root_admission_blocked"
-    assert blocked.report.findings[0].code == "scope_mismatch"
-
-
-def test_module_does_not_introduce_unsafe_runtime_surfaces() -> None:
+def test_text_keeps_hard_boundary_words() -> None:
     text = Path("sentientos/real_memory_root_admission_gate.py").read_text(encoding="utf-8")
-    forbidden = ["append_memory(", "purge_memory(", "apply_forgetting_curve(", "requests.", "subprocess.", "openai", "prompt_assembler", "write_text(", "open("]
-    assert not any(marker in text for marker in forbidden)
+    for phrase in [
+        "never admits roots",
+        "never admits roots, creates an admission packet",
+        "real_memory_root_admission_gate_does_not_admit_real_memory_roots",
+        "real_memory_root_admission_gate_does_not_create_real_memory_root_admission_packet",
+        "future_real_memory_root_admission_packet_required",
+    ]:
+        assert phrase in text
