@@ -1,0 +1,91 @@
+{
+  "real_memory_root_admission_packet_candidates": [
+    {
+      "adapter_admission_gate_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "adapter_admission_packet_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "adapter_readiness_envelope_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "adapter_readiness_gate_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "audit_readiness_metadata": {
+        "ready": true
+      },
+      "candidate_id": "packet-ready",
+      "candidate_type": "ai_capsule_real_memory_root_admission_packet_candidate",
+      "claimed_final_live_memory_commit_review_gate_decision": "final_live_memory_commit_review_gate_ready_for_later_real_memory_root_admission_gate",
+      "claimed_final_live_memory_commit_review_gate_digest": "sha256:a8d910f06c0aede710b20e6190dbba26f1bb7b88fd2c07b5b216f1c4622fa0d7",
+      "claimed_real_executor_execution_commit_plan_gate_decision": "real_executor_execution_commit_plan_gate_ready_for_later_real_executor_execution_commit_window_packet",
+      "claimed_real_executor_execution_commit_plan_gate_digest": "sha256:4ceaf9c28c2e43b765cf781f49134d3e59cc317de3387f0b18f0c8dd6e1f0517",
+      "claimed_real_executor_execution_commit_plan_packet_decision": "real_executor_execution_commit_plan_packet_ready_for_later_real_executor_execution_commit_plan_gate",
+      "claimed_real_executor_execution_commit_plan_packet_digest": "sha256:c7c3f5a77589dbbeeb80ad16a49825711dfd489a7248d32ecea8210baddfffc9",
+      "claimed_real_executor_execution_commit_window_packet_decision": "real_executor_execution_commit_window_packet_ready_for_later_real_live_memory_commit_execution_gate",
+      "claimed_real_executor_execution_commit_window_packet_digest": "sha256:b62108916fef068e6ee99a1ad3ef2168497c99186942d38b5ab39f628fad5744",
+      "claimed_real_live_memory_commit_adapter_admission_packet_decision": "real_live_memory_commit_adapter_admission_packet_ready_for_later_real_live_memory_commit_adapter_readiness_gate",
+      "claimed_real_live_memory_commit_adapter_admission_packet_digest": "sha256:a65afc2853b8ba02a27c599b815c6ec92a5c92d0ccd34cebe772c07d2165df00",
+      "claimed_real_live_memory_commit_adapter_readiness_envelope_decision": "real_live_memory_commit_adapter_readiness_envelope_ready_for_later_final_live_memory_commit_review_gate",
+      "claimed_real_live_memory_commit_adapter_readiness_envelope_digest": "sha256:c27c1d437e617fa67dea810f9499e3d920dccdd7ce62abb96f0cb3f714dd8e74",
+      "claimed_real_live_memory_commit_adapter_readiness_gate_decision": "real_live_memory_commit_adapter_readiness_gate_ready_for_later_real_live_memory_commit_adapter_readiness_envelope",
+      "claimed_real_live_memory_commit_adapter_readiness_gate_digest": "sha256:8f3795ce95c5a6a403705f29f96514f9760697db2246ed52bf59c345cfd45502",
+      "claimed_real_live_memory_commit_execution_gate_decision": "real_live_memory_commit_execution_gate_ready_for_later_live_execution_packet_or_adapter_admission",
+      "claimed_real_live_memory_commit_execution_gate_digest": "sha256:a0492b1159d8ad564544c796d57cd0860171ccaf1836b0305af05442b28aa98a",
+      "claimed_real_live_memory_commit_execution_packet_decision": "real_live_memory_commit_execution_packet_ready_for_later_real_live_memory_commit_adapter_admission_gate",
+      "claimed_real_live_memory_commit_execution_packet_digest": "sha256:21717ffd9430315e63b08aa831e42f9907e8a926d079d38e5bc8094c9138421d",
+      "claimed_real_memory_root_admission_gate_decision": "real_memory_root_admission_gate_ready_for_later_real_memory_root_admission_packet",
+      "claimed_real_memory_root_admission_gate_digest": "sha256:700709658a8408e533e25d320bd36e38e93f768f42930cb8f273767397732e8b",
+      "commit_plan_gate_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "commit_plan_packet_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "commit_window_packet_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "emergency_stop_confirmation_metadata": {
+        "available": true
+      },
+      "final_review_gate_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "is_noop": false,
+      "live_commit_execution_denial_metadata": {
+        "denied": true
+      },
+      "live_memory_commit_execution_gate_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "live_memory_commit_execution_packet_confirmation_metadata": {
+        "confirmed": "carried"
+      },
+      "live_memory_write_denial_metadata": {
+        "denied": true
+      },
+      "metadata": {
+        "note": "metadata-only"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "real_memory_root_admission_deferral_metadata": {
+        "deferred": true
+      },
+      "real_memory_root_admission_readiness_metadata": {
+        "purpose": "packet metadata readiness"
+      },
+      "record_id": "packet-ready-record",
+      "rollback_readiness_metadata": {
+        "ready": true
+      },
+      "verification_readiness_metadata": {
+        "ready": true
+      }
+    }
+  ]
+}

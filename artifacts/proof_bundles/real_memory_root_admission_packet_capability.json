@@ -1,0 +1,11 @@
+{
+  "artifact_kind": "real_memory_root_admission_packet_capability",
+  "authority_level": "metadata_verification_only",
+  "capability_id": "real_memory_root_admission_packet",
+  "category": "memory_distillation",
+  "cli_reference": "scripts/build_real_memory_root_admission_packet.py",
+  "docs_reference": "docs/architecture/real_memory_root_admission_packet.md",
+  "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+  "metadata_only": true,
+  "status": "implemented"
+}
