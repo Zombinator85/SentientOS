@@ -1071,3 +1071,11 @@ def test_final_live_memory_commit_review_gate_registered() -> None:
     assert "later explicit operator runtime execution" in record.deferred_surfaces
     assert "final review writes live memory" in record.forbidden_implications
     assert "final review is real adapter execution" in record.forbidden_implications
+
+
+def test_sandboxed_live_memory_commit_adapter_packet_registered() -> None:
+    record = build_default_capability_registry().by_id()["sandboxed_live_memory_commit_adapter_packet"]
+    assert "sentientos/sandboxed_live_memory_commit_adapter_packet.py" in record.source_paths
+    assert "scripts/build_sandboxed_live_memory_commit_adapter_packet.py" in record.source_paths
+    assert "docs/architecture/sandboxed_live_memory_commit_adapter_packet.md" in record.source_paths
+    assert "tests/test_sandboxed_live_memory_commit_adapter_packet.py" in record.proof_tests
