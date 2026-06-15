@@ -1079,3 +1079,11 @@ def test_sandboxed_live_memory_commit_adapter_packet_registered() -> None:
     assert "scripts/build_sandboxed_live_memory_commit_adapter_packet.py" in record.source_paths
     assert "docs/architecture/sandboxed_live_memory_commit_adapter_packet.md" in record.source_paths
     assert "tests/test_sandboxed_live_memory_commit_adapter_packet.py" in record.proof_tests
+
+
+def test_sandboxed_live_memory_commit_adapter_envelope_registered() -> None:
+    record = build_default_capability_registry().by_id()["sandboxed_live_memory_commit_adapter_envelope"]
+    assert "sentientos/sandboxed_live_memory_commit_adapter_envelope.py" in record.source_paths
+    assert "scripts/build_sandboxed_live_memory_commit_adapter_envelope.py" in record.source_paths
+    assert "docs/architecture/sandboxed_live_memory_commit_adapter_envelope.md" in record.source_paths
+    assert "tests/test_sandboxed_live_memory_commit_adapter_envelope.py" in record.proof_tests
