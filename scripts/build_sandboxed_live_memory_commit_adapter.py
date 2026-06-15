@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -11,92 +10,77 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from sentientos.sandboxed_live_memory_commit_adapter import (
-    SandboxedLiveMemoryCommitPolicy,
+from sentientos.sandboxed_live_memory_commit_adapter import (  # noqa: E402
+    FAIL_STATUSES,
     build_default_policy,
     evaluate_sandboxed_live_memory_commit_adapter,
     validate_policy,
-    write_sandbox_artifacts,
 )
 
-
-def _read(path: str | None) -> dict[str, Any]:
-    if not path:
-        return {}
-    obj = json.loads(Path(path).read_text(encoding="utf-8"))
-    return dict(obj) if isinstance(obj, dict) else {}
+FIXTURE_ROOT = Path("tests/fixtures/sandboxed_live_memory_commit_adapter")
 
 
-def _policy(payload: dict[str, Any]) -> SandboxedLiveMemoryCommitPolicy:
-    raw = payload.get("policy")
-    if isinstance(raw, dict):
-        allowed = set(SandboxedLiveMemoryCommitPolicy.__dataclass_fields__)
-        return SandboxedLiveMemoryCommitPolicy(**{str(k): v for k, v in raw.items() if str(k) in allowed})
-    return build_default_policy()
+def _load(path: str) -> Any:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def _fixture_path(fixtures_dir: str, input_name: str | None, fixture_name: str | None) -> Path:
-    name = fixture_name or input_name or ""
-    path = Path(name)
-    if path.is_file():
-        return path
-    return Path(fixtures_dir) / name
+def _emit(data: Any) -> None:
+    print(json.dumps(data, indent=2, sort_keys=True))
 
 
-def _bad(status: str) -> bool:
-    return status in {"sandbox_commit_blocked", "sandbox_commit_invalid", "sandbox_commit_failed"} or "blocked" in status or status.endswith(("invalid", "failed"))
+def _fixture_path(name: str) -> Path:
+    candidate = FIXTURE_ROOT / name
+    if candidate.suffix != ".json":
+        candidate = candidate.with_suffix(".json")
+    if not candidate.is_file():
+        raise FileNotFoundError(f"fixture not found: {candidate}")
+    return candidate
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Build or evaluate sandboxed live memory commit adapter packets.")
-    parser.add_argument("command", choices=["build-default", "evaluate", "validate", "summarize", "inspect-fixture", "write-sandbox-artifacts"])
-    parser.add_argument("--input")
-    parser.add_argument("--fixtures-dir", default="tests/fixtures/sandboxed_live_memory_commit_adapter")
-    parser.add_argument("--fixture-name")
-    parser.add_argument("--fixture")
-    parser.add_argument("--output")
-    parser.add_argument("--sandbox-root")
-    parser.add_argument("--summary", action="store_true")
-    args = parser.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build deterministic metadata-only Sandboxed Live Memory Commit Adapter evidence.")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("build-default")
+    validate = sub.add_parser("validate")
+    validate.add_argument("packet", nargs="?")
+    evaluate = sub.add_parser("evaluate")
+    evaluate.add_argument("packet")
+    summarize = sub.add_parser("summarize")
+    summarize.add_argument("packet")
+    inspect = sub.add_parser("inspect-fixture")
+    inspect.add_argument("name")
+    args = parser.parse_args(argv)
 
     if args.command == "build-default":
-        out: dict[str, Any] = {"policy": asdict(build_default_policy())}
-    elif args.command == "inspect-fixture":
-        out = _read(str(_fixture_path(args.fixtures_dir, args.input, args.fixture_name or args.fixture)))
-    elif args.command == "validate" and not args.input:
-        out = validate_policy(build_default_policy())
-    elif args.command == "write-sandbox-artifacts":
-        if not args.sandbox_root:
-            out = {"status": "sandbox_commit_blocked", "error": "missing_sandbox_root"}
-        else:
-            payload = _read(args.input)
-            try:
-                out = write_sandbox_artifacts(payload, args.sandbox_root, _policy(payload))
-            except ValueError as exc:
-                out = {"status": "sandbox_commit_blocked", "error": str(exc), "written_files": []}
-    else:
-        payload = _read(args.input)
-        if args.command == "validate" and "safety_interlock_packet" not in payload:
-            out = validate_policy(_policy(payload))
-        else:
-            result = evaluate_sandboxed_live_memory_commit_adapter(payload, _policy(payload))
-            if args.command == "summarize" or args.summary:
-                out = {
-                    "status": result.status,
-                    "digest": result.digest,
-                    "packet_digest": result.packet.digest if result.packet else "",
-                    "summary_counts": dict(result.report.summary_counts),
-                    "finding_codes": [finding.code for finding in result.report.findings],
-                }
-            else:
-                out = result.to_dict()
-
-    text = json.dumps(out, indent=2, sort_keys=True)
-    print(text)
-    if args.output:
-        Path(args.output).write_text(text + "\n", encoding="utf-8")
-    return 1 if _bad(str(out.get("status", ""))) else 0
+        _emit({"policy": build_default_policy().to_dict(), "validation": validate_policy(), "fixture_root": str(FIXTURE_ROOT)})
+        return 0
+    if args.command == "validate":
+        if args.packet:
+            result = evaluate_sandboxed_live_memory_commit_adapter(_load(args.packet))
+            _emit(result.to_dict())
+            return 0 if result.status not in FAIL_STATUSES else 1
+        validation_result = validate_policy()
+        _emit(validation_result)
+        return 0 if validation_result["status"] == "valid" else 1
+    if args.command == "evaluate":
+        result = evaluate_sandboxed_live_memory_commit_adapter(_load(args.packet))
+        _emit(result.to_dict())
+        return 0 if result.status not in FAIL_STATUSES else 1
+    if args.command == "summarize":
+        result = evaluate_sandboxed_live_memory_commit_adapter(_load(args.packet))
+        _emit({
+            "status": result.status,
+            "digest": result.digest,
+            "packet_digest": result.packet.digest if result.packet else "",
+            "summary_counts": dict(result.report.summary_counts),
+            "findings": [finding.to_dict() for finding in result.report.findings],
+        })
+        return 0 if result.status not in FAIL_STATUSES else 1
+    if args.command == "inspect-fixture":
+        _emit(json.loads(_fixture_path(args.name).read_text(encoding="utf-8")))
+        return 0
+    return 2
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

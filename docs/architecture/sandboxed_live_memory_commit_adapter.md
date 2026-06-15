@@ -1,70 +1,61 @@
 # Sandboxed Live Memory Commit Adapter
 
-`sentientos/sandboxed_live_memory_commit_adapter.py` implements the `sandboxed_live_memory_commit_adapter` capability as a deterministic, sandbox-only metadata adapter. It consumes explicit Live Commit Safety Interlock evidence plus sandbox commit candidates and can write deterministic JSON artifacts only under a caller-provided sandbox root.
+`sentientos/sandboxed_live_memory_commit_adapter.py` implements the `sandboxed_live_memory_commit_adapter` capability as a deterministic metadata-only adapter surface for review. It consumes Real Memory Root Admission Packet evidence plus explicit `sandboxed_live_memory_commit_adapter_candidates` and emits reviewable JSON metadata for a later sandboxed adapter gate.
 
-## Boundary and authority
+The adapter is sandbox-bound and inert. It does not create a live adapter, admit a live adapter, admit a real memory root, write live memory, apply commits, execute commits, invoke executors, acquire locks, create lockfiles, retrieve live context, materialize prompts, execute actions, disclose externally, grant authority, or grant permission to execute.
 
-The adapter is not a real live-memory writer. Successful packets, receipt manifests, and rollback manifests explicitly state that sandbox commit is not:
+## Upstream evidence
 
-- a real memory write, deletion, or purge;
-- a live index mutation;
-- policy, truth, consent, or authority;
-- prompt assembly, action execution, or external disclosure.
+Each candidate must carry matching evidence from the immediate upstream packet:
 
-A future real live-memory adapter and future real memory-root admission remain required before any real memory write, delete, purge, or live index mutation can be considered.
+- primary upstream key: `real_memory_root_admission_packet`;
+- candidate list key: `sandboxed_live_memory_commit_adapter_candidates`;
+- `claimed_real_memory_root_admission_packet_digest` or `claimed_upstream_digest` must match the packet digest;
+- `claimed_real_memory_root_admission_packet_decision` or `claimed_upstream_decision` must match the packet decision;
+- candidate scope keys must match the packet record scope keys unless the candidate is an explicit mixed-scope diagnostic candidate.
 
-## Required safety-interlock matching
+The adapter preserves carried upstream evidence for the Real Memory Root Admission Gate, Final Live Memory Commit Review Gate, adapter readiness envelope/gate, adapter admission packet/gate, live-memory commit execution packet/gate, commit window packet, commit plan gate, and commit plan packet.
 
-Every candidate must reference matching safety-interlock evidence:
+## Decisions and statuses
 
-- a safety-interlock packet with at least one record and a packet digest;
-- a ready safety-interlock decision such as `live_commit_adapter_consideration_eligible`, warning, operator-review, rejection, or noop decisions;
-- candidate `claimed_safety_interlock_digest` equal to the packet digest;
-- candidate `claimed_safety_interlock_decision` equal to the packet decision;
-- candidate scope keys aligned with the safety-interlock scope keys.
+Ready records use `sandboxed_live_memory_commit_adapter_ready_for_later_sandboxed_live_memory_commit_adapter_gate`. Top-level statuses are:
 
-Missing, invalid, not-ready, digest-mismatched, decision-mismatched, and scope-mismatched evidence blocks with `sandbox_commit_blocked`.
+- `sandboxed_live_memory_commit_adapter_ready`;
+- `sandboxed_live_memory_commit_adapter_ready_with_warnings`;
+- `sandboxed_live_memory_commit_adapter_deferred_for_operator_review`;
+- `sandboxed_live_memory_commit_adapter_noop`;
+- `sandboxed_live_memory_commit_adapter_blocked` for invalid, unsafe, or mismatched evidence.
+
+## Default-deny flags
+
+Outputs keep the authority/runtime/write surface false, including `sandboxed_live_memory_commit_adapter_authority_created`, `sandboxed_live_memory_commit_adapter_enabled`, `sandboxed_live_memory_commit_adapter_admitted`, `live_adapter_created`, `live_adapter_admitted`, `real_memory_root_admission_enabled`, `real_memory_root_admitted`, `real_memory_root_write_enabled`, `live_memory_write_enabled`, `live_commit_execution_enabled`, `live_commit_applied`, `real_executor_enabled`, `real_executor_invoked`, `runtime_enabled`, `real_lock_acquisition_enabled`, `lockfile_creation_enabled`, `external_disclosure_enabled`, `action_execution_enabled`, `prompt_materialization_enabled`, and `live_context_retrieval_enabled`.
+
+The metadata artifact itself may be emitted by the CLI to stdout, but adapter authority is not created. The separate `sandboxed_live_memory_commit_adapter_authority_created: false` flag documents that distinction.
+
+## Future-only gates
+
+The output sets these future-only requirements to true:
+
+- `future_sandboxed_live_memory_commit_adapter_gate_required`;
+- `future_real_live_memory_commit_execution_required`;
+- `future_post_execution_audit_required`.
+
+These are requirements for later metadata or live-governed rungs, not current permission.
 
 ## CLI
 
 `scripts/build_sandboxed_live_memory_commit_adapter.py` exposes:
 
-- `build-default` — prints the default deny-by-default policy.
+- `build-default` — prints the default deny-by-default policy and fixture root.
 - `evaluate` — evaluates input and writes nothing.
-- `validate` — validates a policy or default policy.
-- `summarize` — prints status, digest, packet digest, counts, and finding codes.
-- `inspect-fixture` — loads a fixture from `tests/fixtures/sandboxed_live_memory_commit_adapter/`.
-- `write-sandbox-artifacts` — requires explicit `--sandbox-root` and writes deterministic JSON only under that safe sandbox root.
+- `validate` — validates default policy or evaluates an input document.
+- `summarize` — prints status, digest, packet digest, counts, and findings.
+- `inspect-fixture` — prints fixture JSON from `tests/fixtures/sandboxed_live_memory_commit_adapter/`.
 
-Blocked, invalid, or failed outcomes exit nonzero. `write-sandbox-artifacts` also exits nonzero when `--sandbox-root` is omitted, unsafe, or when input evaluation blocks.
+Blocked, invalid, or failed outcomes exit nonzero.
 
-## Sandbox artifacts
+## Fixtures and proof points
 
-When evaluation succeeds and `write-sandbox-artifacts` is invoked with a safe sandbox root, the adapter writes:
+Fixtures cover ready, noop, mixed-warning, operator-review, digest mismatch, decision mismatch, live-write claims, real-memory-root access/admission claims, live-adapter creation/admission claims, runtime hook claims, executor authority claims, lock acquisition claims, prompt materialization, live context retrieval, action execution, external disclosure, and unsafe adapter metadata.
 
-- one deterministic sandbox artifact for each candidate record at its safe relative path;
-- `sandbox_receipt_manifest.json`, a sandbox-only manifest of emitted artifacts and non-authority statements;
-- `sandbox_rollback_manifest.json`, a sandbox-only rollback manifest that describes removal of sandbox artifacts only and confirms real memory was not mutated;
-- `sandbox_commit_packet.json`, the deterministic packet/report output.
-
-The writer rejects absolute candidate paths, `..` traversal, real-memory-root path claims, and sandbox roots whose resolved path appears to target real/live memory.
-
-## Blocked claims
-
-The adapter blocks live write, live delete, live purge, live index mutation, prompt materialization, action execution, external disclosure, authority smuggling, consent smuggling, policy smuggling, truth smuggling, raw/private/media/secret/prompt payload leakage, unsafe sandbox roots, real-memory-root claims, path traversal, and scope mismatch.
-
-## Validation proof points
-
-The test suite proves:
-
-- evaluate mode is deterministic and writes no files;
-- `write-sandbox-artifacts` writes only under the sandbox root;
-- receipt and rollback manifests are deterministic and sandbox-only;
-- real live-memory root claims and path traversal are blocked;
-- safety-interlock digest and decision mismatch block;
-- unsafe live mutation, prompt, action, disclosure, smuggling, leakage, and scope claims block;
-- noop behavior is deterministic and non-mutating.
-
-## Forbidden next steps
-
-The capability remains forbidden from real live-memory write/delete/purge, live index mutation, prompt assembly, live context retrieval, action ingress, safety-interlock bypass, and external disclosure. These remain explicitly listed in packet and manifest `forbidden_next_steps` for reviewer visibility.
+The focused tests prove deterministic metadata output, default-deny flags, noop and warning behavior, CLI non-mutation, fixture inspection, and fail-closed handling for blocked claims.
