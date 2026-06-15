@@ -524,92 +524,13 @@
   },
   "sandboxed_live_memory_commit_adapter_candidates": [
     {
-      "adapter_admission_gate_confirmation_metadata": {
-        "field": "adapter_admission_gate_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "adapter_admission_packet_confirmation_metadata": {
-        "field": "adapter_admission_packet_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "adapter_readiness_envelope_confirmation_metadata": {
-        "field": "adapter_readiness_envelope_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "adapter_readiness_gate_confirmation_metadata": {
-        "field": "adapter_readiness_gate_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "audit_readiness_metadata": {
-        "field": "audit_readiness_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "candidate_id": "live_write_claim_blocked",
-      "candidate_type": "ai_capsule_sandboxed_live_memory_commit_adapter_candidate",
+      "candidate_id": "noop_adapter",
+      "candidate_type": "noop_sandboxed_live_memory_commit_adapter_candidate",
       "claimed_real_memory_root_admission_packet_decision": "real_memory_root_admission_packet_ready_for_later_sandboxed_live_memory_commit_adapter",
       "claimed_real_memory_root_admission_packet_digest": "sha256:ed691ddada8648a132af03010677068005ea0ab17305a8a74510e395838c64a6",
       "claimed_upstream_decision": "real_memory_root_admission_packet_ready_for_later_sandboxed_live_memory_commit_adapter",
       "claimed_upstream_digest": "sha256:ed691ddada8648a132af03010677068005ea0ab17305a8a74510e395838c64a6",
-      "commit_plan_gate_confirmation_metadata": {
-        "field": "commit_plan_gate_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "commit_plan_packet_confirmation_metadata": {
-        "field": "commit_plan_packet_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "commit_window_packet_confirmation_metadata": {
-        "field": "commit_window_packet_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "emergency_stop_confirmation_metadata": {
-        "field": "emergency_stop_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "is_noop": false,
-      "live_commit_execution_denial_metadata": {
-        "field": "live_commit_execution_denial_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "live_memory_commit_execution_gate_confirmation_metadata": {
-        "field": "live_memory_commit_execution_gate_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "live_memory_commit_execution_packet_confirmation_metadata": {
-        "field": "live_memory_commit_execution_packet_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "live_memory_write_denial_metadata": {
-        "field": "live_memory_write_denial_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "live_memory_write_enabled": true,
+      "is_noop": true,
       "metadata": {
         "metadata_only": true,
         "reviewable": true,
@@ -619,40 +540,7 @@
         "capsule:a",
         "memory:summary"
       ],
-      "packet_confirmation_metadata": {
-        "field": "packet_confirmation_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "real_memory_root_admission_deferral_metadata": {
-        "field": "real_memory_root_admission_deferral_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "record_id": "live_write_claim_blocked_record",
-      "rollback_readiness_metadata": {
-        "field": "rollback_readiness_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "sandboxed_adapter_readiness_metadata": {
-        "field": "sandboxed_adapter_readiness_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      },
-      "sandboxed_live_memory_commit_adapter_claims": {
-        "live_memory_write_enabled": true
-      },
-      "verification_readiness_metadata": {
-        "field": "verification_readiness_metadata",
-        "metadata_only": true,
-        "reviewable": true,
-        "sandbox_bound": true
-      }
+      "record_id": "noop_adapter_record"
     }
   ]
 }

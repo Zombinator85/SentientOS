@@ -554,7 +554,7 @@
         "reviewable": true,
         "sandbox_bound": true
       },
-      "candidate_id": "live_write_claim_blocked",
+      "candidate_id": "unsafe_adapter_metadata_blocked",
       "candidate_type": "ai_capsule_sandboxed_live_memory_commit_adapter_candidate",
       "claimed_real_memory_root_admission_packet_decision": "real_memory_root_admission_packet_ready_for_later_sandboxed_live_memory_commit_adapter",
       "claimed_real_memory_root_admission_packet_digest": "sha256:ed691ddada8648a132af03010677068005ea0ab17305a8a74510e395838c64a6",
@@ -609,7 +609,6 @@
         "reviewable": true,
         "sandbox_bound": true
       },
-      "live_memory_write_enabled": true,
       "metadata": {
         "metadata_only": true,
         "reviewable": true,
@@ -631,7 +630,7 @@
         "reviewable": true,
         "sandbox_bound": true
       },
-      "record_id": "live_write_claim_blocked_record",
+      "record_id": "unsafe_adapter_metadata_blocked_record",
       "rollback_readiness_metadata": {
         "field": "rollback_readiness_metadata",
         "metadata_only": true,
@@ -645,8 +644,9 @@
         "sandbox_bound": true
       },
       "sandboxed_live_memory_commit_adapter_claims": {
-        "live_memory_write_enabled": true
+        "sandboxed_live_memory_commit_adapter_created": true
       },
+      "sandboxed_live_memory_commit_adapter_created": true,
       "verification_readiness_metadata": {
         "field": "verification_readiness_metadata",
         "metadata_only": true,
