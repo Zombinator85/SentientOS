@@ -687,3 +687,14 @@ def test_reviewer_bundle_includes_future_live_memory_commit_execution_gate_capab
     assert "docs/architecture/future_live_memory_commit_execution_gate.md" in text
     assert "future live-memory commit execution gate packets" in text
     assert "future execution gate executes a live commit" in text
+
+
+def test_reviewer_bundle_includes_sandboxed_live_memory_commit_adapter_gate_capability_artifact() -> None:
+    artifacts = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)["artifacts"]
+    assert "sandboxed_live_memory_commit_adapter_gate_capability" in artifacts
+    manifest = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)["manifest"].to_dict()
+    assert any(record["relative_path"] == "sandboxed_live_memory_commit_adapter_gate_capability.json" for record in manifest["artifact_records"])
+    text = artifacts["sandboxed_live_memory_commit_adapter_gate_capability"]
+    assert '"capability_id": "sandboxed_live_memory_commit_adapter_gate"' in text
+    assert "scripts/build_sandboxed_live_memory_commit_adapter_gate.py" in text
+    assert "docs/architecture/sandboxed_live_memory_commit_adapter_gate.md" in text
