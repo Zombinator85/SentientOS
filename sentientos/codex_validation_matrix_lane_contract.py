@@ -60,6 +60,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "live_commit_safety_interlock_tests",
     "sandboxed_live_memory_commit_adapter_tests",
     "sandboxed_live_memory_commit_adapter_gate_tests",
+    "sandboxed_live_memory_commit_adapter_packet_tests",
     "real_memory_root_admission_gate_tests",
     "real_memory_root_admission_packet_tests",
     "final_live_memory_commit_review_gate_tests",
