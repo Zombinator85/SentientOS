@@ -1,0 +1,15 @@
+{
+  "safety_interlock_packet": {
+    "digest": "sha256:interlock-ready",
+    "records": [
+      {
+        "live_commit_adapter_decision": "live_commit_adapter_consideration_eligible",
+        "operator_scope_keys": [
+          "memory:alpha"
+        ],
+        "record_id": "interlock-record-001"
+      }
+    ]
+  },
+  "sandbox_commit_candidates": []
+}

@@ -1,0 +1,34 @@
+{
+  "safety_interlock_packet": {
+    "digest": "sha256:interlock-ready",
+    "records": [
+      {
+        "live_commit_adapter_decision": "live_commit_adapter_consideration_deferred_for_operator_review",
+        "operator_scope_keys": [
+          "memory:alpha"
+        ],
+        "record_id": "interlock-record-001"
+      }
+    ]
+  },
+  "sandbox_commit_candidates": [
+    {
+      "candidate_id": "sandbox-candidate-001",
+      "candidate_type": "operator_review_sandbox_commit_candidate",
+      "claimed_safety_interlock_decision": "live_commit_adapter_consideration_deferred_for_operator_review",
+      "claimed_safety_interlock_digest": "sha256:interlock-ready",
+      "claims": {
+        "sandbox_only": true
+      },
+      "metadata": {
+        "operator_review_requested": true,
+        "summary": "fixture metadata only"
+      },
+      "operator_scope_keys": [
+        "memory:alpha"
+      ],
+      "record_id": "sandbox-record-001",
+      "sandbox_relative_path": "records/sandbox-candidate-001.json"
+    }
+  ]
+}
