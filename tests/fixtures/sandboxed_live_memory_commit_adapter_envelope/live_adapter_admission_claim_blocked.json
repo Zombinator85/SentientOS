@@ -1,0 +1,627 @@
+{
+  "sandboxed_live_memory_commit_adapter_envelope_candidates": [
+    {
+      "adapter_admission_gate_confirmation_metadata": {
+        "kind": "admission-gate"
+      },
+      "adapter_admission_packet_confirmation_metadata": {
+        "kind": "admission-packet"
+      },
+      "adapter_confirmation_metadata": {
+        "kind": "adapter-confirmation"
+      },
+      "adapter_readiness_envelope_confirmation_metadata": {
+        "kind": "readiness-envelope"
+      },
+      "adapter_readiness_gate_confirmation_metadata": {
+        "kind": "readiness-gate"
+      },
+      "audit_readiness_metadata": {
+        "kind": "audit"
+      },
+      "candidate_id": "ai_capsule_sandboxed_live_memory_commit_adapter_envelope",
+      "candidate_type": "ai_capsule_sandboxed_live_memory_commit_adapter_envelope_candidate",
+      "claimed_sandboxed_live_memory_commit_adapter_packet_decision": "sandboxed_live_memory_commit_adapter_packet_ready_for_later_sandboxed_live_memory_commit_adapter_envelope",
+      "claimed_sandboxed_live_memory_commit_adapter_packet_digest": "sha256:4cce9be46b6b25591af3f2591ab41d9a66981878d2fae0f6f73b39b08ef5f03b",
+      "commit_plan_gate_confirmation_metadata": {
+        "kind": "plan-gate"
+      },
+      "commit_plan_packet_confirmation_metadata": {
+        "kind": "plan-packet"
+      },
+      "commit_window_packet_confirmation_metadata": {
+        "kind": "window-packet"
+      },
+      "emergency_stop_confirmation_metadata": {
+        "kind": "emergency-stop"
+      },
+      "gate_confirmation_metadata": {
+        "kind": "gate-confirmation"
+      },
+      "is_noop": false,
+      "live_adapter_non_admission_metadata": {
+        "kind": "live-adapter-non-admission"
+      },
+      "live_commit_execution_denial_metadata": {
+        "kind": "execution-denial"
+      },
+      "live_memory_commit_execution_gate_confirmation_metadata": {
+        "kind": "execution-gate"
+      },
+      "live_memory_commit_execution_packet_confirmation_metadata": {
+        "kind": "execution-packet"
+      },
+      "live_memory_write_denial_metadata": {
+        "kind": "write-denial"
+      },
+      "metadata": {
+        "kind": "base"
+      },
+      "operator_scope_keys": [
+        "capsule:a",
+        "memory:summary"
+      ],
+      "packet_confirmation_metadata": {
+        "kind": "packet-confirmation"
+      },
+      "real_memory_root_admission_deferral_metadata": {
+        "kind": "root-deferral"
+      },
+      "record_id": "ai_capsule_sandboxed_live_memory_commit_adapter_envelope_record",
+      "rollback_readiness_metadata": {
+        "kind": "rollback"
+      },
+      "sandboxed_adapter_envelope_metadata": {
+        "kind": "sandboxed-adapter-envelope"
+      },
+      "sandboxed_adapter_readiness_metadata": {
+        "kind": "sandboxed-adapter-envelope"
+      },
+      "sandboxed_live_memory_commit_adapter_envelope_claims": {
+        "live_adapter_admitted": true
+      },
+      "verification_readiness_metadata": {
+        "kind": "verification"
+      }
+    }
+  ],
+  "sandboxed_live_memory_commit_adapter_packet": {
+    "action_execution_enabled": false,
+    "audit_readiness_is_metadata_only": true,
+    "digest": "sha256:4cce9be46b6b25591af3f2591ab41d9a66981878d2fae0f6f73b39b08ef5f03b",
+    "emergency_stop_confirmation_is_metadata_only": true,
+    "external_disclosure_enabled": false,
+    "external_service_enabled": false,
+    "forbidden_next_steps": [
+      "action_execution_enabled",
+      "admit_real_memory_root_now",
+      "create_sandboxed_live_memory_commit_adapter_now",
+      "external_disclosure_enabled",
+      "external_service_enabled",
+      "live_adapter_admission_enabled",
+      "live_adapter_admission_packet_passed",
+      "live_adapter_admitted",
+      "live_adapter_created",
+      "live_commit_applied",
+      "live_commit_apply_enabled",
+      "live_commit_executed",
+      "live_commit_execution_enabled",
+      "live_context_retrieval_enabled",
+      "live_memory_write_enabled",
+      "lock_lease_release_enabled",
+      "lock_lease_renewal_enabled",
+      "lockfile_created",
+      "lockfile_creation_enabled",
+      "prompt_materialization_enabled",
+      "real_executor_activation_enabled",
+      "real_executor_enabled",
+      "real_executor_execution_authorized",
+      "real_executor_execution_enabled",
+      "real_executor_execution_permit_issued",
+      "real_executor_execution_released",
+      "real_executor_invocation_enabled",
+      "real_executor_invoked",
+      "real_executor_run_enabled",
+      "real_lock_acquired",
+      "real_lock_acquisition_enabled",
+      "real_memory_root_access_enabled",
+      "real_memory_root_admission_enabled",
+      "real_memory_root_admitted",
+      "real_memory_root_write_enabled",
+      "runtime_enabled",
+      "runtime_flag_flipped",
+      "sandboxed_live_memory_commit_adapter_admitted",
+      "sandboxed_live_memory_commit_adapter_enabled",
+      "sandboxed_live_memory_commit_adapter_gate_enabled",
+      "sandboxed_live_memory_commit_adapter_gate_passed",
+      "sandboxed_live_memory_commit_adapter_packet_created",
+      "sandboxed_live_memory_commit_adapter_packet_enabled",
+      "sandboxed_live_memory_commit_adapter_packet_passed",
+      "treat_sandboxed_live_memory_commit_adapter_packet_as_permission_to_execute"
+    ],
+    "future_post_execution_audit_required": true,
+    "future_real_live_memory_commit_execution_required": true,
+    "future_sandboxed_live_memory_commit_adapter_envelope_required": true,
+    "gate_confirmation_is_metadata_only": true,
+    "live_adapter_admission_enabled": false,
+    "live_adapter_admission_packet_passed": false,
+    "live_adapter_admitted": false,
+    "live_adapter_created": false,
+    "live_commit_applied": false,
+    "live_commit_apply_enabled": false,
+    "live_commit_executed": false,
+    "live_commit_execution_denial_is_metadata_only": true,
+    "live_commit_execution_enabled": false,
+    "live_context_retrieval_enabled": false,
+    "live_memory_write_denial_is_metadata_only": true,
+    "live_memory_write_enabled": false,
+    "lock_lease_release_enabled": false,
+    "lock_lease_renewal_enabled": false,
+    "lockfile_created": false,
+    "lockfile_creation_enabled": false,
+    "prompt_materialization_enabled": false,
+    "real_executor_activation_enabled": false,
+    "real_executor_enabled": false,
+    "real_executor_execution_authorized": false,
+    "real_executor_execution_enabled": false,
+    "real_executor_execution_permit_issued": false,
+    "real_executor_execution_released": false,
+    "real_executor_invocation_enabled": false,
+    "real_executor_invoked": false,
+    "real_executor_run_enabled": false,
+    "real_lock_acquired": false,
+    "real_lock_acquisition_enabled": false,
+    "real_memory_root_access_enabled": false,
+    "real_memory_root_admission_deferral_is_metadata_only": true,
+    "real_memory_root_admission_enabled": false,
+    "real_memory_root_admitted": false,
+    "real_memory_root_write_enabled": false,
+    "records": [
+      {
+        "audit_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:4e3d0c308db56d0cdfa531434bb09d3a553a19ef4326eb884f5e27e69524db28",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "audit_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "candidate_id": "packet-candidate-001",
+        "candidate_type": "ai_capsule_sandboxed_live_memory_commit_adapter_packet_candidate",
+        "carried_evidence": {
+          "final_live_memory_commit_review_gate": {
+            "decision": "sandboxed_live_memory_commit_adapter_ready_for_later_sandboxed_live_memory_commit_adapter_gate",
+            "digest": "sha256:ed691ddada8648a132af03010677068005ea0ab17305a8a74510e395838c64a6"
+          },
+          "real_executor_execution_commit_plan_gate": {
+            "decision": "real_executor_execution_commit_plan_gate_ready_for_later_real_executor_execution_commit_window_packet",
+            "digest": "sha256:4ceaf9c28c2e43b765cf781f49134d3e59cc317de3387f0b18f0c8dd6e1f0517"
+          },
+          "real_executor_execution_commit_plan_packet": {
+            "decision": "real_executor_execution_commit_plan_packet_ready_for_later_real_executor_execution_commit_plan_gate",
+            "digest": "sha256:c7c3f5a77589dbbeeb80ad16a49825711dfd489a7248d32ecea8210baddfffc9"
+          },
+          "real_executor_execution_commit_window_packet": {
+            "decision": "real_executor_execution_commit_window_packet_ready_for_later_real_live_memory_commit_execution_gate",
+            "digest": "sha256:b62108916fef068e6ee99a1ad3ef2168497c99186942d38b5ab39f628fad5744"
+          },
+          "real_live_memory_commit_adapter_admission_packet": {
+            "decision": "real_live_memory_commit_adapter_admission_packet_ready_for_later_real_live_memory_commit_adapter_readiness_gate",
+            "digest": "sha256:a65afc2853b8ba02a27c599b815c6ec92a5c92d0ccd34cebe772c07d2165df00"
+          },
+          "real_live_memory_commit_adapter_readiness_envelope": {
+            "decision": "real_live_memory_commit_adapter_readiness_envelope_ready_for_later_final_live_memory_commit_review_gate",
+            "digest": "sha256:c27c1d437e617fa67dea810f9499e3d920dccdd7ce62abb96f0cb3f714dd8e74"
+          },
+          "real_live_memory_commit_adapter_readiness_gate": {
+            "decision": "real_live_memory_commit_adapter_readiness_gate_ready_for_later_real_live_memory_commit_adapter_readiness_envelope",
+            "digest": "sha256:8f3795ce95c5a6a403705f29f96514f9760697db2246ed52bf59c345cfd45502"
+          },
+          "real_live_memory_commit_execution_gate": {
+            "decision": "real_live_memory_commit_execution_gate_ready_for_later_live_execution_packet_or_adapter_admission",
+            "digest": "sha256:a0492b1159d8ad564544c796d57cd0860171ccaf1836b0305af05442b28aa98a"
+          },
+          "real_live_memory_commit_execution_packet": {
+            "decision": "real_live_memory_commit_execution_packet_ready_for_later_real_live_memory_commit_adapter_admission_gate",
+            "digest": "sha256:21717ffd9430315e63b08aa831e42f9907e8a926d079d38e5bc8094c9138421d"
+          },
+          "real_memory_root_admission_packet": {
+            "decision": "real_memory_root_admission_packet_ready_for_later_sandboxed_live_memory_commit_adapter_gate",
+            "digest": ""
+          },
+          "sandboxed_live_memory_commit_adapter_gate": {
+            "decision": "sandboxed_live_memory_commit_adapter_gate_ready_for_later_sandboxed_live_memory_commit_adapter_packet",
+            "digest": "sha256:2c8bd0ec14aff88eed9897e64c0a559d23715dff14d57905c59829bb05cc4771"
+          }
+        },
+        "confirmation_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:e5d77f48a57cef90bdd719f74b1634b0f3f8527cc12987fd2debf2ac488e1e65",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:e865dca74b29e0ec13481d57f560506152f5df0e36c7d5ceaddcce4395cc5140",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "adapter_readiness_envelope_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:0389f0173b3604a52d3ba9e257a4fbf935046f0c5b1ed94c66f399960d4ac8dc",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "adapter_readiness_gate_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:168c8d46dbe22fc5a90712ddfa27a8797980da2c508c990f8d4f415b9473d632",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "adapter_admission_packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:fc3739507122b2abbedcccc62301e9868bac436aff3c5c1ae0a629a0c105f44a",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "adapter_admission_gate_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:a203fa3e62737adba849995cb12fee6cd8b6dbee15d0fc4ded70b34ca5ef65ed",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "live_memory_commit_execution_packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:40f7ced7132721c01b3efeed71aa793f3de3af655b011579ba7230fd1bf3df16",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "live_memory_commit_execution_gate_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:6f527d78fd9cb671a55e9d803e1042f4b8103285904ff209360beedd784b8203",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "commit_window_packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:af2d9d674ebdb2fcdecef4e01ab7da34ca75e93c50dad85d4b04c7ee258f81c6",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "commit_plan_gate_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:c580ec4ea3a69f4eb52a26187cb659bc7b37523e26afcd83d65e6108c75f70f8",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "commit_plan_packet_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          },
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:1dfc37b536c415179acaa5f2e11c9106a0603f139864f8b9c34c4614abaee2d5",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "emergency_stop_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "deferral_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:ed65d38b32ab3642eb0d4ef7b01364756368410b0525a6adce281245a002a4ac",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "real_memory_root_admission_deferral",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "digest": "sha256:ab199688fd870da7e637370bcc4fc6bfc03eb305f0986909c56115167c71e6c7",
+        "emergency_stop_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:1dfc37b536c415179acaa5f2e11c9106a0603f139864f8b9c34c4614abaee2d5",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "emergency_stop_confirmation",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "future_post_execution_audit_required": true,
+        "future_real_live_memory_commit_execution_required": true,
+        "future_sandboxed_live_memory_commit_adapter_envelope_required": true,
+        "gate_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "live_adapter_admitted": false,
+        "live_adapter_created": false,
+        "live_commit_applied": false,
+        "live_commit_execution_enabled": false,
+        "live_memory_write_enabled": false,
+        "lockfile_created": false,
+        "lockfile_creation_enabled": false,
+        "operator_scope_keys": [
+          "capsule:a",
+          "memory:summary"
+        ],
+        "readiness_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:5aced4783f965ddc34ce954c623895782908a6005ccce0bd964cc95fcde40888",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "sandboxed_adapter_packet_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "real_executor_enabled": false,
+        "real_executor_invoked": false,
+        "real_lock_acquired": false,
+        "real_lock_acquisition_enabled": false,
+        "real_memory_root_admission_enabled": false,
+        "real_memory_root_admission_packet_confirmed_metadata_only": true,
+        "real_memory_root_admission_packet_passed": false,
+        "real_memory_root_admitted": false,
+        "record_id": "packet-record-001",
+        "rollback_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:0136685b1ba8245e42dfa310b7612ff03523d1f9822df329d815f0af150bfbb0",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "rollback_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ],
+        "runtime_enabled": false,
+        "safe_next_actions": [
+          "review_sandboxed_live_memory_commit_adapter_packet_metadata",
+          "prepare_later_sandboxed_live_memory_commit_adapter_envelope_metadata_request",
+          "sustain_default_deny"
+        ],
+        "sandboxed_live_memory_commit_adapter_gate_decision": "",
+        "sandboxed_live_memory_commit_adapter_gate_digest": "sha256:2c8bd0ec14aff88eed9897e64c0a559d23715dff14d57905c59829bb05cc4771",
+        "sandboxed_live_memory_commit_adapter_packet_authority_created": false,
+        "sandboxed_live_memory_commit_adapter_packet_created": false,
+        "sandboxed_live_memory_commit_adapter_packet_decision": "sandboxed_live_memory_commit_adapter_packet_ready_for_later_sandboxed_live_memory_commit_adapter_envelope",
+        "verification_records": [
+          {
+            "active_runtime_state": false,
+            "admission_packet_created": false,
+            "authoritative": false,
+            "candidate_id": "packet-candidate-001",
+            "executed": false,
+            "executor_invoked": false,
+            "live_receipt": false,
+            "metadata_digest": "sha256:9da7708629ef5ffe4521cad3c80bb50047ed986bf9f3b63b40b1ce4facd6f856",
+            "metadata_only": true,
+            "permission_granted": false,
+            "real_memory_root_admitted": false,
+            "record_id": "packet-record-001",
+            "record_type": "verification_readiness",
+            "rollback_applied": false,
+            "runtime_enabled": false,
+            "runtime_flag_flipped": false
+          }
+        ]
+      }
+    ],
+    "rollback_readiness_is_metadata_only": true,
+    "runtime_enabled": false,
+    "runtime_flag_flipped": false,
+    "sandboxed_live_memory_commit_adapter_admitted": false,
+    "sandboxed_live_memory_commit_adapter_enabled": false,
+    "sandboxed_live_memory_commit_adapter_gate_enabled": false,
+    "sandboxed_live_memory_commit_adapter_gate_passed": false,
+    "sandboxed_live_memory_commit_adapter_packet_created": false,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_acquire_locks": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_activate_executor": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_admit_a_live_adapter": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_admit_real_memory_roots": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_apply_a_commit": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_approve_live_execution": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_create_a_live_adapter": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_create_lockfiles": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_create_sandboxed_live_memory_commit_adapter": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_execute_a_commit": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_invoke_executor": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_issue_permit": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_release_execution": true,
+    "sandboxed_live_memory_commit_adapter_packet_does_not_write_live_memory": true,
+    "sandboxed_live_memory_commit_adapter_packet_enabled": false,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_execution_authorization": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_execution_permit": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_execution_release": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_executor_activation": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_executor_invocation": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_live_commit_execution": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_lock_acquisition": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_permission_to_execute": true,
+    "sandboxed_live_memory_commit_adapter_packet_is_not_runtime_enablement": true,
+    "sandboxed_live_memory_commit_adapter_packet_passed": false,
+    "sandboxed_live_memory_commit_adapter_packet_readiness_is_metadata_only": true,
+    "schema_version": "sandboxed-live-memory-commit-adapter-packet/v1",
+    "verification_readiness_is_metadata_only": true
+  }
+}
