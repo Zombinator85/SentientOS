@@ -28,6 +28,27 @@ Failed or partial sandboxed adapter readiness-gate workspaces must not be recove
 
 Later repo-native topology review may reference the sandboxed envelope's carried metadata, but the envelope does not authorize a `sandboxed_live_memory_commit_adapter_readiness_gate`, `sandboxed_live_memory_commit_adapter_readiness_packet`, `sandboxed_live_memory_commit_adapter_readiness_envelope`, or repeated sandboxed ladder. Any future live-adjacent progression must either use an already-defined repo-native chain or land a separate topology decision proving the exact non-recursive handoff. Historical decision strings, future-flag names, safe-next-action labels, or registry deferred-surface labels that mention a sandboxed readiness gate are terminal review markers only, not implementation authority and not proof that a sandboxed readiness gate should be created.
 
+
+## Post-envelope topology decision
+
+The sandboxed adapter branch terminates at `sandboxed_live_memory_commit_adapter_envelope`. The envelope has no currently implemented repo-native consumer, and historical sandboxed-readiness wording is a terminal review marker only, not an implementation contract. Codex must not proceed to implementation after the envelope by mechanical rename, sequence inference, or reuse of readiness-gate wording.
+
+The default state after `sandboxed_live_memory_commit_adapter_envelope` is implementation pause. Until repo-native docs define a concrete continuation, no post-envelope implementation task is authorized and no sandboxed readiness gate, packet, envelope, runtime adapter, executor, lock, live-memory root, admission path, or authority component may be created from the envelope.
+
+A future continuation requires a separate architecture decision that defines all of the following fields before implementation:
+
+- exact next rung name;
+- upstream evidence key;
+- candidate key;
+- ready decision;
+- capability id;
+- validation lane;
+- terminal handoff target;
+- non-recursive proof;
+- why the existing real-root, final-review, and real-readiness topology is insufficient.
+
+Until those fields exist in repo-native docs, `sandboxed_live_memory_commit_adapter_envelope` remains a terminal evidence artifact and no post-envelope implementation is authorized.
+
 ## CLI
 
 Use `scripts/build_sandboxed_live_memory_commit_adapter_envelope.py` with `build-default`, `evaluate`, `validate`, `summarize`, or `inspect-fixture`. Evaluation emits deterministic JSON and writes nothing.
