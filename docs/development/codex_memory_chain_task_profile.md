@@ -49,6 +49,12 @@ When applicable, memory-chain tasks should make the chain's metadata legible thr
 
 Integration should preserve upstream/downstream dependency order, make blockers explicit, and keep review artifacts reproducible. Any readiness or receipt language must state that it is not adoption, execution, prompt assembly, policy truth, consent, external disclosure, or real memory mutation.
 
+### Sandboxed adapter topology stop rule
+
+The sandboxed live memory commit adapter subchain currently terminates at `sandboxed_live_memory_commit_adapter_envelope`. Later readiness-review metadata in that envelope must not be interpreted as authorization to create `sandboxed_live_memory_commit_adapter_readiness_gate`, `sandboxed_live_memory_commit_adapter_readiness_packet`, `sandboxed_live_memory_commit_adapter_readiness_envelope`, or repeated gate/packet/envelope/readiness ladders. The safe next step after PR #1862 is topology clarification or a repo-native handoff decision, not automatic readiness-gate implementation.
+
+Codex must not generate another sandboxed adapter rung unless repo-native architecture explicitly defines the exact next rung name, upstream evidence key, candidate key, ready decision, terminal handoff target, why the handoff is non-recursive, and why an existing real-root, final-review, or real-readiness rung is insufficient. If a future task proposes a rung by mechanical rename from adapter/gate/packet/envelope/readiness language, stop and run a topology audit instead of implementing. Do not recover failed sandboxed adapter readiness-gate workspaces; when no PR, commit, or patch artifact exists on current main, start fresh from main and audit topology.
+
 ## Required docs/tests/fixtures/CLI/module surfaces
 
 For whole-system memory-chain work, provide the surfaces required by the task prompt and whole-system template:
