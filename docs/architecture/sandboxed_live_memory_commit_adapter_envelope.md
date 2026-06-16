@@ -22,6 +22,12 @@ A future sandboxed adapter rung may be proposed only when repo-native architectu
 
 Failed or partial sandboxed adapter readiness-gate workspaces must not be recovered or reused. If no PR, commit, or patch artifact exists on current main, start fresh from main and audit topology rather than attempting recovery.
 
+## Terminal handoff
+
+`sandboxed_live_memory_commit_adapter_envelope` is the terminal sandboxed adapter artifact. Existing repo-native topology is already defined on the real-readiness path as `real_live_memory_commit_adapter_readiness_gate` -> `real_live_memory_commit_adapter_readiness_envelope` -> `final_live_memory_commit_review_gate` -> `real_memory_root_admission_gate` -> `real_memory_root_admission_packet` -> `sandboxed_live_memory_commit_adapter` -> `sandboxed_live_memory_commit_adapter_gate` -> `sandboxed_live_memory_commit_adapter_packet` -> `sandboxed_live_memory_commit_adapter_envelope`; the sandboxed envelope does not loop back into a new sandboxed readiness rung.
+
+Later repo-native topology review may reference the sandboxed envelope's carried metadata, but the envelope does not authorize a `sandboxed_live_memory_commit_adapter_readiness_gate`, `sandboxed_live_memory_commit_adapter_readiness_packet`, `sandboxed_live_memory_commit_adapter_readiness_envelope`, or repeated sandboxed ladder. Any future live-adjacent progression must either use an already-defined repo-native chain or land a separate topology decision proving the exact non-recursive handoff. Historical decision strings, future-flag names, safe-next-action labels, or registry deferred-surface labels that mention a sandboxed readiness gate are terminal review markers only, not implementation authority and not proof that a sandboxed readiness gate should be created.
+
 ## CLI
 
 Use `scripts/build_sandboxed_live_memory_commit_adapter_envelope.py` with `build-default`, `evaluate`, `validate`, `summarize`, or `inspect-fixture`. Evaluation emits deterministic JSON and writes nothing.
