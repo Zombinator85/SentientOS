@@ -85,6 +85,29 @@ def test_provider_invocation_remains_blocked_or_deferred() -> None:
     assert "provider invocation" in record.deferred_surfaces
 
 
+def test_context_hygiene_denial_phase_capabilities_are_metadata_only() -> None:
+    records = build_default_capability_registry().by_id()
+    for capability_id in (
+        "phase97_external_security_review_packet",
+        "phase98_external_audit_export_receipt",
+        "phase99_invocation_denial_attestation",
+        "phase100_invocation_denial_closure",
+        "phase101_invocation_denial_enforcement",
+        "phase102_invocation_denial_drift_review",
+        "phase103_invocation_denial_custody_checkpoint",
+    ):
+        record = records[capability_id]
+        assert record.status == "implemented"
+        assert record.metadata_only is True
+        assert record.provider_required is False
+        assert record.network_required is False
+        assert record.prompt_assembly_required is False
+        assert record.host_actuation_performed is False
+        assert "provider invocation" in record.deferred_surfaces
+        assert "runtime authority" in record.deferred_surfaces
+        assert record.proof_tests
+
+
 def test_validation_rejects_unsupported_implemented_host_actuation_without_requirements() -> None:
     registry = CapabilityRegistry(
         registry_id="bad",

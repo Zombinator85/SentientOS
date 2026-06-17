@@ -105,6 +105,18 @@ def test_default_matrix_includes_codex_doctrine_docs_test() -> None:
     proof = next(c for c in matrix.default_matrix_commands() if c.label == "proof_bundle_tests")
     assert "tests/test_codex_operating_doctrine_docs.py" in proof.command
 
+
+def test_default_matrix_includes_context_hygiene_denial_phase_steps() -> None:
+    labels = [c.label for c in matrix.default_matrix_commands()]
+    assert "phase97_external_security_review_packet_tests" in labels
+    assert "phase98_external_audit_export_receipt_tests" in labels
+    assert "phase99_invocation_denial_attestation_tests" in labels
+    assert "phase100_invocation_denial_closure_tests" in labels
+    assert "phase101_invocation_denial_enforcement_tests" in labels
+    assert "phase102_invocation_denial_drift_review_tests" in labels
+    assert "phase103_invocation_denial_custody_checkpoint_tests" in labels
+
+
 def test_matrix_includes_operator_confirmed_admission_run_steps() -> None:
     from scripts.run_work_item_review_packet_matrix import default_matrix_commands
     labels = [c.label for c in default_matrix_commands()]
