@@ -6,6 +6,8 @@ This profile is the reusable contract for recurring memory-chain metadata-verifi
 
 Use this profile for recurring memory-chain work that is metadata-verification, review-packet, fixture-backed, dry-run, sandboxed, or governance-only in nature. Typical tasks add or update candidate/status/decision metadata, deterministic fixtures, review proof surfaces, docs, tests, CLI/module shells, or matrix wiring around the memory-chain subsystem without mutating real live memory.
 
+For current compact selection of safe non-sandboxed open-work tracks and blocked task classes, see [`codex_open_work_roadmap_index.md`](codex_open_work_roadmap_index.md).
+
 Do not use this profile to authorize live memory writes, provider invocation, prompt export, external disclosure, host action, action execution, runtime authority expansion, or policy/consent truth. If a prompt needs any of those behaviors, it must say so explicitly and satisfy the separate authority, audit, rollback, panic, and operator-admission requirements in `AGENTS.md`.
 
 ## Relationship to AGENTS.md hot-path law
