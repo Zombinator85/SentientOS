@@ -673,6 +673,10 @@ def test_workspace_change_set_preflight_doc_is_linked_and_preserves_boundaries()
     assert "no built-in runner or transaction orchestrator is invoked" in doc
     assert "bounded successor" in doc
     assert "passed preflight and ready transaction plans" in doc
+    assert "cannot prove that a workspace change was applied" in doc
+    assert "Focused regression coverage for the preceding admission handoff" in doc
+    assert "tests/test_workspace_change_set_admission.py" in doc
+    assert "does not invoke preflight helpers" in doc
 
 
 HOST_WORKSPACE_CHANGE_SET_EXECUTION = "docs/architecture/host_workspace_change_set_execution_wing.md"
