@@ -451,6 +451,12 @@ The Phase 103 custody dimensions cover Phase 100 closure custody, Phase 101 enfo
 
 Phase 103 fails closed for missing Phase 100/101/102 metadata, Phase 100/101/102 digest mismatch, Phase 100/101/102 status contradiction, missing or failed strict audit verification, missing or failed immutable manifest verification, architecture-classification contradiction, prompt-boundary coverage gaps for Phase 100/101/102/103, allowlist broadening beyond metadata-only labels, unblock/approval/clearance markers, sensitive material markers, provider/network/export/runtime/prompt-text markers, prompt assembler modification markers, and artifact body read markers.
 
+## Phase 97-103 Denial-Phase Validation Coverage
+
+Phase 97-103 denial-phase coverage is validation coverage only. The spine records the architectural posture, `sentientos/capability_registry.py` registers the metadata-only capabilities and their proof commands, `scripts/run_work_item_review_packet_matrix.py` carries the default matrix lanes, `scripts/verify_context_hygiene_prompt_boundaries.py` carries the prompt/provider boundary scan targets, and `tests/test_capability_registry.py` plus `tests/test_work_item_review_packet_matrix.py` pin the registry and matrix expectations.
+
+Reviewers should verify this denial-phase posture with `python scripts/verify_context_hygiene_prompt_boundaries.py` and `python -m scripts.run_tests -q tests/test_capability_registry.py tests/test_work_item_review_packet_matrix.py`; docs changes should also run `python scripts/build_docs.py --check-deps` and `python scripts/build_docs.py`. These commands validate metadata coverage and documentation consistency only. They do not approve provider invocation, prompt assembly, prompt export, external disclosure, transport registration, credential use, endpoint use, client construction, network egress, release unblock, runtime authority, memory mutation, routing, admission, execution, or live `assemble_prompt(...)` behavior.
+
 ## Selective Memory Distillation Contract
 - The [selective memory distillation contract](selective_memory_distillation_contract.md) formalizes deferred Distiller/Pruner metadata decisions before any receipt/writer layer.
 - The [selective memory distillation receipt gate](selective_memory_distillation_receipt_gate.md) validates future receipt candidates over distillation packets without writing memory, completing tombs, assembling prompts, or granting authority.
