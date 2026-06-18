@@ -63,3 +63,19 @@ def test_contradiction_for_indexed_count_mismatch() -> None:
     bad["index"]["indexed_count"] = 9  # type: ignore[index]
     r = evaluate_work_item_lifecycle_attestation_review_digest_index_verification(WorkItemLifecycleAttestationReviewDigestIndexVerificationRequest(review_digest_index=bad))
     assert r.status == "lifecycle_attestation_review_digest_index_verification_contradicted"
+
+
+def test_review_digest_index_verifier_matrix_lane_is_registered() -> None:
+    from scripts.run_work_item_review_packet_matrix import default_matrix_commands
+
+    commands = {command.label: command for command in default_matrix_commands()}
+    lane = commands["work_item_lifecycle_attestation_review_digest_index_verifier_tests"]
+    assert lane.required is True
+    assert lane.command == (
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest_index_verifier.py",
+        "tests/test_verify_work_item_lifecycle_attestation_review_digest_index_script.py",
+    )
