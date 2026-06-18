@@ -38,7 +38,9 @@ The optional CLI can write one explicit local preflight/plan JSON artifact to a 
 
 ## Reviewer proof posture
 
-The reviewer proof bundle documents `workspace_change_set_preflight_capability.json` but does not run change-set preflight by default. The proof command is listed as `proof_command_not_run` for reviewers who explicitly want to inspect the preflight/planning CLI.
+The reviewer proof bundle documents `workspace_change_set_preflight_capability.json` but does not run change-set preflight by default. The proof command is listed as `proof_command_not_run` for reviewers who explicitly want to inspect the preflight/planning CLI. This optional command can prove that the preflight/planning wing builds bounded manifest, preflight report, rollback-plan, and transaction-plan records for the declared targets; it cannot prove that a workspace change was applied, that rollback executed, or that any runner/orchestrator was invoked.
+
+Focused regression coverage for the preceding admission handoff lives in `tests/test_workspace_change_set_admission.py`. Those tests prove admission remains metadata-only, omits payload bodies, does not read target files, does not check target existence, does not compute filesystem digests, and does not invoke preflight helpers before declaring that preflight may be attempted next.
 
 ## Future work remains deferred
 
