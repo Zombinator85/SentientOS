@@ -6,7 +6,7 @@ This runbook defines the bounded true remote-host smoke lane for WAN federation 
 
 This lane verifies that the existing WAN federation + truth oracle + contradiction policy + WAN release gate stack can be exercised over declared remote hosts using the existing transport abstraction.
 
-It is optional and non-default.
+It is optional and non-default. Its outputs are review evidence only: they do not grant host-actuation authority, executor authority, admission grants, rollback authority, panic-path authority, or permission to perform fan/PWM/thermal writes.
 
 ## What it runs
 
@@ -61,7 +61,7 @@ For SSH hosts, bounded remote collection captures per-node dispatch artifacts in
 - `remote_dispatch_log.jsonl`
 - merged `artifact_hash_manifest.json`
 
-All files remain in the existing WAN run folder and flow through existing truth/gate outputs.
+All files remain in the existing WAN run folder and flow through existing truth/gate outputs. Reviewers should treat those outputs as transport/truth/gate evidence, not as authorization to mutate a host or actuate hardware.
 
 ## Failure interpretation
 
@@ -71,9 +71,14 @@ All files remain in the existing WAN run folder and flow through existing truth/
 
 ## Out of scope
 
+This smoke lane proves only that bounded remote SSH dispatch, preflight classification, artifact collection, and existing WAN truth/gate evaluation can run across declared hosts.
+
 This smoke lane does **not** prove:
 
 - long-haul WAN soak resilience
 - internet-scale federation behavior
 - high-cardinality remote host scheduling
 - full production rollout readiness by itself
+- host actuation, fan/PWM/thermal control, power mutation, service control, rollback, panic-path, executor, or admission authority
+
+Deferred or blocked host labels found in these artifacts remain labels for reviewer triage only. They are not permission to actuate, mutate, or execute on a host. The no-actuation posture is pinned in `AGENTS.md` and `tests/test_codex_operating_doctrine_docs.py`.

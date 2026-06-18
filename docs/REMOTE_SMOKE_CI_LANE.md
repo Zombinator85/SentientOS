@@ -35,5 +35,5 @@ python -m sentientos.ops lab federation --wan-gate --remote-smoke --hosts .githu
 
 ## What this lane proves / does not prove
 
-It proves the bounded remote SSH dispatch + preflight + collection path is still operational.
-It does **not** replace full operator-driven WAN campaigns or exhaustive remote topology coverage.
+It proves the bounded remote SSH dispatch + preflight + collection path is still operational, and produces review evidence only.
+It does **not** replace full operator-driven WAN campaigns or exhaustive remote topology coverage. It also does **not** grant host-actuation authority, executor authority, admission grants, rollback authority, panic-path authority, remote mutation behavior, or permission to perform fan/PWM/thermal writes. Deferred or blocked host labels emitted by the lane remain non-authority review labels for triage.

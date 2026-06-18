@@ -190,3 +190,32 @@ def test_context_hygiene_denial_phase_docs_are_validation_only() -> None:
     assert "scripts/run_work_item_review_packet_matrix.py" in spine
     assert "sentientos/capability_registry.py" in spine
 
+
+
+def test_remote_host_boundary_docs_keep_labels_non_authority() -> None:
+    smoke_lab = _read("docs/REMOTE_HOST_SMOKE_LAB.md")
+    ci_lane = _read("docs/REMOTE_SMOKE_CI_LANE.md")
+    probes = _read("docs/REMOTE_PROBES.md")
+    agents = _read("AGENTS.md")
+    roadmap = _read("docs/development/codex_open_work_roadmap_index.md")
+
+    for doc in (smoke_lab, ci_lane):
+        assert "optional and non-default" in doc
+        assert "review evidence only" in doc
+        assert "host-actuation authority" in doc
+        assert "fan/PWM/thermal writes" in doc
+        assert "Deferred or blocked host labels" in doc
+        assert "non-authority review" in doc
+
+    assert "read-only trust checks" in probes
+    assert "never writes to or mutates remote nodes" in probes
+    assert "local review evidence only" in probes
+    assert "Deferred or blocked host labels" in probes
+    assert "never authorize actuation" in probes
+
+    assert "Do not add direct host actuation" in agents
+    assert "Do not implement direct fan/PWM/thermal writes" in agents
+    assert "Host-boundary deferred/blocked host-actuation label audit" in roadmap
+    assert "Audit-only or docs-only" in roadmap
+    assert "Must not add direct host actuation" in roadmap
+    assert "fan/PWM/thermal writes" in roadmap
