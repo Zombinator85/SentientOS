@@ -39,3 +39,19 @@ def test_digest_mismatch_contradicted() -> None:
 def test_matrix_required_failed_blocks() -> None:
     r = evaluate_work_item_lifecycle_attestation_review_digest(WorkItemLifecycleAttestationReviewDigestRequest(attestation_index=_index(), index_verification_report=_report(), matrix_report={"status": "failed"}), policy=WorkItemLifecycleAttestationReviewDigestPolicy(matrix_required=True))
     assert r.status == "lifecycle_attestation_review_digest_blocked"
+
+
+def test_review_digest_matrix_lane_is_registered() -> None:
+    from scripts.run_work_item_review_packet_matrix import default_matrix_commands
+
+    commands = {command.label: command for command in default_matrix_commands()}
+    lane = commands["work_item_lifecycle_attestation_review_digest_tests"]
+    assert lane.required is True
+    assert lane.command == (
+        "python",
+        "-m",
+        "scripts.run_tests",
+        "-q",
+        "tests/test_work_item_lifecycle_attestation_review_digest.py",
+        "tests/test_build_work_item_lifecycle_attestation_review_digest_script.py",
+    )
