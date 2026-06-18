@@ -128,3 +128,32 @@ def test_script_is_deterministic(tmp_path: Path) -> None:
     first = _build(tmp_path).read_text(encoding="utf-8")
     second = _build(tmp_path).read_text(encoding="utf-8")
     assert first == second
+
+
+def test_contradictory_stale_and_ready_markers_fail(tmp_path: Path) -> None:
+    output = tmp_path / "body.txt"
+    matrix = _matrix(tmp_path / "matrix.json")
+    supervisor = tmp_path / "supervisor.json"
+    supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}, "report": {"reasons": []}}, sort_keys=True), encoding="utf-8")
+    code = main(
+        [
+            "--title",
+            TITLE,
+            "--intended-commit-title",
+            TITLE,
+            "--matrix-json-path",
+            str(matrix),
+            "--landing-supervisor-json-path",
+            str(supervisor),
+            "--output",
+            str(output),
+            "--finalizer",
+            "ready_for_pr_metadata but stale_evidence_matrix_output remains",
+            "--pr-metadata-guard",
+            "pr_metadata_guard_ready",
+            "--unresolved-risks",
+            "None known.",
+        ]
+    )
+    assert code == 1
+    assert not output.exists()

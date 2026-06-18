@@ -222,6 +222,12 @@ def validate_body(body: str, *, matrix_json_path: Path) -> None:
     placeholder_tokens = ("todo", "tbd", "placeholder-only")
     if any(token in normalized for token in placeholder_tokens):
         raise ValueError("generated body contains placeholder-only evidence")
+    stale_tokens = ("stale evidence", "stale evidence matrix output", "stale matrix", "stale-evidence", "stale_evidence")
+    ready_tokens = ("ready to commit", "ready for pr metadata", "ready_to_commit", "ready_for_pr_metadata", "pr metadata guard ready", "pr_metadata_guard_ready")
+    for line in body.splitlines():
+        normalized_line = " ".join(line.lower().replace("_", " ").split())
+        if any(token in normalized_line for token in stale_tokens) and any(token in normalized_line for token in ready_tokens):
+            raise ValueError("generated body contains contradictory stale-evidence and ready landing markers")
 
 
 def build_parser() -> argparse.ArgumentParser:

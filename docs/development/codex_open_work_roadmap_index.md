@@ -39,10 +39,11 @@ Do not select these classes from this roadmap:
 Future "next" prompts should reference this roadmap index and provide only:
 
 - task title;
-- selected candidate;
-- fresh-main requirement;
+- selected roadmap candidate or explicit deviation;
+- fresh-current/current-doctrine requirement;
 - bootstrap command;
 - delta-specific files;
-- delta-specific validation.
+- delta-specific validation;
+- unique blockers or authority boundaries.
 
-Expand the prompt only when the selected candidate deviates from this index or requires stricter boundaries. No prompt may use this index to override `AGENTS.md`, bootstrap, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, or authority-boundary requirements.
+Reference `docs/development/codex_landing_evidence_recovery_rail.md` for failure classes, task classes, same-workspace recovery, local-node-readiness planning, and distributed-proof topology notes. Expand the prompt only when the selected candidate deviates from this index or requires stricter boundaries. No prompt may use this index to override `AGENTS.md`, bootstrap, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, or authority-boundary requirements.
