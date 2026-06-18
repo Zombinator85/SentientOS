@@ -21,6 +21,8 @@ Situational validation selects the relevant lanes without weakening the landing 
 - lane/matrix/capability tests when those surfaces changed;
 - broader regression at threshold/risk points or when required by existing doctrine.
 
+For context-hygiene denial-phase documentation touching Phase 97-103 posture, treat the coverage as validation-only and non-runtime. The reviewer-facing consistency lane is `python scripts/verify_context_hygiene_prompt_boundaries.py` plus `python -m scripts.run_tests -q tests/test_capability_registry.py tests/test_work_item_review_packet_matrix.py`; docs edits still require `python scripts/build_docs.py --check-deps` and `python scripts/build_docs.py`. These checks confirm capability registry, matrix, verifier, spine, and validation-contract discoverability only; they do not grant provider invocation, prompt assembly, prompt export, external disclosure, release unblock, runtime authority, routing, admission, execution, or live `assemble_prompt(...)` behavior.
+
 Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate when the landing rail requires supervisor evidence; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
 
 ## Dirty tree rules

@@ -168,3 +168,25 @@ def test_recovery_topology_and_local_node_notes_are_non_runtime() -> None:
     assert "does not implement routing, task execution, remote work dispatch, adoption, sync, merge, install, or execution behavior" in rail
     assert "Repository mainline state stays canonical" in rail
     assert "fresh local clone, clean baselines, dependency readiness, and local-node health checks" in rail
+
+def test_context_hygiene_denial_phase_docs_are_validation_only() -> None:
+    spine = _read("docs/architecture/context_hygiene_spine.md")
+    contract = _read("docs/development/codex_validation_and_landing_contract.md")
+    roadmap = _read("docs/development/codex_open_work_roadmap_index.md")
+
+    for doc in (spine, contract):
+        assert "Phase 97-103" in doc
+        assert "validation" in doc.lower()
+        assert "python scripts/verify_context_hygiene_prompt_boundaries.py" in doc
+        assert "python -m scripts.run_tests -q tests/test_capability_registry.py tests/test_work_item_review_packet_matrix.py" in doc
+        assert "provider invocation" in doc
+        assert "prompt assembly" in doc
+        assert "runtime authority" in doc
+        assert "live `assemble_prompt(...)` behavior" in doc
+
+    assert "Phase 97-103 context-hygiene denial-phase coverage is wired" in roadmap
+    assert "tests/test_capability_registry.py" in spine
+    assert "tests/test_work_item_review_packet_matrix.py" in spine
+    assert "scripts/run_work_item_review_packet_matrix.py" in spine
+    assert "sentientos/capability_registry.py" in spine
+
