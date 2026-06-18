@@ -116,3 +116,55 @@ def test_validation_contract_and_reviewer_docs_discoverability() -> None:
     ]:
         assert doc in quick or doc.replace("docs/", "") in quick
         assert doc in index
+
+
+def test_failure_taxonomy_and_prompt_compression_doctrine() -> None:
+    agents = _read("AGENTS.md")
+    rail = _read("docs/development/codex_landing_evidence_recovery_rail.md")
+    roadmap = _read("docs/development/codex_open_work_roadmap_index.md")
+    profile = _read("docs/development/codex_memory_chain_task_profile.md")
+    contract = _read("docs/development/codex_validation_and_landing_contract.md")
+
+    for label in [
+        "implementation_failure",
+        "pr_metadata_failure",
+        "finalizer_stale_evidence_failure",
+        "workspace_state_loss",
+        "workspace_contamination_or_absence_gate_failure",
+        "environment_or_dependency_noise",
+        "graph_topology_discovery_failure",
+        "lane_or_matrix_contract_failure",
+        "prompt_bloat_or_repeated_law_failure",
+    ]:
+        assert label in rail
+
+    for label in [
+        "file_anchored_implementation",
+        "topology_reconstruction_or_insertion_point_discovery",
+        "doctrine_metadata_or_landing_repair",
+        "local_node_readiness_planning",
+        "federation_or_distributed_proof_topology",
+    ]:
+        assert label in rail
+
+    for doc in [agents, rail, roadmap, profile]:
+        assert "task-specific deltas" in doc
+    assert "fresh-current/current-doctrine requirement" in rail
+    assert "unique blockers or authority boundaries" in rail
+    assert "bootstrap -> required validation -> pre-commit finalizer" in contract
+    assert "Focused tests alone are insufficient" in contract
+    assert "docs build when docs changed" in contract
+    assert "targeted mypy when Python surfaces changed" in contract
+
+
+def test_recovery_topology_and_local_node_notes_are_non_runtime() -> None:
+    rail = _read("docs/development/codex_landing_evidence_recovery_rail.md")
+    assert "same-workspace surgical recovery" in rail or "same-workspace recovery" in rail
+    assert "no-files-found" in rail
+    assert "canonical artifacts" in rail
+    assert "Federation/Genesis Forge distributed coding labor is future proof-sharing" in rail
+    assert "non-duplicative work-claim topology" in rail
+    assert "claim semantics, proof exchange, artifact schema, and authority boundaries" in rail
+    assert "does not implement routing, task execution, remote work dispatch, adoption, sync, merge, install, or execution behavior" in rail
+    assert "Repository mainline state stays canonical" in rail
+    assert "fresh local clone, clean baselines, dependency readiness, and local-node health checks" in rail

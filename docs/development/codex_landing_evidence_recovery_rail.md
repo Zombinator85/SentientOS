@@ -53,11 +53,27 @@ Do not close the task until a PR exists, a commit/branch/patch artifact exists, 
 
 ## Distinguishing failure classes
 
-- **Implementation failure**: source, docs, fixtures, or tests are missing or failing. Repair task-owned implementation and rerun focused validation before the landing sequence.
-- **PR metadata failure**: implementation exists, but PR title/body/evidence markers are incomplete. Regenerate the body from canonical artifacts and rerun landing gate/guard.
-- **Finalizer stale-evidence failure**: validation evidence no longer reflects the final tree, often after cleanup or audit repair. Refresh matrix output, landing gate, and supervisor evidence in the same task, then rerun the finalizer.
-- **Dependency setup noise**: Python or package setup warnings, such as environment bootstrap chatter, are not implementation evidence. Classify them as environment noise unless they cause a required command to fail.
-- **Workspace state loss**: a fresh workspace lacks uncommitted files from a closed task. If no commit, branch, PR, or patch artifact exists, report `no-files-found`; do not claim recovery is possible.
+Use stable snake-case labels in task reports and recovery prompts so failures are classified before reruns consume more reviewer or compute time:
+
+- `implementation_failure`: source, docs, fixtures, or tests are missing or failing. Repair task-owned implementation and rerun focused validation before the landing sequence.
+- `pr_metadata_failure`: implementation exists, but PR title/body/evidence markers are incomplete. Regenerate the body from canonical artifacts and rerun landing gate/guard.
+- `finalizer_stale_evidence_failure`: validation evidence no longer reflects the final tree, often after cleanup or audit repair. Refresh matrix output, landing gate, and supervisor evidence in the same task, then rerun the finalizer.
+- `workspace_state_loss`: a fresh workspace lacks uncommitted files from a closed task. If no commit, branch, PR, or patch artifact exists, report `no-files-found`; do not claim recovery is possible.
+- `workspace_contamination_or_absence_gate_failure`: unknown dirty files, missing expected task-owned files, or absence gates block commit until exact paths are resolved or classified.
+- `environment_or_dependency_noise`: Python/package setup warnings, dependency chatter, or platform limitations are not implementation evidence unless a required command fails.
+- `graph_topology_discovery_failure`: the safe insertion point or handoff topology is unknown. Stop for topology reconstruction instead of creating mechanical repeated rungs.
+- `lane_or_matrix_contract_failure`: required lanes, matrix entries, proof maps, or capability wiring are missing or stale. Repair the contract surface and rerun required lanes.
+- `prompt_bloat_or_repeated_law_failure`: prompts repeat stable law instead of referencing repo doctrine, increasing drift risk. Replace repeated law with references plus task-specific deltas.
+
+## Task classes for prompt shaping
+
+Classify future work before writing prompts:
+
+- `file_anchored_implementation`: concrete files and behavior are known; use the relevant template/profile plus changed paths.
+- `topology_reconstruction_or_insertion_point_discovery`: the graph or handoff is uncertain; audit and document topology before implementation.
+- `doctrine_metadata_or_landing_repair`: docs/tests/scripts clarify workflow, landing evidence, or guard behavior without adding runtime behavior.
+- `local_node_readiness_planning`: local setup is planning-only until a fresh clone, clean baselines, dependencies, and health checks exist.
+- `federation_or_distributed_proof_topology`: distributed labor remains proof-sharing and non-duplicative work-claim topology until claim semantics, proof exchange, artifact schema, and authority boundaries are defined.
 
 ## Using the generated PR body script
 
@@ -82,3 +98,15 @@ python scripts/build_codex_landing_evidence_body.py \
 ```
 
 The output body includes `Matrix output path: <path>` and `Unresolved risks: <text>`, plus the marker text required by the PR metadata contract. If the landing supervisor JSON is not yet written, the script records the requested path as pending so the body can be used for the landing gate before supervisor evaluation.
+
+## Prompt compression doctrine
+
+Future Codex prompts should reference `AGENTS.md`, `docs/development/codex_open_work_roadmap_index.md`, the relevant profile/template, and task-specific deltas instead of repeating stable law. A compact prompt should provide only the task title, selected roadmap candidate or explicit deviation, fresh-current/current-doctrine requirement, bootstrap command, delta-specific files, delta-specific validation, and unique blockers or authority boundaries.
+
+This compression does not weaken bootstrap, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, or authority-boundary requirements. Expand a prompt only when the task deviates from existing doctrine or needs stricter boundaries.
+
+## Topology planning notes
+
+Federation/Genesis Forge distributed coding labor is future proof-sharing and non-duplicative work-claim topology only until claim semantics, proof exchange, artifact schema, and authority boundaries are defined. This rail does not implement routing, task execution, remote work dispatch, adoption, sync, merge, install, or execution behavior.
+
+Codex Windows local-node readiness remains planning-only. Repository mainline state stays canonical until a fresh local clone, clean baselines, dependency readiness, and local-node health checks exist; do not add setup automation from this rail.

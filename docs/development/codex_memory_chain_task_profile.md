@@ -124,15 +124,15 @@ Recovery handling must be explicit:
 
 ## Future prompt compression pattern
 
-Future memory-chain prompts should reference this profile and provide only task-specific deltas where possible:
+Future memory-chain prompts should reference `AGENTS.md`, the roadmap index, this profile or the recovery profile, and task-specific deltas instead of repeating stable law. Ordinary rungs inherit bootstrap, authority-boundary, validation, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, and recovery doctrine by reference. Provide only:
 
-- task name;
-- capability id;
-- module/CLI/test/doc/fixture paths;
-- upstream dependencies;
-- unique candidate/status/decision names;
-- unique blockers;
-- unique validation deltas;
-- unique final report deltas.
+- task title;
+- selected roadmap candidate or explicit deviation;
+- fresh-current/current-doctrine requirement;
+- bootstrap command;
+- capability id and module/CLI/test/doc/fixture paths;
+- upstream dependencies and unique candidate/status/decision names;
+- delta-specific validation;
+- unique blockers, authority boundaries, and final report deltas.
 
 Prompts may still expand any section when the task deviates from the standard profile. Deviations must be explicit and cannot override `AGENTS.md`, finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, fixture-root, or authority-boundary requirements.

@@ -62,8 +62,9 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 ### Codex recovery and evidence law
 - Do not close a failed Codex task that contains task-owned files until one of these is true: a PR is created; a commit, branch, or patch artifact is explicitly available for recovery; or the task reports `no-files-found` and recovery is impossible.
 - Recovery prompts only work in the same workspace when task-owned files or commits are still present; fresh workspaces cannot recover uncommitted task-owned files from closed Codex tasks.
-- For late PR metadata or finalizer failures, prefer same-task surgical recovery over a full rerun so task-owned files, matrix evidence, and finalizer artifacts remain available.
-- Future memory-chain tasks must generate PR body evidence with `scripts/build_codex_landing_evidence_body.py` instead of hand-written or ad hoc evidence bodies.
+- For late PR metadata, guard, or finalizer failures, prefer same-workspace surgical recovery over a full rerun so task-owned files, matrix evidence, supervisor evidence, and finalizer artifacts remain available.
+- Future Codex prompts should reference `AGENTS.md`, `docs/development/codex_open_work_roadmap_index.md`, the relevant profile/template, and task-specific deltas instead of repeating stable law; include only task title, selected candidate/deviation, fresh-current requirement, bootstrap command, delta-specific files/validation, and unique blockers or authority boundaries.
+- Generate PR body evidence with `scripts/build_codex_landing_evidence_body.py` from canonical matrix and supervisor artifacts instead of hand-written or ad hoc evidence bodies after validation changes.
 - Do not call `make_pr` unless `scripts/codex_pr_metadata_guard.py verify` returns `pr_metadata_guard_ready`.
 - Do not use duplicated giant prompts for memory-chain rungs; use compact task deltas plus bootstrap/task-profile conventions whenever possible.
 

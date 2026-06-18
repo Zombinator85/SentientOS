@@ -9,9 +9,19 @@
    - Tree must be clean except allowed generated artifacts that are cleaned successfully.
 
 ## Required evidence
-Run focused tests, targeted mypy, baseline, matrix summary/output, PR landing gate, landing supervisor, docs build, prompt-boundary checks, strict audits, and audit immutability.
+Run the validation required by `AGENTS.md`, the task profile/template, and the changed surfaces. Focused tests alone are insufficient when matrix, governance, landing, audit, supervisor, proof, or capability rails apply.
 
-Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
+The mandatory landing sequence remains: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> `make_pr`.
+
+Situational validation selects the relevant lanes without weakening the landing contract:
+
+- docs build when docs changed;
+- prompt-boundary checks when context-hygiene or prompt-boundary docs/scripts are touched;
+- targeted mypy when Python surfaces changed;
+- lane/matrix/capability tests when those surfaces changed;
+- broader regression at threshold/risk points or when required by existing doctrine.
+
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate when the landing rail requires supervisor evidence; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
 
 ## Dirty tree rules
 - Pre-commit: declared intended task changes are allowed.
