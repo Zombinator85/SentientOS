@@ -104,7 +104,7 @@ def test_manifest_only_writes_only_manifest(tmp_path: Path) -> None:
 def test_verify_is_explicitly_unsupported(tmp_path: Path) -> None:
     code, _stdout, stderr = _run_main(["--output-dir", str(tmp_path / "bundle"), "--verify"])
     assert code == 2
-    assert "not implemented" in stderr
+    assert "supported only for --scenario work_item_attestation" in stderr
 
 
 def test_reviewer_proof_bundle_cli_writes_safety_gates_json(tmp_path) -> None:
@@ -387,6 +387,26 @@ def test_cli_writes_work_item_attestation_scenario_without_running_proofs(tmp_pa
     assert manifest["scenario_id"] == "work_item_attestation"
     assert all(record["executed"] is False for record in manifest["proof_command_records"])
     assert all(record["status"] == "proof_command_not_run" for record in manifest["proof_command_records"])
+
+
+def test_cli_verifies_work_item_attestation_scenario_in_process(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--scenario", "work_item_attestation", "--verify", "--summary"])
+    assert code == 0, (stdout, stderr)
+    assert "proof commands executed: 7" in stdout
+    scenario = json.loads((output_dir / "work_item_attestation_scenario.json").read_text(encoding="utf-8"))
+    assert scenario["proof_checks_posture"] == "verified_in_process_metadata_only"
+    manifest = json.loads((output_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
+    records = [record for record in manifest["proof_command_records"] if record["command_id"].startswith("work-item-attestation-proof-command-")]
+    assert len(records) == 7
+    assert all(record["status"] == "proof_command_verified" for record in records)
+    assert all(record["executed"] is True for record in records)
+    assert manifest["metadata_only"] is True
+    assert manifest["reviewer_proof_only"] is True
+    assert manifest["host_mutation_performed"] is False
+    assert manifest["network_performed"] is False
+    assert manifest["provider_invocation_performed"] is False
+    assert manifest["prompt_assembly_performed"] is False
 
 def test_cli_writes_work_item_attestation_capability_artifacts(tmp_path: Path) -> None:
     output_dir = tmp_path / "bundle"

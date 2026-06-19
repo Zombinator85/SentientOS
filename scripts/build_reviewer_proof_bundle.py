@@ -45,15 +45,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-dir", required=True, help="explicit local output directory for bundle files")
     parser.add_argument("--scenario", choices=("thermal_pwm_demo", "work_item_attestation"), default="thermal_pwm_demo", help="deterministic reviewer scenario")
     parser.add_argument("--created-at", default="1970-01-01T00:00:00+00:00", help="deterministic creation timestamp")
-    parser.add_argument("--verify", action="store_true", help="unsupported in this pass; proof commands are listed but not run")
+    parser.add_argument("--verify", action="store_true", help="run bounded in-process metadata verification when supported by the selected scenario")
     parser.add_argument("--no-verify", action="store_true", help="list proof commands without running them (default)")
     parser.add_argument("--summary", action="store_true", help="print compact summary after writing")
     parser.add_argument("--manifest-only", action="store_true", help="write only bundle_manifest.json")
     parser.add_argument("--force", action="store_true", help="overwrite existing bundle files within output directory")
     args = parser.parse_args(argv)
 
-    if args.verify:
-        print("--verify is not implemented in this packaging pass; inspect proof_commands.json and run commands separately", file=sys.stderr)
+    if args.verify and args.scenario != "work_item_attestation":
+        print("--verify is supported only for --scenario work_item_attestation; inspect proof_commands.json and run commands separately", file=sys.stderr)
         return 2
     if not str(args.output_dir):
         print("output directory is required", file=sys.stderr)
@@ -63,7 +63,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("output directory is required", file=sys.stderr)
         return 2
     try:
-        payload = build_reviewer_proof_bundle_payload(scenario=args.scenario, created_at=args.created_at)
+        payload = build_reviewer_proof_bundle_payload(scenario=args.scenario, created_at=args.created_at, verify=args.verify)
         manifest = payload["manifest"]
         validation = validate_reviewer_proof_bundle_manifest(manifest)
         if not validation.ok:

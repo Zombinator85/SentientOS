@@ -23,7 +23,7 @@ python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-revie
 
 `--force` overwrites only the known bundle files inside the explicit output directory. It does not delete unrelated files.
 
-`--verify` is intentionally unsupported in this packaging pass. The default command lists bounded local proof commands in `proof_commands.json` with `proof_command_not_run`; reviewers can run those commands separately when they want to verify the chain.
+`--verify` is intentionally bounded. It remains unsupported for the default `thermal_pwm_demo` scenario. For `--scenario work_item_attestation`, `--verify` performs only hard-coded in-process metadata checks over the generated reviewer payload and marks the whitelisted work-item proof-command records `proof_command_verified`; it does not execute command strings, spawn subprocesses, mutate work items, promote releases, mutate memory, perform host action, assemble/export prompts, or grant authority. `--no-verify` and default generation continue to list proof commands as `proof_command_not_run`.
 
 ## Generated files
 
@@ -187,6 +187,6 @@ Reviewers may also build the metadata-only work-item attestation scenario:
 python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof-work-item --scenario work_item_attestation --summary
 ```
 
-This scenario adds `work_item_attestation_scenario.json` alongside the existing reviewer proof bundle artifacts. It inventories the expected work-item lifecycle attestation index, attestation review digest, review digest index, verifier artifacts, and proof checks in deterministic order. The proof checks are listed only and remain `proof_command_not_run`; the bundle generator does not execute them and `--verify` remains unsupported.
+This scenario adds `work_item_attestation_scenario.json` alongside the existing reviewer proof bundle artifacts. It inventories the expected work-item lifecycle attestation index, attestation review digest, review digest index, verifier artifacts, and proof checks in deterministic order. By default and with `--no-verify`, the proof checks are listed only and remain `proof_command_not_run`. With `--verify`, the generator runs a bounded in-process metadata verifier for this scenario only, records `proof_command_verified` for the whitelisted work-item metadata checks, and still does not execute external commands or convert reviewer evidence into authority.
 
 The work-item attestation scenario is review evidence only. It does not authorize live work-item mutation, release promotion, memory mutation, host action, lifecycle execution, subprocess or shell execution, network/GitHub/provider/remote-smoke/WAN/SSH behavior, prompt assembly or export, external disclosure, readiness gates, packets, envelopes, or authority conversion from receipts/readiness/proposals.

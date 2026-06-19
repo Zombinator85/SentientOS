@@ -11,6 +11,7 @@ from sentientos.reviewer_proof_bundle import (
     ReviewerProofBundleArtifact,
     build_default_reviewer_proof_commands,
     build_reviewer_proof_bundle_payload,
+    _verify_work_item_attestation_bundle_metadata,
     reviewer_proof_artifact_digest,
     reviewer_proof_bundle_manifest_digest,
     summarize_reviewer_proof_bundle_manifest,
@@ -720,6 +721,32 @@ def test_work_item_attestation_scenario_is_metadata_only_and_deterministic() -> 
     assert scenario["non_authority_posture"]["does_not_execute_lifecycle"] is True
     validation = validate_reviewer_proof_bundle_manifest(first["manifest"])
     assert validation.ok, validation.findings
+
+
+def test_work_item_attestation_verify_marks_internal_metadata_checks() -> None:
+    payload = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT, verify=True)
+    verified = [record for record in payload["manifest"].proof_command_records if record.command_id.startswith("work-item-attestation-proof-command-")]
+    assert len(verified) == 7
+    assert all(record.status == "proof_command_verified" for record in verified)
+    assert all(record.executed is True for record in verified)
+    assert all(record.output_digest and record.output_digest.startswith("sha256:") for record in verified)
+    scenario = json.loads(payload["artifacts"]["work_item_attestation_scenario"])
+    assert scenario["proof_checks_posture"] == "verified_in_process_metadata_only"
+    assert scenario["proof_command_execution_posture"] == "not externally executed; verified by hard-coded in-process metadata checks"
+    assert payload["manifest"].host_mutation_performed is False
+    assert payload["manifest"].network_performed is False
+    assert payload["manifest"].provider_invocation_performed is False
+    assert payload["manifest"].prompt_assembly_performed is False
+
+
+def test_work_item_attestation_verify_rejects_corrupted_metadata() -> None:
+    payload = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
+    contents = dict(payload["artifacts"])
+    scenario = json.loads(contents["work_item_attestation_scenario"])
+    scenario["non_authority_posture"]["does_not_execute_lifecycle"] = False
+    contents["work_item_attestation_scenario"] = json.dumps(scenario)
+    with pytest.raises(ValueError, match="bounded work_item_attestation verification failed"):
+        _verify_work_item_attestation_bundle_metadata(contents, payload["manifest"].proof_command_records)
 
 def test_work_item_attestation_artifacts_are_serialized_reviewer_evidence() -> None:
     payload = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
