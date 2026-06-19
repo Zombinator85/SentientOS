@@ -40,6 +40,13 @@ The bundle writes:
 - `fulfillment_authorization.json` — authorization consumption posture; consuming authorization is not fulfillment.
 - `executor_contract.json` — executor contract/readiness posture; executor contract is not an executor.
 - `dry_run_execution.json` — simulation-only dry-run harness posture; dry-run execution is not real fulfillment or an effect receipt.
+- `work_item_lifecycle_attestation_index_capability.json` — work-item lifecycle attestation index reviewer evidence; metadata-only and proof checks are listed, not run.
+- `work_item_lifecycle_attestation_index_verifier_capability.json` — attestation index verifier reviewer evidence; verification commands are referenced, not executed by the bundle.
+- `work_item_lifecycle_attestation_review_digest_capability.json` — attestation review digest reviewer evidence; digest generation is described without lifecycle execution.
+- `work_item_lifecycle_attestation_review_digest_verifier_capability.json` — review digest verifier reviewer evidence; proof checks remain not run.
+- `work_item_lifecycle_attestation_review_digest_index_capability.json` — review digest index reviewer evidence; metadata-only digest-index posture.
+- `work_item_lifecycle_attestation_review_digest_index_verifier_capability.json` — review digest index verifier reviewer evidence; metadata-only verification posture.
+- `work_item_attestation_scenario.json` — deterministic scenario scaffold naming the work-item attestation artifacts and non-authority boundaries.
 - `proof_commands.json` — proof command manifest; commands are listed but not run by default.
 - `README.md` — local reviewer guide for the bundle directory.
 - `bundle_manifest.json` — manifest, artifact digests, command records, and safety flags.
@@ -58,7 +65,14 @@ Reviewers should inspect these files in order:
 8. `fulfillment_authorization.json`
 9. `executor_contract.json`
 10. `dry_run_execution.json`
-11. `proof_commands.json`
+11. `work_item_attestation_scenario.json`
+12. `work_item_lifecycle_attestation_index_capability.json`
+13. `work_item_lifecycle_attestation_index_verifier_capability.json`
+14. `work_item_lifecycle_attestation_review_digest_capability.json`
+15. `work_item_lifecycle_attestation_review_digest_verifier_capability.json`
+16. `work_item_lifecycle_attestation_review_digest_index_capability.json`
+17. `work_item_lifecycle_attestation_review_digest_index_verifier_capability.json`
+18. `proof_commands.json`
 
 ## What the bundle proves
 

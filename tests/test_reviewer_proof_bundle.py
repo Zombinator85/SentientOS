@@ -6,6 +6,7 @@ import json
 import pytest
 
 from sentientos.reviewer_proof_bundle import (
+    BUNDLE_FILE_NAMES,
     DEFERRED_ACTION_LABELS,
     ReviewerProofBundleArtifact,
     build_default_reviewer_proof_commands,
@@ -719,3 +720,33 @@ def test_work_item_attestation_scenario_is_metadata_only_and_deterministic() -> 
     assert scenario["non_authority_posture"]["does_not_execute_lifecycle"] is True
     validation = validate_reviewer_proof_bundle_manifest(first["manifest"])
     assert validation.ok, validation.findings
+
+def test_work_item_attestation_artifacts_are_serialized_reviewer_evidence() -> None:
+    payload = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
+    artifact_kinds = (
+        "work_item_lifecycle_attestation_index_capability",
+        "work_item_lifecycle_attestation_index_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_capability",
+        "work_item_lifecycle_attestation_review_digest_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_index_capability",
+        "work_item_lifecycle_attestation_review_digest_index_verifier_capability",
+    )
+    manifest_paths = {record.relative_path: record.digest for record in payload["manifest"].artifact_records}
+    for artifact_kind in artifact_kinds:
+        artifact = json.loads(payload["artifacts"][artifact_kind])
+        assert artifact["created_at"] == FIXED_CREATED_AT
+        assert artifact["metadata_only"] is True
+        assert artifact["reviewer_proof_only"] is True
+        assert artifact["proof_command_not_run"] is True
+        assert artifact["proof_checks_posture"] == "listed_not_run"
+        assert artifact["cli_reference"].startswith("scripts/")
+        assert artifact["docs_reference"].startswith("docs/architecture/")
+        assert artifact["matrix_reference"] == "scripts/run_work_item_review_packet_matrix.py"
+        assert artifact["expected_inputs"]
+        assert artifact["expected_outputs"]
+        assert artifact["non_authority_boundaries"]["does_not_execute_lifecycle"] is True
+        assert artifact["non_authority_boundaries"]["does_not_authorize_live_work_item_mutation"] is True
+        assert BUNDLE_FILE_NAMES[artifact_kind] in manifest_paths
+    manifest = json.loads(payload["artifacts"]["bundle_manifest"])
+    manifest_records = {record["relative_path"]: record["digest"] for record in manifest["artifact_records"]}
+    assert {BUNDLE_FILE_NAMES[kind] for kind in artifact_kinds} <= set(manifest_records)

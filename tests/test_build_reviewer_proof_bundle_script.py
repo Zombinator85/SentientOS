@@ -387,3 +387,27 @@ def test_cli_writes_work_item_attestation_scenario_without_running_proofs(tmp_pa
     assert manifest["scenario_id"] == "work_item_attestation"
     assert all(record["executed"] is False for record in manifest["proof_command_records"])
     assert all(record["status"] == "proof_command_not_run" for record in manifest["proof_command_records"])
+
+def test_cli_writes_work_item_attestation_capability_artifacts(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--scenario", "work_item_attestation"])
+    assert code == 0, (stdout, stderr)
+    expected_files = (
+        "work_item_lifecycle_attestation_index_capability.json",
+        "work_item_lifecycle_attestation_index_verifier_capability.json",
+        "work_item_lifecycle_attestation_review_digest_capability.json",
+        "work_item_lifecycle_attestation_review_digest_verifier_capability.json",
+        "work_item_lifecycle_attestation_review_digest_index_capability.json",
+        "work_item_lifecycle_attestation_review_digest_index_verifier_capability.json",
+    )
+    manifest = json.loads((output_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
+    manifest_paths = {record["relative_path"] for record in manifest["artifact_records"]}
+    for file_name in expected_files:
+        artifact = json.loads((output_dir / file_name).read_text(encoding="utf-8"))
+        assert artifact["metadata_only"] is True
+        assert artifact["reviewer_proof_only"] is True
+        assert artifact["proof_command_not_run"] is True
+        assert artifact["expected_inputs"]
+        assert artifact["expected_outputs"]
+        assert artifact["non_authority_boundaries"]["does_not_authorize_release_promotion"] is True
+        assert file_name in manifest_paths
