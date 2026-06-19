@@ -711,6 +711,7 @@ def test_work_item_attestation_scenario_is_metadata_only_and_deterministic() -> 
     assert first["manifest"].manifest_id == "reviewer-proof-bundle-work-item-attestation"
     assert first["manifest"].bundle_status == "reviewer_proof_bundle_ready"
     assert all(record.status == "proof_command_not_run" and record.executed is False for record in first["manifest"].proof_command_records)
+    assert "work_item_attestation_verify_receipt" not in first["artifacts"]
     scenario = json.loads(first["artifacts"]["work_item_attestation_scenario"])
     assert scenario["proof_checks_posture"] == "listed_not_run"
     assert "work_item_lifecycle_attestation_review_digest_capability.json" in scenario["expected_artifact_names"]
@@ -737,6 +738,35 @@ def test_work_item_attestation_verify_marks_internal_metadata_checks() -> None:
     assert payload["manifest"].network_performed is False
     assert payload["manifest"].provider_invocation_performed is False
     assert payload["manifest"].prompt_assembly_performed is False
+    receipt = json.loads(payload["artifacts"]["work_item_attestation_verify_receipt"])
+    assert receipt["scenario_id"] == "work_item_attestation"
+    assert receipt["created_at"] == FIXED_CREATED_AT
+    assert receipt["verification_posture"] == "bounded_in_process_metadata_only"
+    assert receipt["verification_status"] == "verified"
+    assert receipt["verifier_scope"] == "work_item_attestation_only"
+    assert receipt["verifier_does_not_execute_commands"] is True
+    assert receipt["verifier_does_not_run_subprocess_shell_network_provider_github_remote_smoke_wan_ssh"] is True
+    assert receipt["verifier_does_not_mutate_work_items"] is True
+    assert receipt["verifier_does_not_execute_lifecycle"] is True
+    assert receipt["verifier_does_not_promote_release"] is True
+    assert receipt["verifier_does_not_mutate_memory"] is True
+    assert receipt["verifier_does_not_perform_host_action"] is True
+    assert receipt["verifier_does_not_grant_authority"] is True
+    assert receipt["failure_semantics"] == "corrupted or inconsistent metadata must fail verification and must not emit a verified receipt"
+    assert receipt["verified_artifact_kinds"] == [
+        "work_item_lifecycle_attestation_index_capability",
+        "work_item_lifecycle_attestation_index_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_capability",
+        "work_item_lifecycle_attestation_review_digest_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_index_capability",
+        "work_item_lifecycle_attestation_review_digest_index_verifier_capability",
+    ]
+    assert receipt["verified_command_ids"] == [record.command_id for record in verified]
+    assert set(receipt["artifact_digest_map"]) == set(receipt["verified_artifact_kinds"])
+    assert receipt["verification_digest"].startswith("sha256:")
+    manifest_record = next(record for record in payload["manifest"].artifact_records if record.artifact_kind == "work_item_attestation_verify_receipt")
+    assert manifest_record.relative_path == BUNDLE_FILE_NAMES["work_item_attestation_verify_receipt"]
+    assert manifest_record.digest == reviewer_proof_artifact_digest(payload["artifacts"]["work_item_attestation_verify_receipt"])
 
 
 def test_work_item_attestation_verify_rejects_corrupted_metadata() -> None:
@@ -747,6 +777,7 @@ def test_work_item_attestation_verify_rejects_corrupted_metadata() -> None:
     contents["work_item_attestation_scenario"] = json.dumps(scenario)
     with pytest.raises(ValueError, match="bounded work_item_attestation verification failed"):
         _verify_work_item_attestation_bundle_metadata(contents, payload["manifest"].proof_command_records)
+    assert "work_item_attestation_verify_receipt" not in contents
 
 def test_work_item_attestation_artifacts_are_serialized_reviewer_evidence() -> None:
     payload = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
