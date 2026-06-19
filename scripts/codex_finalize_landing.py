@@ -294,7 +294,13 @@ def _emit_and_optionally_write(payload: dict[str, object], output: str | None, s
     if summary:
         decision_payload = payload.get("decision")
         reasons = decision_payload.get("reasons", []) if isinstance(decision_payload, dict) else []
-        print(json.dumps({"status": decision_status, "reasons": reasons}, indent=2))
+        freshness = payload.get("evidence_freshness")
+        terminal_refresh_status = "not_required"
+        rerun_required = False
+        if isinstance(freshness, dict):
+            terminal_refresh_status = str(freshness.get("stale_evidence_refresh_result", "not_required"))
+            rerun_required = bool(freshness.get("rerun_required", False))
+        print(json.dumps({"status": decision_status, "reasons": reasons, "terminal_refresh_status": terminal_refresh_status, "rerun_required": rerun_required}, indent=2))
         print(f"Codex Finalize Landing decision: {decision_status}", flush=True)
     else:
         print(json.dumps(payload, indent=2))
@@ -439,6 +445,9 @@ def main(argv: list[str] | None = None) -> int:
     refresh_attempted = False
     refresh_status = "not_required"
     refresh_runs = 0
+    refresh_failure_reason = ""
+    refresh_stage_names: list[str] = []
+    rerun_required = False
     if stale_reasons:
         if a.allow_stale_evidence_refresh and a.max_stale_evidence_refreshes > 0:
             refresh_attempted = True
@@ -449,31 +458,60 @@ def main(argv: list[str] | None = None) -> int:
                 ("stale_evidence_pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
                 ("stale_evidence_landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
             ]
+            # The refresh is intentionally bounded to one pass per finalizer
+            # invocation; max_stale_evidence_refreshes controls permission, not
+            # recursive retries.
             try:
-                for stage_id, cmd, required in refresh_plan:
+                for stage_id, cmd, required in refresh_plan[:1 if a.max_stale_evidence_refreshes < 1 else len(refresh_plan)]:
                     result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
                     commands.append(result)
                     runtime.append(stage_runtime)
                     refresh_runs += 1
-                refresh_status = "succeeded"
-            except Exception:  # noqa: BLE001
+                    refresh_stage_names.append(stage_id)
+                    if required and result.exit_code != 0:
+                        refresh_failure_reason = f"stage_failed:{stage_id}"
+                        break
+                refresh_status = "failed" if refresh_failure_reason else "succeeded"
+            except FinalizerTimeoutError as exc:
+                refresh_failure_reason = f"{exc.kind}_timeout:{exc.stage_id}"
+                refresh_status = "failed"
+            except Exception as exc:  # noqa: BLE001
+                refresh_failure_reason = f"runtime_exception:{type(exc).__name__}"
                 refresh_status = "failed"
         else:
             refresh_status = "required_not_allowed"
+            rerun_required = True
+
+    terminal_cleanup_results: dict[str, tuple[bool, str, str]] = {}
+    if refresh_status == "succeeded" and a.allow_generated_artifact_cleanup:
+        status_after_refresh_before_cleanup = _git_status()
+        terminal_cleanup_results = _cleanup_generated(status_after_refresh_before_cleanup)
+        cleanup_results.update(terminal_cleanup_results)
+
+    status_after_refresh = _git_status()
+    findings_after_refresh = _classify(status_after_refresh, tuple(a.changed_file) + inferred_changed_files, inferred_untracked_task_files)
+    diagnostics_after_refresh = _collect_dirty_diagnostics(status_after_refresh, findings_after_refresh, req.dirty_file_classification_source, cleanup_results)
+    generated_dirty_after_refresh = [item.path for item in findings_after_refresh if item.classification == "generated_runtime_artifact"]
 
     landing_result = evaluate_finalize_landing(
         req,
         tuple(commands),
-        findings,
+        findings_after_refresh,
         policy=CodexFinalizeLandingPolicy(
             allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup,
             allow_stale_evidence_refresh=a.allow_stale_evidence_refresh,
         ),
     )
 
-    if stale_reasons and refresh_status == "required_not_allowed":
+    if generated_dirty_after_refresh and a.allow_generated_artifact_cleanup:
+        decision_status = "generated_artifact_cleanup_incomplete"
+        decision_reasons = ["generated_artifacts_remain_after_cleanup", *generated_dirty_after_refresh]
+    elif stale_reasons and refresh_status == "required_not_allowed":
         decision_status = "stale_evidence_refresh_required"
         decision_reasons = list(stale_reasons)
+    elif refresh_status == "failed":
+        decision_status = "stale_evidence_refresh_failed"
+        decision_reasons = [refresh_failure_reason or "stale_evidence_refresh_failed"]
     elif not decision_reasons:
         decision_status = landing_result.decision.status
         decision_reasons = list(landing_result.decision.reasons)
@@ -485,7 +523,8 @@ def main(argv: list[str] | None = None) -> int:
         "phase": req.phase,
         "matrix_json_path": req.matrix_json_path,
     }
-    payload["dirty_paths"] = [asdict(item) for item in diagnostics]
+    payload["dirty_paths"] = [asdict(item) for item in diagnostics_after_refresh]
+    payload["dirty_paths_after_cleanup"] = [asdict(item) for item in diagnostics]
     payload["cleanup_actions"] = {k: {"attempted": v[0], "result": v[1], "reason": v[2]} for k, v in cleanup_results.items()}
     payload["runtime"] = {
         "stage_timeout_seconds": a.stage_timeout_seconds,
@@ -497,14 +536,21 @@ def main(argv: list[str] | None = None) -> int:
         "stale_evidence_reasons": stale_reasons,
         "stale_evidence_refresh_attempted": refresh_attempted,
         "stale_evidence_refresh_result": refresh_status,
-        "refreshed_matrix_json_path": a.matrix_json_path if refresh_attempted else None,
+        "refresh_failure_reason": refresh_failure_reason or None,
+        "refreshed_matrix_json_path": a.matrix_json_path if refresh_attempted and refresh_status == "succeeded" else None,
         "max_stale_evidence_refreshes": a.max_stale_evidence_refreshes,
         "refresh_stage_runs": refresh_runs,
+        "refresh_stages_ran": refresh_stage_names,
+        "cleanup_occurred": bool(cleanup_results),
+        "cleaned_paths": [path for path, result in cleanup_results.items() if result[1] in {"removed", "restored"}],
+        "terminal_cleanup_occurred": bool(terminal_cleanup_results),
+        "terminal_cleaned_paths": [path for path, result in terminal_cleanup_results.items() if result[1] in {"removed", "restored"}],
+        "rerun_required": rerun_required,
     }
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
     if a.summary:
-        for item in diagnostics[:20]:
+        for item in diagnostics_after_refresh[:20]:
             print(
                 f"[finalizer] dirty path: {item.git_status} {item.path} "
                 f"classification={item.classification} cleanup={item.cleanup_result}"

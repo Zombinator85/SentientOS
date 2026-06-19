@@ -30,13 +30,14 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Post-commit/pr-metadata: source dirty files block.
 - Unknown dirty files always block.
 - Generated runtime artifacts must be cleaned or block.
+- Generated-artifact cleanup can make prior matrix/gate/supervisor evidence stale. When stale-evidence refresh is allowed, the finalizer performs one bounded refresh and must return a terminal status from that invocation. Successful refresh can permit `ready_to_commit`/`ready_for_pr_metadata`; failed refresh or leftover generated artifacts block with explicit terminal statuses.
 
 
 ## Self-sealing requirement
 - Validation-only seal turns should not be necessary for normal implementation tasks.
 - If finalizer tooling is available, the same task must self-seal using both phases.
 - Missing post-commit/pr-metadata finalizer before PR metadata is a task-owned failure.
-- Missing stale-evidence refresh in the same task (when strict-audit/cleanup state changed) is task-owned failure.
+- Missing stale-evidence refresh in the same task (when strict-audit/cleanup state changed) is task-owned failure. Allowed stale-evidence refresh must be bounded to one terminal finalizer outcome rather than repeated cleanup/refresh cycles.
 - Do not request a validation-only follow-up when the only blocker is stale matrix/gate/supervisor/finalizer evidence.
 - Do not defer post-commit sealing to follow-up turns when implementation changes occurred.
 
