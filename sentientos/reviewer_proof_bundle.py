@@ -202,6 +202,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_executor_execution_commit_plan_gate_capability",
         "real_executor_execution_commit_window_packet_capability",
         "real_live_memory_commit_execution_gate_capability",
+        "work_item_attestation_scenario",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -310,6 +311,7 @@ BUNDLE_FILE_NAMES = {
     "real_executor_execution_commit_plan_gate_capability": "real_executor_execution_commit_plan_gate_capability.json",
     "real_executor_execution_commit_window_packet_capability": "real_executor_execution_commit_window_packet_capability.json",
     "real_live_memory_commit_execution_gate_capability": "real_live_memory_commit_execution_gate_capability.json",
+    "work_item_attestation_scenario": "work_item_attestation_scenario.json",
 }
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
@@ -576,6 +578,59 @@ def _deferred_action_inventory() -> dict[str, Any]:
     }
 
 
+def _work_item_attestation_scenario_metadata(created_at: str) -> dict[str, Any]:
+    return {
+        "scenario_id": "work_item_attestation",
+        "scenario_label": "Work-item lifecycle attestation and review digest evidence scaffold",
+        "created_at": created_at,
+        "metadata_only": True,
+        "reviewer_proof_only": True,
+        "proof_checks_posture": "listed_not_run",
+        "manifest_status_posture": "reviewer_proof_bundle_ready",
+        "expected_artifact_names": [
+            "work_item_lifecycle_attestation_index_capability.json",
+            "work_item_lifecycle_attestation_index_verifier_capability.json",
+            "work_item_lifecycle_attestation_review_digest_capability.json",
+            "work_item_lifecycle_attestation_review_digest_verifier_capability.json",
+            "work_item_lifecycle_attestation_review_digest_index_capability.json",
+            "work_item_lifecycle_attestation_review_digest_index_verifier_capability.json",
+            "work_item_attestation_scenario.json",
+            "proof_commands.json",
+            "bundle_manifest.json",
+            "README.md",
+        ],
+        "proof_check_inventory": [
+            "python scripts/build_work_item_lifecycle_attestation_index.py --attestation <final_attestation.json> --summary",
+            "python scripts/verify_work_item_lifecycle_attestation_index.py --index <attestation_index.json> --summary",
+            "python scripts/build_work_item_lifecycle_attestation_review_digest.py --attestation-index <attestation_index.json> --summary",
+            "python scripts/verify_work_item_lifecycle_attestation_review_digest.py --digest <review_digest.json> --summary",
+            "python scripts/build_work_item_lifecycle_attestation_review_digest_index.py --digest <review_digest.json> --summary",
+            "python scripts/verify_work_item_lifecycle_attestation_review_digest_index.py --index <review_digest_index.json> --summary",
+            "python scripts/run_work_item_review_packet_matrix.py --summary --output /tmp/work_item_review_packet_matrix.json",
+        ],
+        "readme_inspection_order": [
+            "README.md",
+            "work_item_attestation_scenario.json",
+            "work_item_lifecycle_attestation_index_capability.json",
+            "work_item_lifecycle_attestation_review_digest_capability.json",
+            "work_item_lifecycle_attestation_review_digest_index_capability.json",
+            "proof_commands.json",
+            "bundle_manifest.json",
+        ],
+        "non_authority_posture": {
+            "does_not_authorize_live_work_item_mutation": True,
+            "does_not_authorize_release_promotion": True,
+            "does_not_mutate_memory": True,
+            "does_not_perform_host_action": True,
+            "does_not_execute_lifecycle": True,
+            "does_not_run_proof_checks": True,
+            "does_not_invoke_subprocess_shell_network_provider_github_remote_smoke_wan_ssh": True,
+            "does_not_assemble_or_export_prompts": True,
+            "does_not_disclose_externally": True,
+        },
+    }
+
+
 def _readme_text(manifest_id: str, trace_digest: str) -> str:
     return "\n".join(
         [
@@ -642,7 +697,7 @@ def build_reviewer_proof_bundle_payload(
     created_at: str = "1970-01-01T00:00:00+00:00",
     proof_command_records: Sequence[ReviewerProofCommandRecord] | None = None,
 ) -> dict[str, Any]:
-    if scenario != "thermal_pwm_demo":
+    if scenario not in {"thermal_pwm_demo", "work_item_attestation"}:
         raise ValueError(f"unsupported scenario: {scenario}")
     trace = build_host_embodiment_demo_trace(created_at=created_at)
     trace_validation = validate_trace_export_payload(trace)
@@ -650,7 +705,7 @@ def build_reviewer_proof_bundle_payload(
         raise ValueError("invalid trace export payload: " + ", ".join(trace_validation.findings))
 
     registry = build_default_capability_registry()
-    manifest_id = "reviewer-proof-bundle-thermal-pwm-demo"
+    manifest_id = f"reviewer-proof-bundle-{scenario.replace('_', '-')}"
     safety_gates = build_safety_gates_for_domain("cooling_control_future", created_at=created_at)
     controlled_ledger = {
         "ledger_id": "sample-controlled-authorization-ledger-for-reviewer-proof",
@@ -714,6 +769,7 @@ def build_reviewer_proof_bundle_payload(
         "trace_markdown": serialize_host_embodiment_trace_markdown(trace),
         "trace_summary": _trace_summary_text(trace),
         "capability_registry_summary": _pretty_json({"summary": summarize_capability_registry(registry), "records": [record.to_dict() for record in registry.records], "metadata_only": True, "reviewer_proof_only": True}),
+        "work_item_attestation_scenario": _pretty_json(_work_item_attestation_scenario_metadata(created_at)),
         "selective_memory_distillation_contract_capability": _pretty_json({"artifact_kind": "selective_memory_distillation_contract_capability", "capability_id": "selective_memory_distillation_contract", "category": "memory_distillation", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_selective_memory_distillation_contract.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/selective_memory_distillation_contract.md", "blocked_or_deferred_surfaces": ["runtime memory write", "runtime memory deletion", "vector index mutation", "prompt assembly", "provider/network/GitHub calls", "external disclosure", "action execution", "authority escalation"], "forbidden_next_steps": ["delete_memory_now", "purge_memory_now", "write_memory_now", "mutate_vector_index", "call_append_memory", "call_purge_memory", "call_curate_memory", "assemble_prompt_now", "retrieve_live_context", "call_llm_provider", "call_network_api", "call_github_api", "execute_action_ingress", "infer_truth_from_retention", "infer_authority_from_memory", "convert_capsule_to_policy", "convert_distillation_to_action", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "selective_memory_distillation_receipt_gate_capability": _pretty_json({"artifact_kind": "selective_memory_distillation_receipt_gate_capability", "capability_id": "selective_memory_distillation_receipt_gate", "category": "memory_distillation", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_selective_memory_distillation_receipt_gate.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/selective_memory_distillation_receipt_gate.md", "blocked_or_deferred_surfaces": ["runtime memory write", "runtime memory deletion", "tomb completion", "capsule persistence", "vector index mutation", "prompt assembly", "provider/network/GitHub calls", "external disclosure", "action execution", "authority escalation", "policy creation"], "forbidden_next_steps": ["write_memory_now", "delete_memory_now", "purge_memory_now", "claim_tomb_completed", "claim_capsule_written", "mutate_vector_index", "assemble_prompt_now", "retrieve_live_context", "execute_action_ingress", "infer_truth_from_receipt", "infer_authority_from_receipt", "infer_consent_from_receipt", "convert_receipt_to_policy", "convert_receipt_gate_to_action", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "selective_memory_tomb_receipt_verifier_capability": _pretty_json({"artifact_kind": "selective_memory_tomb_receipt_verifier_capability", "capability_id": "selective_memory_tomb_receipt_verifier", "category": "memory_distillation", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_selective_memory_tomb_receipt_verifier.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/selective_memory_tomb_receipt_verifier.md", "blocked_or_deferred_surfaces": ["runtime memory write", "runtime memory deletion", "tomb completion", "capsule persistence", "vector index mutation", "prompt assembly", "provider/network/GitHub calls", "external disclosure", "action execution", "authority escalation", "policy creation"], "forbidden_next_steps": ["write_memory_now", "delete_memory_now", "purge_memory_now", "claim_deletion_performed_by_verifier", "claim_tomb_completed_by_verifier", "mutate_vector_index", "assemble_prompt_now", "retrieve_live_context", "execute_action_ingress", "infer_truth_from_tomb_receipt", "infer_authority_from_tomb_receipt", "convert_tomb_receipt_to_policy", "convert_tomb_verification_to_action", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
@@ -1733,8 +1789,8 @@ def build_reviewer_proof_bundle_payload(
     )
     manifest = ReviewerProofBundleManifest(
         manifest_id=manifest_id,
-        scenario_id=trace.scenario_id,
-        scenario_label=trace.scenario_label,
+        scenario_id=scenario,
+        scenario_label=("Thermal/PWM non-mutating host embodiment demo" if scenario == "thermal_pwm_demo" else "Work-item lifecycle attestation and review digest evidence scaffold"),
         bundle_status="reviewer_proof_bundle_ready",
         created_at=created_at,
         trace_id=trace.trace_id,
