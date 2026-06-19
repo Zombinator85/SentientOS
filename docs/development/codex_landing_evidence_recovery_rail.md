@@ -34,7 +34,7 @@ Use `scripts/build_codex_landing_evidence_body.py` to produce the PR body. The s
 
 The matrix output path must remain explicit because `matrix_output_reference_missing` is a late PR metadata failure class. A body that claims validation passed but does not name the `--output` artifact is not recoverable enough for reviewers or guard tooling.
 
-The matrix path must also be fresh. The finalizer's `stale_evidence_matrix_output` behavior is correct: if cleanup or later validation changes can make earlier matrix evidence stale, the fix is to refresh matrix evidence and rerun landing gate/supervisor/finalizer in the same task. The finalizer does not need to delete `/tmp` matrix output to cause staleness; stale evidence can arise when the evidence no longer reflects the final source tree or post-cleanup state.
+The matrix path must also be fresh. If cleanup or later validation changes can make earlier matrix evidence stale, the finalizer may perform one bounded in-invocation refresh of matrix evidence plus landing gate and supervisor evidence when `--allow-stale-evidence-refresh` is supplied. A successful bounded refresh is terminal and may return `ready_to_commit` or `ready_for_pr_metadata`; it must not leave callers with a repeated `stale_evidence_refresh_required` loop. The finalizer does not need to delete `/tmp` matrix output to cause staleness; stale evidence can arise when the evidence no longer reflects the final source tree or post-cleanup state.
 
 ## Same-task recovery for late landing failures
 
@@ -57,7 +57,7 @@ Use stable snake-case labels in task reports and recovery prompts so failures ar
 
 - `implementation_failure`: source, docs, fixtures, or tests are missing or failing. Repair task-owned implementation and rerun focused validation before the landing sequence.
 - `pr_metadata_failure`: implementation exists, but PR title/body/evidence markers are incomplete. Regenerate the body from canonical artifacts and rerun landing gate/guard.
-- `finalizer_stale_evidence_failure`: validation evidence no longer reflects the final tree, often after cleanup or audit repair. Refresh matrix output, landing gate, and supervisor evidence in the same task, then rerun the finalizer.
+- `finalizer_stale_evidence_failure`: validation evidence no longer reflects the final tree, often after cleanup or audit repair. Prefer the finalizer's bounded stale-evidence refresh when allowed; if refresh is not allowed, rerun with explicit refresh authority. Treat `stale_evidence_refresh_failed` and `generated_artifact_cleanup_incomplete` as terminal repair statuses, not prompts for unbounded repeated reruns.
 - `workspace_state_loss`: a fresh workspace lacks uncommitted files from a closed task. If no commit, branch, PR, or patch artifact exists, report `no-files-found`; do not claim recovery is possible.
 - `workspace_contamination_or_absence_gate_failure`: unknown dirty files, missing expected task-owned files, or absence gates block commit until exact paths are resolved or classified.
 - `environment_or_dependency_noise`: Python/package setup warnings, dependency chatter, or platform limitations are not implementation evidence unless a required command fails.

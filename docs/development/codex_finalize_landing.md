@@ -11,6 +11,8 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 - `ready_for_pr_metadata`: only valid in `post-commit`/`pr-metadata` phase.
 - `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `do_not_finalize`, `finalizer_failed`.
 - `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
+- `stale_evidence_refresh_failed` when an allowed bounded refresh fails or times out.
+- `generated_artifact_cleanup_incomplete` when cleanup was allowed but generated artifacts remain after the cleanup/refresh decision point.
 
 ## Dirty-tree classes
 - `intended_task_change`
@@ -28,7 +30,7 @@ Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata i
 ## Example flows
 1. Normal feature landing: run pre-commit finalizer (`ready_to_commit`) -> commit -> run post-commit finalizer (`ready_for_pr_metadata`) -> create/update PR metadata.
 2. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
-3. Stabilization with generated artifact cleanup only: allow cleanup flags, clean artifacts, then rerun finalizer for phase-appropriate readiness.
+3. Stabilization with generated artifact cleanup only: allow cleanup flags and stale-evidence refresh flags; one finalizer invocation cleans artifacts, refreshes matrix/gate/supervisor evidence once, and returns the phase-appropriate terminal status when the tree is clean.
 
 
 ## Canonical two-phase command examples
@@ -82,8 +84,10 @@ This ordering applies to both pre-commit and pr-metadata phases.
   - `stale_evidence_matrix_output`
   - `stale_evidence_pr_landing_gate`
   - `stale_evidence_landing_supervisor`
-- Refresh is bounded per invocation (`--max-stale-evidence-refreshes`, default `1`) to avoid loops.
-- If stale evidence is detected and refresh is not allowed, finalizer returns `stale_evidence_refresh_required`.
+- Refresh is bounded per invocation (`--max-stale-evidence-refreshes`, default `1`) to avoid loops; the finalizer never recursively invokes itself and does not increase retries to escape stale evidence.
+- With `--allow-stale-evidence-refresh --max-stale-evidence-refreshes 1`, cleanup-caused staleness has exactly one terminal outcome in that invocation: phase-ready status when refresh succeeds and no blocking dirty paths remain, `stale_evidence_refresh_failed` when a refresh stage fails or times out, or `generated_artifact_cleanup_incomplete` when generated artifacts remain dirty after cleanup.
+- `stale_evidence_refresh_required` is reserved for stale evidence when refresh was needed but not allowed. It is not used after a successful bounded refresh.
+- The output JSON `evidence_freshness` records `cleanup_occurred`, `cleaned_paths`, `terminal_cleanup_occurred`, `terminal_cleaned_paths`, `stale_evidence_refresh_attempted`, `stale_evidence_refresh_result`, `refresh_stage_runs`, `refresh_stages_ran`, `refreshed_matrix_json_path`, `refresh_failure_reason`, and `rerun_required`; successful bounded refreshes set `rerun_required` to `false` so summaries do not instruct repeated cleanup/refresh reruns.
 - Do not rely on stale failed matrix snapshots after strict audits become healthy.
 
 ### Canonical pr-metadata command with output
