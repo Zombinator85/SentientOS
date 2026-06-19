@@ -216,6 +216,47 @@ def test_remote_host_boundary_docs_keep_labels_non_authority() -> None:
     assert "Do not add direct host actuation" in agents
     assert "Do not implement direct fan/PWM/thermal writes" in agents
     assert "Host-boundary deferred/blocked host-actuation label audit" in roadmap
-    assert "Audit-only or docs-only" in roadmap
+    assert "PR #1872" in roadmap
+    assert "sealed non-authority review labels" in roadmap
     assert "Must not add direct host actuation" in roadmap
     assert "fan/PWM/thermal writes" in roadmap
+
+
+def test_open_work_roadmap_marks_audit_sweep_consumed() -> None:
+    roadmap = _read("docs/development/codex_open_work_roadmap_index.md")
+
+    assert "## Recently completed audit/doctrine sweep" in roadmap
+    assert "## Consumed candidate tracks" in roadmap
+    assert "## Next selection posture" in roadmap
+    for pr, summary in [
+        ("PR #1868", "Codex failure taxonomy"),
+        ("PR #1869", "work-item attestation matrix proof consistency"),
+        ("PR #1870", "workspace change-set preflight proof coverage"),
+        ("PR #1871", "context-hygiene denial-phase documentation consolidation"),
+        ("PR #1872", "host-boundary deferred/blocked label audit"),
+    ]:
+        assert pr in roadmap
+        assert summary in roadmap
+
+    for consumed in [
+        "Landing evidence recovery prompt/body repetition reduction",
+        "Work-item lifecycle attestation matrix/proof consistency audit",
+        "Workspace change-set preflight proof coverage audit",
+        "Context-hygiene denial-phase documentation consolidation",
+        "Host-boundary deferred/blocked host-actuation label audit",
+    ]:
+        assert consumed in roadmap
+
+    for signal in [
+        "a new Deep Research result",
+        "a fresh operator-named target",
+        "a newly discovered consistency gap from tests/docs",
+        "a new roadmap candidate added in a separate bounded planning pass",
+    ]:
+        assert signal in roadmap
+
+    assert "No fresh implementation roadmap is opened" in roadmap
+    assert "does not authorize any blocked surface" in roadmap
+    assert "Post-envelope sandboxed adapter continuation" in roadmap
+    assert "metadata-only, dry-run, sandbox, review-only" in roadmap
+    assert "task-specific deltas" in roadmap

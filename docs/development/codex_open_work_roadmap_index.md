@@ -14,15 +14,38 @@ This compact index is the current docs-only pointer for safe non-sandboxed work 
 - Phase 97-103 context-hygiene denial-phase coverage is wired into the capability registry, default work-item review packet matrix, validation lane contract, and related tests after PR #1866.
 - Treat that wiring as current upstream validation coverage, not as authority to add provider invocation, prompt export, external disclosure, runtime execution, or live-memory mutation.
 
+## Recently completed audit/doctrine sweep
+
+These tracks are consumed as of the local history through PR #1872 and should not be selected again as fresh next work without a new gap, fresh operator target, or separate planning pass:
+
+- PR #1868 sealed Codex failure taxonomy, prompt compression, and landing evidence recovery doctrine so future prompts can use compact task-specific deltas instead of duplicated giant prompts.
+- PR #1869 sealed work-item attestation matrix proof consistency as review evidence only, without runtime adoption, live work-item mutation, or proof-bundle effects.
+- PR #1870 sealed workspace change-set preflight proof coverage as non-mutating validation/review coverage, without admission execution, runtime apply, or closure helper side effects.
+- PR #1871 sealed context-hygiene denial-phase documentation consolidation for Phase 97-103 validation coverage, without prompt assembly, prompt export, provider invocation, external disclosure, or runtime authority.
+- PR #1872 sealed host-boundary deferred/blocked label audit so remote smoke/probe labels remain optional, read-only, non-default review evidence and never authorize host actuation or fan/PWM/thermal writes.
+
+## Consumed candidate tracks
+
+| Consumed track | Sealed by | Current posture | Still-forbidden escalation |
+| --- | --- | --- | --- |
+| Landing evidence recovery prompt/body repetition reduction | PR #1868 | Use the compact prompt compression rule and canonical PR-body evidence generation; do not reopen as unspent roadmap work. | Must not bypass finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, recovery law, or authority-boundary requirements. |
+| Work-item lifecycle attestation matrix/proof consistency audit | PR #1869 | Treat proof consistency as sealed review evidence coverage unless tests/docs reveal a fresh gap. | Must not create runtime adoption, new authority, live work-item mutation, or proof-bundle effects beyond review evidence. |
+| Workspace change-set preflight proof coverage audit | PR #1870 | Treat preflight proof coverage as sealed non-mutating validation/review coverage unless tests/docs reveal a fresh gap. | Must not perform workspace mutation, admission execution, preflight execution side effects, runtime apply, or closure helper invocation. |
+| Context-hygiene denial-phase documentation consolidation | PR #1871 | Treat Phase 97-103 denial-phase documentation consolidation as sealed validation-only doctrine. | Must not add new denial-phase behavior, prompt assembly, prompt export, provider invocation, external disclosure, or runtime authority. |
+| Host-boundary deferred/blocked host-actuation label audit | PR #1872 | Treat deferred/blocked host labels as sealed non-authority review labels. | Must not add direct host actuation, fan/PWM/thermal writes, executor authority, admission grants, rollback actions, or panic-path behavior. |
+
 ## Candidate next work tracks
 
-| Candidate track | Status | Allowed scope | Forbidden escalation | Likely files to inspect | Recommended validation commands | Risk level |
-| --- | --- | --- | --- | --- | --- | --- |
-| Work-item lifecycle attestation matrix/proof consistency audit | Not blocked | Audit-only or docs-only; test-only if existing consistency expectations need coverage | Must not create runtime adoption, new authority, live work-item mutation, or proof-bundle effects beyond review evidence | `docs/development/codex_capability_landing_checklist.md`, `scripts/run_work_item_review_packet_matrix.py`, `scripts/build_work_item_lifecycle_attestation_index.py`, `tests/test_work_item_lifecycle_attestation_review_digest.py`, `tests/test_work_item_lifecycle_attestation_review_digest_index_verifier.py` | `python -m scripts.run_tests -q tests/test_work_item_lifecycle_attestation_review_digest.py tests/test_work_item_lifecycle_attestation_review_digest_index_verifier.py`; `python scripts/build_docs.py --check-deps`; `python scripts/build_docs.py` | Medium |
-| Workspace change-set preflight proof coverage audit | Not blocked | Audit-only, docs-only, or test-only around existing preflight proof coverage | Must not perform workspace mutation, admission execution, preflight execution side effects, runtime apply, or closure helper invocation | `tests/test_workspace_change_set_admission.py`, workspace change-set docs under `docs/`, existing workspace change-set scripts/modules referenced by tests | `python -m scripts.run_tests -q tests/test_workspace_change_set_admission.py`; `python scripts/verify_context_hygiene_prompt_boundaries.py`; `python scripts/build_docs.py --check-deps`; `python scripts/build_docs.py` | Medium |
-| Landing evidence recovery prompt/body repetition reduction | Not blocked | Docs-only or metadata-only; test-only for existing PR-body evidence generation behavior | Must not bypass finalizer, PR metadata guard, matrix, supervisor, audit, clean-tree, or recovery-law requirements | `docs/development/codex_memory_chain_task_profile.md`, `docs/development/codex_memory_chain_recovery_profile.md`, `docs/development/codex_finalize_landing.md`, `docs/development/codex_validation_and_landing_contract.md`, `scripts/build_codex_landing_evidence_body.py`, `scripts/codex_pr_metadata_guard.py` | `python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py`; `python scripts/verify_context_hygiene_prompt_boundaries.py`; `python scripts/build_docs.py --check-deps`; `python scripts/build_docs.py` | Low |
-| Host-boundary deferred/blocked host-actuation label audit | Partially blocked | Audit-only or docs-only; test-only if labels already exist and remain non-authority | Must not add direct host actuation, fan/PWM/thermal writes, executor authority, admission grants, rollback actions, or panic-path behavior | `AGENTS.md`, `docs/REMOTE_HOST_SMOKE_LAB.md`, `docs/REMOTE_SMOKE_CI_LANE.md`, `docs/REMOTE_PROBES.md`, host-boundary tests found with `rg "host-actuation|host actuation|fan|PWM|thermal|deferred" docs tests scripts sentientos` | `python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py`; `python scripts/verify_context_hygiene_prompt_boundaries.py`; `python scripts/build_docs.py --check-deps`; `python scripts/build_docs.py` | Medium |
-| Context-hygiene denial-phase documentation consolidation | Not blocked | Docs-only or audit-only around existing Phase 97-103 denial-phase surfaces | Must not add new denial-phase behavior, prompt assembly, prompt export, provider invocation, external disclosure, or runtime authority | `docs/architecture/context_hygiene_spine.md`, `docs/development/codex_validation_and_landing_contract.md`, `scripts/verify_context_hygiene_prompt_boundaries.py`, tests covering Phase 97-103 context-hygiene denial capabilities | `python scripts/verify_context_hygiene_prompt_boundaries.py`; `python -m scripts.run_tests -q tests/test_codex_operating_doctrine_docs.py`; `python scripts/build_docs.py --check-deps`; `python scripts/build_docs.py` | Low |
+No fresh implementation roadmap is opened by this index. Future candidate additions require a separate bounded planning pass or one of the next-selection signals below; this document does not authorize any blocked surface.
+
+## Next selection posture
+
+Future next-work selection should require one of:
+
+- a new Deep Research result;
+- a fresh operator-named target;
+- a newly discovered consistency gap from tests/docs;
+- a new roadmap candidate added in a separate bounded planning pass.
 
 ## Blocked task classes
 
