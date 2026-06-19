@@ -46,13 +46,16 @@ def test_writes_expected_files_and_manifest_validates(tmp_path: Path) -> None:
     code, stdout, stderr = _run_main(["--output-dir", str(out)])
     assert code == 0, stderr
     assert "proof commands executed: 0" in stdout
-    for relative in BUNDLE_FILE_NAMES.values():
+    for kind, relative in BUNDLE_FILE_NAMES.items():
+        if kind == "work_item_attestation_verify_receipt":
+            continue
         assert (out / relative).exists(), relative
     manifest = json.loads((out / "bundle_manifest.json").read_text(encoding="utf-8"))
     validation = validate_reviewer_proof_bundle_manifest(manifest)
     assert validation.ok, validation.findings
     assert all(record["executed"] is False for record in manifest["proof_command_records"])
     assert all(record["status"] == "proof_command_not_run" for record in manifest["proof_command_records"])
+    assert not (out / "work_item_attestation_verify_receipt.json").exists()
 
 
 def test_summary_prints_compact_summary(tmp_path: Path) -> None:
@@ -91,6 +94,7 @@ def test_default_does_not_run_live_collection_network_provider_or_prompt(tmp_pat
     assert manifest["network_performed"] is False
     assert manifest["provider_invocation_performed"] is False
     assert manifest["prompt_assembly_performed"] is False
+    assert not any(record["artifact_kind"] == "work_item_attestation_verify_receipt" for record in manifest["artifact_records"])
 
 
 def test_manifest_only_writes_only_manifest(tmp_path: Path) -> None:
@@ -394,6 +398,11 @@ def test_cli_verifies_work_item_attestation_scenario_in_process(tmp_path: Path) 
     code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--scenario", "work_item_attestation", "--verify", "--summary"])
     assert code == 0, (stdout, stderr)
     assert "proof commands executed: 7" in stdout
+    receipt_path = output_dir / "work_item_attestation_verify_receipt.json"
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["verification_posture"] == "bounded_in_process_metadata_only"
+    assert receipt["verified_command_ids"] == [f"work-item-attestation-proof-command-{index:02d}" for index in range(1, 8)]
     scenario = json.loads((output_dir / "work_item_attestation_scenario.json").read_text(encoding="utf-8"))
     assert scenario["proof_checks_posture"] == "verified_in_process_metadata_only"
     manifest = json.loads((output_dir / "bundle_manifest.json").read_text(encoding="utf-8"))

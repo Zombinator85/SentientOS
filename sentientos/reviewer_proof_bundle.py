@@ -203,6 +203,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "real_executor_execution_commit_window_packet_capability",
         "real_live_memory_commit_execution_gate_capability",
         "work_item_attestation_scenario",
+        "work_item_attestation_verify_receipt",
     }
 )
 REVIEWER_PROOF_COMMAND_STATUSES = frozenset(
@@ -312,6 +313,7 @@ BUNDLE_FILE_NAMES = {
     "real_executor_execution_commit_window_packet_capability": "real_executor_execution_commit_window_packet_capability.json",
     "real_live_memory_commit_execution_gate_capability": "real_live_memory_commit_execution_gate_capability.json",
     "work_item_attestation_scenario": "work_item_attestation_scenario.json",
+    "work_item_attestation_verify_receipt": "work_item_attestation_verify_receipt.json",
 }
 
 
@@ -785,6 +787,80 @@ def _verify_work_item_attestation_bundle_metadata(
         else command
         for command in commands
     )
+
+
+def _work_item_verified_artifact_kinds() -> tuple[str, ...]:
+    return (
+        "work_item_lifecycle_attestation_index_capability",
+        "work_item_lifecycle_attestation_index_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_capability",
+        "work_item_lifecycle_attestation_review_digest_verifier_capability",
+        "work_item_lifecycle_attestation_review_digest_index_capability",
+        "work_item_lifecycle_attestation_review_digest_index_verifier_capability",
+    )
+
+
+def _work_item_attestation_verification_receipt(
+    contents: Mapping[str, str],
+    commands: Sequence[ReviewerProofCommandRecord],
+    *,
+    created_at: str,
+) -> dict[str, Any]:
+    verified_artifact_kinds = _work_item_verified_artifact_kinds()
+    artifact_digest_map = {
+        artifact_kind: reviewer_proof_artifact_digest(contents[artifact_kind])
+        for artifact_kind in verified_artifact_kinds
+    }
+    verified_command_ids = tuple(
+        command.command_id
+        for command in commands
+        if command.command_id.startswith("work-item-attestation-proof-command-")
+        and command.status == "proof_command_verified"
+    )
+    verification_basis = {
+        "scenario_id": "work_item_attestation",
+        "artifact_digest_map": artifact_digest_map,
+        "verified_artifact_kinds": verified_artifact_kinds,
+        "verified_command_ids": verified_command_ids,
+        "verification_posture": "bounded_in_process_metadata_only",
+        "verification_status": "verified",
+    }
+    verification_digest = reviewer_proof_artifact_digest(_canonical_json(verification_basis))
+    return {
+        "receipt_id": _digest_text("work-item-attestation-verify-receipt-", _canonical_json({"created_at": created_at, "verification_digest": verification_digest})),
+        "scenario_id": "work_item_attestation",
+        "created_at": created_at,
+        "metadata_only": True,
+        "reviewer_proof_only": True,
+        "verification_posture": "bounded_in_process_metadata_only",
+        "verification_status": "verified",
+        "verifier_scope": "work_item_attestation_only",
+        "verifier_does_not_execute_commands": True,
+        "verifier_does_not_run_subprocess_shell_network_provider_github_remote_smoke_wan_ssh": True,
+        "verifier_does_not_mutate_work_items": True,
+        "verifier_does_not_execute_lifecycle": True,
+        "verifier_does_not_promote_release": True,
+        "verifier_does_not_mutate_memory": True,
+        "verifier_does_not_perform_host_action": True,
+        "verifier_does_not_grant_authority": True,
+        "verified_artifact_kinds": list(verified_artifact_kinds),
+        "verified_command_ids": list(verified_command_ids),
+        "verification_digest": verification_digest,
+        "artifact_digest_map": artifact_digest_map,
+        "non_authority_boundaries": {
+            "does_not_authorize_live_work_item_mutation": True,
+            "does_not_authorize_release_promotion": True,
+            "does_not_mutate_memory": True,
+            "does_not_perform_host_action": True,
+            "does_not_execute_lifecycle": True,
+            "does_not_execute_commands": True,
+            "does_not_invoke_subprocess_shell_network_provider_github_remote_smoke_wan_ssh": True,
+            "does_not_assemble_or_export_prompts": True,
+            "does_not_disclose_externally": True,
+            "does_not_grant_authority": True,
+        },
+        "failure_semantics": "corrupted or inconsistent metadata must fail verification and must not emit a verified receipt",
+    }
 
 def _readme_text(manifest_id: str, trace_digest: str) -> str:
     return "\n".join(
@@ -1941,6 +2017,9 @@ def build_reviewer_proof_bundle_payload(
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)
         if verify:
             commands = _verify_work_item_attestation_bundle_metadata(contents, commands)
+            contents["work_item_attestation_verify_receipt"] = _pretty_json(
+                _work_item_attestation_verification_receipt(contents, commands, created_at=created_at)
+            )
 
     artifact_records = tuple(_artifact(kind, content) for kind, content in contents.items())
     # The manifest artifact record describes the canonical manifest payload before
@@ -2017,7 +2096,13 @@ def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifes
                 findings.append(f"artifact_forbidden_flag:{kind}:{flag}")
         if ".." in Path(str(artifact.get("relative_path", ""))).parts:
             findings.append(f"artifact_relative_path_escapes:{kind}")
-    missing = REVIEWER_PROOF_ARTIFACT_KINDS - seen_kinds
+    required_artifact_kinds = set(REVIEWER_PROOF_ARTIFACT_KINDS)
+    if payload.get("scenario_id") != "work_item_attestation" or not any(
+        isinstance(command, Mapping) and command.get("status") == "proof_command_verified"
+        for command in payload.get("proof_command_records", ())
+    ):
+        required_artifact_kinds.discard("work_item_attestation_verify_receipt")
+    missing = required_artifact_kinds - seen_kinds
     if missing:
         findings.append("missing_artifact_kinds:" + ",".join(sorted(missing)))
     commands = payload.get("proof_command_records", ())
