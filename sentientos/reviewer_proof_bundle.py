@@ -313,6 +313,35 @@ BUNDLE_FILE_NAMES = {
     "real_live_memory_commit_execution_gate_capability": "real_live_memory_commit_execution_gate_capability.json",
     "work_item_attestation_scenario": "work_item_attestation_scenario.json",
 }
+
+
+WORK_ITEM_ATTESTATION_ARTIFACT_POSTURE: Mapping[str, dict[str, Any]] = {
+    "work_item_lifecycle_attestation_index_capability": {
+        "expected_inputs": ["final lifecycle attestation JSON", "optional attestation index output path"],
+        "expected_outputs": ["metadata-only attestation index JSON", "stable attestation index digest", "summary output when requested"],
+    },
+    "work_item_lifecycle_attestation_index_verifier_capability": {
+        "expected_inputs": ["work-item lifecycle attestation index JSON"],
+        "expected_outputs": ["metadata-only verification result", "index consistency findings", "summary output when requested"],
+    },
+    "work_item_lifecycle_attestation_review_digest_capability": {
+        "expected_inputs": ["attestation index JSON", "optional review digest output path"],
+        "expected_outputs": ["metadata-only review digest JSON", "stable review digest digest", "summary output when requested"],
+    },
+    "work_item_lifecycle_attestation_review_digest_verifier_capability": {
+        "expected_inputs": ["work-item lifecycle attestation review digest JSON"],
+        "expected_outputs": ["metadata-only digest verification result", "review digest consistency findings", "summary output when requested"],
+    },
+    "work_item_lifecycle_attestation_review_digest_index_capability": {
+        "expected_inputs": ["attestation review digest JSON", "optional digest index output path"],
+        "expected_outputs": ["metadata-only review digest index JSON", "stable review digest index digest", "summary output when requested"],
+    },
+    "work_item_lifecycle_attestation_review_digest_index_verifier_capability": {
+        "expected_inputs": ["work-item lifecycle attestation review digest index JSON"],
+        "expected_outputs": ["metadata-only digest index verification result", "review digest index consistency findings", "summary output when requested"],
+    },
+}
+
 FORBIDDEN_MANIFEST_FLAGS = (
     "live_host_collection_performed",
     "live_authorization_granted",
@@ -630,6 +659,37 @@ def _work_item_attestation_scenario_metadata(created_at: str) -> dict[str, Any]:
         },
     }
 
+
+
+
+def _apply_work_item_attestation_artifact_posture(contents: dict[str, str], *, created_at: str) -> None:
+    for artifact_kind, posture in WORK_ITEM_ATTESTATION_ARTIFACT_POSTURE.items():
+        payload = json.loads(contents[artifact_kind])
+        payload.update(
+            {
+                "created_at": created_at,
+                "metadata_only": True,
+                "reviewer_proof_only": True,
+                "proof_command_not_run": True,
+                "proof_checks_posture": "listed_not_run",
+                "validation_posture": "deterministic reviewer evidence only; proof commands are listed for separate operator review and are not run by bundle generation",
+                "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
+                "non_authority_boundaries": {
+                    "does_not_authorize_live_work_item_mutation": True,
+                    "does_not_authorize_release_promotion": True,
+                    "does_not_mutate_memory": True,
+                    "does_not_perform_host_action": True,
+                    "does_not_execute_lifecycle": True,
+                    "does_not_run_proof_checks": True,
+                    "does_not_enable_verify_mode": True,
+                    "does_not_invoke_subprocess_shell_network_provider_github_remote_smoke_wan_ssh": True,
+                    "does_not_assemble_or_export_prompts": True,
+                    "does_not_disclose_externally": True,
+                },
+            }
+        )
+        payload.update(posture)
+        contents[artifact_kind] = _pretty_json(payload)
 
 def _readme_text(manifest_id: str, trace_digest: str) -> str:
     return "\n".join(
@@ -1525,6 +1585,8 @@ def build_reviewer_proof_bundle_payload(
         "household_presence_camera_operator_review_trend_ledger_capability": _pretty_json({"artifact_kind": "household_presence_camera_operator_review_trend_ledger_capability", "capability_id": "household_presence_camera_operator_review_trend_ledger", "category": "embodiment_governance", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_household_presence_camera_operator_review_trend_ledger.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/household_presence_camera_operator_review_trend_ledger.md", "blocked_or_deferred_surfaces": ["live camera execution", "media processing", "speaker runtime output", "external authority disclosure", "network/provider/subprocess/hardware authority"], "forbidden_next_steps": ["open_camera_now", "attempt_capture", "enable_live_capture", "enable_live_recording", "store_raw_media", "attach_media_payload", "bypass_authorization_envelope", "bypass_denial_ledger", "bypass_review_packet", "bypass_review_decision_ledger", "bypass_policy_chain", "bypass_zone_config", "bypass_disabled_capture_boundary", "bypass_dry_run", "infer_operator_consent_from_trends", "convert_trend_to_live_readiness", "enable_speaker_output", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
         "household_presence_camera_capture_review_decision_ledger_capability": _pretty_json({"artifact_kind": "household_presence_camera_capture_review_decision_ledger_capability", "capability_id": "household_presence_camera_capture_review_decision_ledger", "category": "embodiment_governance", "status": "implemented", "authority_level": "metadata_verification_only", "metadata_only": True, "proof_command_not_run": True, "cli_reference": "scripts/build_household_presence_camera_capture_review_decision_ledger.py", "matrix_reference": "scripts/run_work_item_review_packet_matrix.py", "docs_reference": "docs/architecture/household_presence_camera_capture_review_decision_ledger.md", "blocked_or_deferred_surfaces": ["live camera execution", "media processing", "speaker runtime output", "external authority disclosure", "network/provider/subprocess/hardware authority"], "forbidden_next_steps": ["open_camera_now", "attempt_capture", "enable_live_capture", "enable_live_recording", "store_raw_media", "attach_media_payload", "bypass_authorization_envelope", "bypass_denial_ledger", "bypass_review_packet", "bypass_policy_chain", "bypass_zone_config", "bypass_disabled_capture_boundary", "bypass_dry_run", "enable_speaker_output", "enable_external_disclosure"], "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES)}),
     }
+    _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)
+
     future_gate_record = registry.by_id()["future_live_memory_commit_execution_gate"]
     contents["future_live_memory_commit_execution_gate_capability"] = _pretty_json({
         "artifact_kind": "future_live_memory_commit_execution_gate_capability",

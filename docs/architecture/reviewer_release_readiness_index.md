@@ -99,6 +99,8 @@ Work item lifecycle attestation index verification is documented in `docs/archit
 
 Work item lifecycle attestation review digest generation is documented in `docs/architecture/task_work_item_lifecycle_attestation_review_digest_wing.md` with metadata-only digest authority boundaries.
 
+The reviewer first-run proof bundle work-item attestation scenario now serializes deterministic reviewer artifacts for attestation index generation/verification, review digest generation/verification, and review digest index generation/verification. These artifacts name CLI, docs, matrix references, expected inputs/outputs, and explicit non-authority boundaries; they remain metadata-only reviewer proof and do not run proof checks, enable `--verify`, mutate work items, execute lifecycle steps, or promote releases.
+
 ### Docs build reliability
 
 `tests/test_build_docs_tooling.py`, `python scripts/build_docs.py --check-deps`,
