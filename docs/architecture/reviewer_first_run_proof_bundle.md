@@ -164,3 +164,15 @@ The proof bundle includes `live_commit_execution_packet_capability.json` for the
 The proof bundle includes `real_executor_runtime_gate_capability.json` for the [Real Executor Runtime Gate](real_executor_runtime_gate.md). The artifact is metadata-only and records that the gate does not enable executors, flip runtime flags, invoke or activate executors, execute live commits, acquire locks, create lockfiles, touch real memory roots, write, delete, purge, index, assemble prompts, retrieve live context, execute actions, disclose externally, or grant authority.
 
 The proof bundle includes `guarded_executor_path_packet_capability.json` for the [Guarded Executor Path Packet](guarded_executor_path_packet.md). The artifact is metadata-only and records that the packet does not enable executors, flip runtime flags, invoke or activate executors, execute live commits, acquire locks, create lockfiles, touch real memory roots, write, delete, purge, index, assemble prompts, retrieve live context, execute actions, disclose externally, or grant authority.
+
+## Work-item attestation scenario scaffold
+
+Reviewers may also build the metadata-only work-item attestation scenario:
+
+```bash
+python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof-work-item --scenario work_item_attestation --summary
+```
+
+This scenario adds `work_item_attestation_scenario.json` alongside the existing reviewer proof bundle artifacts. It inventories the expected work-item lifecycle attestation index, attestation review digest, review digest index, verifier artifacts, and proof checks in deterministic order. The proof checks are listed only and remain `proof_command_not_run`; the bundle generator does not execute them and `--verify` remains unsupported.
+
+The work-item attestation scenario is review evidence only. It does not authorize live work-item mutation, release promotion, memory mutation, host action, lifecycle execution, subprocess or shell execution, network/GitHub/provider/remote-smoke/WAN/SSH behavior, prompt assembly or export, external disclosure, readiness gates, packets, envelopes, or authority conversion from receipts/readiness/proposals.

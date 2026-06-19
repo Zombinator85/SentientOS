@@ -43,7 +43,7 @@ def _summary_text(summary: dict[str, object], output_dir: str) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build a metadata-only SentientOS reviewer proof bundle")
     parser.add_argument("--output-dir", required=True, help="explicit local output directory for bundle files")
-    parser.add_argument("--scenario", choices=("thermal_pwm_demo",), default="thermal_pwm_demo", help="deterministic reviewer scenario")
+    parser.add_argument("--scenario", choices=("thermal_pwm_demo", "work_item_attestation"), default="thermal_pwm_demo", help="deterministic reviewer scenario")
     parser.add_argument("--created-at", default="1970-01-01T00:00:00+00:00", help="deterministic creation timestamp")
     parser.add_argument("--verify", action="store_true", help="unsupported in this pass; proof commands are listed but not run")
     parser.add_argument("--no-verify", action="store_true", help="list proof commands without running them (default)")

@@ -368,3 +368,22 @@ def test_reviewer_proof_bundle_cli_writes_workspace_change_set_lifecycle_orchest
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["lifecycle_orchestration_exists"] is True
     assert payload["proof_command_status"] == "proof_command_not_run"
+
+
+
+def test_cli_writes_work_item_attestation_scenario_without_running_proofs(tmp_path: Path) -> None:
+    output_dir = tmp_path / "bundle"
+    code, stdout, stderr = _run_main(["--output-dir", str(output_dir), "--scenario", "work_item_attestation"])
+    assert code == 0, (stdout, stderr)
+    assert "scenario: work_item_attestation" in stdout
+    scenario_path = output_dir / "work_item_attestation_scenario.json"
+    assert scenario_path.exists()
+    scenario = json.loads(scenario_path.read_text(encoding="utf-8"))
+    assert scenario["metadata_only"] is True
+    assert scenario["reviewer_proof_only"] is True
+    assert scenario["proof_checks_posture"] == "listed_not_run"
+    assert scenario["non_authority_posture"]["does_not_execute_lifecycle"] is True
+    manifest = json.loads((output_dir / "bundle_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["scenario_id"] == "work_item_attestation"
+    assert all(record["executed"] is False for record in manifest["proof_command_records"])
+    assert all(record["status"] == "proof_command_not_run" for record in manifest["proof_command_records"])

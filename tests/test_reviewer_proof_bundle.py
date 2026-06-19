@@ -698,3 +698,24 @@ def test_reviewer_bundle_includes_sandboxed_live_memory_commit_adapter_gate_capa
     assert '"capability_id": "sandboxed_live_memory_commit_adapter_gate"' in text
     assert "scripts/build_sandboxed_live_memory_commit_adapter_gate.py" in text
     assert "docs/architecture/sandboxed_live_memory_commit_adapter_gate.md" in text
+
+
+
+def test_work_item_attestation_scenario_is_metadata_only_and_deterministic() -> None:
+    first = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
+    second = build_reviewer_proof_bundle_payload(scenario="work_item_attestation", created_at=FIXED_CREATED_AT)
+    assert first["manifest"].to_dict() == second["manifest"].to_dict()
+    assert first["manifest"].scenario_id == "work_item_attestation"
+    assert first["manifest"].manifest_id == "reviewer-proof-bundle-work-item-attestation"
+    assert first["manifest"].bundle_status == "reviewer_proof_bundle_ready"
+    assert all(record.status == "proof_command_not_run" and record.executed is False for record in first["manifest"].proof_command_records)
+    scenario = json.loads(first["artifacts"]["work_item_attestation_scenario"])
+    assert scenario["proof_checks_posture"] == "listed_not_run"
+    assert "work_item_lifecycle_attestation_review_digest_capability.json" in scenario["expected_artifact_names"]
+    assert scenario["non_authority_posture"]["does_not_authorize_live_work_item_mutation"] is True
+    assert scenario["non_authority_posture"]["does_not_authorize_release_promotion"] is True
+    assert scenario["non_authority_posture"]["does_not_mutate_memory"] is True
+    assert scenario["non_authority_posture"]["does_not_perform_host_action"] is True
+    assert scenario["non_authority_posture"]["does_not_execute_lifecycle"] is True
+    validation = validate_reviewer_proof_bundle_manifest(first["manifest"])
+    assert validation.ok, validation.findings

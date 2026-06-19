@@ -510,3 +510,7 @@ Guarded executor path reviewers should also inspect `docs/architecture/guarded_e
 - Real live memory commit execution packet: `docs/architecture/real_live_memory_commit_execution_packet.md`
 - Real live memory commit adapter admission gate: `docs/architecture/real_live_memory_commit_adapter_admission_gate.md`
 - Real live memory commit adapter admission packet: `docs/architecture/real_live_memory_commit_adapter_admission_packet.md`
+
+### Reviewer proof bundle work-item attestation scenario
+
+`python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof-work-item --scenario work_item_attestation --summary` builds the deterministic metadata-only work-item attestation reviewer scenario. It adds `work_item_attestation_scenario.json` to the reviewer bundle so reviewers can inspect expected attestation index, review digest, digest index, verifier artifact names, README ordering, and listed proof checks without running them. The scenario is review evidence only and does not authorize live work-item mutation, release promotion, memory mutation, host action, lifecycle execution, prompt assembly/export, network/provider/GitHub/remote-smoke/WAN/SSH behavior, external disclosure, or any conversion of receipts/readiness/proposals into authority.
