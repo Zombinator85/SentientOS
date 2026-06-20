@@ -76,3 +76,18 @@ non-proof failures and exit reasons, but they are not blocking when `required_fa
 is zero and no required proof lane has a non-passing `proof_status`. Required proof lane
 failures remain blocking and must be repaired or rerun through the authoritative matrix
 and landing flow.
+
+## Evidence index boundary
+
+The Codex landing evidence index is a deterministic manifest for developer-workflow evidence. It may be produced after evidence artifacts exist so operators can pass one JSON file to future inspection tooling. It records artifact roles, paths, presence, JSON readability, raw-byte digests, optional schema/status hints, aggregate hints, and explicit non-authority posture flags.
+
+The distinction is mandatory:
+
+- Evidence index: identifies which evidence artifacts exist, where they are, their digests, and their status hints.
+- Lifecycle doctor: given evidence artifacts, reports what an operator should inspect or rerun next.
+- Lifecycle summary: records lifecycle state from specific finalizer and guard evidence.
+- Finalizer: decides whether the change may advance to commit or PR metadata under landing rules.
+- PR metadata guard: decides whether PR metadata creation is allowed.
+- Matrix: reports whether required proof lanes passed.
+
+The evidence index must not replace or weaken bootstrap, validation, matrix, supervisor, finalizer, PR metadata guard, clean-tree requirements, commit requirements, or `make_pr` requirements. Missing optional artifacts and invalid JSON are represented in the index for visibility only; they do not become proof and must be handled by the authoritative tools that consume the underlying artifacts.
