@@ -110,3 +110,9 @@ This compression does not weaken bootstrap, finalizer, PR metadata guard, matrix
 Federation/Genesis Forge distributed coding labor is future proof-sharing and non-duplicative work-claim topology only until claim semantics, proof exchange, artifact schema, and authority boundaries are defined. This rail does not implement routing, task execution, remote work dispatch, adoption, sync, merge, install, or execution behavior.
 
 Codex Windows local-node readiness remains planning-only. Repository mainline state stays canonical until a fresh local clone, clean baselines, dependency readiness, and local-node health checks exist; do not add setup automation from this rail.
+
+## Lifecycle summary artifact for inspection only
+
+For late landing recovery inspection, a task may create `codex_task_lifecycle_summary.json` with `scripts/build_codex_task_lifecycle_summary.py` after the required finalizer and PR metadata guard evidence has already been produced. The artifact consumes existing pre-commit finalizer JSON, post-commit/pr-metadata finalizer JSON, matrix JSON path, and optional PR metadata guard JSON, then emits one compact deterministic summary of lifecycle state.
+
+This helps reviewers see whether the existing evidence says the task is ready, blocked, or requires rerun without rerunning the landing ritual. It is not a recovery rail, authority grant, readiness gate, packet, envelope, or repeated ladder. It cannot repair stale evidence, cannot satisfy missing finalizer or guard proof, and cannot authorize PR metadata when the guard is absent or blocked.
