@@ -55,3 +55,24 @@ Strict landing sequence: run bootstrapper; stop if blocked; implement only if re
 A Codex task lifecycle summary may be produced as a developer workflow artifact after validation/finalizer/guard evidence exists. The summary consumes already-produced finalizer JSON artifacts, the matrix JSON path, and optional PR metadata guard JSON. It emits deterministic metadata including finalizer decisions, optional PR #1878 terminal freshness fields, cleanup fields, guard status, lifecycle status, rerun reason, and explicit non-authority posture flags.
 
 The summary is evidence only. It does not replace bootstrap, validation, matrix, supervisor, pre-commit finalizer, post-commit/pr-metadata finalizer, PR metadata guard, clean-tree checks, commit requirements, or `make_pr` requirements. If the summary reports `codex_lifecycle_ready`, that means only that the supplied artifacts contain ready statuses; the executable landing sequence still controls.
+
+## Lifecycle doctor and validation evidence boundaries
+
+The Codex lifecycle doctor is a deterministic inspection surface over existing landing
+artifacts. Inputs may include matrix JSON, finalizer JSON from both phases, PR metadata
+guard JSON, lifecycle summary JSON, and `scripts.run_tests` provenance JSON. Outputs
+include `doctor_report_id`, evidence path summaries, matrix proof counts, blocked lane
+summaries with `proof_status` and `exit_reason`, finalizer freshness fields, test
+provenance proof-quality classification, a next safe action, and an explicit
+non-authority posture.
+
+The doctor must not run validation, tests, matrix lanes, finalizer commands, guard
+commands, docs commands, mypy, git, network calls, provider calls, shell commands, or
+runtime actions. It marks missing requested evidence as incomplete and invalid JSON as a
+clean CLI error. It must not infer readiness from title or intended commit title alone.
+
+Diagnostic/non-proof matrix lanes appear in doctor output for visibility, including
+non-proof failures and exit reasons, but they are not blocking when `required_failure_count`
+is zero and no required proof lane has a non-passing `proof_status`. Required proof lane
+failures remain blocking and must be repaired or rerun through the authoritative matrix
+and landing flow.

@@ -113,3 +113,26 @@ The summary emits reviewer/developer workflow fields such as `summary_id`, `task
 The summary differs from the finalizer: the finalizer remains the executable landing authority that evaluates the tree and validation evidence. The lifecycle summary only records what the finalizer and optional guard artifacts already said. It must not be used as permission to commit, create PR metadata, call `make_pr`, ignore dirty source files, or bypass the two-phase finalizer and PR metadata guard sequence.
 
 Status interpretation is intentionally narrow: `codex_lifecycle_ready` requires `ready_to_commit`, `ready_for_pr_metadata`, and either no guard artifact or `pr_metadata_guard_ready`; any not-ready finalizer, rerun-required finalizer evidence, or non-ready provided guard artifact is `codex_lifecycle_blocked`. Missing or invalid required JSON evidence fails cleanly instead of inventing readiness.
+
+## Codex lifecycle doctor (inspection only)
+
+The Codex lifecycle doctor is a read-only operator inspection CLI:
+`python scripts/codex_lifecycle_doctor.py`. It consumes existing JSON artifacts such
+as the work-item matrix report, pre-commit finalizer JSON, post-commit/PR-metadata
+finalizer JSON, PR metadata guard JSON, lifecycle summary JSON, and run-tests
+provenance JSON. It writes an optional deterministic `codex_lifecycle_doctor_report.json`
+that explains the currently visible landing state and a next safe inspection action.
+
+The doctor is not a replacement for this finalizer. The finalizer answers whether a
+change may advance to commit or PR metadata under landing rules. The lifecycle doctor
+answers which available evidence artifact an operator should inspect or rerun next.
+Doctor reports are inspection-only evidence: they do not authorize commits, do not
+authorize PR creation, do not bypass the finalizer, and do not bypass the PR metadata
+guard.
+
+Doctor output exposes ready, blocked, stale, incomplete, and rerun-required states. A
+`doctor_ready` result only means the supplied artifacts are mutually consistent from the
+doctor's read-only perspective; operators must still require the actual finalizer and PR
+metadata guard decisions before commit or PR metadata. Diagnostic/non-proof matrix lanes
+remain visible in the doctor matrix summary but are reported as non-blocking unless a
+required proof lane failed.
