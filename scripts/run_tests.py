@@ -799,8 +799,8 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = REPO_ROOT / "glow" / "test_runs"
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
-    junitxml_path = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"
-    failure_report_path = run_dir / "test_failure_digest.json"
+    junitxml_path: Path | None = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"
+    failure_report_path: Path | None = run_dir / "test_failure_digest.json"
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
@@ -993,7 +993,29 @@ def main(argv: list[str] | None = None) -> int:
                 "rule": f"<= {budget_thresholds['max_xfail_rate']}",
             }
         )
-    exit_reason = None
+    targeted_execution_failure_reason = None
+    if (
+        run_intent == "targeted"
+        and not allow_nonexecution
+        and not budget_allow_violation
+        and metrics_status == "ok"
+        and pytest_exit_code == 0
+        and isinstance(tests_selected, int)
+        and tests_selected > 0
+    ):
+        if isinstance(tests_executed, int) and tests_executed == 0:
+            targeted_execution_failure_reason = "targeted-tests-not-executed"
+        elif (
+            isinstance(tests_passed, int)
+            and isinstance(tests_skipped, int)
+            and tests_passed == 0
+            and tests_skipped >= tests_selected
+        ):
+            targeted_execution_failure_reason = "focused-tests-skipped"
+        elif isinstance(tests_passed, int) and tests_passed < budget_thresholds["min_passed"]:
+            targeted_execution_failure_reason = "targeted-tests-below-min-passed"
+
+    exit_reason = targeted_execution_failure_reason
     if pytest_exit_code == 5:
         exit_reason = "no-tests-collected"
     elif pytest_exit_code != 0:
@@ -1014,7 +1036,12 @@ def main(argv: list[str] | None = None) -> int:
             "WARNING: SENTIENTOS_ALLOW_BUDGET_VIOLATION=1 is set; "
             "budget enforcement is overridden and this run is marked exceptional."
         )
-    if pytest_exit_code not in (0, 5) and junitxml_path is not None and junitxml_path.exists():
+    if (
+        pytest_exit_code not in (0, 5)
+        and junitxml_path is not None
+        and junitxml_path.exists()
+        and failure_report_path is not None
+    ):
         try:
             digest = generate_failure_digest(
                 junitxml_path=junitxml_path,
@@ -1100,6 +1127,14 @@ def main(argv: list[str] | None = None) -> int:
             rule = violation.get("rule")
             threshold = violation.get("threshold")
             print(f"  - {metric}={value} violates {rule} (threshold={threshold})")
+        return 1
+    if targeted_execution_failure_reason is not None:
+        print(
+            "ERROR: targeted proof requires at least one selected test to execute and pass; "
+            f"tests_selected={tests_selected}, tests_executed={tests_executed}, "
+            f"tests_passed={tests_passed}, tests_skipped={tests_skipped}, "
+            f"exit_reason={targeted_execution_failure_reason}."
+        )
         return 1
     if pytest_exit_code == 5 and allow_no_tests:
         print("WARNING: pytest collected 0 tests, but SENTIENTOS_ALLOW_NO_TESTS=1 overrides failure.")

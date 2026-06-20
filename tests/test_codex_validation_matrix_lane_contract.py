@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from sentientos.codex_validation_matrix_lane_contract import verify_lane_contract
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _matrix() -> dict[str, object]:
@@ -61,3 +65,42 @@ def test_docs_recovery_path_requires_all_three() -> None:
 def test_required_failure_count_mismatch_fails() -> None:
     m = _matrix(); m["required_failure_count"] = 3
     assert any(f.code == "required_failure_count_mismatch" for f in verify_lane_contract(m).findings)
+
+
+def test_nonproof_diagnostic_targeted_lane_does_not_fail_contract() -> None:
+    m = _matrix()
+    for row in m["results"]:  # type: ignore[index]
+        if row["label"] == "real_memory_root_admission_gate_tests":
+            row.update(
+                {
+                    "exit_code": 1,
+                    "required": False,
+                    "proof_required": False,
+                    "diagnostic_only": True,
+                    "nonexecution_allowed": True,
+                    "proof_status": "nonproof-diagnostic-failed",
+                    "exit_reason": "targeted-tests-not-executed",
+                }
+            )
+    assert verify_lane_contract(m).status.endswith("ready")
+
+
+def test_required_targeted_lane_with_nonexecuted_proof_status_fails_contract() -> None:
+    m = _matrix()
+    m["results"] = [row for row in m["results"] if row["label"] != "targeted_tests"]  # type: ignore[index]
+    for row in m["results"]:  # type: ignore[index]
+        if row["label"] == "real_executor_execution_preflight_gate_tests":
+            row.update(
+                {
+                    "exit_code": 0,
+                    "required": True,
+                    "proof_required": True,
+                    "proof_status": "proof-not-executed",
+                    "tests_selected": 3,
+                    "tests_executed": 0,
+                    "tests_passed": 0,
+                }
+            )
+    result = verify_lane_contract(m)
+    assert result.status.endswith("failed")
+    assert any(f.code == "targeted_tests_failed" for f in result.findings)

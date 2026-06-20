@@ -166,6 +166,19 @@ def _exit_ok(row: dict[str, Any]) -> bool:
     return int(row.get("exit_code", 1)) == 0
 
 
+def _proof_required(row: dict[str, Any]) -> bool:
+    return bool(row.get("proof_required", row.get("required", True)))
+
+
+def _proof_ok(row: dict[str, Any]) -> bool:
+    if not _proof_required(row):
+        return True
+    proof_status = row.get("proof_status")
+    if isinstance(proof_status, str):
+        return proof_status == "proof-passed"
+    return _exit_ok(row)
+
+
 def _find_row(rows: list[dict[str, Any]], labels: tuple[str, ...]) -> dict[str, Any] | None:
     wanted = set(labels)
     for row in rows:
@@ -188,7 +201,11 @@ def verify_lane_contract(matrix: dict[str, Any], *, fail_on_unknown_lanes: bool 
             required_failures += 1
     else:
         missing_targeted_test_lanes = [alias for alias in TARGETED_TEST_LANE_ALIASES if _find_row(rows, (alias,)) is None]
-        failed_targeted_test_lanes = [alias for alias in TARGETED_TEST_LANE_ALIASES if (row := _find_row(rows, (alias,))) is not None and not _exit_ok(row)]
+        failed_targeted_test_lanes = [
+            alias
+            for alias in TARGETED_TEST_LANE_ALIASES
+            if (row := _find_row(rows, (alias,))) is not None and _proof_required(row) and not _proof_ok(row)
+        ]
         if missing_targeted_test_lanes:
             findings.append(
                 LaneVerificationFinding(
@@ -215,7 +232,7 @@ def verify_lane_contract(matrix: dict[str, Any], *, fail_on_unknown_lanes: bool 
         if row is None:
             findings.append(LaneVerificationFinding("error", f"missing_{lane_id}", f"required lane {lane_id} is missing"))
             required_failures += 1
-        elif lane.pass_when_exit_code_zero and not _exit_ok(row):
+        elif lane.pass_when_exit_code_zero and not _proof_ok(row):
             findings.append(LaneVerificationFinding("error", f"{lane_id}_failed", f"required lane {lane_id} did not pass"))
             required_failures += 1
 

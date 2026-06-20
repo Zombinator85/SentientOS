@@ -16,15 +16,32 @@ class MatrixCommand:
     label: str
     command: tuple[str, ...]
     required: bool = True
+    proof_required: bool = True
+    execution_required: bool = True
+    diagnostic_only: bool = False
+    nonexecution_allowed: bool = False
+    classification_reason: str | None = None
 
 
-class MatrixResult(TypedDict):
+class MatrixResult(TypedDict, total=False):
     label: str
     command: list[str]
     required: bool
+    proof_required: bool
+    execution_required: bool
+    diagnostic_only: bool
+    nonexecution_allowed: bool
+    classification_reason: str | None
+    proof_status: str
     exit_code: int
     duration_seconds: float
     output_tail: str
+    exit_reason: str | None
+    tests_selected: int | None
+    tests_executed: int | None
+    tests_passed: int | None
+    tests_skipped: int | None
+    metrics_status: str | None
 
 
 class MatrixReport(TypedDict, total=False):
@@ -33,13 +50,77 @@ class MatrixReport(TypedDict, total=False):
     command_count: int
     required_failure_count: int
     required_failures: list[str]
+    diagnostic_failure_count: int
+    nonproof_count: int
     results: list[MatrixResult]
     strict_audit_repair_command: str
     strict_audit_auto_repair_exit_code: int
 
 
+NONEXECUTION_DIAGNOSTIC_LANES = {
+    "real_memory_root_admission_gate_tests",
+    "real_memory_root_admission_packet_tests",
+    "live_executor_lock_lease_gate_tests",
+    "live_executor_activation_record_tests",
+    "real_live_memory_commit_executor_implementation_skeleton_tests",
+    "real_live_memory_commit_executor_enablement_gate_tests",
+    "real_executor_run_gate_tests",
+    "real_executor_execution_plan_tests",
+    "real_executor_execution_gate_tests",
+    "real_executor_execution_authorization_packet_tests",
+    "real_executor_execution_authorization_gate_tests",
+    "real_executor_execution_permit_packet_tests",
+    "real_executor_execution_permit_gate_tests",
+    "review_packet_tests",
+    "authority_closure_tests",
+    "dry_run_adapter_tests",
+    "handoff_tests",
+    "intake_tests",
+    "promotion_gate_tests",
+    "operator_admission_review_tests",
+    "operator_confirmed_admission_run_tests",
+    "operator_confirmed_preflight_run_tests",
+    "operator_execution_review_tests",
+    "operator_confirmed_execution_run_tests",
+    "operator_confirmed_verification_run_tests",
+    "operator_lifecycle_closure_review_tests",
+    "work_item_lifecycle_completion_dossier_tests",
+    "codex_task_scaffold_verifier_tests",
+    "work_item_lifecycle_completion_verifier_tests",
+    "work_item_lifecycle_final_attestation_tests",
+    "work_item_lifecycle_attestation_index_tests",
+    "work_item_lifecycle_attestation_index_verifier_tests",
+    "work_item_lifecycle_attestation_review_digest_tests",
+    "work_item_lifecycle_attestation_review_digest_verifier_tests",
+    "work_item_lifecycle_attestation_review_digest_index_tests",
+    "work_item_lifecycle_attestation_review_digest_index_verifier_tests",
+    "operator_confirmed_lifecycle_closure_run_tests",
+    "household_presence_camera_event_bridge_tests",
+    "household_presence_camera_operator_grant_renewal_request_packet_tests",
+    "household_presence_layer_tests",
+    "codex_pr_validation_evidence_tests",
+    "codex_pr_landing_gate_tests",
+    "codex_pr_metadata_guard_tests",
+}
+
+
+def _classify_default_command(command: MatrixCommand) -> MatrixCommand:
+    if command.label not in NONEXECUTION_DIAGNOSTIC_LANES:
+        return command
+    return MatrixCommand(
+        label=command.label,
+        command=command.command,
+        required=False,
+        proof_required=False,
+        execution_required=False,
+        diagnostic_only=True,
+        nonexecution_allowed=True,
+        classification_reason="known nonexecuted/skipped targeted lane; retained as diagnostic non-proof evidence",
+    )
+
+
 def default_matrix_commands() -> list[MatrixCommand]:
-    return [
+    commands = [
         MatrixCommand("selective_memory_distillation_contract_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_selective_memory_distillation_contract.py", "tests/test_build_selective_memory_distillation_contract_script.py")),
         MatrixCommand("selective_memory_distillation_receipt_gate_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_selective_memory_distillation_receipt_gate.py", "tests/test_build_selective_memory_distillation_receipt_gate_script.py")),
         MatrixCommand("selective_memory_tomb_receipt_verifier_tests", ("python", "-m", "scripts.run_tests", "-q", "tests/test_selective_memory_tomb_receipt_verifier.py", "tests/test_build_selective_memory_tomb_receipt_verifier_script.py")),
@@ -151,11 +232,52 @@ def default_matrix_commands() -> list[MatrixCommand]:
         MatrixCommand("strict_audits", ("python", "verify_audits.py", "--strict")),
         MatrixCommand("audit_immutability", ("python", "scripts/audit_immutability_verifier.py")),
     ]
+    return [_classify_default_command(command) for command in commands]
 
 
 def _tail(text: str, lines: int = 30) -> str:
     parts = text.splitlines()
     return "\n".join(parts[-lines:])
+
+
+def _latest_run_tests_provenance(command: tuple[str, ...]) -> dict[str, object]:
+    if "scripts.run_tests" not in command:
+        return {}
+    path = Path("glow/test_runs/test_run_provenance.json")
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _int_metric(payload: dict[str, object], key: str) -> int | None:
+    value = payload.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _proof_status(command: MatrixCommand, completed: subprocess.CompletedProcess[str], provenance: dict[str, object]) -> str:
+    if not command.proof_required:
+        if completed.returncode == 0:
+            return "nonproof-diagnostic-passed" if command.diagnostic_only else "nonproof-passed"
+        return "nonproof-diagnostic-failed" if command.diagnostic_only else "nonproof-failed"
+    if completed.returncode != 0:
+        return "proof-failed"
+    if command.execution_required and "scripts.run_tests" in command.command:
+        selected = _int_metric(provenance, "tests_selected")
+        executed = _int_metric(provenance, "tests_executed")
+        passed = _int_metric(provenance, "tests_passed")
+        if selected is None or executed is None or passed is None:
+            return "proof-metrics-unavailable"
+        if selected <= 0 or executed <= 0 or passed <= 0:
+            return "proof-not-executed"
+    return "proof-passed"
+
+
+def _is_required_failure(result: MatrixResult) -> bool:
+    return bool(result["required"]) and str(result.get("proof_status")) != "proof-passed"
 
 
 def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subprocess.CompletedProcess[str]]) -> MatrixResult:
@@ -165,13 +287,31 @@ def run_one(command: MatrixCommand, runner: Callable[[tuple[str, ...]], subproce
     output = completed.stdout
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr
+    provenance = _latest_run_tests_provenance(command.command)
+    proof_status = _proof_status(command, completed, provenance)
+    raw_exit_reason = provenance.get("exit_reason")
+    exit_reason = raw_exit_reason if isinstance(raw_exit_reason, str) else None
+    raw_metrics_status = provenance.get("metrics_status")
+    metrics_status = raw_metrics_status if isinstance(raw_metrics_status, str) else None
     return {
         "label": command.label,
         "command": list(command.command),
         "required": command.required,
+        "proof_required": command.proof_required,
+        "execution_required": command.execution_required,
+        "diagnostic_only": command.diagnostic_only,
+        "nonexecution_allowed": command.nonexecution_allowed,
+        "classification_reason": command.classification_reason,
+        "proof_status": proof_status,
         "exit_code": completed.returncode,
         "duration_seconds": duration,
         "output_tail": _tail(output),
+        "exit_reason": exit_reason,
+        "tests_selected": _int_metric(provenance, "tests_selected"),
+        "tests_executed": _int_metric(provenance, "tests_executed"),
+        "tests_passed": _int_metric(provenance, "tests_passed"),
+        "tests_skipped": _int_metric(provenance, "tests_skipped"),
+        "metrics_status": metrics_status,
     }
 
 
@@ -198,16 +338,18 @@ def run_matrix(*, commands: list[MatrixCommand], runner: Callable[[tuple[str, ..
         results.append(result)
         if command.label == "docs_check_deps":
             docs_check_passed = result["exit_code"] == 0
-        if command.required and result["exit_code"] != 0:
+        if _is_required_failure(result):
             failed_required = True
 
-    required_failures = [r["label"] for r in results if bool(r["required"]) and int(r["exit_code"]) != 0]
+    required_failures = [r["label"] for r in results if _is_required_failure(r)]
     summary: MatrixReport = {
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "status": "failed" if failed_required else "passed",
         "command_count": len(results),
         "required_failure_count": len(required_failures),
         "required_failures": required_failures,
+        "diagnostic_failure_count": len([r for r in results if bool(r.get("diagnostic_only")) and int(r["exit_code"]) != 0]),
+        "nonproof_count": len([r for r in results if not bool(r.get("proof_required", True))]),
         "results": results,
     }
     return summary
