@@ -137,6 +137,15 @@ metadata guard decisions before commit or PR metadata. Diagnostic/non-proof matr
 remain visible in the doctor matrix summary but are reported as non-blocking unless a
 required proof lane failed.
 
+The doctor may also accept `--evidence-index-json <codex_landing_evidence_index.json>`
+as a portable manifest. When supplied, the doctor may populate omitted artifact path
+arguments from indexed roles such as matrix, pre-commit finalizer, post-commit/PR-metadata
+finalizer, PR metadata guard, lifecycle summary, and test provenance. Explicit CLI path
+arguments always override index paths. The doctor still opens and reads the underlying
+artifact JSON files at the resolved paths, reports missing or invalid referenced artifacts
+through its normal incomplete/error rules, and never trusts index aggregate hints as
+readiness authority.
+
 ## Codex landing evidence index (metadata-only)
 
 `python scripts/build_codex_landing_evidence_index.py` writes `codex_landing_evidence_index.json`, a deterministic metadata-only manifest over already-produced landing evidence artifacts. It records each supplied artifact role, path, existence, JSON readability, raw-byte SHA-256 digest, byte size, schema hint, and status hint. Missing optional paths are represented as `path_not_provided`; supplied paths that do not exist are `path_missing`; existing invalid JSON remains indexed with its digest and an invalid-JSON error.

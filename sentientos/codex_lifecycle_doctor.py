@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from sentientos.codex_landing_evidence_index import ARTIFACT_ROLES
+
 READY = "doctor_ready"
 BLOCKED = "doctor_blocked"
 INCOMPLETE = "doctor_incomplete"
@@ -20,6 +22,31 @@ NON_AUTHORITY_POSTURE: dict[str, bool] = {
     "doctor_does_not_authorize_commit": True,
     "doctor_does_not_authorize_pr_creation": True,
     "doctor_does_not_authorize_runtime_action": True,
+    "doctor_uses_index_only_as_manifest": True,
+    "doctor_reads_underlying_artifacts": True,
+    "doctor_does_not_trust_index_hints_as_authority": True,
+}
+
+INDEX_CONSUMED_ROLES: tuple[str, ...] = tuple(
+    role
+    for role in ARTIFACT_ROLES
+    if role in {
+        "matrix",
+        "pre_commit_finalizer",
+        "pr_metadata_finalizer",
+        "pr_metadata_guard",
+        "lifecycle_summary",
+        "test_provenance",
+    }
+)
+
+ROLE_TO_REQUEST_FIELD: dict[str, str] = {
+    "matrix": "matrix_json_path",
+    "pre_commit_finalizer": "pre_commit_finalizer_json",
+    "pr_metadata_finalizer": "pr_metadata_finalizer_json",
+    "pr_metadata_guard": "pr_metadata_guard_json",
+    "lifecycle_summary": "lifecycle_summary_json",
+    "test_provenance": "test_provenance_json",
 }
 
 
@@ -31,12 +58,13 @@ class CodexLifecycleDoctorError(ValueError):
 class CodexLifecycleDoctorRequest:
     title: str
     intended_commit_title: str
-    matrix_json_path: str
+    matrix_json_path: str | None = None
     pre_commit_finalizer_json: str | None = None
     pr_metadata_finalizer_json: str | None = None
     pr_metadata_guard_json: str | None = None
     lifecycle_summary_json: str | None = None
     test_provenance_json: str | None = None
+    evidence_index_json: str | None = None
     output: str | None = None
 
 
@@ -58,6 +86,72 @@ def _load_json_object(path_text: str, label: str, missing: list[str]) -> dict[st
         raise CodexLifecycleDoctorError(f"{label}_json_not_object:{path_text}")
     return loaded
 
+
+
+def _load_evidence_index(path_text: str, missing: list[str]) -> dict[str, Any] | None:
+    return _load_json_object(path_text, "evidence_index_json", missing)
+
+
+def _index_artifact_paths(index: Mapping[str, Any] | None) -> dict[str, str]:
+    if index is None:
+        return {}
+    artifacts = index.get("artifacts")
+    if not isinstance(artifacts, list):
+        return {}
+    paths: dict[str, str] = {}
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping):
+            continue
+        role = artifact.get("role")
+        path = artifact.get("path")
+        if isinstance(role, str) and role in INDEX_CONSUMED_ROLES and isinstance(path, str) and path:
+            paths[role] = path
+    return paths
+
+
+def _resolve_request_paths(request: CodexLifecycleDoctorRequest, index: Mapping[str, Any] | None) -> tuple[dict[str, str | None], dict[str, Any] | None]:
+    index_paths = _index_artifact_paths(index)
+    resolved = {field: getattr(request, field) for field in ROLE_TO_REQUEST_FIELD.values()}
+    used: list[str] = []
+    overridden: list[str] = []
+    unusable: list[dict[str, str]] = []
+    for role in INDEX_CONSUMED_ROLES:
+        field = ROLE_TO_REQUEST_FIELD[role]
+        explicit = getattr(request, field)
+        index_path = index_paths.get(role)
+        if explicit:
+            if index_path:
+                overridden.append(role)
+            continue
+        if not index_path:
+            continue
+        if Path(index_path).exists():
+            resolved[field] = index_path
+            used.append(role)
+        else:
+            unusable.append({"role": role, "path": index_path, "reason": "path_missing"})
+            if role == "matrix":
+                resolved[field] = index_path
+                used.append(role)
+    if index is None:
+        return resolved, None
+    present_raw = index.get("artifact_roles_present")
+    missing_raw = index.get("artifact_roles_missing")
+    present = [str(role) for role in present_raw] if isinstance(present_raw, list) else sorted(index_paths)
+    missing = [str(role) for role in missing_raw] if isinstance(missing_raw, list) else [role for role in INDEX_CONSUMED_ROLES if role not in present]
+    nonauth = index.get("non_authority_posture")
+    summary = {
+        "path": request.evidence_index_json,
+        "readable_json": True,
+        "evidence_index_id": index.get("evidence_index_id") if isinstance(index.get("evidence_index_id"), str) else None,
+        "roles_present": sorted(present),
+        "roles_missing": sorted(missing),
+        "used_roles": sorted(used),
+        "overridden_roles": sorted(overridden),
+        "unusable_roles": sorted(unusable, key=lambda item: (item["role"], item["path"])),
+        "non_authority_posture_seen": bool(nonauth) if isinstance(nonauth, Mapping) else False,
+    }
+    return resolved, summary
 
 def _as_int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
@@ -177,12 +271,24 @@ def _test_provenance_summary(payload: Mapping[str, Any] | None) -> dict[str, Any
 
 def build_lifecycle_doctor_report(request: CodexLifecycleDoctorRequest) -> dict[str, Any]:
     missing: list[str] = []
-    matrix = _load_json_object(request.matrix_json_path, "matrix_json_path", missing) or {}
-    pre = _load_json_object(request.pre_commit_finalizer_json, "pre_commit_finalizer_json", missing) if request.pre_commit_finalizer_json else None
-    pr = _load_json_object(request.pr_metadata_finalizer_json, "pr_metadata_finalizer_json", missing) if request.pr_metadata_finalizer_json else None
-    guard = _load_json_object(request.pr_metadata_guard_json, "pr_metadata_guard_json", missing) if request.pr_metadata_guard_json else None
-    lifecycle = _load_json_object(request.lifecycle_summary_json, "lifecycle_summary_json", missing) if request.lifecycle_summary_json else None
-    provenance = _load_json_object(request.test_provenance_json, "test_provenance_json", missing) if request.test_provenance_json else None
+    evidence_index = _load_evidence_index(request.evidence_index_json, missing) if request.evidence_index_json else None
+    resolved_paths, evidence_index_summary = _resolve_request_paths(request, evidence_index)
+    matrix_path = resolved_paths["matrix_json_path"]
+    if matrix_path:
+        matrix = _load_json_object(matrix_path, "matrix_json_path", missing) or {}
+    else:
+        missing.append("matrix_json_path")
+        matrix = {}
+    pre_path = resolved_paths["pre_commit_finalizer_json"]
+    pr_path = resolved_paths["pr_metadata_finalizer_json"]
+    guard_path = resolved_paths["pr_metadata_guard_json"]
+    lifecycle_path = resolved_paths["lifecycle_summary_json"]
+    provenance_path = resolved_paths["test_provenance_json"]
+    pre = _load_json_object(pre_path, "pre_commit_finalizer_json", missing) if pre_path else None
+    pr = _load_json_object(pr_path, "pr_metadata_finalizer_json", missing) if pr_path else None
+    guard = _load_json_object(guard_path, "pr_metadata_guard_json", missing) if guard_path else None
+    lifecycle = _load_json_object(lifecycle_path, "lifecycle_summary_json", missing) if lifecycle_path else None
+    provenance = _load_json_object(provenance_path, "test_provenance_json", missing) if provenance_path else None
 
     matrix_s = _matrix_summary(matrix)
     finalizer_s = _finalizer_summary(pre, pr)
@@ -225,19 +331,20 @@ def build_lifecycle_doctor_report(request: CodexLifecycleDoctorRequest) -> dict[
         reasons.append("stale_or_refresh_required_finalizer_evidence")
 
     report = {
-        "doctor_report_id": _stable_id("codex_lifecycle_doctor", request.title, request.intended_commit_title, request.matrix_json_path),
+        "doctor_report_id": _stable_id("codex_lifecycle_doctor", request.title, request.intended_commit_title, str(matrix_path or "")),
         "title": request.title,
         "intended_commit_title": request.intended_commit_title,
         "overall_doctor_status": status,
         "readiness_summary": ";".join(reasons) if reasons else "available evidence is mutually ready; inspection-only, not authority",
         "missing_evidence": sorted(missing),
         "evidence_inputs": {
-            "matrix_json_path": request.matrix_json_path,
-            "pre_commit_finalizer_json_path": request.pre_commit_finalizer_json,
-            "pr_metadata_finalizer_json_path": request.pr_metadata_finalizer_json,
-            "pr_metadata_guard_json_path": request.pr_metadata_guard_json,
-            "lifecycle_summary_json_path": request.lifecycle_summary_json,
-            "test_provenance_json_path": request.test_provenance_json,
+            "matrix_json_path": matrix_path,
+            "pre_commit_finalizer_json_path": pre_path,
+            "pr_metadata_finalizer_json_path": pr_path,
+            "pr_metadata_guard_json_path": guard_path,
+            "lifecycle_summary_json_path": lifecycle_path,
+            "test_provenance_json_path": provenance_path,
+            "evidence_index_json_path": request.evidence_index_json,
         },
         "matrix_summary": matrix_s,
         "finalizer_summary": finalizer_s,
@@ -248,6 +355,15 @@ def build_lifecycle_doctor_report(request: CodexLifecycleDoctorRequest) -> dict[
         "next_safe_action_reason": ";".join(reasons) if reasons else "no blocking, stale, rerun-required, or missing evidence was visible to the doctor",
         "non_authority_posture": dict(NON_AUTHORITY_POSTURE),
     }
+    if evidence_index_summary is not None:
+        report["evidence_index_summary"] = evidence_index_summary
+        report["evidence_index_json_path"] = evidence_index_summary["path"]
+        report["evidence_index_id"] = evidence_index_summary["evidence_index_id"]
+        report["evidence_index_artifact_roles_present"] = evidence_index_summary["roles_present"]
+        report["evidence_index_artifact_roles_missing"] = evidence_index_summary["roles_missing"]
+        report["evidence_index_used_roles"] = evidence_index_summary["used_roles"]
+        report["evidence_index_overridden_roles"] = evidence_index_summary["overridden_roles"]
+        report["evidence_index_unusable_roles"] = evidence_index_summary["unusable_roles"]
     return report
 
 

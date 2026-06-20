@@ -136,10 +136,17 @@ A doctor report is diagnostic-only recovery evidence. It does not replace same-w
 surgical recovery, does not bless stale finalizer artifacts, and does not create PR
 metadata permission.
 
+If a landing evidence index is available, the lifecycle doctor may be invoked with
+`--evidence-index-json` so one portable manifest supplies omitted evidence paths. This
+index intake is map-only: explicit doctor CLI artifact paths override indexed paths, and
+the doctor still reads each resolved matrix/finalizer/guard/lifecycle/test-provenance JSON
+artifact before diagnosing incomplete, blocked, stale, rerun-required, or ready states.
+Index aggregate hints remain non-authoritative and do not decide readiness.
+
 ## Landing evidence index for portable inspection
 
 For late landing recovery, operators may create `codex_landing_evidence_index.json` with `scripts/build_codex_landing_evidence_index.py`. The index is a metadata-only manifest over existing evidence paths: matrix, pre-commit finalizer, post-commit/PR-metadata finalizer, PR metadata guard, lifecycle summary, lifecycle doctor report, and test-run provenance. It helps a recovery prompt or inspection tool receive one manifest instead of several separate path flags.
 
 The index preserves role distinctions. A matrix artifact remains matrix evidence, finalizer artifacts remain finalizer evidence, PR metadata guard artifacts remain guard evidence, lifecycle summary artifacts remain lifecycle-state summaries, doctor reports remain inspection reports, and test provenance remains run provenance. The index records existence, JSON readability, digests, byte sizes, schema hints, and status hints only; it does not convert diagnostic/non-proof lanes into proof and does not turn any hint into authority.
 
-Missing or invalid artifacts are explicit metadata rather than fatal recovery-loss events: omitted optional paths are `path_not_provided`, supplied nonexistent paths are `path_missing`, and invalid JSON records `readable_json: false` with an error while still retaining the raw-file digest. Operators must still inspect or rerun the underlying authoritative artifact according to the lifecycle doctor, finalizer, matrix, and PR metadata guard rules.
+Missing or invalid artifacts are explicit metadata rather than fatal recovery-loss events: omitted optional paths are `path_not_provided`, supplied nonexistent paths are `path_missing`, and invalid JSON records `readable_json: false` with an error while still retaining the raw-file digest. Operators must still inspect or rerun the underlying authoritative artifact according to the lifecycle doctor, finalizer, matrix, and PR metadata guard rules. The index answers: “Which artifacts exist, where are they, what are their digests, and what hints do they expose?” Lifecycle doctor with index answers: “Using the index as a map, what do the underlying artifacts say should be inspected or rerun?”

@@ -17,7 +17,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Inspect existing Codex landing artifacts without granting authority.")
     parser.add_argument("--title", required=True)
     parser.add_argument("--intended-commit-title", required=True)
-    parser.add_argument("--matrix-json-path", required=True)
+    parser.add_argument("--matrix-json-path")
+    parser.add_argument("--evidence-index-json")
     parser.add_argument("--pre-commit-finalizer-json")
     parser.add_argument("--pr-metadata-finalizer-json")
     parser.add_argument("--pr-metadata-guard-json")
@@ -41,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
                 pr_metadata_guard_json=args.pr_metadata_guard_json,
                 lifecycle_summary_json=args.lifecycle_summary_json,
                 test_provenance_json=args.test_provenance_json,
+                evidence_index_json=args.evidence_index_json,
                 output=args.output,
             )
         )
@@ -50,7 +52,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         write_lifecycle_doctor_report(report, args.output)
     if args.summary:
-        print(json.dumps({"doctor_report_id": report["doctor_report_id"], "overall_doctor_status": report["overall_doctor_status"], "next_safe_action": report["next_safe_action"]}, sort_keys=True))
+        summary = {"doctor_report_id": report["doctor_report_id"], "overall_doctor_status": report["overall_doctor_status"], "next_safe_action": report["next_safe_action"]}
+        if args.evidence_index_json:
+            summary["evidence_index_intake"] = "supplied"
+            summary["evidence_index_used_roles"] = report.get("evidence_index_used_roles", [])
+        print(json.dumps(summary, sort_keys=True))
     elif not args.output:
         print(json.dumps(report, indent=2, sort_keys=True))
     return 0
