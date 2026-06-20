@@ -116,3 +116,22 @@ Codex Windows local-node readiness remains planning-only. Repository mainline st
 For late landing recovery inspection, a task may create `codex_task_lifecycle_summary.json` with `scripts/build_codex_task_lifecycle_summary.py` after the required finalizer and PR metadata guard evidence has already been produced. The artifact consumes existing pre-commit finalizer JSON, post-commit/pr-metadata finalizer JSON, matrix JSON path, and optional PR metadata guard JSON, then emits one compact deterministic summary of lifecycle state.
 
 This helps reviewers see whether the existing evidence says the task is ready, blocked, or requires rerun without rerunning the landing ritual. It is not a recovery rail, authority grant, readiness gate, packet, envelope, or repeated ladder. It cannot repair stale evidence, cannot satisfy missing finalizer or guard proof, and cannot authorize PR metadata when the guard is absent or blocked.
+
+## Lifecycle doctor recovery inspection
+
+When evidence artifacts already exist, the lifecycle doctor may be used to inspect them
+without rerunning commands or creating authority. It reads only JSON evidence and can
+summarize missing optional evidence as `doctor_incomplete`, required matrix proof
+failures as `doctor_blocked`, finalizer freshness problems as `doctor_stale`, and explicit
+rerun signals as `doctor_rerun_required`.
+
+Use the doctor to decide what to inspect next, not to recover authority. Lifecycle summary
+answers: “What was the lifecycle state from specific finalizer/guard evidence?” Lifecycle
+doctor answers: “Given all available evidence artifacts, what should an operator inspect
+or rerun next?” Finalizer answers: “Can this change advance to commit/PR metadata under
+landing rules?” PR metadata guard answers: “Is PR metadata creation allowed?” Matrix
+answers: “Did required proof lanes pass?”
+
+A doctor report is diagnostic-only recovery evidence. It does not replace same-workspace
+surgical recovery, does not bless stale finalizer artifacts, and does not create PR
+metadata permission.
