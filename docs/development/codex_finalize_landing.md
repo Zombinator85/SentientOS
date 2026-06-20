@@ -103,3 +103,13 @@ This ordering applies to both pre-commit and pr-metadata phases.
 The pr-metadata/post-commit finalizer is necessary but not sufficient for `make_pr`. After it returns `ready_for_pr_metadata`, run `python scripts/codex_pr_metadata_guard.py verify` with the pre-commit finalizer artifact, pr-metadata finalizer artifact, and matrix artifact. PR metadata is forbidden unless the guard returns `pr_metadata_guard_ready`.
 
 Blocked guard decisions are hard stops. Do not reinterpret a ready finalizer artifact as permission to create PR metadata when `codex_pr_metadata_guard.py verify` reports missing proof, title mismatch, stale evidence, dirty tree evidence, matrix failure, or validation-only mismatch.
+
+## Codex task lifecycle summary artifact
+
+`python scripts/build_codex_task_lifecycle_summary.py` builds a deterministic, metadata-only `codex_task_lifecycle_summary.json` artifact from evidence that already exists. It consumes the pre-commit finalizer JSON, the post-commit/pr-metadata finalizer JSON, the matrix JSON path used for those checks, and optionally the PR metadata guard JSON. It does not rerun tests, matrix lanes, finalizer stages, PR metadata guard checks, shell commands, or cleanup.
+
+The summary emits reviewer/developer workflow fields such as `summary_id`, `task_id`, finalizer statuses, PR metadata guard status, terminal stale-evidence refresh fields, cleanup fields, refreshed matrix path fields, `overall_lifecycle_status`, `rerun_required`, and a non-authority posture block. Missing optional terminal evidence fields are represented as null/unavailable rather than treated as parser failures.
+
+The summary differs from the finalizer: the finalizer remains the executable landing authority that evaluates the tree and validation evidence. The lifecycle summary only records what the finalizer and optional guard artifacts already said. It must not be used as permission to commit, create PR metadata, call `make_pr`, ignore dirty source files, or bypass the two-phase finalizer and PR metadata guard sequence.
+
+Status interpretation is intentionally narrow: `codex_lifecycle_ready` requires `ready_to_commit`, `ready_for_pr_metadata`, and either no guard artifact or `pr_metadata_guard_ready`; any not-ready finalizer, rerun-required finalizer evidence, or non-ready provided guard artifact is `codex_lifecycle_blocked`. Missing or invalid required JSON evidence fails cleanly instead of inventing readiness.

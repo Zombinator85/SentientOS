@@ -49,3 +49,9 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Focused tests passing without a ready PR metadata guard is not a complete landing.
 
 Strict landing sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; only then `make_pr`.
+
+## Metadata-only lifecycle summaries
+
+A Codex task lifecycle summary may be produced as a developer workflow artifact after validation/finalizer/guard evidence exists. The summary consumes already-produced finalizer JSON artifacts, the matrix JSON path, and optional PR metadata guard JSON. It emits deterministic metadata including finalizer decisions, optional PR #1878 terminal freshness fields, cleanup fields, guard status, lifecycle status, rerun reason, and explicit non-authority posture flags.
+
+The summary is evidence only. It does not replace bootstrap, validation, matrix, supervisor, pre-commit finalizer, post-commit/pr-metadata finalizer, PR metadata guard, clean-tree checks, commit requirements, or `make_pr` requirements. If the summary reports `codex_lifecycle_ready`, that means only that the supplied artifacts contain ready statuses; the executable landing sequence still controls.
