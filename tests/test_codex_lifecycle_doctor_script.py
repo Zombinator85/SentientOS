@@ -38,3 +38,18 @@ def test_cli_invalid_json_exits_cleanly(tmp_path: Path) -> None:
     result = subprocess.run([sys.executable, "scripts/codex_lifecycle_doctor.py", "--title", "t", "--intended-commit-title", "t", "--matrix-json-path", str(bad)], check=False, capture_output=True, text=True)
     assert result.returncode == 2
     assert "codex_lifecycle_doctor_error" in result.stderr
+
+
+def test_cli_summary_mentions_evidence_index_intake(tmp_path: Path) -> None:
+    title = "[codex:landing] add Codex lifecycle doctor CLI"
+    matrix = _write(tmp_path / "matrix.json", {"status": "passed", "required_failure_count": 0, "nonproof_count": 0, "diagnostic_failure_count": 0, "results": []})
+    index = _write(tmp_path / "index.json", {"evidence_index_id": "idx", "artifact_roles_present": ["matrix"], "artifact_roles_missing": [], "artifacts": [{"role": "matrix", "path": str(matrix), "exists": True, "readable_json": True}], "non_authority_posture": {"index_does_not_decide_readiness": True}})
+    cmd = [sys.executable, "scripts/codex_lifecycle_doctor.py", "--title", title, "--intended-commit-title", title, "--evidence-index-json", str(index), "--summary"]
+    first = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    second = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert json.loads(first.stdout) == json.loads(second.stdout)
+    summary = json.loads(first.stdout)
+    assert summary["evidence_index_intake"] == "supplied"
+    assert summary["evidence_index_used_roles"] == ["matrix"]

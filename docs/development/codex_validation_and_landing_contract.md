@@ -70,6 +70,10 @@ The doctor must not run validation, tests, matrix lanes, finalizer commands, gua
 commands, docs commands, mypy, git, network calls, provider calls, shell commands, or
 runtime actions. It marks missing requested evidence as incomplete and invalid JSON as a
 clean CLI error. It must not infer readiness from title or intended commit title alone.
+It may accept `--evidence-index-json` to populate omitted artifact path arguments from a
+portable evidence-index manifest, but explicit CLI paths override index paths and the
+doctor must still read the resolved underlying artifact JSON files. Index aggregate hints
+are inspectability metadata only and cannot decide readiness.
 
 Diagnostic/non-proof matrix lanes appear in doctor output for visibility, including
 non-proof failures and exit reasons, but they are not blocking when `required_failure_count`
@@ -84,7 +88,8 @@ The Codex landing evidence index is a deterministic manifest for developer-workf
 The distinction is mandatory:
 
 - Evidence index: identifies which evidence artifacts exist, where they are, their digests, and their status hints.
-- Lifecycle doctor: given evidence artifacts, reports what an operator should inspect or rerun next.
+- Lifecycle doctor with index: uses the index as a map, then reads the underlying artifacts to report what an operator should inspect or rerun next.
+- Lifecycle doctor without index: given explicit evidence artifact paths, reports what an operator should inspect or rerun next.
 - Lifecycle summary: records lifecycle state from specific finalizer and guard evidence.
 - Finalizer: decides whether the change may advance to commit or PR metadata under landing rules.
 - PR metadata guard: decides whether PR metadata creation is allowed.

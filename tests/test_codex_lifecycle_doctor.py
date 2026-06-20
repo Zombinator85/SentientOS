@@ -17,6 +17,7 @@ TITLE = "[codex:landing] add Codex lifecycle doctor CLI"
 
 
 def _write(path: Path, payload: dict[str, object] | str) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload if isinstance(payload, str) else json.dumps(payload, sort_keys=True), encoding="utf-8")
     return str(path)
 
@@ -111,3 +112,77 @@ def test_non_authority_posture_fields_are_true(tmp_path: Path) -> None:
     report = build_lifecycle_doctor_report(_ready_request(tmp_path))
     assert report["non_authority_posture"]
     assert all(value is True for value in report["non_authority_posture"].values())
+
+
+def _index(path: Path, **role_paths: str) -> str:
+    artifacts = []
+    for role in ("matrix", "pre_commit_finalizer", "pr_metadata_finalizer", "pr_metadata_guard", "lifecycle_summary", "doctor_report", "test_provenance"):
+        role_path = role_paths.get(role)
+        artifacts.append({"role": role, "path": role_path, "exists": bool(role_path and Path(role_path).exists()), "readable_json": bool(role_path and Path(role_path).exists())})
+    payload = {
+        "evidence_index_id": "codex_landing_evidence_index_test",
+        "artifact_roles_present": [a["role"] for a in artifacts if a["readable_json"]],
+        "artifact_roles_missing": [a["role"] for a in artifacts if not a["readable_json"]],
+        "artifacts": artifacts,
+        "aggregate_hints": {"matrix_status": "passed", "required_failure_count": 0},
+        "non_authority_posture": {"index_does_not_decide_readiness": True},
+    }
+    return _write(path, payload)
+
+
+def test_doctor_uses_evidence_index_for_omitted_paths(tmp_path: Path) -> None:
+    request = _ready_request(tmp_path)
+    index = _index(
+        tmp_path / "index.json",
+        matrix=request.matrix_json_path or "",
+        pre_commit_finalizer=request.pre_commit_finalizer_json or "",
+        pr_metadata_finalizer=request.pr_metadata_finalizer_json or "",
+        pr_metadata_guard=request.pr_metadata_guard_json or "",
+        lifecycle_summary=request.lifecycle_summary_json or "",
+        test_provenance=request.test_provenance_json or "",
+    )
+    report = build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE, evidence_index_json=index))
+    assert report["overall_doctor_status"] == "doctor_ready"
+    assert report["evidence_inputs"]["matrix_json_path"] == request.matrix_json_path
+    assert "matrix" in report["evidence_index_summary"]["used_roles"]
+    assert report["non_authority_posture"]["doctor_uses_index_only_as_manifest"] is True
+    assert report["non_authority_posture"]["doctor_reads_underlying_artifacts"] is True
+    assert report["non_authority_posture"]["doctor_does_not_trust_index_hints_as_authority"] is True
+
+
+def test_explicit_paths_override_evidence_index_paths(tmp_path: Path) -> None:
+    index_request = _ready_request(tmp_path / "indexed")
+    explicit_matrix = _write(tmp_path / "explicit_matrix.json", _matrix(required_failure_count=1, results=[{"label": "explicit", "required": True, "proof_required": True, "proof_status": "proof-failed"}]))
+    index = _index(tmp_path / "index.json", matrix=index_request.matrix_json_path or "")
+    report = build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE, matrix_json_path=explicit_matrix, evidence_index_json=index))
+    assert report["overall_doctor_status"] == "doctor_blocked"
+    assert report["evidence_inputs"]["matrix_json_path"] == explicit_matrix
+    assert report["evidence_index_summary"]["overridden_roles"] == ["matrix"]
+
+
+def test_index_hints_do_not_override_underlying_artifact_content(tmp_path: Path) -> None:
+    blocked_matrix = _write(tmp_path / "blocked_matrix.json", _matrix(required_failure_count=1, results=[{"label": "underlying", "required": True, "proof_required": True, "proof_status": "proof-failed"}]))
+    index = _index(tmp_path / "index.json", matrix=blocked_matrix)
+    report = build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE, evidence_index_json=index))
+    assert report["overall_doctor_status"] == "doctor_blocked"
+    assert report["matrix_summary"]["required_failure_count"] == 1
+
+
+def test_index_missing_matrix_is_incomplete(tmp_path: Path) -> None:
+    index = _index(tmp_path / "index.json", matrix=str(tmp_path / "missing_matrix.json"))
+    report = build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE, evidence_index_json=index))
+    assert report["overall_doctor_status"] == "doctor_incomplete"
+    assert "matrix_json_path" in report["missing_evidence"]
+    assert report["evidence_index_summary"]["unusable_roles"][0]["role"] == "matrix"
+
+
+def test_invalid_evidence_index_json_fails_cleanly(tmp_path: Path) -> None:
+    bad = _write(tmp_path / "bad_index.json", "{")
+    with pytest.raises(CodexLifecycleDoctorError, match="evidence_index_json_invalid_json"):
+        build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE, evidence_index_json=bad))
+
+
+def test_matrix_path_required_without_evidence_index(tmp_path: Path) -> None:
+    report = build_lifecycle_doctor_report(CodexLifecycleDoctorRequest(title=TITLE, intended_commit_title=TITLE))
+    assert report["overall_doctor_status"] == "doctor_incomplete"
+    assert report["missing_evidence"] == ["matrix_json_path"]
