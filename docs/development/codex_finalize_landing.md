@@ -136,3 +136,11 @@ doctor's read-only perspective; operators must still require the actual finalize
 metadata guard decisions before commit or PR metadata. Diagnostic/non-proof matrix lanes
 remain visible in the doctor matrix summary but are reported as non-blocking unless a
 required proof lane failed.
+
+## Codex landing evidence index (metadata-only)
+
+`python scripts/build_codex_landing_evidence_index.py` writes `codex_landing_evidence_index.json`, a deterministic metadata-only manifest over already-produced landing evidence artifacts. It records each supplied artifact role, path, existence, JSON readability, raw-byte SHA-256 digest, byte size, schema hint, and status hint. Missing optional paths are represented as `path_not_provided`; supplied paths that do not exist are `path_missing`; existing invalid JSON remains indexed with its digest and an invalid-JSON error.
+
+The evidence index answers: “Which evidence artifacts exist, where are they, what are their digests, and what status hints do they expose?” It differs from the lifecycle summary, which summarizes lifecycle state from specific finalizer/guard evidence; the lifecycle doctor, which advises what an operator should inspect or rerun next; this finalizer, which decides whether a change can advance to commit or PR metadata; the PR metadata guard, which decides whether PR metadata creation is allowed; and the matrix, which reports whether required proof lanes passed.
+
+The index is intentionally non-authoritative. It does not rerun tests, matrix, finalizer, guard, lifecycle summary, doctor, docs, mypy, git, shell commands, provider calls, network calls, or runtime actions. It does not decide `ready_to_commit`, `ready_for_pr_metadata`, or `pr_metadata_guard_ready`, and it cannot authorize commit, `make_pr`, or PR metadata creation. Use it only to pass one portable manifest to inspection tooling while preserving the underlying artifact roles and authoritative checks.
