@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote, urlparse
 
 
@@ -59,7 +59,8 @@ def _read_direct_url(dist: metadata.Distribution) -> dict[str, Any] | None:
     if not direct_url_text:
         return None
     try:
-        return json.loads(direct_url_text)
+        parsed = json.loads(direct_url_text)
+        return cast(dict[str, Any], parsed) if isinstance(parsed, dict) else None
     except json.JSONDecodeError:
         return None
 

@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts import run_work_item_review_packet_matrix as matrix
+
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 class FakeCompleted:
@@ -146,3 +151,125 @@ def test_matrix_reports_strict_audit_repair_guidance() -> None:
     report=matrix.run_matrix(commands=commands, runner=lambda _ : FakeCompleted(1, stdout="failed"))
     # added by main when strict fails in full run
     assert report["status"] == "failed"
+
+
+def _write_matrix_provenance(tmp_path: Path, **overrides: object) -> None:
+    path = tmp_path / "glow" / "test_runs" / "test_run_provenance.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {
+        "metrics_status": "ok",
+        "tests_selected": 1,
+        "tests_executed": 1,
+        "tests_passed": 1,
+        "tests_skipped": 0,
+    }
+    payload.update(overrides)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_required_matrix_lane_with_nonexecuted_targeted_tests_fails(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_matrix_provenance(
+        tmp_path,
+        tests_selected=2,
+        tests_executed=0,
+        tests_passed=0,
+        tests_skipped=0,
+        exit_reason="targeted-tests-not-executed",
+    )
+    command = matrix.MatrixCommand("required", ("python", "-m", "scripts.run_tests", "tests/test_required.py"))
+
+    report = matrix.run_matrix(commands=[command], runner=lambda _cmd: FakeCompleted(0, stdout="skipped"))
+
+    assert report["status"] == "failed"
+    assert report["required_failure_count"] == 1
+    result = report["results"][0]
+    assert result["proof_required"] is True
+    assert result["execution_required"] is True
+    assert result["proof_status"] == "proof-not-executed"
+    assert result["exit_reason"] == "targeted-tests-not-executed"
+    assert result["tests_selected"] == 2
+    assert result["tests_executed"] == 0
+
+
+def test_diagnostic_nonexecution_lane_is_nonproof_and_not_required_failure(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_matrix_provenance(
+        tmp_path,
+        tests_selected=2,
+        tests_executed=0,
+        tests_passed=0,
+        tests_skipped=0,
+        exit_reason="targeted-tests-not-executed",
+    )
+    command = matrix.MatrixCommand(
+        "diagnostic",
+        ("python", "-m", "scripts.run_tests", "tests/test_diagnostic.py"),
+        required=False,
+        proof_required=False,
+        execution_required=False,
+        diagnostic_only=True,
+        nonexecution_allowed=True,
+        classification_reason="expected nonexecution diagnostic lane",
+    )
+
+    report = matrix.run_matrix(commands=[command], runner=lambda _cmd: FakeCompleted(1, stdout="skipped"))
+
+    assert report["status"] == "passed"
+    assert report["required_failure_count"] == 0
+    assert report["diagnostic_failure_count"] == 1
+    assert report["nonproof_count"] == 1
+    result = report["results"][0]
+    assert result["proof_status"] == "nonproof-diagnostic-failed"
+    assert result["diagnostic_only"] is True
+    assert result["nonexecution_allowed"] is True
+    assert result["classification_reason"] == "expected nonexecution diagnostic lane"
+
+
+def test_required_executable_lane_with_passing_selected_test_succeeds(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_matrix_provenance(tmp_path, tests_selected=3, tests_executed=3, tests_passed=3)
+    command = matrix.MatrixCommand("required", ("python", "-m", "scripts.run_tests", "tests/test_required.py"))
+
+    report = matrix.run_matrix(commands=[command], runner=lambda _cmd: FakeCompleted(0, stdout="passed"))
+
+    assert report["status"] == "passed"
+    assert report["required_failure_count"] == 0
+    result = report["results"][0]
+    assert result["proof_status"] == "proof-passed"
+    assert result["tests_selected"] == 3
+    assert result["tests_executed"] == 3
+    assert result["tests_passed"] == 3
+
+
+def test_default_nonexecuted_lanes_are_explicit_diagnostics() -> None:
+    commands = {command.label: command for command in matrix.default_matrix_commands()}
+    diagnostic = commands["real_memory_root_admission_gate_tests"]
+    assert diagnostic.required is False
+    assert diagnostic.proof_required is False
+    assert diagnostic.execution_required is False
+    assert diagnostic.diagnostic_only is True
+    assert diagnostic.nonexecution_allowed is True
+    assert diagnostic.classification_reason is not None
+
+
+def test_matrix_summary_metadata_exposes_proof_classification(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_matrix_provenance(tmp_path, tests_selected=1, tests_executed=1, tests_passed=1)
+    report = matrix.run_matrix(
+        commands=[matrix.MatrixCommand("ok", ("python", "-m", "scripts.run_tests", "tests/test_ok.py"))],
+        runner=lambda _cmd: FakeCompleted(0, stdout="ok"),
+    )
+    result = report["results"][0]
+    for key in (
+        "proof_required",
+        "execution_required",
+        "diagnostic_only",
+        "nonexecution_allowed",
+        "proof_status",
+        "tests_selected",
+        "tests_executed",
+        "tests_passed",
+        "metrics_status",
+    ):
+        assert key in result

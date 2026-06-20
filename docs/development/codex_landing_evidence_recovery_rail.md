@@ -62,7 +62,7 @@ Use stable snake-case labels in task reports and recovery prompts so failures ar
 - `workspace_contamination_or_absence_gate_failure`: unknown dirty files, missing expected task-owned files, or absence gates block commit until exact paths are resolved or classified.
 - `environment_or_dependency_noise`: Python/package setup warnings, dependency chatter, or platform limitations are not implementation evidence unless a required command fails.
 - `graph_topology_discovery_failure`: the safe insertion point or handoff topology is unknown. Stop for topology reconstruction instead of creating mechanical repeated rungs.
-- `lane_or_matrix_contract_failure`: required lanes, matrix entries, proof maps, or capability wiring are missing or stale. Repair the contract surface and rerun required lanes.
+- `lane_or_matrix_contract_failure`: required lanes, matrix entries, proof maps, or capability wiring are missing or stale. Repair the contract surface and rerun required lanes. Focused or targeted `scripts.run_tests` commands are proof-quality only when selected tests execute and at least one selected test passes; matrix lanes that are intentionally skipped, unsupported, diagnostic, or nonexecuted must be explicitly classified as non-proof and may not satisfy required proof.
 - `prompt_bloat_or_repeated_law_failure`: prompts repeat stable law instead of referencing repo doctrine, increasing drift risk. Replace repeated law with references plus task-specific deltas.
 
 ## Task classes for prompt shaping
