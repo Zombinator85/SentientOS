@@ -150,3 +150,19 @@ For late landing recovery, operators may create `codex_landing_evidence_index.js
 The index preserves role distinctions. A matrix artifact remains matrix evidence, finalizer artifacts remain finalizer evidence, PR metadata guard artifacts remain guard evidence, lifecycle summary artifacts remain lifecycle-state summaries, doctor reports remain inspection reports, and test provenance remains run provenance. The index records existence, JSON readability, digests, byte sizes, schema hints, and status hints only; it does not convert diagnostic/non-proof lanes into proof and does not turn any hint into authority.
 
 Missing or invalid artifacts are explicit metadata rather than fatal recovery-loss events: omitted optional paths are `path_not_provided`, supplied nonexistent paths are `path_missing`, and invalid JSON records `readable_json: false` with an error while still retaining the raw-file digest. Operators must still inspect or rerun the underlying authoritative artifact according to the lifecycle doctor, finalizer, matrix, and PR metadata guard rules. The index answers: “Which artifacts exist, where are they, what are their digests, and what hints do they expose?” Lifecycle doctor with index answers: “Using the index as a map, what do the underlying artifacts say should be inspected or rerun?”
+
+## Evidence appendix for recovery review
+
+When a recovery task already has an evidence index and/or lifecycle doctor report, `scripts/render_codex_landing_evidence_appendix.py` may render those existing JSON files into a compact markdown appendix. The appendix is a portable review surface for artifact roles, paths, digest short forms, doctor status, matrix proof counts, finalizer/guard hints, test provenance, and non-authority posture.
+
+The distinction is mandatory:
+
+- Evidence index: identifies artifact paths, existence, readable JSON state, digests, and aggregate hints.
+- Lifecycle doctor: reads underlying artifacts and reports inspection/rerun guidance without granting authority.
+- Lifecycle summary: records lifecycle state from specific finalizer and guard artifacts.
+- Evidence appendix: formats already-existing index/doctor evidence as markdown for reviewers.
+- Finalizer: decides whether landing may advance to commit or PR metadata under landing rules.
+- PR metadata guard: decides whether PR metadata creation is allowed.
+- Matrix: records whether required proof lanes passed.
+
+The appendix is recovery evidence only. It does not rerun commands, decide readiness, convert diagnostic/non-proof lanes into proof, bypass finalizer or PR metadata guard, or authorize commit, PR creation, or runtime action.
