@@ -153,3 +153,24 @@ readiness authority.
 The evidence index answers: “Which evidence artifacts exist, where are they, what are their digests, and what status hints do they expose?” It differs from the lifecycle summary, which summarizes lifecycle state from specific finalizer/guard evidence; the lifecycle doctor, which advises what an operator should inspect or rerun next; this finalizer, which decides whether a change can advance to commit or PR metadata; the PR metadata guard, which decides whether PR metadata creation is allowed; and the matrix, which reports whether required proof lanes passed.
 
 The index is intentionally non-authoritative. It does not rerun tests, matrix, finalizer, guard, lifecycle summary, doctor, docs, mypy, git, shell commands, provider calls, network calls, or runtime actions. It does not decide `ready_to_commit`, `ready_for_pr_metadata`, or `pr_metadata_guard_ready`, and it cannot authorize commit, `make_pr`, or PR metadata creation. Use it only to pass one portable manifest to inspection tooling while preserving the underlying artifact roles and authoritative checks.
+
+## Codex landing evidence appendix
+
+`python scripts/render_codex_landing_evidence_appendix.py` renders an existing Codex landing evidence index and/or lifecycle doctor report into deterministic markdown for PR bodies, reviewer notes, or operator logs. It is metadata-only, read-only, and non-authoritative. It reads only the JSON paths supplied on the command line and writes markdown plus an optional JSON sidecar; it does not run tests, matrix, docs, mypy, finalizer, PR metadata guard, lifecycle doctor, evidence-index builder, git, network, provider, shell, or runtime actions.
+
+Example:
+
+```bash
+python scripts/render_codex_landing_evidence_appendix.py \
+  --title "<task title>" \
+  --intended-commit-title "<intended commit title>" \
+  --evidence-index-json /tmp/codex_landing_evidence_index.json \
+  --doctor-report-json /tmp/codex_lifecycle_doctor.json \
+  --output /tmp/codex_landing_evidence_appendix.md \
+  --json-output /tmp/codex_landing_evidence_appendix.summary.json \
+  --summary
+```
+
+Evidence index answers: “Which artifacts exist, where are they, what are their digests, and what hints do they expose?” Lifecycle doctor answers: “Using the artifacts, what should an operator inspect or rerun next?” Evidence appendix answers: “How can the current evidence be rendered for reviewers in a compact deterministic markdown format?” Finalizer answers: “Can this change advance to commit/PR metadata under landing rules?” PR metadata guard answers: “Is PR metadata creation allowed?” Matrix answers: “Did required proof lanes pass?”
+
+The appendix can be pasted into PR bodies or operator logs without changing `make_pr`, finalizer, PR metadata guard, or matrix behavior. It never grants commit authority, PR creation authority, runtime authority, readiness, or proof status.

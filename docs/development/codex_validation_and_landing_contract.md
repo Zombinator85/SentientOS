@@ -96,3 +96,20 @@ The distinction is mandatory:
 - Matrix: reports whether required proof lanes passed.
 
 The evidence index must not replace or weaken bootstrap, validation, matrix, supervisor, finalizer, PR metadata guard, clean-tree requirements, commit requirements, or `make_pr` requirements. Missing optional artifacts and invalid JSON are represented in the index for visibility only; they do not become proof and must be handled by the authoritative tools that consume the underlying artifacts.
+
+## Evidence appendix review surface
+
+A Codex landing evidence appendix can be generated from existing evidence index and/or lifecycle doctor JSON with `scripts/render_codex_landing_evidence_appendix.py`. It creates deterministic markdown for PR bodies, reviewer notes, or operator logs and can optionally write a deterministic metadata sidecar with `--json-output`.
+
+The appendix is not a validation lane and not a landing authority. Missing optional inputs render as “not provided”; supplied missing or invalid JSON paths fail cleanly. The renderer does not run `scripts.run_tests`, the matrix, docs, mypy, finalizer, PR metadata guard, lifecycle doctor, evidence index builder, git, network, provider, shell, or runtime commands.
+
+Required distinction for reviews:
+
+- Evidence index answers: “Which artifacts exist, where are they, what are their digests, and what hints do they expose?”
+- Lifecycle doctor answers: “Using the artifacts, what should an operator inspect or rerun next?”
+- Evidence appendix answers: “How can the current evidence be rendered for reviewers in a compact deterministic markdown format?”
+- Finalizer answers: “Can this change advance to commit/PR metadata under landing rules?”
+- PR metadata guard answers: “Is PR metadata creation allowed?”
+- Matrix answers: “Did required proof lanes pass?”
+
+The appendix may be pasted into PR bodies or operator logs, but doing so does not change `make_pr`, finalizer, PR metadata guard, matrix, clean-tree, or proof requirements.
