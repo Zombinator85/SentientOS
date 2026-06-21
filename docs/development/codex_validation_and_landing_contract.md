@@ -113,3 +113,6 @@ Required distinction for reviews:
 - Matrix answers: “Did required proof lanes pass?”
 
 The appendix may be pasted into PR bodies or operator logs, but doing so does not change `make_pr`, finalizer, PR metadata guard, matrix, clean-tree, or proof requirements.
+## Beneficial trait doctrine map
+
+The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_doctrine.md) provides a static rubric for how existing validation and landing rails support reviewer-facing behavioral traits. It does not change this contract, add a gate, decide matrix success, authorize commits, or authorize PR metadata.

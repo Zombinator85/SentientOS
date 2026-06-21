@@ -166,3 +166,6 @@ The distinction is mandatory:
 - Matrix: records whether required proof lanes passed.
 
 The appendix is recovery evidence only. It does not rerun commands, decide readiness, convert diagnostic/non-proof lanes into proof, bypass finalizer or PR metadata guard, or authorize commit, PR creation, or runtime action.
+## Beneficial trait doctrine map
+
+The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_doctrine.md) labels the recovery rail and adjacent landing evidence rails with reviewer-facing behavioral traits such as corrigibility and option-preserving patience. It is not a recovery authority and cannot replace recovery artifacts, finalizer readiness, matrix proof, or PR metadata guard readiness.
