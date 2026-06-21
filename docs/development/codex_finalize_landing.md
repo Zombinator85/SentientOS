@@ -174,3 +174,6 @@ python scripts/render_codex_landing_evidence_appendix.py \
 Evidence index answers: “Which artifacts exist, where are they, what are their digests, and what hints do they expose?” Lifecycle doctor answers: “Using the artifacts, what should an operator inspect or rerun next?” Evidence appendix answers: “How can the current evidence be rendered for reviewers in a compact deterministic markdown format?” Finalizer answers: “Can this change advance to commit/PR metadata under landing rules?” PR metadata guard answers: “Is PR metadata creation allowed?” Matrix answers: “Did required proof lanes pass?”
 
 The appendix can be pasted into PR bodies or operator logs without changing `make_pr`, finalizer, PR metadata guard, or matrix behavior. It never grants commit authority, PR creation authority, runtime authority, readiness, or proof status.
+## Beneficial trait doctrine map
+
+The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_doctrine.md) explains which beneficial behavioral traits the existing finalizer, guard, matrix, lifecycle, and evidence rails surface. It is descriptive doctrine only: it does not decide readiness, authorize commits, authorize PR metadata, rerun evidence, or bypass this finalizer.
