@@ -70,3 +70,9 @@ Those answers remain with the existing landing rails and human review. The doctr
 ## Reviewer use
 
 Reviewers can use the map to understand what each rail is protecting. For example, a rail that refuses stale evidence may be mapped to truthfulness, corrigibility, downside-aware planning, and option-preserving patience. That mapping is explanatory, not authoritative: if the finalizer blocks, the map cannot override it; if the PR metadata guard blocks, the map cannot authorize PR metadata; if the matrix fails or times out, the map cannot convert that result into proof.
+
+## Evidence appendix rendering
+
+`scripts/render_codex_landing_evidence_appendix.py` can optionally accept the doctrine JSON with `--doctrine-map-json` and render a compact **Beneficial Trait Doctrine** section for reviewers. The doctrine map answers: “Which beneficial traits are connected to each existing landing/evidence rail?” The evidence appendix with doctrine answers: “How can existing evidence and doctrine context be rendered for reviewers in a compact deterministic markdown document?”
+
+This rendering is review context only. The appendix does not make the doctrine map authoritative, does not decide readiness, does not authorize commit or PR creation, does not train or modify models, and does not rerun the doctrine builder or any validation command. Finalizer readiness and PR metadata guard readiness remain the only landing authorities for their respective phases.
