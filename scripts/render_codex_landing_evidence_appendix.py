@@ -21,6 +21,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True)
     parser.add_argument("--evidence-index-json")
     parser.add_argument("--doctor-report-json")
+    parser.add_argument("--doctrine-map-json")
     parser.add_argument("--json-output")
     parser.add_argument("--summary", action="store_true")
     return parser
@@ -35,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         evidence_index_json=args.evidence_index_json,
         doctor_report_json=args.doctor_report_json,
         json_output=args.json_output,
+        doctrine_map_json=args.doctrine_map_json,
     )
     try:
         markdown, metadata = build_landing_evidence_appendix(request)
@@ -45,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_output:
         write_landing_evidence_appendix_metadata(metadata, args.json_output)
     if args.summary:
-        print(json.dumps({"appendix_is_non_authoritative": True, "doctor_report_provided": metadata["doctor_report_provided"], "evidence_index_provided": metadata["evidence_index_provided"], "output": args.output}, sort_keys=True))
+        print(json.dumps({"appendix_is_non_authoritative": True, "doctor_report_provided": metadata["doctor_report_provided"], "evidence_index_provided": metadata["evidence_index_provided"], "doctrine_map_provided": metadata["doctrine_map_json_path"] is not None, "doctrine_trait_count": metadata["doctrine_trait_count"], "doctrine_rail_mapping_count": metadata["doctrine_rail_mapping_count"], "output": args.output}, sort_keys=True))
     return 0
 
 

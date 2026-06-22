@@ -29,6 +29,7 @@ class CodexLandingEvidenceAppendixRequest:
     evidence_index_json: str | None = None
     doctor_report_json: str | None = None
     json_output: str | None = None
+    doctrine_map_json: str | None = None
 
 
 def _load_json_object(path_text: str, label: str) -> dict[str, Any]:
@@ -157,6 +158,93 @@ def _render_finalizer(lines: list[str], index: Mapping[str, Any] | None, doctor:
     lines.append("")
 
 
+def _doctrine_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return []
+
+
+def _truthy_mapping_flags(mapping: Mapping[str, Any], keys: tuple[str, ...]) -> bool:
+    return all(mapping.get(key) is True for key in keys)
+
+
+def _render_doctrine(lines: list[str], doctrine: Mapping[str, Any] | None) -> None:
+    lines.append("## Beneficial Trait Doctrine")
+    if doctrine is None:
+        lines.append("Beneficial trait doctrine map JSON was not provided; no doctrine tables were rendered.")
+        lines.append("The appendix remains review context only and does not use doctrine as readiness authority.")
+        lines.append("")
+        return
+
+    posture = _as_mapping(doctrine.get("non_authority_posture"))
+    lines.append("### Doctrine posture")
+    for key in ("metadata_only", "doctrine_only", "not_model_training", "not_reinforcement_learning"):
+        _kv(lines, key, doctrine.get(key))
+    for key in sorted(posture):
+        _kv(lines, key, posture[key])
+    lines.append("")
+
+    lines.append("### Trait catalog summary")
+    lines.append("| trait_id | short definition |")
+    lines.append("| --- | --- |")
+    trait_catalog = _as_mapping(doctrine.get("trait_catalog"))
+    for trait_id in sorted(str(key) for key in trait_catalog):
+        lines.append(f"| {_cell(trait_id)} | {_cell(trait_catalog.get(trait_id))} |")
+    lines.append("")
+
+    lines.append("### Rail-to-trait summary")
+    lines.append("| rail_id | rail_name | enforced_traits | reviewer_summary |")
+    lines.append("| --- | --- | --- | --- |")
+    rails = [_as_mapping(item) for item in _doctrine_list(doctrine.get("rail_mappings"))]
+    for rail in sorted(rails, key=lambda item: _display(item.get("rail_id"))):
+        row = [rail.get("rail_id"), rail.get("rail_name"), rail.get("enforced_traits"), rail.get("reviewer_summary")]
+        lines.append("| " + " | ".join(_cell(value) for value in row) + " |")
+    lines.append("")
+
+    lines.append("### Trait-to-rails index")
+    lines.append("| trait_id | rails |")
+    lines.append("| --- | --- |")
+    trait_to_rails = _as_mapping(doctrine.get("trait_to_rails_index"))
+    for trait_id in sorted(str(key) for key in trait_to_rails):
+        lines.append(f"| {_cell(trait_id)} | {_cell(trait_to_rails.get(trait_id))} |")
+    lines.append("")
+
+    lines.append("### Doctrine boundary")
+    lines.append("- doctrine map explains existing rails")
+    lines.append("- doctrine map does not decide readiness")
+    lines.append("- doctrine map does not authorize commit")
+    lines.append("- doctrine map does not authorize PR creation")
+    lines.append("- doctrine map does not train or modify models")
+    lines.append("")
+
+
+def _doctrine_metadata(request: CodexLandingEvidenceAppendixRequest, doctrine: Mapping[str, Any] | None) -> dict[str, Any]:
+    trait_catalog = _as_mapping(doctrine.get("trait_catalog")) if doctrine is not None else {}
+    rails = [_as_mapping(item) for item in _doctrine_list(doctrine.get("rail_mappings"))] if doctrine is not None else []
+    posture = _as_mapping(doctrine.get("non_authority_posture")) if doctrine is not None else {}
+    return {
+        "appendix_does_not_use_doctrine_as_authority": True,
+        "appendix_renders_doctrine_as_review_context_only": True,
+        "doctrine_map_id": doctrine.get("doctrine_map_id") if doctrine is not None else None,
+        "doctrine_map_json_path": request.doctrine_map_json,
+        "doctrine_non_authority_posture_seen": _truthy_mapping_flags(
+            posture,
+            (
+                "doctrine_map_does_not_decide_readiness",
+                "doctrine_map_does_not_authorize_commit",
+                "doctrine_map_does_not_authorize_pr_creation",
+                "doctrine_map_does_not_train_or_modify_models",
+            ),
+        ),
+        "doctrine_rail_mapping_count": len(rails),
+        "doctrine_rails_rendered": [_display(rail.get("rail_id")) for rail in sorted(rails, key=lambda item: _display(item.get("rail_id")))],
+        "doctrine_trait_count": len(trait_catalog),
+        "doctrine_traits_rendered": sorted(str(key) for key in trait_catalog),
+    }
+
+
 def _render_test_provenance(lines: list[str], index: Mapping[str, Any] | None, doctor: Mapping[str, Any] | None) -> None:
     hints = _as_mapping(index.get("aggregate_hints")) if index is not None else {}
     provenance = _as_mapping(_doctor_summary(doctor, "test_provenance_summary"))
@@ -170,6 +258,7 @@ def _render_test_provenance(lines: list[str], index: Mapping[str, Any] | None, d
 def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest) -> tuple[str, dict[str, Any]]:
     index = _load_json_object(request.evidence_index_json, "evidence_index_json") if request.evidence_index_json else None
     doctor = _load_json_object(request.doctor_report_json, "doctor_report_json") if request.doctor_report_json else None
+    doctrine = _load_json_object(request.doctrine_map_json, "doctrine_map_json") if request.doctrine_map_json else None
     lines = [
         "# Codex Landing Evidence Appendix",
         "",
@@ -189,6 +278,7 @@ def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest
     _render_matrix(lines, index, doctor)
     _render_finalizer(lines, index, doctor)
     _render_test_provenance(lines, index, doctor)
+    _render_doctrine(lines, doctrine)
     lines.append("## Non-authority posture")
     for key in sorted(NON_AUTHORITY_POSTURE):
         _kv(lines, key, NON_AUTHORITY_POSTURE[key])
@@ -203,6 +293,7 @@ def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest
         "non_authority_posture": dict(NON_AUTHORITY_POSTURE),
         "output": request.output,
         "title": request.title,
+        **_doctrine_metadata(request, doctrine),
     }
     return "\n".join(lines), metadata
 

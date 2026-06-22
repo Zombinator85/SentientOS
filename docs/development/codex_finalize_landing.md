@@ -177,3 +177,9 @@ The appendix can be pasted into PR bodies or operator logs without changing `mak
 ## Beneficial trait doctrine map
 
 The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_doctrine.md) explains which beneficial behavioral traits the existing finalizer, guard, matrix, lifecycle, and evidence rails surface. It is descriptive doctrine only: it does not decide readiness, authorize commits, authorize PR metadata, rerun evidence, or bypass this finalizer.
+
+### Appendix doctrine-map intake
+
+The evidence appendix renderer may include static beneficial-trait context with `--doctrine-map-json PATH`, where `PATH` is JSON emitted by `scripts/build_codex_beneficial_trait_doctrine.py`. The renderer only reads that supplied JSON and renders the **Beneficial Trait Doctrine** section; it does not execute the doctrine builder, run validation, decide readiness, or create PR metadata.
+
+Doctrine rendering is reviewer context only. It explains which beneficial traits are connected to existing landing/evidence rails and how that context can be displayed beside evidence metadata. It does not answer whether a change may commit, whether PR metadata may be created, whether matrix proof passed, whether artifacts are fresh, whether a model is aligned, or whether reinforcement learning succeeded. The finalizer and PR metadata guard remain the landing authorities.

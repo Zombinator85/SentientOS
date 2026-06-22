@@ -133,3 +133,89 @@ def test_json_sidecar_output_is_deterministic_for_same_inputs(tmp_path: Path) ->
     _, first = _render(tmp_path, index=_index(), doctor=_doctor())
     _, second = _render(tmp_path, index=_index(), doctor=_doctor())
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
+def _doctrine() -> dict[str, object]:
+    return {
+        "doctrine_map_id": "doctrine.vtest",
+        "metadata_only": True,
+        "doctrine_only": True,
+        "not_model_training": True,
+        "not_reinforcement_learning": True,
+        "trait_catalog": {
+            "a_trait": "Alpha | line\nbreak.",
+            "b_trait": "Beta definition.",
+        },
+        "rail_mappings": [
+            {"rail_id": "z_rail", "rail_name": "Z rail | name", "enforced_traits": ["b_trait"], "reviewer_summary": "Z summary\nline."},
+            {"rail_id": "a_rail", "rail_name": "A rail", "enforced_traits": ["a_trait", "b_trait"], "reviewer_summary": "A summary."},
+        ],
+        "trait_to_rails_index": {"b_trait": ["a_rail", "z_rail"], "a_trait": ["a_rail"]},
+        "non_authority_posture": {
+            "doctrine_map_does_not_decide_readiness": True,
+            "doctrine_map_does_not_authorize_commit": True,
+            "doctrine_map_does_not_authorize_pr_creation": True,
+            "doctrine_map_does_not_train_or_modify_models": True,
+        },
+    }
+
+
+def _render_with_doctrine(tmp_path: Path, doctrine: dict[str, object]) -> tuple[str, dict[str, object]]:
+    doctrine_path = _write(tmp_path / "doctrine.json", doctrine)
+    return build_landing_evidence_appendix(CodexLandingEvidenceAppendixRequest(TITLE, TITLE, output=str(tmp_path / "out.md"), doctrine_map_json=doctrine_path))
+
+
+def test_appendix_renders_successfully_without_doctrine_map(tmp_path: Path) -> None:
+    markdown, metadata = _render(tmp_path)
+    assert "## Beneficial Trait Doctrine" in markdown
+    assert "Beneficial trait doctrine map JSON was not provided" in markdown
+    assert metadata["doctrine_map_json_path"] is None
+    assert metadata["appendix_does_not_use_doctrine_as_authority"] is True
+
+
+def test_appendix_renders_doctrine_section_when_map_is_supplied(tmp_path: Path) -> None:
+    markdown, metadata = _render_with_doctrine(tmp_path, _doctrine())
+    assert "### Doctrine posture" in markdown
+    assert "### Trait catalog summary" in markdown
+    assert "### Rail-to-trait summary" in markdown
+    assert "### Trait-to-rails index" in markdown
+    assert "doctrine map does not decide readiness" in markdown
+    assert metadata["doctrine_map_id"] == "doctrine.vtest"
+
+
+def test_invalid_doctrine_json_fails_cleanly(tmp_path: Path) -> None:
+    bad = _write(tmp_path / "bad_doctrine.json", "{")
+    with pytest.raises(CodexLandingEvidenceAppendixError, match="doctrine_map_json_invalid_json"):
+        build_landing_evidence_appendix(CodexLandingEvidenceAppendixRequest(TITLE, TITLE, doctrine_map_json=bad))
+
+
+def test_missing_provided_doctrine_json_path_fails_cleanly(tmp_path: Path) -> None:
+    with pytest.raises(CodexLandingEvidenceAppendixError, match="doctrine_map_json_missing"):
+        build_landing_evidence_appendix(CodexLandingEvidenceAppendixRequest(TITLE, TITLE, doctrine_map_json=str(tmp_path / "missing_doctrine.json")))
+
+
+def test_doctrine_tables_are_deterministic_and_safely_escaped(tmp_path: Path) -> None:
+    markdown, _metadata = _render_with_doctrine(tmp_path, _doctrine())
+    assert "| a_trait | Alpha \\| line<br>break. |" in markdown
+    assert markdown.index("| a_rail | A rail") < markdown.index("| z_rail | Z rail \\| name")
+    assert "Z summary<br>line." in markdown
+    assert markdown.index("| a_trait | a_rail |") < markdown.index("| b_trait | a_rail, z_rail |")
+
+
+def test_doctrine_json_sidecar_fields_are_deterministic(tmp_path: Path) -> None:
+    _markdown, first = _render_with_doctrine(tmp_path, _doctrine())
+    _markdown, second = _render_with_doctrine(tmp_path, _doctrine())
+    assert first["doctrine_trait_count"] == 2
+    assert first["doctrine_rail_mapping_count"] == 2
+    assert first["doctrine_traits_rendered"] == ["a_trait", "b_trait"]
+    assert first["doctrine_rails_rendered"] == ["a_rail", "z_rail"]
+    assert first["doctrine_non_authority_posture_seen"] is True
+    assert first["appendix_renders_doctrine_as_review_context_only"] is True
+    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
+def test_appendix_output_does_not_include_doctrine_as_readiness_authority(tmp_path: Path) -> None:
+    markdown, metadata = _render_with_doctrine(tmp_path, _doctrine())
+    assert "does not use doctrine as readiness authority" not in markdown  # only absent from provided-map section
+    assert "doctrine map does not decide readiness" in markdown
+    assert metadata["appendix_does_not_use_doctrine_as_authority"] is True
