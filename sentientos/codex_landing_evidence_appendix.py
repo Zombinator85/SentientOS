@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,17 +33,70 @@ class CodexLandingEvidenceAppendixRequest:
     doctrine_map_json: str | None = None
 
 
-def _load_json_object(path_text: str, label: str) -> dict[str, Any]:
+def _omitted_input_provenance() -> dict[str, Any]:
+    return {
+        "provided": False,
+        "path": None,
+        "exists": False,
+        "readable_json": False,
+        "digest_algo": "sha256",
+        "digest": None,
+        "byte_size": None,
+        "error": None,
+    }
+
+
+def _load_json_object_with_provenance(path_text: str, label: str) -> tuple[dict[str, Any], dict[str, Any]]:
     path = Path(path_text)
+    provenance: dict[str, Any] = {
+        "provided": True,
+        "path": path_text,
+        "exists": path.exists(),
+        "readable_json": False,
+        "digest_algo": "sha256",
+        "digest": None,
+        "byte_size": None,
+        "error": None,
+    }
     if not path.exists():
+        provenance["error"] = f"{label}_missing"
         raise CodexLandingEvidenceAppendixError(f"{label}_missing:{path_text}")
+    raw = path.read_bytes()
+    provenance["digest"] = hashlib.sha256(raw).hexdigest()
+    provenance["byte_size"] = len(raw)
     try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
+        loaded = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        provenance["error"] = f"{label}_invalid_utf8"
+        raise CodexLandingEvidenceAppendixError(f"{label}_invalid_utf8:{path_text}:{exc.reason}") from exc
     except json.JSONDecodeError as exc:
+        provenance["error"] = f"{label}_invalid_json"
         raise CodexLandingEvidenceAppendixError(f"{label}_invalid_json:{path_text}:{exc.msg}") from exc
     if not isinstance(loaded, dict):
+        provenance["error"] = f"{label}_json_not_object"
         raise CodexLandingEvidenceAppendixError(f"{label}_json_not_object:{path_text}")
+    provenance["readable_json"] = True
+    return loaded, provenance
+
+
+def _load_json_object(path_text: str, label: str) -> dict[str, Any]:
+    loaded, _provenance = _load_json_object_with_provenance(path_text, label)
     return loaded
+
+
+def _markdown_output_provenance(markdown: str, output: str | None, json_output: str | None) -> dict[str, Any]:
+    raw = markdown.encode("utf-8")
+    return {
+        "markdown_output_path": output,
+        "markdown_digest_algo": "sha256",
+        "markdown_digest": hashlib.sha256(raw).hexdigest(),
+        "markdown_byte_size": len(raw),
+        "json_sidecar_output_path": json_output,
+        "json_sidecar_digest_algo": None,
+        "json_sidecar_digest": None,
+        "json_sidecar_byte_size": None,
+        "json_sidecar_self_digest_note": "Intentionally omitted to avoid embedding an unstable digest of the sidecar inside itself.",
+    }
 
 
 def _as_mapping(value: Any) -> Mapping[str, Any]:
@@ -256,9 +310,20 @@ def _render_test_provenance(lines: list[str], index: Mapping[str, Any] | None, d
 
 
 def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest) -> tuple[str, dict[str, Any]]:
-    index = _load_json_object(request.evidence_index_json, "evidence_index_json") if request.evidence_index_json else None
-    doctor = _load_json_object(request.doctor_report_json, "doctor_report_json") if request.doctor_report_json else None
-    doctrine = _load_json_object(request.doctrine_map_json, "doctrine_map_json") if request.doctrine_map_json else None
+    input_provenance = {
+        "evidence_index_json": _omitted_input_provenance(),
+        "doctor_report_json": _omitted_input_provenance(),
+        "doctrine_map_json": _omitted_input_provenance(),
+    }
+    index = None
+    doctor = None
+    doctrine = None
+    if request.evidence_index_json:
+        index, input_provenance["evidence_index_json"] = _load_json_object_with_provenance(request.evidence_index_json, "evidence_index_json")
+    if request.doctor_report_json:
+        doctor, input_provenance["doctor_report_json"] = _load_json_object_with_provenance(request.doctor_report_json, "doctor_report_json")
+    if request.doctrine_map_json:
+        doctrine, input_provenance["doctrine_map_json"] = _load_json_object_with_provenance(request.doctrine_map_json, "doctrine_map_json")
     lines = [
         "# Codex Landing Evidence Appendix",
         "",
@@ -283,8 +348,18 @@ def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest
     for key in sorted(NON_AUTHORITY_POSTURE):
         _kv(lines, key, NON_AUTHORITY_POSTURE[key])
     lines.append("")
+    markdown = "\n".join(lines)
     metadata = {
         "appendix_is_non_authoritative": True,
+        "provenance_digest_version": 1,
+        "input_provenance": input_provenance,
+        "output_provenance": _markdown_output_provenance(markdown, request.output, request.json_output),
+        "appendix_provenance_is_metadata_only": True,
+        "appendix_provenance_is_read_only": True,
+        "appendix_provenance_does_not_verify_authority": True,
+        "appendix_provenance_does_not_decide_readiness": True,
+        "appendix_provenance_does_not_authorize_commit": True,
+        "appendix_provenance_does_not_authorize_pr_creation": True,
         "doctor_report_id": doctor.get("doctor_report_id") if doctor is not None else None,
         "doctor_report_provided": doctor is not None,
         "evidence_index_id": index.get("evidence_index_id") if index is not None else None,
@@ -295,7 +370,7 @@ def build_landing_evidence_appendix(request: CodexLandingEvidenceAppendixRequest
         "title": request.title,
         **_doctrine_metadata(request, doctrine),
     }
-    return "\n".join(lines), metadata
+    return markdown, metadata
 
 
 def write_landing_evidence_appendix(markdown: str, output: str) -> None:

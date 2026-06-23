@@ -26,7 +26,8 @@ def test_cli_writes_markdown_json_sidecar_and_prints_compact_summary(tmp_path: P
     assert result.returncode == 0, result.stderr
     assert "# Codex Landing Evidence Appendix" in output.read_text(encoding="utf-8")
     assert json.loads(sidecar.read_text(encoding="utf-8"))["appendix_is_non_authoritative"] is True
-    assert json.loads(result.stdout) == {"appendix_is_non_authoritative": True, "doctor_report_provided": False, "evidence_index_provided": True, "doctrine_map_provided": False, "doctrine_trait_count": 0, "doctrine_rail_mapping_count": 0, "output": str(output)}
+    summary = json.loads(result.stdout)
+    assert summary == {"appendix_is_non_authoritative": True, "doctor_report_provided": False, "evidence_index_provided": True, "doctrine_map_provided": False, "doctrine_trait_count": 0, "doctrine_rail_mapping_count": 0, "output": str(output), "provenance_digest_output": True, "provenance_digest_version": 1}
 
 
 def test_cli_failure_returns_exit_code_2_with_useful_message(tmp_path: Path) -> None:
@@ -51,7 +52,9 @@ def test_cli_accepts_doctrine_map_json_and_summary_mentions_intake(tmp_path: Pat
     assert result.returncode == 0, result.stderr
     assert "## Beneficial Trait Doctrine" in output.read_text(encoding="utf-8")
     assert json.loads(sidecar.read_text(encoding="utf-8"))["doctrine_map_json_path"] == str(doctrine)
-    assert json.loads(result.stdout)["doctrine_map_provided"] is True
+    summary = json.loads(result.stdout)
+    assert summary["doctrine_map_provided"] is True
+    assert summary["provenance_digest_output"] is True
 
 
 def test_cli_doctrine_json_failure_returns_exit_code_2_with_useful_message(tmp_path: Path) -> None:
@@ -60,3 +63,15 @@ def test_cli_doctrine_json_failure_returns_exit_code_2_with_useful_message(tmp_p
     assert result.returncode == 2
     assert "codex_landing_evidence_appendix_error: doctrine_map_json_missing" in result.stderr
     assert not output.exists()
+
+
+def test_cli_invalid_json_failure_returns_exit_code_2_with_useful_message(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("{", encoding="utf-8")
+    output = tmp_path / "appendix.md"
+    sidecar = tmp_path / "appendix.json"
+    result = subprocess.run([sys.executable, "scripts/render_codex_landing_evidence_appendix.py", "--title", TITLE, "--intended-commit-title", TITLE, "--evidence-index-json", str(bad), "--output", str(output), "--json-output", str(sidecar)], check=False, text=True, capture_output=True)
+    assert result.returncode == 2
+    assert "codex_landing_evidence_appendix_error: evidence_index_json_invalid_json" in result.stderr
+    assert not output.exists()
+    assert not sidecar.exists()
