@@ -37,3 +37,7 @@ The snapshot renders a mount view for `/vow`, `/glow`, `/pulse`, `/daemon`, and 
 The snapshot does not answer whether a change may commit, whether PR metadata may be created, whether matrix proof passed as a new decision, whether artifacts are fresh as a new decision, whether a daemon should act, whether federation consensus has been reached, whether a model is aligned, or whether reinforcement-learning training succeeded.
 
 Its recommendations are phrased as observation recommendations only, such as supplying architecture JSON for fuller component/flow context or supplying appendix sidecar JSON for rendered-surface provenance.
+
+## Pulse contract relationship
+
+The Codex Workcell Health Snapshot answers what is currently observable from supplied metadata artifacts. The Codex Workcell Pulse Contract consumes an optional snapshot JSON only as input evidence and answers how observed pressure signals are named, classified, bounded, and prepared for future `/pulse` observation. It does not run this snapshot builder or decide readiness.

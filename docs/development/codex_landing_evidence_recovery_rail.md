@@ -184,3 +184,7 @@ The [Codex Workcell Architecture](codex_workcell_architecture.md) describes the 
 ## Health snapshot observation surface
 
 The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) can summarize supplied recovery/evidence metadata for reviewers. It is an observation surface only and cannot recover files, refresh stale evidence, trigger repair, or authorize landing.
+
+## Pulse contract evidence note
+
+The Codex Workcell Pulse Contract may classify evidence recovery pressure observed in a supplied health snapshot, such as missing evidence index, lifecycle doctor, appendix sidecar, or stale refresh signals. These labels are observation-only and do not trigger recovery, daemon repair, alerts, scheduling, or federation action.
