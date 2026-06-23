@@ -192,3 +192,7 @@ The [Codex Workcell Architecture](codex_workcell_architecture.md) places this fi
 ## Health snapshot boundary
 
 The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) may render supplied finalizer statuses as observed evidence, but it does not create `ready_to_commit`, `ready_for_pr_metadata`, or any other readiness decision. Finalizer authority remains here.
+
+## Pulse contract non-bypass note
+
+The Codex Workcell Pulse Contract may label finalizer pressure from supplied health snapshot metadata, including rerun or stale-evidence observations. It is not landing authority and cannot replace, bypass, or weaken pre-commit finalizer readiness, post-commit/pr-metadata finalizer readiness, or PR metadata guard readiness.

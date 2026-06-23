@@ -1,0 +1,42 @@
+# Codex Workcell Pulse Contract
+
+The Codex Workcell Pulse Contract is a deterministic, read-only catalog for naming, classifying, and bounding pressure signals that are already observable in a supplied Codex Workcell Health Snapshot. It answers: **“How are observed pressure signals named, classified, bounded, and prepared for future `/pulse` observation?”**
+
+It does not answer whether a change may commit, whether PR metadata may be created, whether matrix proof passed as a new decision, whether artifacts are fresh as a new decision, whether a daemon should act, whether a watcher should run, whether federation consensus has been reached, whether a model is aligned, or whether reinforcement-learning training succeeded.
+
+## Contract boundaries
+
+The pulse contract is metadata-only and contract-only. It may define a static signal catalog and may optionally read one provided health snapshot JSON to summarize which catalog signals are observed. It must not run the health snapshot builder, tests, matrix, mypy, finalizer, PR metadata guard, lifecycle doctor, evidence index builder, appendix renderer, doctrine builder, docs, git, network, provider calls, shell commands, watchers, schedulers, daemon actions, model training, or reinforcement learning.
+
+Missing optional health snapshot input is represented as `provided: false`. A provided but missing or invalid health snapshot fails cleanly before writing output.
+
+## Difference from adjacent surfaces
+
+- The architecture map defines component boundaries, flows, mounts, and future integration surfaces; the pulse contract only names pressure signals observed through metadata.
+- The health snapshot answers **“What is currently observable about the workcell from supplied metadata artifacts?”** The pulse contract answers how those observed pressure signals are named, classified, bounded, and prepared for future `/pulse` observation.
+- The matrix remains the proof runner and proof classifier. The pulse contract can label observed matrix pressure, but it does not rerun or reinterpret proof.
+- The finalizer and PR metadata guard remain landing authorities. The pulse contract can label absent or rerun pressure from supplied metadata, but it does not authorize commits or PR creation.
+- The lifecycle doctor, evidence index, evidence appendix, and doctrine map remain their own review surfaces. The pulse contract only records whether corresponding pressure categories are visible.
+- Daemon repair remains future-only. The pulse contract is not a daemon trigger, alerting system, scheduler, or watcher.
+
+## Signal naming and classification
+
+Pulse signal IDs are stable snake-case identifiers such as `missing_matrix_evidence`, `matrix_required_failure_observed`, `stale_evidence_refresh_observed`, and `pulse_watch_not_active`. Each signal has a stable category and severity hint. Categories are `missing_input`, `proof_pressure`, `authority_pressure`, `freshness_pressure`, `provenance_pressure`, `doctrine_pressure`, `future_integration_pressure`, `daemon_boundary`, and `federation_boundary`. Severity hints are `info`, `watch`, `caution`, and `blocked_observation`.
+
+Each catalog entry includes source health snapshot fields, an interpretation, a forbidden inference, a next observation recommendation, a non-authority boundary, and a reviewer summary. Observed signals are evidence labels only; they never trigger action.
+
+## SentientOS mount alignment
+
+- `/pulse`: pressure signal naming plus freshness, drift, timeout, and rerun observation.
+- `/glow`: archived evidence and review surfaces that may provide observation context.
+- `/ledger`: landed receipts that may provide history context.
+- `/daemon`: a future repair recommendation consumer, not active in this contract.
+- `/vow`: canonical constraints that bound interpretation and forbidden inference.
+
+## Future activation requirements
+
+Before this contract could become an active watcher, a separate future implementation would need an explicit scheduler or watch loop, explicit operator consent, explicit daemon boundary, explicit ledger/glow storage policy, explicit federation drift consensus rule, explicit finalizer/guard non-bypass invariant, tests proving no readiness authority, and docs marking active behavior. For this contract, every activation requirement is unmet and future-only.
+
+## Non-authority posture
+
+The contract is read-only, metadata-only, does not watch files, does not poll state, does not rerun commands, does not decide readiness, does not bypass the finalizer or PR metadata guard, does not authorize commit or PR creation, does not trigger daemons, does not schedule tasks, does not send alerts, does not train or modify models, and does not establish federation consensus.

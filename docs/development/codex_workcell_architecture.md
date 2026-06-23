@@ -95,3 +95,7 @@ This architecture map is metadata-only, architecture-only, developer-workflow ev
 ## Health snapshot relationship
 
 The Codex Workcell Architecture answers “How do the workcell organs and flows fit together?” The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) answers “What is currently observable about the workcell from supplied metadata artifacts?” The health snapshot may consume architecture JSON, but it remains cockpit/vitals observation only and does not add authority.
+
+## Pulse contract relationship
+
+The Codex Workcell Pulse Contract is a metadata-only catalog layered after the architecture map and health snapshot. It can classify architecture-related pressure such as a missing architecture map, but it does not change workcell architecture, mount behavior, scheduler behavior, daemon behavior, or authority.
