@@ -185,3 +185,6 @@ The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_d
 The evidence appendix renderer may include static beneficial-trait context with `--doctrine-map-json PATH`, where `PATH` is JSON emitted by `scripts/build_codex_beneficial_trait_doctrine.py`. The renderer only reads that supplied JSON and renders the **Beneficial Trait Doctrine** section; it does not execute the doctrine builder, run validation, decide readiness, or create PR metadata.
 
 Doctrine rendering is reviewer context only. It explains which beneficial traits are connected to existing landing/evidence rails and how that context can be displayed beside evidence metadata. It does not answer whether a change may commit, whether PR metadata may be created, whether matrix proof passed, whether artifacts are fresh, whether a model is aligned, or whether reinforcement learning succeeded. The finalizer and PR metadata guard remain the landing authorities.
+## Codex workcell architecture
+
+The [Codex Workcell Architecture](codex_workcell_architecture.md) places this finalizer inside the bounded SentientOS developer-workflow workcell. The architecture map is descriptive only: it preserves this finalizer as the only commit-readiness authority and does not add runtime authority, scheduling, execution, or new gates.

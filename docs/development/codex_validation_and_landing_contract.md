@@ -124,3 +124,6 @@ The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_d
 The evidence appendix can optionally render beneficial-trait doctrine context by passing `--doctrine-map-json PATH` to `scripts/render_codex_landing_evidence_appendix.py`. This reads an already-built doctrine map JSON and adds deterministic reviewer tables for doctrine posture, trait catalog, rail-to-trait mappings, and trait-to-rails index.
 
 This appendix mode is review context only. It does not make doctrine authoritative, add a validation gate, decide matrix success, authorize commits, authorize PR creation, establish artifact freshness, infer model alignment, or claim reinforcement-learning outcomes. The finalizer and PR metadata guard remain the only landing authority for commit and PR metadata phases.
+## Codex workcell architecture
+
+The [Codex Workcell Architecture](codex_workcell_architecture.md) summarizes how validation, proof, review, doctrine, finalizer authority, PR metadata guard authority, and future ledger/glow/pulse/daemon/federation surfaces fit together. It is metadata-only doctrine and does not change this validation and landing contract.

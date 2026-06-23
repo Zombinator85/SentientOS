@@ -78,3 +78,6 @@ Reviewers can use the map to understand what each rail is protecting. For exampl
 This rendering is review context only. The appendix does not make the doctrine map authoritative, does not decide readiness, does not authorize commit or PR creation, does not train or modify models, and does not rerun the doctrine builder or any validation command. Finalizer readiness and PR metadata guard readiness remain the only landing authorities for their respective phases.
 
 If `--json-output` is supplied, the appendix sidecar records raw-byte SHA-256 provenance for the doctrine map input alongside the evidence index and lifecycle doctor inputs, plus the rendered markdown digest and byte size. These digests are tamper-evidence for reviewer surfaces only and do not replace the doctrine map, evidence index, lifecycle doctor, finalizer, matrix, or PR metadata guard. The sidecar intentionally avoids a naive digest of its own final file so provenance does not depend on an impossible embedded self-reference.
+## Codex workcell architecture
+
+The [Codex Workcell Architecture](codex_workcell_architecture.md) positions this beneficial-trait doctrine map as a non-authoritative review surface inside the bounded Codex workcell. The doctrine map explains traits; it does not train models, decide readiness, authorize commits, or authorize PR metadata.
