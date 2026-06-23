@@ -177,3 +177,6 @@ The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_d
 For recovery review, `scripts/render_codex_landing_evidence_appendix.py --doctrine-map-json PATH` may render the static beneficial-trait doctrine map beside existing evidence appendix metadata. This is a compact reviewer aid for connecting recovered evidence rails to stable trait rubrics. It is not recovery authority, readiness proof, matrix proof, freshness proof, model-alignment evidence, or reinforcement-learning evidence.
 
 The appendix does not make doctrine authoritative and does not authorize commit or PR creation. Finalizer readiness and PR metadata guard readiness remain required before landing actions.
+## Codex workcell architecture
+
+The [Codex Workcell Architecture](codex_workcell_architecture.md) describes the recovery rail as part of a bounded evidence/review workcell. It does not make recovery evidence a landing authority; finalizer and PR metadata guard authority remain unchanged.
