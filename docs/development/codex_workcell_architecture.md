@@ -91,3 +91,7 @@ It does not answer whether a change may commit, whether PR metadata may be creat
 ## Non-authority posture
 
 This architecture map is metadata-only, architecture-only, developer-workflow evidence-only, not runtime authority, not a scheduler, not an executor, not model training, and not reinforcement learning. It adds no provider calls, network calls, host actions, daemon actions, runtime packets, readiness decisions, or new gates.
+
+## Health snapshot relationship
+
+The Codex Workcell Architecture answers “How do the workcell organs and flows fit together?” The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) answers “What is currently observable about the workcell from supplied metadata artifacts?” The health snapshot may consume architecture JSON, but it remains cockpit/vitals observation only and does not add authority.

@@ -188,3 +188,7 @@ Doctrine rendering is reviewer context only. It explains which beneficial traits
 ## Codex workcell architecture
 
 The [Codex Workcell Architecture](codex_workcell_architecture.md) places this finalizer inside the bounded SentientOS developer-workflow workcell. The architecture map is descriptive only: it preserves this finalizer as the only commit-readiness authority and does not add runtime authority, scheduling, execution, or new gates.
+
+## Health snapshot boundary
+
+The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) may render supplied finalizer statuses as observed evidence, but it does not create `ready_to_commit`, `ready_for_pr_metadata`, or any other readiness decision. Finalizer authority remains here.
