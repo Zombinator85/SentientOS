@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_output:
         write_landing_evidence_appendix_metadata(metadata, args.json_output)
     if args.summary:
-        print(json.dumps({"appendix_is_non_authoritative": True, "doctor_report_provided": metadata["doctor_report_provided"], "evidence_index_provided": metadata["evidence_index_provided"], "doctrine_map_provided": metadata["doctrine_map_json_path"] is not None, "doctrine_trait_count": metadata["doctrine_trait_count"], "doctrine_rail_mapping_count": metadata["doctrine_rail_mapping_count"], "output": args.output}, sort_keys=True))
+        print(json.dumps({"appendix_is_non_authoritative": True, "doctor_report_provided": metadata["doctor_report_provided"], "evidence_index_provided": metadata["evidence_index_provided"], "doctrine_map_provided": metadata["doctrine_map_json_path"] is not None, "doctrine_trait_count": metadata["doctrine_trait_count"], "doctrine_rail_mapping_count": metadata["doctrine_rail_mapping_count"], "output": args.output, "provenance_digest_output": bool(args.json_output), "provenance_digest_version": metadata.get("provenance_digest_version") if args.json_output else None}, sort_keys=True))
     return 0
 
 

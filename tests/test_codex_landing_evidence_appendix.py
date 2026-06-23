@@ -219,3 +219,85 @@ def test_appendix_output_does_not_include_doctrine_as_readiness_authority(tmp_pa
     assert "does not use doctrine as readiness authority" not in markdown  # only absent from provided-map section
     assert "doctrine map does not decide readiness" in markdown
     assert metadata["appendix_does_not_use_doctrine_as_authority"] is True
+
+
+def test_sidecar_includes_input_provenance_for_omitted_inputs(tmp_path: Path) -> None:
+    _markdown, metadata = _render(tmp_path)
+    provenance = metadata["input_provenance"]  # type: ignore[index]
+    for key in ("evidence_index_json", "doctor_report_json", "doctrine_map_json"):
+        item = provenance[key]
+        assert item["provided"] is False
+        assert item["path"] is None
+        assert item["digest"] is None
+        assert item["byte_size"] is None
+        assert item["digest_algo"] == "sha256"
+
+
+def test_sidecar_records_raw_byte_input_digests_for_all_inputs(tmp_path: Path) -> None:
+    import hashlib
+
+    index_text = '{"z":2, "a":1}\n'
+    doctor_text = '{"doctor_report_id":"doctor", "overall_doctor_status":"ready_to_commit"}\n'
+    doctrine_text = '{"doctrine_map_id":"d", "trait_catalog":{}, "rail_mappings":[]}\n'
+    index_path = tmp_path / "index_raw.json"
+    doctor_path = tmp_path / "doctor_raw.json"
+    doctrine_path = tmp_path / "doctrine_raw.json"
+    index_path.write_text(index_text, encoding="utf-8")
+    doctor_path.write_text(doctor_text, encoding="utf-8")
+    doctrine_path.write_text(doctrine_text, encoding="utf-8")
+
+    _markdown, metadata = build_landing_evidence_appendix(
+        CodexLandingEvidenceAppendixRequest(
+            TITLE,
+            TITLE,
+            output=str(tmp_path / "out.md"),
+            evidence_index_json=str(index_path),
+            doctor_report_json=str(doctor_path),
+            doctrine_map_json=str(doctrine_path),
+        )
+    )
+    provenance = metadata["input_provenance"]  # type: ignore[index]
+    for key, path, text in (
+        ("evidence_index_json", index_path, index_text),
+        ("doctor_report_json", doctor_path, doctor_text),
+        ("doctrine_map_json", doctrine_path, doctrine_text),
+    ):
+        item = provenance[key]
+        raw = text.encode("utf-8")
+        assert item["provided"] is True
+        assert item["path"] == str(path)
+        assert item["exists"] is True
+        assert item["readable_json"] is True
+        assert item["digest_algo"] == "sha256"
+        assert item["digest"] == hashlib.sha256(raw).hexdigest()
+        assert item["byte_size"] == len(raw)
+        assert item["digest"] != hashlib.sha256(json.dumps(json.loads(text), sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def test_sidecar_records_rendered_markdown_digest_and_avoids_self_reference(tmp_path: Path) -> None:
+    import hashlib
+
+    markdown, metadata = _render(tmp_path, index=_index(), doctor=_doctor())
+    output = metadata["output_provenance"]  # type: ignore[index]
+    raw = markdown.encode("utf-8")
+    assert output["markdown_digest_algo"] == "sha256"
+    assert output["markdown_digest"] == hashlib.sha256(raw).hexdigest()
+    assert output["markdown_byte_size"] == len(raw)
+    assert output["json_sidecar_digest"] is None
+    assert "avoid embedding" in output["json_sidecar_self_digest_note"]
+
+
+def test_provenance_flags_are_non_authoritative_and_do_not_add_readiness_decisions(tmp_path: Path) -> None:
+    _markdown, metadata = _render(tmp_path, index=_index(), doctor=_doctor())
+    for key in (
+        "appendix_provenance_is_metadata_only",
+        "appendix_provenance_is_read_only",
+        "appendix_provenance_does_not_verify_authority",
+        "appendix_provenance_does_not_decide_readiness",
+        "appendix_provenance_does_not_authorize_commit",
+        "appendix_provenance_does_not_authorize_pr_creation",
+    ):
+        assert metadata[key] is True
+    provenance_json = json.dumps({"input_provenance": metadata["input_provenance"], "output_provenance": metadata["output_provenance"]}, sort_keys=True)
+    assert "ready_to_commit" not in provenance_json
+    assert "pr_metadata_guard_ready" not in provenance_json

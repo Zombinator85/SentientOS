@@ -166,6 +166,8 @@ The distinction is mandatory:
 - Matrix: records whether required proof lanes passed.
 
 The appendix is recovery evidence only. It does not rerun commands, decide readiness, convert diagnostic/non-proof lanes into proof, bypass finalizer or PR metadata guard, or authorize commit, PR creation, or runtime action.
+
+When a JSON sidecar is requested, appendix provenance records raw-byte SHA-256 digests, byte sizes, and readability metadata for the supplied evidence index, lifecycle doctor report, and doctrine map inputs, and records the rendered markdown digest and byte size. This provenance is reviewer tamper evidence only. It does not replace the evidence index, lifecycle doctor, finalizer, matrix, or PR metadata guard; it does not answer whether artifacts are fresh, proof passed, a commit may land, PR metadata may be created, doctrine is authority, a model is aligned, or reinforcement-learning work succeeded. The sidecar avoids impossible self-reference by not embedding a naive digest of the final sidecar file inside itself.
 ## Beneficial trait doctrine map
 
 The metadata-only [Codex beneficial trait doctrine map](codex_beneficial_trait_doctrine.md) labels the recovery rail and adjacent landing evidence rails with reviewer-facing behavioral traits such as corrigibility and option-preserving patience. It is not a recovery authority and cannot replace recovery artifacts, finalizer readiness, matrix proof, or PR metadata guard readiness.
