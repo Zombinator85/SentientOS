@@ -127,3 +127,7 @@ This appendix mode is review context only. It does not make doctrine authoritati
 ## Codex workcell architecture
 
 The [Codex Workcell Architecture](codex_workcell_architecture.md) summarizes how validation, proof, review, doctrine, finalizer authority, PR metadata guard authority, and future ledger/glow/pulse/daemon/federation surfaces fit together. It is metadata-only doctrine and does not change this validation and landing contract.
+
+## Health snapshot is not a landing gate
+
+The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) is a cockpit/vitals rendering of supplied metadata artifacts. It is not a validation lane, readiness gate, finalizer replacement, PR metadata guard replacement, or authority source.

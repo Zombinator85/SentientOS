@@ -180,3 +180,7 @@ The appendix does not make doctrine authoritative and does not authorize commit 
 ## Codex workcell architecture
 
 The [Codex Workcell Architecture](codex_workcell_architecture.md) describes the recovery rail as part of a bounded evidence/review workcell. It does not make recovery evidence a landing authority; finalizer and PR metadata guard authority remain unchanged.
+
+## Health snapshot observation surface
+
+The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) can summarize supplied recovery/evidence metadata for reviewers. It is an observation surface only and cannot recover files, refresh stale evidence, trigger repair, or authorize landing.
