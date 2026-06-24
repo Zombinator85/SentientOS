@@ -192,3 +192,6 @@ The Codex Workcell Pulse Contract may classify evidence recovery pressure observ
 ## Daemon recommendation contract note
 
 The daemon recommendation contract may identify metadata-only recommendation classes for supplied pulse signals, but recovery authority remains with existing recovery rail procedure. It does not create recovery tasks, schedule work, write ledger entries, or trigger daemon repair. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Workcell memory contract boundary
+
+The Codex Workcell Memory Contract can name future `/ledger` receipt-chain and `/glow` archive roles for recovery evidence, but recovery remains governed by this rail; the memory contract does not archive files or recover task-owned files.

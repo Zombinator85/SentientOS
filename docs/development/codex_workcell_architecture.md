@@ -103,3 +103,6 @@ The Codex Workcell Pulse Contract is a metadata-only catalog layered after the a
 ## Daemon recommendation contract boundary
 
 The daemon recommendation contract fills the future repair-recommendation grammar described by the architecture map without making the daemon substrate active. It maps pulse signals to metadata-only recommendations and cannot schedule, execute, create tasks, or authorize landing. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Memory contract boundary
+
+The Codex Workcell Memory Contract is the next metadata-only layer after architecture, health, pulse, and daemon recommendation contracts. It names future `/ledger` and `/glow` schemas while remaining non-authoritative and non-writing.

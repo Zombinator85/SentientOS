@@ -31,3 +31,6 @@ All activation requirements are represented as future-only, unmet, and inactive.
 ## Non-authority posture
 
 The contract is read-only and metadata-only. It cannot bypass the finalizer or PR metadata guard, cannot authorize commit or PR creation, cannot trigger daemon action, cannot create or schedule tasks, cannot send alerts, cannot watch or poll, cannot train or modify models, and cannot establish federation consensus.
+## Memory contract boundary
+
+The Codex Workcell Memory Contract defines future `/ledger` receipt-chain and `/glow` evidence-archive metadata for recommendation artifacts, but it does not write memory, archive evidence, trigger daemon action, or create authority.

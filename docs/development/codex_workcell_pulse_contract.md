@@ -44,3 +44,6 @@ The contract is read-only, metadata-only, does not watch files, does not poll st
 ## Daemon recommendation contract link
 
 The daemon recommendation contract maps this contract's stable pulse signal IDs into review-only repair recommendation classes. It remains metadata-only and does not activate watching, scheduling, daemon action, readiness decisions, commits, PR metadata, ledger writes, memory mutation, model training, or federation consensus. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Memory contract boundary
+
+The Codex Workcell Memory Contract may describe future `/ledger` and `/glow` metadata that `/pulse` could consume only after a separate watcher contract is activated; it is inactive here and does not watch, poll, or decide pressure.
