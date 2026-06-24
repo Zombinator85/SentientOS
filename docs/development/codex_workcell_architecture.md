@@ -114,3 +114,7 @@ The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bun
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is a metadata-only review layer for candidate memory bundles. It preserves architecture boundaries by avoiding runtime authority, ledger writes, glow archiving, daemon action, task creation, scheduling, alerts, model training, and federation consensus.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.

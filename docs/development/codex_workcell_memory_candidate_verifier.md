@@ -98,3 +98,7 @@ ledger, archive glow, modify memory, watch files, poll state, rerun commands,
 decide readiness, bypass the finalizer, bypass the PR metadata guard, authorize
 commit, authorize PR creation, trigger a daemon, create tasks, schedule tasks,
 send alerts, train or modify models, or establish federation consensus.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.

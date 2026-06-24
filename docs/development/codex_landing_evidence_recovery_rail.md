@@ -203,3 +203,7 @@ The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bun
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is review-only evidence about candidate bundle structure. It is not recovery authority, does not recover or mutate files, does not write `/ledger`, does not archive `/glow`, and does not authorize commit, PR metadata, daemon action, task creation, scheduling, or alerts.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.
