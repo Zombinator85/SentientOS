@@ -45,3 +45,6 @@ The Codex Workcell Health Snapshot answers what is currently observable from sup
 ## Daemon recommendation contract boundary
 
 Health snapshot metadata may be referenced by the daemon recommendation contract for digest and input-summary context, but recommendations are derived from supplied pulse contract observed signal IDs and remain observation-only. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Memory contract boundary
+
+The Codex Workcell Memory Contract defines how health snapshots could be represented in future `/ledger` and `/glow` metadata, without writing ledger entries, archiving glow evidence, or changing snapshot authority.

@@ -200,3 +200,6 @@ The Codex Workcell Pulse Contract may label finalizer pressure from supplied hea
 ## Daemon recommendation contract note
 
 Daemon recommendation contract output is reviewer context only. It does not replace, bypass, rerun, or satisfy finalizer readiness authority, and it cannot authorize commit or PR metadata. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Workcell memory contract boundary
+
+The Codex Workcell Memory Contract can describe future receipt metadata for finalizer artifacts, but it cannot replace this finalizer, authorize readiness, bypass phase checks, write ledger entries, or create PR metadata authority.

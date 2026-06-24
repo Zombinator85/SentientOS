@@ -139,3 +139,6 @@ The Codex Workcell Pulse Contract is a deterministic metadata catalog for pressu
 ## Daemon recommendation contract note
 
 Daemon recommendation contract artifacts are non-authoritative review surfaces. They do not create validation lanes, decide readiness, bypass the finalizer, bypass the PR metadata guard, or authorize commit/PR metadata. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
+## Workcell memory contract boundary
+
+The Codex Workcell Memory Contract defines future metadata shapes for landed evidence history and archive review surfaces. It does not add validation gates, satisfy matrix lanes, authorize commit, authorize PR metadata, or bypass required finalizer and guard checks.
