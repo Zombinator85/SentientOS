@@ -107,3 +107,7 @@ archive glow, modify memory, watch files, poll state, rerun commands, decide
 readiness, bypass the finalizer, bypass the PR metadata guard, authorize commit,
 authorize PR creation, trigger a daemon, create tasks, schedule tasks, send
 alerts, train or modify models, or establish federation consensus.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) can render deterministic candidate `/ledger` entries and candidate `/glow` items from supplied artifacts using these schema families. It is review-only metadata and does not write ledger entries, archive glow evidence, mutate memory, decide readiness, or authorize commit/PR metadata.

@@ -203,3 +203,7 @@ Daemon recommendation contract output is reviewer context only. It does not repl
 ## Workcell memory contract boundary
 
 The Codex Workcell Memory Contract can describe future receipt metadata for finalizer artifacts, but it cannot replace this finalizer, authorize readiness, bypass phase checks, write ledger entries, or create PR metadata authority.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may include supplied finalizer JSON as candidate review metadata only. Candidate records do not replace this finalizer, do not make stale evidence fresh, do not authorize commit, and do not authorize PR metadata.

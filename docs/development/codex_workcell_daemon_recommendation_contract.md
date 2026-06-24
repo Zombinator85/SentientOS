@@ -34,3 +34,7 @@ The contract is read-only and metadata-only. It cannot bypass the finalizer or P
 ## Memory contract boundary
 
 The Codex Workcell Memory Contract defines future `/ledger` receipt-chain and `/glow` evidence-archive metadata for recommendation artifacts, but it does not write memory, archive evidence, trigger daemon action, or create authority.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may represent a supplied daemon recommendation contract JSON as candidate memory review metadata only. The bundle does not trigger daemon action, schedule repair, create tasks, or convert recommendations into authority.

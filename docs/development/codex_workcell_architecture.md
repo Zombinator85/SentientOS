@@ -106,3 +106,7 @@ The daemon recommendation contract fills the future repair-recommendation gramma
 ## Memory contract boundary
 
 The Codex Workcell Memory Contract is the next metadata-only layer after architecture, health, pulse, and daemon recommendation contracts. It names future `/ledger` and `/glow` schemas while remaining non-authoritative and non-writing.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) adds a review-only rendering layer for supplied architecture and landing artifacts. It produces candidate `/ledger` and `/glow` metadata without storage, mutation, daemon action, scheduling, readiness authority, or federation consensus.
