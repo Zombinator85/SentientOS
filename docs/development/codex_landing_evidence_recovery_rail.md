@@ -199,3 +199,7 @@ The Codex Workcell Memory Contract can name future `/ledger` receipt-chain and `
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) can summarize supplied recovery and evidence artifacts as candidate `/ledger` and `/glow` records for review. It does not recover files, write archives, mutate memory, create tasks, or bypass recovery and landing rails.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is review-only evidence about candidate bundle structure. It is not recovery authority, does not recover or mutate files, does not write `/ledger`, does not archive `/glow`, and does not authorize commit, PR metadata, daemon action, task creation, scheduling, or alerts.

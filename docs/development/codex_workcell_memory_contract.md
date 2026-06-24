@@ -111,3 +111,7 @@ alerts, train or modify models, or establish federation consensus.
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) can render deterministic candidate `/ledger` entries and candidate `/glow` items from supplied artifacts using these schema families. It is review-only metadata and does not write ledger entries, archive glow evidence, mutate memory, decide readiness, or authorize commit/PR metadata.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) may use this contract to check whether candidate `/ledger` record types and candidate `/glow` archive item types are known. That check is structural metadata only and does not activate ledger writing, glow archiving, readiness authority, daemon action, task creation, scheduling, alerts, or federation consensus.

@@ -51,3 +51,7 @@ The Codex Workcell Memory Contract may describe future `/ledger` and `/glow` met
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may represent a supplied pulse contract JSON as candidate `/ledger` and `/glow` review metadata. It does not activate pulse watching, poll state, decide pressure, or authorize landing.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is inactive relative to `/pulse`: it may report candidate bundle consistency, but it does not watch stored history, poll state, emit pressure signals, schedule work, trigger daemon action, write `/ledger`, or archive `/glow`.
