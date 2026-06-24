@@ -135,3 +135,7 @@ The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) is a coc
 ## Pulse contract validation boundary
 
 The Codex Workcell Pulse Contract is a deterministic metadata catalog for pressure signal names and categories. It does not add a landing gate, does not decide matrix success, does not authorize commits or PR metadata, and does not make skipped, nonexecuted, timed-out, stale, or missing proof count as validation.
+
+## Daemon recommendation contract note
+
+Daemon recommendation contract artifacts are non-authoritative review surfaces. They do not create validation lanes, decide readiness, bypass the finalizer, bypass the PR metadata guard, or authorize commit/PR metadata. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.

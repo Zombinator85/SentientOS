@@ -40,3 +40,7 @@ Before this contract could become an active watcher, a separate future implement
 ## Non-authority posture
 
 The contract is read-only, metadata-only, does not watch files, does not poll state, does not rerun commands, does not decide readiness, does not bypass the finalizer or PR metadata guard, does not authorize commit or PR creation, does not trigger daemons, does not schedule tasks, does not send alerts, does not train or modify models, and does not establish federation consensus.
+
+## Daemon recommendation contract link
+
+The daemon recommendation contract maps this contract's stable pulse signal IDs into review-only repair recommendation classes. It remains metadata-only and does not activate watching, scheduling, daemon action, readiness decisions, commits, PR metadata, ledger writes, memory mutation, model training, or federation consensus. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.

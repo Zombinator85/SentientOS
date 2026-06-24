@@ -99,3 +99,7 @@ The Codex Workcell Architecture answers “How do the workcell organs and flows 
 ## Pulse contract relationship
 
 The Codex Workcell Pulse Contract is a metadata-only catalog layered after the architecture map and health snapshot. It can classify architecture-related pressure such as a missing architecture map, but it does not change workcell architecture, mount behavior, scheduler behavior, daemon behavior, or authority.
+
+## Daemon recommendation contract boundary
+
+The daemon recommendation contract fills the future repair-recommendation grammar described by the architecture map without making the daemon substrate active. It maps pulse signals to metadata-only recommendations and cannot schedule, execute, create tasks, or authorize landing. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
