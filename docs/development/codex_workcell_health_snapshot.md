@@ -41,3 +41,7 @@ Its recommendations are phrased as observation recommendations only, such as sup
 ## Pulse contract relationship
 
 The Codex Workcell Health Snapshot answers what is currently observable from supplied metadata artifacts. The Codex Workcell Pulse Contract consumes an optional snapshot JSON only as input evidence and answers how observed pressure signals are named, classified, bounded, and prepared for future `/pulse` observation. It does not run this snapshot builder or decide readiness.
+
+## Daemon recommendation contract boundary
+
+Health snapshot metadata may be referenced by the daemon recommendation contract for digest and input-summary context, but recommendations are derived from supplied pulse contract observed signal IDs and remain observation-only. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.

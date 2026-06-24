@@ -188,3 +188,7 @@ The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) can summ
 ## Pulse contract evidence note
 
 The Codex Workcell Pulse Contract may classify evidence recovery pressure observed in a supplied health snapshot, such as missing evidence index, lifecycle doctor, appendix sidecar, or stale refresh signals. These labels are observation-only and do not trigger recovery, daemon repair, alerts, scheduling, or federation action.
+
+## Daemon recommendation contract note
+
+The daemon recommendation contract may identify metadata-only recommendation classes for supplied pulse signals, but recovery authority remains with existing recovery rail procedure. It does not create recovery tasks, schedule work, write ledger entries, or trigger daemon repair. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.

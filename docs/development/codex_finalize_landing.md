@@ -196,3 +196,7 @@ The [Codex Workcell Health Snapshot](codex_workcell_health_snapshot.md) may rend
 ## Pulse contract non-bypass note
 
 The Codex Workcell Pulse Contract may label finalizer pressure from supplied health snapshot metadata, including rerun or stale-evidence observations. It is not landing authority and cannot replace, bypass, or weaken pre-commit finalizer readiness, post-commit/pr-metadata finalizer readiness, or PR metadata guard readiness.
+
+## Daemon recommendation contract note
+
+Daemon recommendation contract output is reviewer context only. It does not replace, bypass, rerun, or satisfy finalizer readiness authority, and it cannot authorize commit or PR metadata. See `docs/development/codex_workcell_daemon_recommendation_contract.md`.
