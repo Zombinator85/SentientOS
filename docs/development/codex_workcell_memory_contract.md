@@ -115,3 +115,7 @@ The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bun
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) may use this contract to check whether candidate `/ledger` record types and candidate `/glow` archive item types are known. That check is structural metadata only and does not activate ledger writing, glow archiving, readiness authority, daemon action, task creation, scheduling, alerts, or federation consensus.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.

@@ -150,3 +150,7 @@ The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bun
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) can emit `memory_candidate_bundle_verified` for structural candidate consistency, but that status is not validation, matrix, finalizer, supervisor, PR metadata guard, clean-tree, commit, or PR authority. It does not write `/ledger`, archive `/glow`, mutate memory, trigger daemons, schedule work, create tasks, alert, train models, or establish federation consensus.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.

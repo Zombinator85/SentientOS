@@ -51,3 +51,7 @@ The memory candidate bundle is read-only, metadata-only, and candidate-only. It 
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) can inspect a supplied candidate bundle for structural consistency and optional memory-contract type alignment. Its verification status is bundle-structure metadata only; it does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize commit/PR metadata, trigger daemons, create tasks, schedule work, alert, or establish federation consensus.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.

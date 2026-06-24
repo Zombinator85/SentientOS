@@ -55,3 +55,7 @@ The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bun
 ## Memory candidate verifier boundary
 
 The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is inactive relative to `/pulse`: it may report candidate bundle consistency, but it does not watch stored history, poll state, emit pressure signals, schedule work, trigger daemon action, write `/ledger`, or archive `/glow`.
+
+## Memory activation preflight boundary
+
+See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.
