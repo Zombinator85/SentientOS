@@ -195,3 +195,7 @@ The daemon recommendation contract may identify metadata-only recommendation cla
 ## Workcell memory contract boundary
 
 The Codex Workcell Memory Contract can name future `/ledger` receipt-chain and `/glow` archive roles for recovery evidence, but recovery remains governed by this rail; the memory contract does not archive files or recover task-owned files.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) can summarize supplied recovery and evidence artifacts as candidate `/ledger` and `/glow` records for review. It does not recover files, write archives, mutate memory, create tasks, or bypass recovery and landing rails.

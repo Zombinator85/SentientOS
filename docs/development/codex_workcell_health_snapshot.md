@@ -48,3 +48,7 @@ Health snapshot metadata may be referenced by the daemon recommendation contract
 ## Memory contract boundary
 
 The Codex Workcell Memory Contract defines how health snapshots could be represented in future `/ledger` and `/glow` metadata, without writing ledger entries, archiving glow evidence, or changing snapshot authority.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may represent a supplied health snapshot JSON as candidate memory metadata. This does not make the health snapshot a gate, readiness decision, ledger write, glow archive, or runtime authority.

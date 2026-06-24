@@ -142,3 +142,7 @@ Daemon recommendation contract artifacts are non-authoritative review surfaces. 
 ## Workcell memory contract boundary
 
 The Codex Workcell Memory Contract defines future metadata shapes for landed evidence history and archive review surfaces. It does not add validation gates, satisfy matrix lanes, authorize commit, authorize PR metadata, or bypass required finalizer and guard checks.
+
+## Memory candidate bundle boundary
+
+The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) is a deterministic review surface over supplied artifacts. It does not add validation lanes, satisfy matrix proof, bypass finalizer or PR metadata guard authority, authorize commit, authorize PR creation, write ledger entries, archive glow items, or create runtime authority.
