@@ -38,3 +38,7 @@ The Codex Workcell Memory Contract defines future `/ledger` receipt-chain and `/
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may represent a supplied daemon recommendation contract JSON as candidate memory review metadata only. The bundle does not trigger daemon action, schedule repair, create tasks, or convert recommendations into authority.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) verifies candidate memory bundle structure only. It is not a daemon recommendation consumer or executor and does not trigger daemon action, schedule work, create tasks, decide readiness, write `/ledger`, or archive `/glow`.

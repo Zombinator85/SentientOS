@@ -47,3 +47,7 @@ All activation requirements are represented as future-only, unmet, and inactive:
 ## Non-authority posture
 
 The memory candidate bundle is read-only, metadata-only, and candidate-only. It does not write ledger, archive glow, modify memory, watch files, poll state, rerun commands, decide readiness, bypass the finalizer, bypass the PR metadata guard, authorize commit, authorize PR creation, trigger a daemon, create tasks, schedule tasks, send alerts, train or modify models, or establish federation consensus.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) can inspect a supplied candidate bundle for structural consistency and optional memory-contract type alignment. Its verification status is bundle-structure metadata only; it does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize commit/PR metadata, trigger daemons, create tasks, schedule work, alert, or establish federation consensus.

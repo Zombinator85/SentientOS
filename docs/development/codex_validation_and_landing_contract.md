@@ -146,3 +146,7 @@ The Codex Workcell Memory Contract defines future metadata shapes for landed evi
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) is a deterministic review surface over supplied artifacts. It does not add validation lanes, satisfy matrix proof, bypass finalizer or PR metadata guard authority, authorize commit, authorize PR creation, write ledger entries, archive glow items, or create runtime authority.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) can emit `memory_candidate_bundle_verified` for structural candidate consistency, but that status is not validation, matrix, finalizer, supervisor, PR metadata guard, clean-tree, commit, or PR authority. It does not write `/ledger`, archive `/glow`, mutate memory, trigger daemons, schedule work, create tasks, alert, train models, or establish federation consensus.

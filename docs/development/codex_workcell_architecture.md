@@ -110,3 +110,7 @@ The Codex Workcell Memory Contract is the next metadata-only layer after archite
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) adds a review-only rendering layer for supplied architecture and landing artifacts. It produces candidate `/ledger` and `/glow` metadata without storage, mutation, daemon action, scheduling, readiness authority, or federation consensus.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) is a metadata-only review layer for candidate memory bundles. It preserves architecture boundaries by avoiding runtime authority, ledger writes, glow archiving, daemon action, task creation, scheduling, alerts, model training, and federation consensus.

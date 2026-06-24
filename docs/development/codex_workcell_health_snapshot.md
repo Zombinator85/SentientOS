@@ -52,3 +52,7 @@ The Codex Workcell Memory Contract defines how health snapshots could be represe
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may represent a supplied health snapshot JSON as candidate memory metadata. This does not make the health snapshot a gate, readiness decision, ledger write, glow archive, or runtime authority.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) can inspect candidate records that reference supplied evidence artifacts. It does not observe live health, mutate memory, decide readiness, write `/ledger`, archive `/glow`, trigger daemons, schedule work, or create tasks.

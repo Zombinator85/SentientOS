@@ -207,3 +207,7 @@ The Codex Workcell Memory Contract can describe future receipt metadata for fina
 ## Memory candidate bundle boundary
 
 The [Codex Workcell Memory Candidate Bundle](codex_workcell_memory_candidate_bundle.md) may include supplied finalizer JSON as candidate review metadata only. Candidate records do not replace this finalizer, do not make stale evidence fresh, do not authorize commit, and do not authorize PR metadata.
+
+## Memory candidate verifier boundary
+
+The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_verifier.md) may report candidate bundle structure, but its `verification_status` is never finalizer authority. It cannot replace pre-commit or pr-metadata finalizer decisions, authorize commit, authorize PR metadata, bypass guards, write `/ledger`, or archive `/glow`.
