@@ -34,3 +34,7 @@ All requirements are represented as future-only, unmet, and inactive: explicit l
 ## Non-authority posture
 
 The preflight declares that it is read-only, metadata-only, preflight-only, and does not activate memory, write `/ledger`, archive `/glow`, modify memory, watch or poll files, rerun commands, decide readiness, bypass finalizer or PR metadata guard, authorize commit or PR creation, trigger daemon action, create or schedule tasks, send alerts, train or modify models, or establish federation consensus.
+
+## Vow boundary contract link
+
+The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) is the future `/vow` constraint digest surface referenced by this preflight. It blocks preflight-as-activation inference while remaining metadata-only and inactive.

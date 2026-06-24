@@ -215,3 +215,7 @@ The [Codex Workcell Memory Candidate Verifier](codex_workcell_memory_candidate_v
 ## Memory activation preflight boundary
 
 See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.
+
+## Vow boundary note
+
+The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) is not finalizer authority. Its digest and alignment summaries cannot decide `ready_to_commit` or bypass this finalizer.

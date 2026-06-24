@@ -102,3 +102,7 @@ send alerts, train or modify models, or establish federation consensus.
 ## Memory activation preflight boundary
 
 See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activation_preflight.md) for the metadata-only future activation prerequisite report. That preflight does not write `/ledger`, archive `/glow`, mutate memory, decide readiness, authorize PR metadata, trigger daemon action, or create active memory authority.
+
+## Vow boundary note
+
+The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks verifier-as-readiness inference. Candidate verification remains structural metadata only and does not write `/ledger` or archive `/glow`.
