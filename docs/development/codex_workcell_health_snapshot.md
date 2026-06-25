@@ -68,3 +68,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind health snapshot reports to a supplied vow digest. Health alignment is reviewer metadata and does not decide readiness.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) can define future archival policy for health snapshots; health snapshots still do not decide readiness or write storage.

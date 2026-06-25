@@ -126,3 +126,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind architecture reports to a supplied vow digest. Architecture alignment remains non-runtime metadata and does not create host, daemon, memory, commit, or PR authority.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) adds future `/ledger` and `/glow` storage policy to the workcell ladder without adding runtime authority to the architecture map.

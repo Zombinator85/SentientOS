@@ -42,3 +42,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may attest that activation preflight metadata is bound to a supplied vow digest. That attestation is not activation and does not authorize memory writers, watchers, daemons, or readiness.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) fills the storage path, retention, digest, and parent-chain policy descriptions as metadata only; activation preflight remains inactive and active storage remains blocked.

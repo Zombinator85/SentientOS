@@ -67,3 +67,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind pulse contract reports to a supplied vow digest. Pulse metadata remains observational and the attestation does not watch, schedule, alert, or act.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) may describe future stored pulse history policy, but pulse contracts remain non-watching, non-scheduling, and non-executing metadata.

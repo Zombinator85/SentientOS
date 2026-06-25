@@ -162,3 +162,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation boundary
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) is a metadata-only review artifact. It does not replace validation, matrix proof, supervisor decisions, finalizer readiness, PR metadata guard readiness, clean-tree checks, commits, or `make_pr`.
+## Workcell storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) is not validation, matrix, finalizer, or PR metadata guard authority. Its policy status must not be treated as readiness.

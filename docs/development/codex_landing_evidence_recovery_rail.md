@@ -215,3 +215,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation boundary
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) can be reviewed as metadata evidence when present, but it does not recover task-owned files, create PR metadata, authorize commits, or replace recovery rail requirements.
+## Workcell storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) may describe future recovery evidence storage paths, but recovery remains governed by existing evidence artifacts and does not gain active `/ledger` or `/glow` writes from the policy.
