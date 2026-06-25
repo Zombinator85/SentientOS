@@ -62,7 +62,7 @@ Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation with
 Install the API and GUI directly from the source tree:
 
 ```bash
-git clone https://github.com/OpenAI/SentientOS.git
+git clone https://github.com/Zombinator85/SentientOS.git
 cd SentientOS
 pip install .
 ```

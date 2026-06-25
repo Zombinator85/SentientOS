@@ -71,3 +71,7 @@ The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignme
 ## Storage policy boundary
 
 The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) can define future archival policy for health snapshots; health snapshots still do not decide readiness or write storage.
+
+## Storage policy verifier boundary
+
+See [Codex Workcell Storage Policy Verifier](codex_workcell_storage_policy_verifier.md) for the metadata-only structural verifier for storage policy contracts. Its verification status is not readiness authority and it does not write `/ledger`, archive `/glow`, activate memory, trigger daemons, schedule tasks, or bypass finalizer/PR metadata guard requirements.

@@ -226,3 +226,7 @@ The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignme
 ## Workcell storage policy boundary
 
 The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) is not finalizer authority. It must not be used to authorize commit, bypass finalizer checks, or replace current landing evidence.
+
+## Storage policy verifier boundary
+
+See [Codex Workcell Storage Policy Verifier](codex_workcell_storage_policy_verifier.md) for the metadata-only structural verifier for storage policy contracts. Its verification status is not readiness authority and it does not write `/ledger`, archive `/glow`, activate memory, trigger daemons, schedule tasks, or bypass finalizer/PR metadata guard requirements.
