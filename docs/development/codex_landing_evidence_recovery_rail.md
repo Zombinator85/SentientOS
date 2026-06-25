@@ -211,3 +211,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) can describe forbidden inferences around recovery evidence, but it is not recovery authority and does not create commits, PR metadata, or runtime actions.
+
+## Vow alignment attestation boundary
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) can be reviewed as metadata evidence when present, but it does not recover task-owned files, create PR metadata, authorize commits, or replace recovery rail requirements.

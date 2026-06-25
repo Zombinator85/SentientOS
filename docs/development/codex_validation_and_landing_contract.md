@@ -158,3 +158,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Workcell vow boundary contract
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) records canonical forbidden-inference constraints for `/vow`. It does not add validation gates, satisfy matrix proof, decide readiness, authorize commit, authorize PR metadata, or bypass finalizer/guard authority.
+
+## Vow alignment attestation boundary
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) is a metadata-only review artifact. It does not replace validation, matrix proof, supervisor decisions, finalizer readiness, PR metadata guard readiness, clean-tree checks, commits, or `make_pr`.

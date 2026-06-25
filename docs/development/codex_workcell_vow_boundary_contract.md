@@ -46,3 +46,7 @@ Future active memory work remains unmet and inactive until separate contracts de
 ## Non-authority posture
 
 The vow boundary contract declares that it is read-only, metadata-only, contract-only, and does not activate memory, write `/ledger`, archive `/glow`, modify memory, watch files, poll state, rerun commands, decide readiness, bypass the finalizer, bypass the PR metadata guard, authorize commits, authorize PR creation, trigger daemons, create tasks, schedule tasks, send alerts, train or modify models, or establish federation consensus.
+
+## Vow alignment attestation boundary
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) can bind supplied workcell report artifacts to this contract digest for review. It remains metadata-only and does not create readiness, memory, daemon, commit, or PR metadata authority.

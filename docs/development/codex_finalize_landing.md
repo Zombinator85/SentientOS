@@ -219,3 +219,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) is not finalizer authority. Its digest and alignment summaries cannot decide `ready_to_commit` or bypass this finalizer.
+
+## Vow alignment attestation boundary
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) is not a finalizer substitute. Its `attested`, `warning`, or `failed` statuses do not authorize commit or bypass finalizer decisions.
