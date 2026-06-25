@@ -63,3 +63,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind candidate bundle reports to a supplied vow digest. Candidate records remain metadata only and the attestation does not write `/ledger` or archive `/glow`.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) names future `/ledger` and `/glow` path policy for candidate records, but candidate bundles remain unwritten metadata.

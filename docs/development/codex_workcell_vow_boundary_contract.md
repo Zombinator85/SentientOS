@@ -50,3 +50,6 @@ The vow boundary contract declares that it is read-only, metadata-only, contract
 ## Vow alignment attestation boundary
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) can bind supplied workcell report artifacts to this contract digest for review. It remains metadata-only and does not create readiness, memory, daemon, commit, or PR metadata authority.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) requires the canonical vow digest for future `/ledger` and `/glow` adoption, but the digest remains non-authority metadata until an explicit active writer contract exists.

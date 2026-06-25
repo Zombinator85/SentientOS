@@ -223,3 +223,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation boundary
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) is not a finalizer substitute. Its `attested`, `warning`, or `failed` statuses do not authorize commit or bypass finalizer decisions.
+## Workcell storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) is not finalizer authority. It must not be used to authorize commit, bypass finalizer checks, or replace current landing evidence.

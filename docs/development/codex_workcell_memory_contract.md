@@ -127,3 +127,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind memory contract reports to a supplied vow digest. Schema alignment remains inactive metadata and does not implement ledger writers or glow archivers.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) extends the memory schemas with future storage path, retention, digest, parent-chain, and vow-bound adoption policy while preserving the rule that schemas are not writes.

@@ -41,3 +41,6 @@ Future activation remains unmet and inactive until separate contracts define exp
 ## Non-authority posture
 
 The bundle declares that it is read-only, metadata-only, attestation-only, and does not activate memory, write `/ledger`, archive `/glow`, modify memory, watch files, poll state, rerun commands, decide readiness, bypass the finalizer, bypass the PR metadata guard, authorize commits, authorize PR creation, trigger daemons, create tasks, schedule tasks, send alerts, train or modify models, or establish federation consensus.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) consumes vow boundary and attestation metadata as future-only storage adoption context; it does not make attestation an active writer, readiness decision, ledger write, or glow archive.

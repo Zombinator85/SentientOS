@@ -110,3 +110,6 @@ The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_co
 ## Vow alignment attestation note
 
 The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind verifier reports to a supplied vow digest. Verification remains structural metadata and the attestation does not decide readiness.
+## Storage policy boundary
+
+The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) defines future storage constraints for verified candidates without turning candidate verification into readiness, `/ledger` writes, or `/glow` archives.
