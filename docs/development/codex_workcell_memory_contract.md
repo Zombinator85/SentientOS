@@ -123,3 +123,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks schema-as-write inference. `/ledger` and `/glow` schemas remain future inactive shapes until separately adopted by explicit writer/archive contracts.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind memory contract reports to a supplied vow digest. Schema alignment remains inactive metadata and does not implement ledger writers or glow archivers.

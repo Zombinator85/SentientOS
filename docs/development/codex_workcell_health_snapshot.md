@@ -64,3 +64,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks health-as-readiness inference. Health snapshots remain cockpit metadata and do not replace matrix, finalizer, guard, or operator authority.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind health snapshot reports to a supplied vow digest. Health alignment is reviewer metadata and does not decide readiness.

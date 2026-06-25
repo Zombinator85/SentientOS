@@ -63,3 +63,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks pulse-as-action inference. Pulse signals remain inactive metadata unless a future explicit watcher/action contract is adopted.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind pulse contract reports to a supplied vow digest. Pulse metadata remains observational and the attestation does not watch, schedule, alert, or act.

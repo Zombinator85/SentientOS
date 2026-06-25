@@ -38,3 +38,7 @@ The preflight declares that it is read-only, metadata-only, preflight-only, and 
 ## Vow boundary contract link
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) is the future `/vow` constraint digest surface referenced by this preflight. It blocks preflight-as-activation inference while remaining metadata-only and inactive.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may attest that activation preflight metadata is bound to a supplied vow digest. That attestation is not activation and does not authorize memory writers, watchers, daemons, or readiness.

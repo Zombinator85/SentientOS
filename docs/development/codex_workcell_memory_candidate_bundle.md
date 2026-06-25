@@ -59,3 +59,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks candidate-as-write inference. Candidate bundle records remain staged metadata only, not `/ledger` entries or `/glow` archives.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind candidate bundle reports to a supplied vow digest. Candidate records remain metadata only and the attestation does not write `/ledger` or archive `/glow`.

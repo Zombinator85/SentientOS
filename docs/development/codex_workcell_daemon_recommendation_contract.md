@@ -50,3 +50,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) blocks recommendation-as-command and daemon-self-authorization inference. Daemon recommendations remain advisory metadata only.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind daemon recommendation reports to a supplied vow digest. Recommendations remain advisory metadata and the attestation does not command or trigger daemon action.

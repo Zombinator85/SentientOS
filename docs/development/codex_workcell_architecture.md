@@ -122,3 +122,7 @@ See [Codex Workcell Memory Activation Preflight](codex_workcell_memory_activatio
 ## Vow boundary note
 
 The [Codex Workcell Vow Digest Boundary Contract](codex_workcell_vow_boundary_contract.md) adds the `/vow` constraint digest surface for forbidden inferences. It does not activate runtime authority or change the architecture map into an execution plan.
+
+## Vow alignment attestation note
+
+The [Codex Workcell Vow Alignment Attestation Bundle](codex_workcell_vow_alignment_attestation.md) may bind architecture reports to a supplied vow digest. Architecture alignment remains non-runtime metadata and does not create host, daemon, memory, commit, or PR authority.
