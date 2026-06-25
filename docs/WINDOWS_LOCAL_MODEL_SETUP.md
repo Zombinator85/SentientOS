@@ -39,7 +39,7 @@ All three commands should report versions without errors.
 ```powershell
 cd $env:USERPROFILE
 mkdir Sentient && cd Sentient
-git clone https://github.com/OpenAI/SentientOS.git
+git clone https://github.com/Zombinator85/SentientOS.git
 cd SentientOS
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1

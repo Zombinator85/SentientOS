@@ -44,3 +44,7 @@ The bundle declares that it is read-only, metadata-only, attestation-only, and d
 ## Storage policy boundary
 
 The [Codex Workcell Storage Policy Contract](codex_workcell_storage_policy_contract.md) consumes vow boundary and attestation metadata as future-only storage adoption context; it does not make attestation an active writer, readiness decision, ledger write, or glow archive.
+
+## Storage policy verifier boundary
+
+See [Codex Workcell Storage Policy Verifier](codex_workcell_storage_policy_verifier.md) for the metadata-only structural verifier for storage policy contracts. Its verification status is not readiness authority and it does not write `/ledger`, archive `/glow`, activate memory, trigger daemons, schedule tasks, or bypass finalizer/PR metadata guard requirements.
