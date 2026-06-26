@@ -65,3 +65,7 @@ no ledger write, no glow archive, no memory modification, no watchers, no
 polling, no rerun commands, no readiness decision, no finalizer/guard bypass,
 no commit or PR authority, no daemon trigger, no task creation or scheduling,
 no alerts, no model training, and no federation consensus.
+
+## Storage runtime authority boundary contract note
+
+The [Codex Workcell Storage Runtime Authority Boundary Contract](codex_workcell_storage_runtime_authority_contract.md) records future-only runtime binding requirements for active `/ledger` and `/glow` storage. It is metadata-only and does not grant readiness, finalizer authority, PR metadata authority, runtime write authority, ledger writes, glow archives, daemon action, scheduling, memory mutation, or federation consensus.
