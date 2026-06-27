@@ -29,3 +29,7 @@ Reviewer URL hygiene remains a landing-task grep responsibility, not runtime beh
 Active storage remains blocked until explicit active ledger writer and glow archiver implementations, finalizer and PR metadata guard runtime bindings, operator consent capture, storage path enforcement, retention enforcement, digest verification enforcement, parent-chain validation enforcement, pulse watcher contract, daemon action contract, federation drift consensus rule, negative readiness-authority tests, and active-behavior docs exist in a future authorized layer.
 
 The verifier is read-only, metadata-only, verifier-only, and does not bind runtime authority, activate memory, write ledger, archive glow, modify memory, watch files, poll state, rerun commands, decide readiness, bypass finalizer or PR metadata guard, authorize commits or PR creation, trigger daemons, create or schedule tasks, send alerts, train or modify models, or establish federation consensus.
+
+## Storage operator consent request boundary
+
+See [Codex Workcell Storage Operator Consent Request Contract](codex_workcell_storage_operator_consent_contract.md) for the metadata-only future consent request shape. That contract does not collect consent, imply consent, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger daemons, decide readiness, authorize commits, or authorize PR metadata.
