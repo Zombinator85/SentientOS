@@ -96,3 +96,7 @@ rerun commands, decide readiness, bypass the finalizer, bypass the PR metadata
 guard, authorize commit, authorize PR creation, trigger daemons, create or
 schedule tasks, send alerts, train or modify models, or establish federation
 consensus.
+
+## Operator consent request packet verifier boundary
+
+The [Codex workcell storage operator consent request packet verifier](codex_workcell_storage_operator_consent_request_packet_verifier.md) is a deterministic metadata-only structural check for request packet JSON. It does not present a request, collect or imply consent, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger `/daemon`, decide readiness, or replace finalizer/PR metadata guard authority.
