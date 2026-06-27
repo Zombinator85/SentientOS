@@ -103,3 +103,7 @@ archive glow evidence, modify memory, watch files, poll state, rerun commands,
 decide readiness, bypass finalizer or PR metadata guard, authorize commit or PR
 creation, trigger daemons, create or schedule tasks, send alerts, train or modify
 models, or establish federation consensus.
+
+## Storage operator consent request verifier boundary
+
+See [Codex Workcell Storage Operator Consent Request Verifier](codex_workcell_storage_operator_consent_verifier.md) for the deterministic metadata-only verifier for the future operator consent request shape. The verifier does not collect or imply consent, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger daemons, decide readiness, authorize commits, authorize PR metadata, or establish federation consensus.
