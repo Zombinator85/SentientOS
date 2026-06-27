@@ -62,3 +62,7 @@ Reviewer URL hygiene remains a landing-task grep responsibility. The contract re
 ## Non-authority posture
 
 The storage runtime authority boundary contract is read-only, metadata-only, and contract-only. It does not bind runtime authority, activate memory, write ledger entries, archive glow evidence, modify memory, watch files, poll state, rerun commands, decide readiness, bypass finalizer, bypass PR metadata guard, authorize commits, authorize PR creation, trigger daemons, create tasks, schedule tasks, send alerts, train or modify models, or establish federation consensus.
+
+## Storage runtime authority verifier boundary
+
+See [Codex Workcell Storage Runtime Authority Boundary Verifier](codex_workcell_storage_runtime_authority_verifier.md) for the metadata-only structural verifier that checks the future-only runtime authority contract without granting readiness, binding runtime authority, writing `/ledger`, archiving `/glow`, mutating memory, scheduling work, triggering daemon action, or establishing federation consensus.
