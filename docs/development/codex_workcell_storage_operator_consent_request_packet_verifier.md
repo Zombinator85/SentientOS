@@ -35,3 +35,7 @@ Future active behavior requires explicit operator identity capture, explicit con
 ## Non-authority posture
 
 All verifier posture flags are true: read-only, metadata-only, verifier-only, no request presentation, no UI rendering, no messages, no external delivery, no consent collection or implication, no runtime authority binding, no memory activation, no ledger write, no glow archive, no memory mutation, no file watching, no polling, no command reruns, no readiness decision, no finalizer or PR guard bypass, no commit or PR authorization, no daemon trigger, no task creation, no scheduling, no alerts, no model training/modification, and no federation consensus.
+
+## Storage operator consent response artifact boundary
+
+The [Codex Workcell Storage Operator Consent Response Artifact Contract](codex_workcell_storage_operator_consent_response_contract.md) defines only the future response artifact schema for explicit `/ledger` and `/glow` consent. It does not create a response artifact, collect or imply consent, bind runtime authority, activate memory, write ledger entries, archive glow evidence, render UI, send messages, trigger daemon action, decide readiness, authorize commits, authorize PR metadata, or create PRs.
