@@ -104,3 +104,7 @@ The [Codex workcell storage operator consent request packet verifier](codex_work
 ## Storage operator consent response artifact boundary
 
 The [Codex Workcell Storage Operator Consent Response Artifact Contract](codex_workcell_storage_operator_consent_response_contract.md) defines only the future response artifact schema for explicit `/ledger` and `/glow` consent. It does not create a response artifact, collect or imply consent, bind runtime authority, activate memory, write ledger entries, archive glow evidence, render UI, send messages, trigger daemon action, decide readiness, authorize commits, authorize PR metadata, or create PRs.
+
+## Storage operator consent response verifier boundary
+
+The [Codex Workcell Storage Operator Consent Response Artifact Verifier](codex_workcell_storage_operator_consent_response_verifier.md) is a deterministic metadata-only structural verifier for the future response artifact contract. It creates no response artifact, collects or implies no consent, grants no readiness, storage, ledger, glow, daemon, federation, UI, message, scheduler, commit, PR metadata, or runtime authority, and leaves active storage blocked.

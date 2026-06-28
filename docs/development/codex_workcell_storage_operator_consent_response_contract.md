@@ -51,3 +51,7 @@ Reviewer URL hygiene is separate from runtime behavior. The contract records the
 ## Future activation requirements and non-authority posture
 
 Future activation remains unmet and inactive until explicit operator identity capture, response artifact creation, signature binding, timestamp capture, scope statement capture, response status capture, ledger/glow allow capture, digest acknowledgements, expiration capture, revocation acknowledgement, active ledger writer, active glow archiver, finalizer runtime binding, PR metadata guard runtime binding, tests proving no readiness authority, and docs marking active behavior exist. This contract remains read-only, metadata-only, contract-only, not a writer, not an archiver, not a daemon action, not a scheduler, not a consent collector, not a response collector, not a UI renderer, not a message sender, and not a runtime binder.
+
+## Storage operator consent response verifier boundary
+
+The [Codex Workcell Storage Operator Consent Response Artifact Verifier](codex_workcell_storage_operator_consent_response_verifier.md) is a deterministic metadata-only structural verifier for the future response artifact contract. It creates no response artifact, collects or implies no consent, grants no readiness, storage, ledger, glow, daemon, federation, UI, message, scheduler, commit, PR metadata, or runtime authority, and leaves active storage blocked.
