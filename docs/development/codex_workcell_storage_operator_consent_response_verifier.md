@@ -37,3 +37,7 @@ Future active behavior remains unmet and inactive until explicit operator identi
 ## Non-authority posture
 
 All verifier posture flags remain true: read-only, metadata-only, verifier-only, no response artifact creation, no response collection, no consent collection or implication, no runtime authority binding, no memory activation, no ledger write, no glow archive, no memory mutation, no file watching, no polling, no command reruns, no readiness decision, no finalizer or PR guard bypass, no commit or PR creation authorization, no daemon trigger, no task creation, no scheduling, no alerts, no UI rendering, no messages, no external delivery, no model training/modification, and no federation consensus.
+
+## Storage operator consent evidence dossier boundary
+
+See [Codex Workcell Storage Operator Consent Evidence Dossier](codex_workcell_storage_operator_consent_evidence_dossier.md). The dossier inventories future consent-design evidence only; it does not present a request, collect a response or consent, imply approval, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger `/daemon`, decide readiness, or authorize commit/PR metadata.

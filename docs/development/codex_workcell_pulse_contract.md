@@ -120,3 +120,7 @@ The [Codex Workcell Storage Operator Consent Response Artifact Contract](codex_w
 ## Storage operator consent response verifier boundary
 
 The [Codex Workcell Storage Operator Consent Response Artifact Verifier](codex_workcell_storage_operator_consent_response_verifier.md) is a deterministic metadata-only structural verifier for the future response artifact contract. It creates no response artifact, collects or implies no consent, grants no readiness, storage, ledger, glow, daemon, federation, UI, message, scheduler, commit, PR metadata, or runtime authority, and leaves active storage blocked.
+
+## Storage operator consent evidence dossier boundary
+
+See [Codex Workcell Storage Operator Consent Evidence Dossier](codex_workcell_storage_operator_consent_evidence_dossier.md). The dossier inventories future consent-design evidence only; it does not present a request, collect a response or consent, imply approval, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger `/daemon`, decide readiness, or authorize commit/PR metadata.
