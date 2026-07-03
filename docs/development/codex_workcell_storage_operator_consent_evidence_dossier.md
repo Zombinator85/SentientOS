@@ -103,3 +103,7 @@ archiver, daemon action, scheduler, consent collector, response collector, UI
 renderer, message sender, external delivery system, runtime binder, readiness
 authority, commit authority, PR metadata authority, task creator, alerting
 system, model-training system, or federation consensus mechanism.
+
+## Storage Operator Consent Evidence Dossier Verifier Boundary
+
+See [Codex Workcell Storage Operator Consent Evidence Dossier Verifier](codex_workcell_storage_operator_consent_evidence_dossier_verifier.md). The verifier is deterministic metadata-only structural evidence review; it does not present requests, collect or imply consent, create response artifacts, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger `/daemon`, decide finalizer/PR readiness, or replace missing real-world operator consent.
