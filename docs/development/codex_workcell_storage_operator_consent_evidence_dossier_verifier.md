@@ -13,3 +13,7 @@ Reviewer URL hygiene is reported as documentation hygiene only. Repository grep 
 Mount alignment is explicit: `/ledger` is verification-only with no ledger write, `/glow` is verification-only with no archive write, `/vow` is canonical digest context for future consent evidence, `/pulse` is a future watcher boundary that is not activated, and `/daemon` is a future action boundary that is not activated.
 
 This verifier is not a writer, archiver, daemon action, scheduler, consent collector, response collector, UI renderer, message sender, external delivery system, runtime binder, watcher, poller, command runner, readiness authority, commit authority, PR authority, model trainer, reinforcement learner, or federation consensus system.
+
+## Storage Operator Consent Request Presentation Boundary
+
+See [Codex Workcell Storage Operator Consent Request Presentation Boundary Contract](codex_workcell_storage_operator_consent_request_presentation_contract.md). The boundary is deterministic metadata only: request packets, verifier success, evidence dossiers, finalizer readiness, PR metadata guard readiness, matrix passage, daemon recommendations, federation state, runtime authority contracts, storage policy evidence, local files, notifications, displayed copies, and operator silence do not prove presentation, create a response artifact, collect consent, bind runtime authority, or allow active storage.
