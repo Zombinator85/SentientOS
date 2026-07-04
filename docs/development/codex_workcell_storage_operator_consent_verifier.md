@@ -100,3 +100,7 @@ See [Codex Workcell Storage Operator Consent Evidence Dossier](codex_workcell_st
 ## Storage Operator Consent Evidence Dossier Verifier Boundary
 
 See [Codex Workcell Storage Operator Consent Evidence Dossier Verifier](codex_workcell_storage_operator_consent_evidence_dossier_verifier.md). The verifier is deterministic metadata-only structural evidence review; it does not present requests, collect or imply consent, create response artifacts, bind runtime authority, activate storage, write `/ledger`, archive `/glow`, trigger `/daemon`, decide finalizer/PR readiness, or replace missing real-world operator consent.
+
+## Storage Operator Consent Request Presentation Boundary
+
+See [Codex Workcell Storage Operator Consent Request Presentation Boundary Contract](codex_workcell_storage_operator_consent_request_presentation_contract.md). The boundary is deterministic metadata only: request packets, verifier success, evidence dossiers, finalizer readiness, PR metadata guard readiness, matrix passage, daemon recommendations, federation state, runtime authority contracts, storage policy evidence, local files, notifications, displayed copies, and operator silence do not prove presentation, create a response artifact, collect consent, bind runtime authority, or allow active storage.
