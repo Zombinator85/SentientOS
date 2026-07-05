@@ -4,6 +4,9 @@ The Codex workcell storage operator consent request presentation boundary contra
 
 This contract does not present a request, render UI, send messages, deliver externally, create a response artifact, collect a response, collect or imply consent, bind runtime authority, activate memory or storage, write `/ledger`, archive `/glow`, mutate memory, watch files, poll state, run commands, call networks, invoke providers, schedule tasks, create tasks, send alerts, trigger daemon action, decide readiness, authorize commits, authorize PR metadata, create PRs, establish federation consensus, or train or modify models.
 
+
+See [Codex Workcell Storage Operator Consent Request Presentation Verifier](codex_workcell_storage_operator_consent_request_presentation_verifier.md) for the deterministic metadata-only verifier for this presentation boundary; verifier status remains structure-only and does not prove presentation or consent.
+
 ## Ladder position
 
 - The storage operator consent request contract defines the future request requirements.
