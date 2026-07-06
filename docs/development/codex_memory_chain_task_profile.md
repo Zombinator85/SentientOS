@@ -26,6 +26,8 @@ For explicit surgical repairs, use [`codex_narrow_repair_task_template.md`](code
 
 Run the Codex task bootstrapper before implementation. Implement only from `ready` or `ready_with_warnings` bootstrap output. If bootstrap returns `blocked`, stop and report the blocker; blocked prompt/scaffold artifacts are diagnostic only and must not be used as implementation contracts.
 
+Use only the supported bootstrap CLI flags documented in [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md). Unsupported bootstrap flags are invocation errors rather than ready/blocked bootstrap decisions; if argument parsing exits nonzero, stop, fix the invocation, and rerun bootstrap before implementation. For repair prompts, do not invent `--existing-module` or `--existing-cli`; use `--new-module` / `--new-cli` only when intentionally naming the path surface the scaffold should reason about, even if it already exists, or omit those flags and list delta-specific files in the prompt.
+
 If bootstrap tooling cannot express a root-law documentation touch such as `AGENTS.md`, keep the bootstrap artifact limited to allowed task docs and still obey the prompt's explicit authority to edit `AGENTS.md`; do not reinterpret that limitation as permission to ignore blocked bootstrap output or dirty-tree rules.
 
 ## Standard non-authority boundaries
