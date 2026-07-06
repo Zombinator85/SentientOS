@@ -34,6 +34,11 @@ These tracks are consumed as of the local history through PR #1872 and should no
 | Context-hygiene denial-phase documentation consolidation | PR #1871 | Treat Phase 97-103 denial-phase documentation consolidation as sealed validation-only doctrine. | Must not add new denial-phase behavior, prompt assembly, prompt export, provider invocation, external disclosure, or runtime authority. |
 | Host-boundary deferred/blocked host-actuation label audit | PR #1872 | Treat deferred/blocked host labels as sealed non-authority review labels. | Must not add direct host actuation, fan/PWM/thermal writes, executor authority, admission grants, rollback actions, or panic-path behavior. |
 
+
+## Process-hardening notes
+
+- Bootstrap invocation drift is sealed by [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md): future prompts must use only documented bootstrap flags, must not use unsupported `--existing-module` / `--existing-cli`, and must stop/retry bootstrap when argument parsing exits nonzero.
+
 ## Candidate next work tracks
 
 No fresh implementation roadmap is opened by this index. Future candidate additions require a separate bounded planning pass or one of the next-selection signals below; this document does not authorize any blocked surface.

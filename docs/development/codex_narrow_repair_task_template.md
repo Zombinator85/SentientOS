@@ -14,6 +14,12 @@ Document the exact command(s), error text, and preconditions.
 ## Exact files changed
 List only files touched by the repair.
 
+
+## Bootstrap invocation contract
+Run bootstrap with only the supported flags documented in [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md). Unsupported flags are command invocation errors, not bootstrap `ready` or `blocked` decisions; if bootstrap exits nonzero because of unsupported arguments, stop, fix the invocation, and rerun bootstrap before implementation.
+
+For repair prompts, do not use unsupported `--existing-module` or `--existing-cli` flags. Use `--new-module` / `--new-cli` only when intentionally naming the module or CLI path that scaffold metadata should reason about, even when the path already exists, or omit those flags and provide explicit delta-specific files elsewhere in the prompt.
+
 ## Focused tests
 Run targeted tests that prove the localized fix.
 
