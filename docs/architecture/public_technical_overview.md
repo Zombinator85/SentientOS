@@ -306,3 +306,8 @@ Workspace change-set execution verification is documented in [Host Workspace Cha
 Workspace change-set lifecycle closure is documented in [Host Workspace Change Set Lifecycle Closure Manifest Wing](host_workspace_change_set_lifecycle_closure_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_closure_wing.md`): it is a metadata-only sealing layer after verification that consumes supplied evidence JSON only, emits compact lifecycle closure statuses, may write one caller-supplied closure artifact, and does not read target files, recompute target filesystem digests, execute, rollback, verify replay, cleanup, schedule, recurse directories, expand wildcards, or invoke subprocess/shell/network/provider/prompt/hardware/service/power/fan/thermal paths.
 
 The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_change_set_lifecycle_orchestration_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_orchestration_wing.md`) coordinates the existing admission, preflight/planning, optional execution, optional verification, and optional closure wings without adding target-file primitives, direct target reads, target digest recomputation, cleanup, scheduling, external tools, or provider/prompt authority.
+
+
+## Repository mutation custody
+
+The default `sentientosd` maintenance loop does not stage files, create commits, mutate branches, push, or create pull requests. It may emit deterministic metadata-only repository mutation handoffs for already-approved explicit-path proposals; those handoffs require external operator/Codex landing review and do not authorize mutation. `updater.py` / `sentientos-updater` is treated as an explicit operator-invoked legacy utility, not daemon default behavior.

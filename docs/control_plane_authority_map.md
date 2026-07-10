@@ -16,3 +16,8 @@ This map reflects the implemented kernel-mediated sensitive boundaries in the cu
 Notes:
 - Kernel decisions emit normalized provenance fields (`actor_source`, `authority_class`, `lifecycle_phase`, `delegate_checks_consulted`, `final_disposition`, `reason_codes`, `correlation_id`).
 - Deny/defer/quarantine outcomes return before side-effect execution for `admit_and_execute` paths and guarded CLI mutation paths.
+
+
+## Repository mutation custody
+
+The default `sentientosd` maintenance loop does not stage files, create commits, mutate branches, push, or create pull requests. It may emit deterministic metadata-only repository mutation handoffs for already-approved explicit-path proposals; those handoffs require external operator/Codex landing review and do not authorize mutation. `updater.py` / `sentientos-updater` is treated as an explicit operator-invoked legacy utility, not daemon default behavior.

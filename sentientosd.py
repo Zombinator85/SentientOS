@@ -28,16 +28,15 @@ from sentientos.control_plane_kernel import (
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
-from sentientos.utils import git_commit_push
 from codex.amendments import (
     AmendmentCommitPlan,
     runtime_cycle as runtime_spec_cycle,
-    runtime_mark_committed,
     runtime_next_commit,
 )
 from codex.integrity_daemon import runtime_guard as runtime_integrity_guard
 from sentientos.codex_healer import runtime_monitor as runtime_healer_monitor
 from sentientos.genesis_forge import runtime_expand as runtime_genesis_expand
+from sentientos.repository_mutation_handoff import build_repository_mutation_handoff, write_handoff_json
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,10 +102,25 @@ class RuntimeMaintenanceSurfaces:
         return events
 
     def next_commit(self) -> AmendmentCommitPlan | None:
-        return runtime_next_commit(self._repo_root / "integration")
+        return runtime_next_commit(self._repo_root / "integration", approved_only=True)
 
-    def mark_committed(self, plan: AmendmentCommitPlan) -> None:
-        runtime_mark_committed(plan, operator="sentientosd", root=self._repo_root / "integration")
+    def emit_repository_mutation_handoff(self, plan: AmendmentCommitPlan) -> dict[str, Any]:
+        handoff = build_repository_mutation_handoff(
+            plan.proposal,
+            repo_root=self._repo_root,
+            source_revision="unknown",
+        )
+        output_dir = self._repo_root / "integration" / "repository_mutation_handoffs"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        write_handoff_json(handoff, output_dir / f"{handoff['handoff_id'].replace(':', '_')}.json")
+        self._feedback["surfaces"]["repository_mutation_handoff"] = {
+            "status": "ok",
+            "handoff_status": handoff.get("handoff_status"),
+            "proposal_id": handoff.get("proposal_id"),
+            "metadata_only": True,
+        }
+        self._refresh_feedback()
+        return handoff
 
     def governance_feedback(self) -> dict[str, Any]:
         return dict(self._feedback)
@@ -276,13 +290,12 @@ def _run_maintenance_tick(
         )
         kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
-        current_surface = "commit_plan"
-        current_correlation_id = f"{tick_id}:commit_plan"
+        current_surface = "repository_mutation_handoff"
+        current_correlation_id = f"{tick_id}:repository_mutation_handoff"
         plan = runtime_surfaces.next_commit()
         if plan:
-            LOGGER.info("Codex amendment ready for commit: %s", plan.message)
-            if git_commit_push(plan.message):
-                runtime_surfaces.mark_committed(plan)
+            LOGGER.info("Codex amendment ready for repository mutation handoff: %s", plan.message)
+            runtime_surfaces.emit_repository_mutation_handoff(plan)
     except Exception as exc:
         signal = _maintenance_degradation_signal(
             tick_id=tick_id,
