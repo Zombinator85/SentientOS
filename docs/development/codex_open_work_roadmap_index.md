@@ -58,6 +58,8 @@ Verifier/status/presentation/request/response/storage-policy/runtime-authority e
 
 ## Process-hardening notes
 
+- The current-roadmap freshness verifier is documented in [`codex_open_work_roadmap_freshness_verifier.md`](codex_open_work_roadmap_freshness_verifier.md) as metadata-only review/test evidence; verifier success does not select or implement any future track and grants no runtime, readiness, commit, PR, or implementation authority.
+
 - Bootstrap invocation drift is sealed by [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md): future prompts must use only supported bootstrap flags / documented bootstrap flags, must not use unsupported `--existing-module` / `--existing-cli`, and must stop/retry bootstrap when argument parsing exits nonzero.
 
 ## Candidate next work tracks
