@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, cast
 
 import json
 
@@ -136,7 +136,7 @@ class AmendmentProposal:
         action: str,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
-        entry = {
+        entry: Dict[str, Any] = {
             "operator": operator,
             "action": action,
             "timestamp": _default_now().isoformat(),
@@ -405,7 +405,8 @@ class SpecAmender:
     def integrity_endpoint(self) -> Dict[str, Any]:
         """Expose covenantal health snapshot for other modules."""
 
-        return self._integrity_daemon.health()
+        health: Dict[str, Any] = self._integrity_daemon.health()
+        return health
 
     def edit_proposal(
         self,
@@ -774,7 +775,7 @@ class SpecAmender:
             "stage_a_valid_count": stage_a_valid_count,
             "stage_b_valid_count": stage_b_valid_count,
             "router_status": router_status,
-            "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
+            "selected_candidate_id": selected.candidate_id if router_status == "selected" and selected is not None else None,
         }
         scorecard = {
             "router_k": configured_k,
@@ -891,6 +892,7 @@ class SpecAmender:
                 violations=best_failure_violations,
             )
 
+        assert selected is not None
         proposal = selected.proposal
         scorecard["selected_candidate_id"] = selected.candidate_id
         proposal.add_note("router", "selected", {"router_scorecard": scorecard})
@@ -935,7 +937,7 @@ class SpecAmender:
                 "router_telemetry": dict(router_telemetry),
             },
         )
-        return proposal
+        return cast(AmendmentProposal, proposal)
 
     def _persist(self, proposal: AmendmentProposal) -> Path:
         proposal.updated_at = self._now()
@@ -978,7 +980,7 @@ class SpecAmender:
         proposal_id: str,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
-        payload = {
+        payload: Dict[str, Any] = {
             "timestamp": self._now().isoformat(),
             "event": event,
             "spec_id": spec_id,
@@ -995,7 +997,7 @@ class SpecAmender:
         spec_id: str,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
-        payload = {
+        payload: Dict[str, Any] = {
             "timestamp": self._now().isoformat(),
             "event": event,
             "spec_id": spec_id,
@@ -1090,7 +1092,7 @@ class AmendmentReviewBoard:
             proposal.proposal_id,
             {"operator": operator, "ledger_entry": ledger_entry},
         )
-        self._engine._update_preferences(proposal, outcome="approved")
+        _update_preferences(self._engine, proposal, outcome="approved")
         return proposal
 
     def reject(
@@ -1110,7 +1112,7 @@ class AmendmentReviewBoard:
             proposal.proposal_id,
             {"operator": operator, "reason": reason},
         )
-        self._engine._update_preferences(proposal, outcome="rejected")
+        _update_preferences(self._engine, proposal, outcome="rejected")
         return proposal
 
     def edit(
@@ -1166,7 +1168,7 @@ SpecAmender._update_preferences = _update_preferences  # type: ignore[attr-defin
 
 
 @dataclass(frozen=True)
-class AmendmentCommitPlan:
+class RepositoryMutationHandoffPlan:
     proposal_id: str
     message: str
     ledger_entry: str
@@ -1191,7 +1193,7 @@ def runtime_cycle(root: Path | str = Path("integration")) -> Dict[str, Any]:
     return _runtime_amender(root).dashboard_state()
 
 
-def runtime_next_commit(root: Path | str = Path("integration"), *, approved_only: bool = False) -> AmendmentCommitPlan | None:
+def runtime_next_repository_mutation_handoff(root: Path | str = Path("integration"), *, approved_only: bool = False) -> RepositoryMutationHandoffPlan | None:
     engine = _runtime_amender(root)
     proposals = engine.active_amendments() if approved_only else engine.list_pending()
     for proposal in proposals:
@@ -1200,29 +1202,13 @@ def runtime_next_commit(root: Path | str = Path("integration"), *, approved_only
         if not proposal_id or not ledger_entry:
             continue
         summary = str(proposal.get("summary") or proposal_id)
-        return AmendmentCommitPlan(
+        return RepositoryMutationHandoffPlan(
             proposal_id=proposal_id,
             message=f"Approve amendment {proposal_id}: {summary}",
             ledger_entry=ledger_entry,
             proposal=proposal,
         )
     return None
-
-
-def runtime_mark_committed(
-    plan: AmendmentCommitPlan,
-    *,
-    operator: str = "sentientosd",
-    root: Path | str = Path("integration"),
-) -> AmendmentProposal:
-    global _RUNTIME_REVIEW_BOARD
-    if _RUNTIME_REVIEW_BOARD is None:
-        _RUNTIME_REVIEW_BOARD = AmendmentReviewBoard(_runtime_amender(root))
-    return _RUNTIME_REVIEW_BOARD.approve(
-        plan.proposal_id,
-        operator=operator,
-        ledger_entry=plan.ledger_entry,
-    )
 
 
 def runtime_integrity_health(root: Path | str = Path("integration")) -> Dict[str, Any]:

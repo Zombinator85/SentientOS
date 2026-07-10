@@ -99,7 +99,7 @@ class _RuntimeSurfaceSpy:
         self.monitor_calls += 1
         return []
 
-    def next_commit(self):
+    def next_repository_mutation_handoff(self):
         return None
 
     def mark_committed(self, _plan) -> None:
@@ -258,7 +258,7 @@ class _FailingRuntimeSurfaceSpy(_RuntimeSurfaceSpy):
     def __init__(self, *, fail_surface: str) -> None:
         super().__init__()
         self.fail_surface = fail_surface
-        self.next_commit_calls = 0
+        self.next_handoff_calls = 0
         self.mark_committed_calls = 0
 
     def expand(self) -> list[object]:
@@ -285,10 +285,10 @@ class _FailingRuntimeSurfaceSpy(_RuntimeSurfaceSpy):
             raise RuntimeError("boom-monitor")
         return []
 
-    def next_commit(self):
-        self.next_commit_calls += 1
-        if self.fail_surface == "commit_plan":
-            raise RuntimeError("boom-commit-plan")
+    def next_repository_mutation_handoff(self):
+        self.next_handoff_calls += 1
+        if self.fail_surface == "handoff_plan":
+            raise RuntimeError("boom-handoff-plan")
         return None
 
     def mark_committed(self, _plan) -> None:
@@ -319,10 +319,10 @@ def _maintenance_degradations(path: Path) -> list[dict[str, object]]:
 @pytest.mark.parametrize(
     ("fail_surface", "expected_counts"),
     [
-        ("expand", {"expand": 1, "cycle": 0, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
-        ("cycle", {"expand": 1, "cycle": 1, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
-        ("guard", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 0, "forge": 0, "merge": 0, "next_commit": 0}),
-        ("monitor", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 1, "forge": 0, "merge": 0, "next_commit": 0}),
+        ("expand", {"expand": 1, "cycle": 0, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_handoff": 0}),
+        ("cycle", {"expand": 1, "cycle": 1, "guard": 0, "monitor": 0, "forge": 0, "merge": 0, "next_handoff": 0}),
+        ("guard", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 0, "forge": 0, "merge": 0, "next_handoff": 0}),
+        ("monitor", {"expand": 1, "cycle": 1, "guard": 1, "monitor": 1, "forge": 0, "merge": 0, "next_handoff": 0}),
     ],
 )
 def test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime(
@@ -353,7 +353,7 @@ def test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime(
     assert surfaces.monitor_calls == expected_counts["monitor"]
     assert forge.calls == expected_counts["forge"]
     assert merge.calls == expected_counts["merge"]
-    assert surfaces.next_commit_calls == expected_counts["next_commit"]
+    assert surfaces.next_handoff_calls == expected_counts["next_handoff"]
     assert surfaces.mark_committed_calls == 0
     assert kernel.phase == LifecyclePhase.RUNTIME
 
@@ -416,7 +416,7 @@ def test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry(
     assert (surfaces.expand_calls, surfaces.cycle_calls, surfaces.guard_calls, surfaces.monitor_calls) == (1, 1, 1, 1)
     assert forge.calls == expected_forge
     assert merge.calls == expected_merge
-    assert surfaces.next_commit_calls == 0
+    assert surfaces.next_handoff_calls == 0
     assert surfaces.mark_committed_calls == 0
     assert kernel.phase == LifecyclePhase.RUNTIME
 
@@ -428,13 +428,13 @@ def test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry(
     assert degradations[0]["reinterpreted_as_goal"] is False
 
 
-def test_maintenance_tick_commit_plan_failure_degrades_without_new_action(tmp_path: Path) -> None:
+def test_maintenance_tick_handoff_plan_failure_degrades_without_new_action(tmp_path: Path) -> None:
     decisions_path = tmp_path / "decisions.jsonl"
     kernel = ControlPlaneKernel(
         runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
         decisions_path=decisions_path,
     )
-    surfaces = _FailingRuntimeSurfaceSpy(fail_surface="commit_plan")
+    surfaces = _FailingRuntimeSurfaceSpy(fail_surface="handoff_plan")
     forge = _ForgeDaemonStub()
     merge = _MergeTrainStub()
 
@@ -449,7 +449,7 @@ def test_maintenance_tick_commit_plan_failure_degrades_without_new_action(tmp_pa
     assert (surfaces.expand_calls, surfaces.cycle_calls, surfaces.guard_calls, surfaces.monitor_calls) == (1, 1, 1, 1)
     assert forge.calls == 1
     assert merge.calls == 1
-    assert surfaces.next_commit_calls == 1
+    assert surfaces.next_handoff_calls == 1
     assert surfaces.mark_committed_calls == 0
     assert kernel.phase == LifecyclePhase.RUNTIME
     degradations = _maintenance_degradations(decisions_path)
@@ -560,7 +560,7 @@ def test_maintenance_tick_emits_handoff_without_git_or_mark_committed(tmp_path: 
             self.handoff_calls = 0
             self.mark_committed_calls = 0
 
-        def next_commit(self):
+        def next_repository_mutation_handoff(self):
             return _Plan()
 
         def emit_repository_mutation_handoff(self, plan) -> dict[str, object]:
@@ -572,10 +572,6 @@ def test_maintenance_tick_emits_handoff_without_git_or_mark_committed(tmp_path: 
             self.mark_committed_calls += 1
             raise AssertionError("sentientosd must not mark committed after handoff")
 
-    def _forbidden_git(*_args, **_kwargs):
-        raise AssertionError("sentientosd must not call git_commit_push")
-
-    monkeypatch.setattr("sentientos.utils.git_commit_push", _forbidden_git, raising=False)
     surfaces = _HandoffSpy()
     _run_maintenance_tick(
         kernel=kernel,

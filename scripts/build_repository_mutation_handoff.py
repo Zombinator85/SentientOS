@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -13,18 +12,9 @@ from sentientos.repository_mutation_handoff import (
     build_repository_mutation_handoff,
     is_ready_handoff,
     render_handoff_markdown,
+    resolve_observed_source_revision,
     write_handoff_json,
 )
-
-
-def _read_only_revision(repo_root: Path) -> tuple[str, list[str]]:
-    try:
-        result = subprocess.run(("git", "rev-parse", "HEAD"), cwd=repo_root, capture_output=True, text=True, check=False)
-    except OSError:
-        return "unknown", ["source_revision_unknown"]
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip(), []
-    return "unknown", ["source_revision_unknown"]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,16 +39,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         repo_root = Path(args.repo_root).resolve()
         source_revision = args.source_revision
-        extra_warnings: list[str] = []
         if source_revision is None:
-            source_revision, extra_warnings = _read_only_revision(repo_root)
+            source_revision, _warnings = resolve_observed_source_revision(repo_root)
         handoff = build_repository_mutation_handoff(
             proposal,
             repo_root=repo_root,
             source_revision=source_revision,
             created_at=args.created_at,
         )
-        handoff["warning_codes"] = sorted(set(handoff.get("warning_codes", [])) | set(extra_warnings))
         write_handoff_json(handoff, args.output)
         if args.markdown_output:
             Path(args.markdown_output).write_text(render_handoff_markdown(handoff), encoding="utf-8")
