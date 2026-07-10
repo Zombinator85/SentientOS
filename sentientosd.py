@@ -8,7 +8,7 @@ import signal
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -29,14 +29,19 @@ from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from codex.amendments import (
-    AmendmentCommitPlan,
+    RepositoryMutationHandoffPlan,
     runtime_cycle as runtime_spec_cycle,
-    runtime_next_commit,
+    runtime_next_repository_mutation_handoff,
 )
 from codex.integrity_daemon import runtime_guard as runtime_integrity_guard
 from sentientos.codex_healer import runtime_monitor as runtime_healer_monitor
 from sentientos.genesis_forge import runtime_expand as runtime_genesis_expand
-from sentientos.repository_mutation_handoff import build_repository_mutation_handoff, write_handoff_json
+from sentientos.repository_mutation_handoff import (
+    build_repository_mutation_handoff,
+    resolve_observed_source_revision,
+    resolve_runtime_handoff_root,
+    write_handoff_json,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,8 +49,9 @@ LOGGER = logging.getLogger(__name__)
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None) -> None:
         self._repo_root = Path(repo_root)
+        self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._feedback: dict[str, Any] = {
             "schema": "runtime_maintenance_feedback:v1",
             "degraded": False,
@@ -61,7 +67,7 @@ class RuntimeMaintenanceSurfaces:
             "outcome_count": len(outcomes),
         }
         self._refresh_feedback()
-        return outcomes
+        return cast(list[Any], outcomes)
 
     def cycle(self) -> dict[str, Any]:
         state = runtime_spec_cycle(self._repo_root / "integration")
@@ -86,7 +92,8 @@ class RuntimeMaintenanceSurfaces:
             "passed": int(health.get("passed", 0) or 0),
         }
         self._refresh_feedback()
-        return health
+        typed_health: dict[str, Any] = health
+        return typed_health
 
     def monitor(self) -> list[dict[str, Any]]:
         events = runtime_healer_monitor(self._repo_root / "integration")
@@ -99,19 +106,19 @@ class RuntimeMaintenanceSurfaces:
             "statuses": statuses,
         }
         self._refresh_feedback()
-        return events
+        return cast(list[dict[str, Any]], events)
 
-    def next_commit(self) -> AmendmentCommitPlan | None:
-        return runtime_next_commit(self._repo_root / "integration", approved_only=True)
+    def next_repository_mutation_handoff(self) -> RepositoryMutationHandoffPlan | None:
+        return runtime_next_repository_mutation_handoff(self._repo_root / "integration", approved_only=True)
 
-    def emit_repository_mutation_handoff(self, plan: AmendmentCommitPlan) -> dict[str, Any]:
+    def emit_repository_mutation_handoff(self, plan: RepositoryMutationHandoffPlan) -> dict[str, Any]:
+        observed_revision, _warnings = resolve_observed_source_revision(self._repo_root)
         handoff = build_repository_mutation_handoff(
             plan.proposal,
             repo_root=self._repo_root,
-            source_revision="unknown",
+            source_revision=observed_revision,
         )
-        output_dir = self._repo_root / "integration" / "repository_mutation_handoffs"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = resolve_runtime_handoff_root(self._repo_root, self._repository_mutation_handoff_root)
         write_handoff_json(handoff, output_dir / f"{handoff['handoff_id'].replace(':', '_')}.json")
         self._feedback["surfaces"]["repository_mutation_handoff"] = {
             "status": "ok",
@@ -292,9 +299,9 @@ def _run_maintenance_tick(
 
         current_surface = "repository_mutation_handoff"
         current_correlation_id = f"{tick_id}:repository_mutation_handoff"
-        plan = runtime_surfaces.next_commit()
+        plan = runtime_surfaces.next_repository_mutation_handoff()
         if plan:
-            LOGGER.info("Codex amendment ready for repository mutation handoff: %s", plan.message)
+            LOGGER.info("Codex amendment ready for repository mutation handoff review: %s", plan.message)
             runtime_surfaces.emit_repository_mutation_handoff(plan)
     except Exception as exc:
         signal = _maintenance_degradation_signal(

@@ -4,11 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from sentientos.repository_mutation_handoff import HandoffInputError, READY, build_repository_mutation_handoff
+import hashlib
 
+from sentientos.repository_mutation_handoff import HandoffInputError, READY, CONTRADICTED, INCOMPLETE, build_repository_mutation_handoff, verify_repository_mutation_handoff_digest
+
+
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def proposal(**overrides):
-    data = {"proposal_id": "p1", "status": "approved", "summary": "Seal", "ledger_entry": "ledger-1", "approved_paths": ["a.txt"]}
+    data = {"proposal_id": "p1", "status": "approved", "summary": "Seal", "ledger_entry": "ledger-1", "approved_paths": ["a.txt"], "approved_path_digests": {"a.txt": digest("one")}, "approved_source_revision": "abc"}
     data.update(overrides)
     return data
 
@@ -28,17 +33,21 @@ def test_valid_approved_paths_produce_deterministic_review_only_handoff(tmp_path
     assert first["metadata_only"] is True
     for key in ("repository_mutation_authorized", "staging_performed", "commit_performed", "branch_mutation_performed", "push_performed", "pull_request_created", "network_performed", "provider_invocation_performed", "prompt_assembly_performed", "runtime_authority_expanded"):
         assert first[key] is False
-    assert first["approved_path_evidence"][0]["sha256"]
+    assert first["schema_version"] == "repository-mutation-handoff.v2"
+    assert verify_repository_mutation_handoff_digest(first)
+    assert first["approved_path_evidence"][0]["observed_sha256"]
+    assert first["approved_path_evidence"][0]["expected_sha256"] == digest("one")
     assert first["approved_path_evidence"][0]["approved_for_review"] is True
 
 
-def test_changing_file_content_changes_evidence_and_digest(tmp_path: Path) -> None:
+def test_changing_file_content_after_approval_is_contradicted(tmp_path: Path) -> None:
     write(tmp_path, "a.txt", "one")
     first = build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="abc")
     write(tmp_path, "a.txt", "two")
     second = build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="abc")
-    assert first["approved_path_evidence"][0]["sha256"] != second["approved_path_evidence"][0]["sha256"]
-    assert first["digest"] != second["digest"]
+    assert first["handoff_status"] == READY
+    assert second["handoff_status"] == CONTRADICTED
+    assert "approved_path_digest_mismatch" in second["risk_codes"]
 
 
 @pytest.mark.parametrize("status", ["pending", "proposed", "rejected", "quarantined", "incomplete"])
@@ -80,3 +89,27 @@ def test_unapproved_dirty_files_are_absent(tmp_path: Path) -> None:
     handoff = build_repository_mutation_handoff(proposal(), repo_root=tmp_path)
     assert handoff["approved_paths"] == ["a.txt"]
     assert [item["path"] for item in handoff["approved_path_evidence"]] == ["a.txt"]
+
+
+def test_missing_revision_and_digest_inputs_are_incomplete(tmp_path: Path) -> None:
+    write(tmp_path, "a.txt", "one")
+    assert build_repository_mutation_handoff(proposal(approved_source_revision=""), repo_root=tmp_path, source_revision="abc")["handoff_status"] == INCOMPLETE
+    assert build_repository_mutation_handoff(proposal(approved_path_digests=None), repo_root=tmp_path, source_revision="abc")["handoff_status"] == INCOMPLETE
+    assert build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="unknown")["handoff_status"] == INCOMPLETE
+
+def test_revision_and_digest_set_mismatch_are_contradicted(tmp_path: Path) -> None:
+    write(tmp_path, "a.txt", "one")
+    assert build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="def")["handoff_status"] == CONTRADICTED
+    assert build_repository_mutation_handoff(proposal(approved_path_digests={"b.txt": digest("one")}), repo_root=tmp_path, source_revision="abc")["handoff_status"] == CONTRADICTED
+    assert build_repository_mutation_handoff(proposal(approved_path_digests={"a.txt": "ABC"}), repo_root=tmp_path, source_revision="abc")["handoff_status"] == CONTRADICTED
+
+def test_digest_verification_detects_mutation(tmp_path: Path) -> None:
+    write(tmp_path, "a.txt", "one")
+    handoff = build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="abc")
+    assert verify_repository_mutation_handoff_digest(handoff)
+    mutated = dict(handoff)
+    mutated["warning_codes"] = ["changed"]
+    assert not verify_repository_mutation_handoff_digest(mutated)
+    mutated = dict(handoff)
+    mutated["approved_path_evidence"] = [dict(handoff["approved_path_evidence"][0], byte_count=999)]
+    assert not verify_repository_mutation_handoff_digest(mutated)
