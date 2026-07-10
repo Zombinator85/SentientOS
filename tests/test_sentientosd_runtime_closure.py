@@ -454,7 +454,7 @@ def test_maintenance_tick_commit_plan_failure_degrades_without_new_action(tmp_pa
     assert kernel.phase == LifecyclePhase.RUNTIME
     degradations = _maintenance_degradations(decisions_path)
     assert len(degradations) == 1
-    assert degradations[0]["surface"] == "commit_plan"
+    assert degradations[0]["surface"] == "repository_mutation_handoff"
     assert degradations[0]["phase_at_failure"] == "runtime"
 
 def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp_path: Path, monkeypatch) -> None:
@@ -536,3 +536,54 @@ def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp
         and any("runtime_governor:runtime_feedback_degraded_maintenance" in reason for reason in row.get("reason_codes", []))
         for row in rows
     )
+
+
+def test_maintenance_tick_emits_handoff_without_git_or_mark_committed(tmp_path: Path, monkeypatch) -> None:
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=tmp_path / "decisions.jsonl",
+    )
+
+    class _Plan:
+        message = "review"
+        proposal = {
+            "proposal_id": "p1",
+            "status": "approved",
+            "ledger_entry": "ledger",
+            "approved_paths": ["a.txt"],
+            "summary": "review",
+        }
+
+    class _HandoffSpy(_RuntimeSurfaceSpy):
+        def __init__(self) -> None:
+            super().__init__()
+            self.handoff_calls = 0
+            self.mark_committed_calls = 0
+
+        def next_commit(self):
+            return _Plan()
+
+        def emit_repository_mutation_handoff(self, plan) -> dict[str, object]:
+            self.handoff_calls += 1
+            assert plan is not None
+            return {"metadata_only": True}
+
+        def mark_committed(self, _plan) -> None:
+            self.mark_committed_calls += 1
+            raise AssertionError("sentientosd must not mark committed after handoff")
+
+    def _forbidden_git(*_args, **_kwargs):
+        raise AssertionError("sentientosd must not call git_commit_push")
+
+    monkeypatch.setattr("sentientos.utils.git_commit_push", _forbidden_git, raising=False)
+    surfaces = _HandoffSpy()
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=_ForgeDaemonStub(),  # type: ignore[arg-type]
+        merge_train=_MergeTrainStub(),  # type: ignore[arg-type]
+    )
+    assert surfaces.handoff_calls == 1
+    assert surfaces.mark_committed_calls == 0
+    assert not _maintenance_degradations(tmp_path / "decisions.jsonl")

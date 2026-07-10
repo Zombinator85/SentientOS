@@ -217,13 +217,13 @@ python -m sentientos.windows_service install
   sentientos-chat
   ```
 
-### 3. GitHub Integration
+### 3. Repository Custody
 
-* **Auto commits:** `SpecAmender` now prepares descriptive commit messages for
-  major fixes and batches minor approvals before invoking
-  `sentientos.utils.git_commit_push`.
-* **Auto updates:** `updater.py` runs `git pull` then restarts the daemon. Use it
-  as a scheduled task:
+* **Review handoffs:** `SpecAmender`/`sentientosd` may produce metadata-only
+  repository mutation handoffs for already-approved explicit-path proposals. The
+  daemon does not stage files, create commits, mutate branches, push, or create
+  pull requests; external operator/Codex landing review remains required.
+* **Explicit legacy updates:** `updater.py` runs `git pull` then restarts the daemon only when invoked by an operator. Use it as an explicit scheduled task:
 
   ```bash
   sentientos-updater
@@ -417,3 +417,8 @@ SentientOS now supports live federation streams across nodes.
 All logs now append a ledger entry with ID, type, ts, and checksum.
 API: GET `/ledger`
 Use `scripts/migrate_logs.py` to sync across nodes.
+
+
+## Repository mutation custody
+
+The default `sentientosd` maintenance loop does not stage files, create commits, mutate branches, push, or create pull requests. It may emit deterministic metadata-only repository mutation handoffs for already-approved explicit-path proposals; those handoffs require external operator/Codex landing review and do not authorize mutation. `updater.py` / `sentientos-updater` is treated as an explicit operator-invoked legacy utility, not daemon default behavior.

@@ -1170,6 +1170,7 @@ class AmendmentCommitPlan:
     proposal_id: str
     message: str
     ledger_entry: str
+    proposal: Dict[str, Any]
 
 
 _RUNTIME_AMENDER: SpecAmender | None = None
@@ -1190,9 +1191,10 @@ def runtime_cycle(root: Path | str = Path("integration")) -> Dict[str, Any]:
     return _runtime_amender(root).dashboard_state()
 
 
-def runtime_next_commit(root: Path | str = Path("integration")) -> AmendmentCommitPlan | None:
+def runtime_next_commit(root: Path | str = Path("integration"), *, approved_only: bool = False) -> AmendmentCommitPlan | None:
     engine = _runtime_amender(root)
-    for proposal in engine.list_pending():
+    proposals = engine.active_amendments() if approved_only else engine.list_pending()
+    for proposal in proposals:
         proposal_id = str(proposal.get("proposal_id") or "").strip()
         ledger_entry = str(proposal.get("ledger_entry") or "").strip()
         if not proposal_id or not ledger_entry:
@@ -1202,6 +1204,7 @@ def runtime_next_commit(root: Path | str = Path("integration")) -> AmendmentComm
             proposal_id=proposal_id,
             message=f"Approve amendment {proposal_id}: {summary}",
             ledger_entry=ledger_entry,
+            proposal=proposal,
         )
     return None
 
