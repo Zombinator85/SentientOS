@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import posixpath
 import platform
 import subprocess
 import tempfile
@@ -82,19 +83,27 @@ def approved_path_digests_from_proposal(proposal: Mapping[str, Any]) -> dict[str
 
 
 def validate_approved_path(path: str) -> str:
-    if not path or path in {".", "./", ""}:
+    """Return the single lexical repository-relative spelling for an approved path."""
+    raw = str(path).strip().replace("\\", "/")
+    if not raw or raw in {".", "./", ""}:
         raise HandoffInputError("repository-root blanket scope is not allowed")
-    pure = Path(path)
-    if pure.is_absolute():
+    pure = Path(raw)
+    if pure.is_absolute() or raw.startswith("/"):
         raise HandoffInputError(f"absolute path is not allowed: {path}")
-    parts = pure.parts
+    raw_parts = tuple(part for part in raw.split("/") if part)
+    if any(part == ".." for part in raw_parts):
+        raise HandoffInputError(f"path traversal is not allowed: {path}")
+    canonical = posixpath.normpath(raw)
+    if canonical in {".", "", "./"}:
+        raise HandoffInputError("repository-root blanket scope is not allowed")
+    parts = tuple(part for part in canonical.split("/") if part)
     if any(part == ".." for part in parts):
         raise HandoffInputError(f"path traversal is not allowed: {path}")
     if any(part == ".git" for part in parts):
         raise HandoffInputError(f".git paths are not allowed: {path}")
     if any("*" in part or "?" in part or "[" in part or "]" in part for part in parts):
         raise HandoffInputError(f"wildcard path scope is not allowed: {path}")
-    return pure.as_posix()
+    return "/".join(parts)
 
 
 def _valid_sha256(value: str) -> bool:
@@ -186,7 +195,7 @@ def build_repository_mutation_handoff(
     ledger = _proposal_value(proposal, "ledger_entry") or _proposal_value(proposal, "ledger_reference")
     approval = _proposal_value(proposal, "approval_reference")
     paths_raw = approved_paths_from_proposal(proposal)
-    digests = approved_path_digests_from_proposal(proposal)
+    digests_raw = approved_path_digests_from_proposal(proposal)
     approved_source_revision = _proposal_value(proposal, "approved_source_revision")
     observed_source_revision = (source_revision if source_revision is not None else UNKNOWN_REVISION).strip() or UNKNOWN_REVISION
     reasons: list[str] = []
@@ -200,9 +209,9 @@ def build_repository_mutation_handoff(
         reasons.append("missing_approval_or_ledger_reference")
     if not paths_raw:
         reasons.append("missing_explicit_approved_paths")
-    if digests is None:
+    if digests_raw is None:
         reasons.append("missing_approved_path_digests")
-        digests = {}
+        digests_raw = {}
     if not approved_source_revision or approved_source_revision == UNKNOWN_REVISION:
         reasons.append("missing_approved_source_revision")
     if not observed_source_revision or observed_source_revision == UNKNOWN_REVISION:
@@ -212,28 +221,46 @@ def build_repository_mutation_handoff(
         risks.append("source_revision_mismatch")
 
     canonical_paths: list[str] = []
-    seen: set[str] = set()
+    seen_paths: set[str] = set()
     for path in paths_raw:
         canonical = validate_approved_path(path)
-        if canonical in seen:
-            risks.append("duplicate_approved_path")
-        seen.add(canonical)
+        if canonical in seen_paths:
+            risks.append("duplicate_canonical_approved_path")
+        seen_paths.add(canonical)
         canonical_paths.append(canonical)
-    digest_keys: set[str] = set()
-    for path, digest in digests.items():
+
+    canonical_digests: dict[str, str] = {}
+    for path, digest in digests_raw.items():
         canonical = validate_approved_path(path)
-        digest_keys.add(canonical)
         if not _valid_sha256(digest):
             risks.append("invalid_approved_path_digest")
+        if canonical in canonical_digests:
+            risks.append("duplicate_canonical_approved_path_digest_key")
+            if canonical_digests[canonical] != digest:
+                risks.append("conflicting_canonical_approved_path_digest")
+        else:
+            canonical_digests[canonical] = digest
+
     path_set = set(canonical_paths)
-    if digests and path_set != digest_keys:
+    digest_keys = set(canonical_digests)
+    if digests_raw and path_set != digest_keys:
         risks.append("approved_path_digest_set_mismatch")
+
     evidence: list[dict[str, Any]] = []
     for path in sorted(path_set):
-        item, item_reasons, item_risks = _path_evidence(root, path, digests.get(path, ""))
+        item, item_reasons, item_risks = _path_evidence(root, path, canonical_digests.get(path, ""))
         evidence.append(item)
         reasons.extend(item_reasons)
         risks.extend(item_risks)
+    evidence_paths = [str(item.get("path", "")) for item in evidence]
+    if len(evidence_paths) != len(path_set) or set(evidence_paths) != path_set:
+        risks.append("approved_path_evidence_set_mismatch")
+    if any(not item.get("digest_matches_approval") or not item.get("approved_for_review") for item in evidence):
+        if any(item.get("expected_sha256") and item.get("observed_sha256") and not item.get("digest_matches_approval") for item in evidence):
+            risks.append("approved_path_digest_mismatch")
+        elif any(not item.get("approved_for_review") for item in evidence):
+            reasons.append("approved_path_not_approved_for_review")
+
     source_matches = bool(approved_source_revision and observed_source_revision != UNKNOWN_REVISION and approved_source_revision == observed_source_revision)
     if risks:
         handoff_status = CONTRADICTED
@@ -255,7 +282,7 @@ def build_repository_mutation_handoff(
         "observed_source_revision": observed_source_revision,
         "source_revision_matches_approval": source_matches,
         "approved_paths": sorted(path_set),
-        "approved_path_digests": {k: digests[k] for k in sorted(digest_keys) if k in digests},
+        "approved_path_digests": {k: canonical_digests[k] for k in sorted(digest_keys)},
         "approved_path_evidence": evidence,
         "suggested_branch_name": f"codex/repository-mutation-handoff-{proposal_id or 'unknown'}",
         "suggested_commit_title": f"[codex:sentientos] review repository mutation handoff {proposal_id or 'unknown'}: {title_summary}",
@@ -273,7 +300,6 @@ def build_repository_mutation_handoff(
     base["digest"] = ""
     base["digest"] = _digest_payload(base)
     return base
-
 
 def verify_repository_mutation_handoff_digest(handoff: Mapping[str, Any]) -> bool:
     if handoff.get("digest_algo") != "sha256":
@@ -327,4 +353,68 @@ def render_handoff_markdown(handoff: Mapping[str, Any]) -> str:
 
 
 def is_ready_handoff(handoff: Mapping[str, Any]) -> bool:
-    return handoff.get("schema_version") == SCHEMA_VERSION and handoff.get("handoff_status") == READY and verify_repository_mutation_handoff_digest(handoff) and all(handoff.get(flag) is False for flag in _FALSE_FLAGS)
+    if handoff.get("schema_version") != SCHEMA_VERSION or handoff.get("digest_algo") != "sha256":
+        return False
+    if handoff.get("handoff_status") != READY or not verify_repository_mutation_handoff_digest(handoff):
+        return False
+    if handoff.get("metadata_only") is not True or handoff.get("operator_review_required") is not True or handoff.get("codex_landing_required") is not True:
+        return False
+    if any(handoff.get(flag) is not False for flag in _FALSE_FLAGS):
+        return False
+    if handoff.get("reason_codes") not in ([], ()) or handoff.get("risk_codes") not in ([], ()):
+        return False
+    approved_revision = handoff.get("approved_source_revision")
+    observed_revision = handoff.get("observed_source_revision")
+    if not isinstance(approved_revision, str) or not approved_revision or approved_revision == UNKNOWN_REVISION:
+        return False
+    if not isinstance(observed_revision, str) or not observed_revision or observed_revision == UNKNOWN_REVISION:
+        return False
+    if handoff.get("source_revision_matches_approval") is not True or approved_revision != observed_revision:
+        return False
+    approved_paths = handoff.get("approved_paths")
+    if not isinstance(approved_paths, list) or not approved_paths:
+        return False
+    try:
+        canonical_paths = [validate_approved_path(str(path)) for path in approved_paths]
+    except HandoffInputError:
+        return False
+    if canonical_paths != approved_paths or canonical_paths != sorted(canonical_paths) or len(set(canonical_paths)) != len(canonical_paths):
+        return False
+    digests = handoff.get("approved_path_digests")
+    if not isinstance(digests, Mapping):
+        return False
+    try:
+        canonical_digests = {validate_approved_path(str(path)): str(digest) for path, digest in digests.items()}
+    except HandoffInputError:
+        return False
+    if set(canonical_digests) != set(canonical_paths) or len(canonical_digests) != len(digests):
+        return False
+    if any(path != validate_approved_path(path) for path in digests.keys()):
+        return False
+    if any(not _valid_sha256(digest) for digest in canonical_digests.values()):
+        return False
+    evidence = handoff.get("approved_path_evidence")
+    if not isinstance(evidence, list) or len(evidence) != len(canonical_paths):
+        return False
+    evidence_paths: list[str] = []
+    for row in evidence:
+        if not isinstance(row, Mapping):
+            return False
+        try:
+            path = validate_approved_path(str(row.get("path", "")))
+        except HandoffInputError:
+            return False
+        if path != row.get("path"):
+            return False
+        evidence_paths.append(path)
+        expected = row.get("expected_sha256")
+        observed = row.get("observed_sha256")
+        if expected != canonical_digests.get(path):
+            return False
+        if not isinstance(observed, str) or not _valid_sha256(observed):
+            return False
+        if row.get("digest_matches_approval") is not True or row.get("approved_for_review") is not True:
+            return False
+        if row.get("file_exists") is not True or row.get("regular_file") is not True or row.get("within_repository") is not True:
+            return False
+    return evidence_paths == canonical_paths and len(set(evidence_paths)) == len(evidence_paths)

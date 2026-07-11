@@ -25,15 +25,22 @@ The default `sentientosd` maintenance loop does not stage files, create commits,
 ### Repository mutation custody v2 sealing
 
 Repository mutation handoffs now use `repository-mutation-handoff.v2`. A ready v2
-handoff is metadata-only and requires an approved proposal, an approval/ledger
-reference, exact `approved_paths` / `approved_path_digests` set equality, a
-lowercase SHA-256 approval digest for every approved file, and an
-`approved_source_revision` that exactly matches the read-only observed revision
-from `git rev-parse HEAD`. Missing approval references, missing digest data, or
-unknown source revisions are incomplete; digest mismatches, revision mismatches,
-unsafe paths, outside-repository evidence, and approved-path/digest set
-mismatches are contradicted. v1 artifacts remain historical review metadata and
-are not sufficient for v2 readiness.
+handoff is metadata-only and requires an approved proposal, a ledger entry,
+ledger reference, or approval reference, and one canonical repository-relative
+path representation for both `approved_paths` and `approved_path_digests` keys.
+Canonical-equivalent spellings are serialized canonically; canonical duplicate
+approved paths or digest keys are contradictions, even when duplicate digest
+values match. READY also requires a lowercase SHA-256 approval digest for every
+approved file, an `approved_source_revision` that exactly matches the read-only
+observed revision from `git rev-parse HEAD`, and exactly one truthful evidence
+row per canonical approved path. `is_ready_handoff` independently revalidates
+canonical paths, digest mappings, evidence truth, revision equality, empty
+reason/risk codes, and false authority/effect flags instead of trusting declared
+status alone. Missing approval references, missing digest data, or unknown
+source revisions are incomplete; digest mismatches, revision mismatches, unsafe
+paths, outside-repository evidence, canonical duplicates, and approved-path /
+digest-key set mismatches are contradicted. v1 artifacts remain historical
+review metadata and are not sufficient for v2 readiness.
 
 The daemon writes runtime handoff artifacts outside the repository worktree. The
 resolved root precedence is: explicit injection,

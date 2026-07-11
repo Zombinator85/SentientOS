@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.no_legacy_skip
 from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.repository_mutation_handoff import resolve_runtime_handoff_root
 from sentientosd import RuntimeMaintenanceSurfaces, _run_maintenance_tick
@@ -97,3 +98,56 @@ def test_failed_handoff_generation_fail_stops_without_retry_or_new_goal(tmp_path
 def test_environment_variable_does_not_restore_autonomous_mutation(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("SENTIENTOS_AUTONOMOUS_REPOSITORY_MUTATION", "1")
     test_sentientosd_static_source_has_no_autonomous_git_mutation_path()
+
+
+def test_runtime_handoff_selector_requires_approved_and_review_reference(monkeypatch) -> None:
+    from codex import amendments
+
+    proposals = [
+        {"proposal_id": "pending", "status": "pending", "ledger_entry": "ledger-p"},
+        {"proposal_id": "rejected", "status": "rejected", "ledger_entry": "ledger-r"},
+        {"proposal_id": "quarantined", "status": "quarantined", "ledger_entry": "ledger-q"},
+        {"proposal_id": "no-ref", "status": "approved"},
+        {"proposal_id": "ledger-entry", "status": "approved", "ledger_entry": "ledger-1"},
+        {"proposal_id": "ledger-ref", "status": "approved", "ledger_reference": "ledger-ref-1"},
+        {"proposal_id": "approval-ref", "status": "approved", "approval_reference": "approval-1"},
+    ]
+
+    class _Engine:
+        def active_amendments(self):
+            return proposals
+
+    monkeypatch.setattr(amendments, "_runtime_amender", lambda root: _Engine())
+    before = [dict(item) for item in proposals]
+    plan = amendments.runtime_next_repository_mutation_handoff("integration", approved_only=True)
+    assert plan is not None
+    assert plan.proposal_id == "ledger-entry"
+    assert plan.review_reference == "ledger-1"
+    assert proposals == before
+
+
+def test_runtime_handoff_selector_accepts_ledger_reference_and_approval_reference(monkeypatch) -> None:
+    from codex import amendments
+
+    class _Engine:
+        def __init__(self, proposals):
+            self._proposals = proposals
+        def active_amendments(self):
+            return self._proposals
+
+    monkeypatch.setattr(amendments, "_runtime_amender", lambda root: _Engine([
+        {"proposal_id": "no-ref", "status": "approved"},
+        {"proposal_id": "ledger-ref", "status": "approved", "ledger_reference": "ledger-ref-1"},
+    ]))
+    plan = amendments.runtime_next_repository_mutation_handoff("integration", approved_only=True)
+    assert plan is not None
+    assert plan.proposal_id == "ledger-ref"
+    assert plan.review_reference == "ledger-ref-1"
+
+    monkeypatch.setattr(amendments, "_runtime_amender", lambda root: _Engine([
+        {"proposal_id": "approval-ref", "status": "approved", "approval_reference": "approval-1"},
+    ]))
+    plan = amendments.runtime_next_repository_mutation_handoff("integration", approved_only=True)
+    assert plan is not None
+    assert plan.proposal_id == "approval-ref"
+    assert plan.review_reference == "approval-1"

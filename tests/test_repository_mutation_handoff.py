@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.no_legacy_skip
 import hashlib
 
-from sentientos.repository_mutation_handoff import HandoffInputError, READY, CONTRADICTED, INCOMPLETE, build_repository_mutation_handoff, verify_repository_mutation_handoff_digest
+from sentientos.repository_mutation_handoff import HandoffInputError, READY, CONTRADICTED, INCOMPLETE, build_repository_mutation_handoff, verify_repository_mutation_handoff_digest, is_ready_handoff
 
 
 def digest(text: str) -> str:
@@ -113,3 +114,84 @@ def test_digest_verification_detects_mutation(tmp_path: Path) -> None:
     mutated = dict(handoff)
     mutated["approved_path_evidence"] = [dict(handoff["approved_path_evidence"][0], byte_count=999)]
     assert not verify_repository_mutation_handoff_digest(mutated)
+
+
+def _redigest(handoff: dict[str, object]) -> dict[str, object]:
+    import json
+    mutated = dict(handoff)
+    mutated["digest"] = ""
+    encoded = json.dumps(mutated, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    mutated["digest"] = hashlib.sha256(encoded).hexdigest()
+    return mutated
+
+
+def test_canonical_equivalent_digest_key_is_ready_and_serialized_canonical(tmp_path: Path) -> None:
+    write(tmp_path, "a.txt", "one")
+    handoff = build_repository_mutation_handoff(proposal(approved_path_digests={"./a.txt": digest("one")}), repo_root=tmp_path, source_revision="abc")
+    assert handoff["handoff_status"] == READY
+    assert handoff["approved_paths"] == ["a.txt"]
+    assert handoff["approved_path_digests"] == {"a.txt": digest("one")}
+    assert handoff["approved_path_evidence"][0]["expected_sha256"] == digest("one")
+    assert handoff["approved_path_evidence"][0]["digest_matches_approval"] is True
+    assert is_ready_handoff(handoff)
+
+
+def test_nested_canonical_equivalent_forms_are_serialized_canonical(tmp_path: Path) -> None:
+    write(tmp_path, "a/b.txt", "nested")
+    handoff = build_repository_mutation_handoff(
+        proposal(approved_paths=["a/./b.txt"], approved_path_digests={"a//b.txt": digest("nested")}),
+        repo_root=tmp_path,
+        source_revision="abc",
+    )
+    assert handoff["handoff_status"] == READY
+    assert handoff["approved_paths"] == ["a/b.txt"]
+    assert handoff["approved_path_digests"] == {"a/b.txt": digest("nested")}
+    assert is_ready_handoff(handoff)
+
+
+def test_canonical_duplicate_paths_and_digest_keys_are_contradicted(tmp_path: Path) -> None:
+    write(tmp_path, "a.txt", "one")
+    duplicate_paths = build_repository_mutation_handoff(proposal(approved_paths=["a.txt", "./a.txt"]), repo_root=tmp_path, source_revision="abc")
+    assert duplicate_paths["handoff_status"] == CONTRADICTED
+    assert "duplicate_canonical_approved_path" in duplicate_paths["risk_codes"]
+    same_duplicate_digest = build_repository_mutation_handoff(
+        proposal(approved_path_digests={"a.txt": digest("one"), "./a.txt": digest("one")}),
+        repo_root=tmp_path,
+        source_revision="abc",
+    )
+    assert same_duplicate_digest["handoff_status"] == CONTRADICTED
+    assert "duplicate_canonical_approved_path_digest_key" in same_duplicate_digest["risk_codes"]
+    conflicting = build_repository_mutation_handoff(
+        proposal(approved_path_digests={"a.txt": digest("one"), "./a.txt": digest("two")}),
+        repo_root=tmp_path,
+        source_revision="abc",
+    )
+    assert conflicting["handoff_status"] == CONTRADICTED
+    assert "duplicate_canonical_approved_path_digest_key" in conflicting["risk_codes"]
+    assert "conflicting_canonical_approved_path_digest" in conflicting["risk_codes"]
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda h: h.update({"approved_path_evidence": [dict(h["approved_path_evidence"][0], digest_matches_approval=False)]}),
+        lambda h: h.update({"approved_path_evidence": [dict(h["approved_path_evidence"][0], approved_for_review=False)]}),
+        lambda h: h.update({"approved_path_evidence": []}),
+        lambda h: h.update({"approved_path_evidence": [*h["approved_path_evidence"], dict(h["approved_path_evidence"][0], path="b.txt")]}),
+        lambda h: h.update({"approved_path_evidence": [dict(h["approved_path_evidence"][0], path="b.txt")]}),
+        lambda h: h.update({"source_revision_matches_approval": False}),
+        lambda h: h.update({"reason_codes": ["x"]}),
+        lambda h: h.update({"risk_codes": ["x"]}),
+        lambda h: h.update({"approved_path_evidence": [dict(h["approved_path_evidence"][0], expected_sha256="")] }),
+        lambda h: h.update({"approved_path_evidence": [dict(h["approved_path_evidence"][0], observed_sha256="ABC")] }),
+    ],
+)
+def test_semantic_readiness_rejects_tampering_after_redigest(tmp_path: Path, mutator) -> None:
+    write(tmp_path, "a.txt", "one")
+    handoff = build_repository_mutation_handoff(proposal(), repo_root=tmp_path, source_revision="abc")
+    assert is_ready_handoff(handoff)
+    mutated = dict(handoff)
+    mutator(mutated)
+    mutated = _redigest(mutated)
+    assert verify_repository_mutation_handoff_digest(mutated)
+    assert not is_ready_handoff(mutated)

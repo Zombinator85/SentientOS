@@ -1171,7 +1171,7 @@ SpecAmender._update_preferences = _update_preferences  # type: ignore[attr-defin
 class RepositoryMutationHandoffPlan:
     proposal_id: str
     message: str
-    ledger_entry: str
+    review_reference: str
     proposal: Dict[str, Any]
 
 
@@ -1197,15 +1197,21 @@ def runtime_next_repository_mutation_handoff(root: Path | str = Path("integratio
     engine = _runtime_amender(root)
     proposals = engine.active_amendments() if approved_only else engine.list_pending()
     for proposal in proposals:
+        if approved_only and str(proposal.get("status") or "").strip() != "approved":
+            continue
         proposal_id = str(proposal.get("proposal_id") or "").strip()
-        ledger_entry = str(proposal.get("ledger_entry") or "").strip()
-        if not proposal_id or not ledger_entry:
+        review_reference = (
+            str(proposal.get("ledger_entry") or "").strip()
+            or str(proposal.get("ledger_reference") or "").strip()
+            or str(proposal.get("approval_reference") or "").strip()
+        )
+        if not proposal_id or not review_reference:
             continue
         summary = str(proposal.get("summary") or proposal_id)
         return RepositoryMutationHandoffPlan(
             proposal_id=proposal_id,
             message=f"Approve amendment {proposal_id}: {summary}",
-            ledger_entry=ledger_entry,
+            review_reference=review_reference,
             proposal=proposal,
         )
     return None
