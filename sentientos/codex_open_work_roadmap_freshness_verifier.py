@@ -19,9 +19,8 @@ NON_AUTHORITY_POSTURE = (
     "PR authority, or readiness authority."
 )
 
-REQUIRED_PRS = tuple(range(1898, 1918))
+REQUIRED_PRS = tuple(range(1898, 1923))
 CANDIDATES = (
-    "Current-roadmap freshness verifier",
     "Consent-ladder index/readability consolidation",
     "Next-selection packet template",
 )
@@ -38,6 +37,16 @@ FORBIDDEN_SURFACES = (
     "scheduler behavior",
     "model training",
     "federation authority",
+    "autonomous repository staging",
+    "autonomous repository mutation",
+    "repository staging",
+    "committing",
+    "commit authority",
+    "branch mutation",
+    "pushing",
+    "PR creation",
+    "repository authority",
+    "runtime proposal adoption",
     "sandboxed readiness gate",
     "sandboxed readiness packet",
     "sandboxed readiness envelope",
@@ -78,15 +87,29 @@ def _consumed_work_results(text: str) -> list[dict[str, Any]]:
     for pr in REQUIRED_PRS:
         marker = f"PR #{pr}"
         results.append(_check(f"consumed_work.pr_{pr}", marker in text, f"Roadmap mentions {marker}."))
-    present_1918 = "PR #1918" in text
-    results.append(_check(
-        "consumed_work.pr_1918_optional",
-        True,
-        "Roadmap mentions optional PR #1918." if present_1918 else "Roadmap does not mention optional PR #1918; this is informational when current history intentionally records through PR #1917.",
-        severity="info",
-    ))
+    sequence_specs = (
+        ("consumed_work.roadmap_refresh_sequence", ("PR #1918", "refreshed", "roadmap")),
+        ("consumed_work.freshness_verifier_consumed", ("PR #1919", "current-roadmap freshness verifier", "already implemented", "metadata-only review/test tooling")),
+        ("consumed_work.repository_mutation_custody_1920", ("PR #1920", "repository mutation custody", "external", "review handoff")),
+        ("consumed_work.repository_mutation_custody_1921", ("PR #1921", "approval-time digest", "revision binding", "external handoff storage", "immutable payload verification")),
+        ("consumed_work.repository_mutation_custody_1922", ("PR #1922", "canonical path/digest invariants", "semantic readiness verification", "canonical-duplicate contradictions", "ledger-or-approval selection")),
+    )
+    for cid, terms in sequence_specs:
+        results.append(_check(cid, _contains_all(text, terms), f"Required consumed-sequence wording preserved: {', '.join(terms)}."))
     return results
 
+
+
+def _repository_mutation_custody_results(text: str) -> list[dict[str, Any]]:
+    specs = (
+        ("repository_mutation_custody.consumed_through_1922", ("repository-mutation custody through PR #1922", "review evidence only")),
+        ("repository_mutation_custody.autonomous_mutation_blocked", ("must not authorize autonomous repository mutation", "staging", "committing", "branch mutation", "pushing", "PR creation")),
+        ("repository_mutation_custody.handoff_readiness_non_authority", ("handoff readiness remains non-authority",)),
+        ("repository_mutation_custody.external_landing_controls_required", ("external Codex/operator landing controls remain required",)),
+        ("repository_mutation_custody.no_runtime_proposal_adoption", ("runtime proposal adoption", "must not")),
+        ("repository_mutation_custody.no_evidence_to_authority", ("evidence-to-authority escalation", "must not")),
+    )
+    return [_check(cid, _contains_all(text, terms), f"Required repository-mutation custody wording preserved: {', '.join(terms)}.") for cid, terms in specs]
 
 def _blocked_surface_results(text: str) -> list[dict[str, Any]]:
     specs = (
@@ -173,6 +196,7 @@ def verify_roadmap_text(text: str, roadmap_path: str, *, source_bytes: bytes | N
         "blocked_surface_results": _blocked_surface_results(text),
         "bootstrap_contract_results": _bootstrap_contract_results(text),
         "candidate_track_results": _candidate_track_results(text),
+        "repository_mutation_custody_results": _repository_mutation_custody_results(text),
         "forbidden_authority_results": _forbidden_authority_results(text),
     }
     checks = [check for values in groups.values() for check in values]
@@ -239,6 +263,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         ("Blocked surface results", "blocked_surface_results"),
         ("Bootstrap contract results", "bootstrap_contract_results"),
         ("Candidate track results", "candidate_track_results"),
+        ("Repository mutation custody results", "repository_mutation_custody_results"),
         ("Forbidden authority results", "forbidden_authority_results"),
     )
     for title, key in section_map:

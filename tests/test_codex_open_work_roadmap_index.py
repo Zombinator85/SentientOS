@@ -13,7 +13,7 @@ def _roadmap_text() -> str:
     return ROADMAP.read_text(encoding="utf-8")
 
 
-def test_recent_consent_and_bootstrap_consumed_work_is_indexed() -> None:
+def test_recent_consent_bootstrap_and_repository_custody_consumed_work_is_indexed() -> None:
     text = _roadmap_text()
 
     required_markers = [
@@ -21,6 +21,11 @@ def test_recent_consent_and_bootstrap_consumed_work_is_indexed() -> None:
         "PR #1915",
         "PR #1916",
         "PR #1917",
+        "PR #1918",
+        "PR #1919",
+        "PR #1920",
+        "PR #1921",
+        "PR #1922",
         "Presentation boundary contract",
         "Presentation verifier initial landing",
         "Presentation verifier output-contract hardening",
@@ -65,7 +70,7 @@ def test_candidate_tracks_require_separate_selection_and_are_non_authority() -> 
     assert "does not select or implement any candidate" in text
     assert "does not authorize implementation" in text
     assert "Each candidate requires separate operator selection" in text
-    assert text.count("| Current-roadmap freshness verifier |") == 1
+    assert text.count("| Current-roadmap freshness verifier |") == 0
     assert text.count("| Consent-ladder index/readability consolidation |") == 1
     assert text.count("| Next-selection packet template |") == 1
 
@@ -110,6 +115,9 @@ def test_roadmap_contains_no_forbidden_authority_grants() -> None:
         "must not grant consent truth",
         "do not create a sandboxed readiness gate",
         "metadata and review evidence only",
+        "handoff readiness remains non-authority",
+        "must not authorize autonomous repository mutation",
+        "external codex/operator landing controls remain required",
     ]
 
     for phrase in required_denials:

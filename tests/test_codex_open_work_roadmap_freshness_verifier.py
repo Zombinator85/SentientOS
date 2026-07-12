@@ -16,9 +16,8 @@ from sentientos.codex_open_work_roadmap_freshness_verifier import (
 )
 
 
-def valid_roadmap(include_1918: bool = False) -> str:
+def valid_roadmap() -> str:
     prs = "\n".join(f"- PR #{number} consumed metadata only." for number in range(1898, 1918))
-    optional = "\n- PR #1918 refreshed roadmap history." if include_1918 else ""
     return f"""# Roadmap
 
 ## Current sealed or paused areas
@@ -31,7 +30,14 @@ def valid_roadmap(include_1918: bool = False) -> str:
 
 ## Recent consumed storage/operator consent and bootstrap-contract work
 
-{prs}{optional}
+{prs}
+- PR #1918 refreshed the roadmap after consent/storage/bootstrap landings.
+- PR #1919 records the Current-roadmap freshness verifier as already implemented and consumed as metadata-only review/test tooling.
+- PR #1920 sealed repository mutation custody with an external review handoff.
+- PR #1921 hardened custody with approval-time digest, revision binding, external handoff storage, and immutable payload verification.
+- PR #1922 consumed repository-mutation custody through PR #1922 as review evidence only with canonical path/digest invariants, semantic readiness verification, canonical-duplicate contradictions, and ledger-or-approval selection.
+
+Handoff readiness remains non-authority. The roadmap must not authorize autonomous repository mutation, staging, committing, branch mutation, pushing, PR creation, runtime proposal adoption, evidence-to-authority escalation, or repository authority. External Codex/operator landing controls remain required.
 
 ## Process-hardening notes
 
@@ -43,7 +49,6 @@ This section lists documentation/review/test-only options for a future operator 
 
 | Candidate option | Scope if separately selected | Non-authority boundary |
 | --- | --- | --- |
-| Current-roadmap freshness verifier | Add or update docs/tests that check consumed-work entries and blocked-surface language stay current. | Review/test-only. Must not create runtime gates. |
 | Consent-ladder index/readability consolidation | Consolidate links among existing consent/storage contracts, verifiers, and dossiers without adding a new rung. | Documentation/readability-only. |
 | Next-selection packet template | Draft a template for choosing among safe docs/test-only work items without implying implementation authority. | Planning-only. Must require separate operator selection. |
 
@@ -87,12 +92,11 @@ def test_consumed_pr_markers_are_checked() -> None:
     assert "consumed_work.pr_1904" in report["violation_summary"]["violation_check_ids"]
 
 
-def test_pr_1918_is_optional_info_if_not_recorded_as_consumed() -> None:
-    report = verify_roadmap_text(valid_roadmap(include_1918=False), "roadmap.md")
-    check = next(c for c in report["consumed_work_results"] if c["check_id"] == "consumed_work.pr_1918_optional")
-    assert check["passed"] is True
-    assert check["severity"] == "info"
-    assert "does not mention" in check["details"]
+def test_pr_1918_through_1922_are_required() -> None:
+    for pr in range(1918, 1923):
+        report = verify_roadmap_text(valid_roadmap().replace(f"PR #{pr}", "PR missing"), "roadmap.md")
+        assert report["verification_status"] == FAILED
+        assert f"consumed_work.pr_{pr}" in report["violation_summary"]["violation_check_ids"]
 
 
 def test_sandboxed_adapter_stop_language_is_required() -> None:
@@ -113,10 +117,25 @@ def test_unsupported_existing_module_and_cli_wording_is_required() -> None:
     assert "bootstrap_contract.unsupported_existing_cli" in report["violation_summary"]["violation_check_ids"]
 
 
-def test_candidate_tracks_are_checked() -> None:
+def test_candidate_tracks_are_exactly_two_remaining_candidates() -> None:
     report = verify_roadmap_text(valid_roadmap().replace("| Next-selection packet template |", "| Other candidate |"), "roadmap.md")
     assert report["verification_status"] == FAILED
     assert "candidate_track.exact_candidate_set" in report["violation_summary"]["violation_check_ids"]
+
+
+def test_reintroducing_freshness_verifier_candidate_fails() -> None:
+    row = "| Current-roadmap freshness verifier | Add or update docs/tests. | Review/test-only. |\n"
+    report = verify_roadmap_text(valid_roadmap().replace("| Consent-ladder", row + "| Consent-ladder"), "roadmap.md")
+    assert "candidate_track.exact_candidate_set" in report["violation_summary"]["violation_check_ids"]
+
+
+def test_no_replacement_candidate_is_required() -> None:
+    report = verify_roadmap_text(valid_roadmap(), "roadmap.md")
+    exact = next(c for c in report["candidate_track_results"] if c["check_id"] == "candidate_track.exact_candidate_set")
+    assert exact["passed"] is True
+    assert "Consent-ladder index/readability consolidation" in exact["details"]
+    assert "Next-selection packet template" in exact["details"]
+    assert "Current-roadmap freshness verifier" not in exact["details"]
 
 
 def test_candidates_must_require_separate_operator_selection() -> None:
@@ -133,6 +152,26 @@ def test_forbidden_authority_positive_wording_fails() -> None:
     report = verify_roadmap_text(valid_roadmap() + "\nThis roadmap authorizes runtime authority as current work.\n", "roadmap.md")
     assert report["verification_status"] == FAILED
     assert "forbidden_authority.runtime_authority" in report["violation_summary"]["violation_check_ids"]
+
+
+def test_positive_autonomous_git_authority_wording_fails() -> None:
+    report = verify_roadmap_text(valid_roadmap() + "\nThis roadmap authorizes autonomous repository staging, committing, branch mutation, pushing, and PR creation.\n", "roadmap.md")
+    ids = report["violation_summary"]["violation_check_ids"]
+    assert "forbidden_authority.autonomous_repository_staging" in ids
+    assert "forbidden_authority.committing" in ids
+    assert "forbidden_authority.branch_mutation" in ids
+    assert "forbidden_authority.pushing" in ids
+    assert "forbidden_authority.PR_creation" in ids
+
+
+def test_repository_mutation_custody_non_authority_wording_is_required() -> None:
+    report = verify_roadmap_text(valid_roadmap().replace("Handoff readiness remains non-authority.", "Handoff readiness is available."), "roadmap.md")
+    assert "repository_mutation_custody.handoff_readiness_non_authority" in report["violation_summary"]["violation_check_ids"]
+
+
+def test_freshness_verifier_consumed_wording_is_required() -> None:
+    report = verify_roadmap_text(valid_roadmap().replace("already implemented and consumed", "candidate next work"), "roadmap.md")
+    assert "consumed_work.freshness_verifier_consumed" in report["violation_summary"]["violation_check_ids"]
 
 
 def test_denial_forbidden_wording_does_not_falsely_fail() -> None:
