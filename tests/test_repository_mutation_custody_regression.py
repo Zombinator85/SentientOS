@@ -151,3 +151,13 @@ def test_runtime_handoff_selector_accepts_ledger_reference_and_approval_referenc
     assert plan is not None
     assert plan.proposal_id == "approval-ref"
     assert plan.review_reference == "approval-1"
+
+
+def test_governed_signal_plane_and_sentientosd_do_not_import_external_gap_seeker_runtime_path():
+    from pathlib import Path
+    module = Path("sentientos/governed_improvement_signal_plane.py").read_text()
+    daemon = Path("sentientosd.py").read_text()
+    assert "ExternalGapSeeker" not in module
+    assert "external_gap_seeker" not in module
+    assert "ExternalGapSeeker" not in daemon
+    assert "external_gap_seeker" not in daemon

@@ -122,6 +122,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "dry_run_execution_posture",
         "dry_run_audit_closure_posture",
         "real_effect_admission_posture",
+        "governed_improvement_signal_plane_posture",
         "local_diagnostic_effect_capability",
         "local_diagnostic_rollback_capability",
         "local_effect_transaction_ledger_capability",
@@ -232,6 +233,7 @@ BUNDLE_FILE_NAMES = {
     "dry_run_execution_posture": "dry_run_execution.json",
     "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
     "real_effect_admission_posture": "real_effect_admission.json",
+    "governed_improvement_signal_plane_posture": "governed_improvement_signal_plane.json",
     "local_diagnostic_effect_capability": "local_diagnostic_effect_capability.json",
     "local_diagnostic_rollback_capability": "local_diagnostic_rollback_capability.json",
     "local_effect_transaction_ledger_capability": "local_effect_transaction_ledger_capability.json",
@@ -2012,6 +2014,22 @@ def build_reviewer_proof_bundle_payload(
         "forbidden_next_steps": ["real_executor_execution_lock_lease_gate", "real_lock_acquisition", "real_lock_lease_creation", "lockfile_creation", "executor_preflight_execution", "executor_execution", "executor_run", "executor_invocation", "executor_activation", "execution_release", "execution_permit", "execution_authorization", "runtime_enablement", "runtime_flag_flipping", "live_execution", "real_live_memory_write", "real_live_memory_delete", "real_live_memory_purge", "index_mutation", "prompt_assembly", "live_context_retrieval", "action_ingress", "external_disclosure"],
         "explicit_non_authority_boundaries": list(EXPLICIT_NON_AUTHORITY_BOUNDARIES),
     })
+
+    signal_plane_record = registry.by_id().get("governed_improvement_signal_plane")
+    if signal_plane_record is not None:
+        contents["governed_improvement_signal_plane_posture"] = _pretty_json({
+            "artifact_kind": "governed_improvement_signal_plane_posture",
+            **signal_plane_record.to_dict(),
+            "metadata_only": True,
+            "proposal_only": True,
+            "run_by_reviewer_proof_bundle_default": False,
+            "proof_bundle_effect_performed": False,
+            "adoption_performed": False,
+            "repository_mutation_performed": False,
+            "provider_network_git_operation_performed": False,
+            "docs_reference": "docs/architecture/governed_improvement_signal_plane.md",
+            "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
+        })
 
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)

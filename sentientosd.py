@@ -35,7 +35,8 @@ from codex.amendments import (
 )
 from codex.integrity_daemon import runtime_guard as runtime_integrity_guard
 from sentientos.codex_healer import runtime_monitor as runtime_healer_monitor
-from sentientos.genesis_forge import runtime_expand as runtime_genesis_expand
+from sentientos.genesis_forge import CovenantVow, TelemetryStream, runtime_expand as runtime_genesis_expand
+from sentientos.governed_improvement_signal_plane import SignalPlaneEvaluation, evaluate_signal_plane
 from sentientos.repository_mutation_handoff import (
     build_repository_mutation_handoff,
     resolve_observed_source_revision,
@@ -58,8 +59,48 @@ class RuntimeMaintenanceSurfaces:
             "surfaces": {},
         }
 
+    def identify_improvement_signals(self) -> SignalPlaneEvaluation:
+        evaluation = evaluate_signal_plane((), repo_root=self._repo_root)
+        self._feedback["surfaces"]["governed_improvement_signal_plane"] = {
+            "status": "degraded" if evaluation.summary.get("degraded") else "ok",
+            "batch_id": evaluation.batch.batch_id,
+            "batch_digest": evaluation.batch.batch_digest,
+            "input_counts_by_source": dict(evaluation.summary.get("input_counts_by_source", {})),
+            "routed_counts_by_disposition": dict(evaluation.summary.get("routed_counts_by_disposition", {})),
+            "proposal_count": evaluation.summary.get("proposal_count", 0),
+            "blocked_invalid_count": evaluation.summary.get("blocked_invalid_count", 0),
+            "adoption_performed": False,
+            "repository_mutation_performed": False,
+            "provider_network_git_operation_performed": False,
+        }
+        self._current_signal_evaluation = evaluation
+        self._refresh_feedback()
+        return evaluation
+
     def expand(self) -> list[Any]:
-        outcomes = runtime_genesis_expand(self._repo_root)
+        evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
+        genesis_inputs = evaluation.genesis_inputs
+        telemetry_streams = [
+            TelemetryStream(
+                name=str(item.get("name")),
+                capability=str(item.get("capability")),
+                description=str(item.get("description")),
+                sample_payload=dict(item.get("sample_payload") or {}),
+            )
+            for item in genesis_inputs.get("telemetry_streams", [])
+            if isinstance(item, dict)
+        ]
+        vows = [
+            CovenantVow(capability=str(item.get("capability")), description=str(item.get("description")))
+            for item in genesis_inputs.get("vows", [])
+            if isinstance(item, dict)
+        ]
+        try:
+            outcomes = runtime_genesis_expand(self._repo_root, telemetry_streams=telemetry_streams, vows=vows, proposal_only=True)
+        except TypeError as exc:
+            if "unexpected keyword" not in str(exc):
+                raise
+            outcomes = runtime_genesis_expand(self._repo_root)
         failed = sum(1 for item in outcomes if str(getattr(item, "status", "")).lower() in {"failed", "deferred_degraded_audit_trust"})
         self._feedback["surfaces"]["genesis_forge"] = {
             "status": "degraded" if failed else "ok",
@@ -70,7 +111,13 @@ class RuntimeMaintenanceSurfaces:
         return cast(list[Any], outcomes)
 
     def cycle(self) -> dict[str, Any]:
-        state = runtime_spec_cycle(self._repo_root / "integration")
+        evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
+        try:
+            state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
+        except TypeError as exc:
+            if "unexpected keyword" not in str(exc):
+                raise
+            state = runtime_spec_cycle(self._repo_root / "integration")
         pending = len(state.get("pending", [])) if isinstance(state.get("pending"), list) else 0
         self._feedback["surfaces"]["spec_amender"] = {
             "status": "ok",
@@ -202,6 +249,22 @@ def _run_maintenance_tick(
 
     try:
         kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="sentientosd")
+        feedback = runtime_surfaces.governance_feedback()
+        current_surface = "identify_improvement_signals"
+        current_correlation_id = f"{tick_id}:identify_improvement_signals"
+        identify = getattr(runtime_surfaces, "identify_improvement_signals", None)
+        if callable(identify):
+            kernel.admit_and_execute(
+                ControlActionRequest(
+                    action_kind="identify_improvement_signals",
+                    authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                    actor="sentientosd",
+                    target_subsystem="governed_improvement_signal_plane",
+                    requested_phase=LifecyclePhase.MAINTENANCE,
+                    metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+                ),
+                execute=identify,
+            )
         feedback = runtime_surfaces.governance_feedback()
         current_surface = "expand"
         current_correlation_id = f"{tick_id}:expand"

@@ -625,6 +625,53 @@ class GenesisForge:
         self._adoption_rite = adoption_rite
         self._ledger = ledger
 
+    def propose_for_review(
+        self,
+        telemetry_streams: Sequence[TelemetryStream],
+        vows: Sequence[CovenantVow],
+    ) -> list[GenesisOutcome]:
+        """Draft reviewable Genesis proposals without integration or adoption."""
+
+        outcomes: list[GenesisOutcome] = []
+        needs = self._need_seer.scan(telemetry_streams, vows)
+        for need in needs:
+            try:
+                proposals = self._forge_engine.draft_variants(need, k=1, seed=f"proposal-only:{need.capability}")
+                proposal = proposals[0]
+                stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
+                stage_b = self._integrity_daemon.evaluate(proposal)
+                report = self._trial_run.execute(proposal.blueprint)
+                details = {
+                    "proposal_id": proposal.proposal_id,
+                    "spec_id": proposal.spec_id,
+                    "proposal": proposal.to_dict(),
+                    "stage_a_valid": getattr(stage_a, "valid_a", False),
+                    "stage_a_reason_codes": list(getattr(stage_a, "reason_codes_a", ())),
+                    "stage_b_valid": getattr(stage_b, "valid", False),
+                    "stage_b_reason_codes": list(getattr(stage_b, "reason_codes", ())),
+                    "sandbox_trial_passed": report.passed,
+                    "proposal_ready_for_review": True,
+                    "lineage_integrated": False,
+                    "adoption_promoted": False,
+                    "repository_mutation_performed": False,
+                    "provider_network_git_operation_performed": False,
+                }
+                self._ledger.log(
+                    "genesis_proposal_ready_for_review",
+                    anomaly=Anomaly(kind="genesis_need", subject=need.capability),
+                    details=details,
+                )
+                outcomes.append(GenesisOutcome(need=need, status="proposal_ready_for_review", details=details))
+            except GenesisForgeError as exc:
+                self._ledger.log(
+                    "genesis_proposal_failed",
+                    anomaly=Anomaly(kind="genesis_need", subject=need.capability),
+                    details={"error": str(exc), "proposal_only": True},
+                    quarantined=True,
+                )
+                outcomes.append(GenesisOutcome(need=need, status="failed", details={"error": str(exc), "proposal_only": True}))
+        return outcomes
+
     def expand(
         self,
         telemetry_streams: Sequence[TelemetryStream],
@@ -1097,8 +1144,13 @@ class GenesisForge:
 _RUNTIME_FORGE: GenesisForge | None = None
 
 
-def runtime_expand(repo_root: Path | str = Path.cwd()) -> list[GenesisOutcome]:
-    """Runtime-mediated GenesisForge expansion surface used by sentientosd."""
+def runtime_expand(repo_root: Path | str = Path.cwd(), *, telemetry_streams: Sequence[TelemetryStream] | None = None, vows: Sequence[CovenantVow] | None = None, proposal_only: bool = True) -> list[GenesisOutcome]:
+    """Runtime-mediated GenesisForge expansion surface used by sentientosd.
+
+    The daemon-facing default is proposal-only: it drafts and evaluates reviewable
+    candidates from supplied bounded signals and stops before SpecBinder
+    integration or AdoptionRite promotion.
+    """
 
     global _RUNTIME_FORGE
     if _RUNTIME_FORGE is None:
@@ -1118,8 +1170,12 @@ def runtime_expand(repo_root: Path | str = Path.cwd()) -> list[GenesisOutcome]:
             adoption_rite=AdoptionRite(
                 live_mount=integration_root / "live",
                 codex_index=integration_root / "codex_index.json",
-                review_board=lambda _proposal, _report: True,
+                review_board=lambda _proposal, _report: False,
             ),
             ledger=RecoveryLedger(path=integration_root / "healer_runtime.log.jsonl"),
         )
-    return _RUNTIME_FORGE.expand([], [])
+    telemetry = list(telemetry_streams or [])
+    covenant_vows = list(vows or [])
+    if proposal_only:
+        return _RUNTIME_FORGE.propose_for_review(telemetry, covenant_vows)
+    return _RUNTIME_FORGE.expand(telemetry, covenant_vows)
