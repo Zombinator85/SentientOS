@@ -1,0 +1,5 @@
+[
+  {"source_kind":"run_tests","finding_kind":"test_failure","severity":"high","description":"spec alpha failed repeatedly","subject_path":"tests/test_alpha.py","spec_id":"alpha_spec","observed_at":"2026-01-01T00:00:00Z"},
+  {"source_kind":"coverage","finding_kind":"uncovered_flow","severity":"medium","description":"missing capability coverage","subject_path":"sentientos/new_flow.py","capability_id":"new_flow","telemetry_stream":"new_flow.telemetry","observed_at":"2026-01-01T00:00:00Z"},
+  {"source_kind":"gap_seeker","finding_kind":"todo","severity":"low","description":"TODO marker","subject_path":"sentientos/example.py","observed_at":"2026-01-01T00:00:00Z"}
+]

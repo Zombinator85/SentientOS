@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, cast
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, cast
 
 import json
 
@@ -1187,10 +1187,30 @@ def _runtime_amender(root: Path | str = Path("integration")) -> SpecAmender:
     return _RUNTIME_AMENDER
 
 
-def runtime_cycle(root: Path | str = Path("integration")) -> Dict[str, Any]:
+def runtime_cycle(root: Path | str = Path("integration"), signals: Sequence[Mapping[str, Any]] | None = None) -> Dict[str, Any]:
     """Runtime-mediated SpecAmender surface used by sentientosd maintenance ticks."""
 
-    return _runtime_amender(root).dashboard_state()
+    engine = _runtime_amender(root)
+    generated: list[str] = []
+    for item in signals or ():
+        spec_id = str(item.get("spec_id") or "").strip()
+        if not spec_id:
+            continue
+        current_spec = {"id": spec_id, "version": "v1", "status": "active"}
+        proposal = engine.record_signal(
+            spec_id,
+            str(item.get("signal_type") or "recurring_failure"),
+            dict(item.get("metadata") or item),
+            current_spec=current_spec,
+        )
+        if proposal is not None:
+            generated.append(proposal.proposal_id)
+    state = engine.dashboard_state()
+    state["runtime_signal_count"] = len(tuple(signals or ()))
+    state["runtime_pending_proposal_ids"] = generated
+    state["adoption_performed"] = False
+    state["repository_mutation_performed"] = False
+    return state
 
 
 def runtime_next_repository_mutation_handoff(root: Path | str = Path("integration"), *, approved_only: bool = False) -> RepositoryMutationHandoffPlan | None:
