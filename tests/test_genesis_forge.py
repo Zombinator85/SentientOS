@@ -10,7 +10,13 @@ import pytest
 from codex.integrity_daemon import IntegrityDaemon
 from codex.proposal_router import CandidateResult, choose_candidate, score_evaluation
 from sentientos.codex_healer import RecoveryLedger
-from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass
+from sentientos.constitutional_mutation_fabric import ConstitutionalMutationRouter
+from sentientos.control_plane_kernel import (
+    AdmissionOutcome,
+    AuthorityClass,
+    ControlActionDecision,
+    LifecyclePhase,
+)
 from sentientos.genesis_forge import (
     AdoptionRite,
     CovenantVow,
@@ -31,6 +37,38 @@ def _codex_startup(codex_startup: None) -> None:
 
 def _review_board(_: object, __: object) -> bool:
     return True
+
+
+class _PermissiveKernel:
+    phase = LifecyclePhase.RUNTIME
+
+    def set_phase(self, phase, *, actor="control_plane_kernel") -> None:  # noqa: ANN001
+        self.phase = phase
+
+    def admit(self, request):  # noqa: ANN001
+        delegated = {}
+        if request.action_kind == "proof_budget":
+            ctx = request.proof_budget_context or {}
+            config = ctx.get("config")
+            delegated["proof_budget_governor"] = {
+                "k_effective": getattr(config, "configured_k", 3),
+                "m_effective": getattr(config, "configured_m", 2),
+                "allow_escalation": True,
+                "mode": "diagnostics_only" if getattr(config, "mode", "") == "diagnostics_only" else "normal",
+                "decision_reasons": ["ok"],
+            }
+        return ControlActionDecision(
+            outcome=AdmissionOutcome.ALLOW,
+            reason_codes=("admitted",),
+            current_phase=request.requested_phase,
+            requested_phase=request.requested_phase,
+            authority_class=request.authority_class,
+            action_kind=request.action_kind,
+            actor=request.actor,
+            target_subsystem=request.target_subsystem,
+            delegated_outcomes=delegated,
+            correlation_id=str(request.metadata.get("correlation_id")),
+        )
 
 
 def test_needseer_detects_unhandled_stream(tmp_path: Path) -> None:
@@ -110,6 +148,7 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
         review_board=_review_board,
     )
     ledger = RecoveryLedger(ledger_path)
+    kernel = _PermissiveKernel()
     forge = GenesisForge(
         need_seer=seer,
         forge_engine=engine,
@@ -118,6 +157,8 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
         spec_binder=binder,
         adoption_rite=adoption,
         ledger=ledger,
+        router_factory=lambda: ConstitutionalMutationRouter(kernel_provider=lambda: kernel),
+        kernel_provider=lambda: kernel,
     )
 
     outcomes = forge.expand(telemetry, vows)
@@ -153,12 +194,21 @@ def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
         checkpoint_id = "chk-1"
 
     class _Decision:
-        def __init__(self, *, allowed: bool, reason_codes: list[str], outcome: AdmissionOutcome) -> None:
+        def __init__(self, *, allowed: bool, reason_codes: list[str], outcome: AdmissionOutcome, request=None) -> None:  # noqa: ANN001
             self.allowed = allowed
             self.reason_codes = tuple(reason_codes)
             self.delegated_outcomes: dict[str, object] = {}
-            self.correlation_id = "kernel-test"
+            self.correlation_id = (
+                str(request.metadata.get("correlation_id"))
+                if request is not None
+                else "kernel-test"
+            )
             self.outcome = outcome
+            self.admission_decision_ref = f"kernel_decision:{self.correlation_id}"
+            self.action_kind = getattr(request, "action_kind", "unknown")
+            self.authority_class = getattr(request, "authority_class", AuthorityClass.PROPOSAL_EVALUATION)
+            self.current_phase = getattr(request, "requested_phase", None)
+            self.actor = getattr(request, "actor", "genesis_forge")
 
     class _Kernel:
         def set_phase(self, phase, *, actor="control_plane_kernel") -> None:  # noqa: ANN001
@@ -166,7 +216,7 @@ def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
 
         def admit(self, request):  # noqa: ANN001
             if request.action_kind == "proof_budget":
-                decision = _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW)
+                decision = _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW, request=request)
                 decision.delegated_outcomes = {
                     "proof_budget_governor": {
                         "k_effective": 3,
@@ -177,7 +227,14 @@ def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
                     }
                 }
                 return decision
-            return _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW)
+            if request.action_kind == "proposal_adopt":
+                return _Decision(
+                    allowed=False,
+                    reason_codes=["runtime_governor:degraded_audit_trust_amendment_deferred"],
+                    outcome=AdmissionOutcome.DENY,
+                    request=request,
+                )
+            return _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW, request=request)
 
         def admit_and_execute(self, request, *, execute=None):  # noqa: ANN001
             if request.authority_class == AuthorityClass.PROPOSAL_ADOPTION:
@@ -195,6 +252,8 @@ def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
     monkeypatch.setattr("sentientos.genesis_forge.evaluate_audit_trust", lambda *args, **kwargs: _TrustState())
     monkeypatch.setattr("sentientos.genesis_forge.write_audit_trust_artifacts", lambda *args, **kwargs: {})
     forge = _build_forge(tmp_path)
+    forge._kernel_provider = lambda: _Kernel()  # type: ignore[method-assign]
+    forge._router_factory = lambda: ConstitutionalMutationRouter(kernel_provider=forge._kernel_provider)  # type: ignore[method-assign]
 
     outcomes = forge.expand(
         [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
@@ -316,6 +375,7 @@ def test_genesis_forge_refuses_when_no_admissible_candidate(tmp_path: Path) -> N
 
 
 def _build_forge(tmp_path: Path) -> GenesisForge:
+    kernel = _PermissiveKernel()
     return GenesisForge(
         need_seer=NeedSeer(),
         forge_engine=ForgeEngine(),
@@ -328,6 +388,8 @@ def _build_forge(tmp_path: Path) -> GenesisForge:
             review_board=_review_board,
         ),
         ledger=RecoveryLedger(tmp_path / "ledger.jsonl"),
+        router_factory=lambda: ConstitutionalMutationRouter(kernel_provider=lambda: kernel),
+        kernel_provider=lambda: kernel,
     )
 
 

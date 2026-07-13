@@ -93,17 +93,24 @@ class CanonicalMutationExecutionError(RuntimeError):
 
 
 CanonicalMutationHandler = Callable[[TypedMutationAction, dict[str, object]], Any]
+KernelProvider = Callable[[], Any]
 
 
 class ConstitutionalMutationRouter:
     """Shared typed mutation router for the scoped constitutional mutation slice."""
     ROUTER_ID = "constitutional_mutation_router.v1"
 
-    def __init__(self, *, registry_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        registry_path: Path | None = None,
+        kernel_provider: KernelProvider | None = None,
+    ) -> None:
         self._handlers: dict[str, CanonicalMutationHandler] = {}
         default_registry = Path(__file__).resolve().parents[1] / "glow/contracts/constitutional_execution_fabric_scoped_slice.json"
         self._registry_path = registry_path or default_registry
         self._registry = self._load_registry(self._registry_path)
+        self._kernel_provider = kernel_provider or get_control_plane_kernel
 
     @staticmethod
     def _load_registry(path: Path) -> dict[str, MutationActionRegistration]:
@@ -151,7 +158,7 @@ class ConstitutionalMutationRouter:
         if registration.lifecycle_phase != action.lifecycle_phase:
             raise ValueError(f"mismatched_lifecycle_phase:{action.action_id}")
 
-        kernel = get_control_plane_kernel()
+        kernel = self._kernel_provider()
         kernel.set_phase(action.lifecycle_phase, actor="constitutional_mutation_router")
         decision = kernel.admit(
             ControlActionRequest(
