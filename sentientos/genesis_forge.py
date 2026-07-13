@@ -18,7 +18,7 @@ import random
 import re
 import uuid
 from pathlib import Path
-from typing import Callable, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon
 from codex.proof_budget_governor import (
@@ -49,7 +49,13 @@ from sentientos.control_plane_kernel import (
     get_control_plane_kernel,
 )
 from sentientos.protected_mutation_provenance import validate_admission_provenance
-from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
+from sentientos.constitutional_mutation_fabric import (
+    CanonicalMutationExecutionError,
+    ConstitutionalMutationRouter,
+    MutationProvenanceIntent,
+    TypedMutationAction,
+    get_constitutional_mutation_router,
+)
 from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.codex_startup_guard import codex_runtime_mediation
@@ -605,6 +611,8 @@ class AdoptionRite:
 class GenesisForge:
     """Coordinates capability expansion across all GenesisForge modules during startup."""
 
+    _global_execution_attempt_counter = 0
+
     def __init__(
         self,
         *,
@@ -615,6 +623,8 @@ class GenesisForge:
         spec_binder: SpecBinder,
         adoption_rite: AdoptionRite,
         ledger: RecoveryLedger,
+        router_factory: Callable[[], ConstitutionalMutationRouter] | None = None,
+        kernel_provider: Callable[[], Any] | None = None,
     ) -> None:
         enforce_codex_startup("GenesisForge")
         self._need_seer = need_seer
@@ -624,6 +634,15 @@ class GenesisForge:
         self._spec_binder = spec_binder
         self._adoption_rite = adoption_rite
         self._ledger = ledger
+        self._kernel_provider = kernel_provider or get_control_plane_kernel
+        self._router_factory = router_factory or (
+            lambda: ConstitutionalMutationRouter(kernel_provider=self._kernel_provider)
+        )
+
+    def _next_execution_attempt_id(self, subject: object) -> str:
+        type(self)._global_execution_attempt_counter += 1
+        semantic = f"{subject}:{type(self)._global_execution_attempt_counter}"
+        return hashlib.sha256(semantic.encode("utf-8")).hexdigest()[:32]
 
     def propose_for_review(
         self,
@@ -727,19 +746,27 @@ class GenesisForge:
                 )
                 continue
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
+            need_execution_attempt_id = self._next_execution_attempt_id(
+                f"{need.capability}:{need.source}"
+            )
             run_context = {
                 "pipeline": "genesis",
                 "capability": need.capability,
                 "router_attempt": 1,
+                "execution_attempt_id": need_execution_attempt_id,
             }
-            kernel = get_control_plane_kernel()
+            kernel = self._kernel_provider()
             budget_request = ControlActionRequest(
                 action_kind="proof_budget",
                 authority_class=AuthorityClass.PROPOSAL_EVALUATION,
                 actor="genesis_forge",
                 target_subsystem=need.capability,
                 requested_phase=LifecyclePhase.MAINTENANCE,
-                metadata={"correlation_id": f"genesis:{need.capability}", "require_admissible": False},
+                metadata={
+                    "correlation_id": f"genesis:{need.capability}:{need_execution_attempt_id}:proof_budget",
+                    "require_admissible": False,
+                    "execution_attempt_id": need_execution_attempt_id,
+                },
                 proof_budget_context={
                     "config": governor_config,
                     "pressure_state": pressure_state,
@@ -983,9 +1010,13 @@ class GenesisForge:
                     raise GenesisForgeError(
                         "Sandbox validation failed",
                     )
-                router = get_constitutional_mutation_router()
-                admission_nonce = uuid.uuid4().hex
-                adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}:{admission_nonce}"
+                router = self._router_factory()
+                execution_attempt_id = self._next_execution_attempt_id(
+                    f"{proposal.proposal_id}:{proposal.spec_id}"
+                )
+                adoption_correlation = (
+                    f"genesis:{proposal.proposal_id}:{proposal.spec_id}:{execution_attempt_id}"
+                )
                 lineage_correlation = adoption_correlation
                 router.register_handler(
                     "sentientos.genesis.lineage_integrate",
@@ -1015,6 +1046,7 @@ class GenesisForge:
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
+                            "execution_attempt_id": execution_attempt_id,
                         },
                     )
                 )
@@ -1055,6 +1087,7 @@ class GenesisForge:
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
+                            "execution_attempt_id": execution_attempt_id,
                         },
                     )
                 )
@@ -1123,7 +1156,7 @@ class GenesisForge:
                     },
                 )
                 outcomes.append(outcome)
-            except GenesisForgeError as exc:
+            except (GenesisForgeError, CanonicalMutationExecutionError) as exc:
                 self._ledger.log(
                     "GenesisForge integration_failed",
                     anomaly=anomaly,

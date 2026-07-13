@@ -147,6 +147,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "phase101_invocation_denial_enforcement_tests",
     "phase102_invocation_denial_drift_review_tests",
     "phase103_invocation_denial_custody_checkpoint_tests",
+    "governed_improvement_signal_plane_tests",
     "proof_bundle_tests",
     "codex_pr_validation_evidence_tests",
     "codex_pr_landing_gate_tests",

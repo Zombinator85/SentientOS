@@ -13,6 +13,7 @@ DEFAULT_MYPY_COMMAND = (
     "python",
     "-m",
     "mypy",
+    "--no-incremental",
     "--hide-error-context",
     "--no-color-output",
     "--show-column-numbers",

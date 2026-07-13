@@ -481,11 +481,11 @@ def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp
 
     call_counts = {"expand": 0, "cycle": 0, "guard": 0, "monitor": 0}
 
-    def _fake_expand(_root):
+    def _fake_expand(_root, *, telemetry_streams=None, vows=None, proposal_only=True):  # noqa: ANN001
         call_counts["expand"] += 1
         return []
 
-    def _fake_cycle(_root):
+    def _fake_cycle(_root, *, signals=()):  # noqa: ANN001
         call_counts["cycle"] += 1
         return {"panel": "Spec Amendments", "pending": [], "approved": [], "items": []}
 

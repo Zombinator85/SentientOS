@@ -205,7 +205,13 @@ def load_json_records(paths: Sequence[Path | str], *, repo_root: Path | str = Pa
 def build_batch(records: Iterable[Mapping[str, Any]] | Iterable[ImprovementSignal], *, repo_root: Path | str = Path.cwd()) -> SignalBatch:
     signals = [r if isinstance(r, ImprovementSignal) else normalize_record(r, repo_root=repo_root) for r in records]
     signals.sort(key=lambda s: (s.signal_id, s.source_kind, s.finding_kind))
-    seen={}; dup=[]; contradictions=[]; counts={}; unique=[]; by_subject={}; invalid=[]
+    seen: dict[str, ImprovementSignal] = {}
+    dup: list[str] = []
+    contradictions: list[str] = []
+    counts: dict[str, int] = {}
+    unique: list[ImprovementSignal] = []
+    by_subject: dict[tuple[str, str, str | None, str | None, str | None, str | None], ImprovementSignal] = {}
+    invalid: list[str] = []
     for s in signals:
         expected = _sid(s.semantic_payload())
         if expected != s.signal_id: invalid.append("signal_id_mismatch")
@@ -240,7 +246,7 @@ def route_batch(batch: SignalBatch) -> tuple[RoutingReceipt, ...]:
 
 
 def evaluate_signal_plane(records: Iterable[Mapping[str, Any]] | Iterable[ImprovementSignal] = (), *, repo_root: Path | str = Path.cwd()) -> SignalPlaneEvaluation:
-    batch=build_batch(records, repo_root=repo_root); receipts=route_batch(batch); counts={}
+    batch=build_batch(records, repo_root=repo_root); receipts=route_batch(batch); counts: dict[str, int]={}
     for r in receipts: counts[r.disposition]=counts.get(r.disposition,0)+1
     lookup={s.signal_id:s for s in batch.signals}; genesis=[]; amendments=[]
     for r in receipts:
@@ -261,8 +267,17 @@ def atomic_write_json(path: Path | str, payload: Mapping[str, Any]) -> None:
 
 def persist_runtime_artifacts(root: Path | str, evaluation: SignalPlaneEvaluation, *, tick_id: str) -> dict[str, str]:
     base=Path(root)/"governed_improvement_signal_plane"/re.sub(r"[^A-Za-z0-9_.-]+","_",tick_id); base.mkdir(parents=True, exist_ok=True)
-    paths={"batch":base/"batch.json", "routing":base/"routing.json", "evaluation":base/"evaluation.json"}
+    paths={"batch":base/"batch.json", "routing":base/"routing.json", "evaluation":base/"evaluation.json", "manifest":base/"manifest.json"}
     atomic_write_json(paths["batch"], evaluation.batch.to_dict()); atomic_write_json(paths["routing"], {"receipts":[r.to_dict() for r in evaluation.receipts]}); atomic_write_json(paths["evaluation"], evaluation.to_dict())
+    manifest = {
+        "schema": "governed_improvement_signal_plane_manifest:v1",
+        "artifacts": {
+            name: {"path": str(path), "digest": _sha(path.read_bytes())}
+            for name, path in paths.items()
+            if name != "manifest"
+        },
+    }
+    atomic_write_json(paths["manifest"], manifest)
     return {k: str(v) for k,v in paths.items()}
 
 
@@ -275,7 +290,34 @@ def render_markdown(e: SignalPlaneEvaluation) -> str:
 def validate_evaluation(payload: Mapping[str, Any]) -> tuple[bool, tuple[str,...]]:
     reasons=[]
     if payload.get("schema") != "governed_improvement_signal_plane_evaluation:v1": reasons.append("wrong_schema")
-    summary = payload.get("summary") if isinstance(payload.get("summary"), Mapping) else {}
+    raw_batch_payload = payload.get("batch")
+    batch_payload = raw_batch_payload if isinstance(raw_batch_payload, Mapping) else {}
+    raw_signal_rows = batch_payload.get("signals")
+    signal_rows = raw_signal_rows if isinstance(raw_signal_rows, list) else []
+    try:
+        signals = [ImprovementSignal(**dict(row)) for row in signal_rows if isinstance(row, Mapping)]
+        rebuilt = build_batch(signals)
+        if rebuilt.batch_digest != batch_payload.get("batch_digest"):
+            reasons.append("batch_digest_mismatch")
+        if rebuilt.batch_id != batch_payload.get("batch_id"):
+            reasons.append("batch_id_mismatch")
+        if tuple(batch_payload.get("duplicate_signal_ids", ())) != rebuilt.duplicate_signal_ids:
+            reasons.append("duplicate_set_mismatch")
+        if tuple(batch_payload.get("contradiction_ids", ())) != rebuilt.contradiction_ids:
+            reasons.append("contradiction_set_mismatch")
+        expected_receipts = [r.to_dict() for r in route_batch(rebuilt)]
+        if expected_receipts != payload.get("receipts"):
+            reasons.append("routing_receipt_mismatch")
+        expected_summary = evaluate_signal_plane(signals).summary
+        raw_summary_for_counts = payload.get("summary")
+        summary_for_counts: Mapping[str, Any] = raw_summary_for_counts if isinstance(raw_summary_for_counts, Mapping) else {}
+        for key in ("batch_id", "batch_digest", "routed_counts_by_disposition", "blocked_invalid_count", "no_op"):
+            if summary_for_counts.get(key) != expected_summary.get(key):
+                reasons.append(f"summary_mismatch:{key}")
+    except Exception as exc:
+        reasons.append(f"structural_validation_failed:{exc.__class__.__name__}")
+    raw_summary = payload.get("summary")
+    summary: Mapping[str, Any] = raw_summary if isinstance(raw_summary, Mapping) else {}
     for key in ("adoption_performed","repository_mutation_performed","provider_network_git_operation_performed"):
         if summary.get(key) is not False: reasons.append(f"authority_claim_present:{key}")
     for receipt in payload.get("receipts", []) if isinstance(payload.get("receipts"), list) else []:

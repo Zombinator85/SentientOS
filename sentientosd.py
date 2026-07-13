@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import signal
-import inspect
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +45,60 @@ from sentientos.repository_mutation_handoff import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def resolve_improvement_evidence_sources(
+    repo_root: Path,
+    *,
+    manifest_path: Path | None = None,
+    max_sources: int = 16,
+) -> list[dict[str, Any]]:
+    """Resolve bounded read-only repository evidence sources for maintenance ticks."""
+
+    root = repo_root.resolve()
+    candidates: list[dict[str, Any]] = []
+    configured = manifest_path or (
+        Path(os.environ["SENTIENTOS_IMPROVEMENT_EVIDENCE_MANIFEST"])
+        if os.environ.get("SENTIENTOS_IMPROVEMENT_EVIDENCE_MANIFEST")
+        else None
+    )
+    if configured is not None and configured.exists():
+        payload = json.loads(configured.read_text(encoding="utf-8"))
+        rows = payload.get("sources", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            raise ValueError("malformed_improvement_evidence_manifest")
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError("malformed_improvement_evidence_source")
+            candidates.append(dict(row))
+    else:
+        defaults = [
+            ("run_tests", root / "glow" / "test_runs" / "run_tests_provenance.json"),
+            ("coverage", root / "coverage.json"),
+            ("mypy", root / "glow" / "mypy" / "mypy_output.txt"),
+            ("covenant", root / "glow" / "integrity" / "findings.json"),
+            ("capability_gap", root / "glow" / "capabilities" / "observations.json"),
+        ]
+        candidates.extend(
+            {"source_kind": kind, "path": path.as_posix()}
+            for kind, path in defaults
+            if path.exists()
+        )
+    out: list[dict[str, Any]] = []
+    for row in candidates:
+        path = Path(str(row.get("path", "")))
+        resolved = path if path.is_absolute() else root / path
+        resolved = resolved.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(f"improvement_evidence_source_outside_repo:{resolved}") from exc
+        if not resolved.exists():
+            continue
+        out.append({**row, "path": resolved.as_posix()})
+        if len(out) > max_sources:
+            raise ValueError("too_many_improvement_evidence_sources")
+    return sorted(out, key=lambda item: (str(item.get("source_kind")), str(item.get("path"))))
 
 
 class RuntimeMaintenanceSurfaces:
@@ -106,11 +159,12 @@ class RuntimeMaintenanceSurfaces:
         if not self._identify_admitted:
             outcomes = []
         else:
-            sig = inspect.signature(runtime_genesis_expand)
-            if "telemetry_streams" in sig.parameters:
-                outcomes = runtime_genesis_expand(self._repo_root, telemetry_streams=telemetry_streams, vows=vows, proposal_only=True)
-            else:
-                outcomes = runtime_genesis_expand(self._repo_root)
+            outcomes = runtime_genesis_expand(
+                self._repo_root,
+                telemetry_streams=telemetry_streams,
+                vows=vows,
+                proposal_only=True,
+            )
         failed = sum(1 for item in outcomes if str(getattr(item, "status", "")).lower() in {"failed", "deferred_degraded_audit_trust"})
         self._feedback["surfaces"]["genesis_forge"] = {
             "status": "degraded" if failed else "ok",
@@ -125,11 +179,7 @@ class RuntimeMaintenanceSurfaces:
         if not self._identify_admitted:
             state = {"panel": "Spec Amendments", "pending": [], "approved": [], "runtime_signal_count": 0, "blocked_by_identify_stage": True}
         else:
-            sig = inspect.signature(runtime_spec_cycle)
-            if "signals" in sig.parameters:
-                state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
-            else:
-                state = runtime_spec_cycle(self._repo_root / "integration")
+            state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
         pending = len(state.get("pending", [])) if isinstance(state.get("pending"), list) else 0
         self._feedback["surfaces"]["spec_amender"] = {
             "status": "ok",
@@ -282,6 +332,22 @@ def _run_maintenance_tick(
         if not identify_allowed:
             runtime_surfaces._identify_admitted = False
             runtime_surfaces._feedback["surfaces"]["governed_improvement_signal_plane"] = {"status": "degraded", "blocked_by_admission": True}
+            _record_maintenance_degradation(
+                kernel=kernel,
+                signal={
+                    "event": "runtime_maintenance_degradation",
+                    "tick_id": tick_id,
+                    "surface": current_surface,
+                    "correlation_id": current_correlation_id,
+                    "reason": "identify_improvement_signals_not_admitted",
+                    "phase_before": str(getattr(phase_before, "value", phase_before)),
+                },
+            )
+            safe_phase = phase_before if isinstance(phase_before, LifecyclePhase) else LifecyclePhase.RUNTIME
+            if safe_phase == LifecyclePhase.MAINTENANCE:
+                safe_phase = LifecyclePhase.RUNTIME
+            kernel.set_phase(safe_phase, actor="sentientosd")
+            return
         if identify_allowed:
             feedback = runtime_surfaces.governance_feedback()
             current_surface = "expand"
@@ -428,7 +494,11 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     merge_train = ForgeMergeTrain(repo_root=forge_daemon.repo_root)
     contract_sentinel = ContractSentinel()
     kernel = get_control_plane_kernel()
-    runtime_surfaces = RuntimeMaintenanceSurfaces(Path.cwd())
+    repo_root = Path.cwd()
+    runtime_surfaces = RuntimeMaintenanceSurfaces(
+        repo_root,
+        improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
+    )
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
