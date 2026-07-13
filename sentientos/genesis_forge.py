@@ -639,7 +639,7 @@ class GenesisForge:
                 proposals = self._forge_engine.draft_variants(need, k=1, seed=f"proposal-only:{need.capability}")
                 proposal = proposals[0]
                 stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
-                stage_b = self._integrity_daemon.evaluate(proposal)
+                stage_b = self._integrity_daemon.evaluate_report_stage_b(proposal, probe_cache=getattr(stage_a, "probe", None))
                 report = self._trial_run.execute(proposal.blueprint)
                 details = {
                     "proposal_id": proposal.proposal_id,
@@ -650,18 +650,21 @@ class GenesisForge:
                     "stage_b_valid": getattr(stage_b, "valid", False),
                     "stage_b_reason_codes": list(getattr(stage_b, "reason_codes", ())),
                     "sandbox_trial_passed": report.passed,
-                    "proposal_ready_for_review": True,
+                    "proposal_ready_for_review": bool(getattr(stage_a, "valid_a", False) and getattr(stage_b, "valid", False) and report.passed),
+                    "proposal_only_boundary": "before_spec_binder_integration_and_adoption_rite_promotion",
                     "lineage_integrated": False,
                     "adoption_promoted": False,
                     "repository_mutation_performed": False,
                     "provider_network_git_operation_performed": False,
                 }
+                ready = bool(details["proposal_ready_for_review"])
                 self._ledger.log(
-                    "genesis_proposal_ready_for_review",
+                    "genesis_proposal_ready_for_review" if ready else "genesis_proposal_not_ready_for_review",
                     anomaly=Anomaly(kind="genesis_need", subject=need.capability),
                     details=details,
                 )
-                outcomes.append(GenesisOutcome(need=need, status="proposal_ready_for_review", details=details))
+                status = "proposal_ready_for_review" if ready else ("failed_trial" if not report.passed else "invalid_stage_b" if not getattr(stage_b, "valid", False) else "invalid_stage_a")
+                outcomes.append(GenesisOutcome(need=need, status=status, details=details))
             except GenesisForgeError as exc:
                 self._ledger.log(
                     "genesis_proposal_failed",
@@ -981,7 +984,8 @@ class GenesisForge:
                         "Sandbox validation failed",
                     )
                 router = get_constitutional_mutation_router()
-                adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}"
+                admission_nonce = uuid.uuid4().hex
+                adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}:{admission_nonce}"
                 lineage_correlation = adoption_correlation
                 router.register_handler(
                     "sentientos.genesis.lineage_integrate",

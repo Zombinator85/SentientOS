@@ -1179,6 +1179,18 @@ _RUNTIME_AMENDER: SpecAmender | None = None
 _RUNTIME_REVIEW_BOARD: AmendmentReviewBoard | None = None
 
 
+def _load_runtime_current_spec(root: Path, spec_id: str) -> Mapping[str, Any] | None:
+    safe = spec_id.replace("/", "_").replace("..", "_")
+    for candidate in (root / "specs" / f"{safe}.json", root / "specs" / safe / "spec.json"):
+        if candidate.exists():
+            try:
+                payload = json.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return None
+            return payload if isinstance(payload, Mapping) else None
+    return None
+
+
 def _runtime_amender(root: Path | str = Path("integration")) -> SpecAmender:
     global _RUNTIME_AMENDER
     if _RUNTIME_AMENDER is None:
@@ -1196,11 +1208,16 @@ def runtime_cycle(root: Path | str = Path("integration"), signals: Sequence[Mapp
         spec_id = str(item.get("spec_id") or "").strip()
         if not spec_id:
             continue
-        current_spec = {"id": spec_id, "version": "v1", "status": "active"}
+        current_spec = _load_runtime_current_spec(Path(root), spec_id)
+        if current_spec is None:
+            generated.append(f"missing_canonical_spec:{spec_id}")
+            continue
+        metadata = dict(item.get("metadata") or item)
+        metadata.setdefault("runtime_lineage", {"signal_id": item.get("signal_id"), "batch_id": item.get("batch_id"), "source_digest": item.get("source_digest"), "routing_receipt": item.get("routing_receipt")})
         proposal = engine.record_signal(
             spec_id,
             str(item.get("signal_type") or "recurring_failure"),
-            dict(item.get("metadata") or item),
+            metadata,
             current_spec=current_spec,
         )
         if proposal is not None:

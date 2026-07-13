@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import signal
+import inspect
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +37,7 @@ from codex.amendments import (
 from codex.integrity_daemon import runtime_guard as runtime_integrity_guard
 from sentientos.codex_healer import runtime_monitor as runtime_healer_monitor
 from sentientos.genesis_forge import CovenantVow, TelemetryStream, runtime_expand as runtime_genesis_expand
-from sentientos.governed_improvement_signal_plane import SignalPlaneEvaluation, evaluate_signal_plane
+from sentientos.governed_improvement_signal_plane import SignalPlaneEvaluation, collect_repository_evidence, evaluate_signal_plane, persist_runtime_artifacts
 from sentientos.repository_mutation_handoff import (
     build_repository_mutation_handoff,
     resolve_observed_source_revision,
@@ -50,9 +51,12 @@ LOGGER = logging.getLogger(__name__)
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
+        self._improvement_evidence_sources = list(improvement_evidence_sources or [])
+        self._runtime_state_root = runtime_state_root or Path(os.environ.get("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos-runtime-state"))
+        self._identify_admitted = False
         self._feedback: dict[str, Any] = {
             "schema": "runtime_maintenance_feedback:v1",
             "degraded": False,
@@ -60,7 +64,10 @@ class RuntimeMaintenanceSurfaces:
         }
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
-        evaluation = evaluate_signal_plane((), repo_root=self._repo_root)
+        records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
+        evaluation = evaluate_signal_plane(records, repo_root=self._repo_root)
+        artifacts = persist_runtime_artifacts(self._runtime_state_root, evaluation, tick_id=datetime.now(timezone.utc).isoformat())
+        self._identify_admitted = True
         self._feedback["surfaces"]["governed_improvement_signal_plane"] = {
             "status": "degraded" if evaluation.summary.get("degraded") else "ok",
             "batch_id": evaluation.batch.batch_id,
@@ -72,6 +79,7 @@ class RuntimeMaintenanceSurfaces:
             "adoption_performed": False,
             "repository_mutation_performed": False,
             "provider_network_git_operation_performed": False,
+            "runtime_artifacts": artifacts,
         }
         self._current_signal_evaluation = evaluation
         self._refresh_feedback()
@@ -95,12 +103,14 @@ class RuntimeMaintenanceSurfaces:
             for item in genesis_inputs.get("vows", [])
             if isinstance(item, dict)
         ]
-        try:
-            outcomes = runtime_genesis_expand(self._repo_root, telemetry_streams=telemetry_streams, vows=vows, proposal_only=True)
-        except TypeError as exc:
-            if "unexpected keyword" not in str(exc):
-                raise
-            outcomes = runtime_genesis_expand(self._repo_root)
+        if not self._identify_admitted:
+            outcomes = []
+        else:
+            sig = inspect.signature(runtime_genesis_expand)
+            if "telemetry_streams" in sig.parameters:
+                outcomes = runtime_genesis_expand(self._repo_root, telemetry_streams=telemetry_streams, vows=vows, proposal_only=True)
+            else:
+                outcomes = runtime_genesis_expand(self._repo_root)
         failed = sum(1 for item in outcomes if str(getattr(item, "status", "")).lower() in {"failed", "deferred_degraded_audit_trust"})
         self._feedback["surfaces"]["genesis_forge"] = {
             "status": "degraded" if failed else "ok",
@@ -112,12 +122,14 @@ class RuntimeMaintenanceSurfaces:
 
     def cycle(self) -> dict[str, Any]:
         evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
-        try:
-            state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
-        except TypeError as exc:
-            if "unexpected keyword" not in str(exc):
-                raise
-            state = runtime_spec_cycle(self._repo_root / "integration")
+        if not self._identify_admitted:
+            state = {"panel": "Spec Amendments", "pending": [], "approved": [], "runtime_signal_count": 0, "blocked_by_identify_stage": True}
+        else:
+            sig = inspect.signature(runtime_spec_cycle)
+            if "signals" in sig.parameters:
+                state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
+            else:
+                state = runtime_spec_cycle(self._repo_root / "integration")
         pending = len(state.get("pending", [])) if isinstance(state.get("pending"), list) else 0
         self._feedback["surfaces"]["spec_amender"] = {
             "status": "ok",
@@ -253,63 +265,69 @@ def _run_maintenance_tick(
         current_surface = "identify_improvement_signals"
         current_correlation_id = f"{tick_id}:identify_improvement_signals"
         identify = getattr(runtime_surfaces, "identify_improvement_signals", None)
+        identify_allowed = True
         if callable(identify):
-            kernel.admit_and_execute(
+            decision, _identify_result = kernel.admit_and_execute(
                 ControlActionRequest(
                     action_kind="identify_improvement_signals",
                     authority_class=AuthorityClass.PROPOSAL_EVALUATION,
                     actor="sentientosd",
                     target_subsystem="governed_improvement_signal_plane",
                     requested_phase=LifecyclePhase.MAINTENANCE,
-                    metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+                    metadata={"correlation_id": current_correlation_id},
                 ),
                 execute=identify,
             )
-        feedback = runtime_surfaces.governance_feedback()
-        current_surface = "expand"
-        current_correlation_id = f"{tick_id}:expand"
-        kernel.admit_and_execute(
-            ControlActionRequest(
-                action_kind="expand",
-                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
-                actor="sentientosd",
-                target_subsystem="genesis_forge",
-                requested_phase=LifecyclePhase.MAINTENANCE,
-                startup_symbol="GenesisForge",
-                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
-            ),
-            execute=runtime_surfaces.expand,
-        )
-        feedback = runtime_surfaces.governance_feedback()
-        current_surface = "cycle"
-        current_correlation_id = f"{tick_id}:cycle"
-        kernel.admit_and_execute(
-            ControlActionRequest(
-                action_kind="cycle",
-                authority_class=AuthorityClass.SPEC_AMENDMENT,
-                actor="sentientosd",
-                target_subsystem="spec_amender",
-                requested_phase=LifecyclePhase.MAINTENANCE,
-                startup_symbol="SpecAmender",
-                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
-            ),
-            execute=runtime_surfaces.cycle,
-        )
-        feedback = runtime_surfaces.governance_feedback()
-        current_surface = "guard"
-        current_correlation_id = f"{tick_id}:guard"
-        kernel.admit_and_execute(
-            ControlActionRequest(
-                action_kind="guard",
-                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
-                actor="sentientosd",
-                target_subsystem="integrity_daemon",
-                requested_phase=LifecyclePhase.MAINTENANCE,
-                startup_symbol="IntegrityDaemon",
-                metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
-            ),
-            execute=runtime_surfaces.guard,
-        )
+            identify_allowed = bool(getattr(decision, "allowed", False))
+        if not identify_allowed:
+            runtime_surfaces._identify_admitted = False
+            runtime_surfaces._feedback["surfaces"]["governed_improvement_signal_plane"] = {"status": "degraded", "blocked_by_admission": True}
+        if identify_allowed:
+            feedback = runtime_surfaces.governance_feedback()
+            current_surface = "expand"
+            current_correlation_id = f"{tick_id}:expand"
+            kernel.admit_and_execute(
+                ControlActionRequest(
+                    action_kind="expand",
+                    authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                    actor="sentientosd",
+                    target_subsystem="genesis_forge",
+                    requested_phase=LifecyclePhase.MAINTENANCE,
+                    startup_symbol="GenesisForge",
+                    metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+                ),
+                execute=runtime_surfaces.expand,
+            )
+            feedback = runtime_surfaces.governance_feedback()
+            current_surface = "cycle"
+            current_correlation_id = f"{tick_id}:cycle"
+            kernel.admit_and_execute(
+                ControlActionRequest(
+                    action_kind="cycle",
+                    authority_class=AuthorityClass.SPEC_AMENDMENT,
+                    actor="sentientosd",
+                    target_subsystem="spec_amender",
+                    requested_phase=LifecyclePhase.MAINTENANCE,
+                    startup_symbol="SpecAmender",
+                    metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+                ),
+                execute=runtime_surfaces.cycle,
+            )
+            feedback = runtime_surfaces.governance_feedback()
+            current_surface = "guard"
+            current_correlation_id = f"{tick_id}:guard"
+            kernel.admit_and_execute(
+                ControlActionRequest(
+                    action_kind="guard",
+                    authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                    actor="sentientosd",
+                    target_subsystem="integrity_daemon",
+                    requested_phase=LifecyclePhase.MAINTENANCE,
+                    startup_symbol="IntegrityDaemon",
+                    metadata={"runtime_feedback": feedback, "correlation_id": current_correlation_id},
+                ),
+                execute=runtime_surfaces.guard,
+            )
         feedback = runtime_surfaces.governance_feedback()
         current_surface = "monitor"
         current_correlation_id = f"{tick_id}:monitor"
@@ -362,7 +380,7 @@ def _run_maintenance_tick(
 
         current_surface = "repository_mutation_handoff"
         current_correlation_id = f"{tick_id}:repository_mutation_handoff"
-        plan = runtime_surfaces.next_repository_mutation_handoff()
+        plan = runtime_surfaces.next_repository_mutation_handoff() if identify_allowed else None
         if plan:
             LOGGER.info("Codex amendment ready for repository mutation handoff review: %s", plan.message)
             runtime_surfaces.emit_repository_mutation_handoff(plan)
