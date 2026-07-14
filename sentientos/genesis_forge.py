@@ -18,9 +18,9 @@ import random
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Sequence, cast
 
-from codex.integrity_daemon import IntegrityDaemon
+from codex.integrity_daemon import IntegrityDaemon, IntegrityEvaluationA
 from codex.proof_budget_governor import (
     BudgetDecision,
     PressureStateWriteResult,
@@ -179,6 +179,14 @@ class GenesisOutcome:
     status: str
     details: Mapping[str, object]
 
+
+@dataclass(slots=True)
+class GenesisCandidateEvaluation:
+    need: GenesisNeed
+    proposal: ForgeProposal
+    sandbox_report: TrialReport
+    router_scorecard: Mapping[str, object]
+    proof_budget_decision: Mapping[str, object]
 
 class GenesisForgeError(RuntimeError):
     """Raised when GenesisForge cannot complete a stage."""
@@ -644,53 +652,117 @@ class GenesisForge:
         semantic = f"{subject}:{type(self)._global_execution_attempt_counter}"
         return hashlib.sha256(semantic.encode("utf-8")).hexdigest()[:32]
 
+    def _evaluate_candidate_pipeline(
+        self,
+        need: GenesisNeed,
+        *,
+        anomaly: Anomaly,
+        configured_k: int,
+        configured_m: int,
+        router_k: int,
+        router_m: int,
+        allow_escalation: bool,
+        governor_decision: BudgetDecision,
+        risk_budget: object,
+    ) -> GenesisCandidateEvaluation:
+        router_seed = f"{need.capability}:{need.source}:{router_k}"
+        k_final = router_k
+        escalated = False
+        proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed)
+        stage_a_results: list[tuple[ForgeProposal, IntegrityEvaluationA]] = [(proposal, self._integrity_daemon.evaluate_report_stage_a(proposal)) for proposal in proposals]
+        if allow_escalation:
+            next_k, escalated = maybe_escalate_k(k=router_k, stage_a_results=[(p.proposal_id, e) for p, e in stage_a_results])
+        else:
+            next_k, escalated = router_k, False
+        if escalated:
+            k_final = next_k
+            proposals = self._forge_engine.draft_variants(need, k=k_final, seed=f"{router_seed}:escalated:{k_final}")
+            stage_a_results = [(proposal, self._integrity_daemon.evaluate_report_stage_a(proposal)) for proposal in proposals]
+        promoted_ids = []
+        if governor_decision.mode != "diagnostics_only":
+            promoted_ids = promote_candidates([(p.proposal_id, e) for p, e in stage_a_results], m=router_m)
+        probe_cache = {p.proposal_id: e.probe for p, e in stage_a_results}
+        candidate_results: list[CandidateResult] = []
+        if governor_decision.mode != "diagnostics_only":
+            for proposal in proposals:
+                if proposal.proposal_id not in promoted_ids:
+                    continue
+                evaluation = self._integrity_daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache.get(proposal.proposal_id))
+                candidate_results.append(CandidateResult(candidate_id=proposal.proposal_id, proposal=proposal, evaluation=evaluation, score=score_evaluation(evaluation)))
+        if governor_decision.mode == "diagnostics_only":
+            best_stage_a_proposal, best_stage_a_eval = sorted(stage_a_results, key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id))[0]
+            router_status = "diagnostics_only"
+            selected = None
+            best_failure_id = best_stage_a_proposal.proposal_id
+            best_failure_reason_codes = list(best_stage_a_eval.reason_codes_a)
+            best_failure_score = score_evaluation_a(best_stage_a_eval)
+        else:
+            selected, router_status = choose_candidate(candidate_results)
+            if selected is None:
+                raise GenesisForgeError("No admissible candidate")
+            best_failure_id = selected.candidate_id
+            best_failure_reason_codes = list(selected.evaluation.reason_codes)
+            best_failure_score = selected.score
+        stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
+        stage_b_valid_count = sum(1 for result in candidate_results if bool(result.evaluation.valid))
+        router_telemetry = {"k_initial": configured_k, "k_final": k_final, "m": router_m if governor_decision.mode != "diagnostics_only" else 0, "escalated": escalated, "stage_a_evaluations": len(stage_a_results), "stage_b_evaluations": len(candidate_results), "stage_a_valid_count": stage_a_valid_count, "stage_b_valid_count": stage_b_valid_count, "router_status": router_status, "selected_candidate_id": selected.candidate_id if selected is not None and router_status == "selected" else None}
+        router_scorecard: dict[str, object] = {"router_k": configured_k, "router_m": configured_m, "router_seed": router_seed, "router_status": router_status, "router_telemetry": router_telemetry, "proof_budget": {"k": configured_k, "m": configured_m, "escalated": escalated, "k_final": k_final}, "governor": {"mode": governor_decision.mode, "k_effective": router_k, "m_effective": router_m, "allow_escalation": allow_escalation, "reasons": list(governor_decision.decision_reasons), "governor_version": governor_decision.governor_version}, "promoted_to_stage_b": list(promoted_ids), "stage_a": [{"candidate_id": p.proposal_id, "valid_a": e.valid_a, "reason_codes_a": list(e.reason_codes_a), "top_violation_codes_a": top_violation_codes(e.violations_a), "score_a": score_evaluation_a(e), "rank_a": rank_stage_a(e, candidate_id=p.proposal_id), "evaluation_artifact": e.ledger_entry} for p, e in sorted(stage_a_results, key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id))], "selected_candidate_id": selected.candidate_id if selected is not None else None, "stage_b": [{"candidate_id": r.candidate_id, "score": r.score, "rank": r.rank, "valid": r.evaluation.valid, "reason_codes": list(r.evaluation.reason_codes), "violations": [dict(item) for item in r.evaluation.violations], "top_violation_codes": top_violation_codes(r.evaluation.violations), "evaluation_artifact": r.evaluation.ledger_entry} for r in sorted(candidate_results, key=lambda item: item.rank or 999)]}
+        if governor_decision.mode == "diagnostics_only":
+            self._ledger.log("GenesisForge routing_failed", anomaly=anomaly, details=router_scorecard, quarantined=True)
+            self._ledger.log("proof_budget_governor", anomaly=anomaly, details={"event_type":"proof_budget_governor", "decision":{"mode": governor_decision.mode, "k_effective": router_k, "m_effective": router_m}}, quarantined=True)
+            raise GenesisForgeError("Diagnostics-only mode: proof budget constrained")
+        if router_status != "selected" or selected is None:
+            router_scorecard["best_failure_id"] = best_failure_id
+            router_scorecard["best_failure"] = {"reason_codes": best_failure_reason_codes, "score": best_failure_score}
+            raise GenesisForgeError("No admissible candidate " f"({best_failure_id}: {','.join(best_failure_reason_codes)})")
+        report = self._trial_run.execute(selected.proposal.blueprint)
+        if not report.passed:
+            raise GenesisForgeError("Sandbox validation failed")
+        return GenesisCandidateEvaluation(need=need, proposal=selected.proposal, sandbox_report=report, router_scorecard=router_scorecard, proof_budget_decision=cast(Mapping[str, object], router_scorecard["proof_budget"]))
+
     def propose_for_review(
         self,
         telemetry_streams: Sequence[TelemetryStream],
         vows: Sequence[CovenantVow],
     ) -> list[GenesisOutcome]:
-        """Draft reviewable Genesis proposals without integration or adoption."""
+        """Draft reviewable Genesis proposals through the canonical evaluation pipeline."""
 
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
+        trust_state = evaluate_audit_trust(Path.cwd(), context="genesis_forge")
+        trust_artifacts = write_audit_trust_artifacts(Path.cwd(), trust_state, actor="genesis_forge")
+        env_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        env_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 0)
+        quarantine = load_quarantine_state(Path.cwd())
+        pressure_snapshot = compute_integrity_pressure(Path.cwd())
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        posture = resolve_posture()
+        risk_budget = compute_risk_budget(repo_root=Path.cwd(), posture=posture.posture, pressure_level=pressure_snapshot.level, operating_mode=throughput.mode, quarantine_active=quarantine.active)
+        configured_k = min(env_k, risk_budget.router_k_max)
+        configured_m = min(max(1, env_m), max(1, risk_budget.router_m_max)) if risk_budget.router_m_max > 0 else 1
+        governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
+        pressure_state = load_pressure_state()
         for need in needs:
+            anomaly = Anomaly(kind="genesis_need", subject=need.capability)
+            if trust_state.degraded_audit_trust:
+                outcomes.append(GenesisOutcome(need=need, status="deferred_degraded_audit_trust", details={"reason":"degraded_audit_trust", "audit_trust_artifacts": trust_artifacts, "proposal_only": True}))
+                continue
+            attempt_id = self._next_execution_attempt_id(f"{need.capability}:{need.source}")
+            kernel = self._kernel_provider()
+            budget_request = ControlActionRequest(action_kind="proof_budget", authority_class=AuthorityClass.PROPOSAL_EVALUATION, actor="genesis_forge", target_subsystem=need.capability, requested_phase=LifecyclePhase.MAINTENANCE, metadata={"correlation_id": f"genesis:{need.capability}:{attempt_id}:proof_budget", "require_admissible": False, "execution_attempt_id": attempt_id}, proof_budget_context={"config": governor_config, "pressure_state": pressure_state, "run_context": {"pipeline":"genesis", "capability":need.capability, "router_attempt":1, "execution_attempt_id":attempt_id}})
+            budget_gate = kernel.admit(budget_request)
+            budget_payload = budget_gate.delegated_outcomes.get("proof_budget_governor", {})
+            governor_decision = BudgetDecision(k_effective=int(budget_payload.get("k_effective", configured_k)), m_effective=int(budget_payload.get("m_effective", configured_m)), allow_escalation=bool(budget_payload.get("allow_escalation", True)), mode=str(budget_payload.get("mode", "normal")), decision_reasons=[str(item) for item in budget_payload.get("decision_reasons", [])])
+            router_k = min(governor_decision.k_effective, risk_budget.router_k_max)
+            router_m = min(governor_decision.m_effective, risk_budget.router_m_max)
+            allow_escalation = governor_decision.allow_escalation and risk_budget.router_allow_escalation
             try:
-                proposals = self._forge_engine.draft_variants(need, k=1, seed=f"proposal-only:{need.capability}")
-                proposal = proposals[0]
-                stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
-                stage_b = self._integrity_daemon.evaluate_report_stage_b(proposal, probe_cache=getattr(stage_a, "probe", None))
-                report = self._trial_run.execute(proposal.blueprint)
-                details = {
-                    "proposal_id": proposal.proposal_id,
-                    "spec_id": proposal.spec_id,
-                    "proposal": proposal.to_dict(),
-                    "stage_a_valid": getattr(stage_a, "valid_a", False),
-                    "stage_a_reason_codes": list(getattr(stage_a, "reason_codes_a", ())),
-                    "stage_b_valid": getattr(stage_b, "valid", False),
-                    "stage_b_reason_codes": list(getattr(stage_b, "reason_codes", ())),
-                    "sandbox_trial_passed": report.passed,
-                    "proposal_ready_for_review": bool(getattr(stage_a, "valid_a", False) and getattr(stage_b, "valid", False) and report.passed),
-                    "proposal_only_boundary": "before_spec_binder_integration_and_adoption_rite_promotion",
-                    "lineage_integrated": False,
-                    "adoption_promoted": False,
-                    "repository_mutation_performed": False,
-                    "provider_network_git_operation_performed": False,
-                }
-                ready = bool(details["proposal_ready_for_review"])
-                self._ledger.log(
-                    "genesis_proposal_ready_for_review" if ready else "genesis_proposal_not_ready_for_review",
-                    anomaly=Anomaly(kind="genesis_need", subject=need.capability),
-                    details=details,
-                )
-                status = "proposal_ready_for_review" if ready else ("failed_trial" if not report.passed else "invalid_stage_b" if not getattr(stage_b, "valid", False) else "invalid_stage_a")
-                outcomes.append(GenesisOutcome(need=need, status=status, details=details))
+                evaluated = self._evaluate_candidate_pipeline(need, anomaly=anomaly, configured_k=configured_k, configured_m=configured_m, router_k=router_k, router_m=router_m, allow_escalation=allow_escalation, governor_decision=governor_decision, risk_budget=risk_budget)
+                details = {"proposal_id": evaluated.proposal.proposal_id, "spec_id": evaluated.proposal.spec_id, "proposal": evaluated.proposal.to_dict(), "router_scorecard": evaluated.router_scorecard, "proof_budget_decision": evaluated.proof_budget_decision, "sandbox_result": {"passed": evaluated.sandbox_report.passed, "results": evaluated.sandbox_report.results, "failures": evaluated.sandbox_report.failures}, "proposal_ready_for_review": True, "proposal_only_boundary": "before_spec_binder_integration_and_adoption_rite_promotion", "lineage_integrated": False, "adoption_promoted": False, "repository_mutation_performed": False, "provider_network_git_operation_performed": False}
+                self._ledger.log("genesis_proposal_ready_for_review", anomaly=anomaly, details=details)
+                outcomes.append(GenesisOutcome(need=need, status="proposal_ready_for_review", details=details))
             except GenesisForgeError as exc:
-                self._ledger.log(
-                    "genesis_proposal_failed",
-                    anomaly=Anomaly(kind="genesis_need", subject=need.capability),
-                    details={"error": str(exc), "proposal_only": True},
-                    quarantined=True,
-                )
+                self._ledger.log("genesis_proposal_failed", anomaly=anomaly, details={"error": str(exc), "proposal_only": True}, quarantined=True)
                 outcomes.append(GenesisOutcome(need=need, status="failed", details={"error": str(exc), "proposal_only": True}))
         return outcomes
 
@@ -813,203 +885,22 @@ class GenesisForge:
                 )
             router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
-                k_final = router_k
-                escalated = False
-                proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed)
-                stage_a_results: list[tuple[ForgeProposal, object]] = []
-                for proposal in proposals:
-                    stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
-                    stage_a_results.append((proposal, stage_a))
-
-                if allow_escalation:
-                    next_k, escalated = maybe_escalate_k(
-                        k=router_k,
-                        stage_a_results=[
-                            (proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results
-                        ],
-                    )
-                else:
-                    next_k, escalated = router_k, False
-                if escalated:
-                    k_final = next_k
-                    proposals = self._forge_engine.draft_variants(
-                        need,
-                        k=k_final,
-                        seed=f"{router_seed}:escalated:{k_final}",
-                    )
-                    stage_a_results = []
-                    for proposal in proposals:
-                        stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
-                        stage_a_results.append((proposal, stage_a))
-
-                promoted_ids = []
-                if governor_decision.mode != "diagnostics_only":
-                    promoted_ids = promote_candidates(
-                        [(proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results],
-                        m=router_m,
-                    )
-                probe_cache = {
-                    proposal.proposal_id: evaluation.probe for proposal, evaluation in stage_a_results
-                }
-
-                candidate_results: list[CandidateResult] = []
-                if governor_decision.mode != "diagnostics_only":
-                    for proposal in proposals:
-                        if proposal.proposal_id not in promoted_ids:
-                            continue
-                        evaluation = self._integrity_daemon.evaluate_report_stage_b(
-                            proposal,
-                            probe_cache=probe_cache.get(proposal.proposal_id),
-                        )
-                        candidate_results.append(
-                            CandidateResult(
-                                candidate_id=proposal.proposal_id,
-                                proposal=proposal,
-                                evaluation=evaluation,
-                                score=score_evaluation(evaluation),
-                            )
-                        )
-
-                if governor_decision.mode == "diagnostics_only":
-                    best_stage_a_proposal, best_stage_a_eval = sorted(
-                        stage_a_results,
-                        key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
-                    )[0]
-                    router_status = "diagnostics_only"
-                    selected = None
-                    best_failure_id = best_stage_a_proposal.proposal_id
-                    best_failure_reason_codes = list(best_stage_a_eval.reason_codes_a)
-                    best_failure_score = score_evaluation_a(best_stage_a_eval)
-                else:
-                    selected, router_status = choose_candidate(candidate_results)
-                    best_failure_id = selected.candidate_id
-                    best_failure_reason_codes = list(selected.evaluation.reason_codes)
-                    best_failure_score = selected.score
-                stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
-                stage_b_valid_count = sum(1 for result in candidate_results if bool(result.evaluation.valid))
-                router_telemetry = {
-                    "k_initial": configured_k,
-                    "k_final": k_final,
-                    "m": router_m if governor_decision.mode != "diagnostics_only" else 0,
-                    "escalated": escalated,
-                    "stage_a_evaluations": len(stage_a_results),
-                    "stage_b_evaluations": len(candidate_results),
-                    "stage_a_valid_count": stage_a_valid_count,
-                    "stage_b_valid_count": stage_b_valid_count,
-                    "router_status": router_status,
-                    "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
-                }
-                router_scorecard: dict[str, object] = {
-                    "router_k": configured_k,
-                    "router_m": configured_m,
-                    "router_seed": router_seed,
-                    "router_status": router_status,
-                    "router_telemetry": router_telemetry,
-                    "proof_budget": {
-                        "k": configured_k,
-                        "m": configured_m,
-                        "escalated": escalated,
-                        "k_final": k_final,
-                    },
-                    "governor": {
-                        "mode": governor_decision.mode,
-                        "k_effective": router_k,
-                        "m_effective": router_m,
-                        "allow_escalation": allow_escalation,
-                        "reasons": list(governor_decision.decision_reasons),
-                        "governor_version": governor_decision.governor_version,
-                    },
-                    "promoted_to_stage_b": list(promoted_ids),
-                    "stage_a": [
-                        {
-                            "candidate_id": proposal.proposal_id,
-                            "valid_a": evaluation.valid_a,
-                            "reason_codes_a": list(evaluation.reason_codes_a),
-                            "top_violation_codes_a": top_violation_codes(evaluation.violations_a),
-                            "score_a": score_evaluation_a(evaluation),
-                            "rank_a": rank_stage_a(evaluation, candidate_id=proposal.proposal_id),
-                            "evaluation_artifact": evaluation.ledger_entry,
-                        }
-                        for proposal, evaluation in sorted(
-                            stage_a_results,
-                            key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
-                        )
-                    ],
-                    "stage_b": [
-                        {
-                            "candidate_id": result.candidate_id,
-                            "score": result.score,
-                            "rank": result.rank,
-                            "valid": result.evaluation.valid,
-                            "reason_codes": list(result.evaluation.reason_codes),
-                            "violations": [dict(item) for item in result.evaluation.violations],
-                            "top_violation_codes": top_violation_codes(result.evaluation.violations),
-                            "evaluation_artifact": result.evaluation.ledger_entry,
-                        }
-                        for result in sorted(candidate_results, key=lambda item: item.rank or 999)
-                    ],
-                }
-
-                if router_status != "selected":
-                    router_scorecard["best_failure_id"] = best_failure_id
-                    router_scorecard["best_failure"] = {
-                        "reason_codes": best_failure_reason_codes,
-                        "score": best_failure_score,
-                    }
-                    self._ledger.log(
-                        "GenesisForge routing_failed",
-                        anomaly=anomaly,
-                        details=router_scorecard,
-                        quarantined=True,
-                    )
-                    pressure_state = update_pressure_state(
-                        prior=pressure_state,
-                        decision=governor_decision,
-                        router_telemetry=router_telemetry,
-                        router_status=router_status,
-                        run_context=run_context,
-                        config=governor_config,
-                    )
-                    pressure_state_write = save_pressure_state(pressure_state)
-                    self._ledger.log(
-                        "proof_budget_governor",
-                        anomaly=anomaly,
-                        details=build_governor_event(
-                            decision=governor_decision,
-                            config=governor_config,
-                            run_context=run_context,
-                            router_telemetry=router_telemetry,
-                            pressure_state_write=pressure_state_write,
-                        ),
-                        quarantined=True,
-                    )
-                    if governor_decision.mode == "diagnostics_only":
-                        raise GenesisForgeError("Diagnostics-only mode: proof budget constrained")
-                    self._ledger.log(
-                        "proof_budget",
-                        anomaly=anomaly,
-                        details={
-                            "event_type": "proof_budget",
-                            "proposal_id": None,
-                            "spec_id": None,
-                            "capability": need.capability,
-                            "run_provenance_hash": os.getenv("SENTIENTOS_RUN_PROVENANCE_HASH"),
-                            "router_telemetry": dict(router_telemetry),
-                        },
-                        quarantined=True,
-                    )
-                    raise GenesisForgeError(
-                        "No admissible candidate "
-                        f"({best_failure_id}: {','.join(best_failure_reason_codes)})"
-                    )
-
-                proposal = selected.proposal
-                router_scorecard["selected_candidate_id"] = selected.candidate_id
-                report = self._trial_run.execute(proposal.blueprint)
-                if not report.passed:
-                    raise GenesisForgeError(
-                        "Sandbox validation failed",
-                    )
+                evaluated = self._evaluate_candidate_pipeline(
+                    need,
+                    anomaly=anomaly,
+                    configured_k=configured_k,
+                    configured_m=configured_m,
+                    router_k=router_k,
+                    router_m=router_m,
+                    allow_escalation=allow_escalation,
+                    governor_decision=governor_decision,
+                    risk_budget=risk_budget,
+                )
+                proposal = evaluated.proposal
+                report = evaluated.sandbox_report
+                router_scorecard = dict(evaluated.router_scorecard)
+                router_telemetry = dict(cast(Mapping[str, object], router_scorecard.get("router_telemetry", {})))
+                router_status = str(router_telemetry.get("router_status", router_scorecard.get("router_status", "selected")))
                 router = self._router_factory()
                 execution_attempt_id = self._next_execution_attempt_id(
                     f"{proposal.proposal_id}:{proposal.spec_id}"

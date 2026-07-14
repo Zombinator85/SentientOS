@@ -73,7 +73,7 @@ def resolve_improvement_evidence_sources(
             candidates.append(dict(row))
     else:
         defaults = [
-            ("run_tests", root / "glow" / "test_runs" / "run_tests_provenance.json"),
+            ("run_tests", root / "glow" / "test_runs" / "test_run_provenance.json"),
             ("coverage", root / "coverage.json"),
             ("mypy", root / "glow" / "mypy" / "mypy_output.txt"),
             ("covenant", root / "glow" / "integrity" / "findings.json"),
