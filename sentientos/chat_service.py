@@ -1,7 +1,9 @@
+# mypy: disable-error-code=untyped-decorator
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List
+import uuid
+from typing import TYPE_CHECKING, Any, List
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -14,10 +16,14 @@ else:
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
 from .local_model import LocalModel
+from .config import GenerationConfig, ModelCandidate, ModelConfig
+from .governed_local_model_invocation import GovernedLocalModelInvoker
+from .local_model_authority import build_local_model_authority_map
 
 LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
-_MODEL: LocalModel | None = None
+_MODEL: Any | None = None
+_INVOKER: GovernedLocalModelInvoker | None = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -27,12 +33,24 @@ except Exception:  # pragma: no cover - defensive initialization
 
 
 
-def _get_model() -> LocalModel:
+def _get_model() -> object:
     global _MODEL
     if _MODEL is None:
         _MODEL = LocalModel.autoload()
         LOGGER.info("Chat model loaded: %s", _MODEL.describe())
     return _MODEL
+
+
+def _get_invoker() -> GovernedLocalModelInvoker:
+    global _INVOKER
+    if _INVOKER is None:
+        model = _get_model()
+        config = getattr(model, "config", None)
+        if not isinstance(config, ModelConfig):
+            config = ModelConfig(candidates=[ModelCandidate(path=None, engine="echo", name="Injected chat model")], generation=GenerationConfig())
+        authority_map = build_local_model_authority_map(config)
+        _INVOKER = GovernedLocalModelInvoker(model=model, authority_map=authority_map)
+    return _INVOKER
 
 class ChatRequest(BaseModel):
     message: str
@@ -62,8 +80,12 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         summary = _CHANGE_NARRATOR.maybe_respond(message)
         if summary is not None:
             return ChatResponse(response=summary)
-    reply = _get_model().generate(message)
-    return ChatResponse(response=reply)
+    invoker = _get_invoker()
+    invocation_request = invoker.build_request(purpose="local_user_chat", prompt=message, caller="chat_service", correlation_id=f"chat:{uuid.uuid4().hex}")
+    receipt = invoker.invoke(invocation_request)
+    if receipt.output_text:
+        return ChatResponse(response=receipt.output_text)
+    return ChatResponse(response="Local model inference was not available for this request; no remote provider, tool, memory, action, adoption, or repository effect was attempted.")
 
 
 @APP.get("/boot-feed", response_model=List[BootEvent])

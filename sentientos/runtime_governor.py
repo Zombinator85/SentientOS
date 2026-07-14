@@ -184,6 +184,7 @@ class RuntimeGovernor:
             "repair_action": ActionProfile("repair_action", priority=1, family="recovery", local_safety=True, deferrable=False),
             "federated_control": ActionProfile("federated_control", priority=2, family="federated", local_safety=False, deferrable=True),
             "control_plane_task": ActionProfile("control_plane_task", priority=3, family="control_plane", local_safety=False, deferrable=True),
+            "local_model_inference": ActionProfile("local_model_inference", priority=3, family="local_model", local_safety=True, deferrable=True),
             "amendment_apply": ActionProfile("amendment_apply", priority=4, family="amendment", local_safety=False, deferrable=True),
             "unknown": ActionProfile("unknown", priority=5, family="unknown", local_safety=False, deferrable=True),
         }

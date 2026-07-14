@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from __future__ import annotations
 
 import importlib
@@ -5,6 +6,8 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
 
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
