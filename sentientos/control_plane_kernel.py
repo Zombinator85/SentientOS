@@ -31,6 +31,7 @@ class AuthorityClass(str, Enum):
     ROLLBACK = "rollback"
     DAEMON_RESTART = "daemon_restart"
     PROPOSAL_EVALUATION = "proposal_evaluation"
+    LOCAL_MODEL_INFERENCE = "local_model_inference"
     PROPOSAL_ADOPTION = "proposal_adoption"
     MANIFEST_OR_IDENTITY_MUTATION = "manifest_or_identity_mutation"
     FEDERATED_CONTROL = "federated_control"
@@ -256,6 +257,7 @@ class ControlPlaneKernel:
                 AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
                 AuthorityClass.SPEC_AMENDMENT,
                 AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+            AuthorityClass.LOCAL_MODEL_INFERENCE,
             }:
                 proof_rule = self._authority_rule_for_maintenance_proof_budget(
                     runtime=runtime,
@@ -466,6 +468,7 @@ class ControlPlaneKernel:
             AuthorityClass.PROPOSAL_EVALUATION: "control_plane_task",
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
             AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
+            AuthorityClass.LOCAL_MODEL_INFERENCE: "local_model_inference",
         }
         action_class = action_map.get(request.authority_class)
         if action_class is None:
