@@ -19,6 +19,8 @@ SPEC_KINDS = {"test_failure","mypy_error","type_error","recurring_failure","cove
 DIAGNOSTIC_KINDS = {"todo","fixme","unimplemented","coverage_gap","missing_tests","diagnostic"}
 MAX_RECORDS = 512
 MAX_BYTES = 2_000_000
+RUN_TESTS_PROVENANCE_RELATIVE_PATH = "glow/test_runs/test_run_provenance.json"
+RUN_TESTS_REQUIRED_FIELDS = ("schema_version","pytest_exit_code","tests_selected","tests_executed","tests_passed","tests_failed","metrics_status","exit_reason","junitxml_path","failure_report_path","git_sha","provenance_hash","prev_provenance_hash")
 
 
 def _sha(data: bytes) -> str: return "sha256:" + hashlib.sha256(data).hexdigest()
@@ -67,7 +69,7 @@ class ImprovementSignal:
     trial_performed: bool = False
     def semantic_payload(self) -> dict[str, Any]:
         d = asdict(self)
-        for k in ("signal_id", "observed_at"):
+        for k in ("signal_id", "observed_at", "source_artifact"):
             d.pop(k, None)
         return d
     def to_dict(self) -> dict[str, Any]: return asdict(self)
@@ -129,7 +131,8 @@ def normalize_record(record: Mapping[str, Any], *, repo_root: Path | str = Path.
     path = canonical_repo_path(record.get("subject_path") or record.get("path"), repo_root)
     artifact = canonical_repo_path(record.get("source_artifact") or record.get("artifact"), repo_root, allow_external=True)
     payload: dict[str, Any] = {"source_kind":src,"finding_kind":kind,"severity":str(record.get("severity","medium")),"description":str(record.get("description") or record.get("message") or kind or src),"subject_path":path,"spec_id":record.get("spec_id"),"capability_id":record.get("capability_id"),"telemetry_stream":record.get("telemetry_stream"),"source_artifact":artifact,"source_digest":record.get("source_digest"),"evidence_refs":tuple(sorted(str(x) for x in record.get("evidence_refs", ()) or ())),"routing_eligible":not reasons,"reason_codes":tuple(sorted(reasons)),"adoption_performed":False,"repository_mutation_performed":False,"provider_or_network_or_git_operation_performed":False,"trial_performed":False}
-    return ImprovementSignal(signal_id=_sid(payload), observed_at=record.get("observed_at"), **payload)
+    semantic = dict(payload); semantic.pop("source_artifact", None)
+    return ImprovementSignal(signal_id=_sid(semantic), observed_at=record.get("observed_at"), **payload)
 
 
 def _record_from_gap(g: GapSignal) -> dict[str, Any]:
@@ -165,9 +168,7 @@ def records_from_artifact(source_kind: str, path: Path | str, *, repo_root: Path
         return out
     payload = json.loads(text)
     if source_kind == "run_tests":
-        failures = payload.get("failures") or payload.get("failed") or []
-        if isinstance(failures, int): failures = [{} for _ in range(failures)]
-        return [{"source_kind":"run_tests","finding_kind":"test_failure","severity":"high","description":str(f.get("message") or f.get("nodeid") or "run_tests failure"),"subject_path":f.get("path") or f.get("nodeid","tests"),"spec_id":f.get("spec_id") or f.get("nodeid"),"source_artifact":artifact,"source_digest":digest} for f in failures if isinstance(f, Mapping)]
+        return records_from_run_tests_provenance(payload, provenance_path=p, repo_root=repo_root, provenance_digest=digest)
     if source_kind in {"covenant","telemetry","capability_gap","model_observation"}:
         records = payload.get("signals") or payload.get("findings") or payload.get("observations") or payload
         if isinstance(records, Mapping): records=[records]
@@ -175,12 +176,96 @@ def records_from_artifact(source_kind: str, path: Path | str, *, repo_root: Path
     raise ValueError(f"unknown_artifact_source:{source_kind}")
 
 
+
+def _resolve_linked_artifact(value: object, *, provenance_path: Path, repo_root: Path) -> Path | None:
+    if value in (None, ""):
+        return None
+    p = Path(str(value))
+    resolved = (p if p.is_absolute() else repo_root / p).resolve()
+    try:
+        resolved.relative_to(repo_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"linked_artifact_outside_repo:{value}") from exc
+    return resolved
+
+
+def _failure_group_records(groups: Sequence[Mapping[str, Any]], *, artifact: str, artifact_digest: str, provenance_digest: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for idx, group in enumerate(groups):
+        nodeid = str(group.get("nodeid") or group.get("node_id") or group.get("test_id") or group.get("name") or f"failure_group_{idx}")
+        file_value = group.get("file") or group.get("path") or (nodeid.split("::", 1)[0] if "::" in nodeid else "tests")
+        message = str(group.get("message") or group.get("exception_message") or group.get("summary") or nodeid)
+        meta = {
+            "failure_group_index": idx,
+            "failure_class": group.get("failure_class") or group.get("class"),
+            "exception_type": group.get("exception_type"),
+            "nodeid": nodeid,
+            "message": message,
+            "file": file_value,
+            "line": group.get("line"),
+            "count": group.get("count", 1),
+            "provenance_digest": provenance_digest,
+        }
+        out.append({
+            "source_kind": "run_tests",
+            "finding_kind": "test_failure",
+            "severity": "high",
+            "description": message,
+            "subject_path": file_value,
+            "spec_id": nodeid,
+            "source_artifact": artifact,
+            "source_digest": artifact_digest,
+            "evidence_refs": [f"failure_group:{idx}", f"failure_class:{meta['failure_class']}", f"count:{meta['count']}"],
+        })
+    return out
+
+
+def records_from_run_tests_provenance(payload: Mapping[str, Any], *, provenance_path: Path, repo_root: Path | str = Path.cwd(), provenance_digest: str | None = None) -> list[dict[str, Any]]:
+    root = Path(repo_root).resolve()
+    missing = [field for field in RUN_TESTS_REQUIRED_FIELDS if field not in payload]
+    if missing:
+        raise ValueError("run_tests_provenance_missing_fields:" + ",".join(missing))
+    tests_failed = int(payload.get("tests_failed") or 0)
+    if tests_failed <= 0:
+        return []
+    failure_path = _resolve_linked_artifact(payload.get("failure_report_path"), provenance_path=provenance_path, repo_root=root)
+    junit_path = _resolve_linked_artifact(payload.get("junitxml_path"), provenance_path=provenance_path, repo_root=root)
+    groups: list[Mapping[str, Any]] = []
+    artifact_path = failure_path or junit_path
+    if failure_path and failure_path.exists():
+        failure_data, failure_digest = _read_once(failure_path)
+        failure_payload = json.loads(failure_data.decode("utf-8"))
+        raw_groups = failure_payload.get("failure_groups") if isinstance(failure_payload, Mapping) else None
+        if not isinstance(raw_groups, list):
+            raise ValueError("failure_digest_missing_failure_groups")
+        groups = [g for g in raw_groups if isinstance(g, Mapping)]
+        artifact = failure_path.as_posix()
+        artifact_digest = failure_digest
+    elif junit_path and junit_path.exists():
+        junit_data, junit_digest = _read_once(junit_path)
+        junit_root = ET.fromstring(junit_data.decode("utf-8", errors="replace"))
+        for case in junit_root.findall(".//testcase"):
+            failure = case.find("failure") or case.find("error")
+            if failure is not None:
+                groups.append({"nodeid": f"{case.get('classname','tests')}::{case.get('name','test')}", "file": case.get("file") or case.get("classname", "tests"), "message": failure.get("message") or failure.text or "junit failure", "exception_type": failure.get("type"), "failure_class": "junit_failure", "line": case.get("line"), "count": 1})
+        artifact = junit_path.as_posix()
+        artifact_digest = junit_digest
+    else:
+        raise ValueError("run_tests_failure_evidence_missing")
+    if not groups:
+        raise ValueError("run_tests_failure_groups_empty")
+    return _failure_group_records(groups, artifact=artifact, artifact_digest=artifact_digest, provenance_digest=provenance_digest or _sha(_stable_json(payload).encode()))
+
 def collect_repository_evidence(*, repo_root: Path | str = Path.cwd(), artifacts: Sequence[Mapping[str, Any]] = (), direct_records: Sequence[Mapping[str, Any]] = (), scan_repo: bool = False) -> list[ImprovementSignal]:
     records: list[Mapping[str, Any]] = []
     total_direct = len(_stable_json(list(direct_records)).encode())
     if total_direct > MAX_BYTES: raise ValueError("oversized_direct_input")
     records.extend(direct_records)
-    for artifact in artifacts:
+    artifact_list = list(artifacts)
+    default_run_tests = Path(repo_root) / RUN_TESTS_PROVENANCE_RELATIVE_PATH
+    if not artifact_list and default_run_tests.exists():
+        artifact_list.append({"source_kind":"run_tests", "path": default_run_tests.as_posix()})
+    for artifact in artifact_list:
         records.extend(records_from_artifact(str(artifact.get("source_kind")), Path(str(artifact.get("path"))), repo_root=repo_root, expected_digest=artifact.get("source_digest")))
     if scan_repo:
         gaps = GapReporter().aggregate(RepoScanner(repo_root).iter_gaps())
@@ -221,7 +306,7 @@ def build_batch(records: Iterable[Mapping[str, Any]] | Iterable[ImprovementSigna
         prev=by_subject.get(key)
         if prev and (prev.description != s.description or prev.severity != s.severity): contradictions.extend([prev.signal_id,s.signal_id])
         by_subject[key]=s; seen[s.signal_id]=s; unique.append(s)
-    body=[s.to_dict() for s in unique]; digest=_sha(_stable_json(body).encode())
+    body=[s.semantic_payload() for s in unique]; digest=_sha(_stable_json({"signals": body, "duplicates": sorted(set(dup)), "contradictions": sorted(set(contradictions))}).encode())
     return SignalBatch("gisb-"+hashlib.sha256(digest.encode()).hexdigest()[:24], digest, tuple(unique), tuple(sorted(set(dup))), tuple(sorted(set(contradictions))), tuple(sorted(set(invalid))), counts, no_op=not unique)
 
 
@@ -308,12 +393,20 @@ def validate_evaluation(payload: Mapping[str, Any]) -> tuple[bool, tuple[str,...
         expected_receipts = [r.to_dict() for r in route_batch(rebuilt)]
         if expected_receipts != payload.get("receipts"):
             reasons.append("routing_receipt_mismatch")
-        expected_summary = evaluate_signal_plane(signals).summary
+        expected_evaluation = evaluate_signal_plane(signals)
+        expected_summary = expected_evaluation.summary
         raw_summary_for_counts = payload.get("summary")
         summary_for_counts: Mapping[str, Any] = raw_summary_for_counts if isinstance(raw_summary_for_counts, Mapping) else {}
-        for key in ("batch_id", "batch_digest", "routed_counts_by_disposition", "blocked_invalid_count", "no_op"):
-            if summary_for_counts.get(key) != expected_summary.get(key):
+        for key, value in expected_summary.items():
+            if summary_for_counts.get(key) != value:
                 reasons.append(f"summary_mismatch:{key}")
+        if payload.get("genesis_inputs") != expected_evaluation.genesis_inputs:
+            reasons.append("genesis_inputs_mismatch")
+        if payload.get("amendment_inputs") != [dict(x) for x in expected_evaluation.amendment_inputs]:
+            reasons.append("amendment_inputs_mismatch")
+        for row in signal_rows:
+            if isinstance(row, Mapping) and row.get("source_digest") and not str(row.get("source_digest")).startswith("sha256:"):
+                reasons.append("source_digest_invalid")
     except Exception as exc:
         reasons.append(f"structural_validation_failed:{exc.__class__.__name__}")
     raw_summary = payload.get("summary")
