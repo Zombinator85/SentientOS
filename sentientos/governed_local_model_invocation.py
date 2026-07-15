@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-import json, os, time
+import json, os, time, concurrent.futures
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
 SUPPORTED_PURPOSES = {"local_user_chat", "genesis_proposal_advice"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
+
+def _digest_text(payload: Any) -> str:
+    value: str = digest_payload(payload)
+    return value
 
 @dataclass(frozen=True)
 class LocalModelInvocationBudget:
@@ -41,7 +45,7 @@ class LocalModelInvocationRequest:
         return {"purpose": self.purpose, "prompt_digest": digest_payload({"prompt": self.prompt}), "prompt_size": len(self.prompt.encode("utf-8")), "model_id": self.model_id, "authority_map_digest": self.authority_map_digest, "model_artifact_digest": self.model_artifact_digest, "caller": self.caller, "lifecycle_phase": self.lifecycle_phase, "correlation_id": self.correlation_id, "expected_output_format": self.expected_output_format, "budget": self.budget.to_dict(), "upstream_evidence": dict(self.upstream_evidence), "linkage": dict(self.linkage), "allowed_effects": {"local_model_inference": True}, "forbidden_effects": dict(FORBIDDEN_EFFECTS)}
 
     @property
-    def request_digest(self) -> str: return digest_payload(self.semantic_payload())
+    def request_digest(self) -> str: return _digest_text(self.semantic_payload())
     @property
     def request_id(self) -> str: return "lmreq-" + self.request_digest[:24]
 
@@ -77,7 +81,7 @@ class LocalModelInvocationReceipt:
         return {"request": dict(self.request), "status": self.status, "reason_codes": list(self.reason_codes), "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes, "generation_config": dict(self.generation_config), "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose, "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred, "effects": dict(self.effects)}
 
     @property
-    def receipt_digest(self) -> str: return digest_payload(self.semantic_payload())
+    def receipt_digest(self) -> str: return _digest_text(self.semantic_payload())
     @property
     def receipt_id(self) -> str: return "lmrec-" + self.receipt_digest[:24]
     def to_dict(self, *, include_output: bool = False) -> dict[str, Any]:
@@ -124,6 +128,13 @@ class GovernedLocalModelInvoker:
                 reasons.append("simulation_backend")
             else: reasons.append("model_not_eligible_for_purpose")
         if len(request.prompt) > request.budget.max_input_chars: reasons.append("input_oversized")
+        if request.expected_output_format not in {"text", "json"}: reasons.append("expected_output_format_invalid")
+        if request.purpose == "genesis_proposal_advice":
+            ev = dict(request.upstream_evidence.get("genesis_review") or {}) if isinstance(request.upstream_evidence, Mapping) else {}
+            link = dict(request.linkage or {})
+            if not ev or ev.get("status") not in {"approved", "allow", "reviewed"}: reasons.append("genesis_review_evidence_missing_or_invalid")
+            for key in ("need_identity", "signal_batch_digest", "authority_map_digest", "invocation_purpose", "proposal_only"):
+                if key not in link: reasons.append(f"genesis_linkage_missing_{key}")
         if self.invocation_counts.get(request.correlation_id, 0) >= request.budget.max_calls_per_correlation: reasons.append("duplicate_correlation")
         if request.authority_map_digest != self.authority_map.map_digest: reasons.append("model_authority_stale")
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
@@ -138,10 +149,18 @@ class GovernedLocalModelInvoker:
                     self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
                     generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose == "genesis_proposal_advice" else None}
                     gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
-                    try:
-                        output = self.model.generate(request.prompt, **gen_kwargs)
-                    except TypeError:
-                        output = self.model.generate(request.prompt)
+                    def _call_model() -> str:
+                        try:
+                            return cast(str, self.model.generate(request.prompt, **gen_kwargs))
+                        except TypeError:
+                            return cast(str, self.model.generate(request.prompt))
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(_call_model)
+                        try:
+                            output = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
+                        except concurrent.futures.TimeoutError as exc:
+                            future.cancel()
+                            raise TimeoutError() from exc
                     if len(output.encode("utf-8")) > request.budget.max_output_chars:
                         output = output.encode("utf-8")[:request.budget.max_output_chars].decode("utf-8", "ignore"); truncated = True; reasons.append("output_oversized")
                     if not output.strip(): reasons.append("empty_output"); status = "degraded_fallback"; fallback = True
@@ -150,7 +169,7 @@ class GovernedLocalModelInvoker:
                 except TimeoutError: status = "timeout"; reasons.append("timeout")
                 except Exception as exc: status = "backend_failure"; reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": output}) if output is not None else None, output_size_bytes=len((output or "").encode("utf-8")), generation_config=request.budget.to_dict(), admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": status in {"admitted_completed", "admitted_simulation", "output_malformed", "degraded_fallback"}, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": output}) if output is not None else None, output_size_bytes=len((output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": status in {"admitted_completed", "admitted_simulation", "output_malformed", "degraded_fallback"}, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
         if persist: self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
         return receipt
 
@@ -171,4 +190,10 @@ class GovernedLocalModelInvoker:
         if not required.issubset(data): return False
         blob = json.dumps(data).lower()
         forbidden = ["import ", "subprocess", "shell", "git ", "openai", "huggingface", "http://", "https://", "adoptionrite", "specbinder", "write_file", "memory"]
-        return not any(item in blob for item in forbidden)
+        
+        try:
+            from .genesis_model_advice import parse_advice_output
+            payload, reasons = parse_advice_output(text)
+            return payload is not None and not reasons
+        except Exception:
+            return not any(item in blob for item in forbidden)

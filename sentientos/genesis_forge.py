@@ -66,6 +66,8 @@ from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.governance_trace import record_clamp_for_current
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
+from sentientos.genesis_model_advice import GenesisModelAdvicePacket, GenesisModelAdviceSource
+from sentientos.local_model_authority import digest_payload
 
 
 # ---------------------------------------------------------------------------
@@ -384,11 +386,13 @@ class ForgeEngine:
         )
         return proposal
 
-    def draft_variants(self, need: GenesisNeed, *, k: int, seed: str) -> list[ForgeProposal]:
-        """Draft deterministic, minimally perturbed variants."""
+    def draft_variants(self, need: GenesisNeed, *, k: int, seed: str, advice_packet: GenesisModelAdvicePacket | None = None) -> list[ForgeProposal]:
+        """Draft deterministic variants, optionally reserving one proof-budget slot for advice."""
 
         base = self.draft(need)
         count = max(int(k), 1)
+        advice_slot = advice_packet is not None and advice_packet.candidate_produced and count >= 2
+        deterministic_count = count - 1 if advice_slot else count
         rng_seed = int.from_bytes(hashlib.sha256(seed.encode("utf-8")).digest()[:8], "big")
         rng = random.Random(rng_seed)
         allow_directives = [
@@ -399,7 +403,7 @@ class ForgeEngine:
 
         variants: list[ForgeProposal] = []
         seen_specs: set[str] = set()
-        for index in range(count * 4):
+        for index in range(deterministic_count * 4):
             directives = list(base.blueprint.directives)
             testing = list(base.blueprint.testing_requirements)
             shift = index % max(len(directives), 1)
@@ -414,7 +418,7 @@ class ForgeEngine:
             proposed_spec = dict(base.proposed_spec)
             proposed_spec["directives"] = directives
             proposed_spec["testing_requirements"] = testing
-            lineage = dict(proposed_spec.get("lineage") or {})
+            lineage = cast(dict[str, object], dict(cast(Mapping[str, object], proposed_spec.get("lineage") or {})))
             lineage["router_variant"] = f"{index + 1:02d}"
             proposed_spec["lineage"] = lineage
             proposed_spec["ledger_required"] = bool(base.proposed_spec.get("ledger_required", True))
@@ -445,12 +449,25 @@ class ForgeEngine:
                     deltas=dict(base.deltas),
                 )
             )
-            if len(variants) >= count:
+            if len(variants) >= deterministic_count:
                 break
 
-        if len(variants) < count:
-            raise GenesisForgeError(f"Unable to produce {count} distinct variants")
-        return variants
+        if len(variants) < deterministic_count:
+            raise GenesisForgeError(f"Unable to produce {deterministic_count} distinct variants")
+        if advice_slot and advice_packet is not None and advice_packet.normalized_output:
+            payload = cast(dict[str, object], dict(advice_packet.normalized_output))
+            directives = [str(item) for item in cast(Sequence[object], payload.get("proposed_directives") or [])]
+            testing = [str(item) for item in cast(Sequence[object], payload.get("testing_requirements") or [])]
+            objective = str(payload.get("objective_refinement") or base.blueprint.objective)
+            proposed_spec = dict(base.proposed_spec)
+            proposed_spec.update({"objective": objective, "directives": directives, "testing_requirements": testing})
+            lineage = cast(dict[str, object], dict(cast(Mapping[str, object], proposed_spec.get("lineage") or {})))
+            lineage.update({"candidate_origin": "governed_local_model_advice", "advice_packet_id": advice_packet.packet_id, "advice_packet_digest": advice_packet.packet_digest, "request_id": advice_packet.request_context.get("request_id"), "receipt_id": advice_packet.invocation_receipt.get("receipt_id")})
+            proposed_spec["lineage"] = lineage
+            proposed_spec["ledger_required"] = True
+            candidate_digest = digest_payload({"advice_packet_digest": advice_packet.packet_digest, "need": {"capability": need.capability, "source": need.source, "description": need.description}, "batch": advice_packet.request_context.get("signal_batch_digest")})
+            variants.append(ForgeProposal(proposal_id=f"GF-ADVICE-{candidate_digest[:16]}", spec_id=base.spec_id, summary=f"{base.summary} [governed model advice candidate]", need=base.need, blueprint=DaemonBlueprint(name=base.blueprint.name, objective=objective, directives=directives, testing_requirements=testing, handler=base.blueprint.handler, test_cases=list(base.blueprint.test_cases)), original_spec=dict(base.original_spec), proposed_spec=proposed_spec, deltas={**dict(base.deltas), "candidate_origin": "governed_local_model_advice", "advice_packet_id": advice_packet.packet_id}))
+        return variants[:count]
 
 
 # ---------------------------------------------------------------------------
@@ -517,7 +534,7 @@ class SpecBinder:
         }
         spec_path.write_text(json.dumps(spec_payload, indent=2, sort_keys=True), encoding="utf-8")
 
-        entry = {
+        entry: dict[str, object] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "provenance": "GenesisForge",
             "proposal_id": proposal.proposal_id,
@@ -527,7 +544,7 @@ class SpecBinder:
         }
         if isinstance(admission_provenance, Mapping):
             validate_admission_provenance(admission_provenance, expect_execution=True)
-            entry.update(dict(admission_provenance))
+            entry.update(cast(dict[str, object], dict(admission_provenance)))
         else:
             raise GenesisForgeError("Protected lineage integration requires admission provenance")
         with self._lineage_log.open("a", encoding="utf-8") as handle:
@@ -595,7 +612,7 @@ class AdoptionRite:
             raise GenesisForgeError(
                 f"Codex index already tracks daemon '{proposal.spec_id}'"
             )
-        index_entry = {
+        index_entry: dict[str, object] = {
             "spec_id": proposal.spec_id,
             "proposal_id": proposal.proposal_id,
             "capability": proposal.need.capability,
@@ -606,7 +623,7 @@ class AdoptionRite:
         }
         if isinstance(admission_provenance, Mapping):
             validate_admission_provenance(admission_provenance, expect_execution=True)
-            index_entry["admission"] = dict(admission_provenance)
+            index_entry["admission"] = cast(dict[str, object], dict(admission_provenance))
         index_payload.append(index_entry)
         self._codex_index.write_text(json.dumps(index_payload, indent=2, sort_keys=True), encoding="utf-8")
         return {"status": "adopted", "path": str(live_path)}
@@ -633,6 +650,7 @@ class GenesisForge:
         ledger: RecoveryLedger,
         router_factory: Callable[[], ConstitutionalMutationRouter] | None = None,
         kernel_provider: Callable[[], Any] | None = None,
+        advice_source: GenesisModelAdviceSource | None = None,
     ) -> None:
         enforce_codex_startup("GenesisForge")
         self._need_seer = need_seer
@@ -646,6 +664,7 @@ class GenesisForge:
         self._router_factory = router_factory or (
             lambda: ConstitutionalMutationRouter(kernel_provider=self._kernel_provider)
         )
+        self._advice_source = advice_source
 
     def _next_execution_attempt_id(self, subject: object) -> str:
         type(self)._global_execution_attempt_counter += 1
@@ -664,11 +683,12 @@ class GenesisForge:
         allow_escalation: bool,
         governor_decision: BudgetDecision,
         risk_budget: object,
+        advice_packet: GenesisModelAdvicePacket | None = None,
     ) -> GenesisCandidateEvaluation:
         router_seed = f"{need.capability}:{need.source}:{router_k}"
         k_final = router_k
         escalated = False
-        proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed)
+        proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed, advice_packet=advice_packet)
         stage_a_results: list[tuple[ForgeProposal, IntegrityEvaluationA]] = [(proposal, self._integrity_daemon.evaluate_report_stage_a(proposal)) for proposal in proposals]
         if allow_escalation:
             next_k, escalated = maybe_escalate_k(k=router_k, stage_a_results=[(p.proposal_id, e) for p, e in stage_a_results])
@@ -676,7 +696,7 @@ class GenesisForge:
             next_k, escalated = router_k, False
         if escalated:
             k_final = next_k
-            proposals = self._forge_engine.draft_variants(need, k=k_final, seed=f"{router_seed}:escalated:{k_final}")
+            proposals = self._forge_engine.draft_variants(need, k=k_final, seed=f"{router_seed}:escalated:{k_final}", advice_packet=advice_packet)
             stage_a_results = [(proposal, self._integrity_daemon.evaluate_report_stage_a(proposal)) for proposal in proposals]
         promoted_ids = []
         if governor_decision.mode != "diagnostics_only":
@@ -705,8 +725,8 @@ class GenesisForge:
             best_failure_score = selected.score
         stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
         stage_b_valid_count = sum(1 for result in candidate_results if bool(result.evaluation.valid))
-        router_telemetry = {"k_initial": configured_k, "k_final": k_final, "m": router_m if governor_decision.mode != "diagnostics_only" else 0, "escalated": escalated, "stage_a_evaluations": len(stage_a_results), "stage_b_evaluations": len(candidate_results), "stage_a_valid_count": stage_a_valid_count, "stage_b_valid_count": stage_b_valid_count, "router_status": router_status, "selected_candidate_id": selected.candidate_id if selected is not None and router_status == "selected" else None}
-        router_scorecard: dict[str, object] = {"router_k": configured_k, "router_m": configured_m, "router_seed": router_seed, "router_status": router_status, "router_telemetry": router_telemetry, "proof_budget": {"k": configured_k, "m": configured_m, "escalated": escalated, "k_final": k_final}, "governor": {"mode": governor_decision.mode, "k_effective": router_k, "m_effective": router_m, "allow_escalation": allow_escalation, "reasons": list(governor_decision.decision_reasons), "governor_version": governor_decision.governor_version}, "promoted_to_stage_b": list(promoted_ids), "stage_a": [{"candidate_id": p.proposal_id, "valid_a": e.valid_a, "reason_codes_a": list(e.reason_codes_a), "top_violation_codes_a": top_violation_codes(e.violations_a), "score_a": score_evaluation_a(e), "rank_a": rank_stage_a(e, candidate_id=p.proposal_id), "evaluation_artifact": e.ledger_entry} for p, e in sorted(stage_a_results, key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id))], "selected_candidate_id": selected.candidate_id if selected is not None else None, "stage_b": [{"candidate_id": r.candidate_id, "score": r.score, "rank": r.rank, "valid": r.evaluation.valid, "reason_codes": list(r.evaluation.reason_codes), "violations": [dict(item) for item in r.evaluation.violations], "top_violation_codes": top_violation_codes(r.evaluation.violations), "evaluation_artifact": r.evaluation.ledger_entry} for r in sorted(candidate_results, key=lambda item: item.rank or 999)]}
+        router_telemetry = {"k_initial": configured_k, "k_final": k_final, "m": router_m if governor_decision.mode != "diagnostics_only" else 0, "escalated": escalated, "stage_a_evaluations": len(stage_a_results), "stage_b_evaluations": len(candidate_results), "stage_a_valid_count": stage_a_valid_count, "stage_b_valid_count": stage_b_valid_count, "router_status": router_status, "selected_candidate_id": selected.candidate_id if selected is not None and router_status == "selected" else None, "total_candidate_ceiling_k": k_final, "deterministic_candidate_count": sum(1 for p in proposals if not p.proposal_id.startswith("GF-ADVICE-")), "model_advice_candidate_count": sum(1 for p in proposals if p.proposal_id.startswith("GF-ADVICE-")), "candidate_count_within_k": len(proposals) <= k_final}
+        router_scorecard: dict[str, object] = {"router_k": configured_k, "router_m": configured_m, "router_seed": router_seed, "router_status": router_status, "router_telemetry": router_telemetry, "proof_budget": {"k": configured_k, "m": configured_m, "escalated": escalated, "k_final": k_final}, "governor": {"mode": governor_decision.mode, "k_effective": router_k, "m_effective": router_m, "allow_escalation": allow_escalation, "reasons": list(governor_decision.decision_reasons), "governor_version": governor_decision.governor_version}, "promoted_to_stage_b": list(promoted_ids), "advice": {"packet_id": advice_packet.packet_id if advice_packet else None, "packet_digest": advice_packet.packet_digest if advice_packet else None, "disposition": advice_packet.disposition if advice_packet else "not_requested", "request_id": advice_packet.request_context.get("request_id") if advice_packet else None, "receipt_id": advice_packet.invocation_receipt.get("receipt_id") if advice_packet else None, "model_slot_unavailable": bool(advice_packet and advice_packet.candidate_produced and configured_k < 2), "deterministic_fallback_used": not bool(advice_packet and advice_packet.candidate_produced)}, "stage_a": [{"candidate_id": p.proposal_id, "valid_a": e.valid_a, "reason_codes_a": list(e.reason_codes_a), "top_violation_codes_a": top_violation_codes(e.violations_a), "score_a": score_evaluation_a(e), "rank_a": rank_stage_a(e, candidate_id=p.proposal_id), "evaluation_artifact": e.ledger_entry} for p, e in sorted(stage_a_results, key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id))], "selected_candidate_id": selected.candidate_id if selected is not None else None, "stage_b": [{"candidate_id": r.candidate_id, "score": r.score, "rank": r.rank, "valid": r.evaluation.valid, "reason_codes": list(r.evaluation.reason_codes), "violations": [dict(item) for item in r.evaluation.violations], "top_violation_codes": top_violation_codes(r.evaluation.violations), "evaluation_artifact": r.evaluation.ledger_entry} for r in sorted(candidate_results, key=lambda item: item.rank or 999)]}
         if governor_decision.mode == "diagnostics_only":
             self._ledger.log("GenesisForge routing_failed", anomaly=anomaly, details=router_scorecard, quarantined=True)
             self._ledger.log("proof_budget_governor", anomaly=anomaly, details={"event_type":"proof_budget_governor", "decision":{"mode": governor_decision.mode, "k_effective": router_k, "m_effective": router_m}}, quarantined=True)
@@ -757,7 +777,8 @@ class GenesisForge:
             router_m = min(governor_decision.m_effective, risk_budget.router_m_max)
             allow_escalation = governor_decision.allow_escalation and risk_budget.router_allow_escalation
             try:
-                evaluated = self._evaluate_candidate_pipeline(need, anomaly=anomaly, configured_k=configured_k, configured_m=configured_m, router_k=router_k, router_m=router_m, allow_escalation=allow_escalation, governor_decision=governor_decision, risk_budget=risk_budget)
+                advice_packet = self._advice_source.advice_for_need(need, signal_batch={"batch_id": "proposal-review", "batch_digest": digest_payload({"capability": need.capability, "source": need.source})}, tick_id=attempt_id) if self._advice_source and governor_decision.mode != "diagnostics_only" else None
+                evaluated = self._evaluate_candidate_pipeline(need, anomaly=anomaly, configured_k=configured_k, configured_m=configured_m, router_k=router_k, router_m=router_m, allow_escalation=allow_escalation, governor_decision=governor_decision, risk_budget=risk_budget, advice_packet=advice_packet)
                 details = {"proposal_id": evaluated.proposal.proposal_id, "spec_id": evaluated.proposal.spec_id, "proposal": evaluated.proposal.to_dict(), "router_scorecard": evaluated.router_scorecard, "proof_budget_decision": evaluated.proof_budget_decision, "sandbox_result": {"passed": evaluated.sandbox_report.passed, "results": evaluated.sandbox_report.results, "failures": evaluated.sandbox_report.failures}, "proposal_ready_for_review": True, "proposal_only_boundary": "before_spec_binder_integration_and_adoption_rite_promotion", "lineage_integrated": False, "adoption_promoted": False, "repository_mutation_performed": False, "provider_network_git_operation_performed": False}
                 self._ledger.log("genesis_proposal_ready_for_review", anomaly=anomaly, details=details)
                 outcomes.append(GenesisOutcome(need=need, status="proposal_ready_for_review", details=details))
@@ -814,7 +835,7 @@ class GenesisForge:
                 self._ledger.log(
                     "genesis_deferred_degraded_audit_trust",
                     anomaly=Anomaly(kind="genesis_need", subject=need.capability),
-                    details=deferred.details,
+                    details=dict(deferred.details),
                 )
                 continue
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
@@ -885,6 +906,7 @@ class GenesisForge:
                 )
             router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
+                advice_packet = self._advice_source.advice_for_need(need, signal_batch={"batch_id": "expand", "batch_digest": digest_payload({"capability": need.capability, "source": need.source})}, tick_id=need_execution_attempt_id) if self._advice_source and governor_decision.mode != "diagnostics_only" else None
                 evaluated = self._evaluate_candidate_pipeline(
                     need,
                     anomaly=anomaly,
@@ -895,6 +917,7 @@ class GenesisForge:
                     allow_escalation=allow_escalation,
                     governor_decision=governor_decision,
                     risk_budget=risk_budget,
+                    advice_packet=advice_packet,
                 )
                 proposal = evaluated.proposal
                 report = evaluated.sandbox_report
@@ -1012,7 +1035,7 @@ class GenesisForge:
                         description="GenesisForge promoted new daemon",
                         execute=lambda: True,
                     ),
-                    details=outcome.details,
+                    details=dict(outcome.details),
                 )
                 pressure_state = update_pressure_state(
                     prior=pressure_state,
@@ -1072,7 +1095,7 @@ class GenesisForge:
 _RUNTIME_FORGE: GenesisForge | None = None
 
 
-def runtime_expand(repo_root: Path | str = Path.cwd(), *, telemetry_streams: Sequence[TelemetryStream] | None = None, vows: Sequence[CovenantVow] | None = None, proposal_only: bool = True) -> list[GenesisOutcome]:
+def runtime_expand(repo_root: Path | str = Path.cwd(), *, telemetry_streams: Sequence[TelemetryStream] | None = None, vows: Sequence[CovenantVow] | None = None, proposal_only: bool = True, advice_source: GenesisModelAdviceSource | None = None) -> list[GenesisOutcome]:
     """Runtime-mediated GenesisForge expansion surface used by sentientosd.
 
     The daemon-facing default is proposal-only: it drafts and evaluates reviewable
@@ -1101,9 +1124,12 @@ def runtime_expand(repo_root: Path | str = Path.cwd(), *, telemetry_streams: Seq
                 review_board=lambda _proposal, _report: False,
             ),
             ledger=RecoveryLedger(path=integration_root / "healer_runtime.log.jsonl"),
+            advice_source=advice_source,
         )
     telemetry = list(telemetry_streams or [])
     covenant_vows = list(vows or [])
+    if advice_source is not None:
+        _RUNTIME_FORGE._advice_source = advice_source
     if proposal_only:
         return _RUNTIME_FORGE.propose_for_review(telemetry, covenant_vows)
     return _RUNTIME_FORGE.expand(telemetry, covenant_vows)
