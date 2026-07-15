@@ -452,3 +452,7 @@ Workspace change-set transaction execution now exists as a bounded pilot in [Hos
 
 
 The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_change_set_lifecycle_orchestration_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_orchestration_wing.md`) coordinates the existing admission, preflight/planning, optional execution, optional verification, and optional closure wings without adding target-file primitives, direct target reads, target digest recomputation, cleanup, scheduling, external tools, or provider/prompt authority.
+
+## Governed Genesis model-advice runtime closure
+
+The `genesis_local_model_proposal_advice` capability is implemented as proposal-only local advice: `sentientos/genesis_model_advice.py`, `sentientos/genesis_forge.py`, and `sentientosd.py` connect governed local invocation to Genesis candidate evaluation while preserving deterministic fallback and forbidding adoption or repository mutation from model output.

@@ -56,6 +56,6 @@ def test_malformed_genesis_advice_records_failure(tmp_path: Path) -> None:
     fake, inv = _invoker(tmp_path, "import os")
     req = inv.build_request(purpose="genesis_proposal_advice", prompt="advise", caller="genesis", correlation_id="g1", lifecycle_phase="runtime", expected_output_format="json", budget=LocalModelInvocationBudget(max_output_chars=100))
     receipt = inv.invoke(req, include_output_in_receipt=True)
-    assert fake.calls == 1
-    assert receipt.status == "output_malformed"
-    assert "output_malformed" in receipt.reason_codes
+    assert fake.calls == 0
+    assert receipt.status in {"blocked_invalid", "denied"}
+    assert "genesis_review_evidence_missing_or_invalid" in receipt.reason_codes

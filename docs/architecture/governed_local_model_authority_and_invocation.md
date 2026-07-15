@@ -12,3 +12,7 @@ The authority map grants no action by itself. Invocation receipts keep raw chat 
 Genesis model advice is an untrusted structured proposal-advice purpose. It is schema checked, bounded, and may only enter the existing proposal-only Genesis evaluation pipeline as candidate material; it cannot approve, execute, adopt, mutate source, or bypass IntegrityDaemon, router scoring, sandbox trial, SpecBinder, AdoptionRite, or repository mutation custody.
 
 Legacy `model_bridge.py` and `relay_server.py` remain noncanonical/operator-invoked compatibility surfaces. The governed local path does not import or route through them.
+
+## Genesis proposal advice closure
+
+`genesis_proposal_advice` is consumed by `sentientos.genesis_model_advice.GenesisModelAdviceCoordinator` and `sentientos.genesis_forge`. The model output is validated as bounded structured advice, converted into at most one untrusted candidate inside the total proof budget K, and sent through the same IntegrityDaemon/router/sandbox path as deterministic variants. Missing evidence, denial, malformed output, timeout, oversized output, or unavailable models fall back to deterministic Genesis candidates.

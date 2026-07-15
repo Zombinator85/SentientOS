@@ -28,6 +28,9 @@ from sentientos.control_plane_kernel import (
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
+from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from codex.amendments import (
     RepositoryMutationHandoffPlan,
     runtime_cycle as runtime_spec_cycle,
@@ -104,12 +107,14 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
         self._runtime_state_root = runtime_state_root or Path(os.environ.get("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos-runtime-state"))
         self._identify_admitted = False
+        self._governed_local_invoker = governed_local_invoker
+        self._genesis_advice_source = genesis_advice_source
         self._feedback: dict[str, Any] = {
             "schema": "runtime_maintenance_feedback:v1",
             "degraded": False,
@@ -159,17 +164,37 @@ class RuntimeMaintenanceSurfaces:
         if not self._identify_admitted:
             outcomes = []
         else:
-            outcomes = runtime_genesis_expand(
-                self._repo_root,
-                telemetry_streams=telemetry_streams,
-                vows=vows,
-                proposal_only=True,
-            )
+            try:
+                outcomes = runtime_genesis_expand(
+                    self._repo_root,
+                    telemetry_streams=telemetry_streams,
+                    vows=vows,
+                    proposal_only=True,
+                    advice_source=self._genesis_advice_source,
+                )
+            except TypeError as exc:
+                if "advice_source" not in str(exc):
+                    raise
+                outcomes = runtime_genesis_expand(
+                    self._repo_root,
+                    telemetry_streams=telemetry_streams,
+                    vows=vows,
+                    proposal_only=True,
+                )
         failed = sum(1 for item in outcomes if str(getattr(item, "status", "")).lower() in {"failed", "deferred_degraded_audit_trust"})
+        advice_feedback = dict(getattr(self._genesis_advice_source, "feedback", {}) or {})
         self._feedback["surfaces"]["genesis_forge"] = {
             "status": "degraded" if failed else "ok",
             "failed_or_deferred": failed,
             "outcome_count": len(outcomes),
+            "governed_genesis_model_advice": {
+                "authority_map_id": getattr(getattr(self._governed_local_invoker, "authority_map", None), "map_id", None),
+                "authority_map_digest": getattr(getattr(self._governed_local_invoker, "authority_map", None), "map_digest", None),
+                "eligible_model_count": int(getattr(getattr(self._governed_local_invoker, "authority_map", None), "summary", {}).get("eligible_count", 0)) if self._governed_local_invoker else 0,
+                "advice_enabled": self._genesis_advice_source is not None,
+                **advice_feedback,
+                "forbidden_downstream_effects": {"approved": False, "adopted": False, "lineage_integrated": False, "repository_mutation_performed": False},
+            },
         }
         self._refresh_feedback()
         return cast(list[Any], outcomes)
@@ -179,12 +204,14 @@ class RuntimeMaintenanceSurfaces:
         if not self._identify_admitted:
             state = {"panel": "Spec Amendments", "pending": [], "approved": [], "runtime_signal_count": 0, "blocked_by_identify_stage": True}
         else:
-            state = runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs)
-        pending = len(state.get("pending", [])) if isinstance(state.get("pending"), list) else 0
+            state = cast(dict[str, Any], runtime_spec_cycle(self._repo_root / "integration", signals=evaluation.amendment_inputs))
+        pending_items = state.get("pending", [])
+        approved_items = state.get("approved", [])
+        pending = len(pending_items) if isinstance(pending_items, list) else 0
         self._feedback["surfaces"]["spec_amender"] = {
             "status": "ok",
             "pending": pending,
-            "approved": len(state.get("approved", [])) if isinstance(state.get("approved"), list) else 0,
+            "approved": len(approved_items) if isinstance(approved_items, list) else 0,
         }
         self._refresh_feedback()
         return state
@@ -236,7 +263,7 @@ class RuntimeMaintenanceSurfaces:
             "metadata_only": True,
         }
         self._refresh_feedback()
-        return handoff
+        return cast(dict[str, Any], handoff)
 
     def governance_feedback(self) -> dict[str, Any]:
         return dict(self._feedback)
@@ -495,9 +522,14 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     contract_sentinel = ContractSentinel()
     kernel = get_control_plane_kernel()
     repo_root = Path.cwd()
+    authority_map = build_local_model_authority_map()
+    governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
+    genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
     runtime_surfaces = RuntimeMaintenanceSurfaces(
         repo_root,
         improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
+        governed_local_invoker=governed_invoker,
+        genesis_advice_source=genesis_advice,
     )
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
