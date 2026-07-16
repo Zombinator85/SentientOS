@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from sentientos.codex_landing_evidence_binding import file_sha256, create_body_binding, verify_body_binding
 
 REQUIRED_SECTIONS: tuple[str, ...] = (
     "### Motivation",
@@ -147,11 +148,24 @@ def build_body(
     motivation: str,
     description: str,
     testing: str,
+    pre_commit_finalizer_json_path: str = "",
+    pr_metadata_finalizer_json_path: str = "",
+    pr_metadata_guard_json_path: str = "",
+    landing_gate_json_path: str = "",
 ) -> str:
     if not matrix_json_path.exists():
         raise ValueError(f"matrix-json-path does not exist: {matrix_json_path}")
     matrix = _load_json_object(matrix_json_path, label="matrix JSON")
     supervisor = _load_optional_json_object(landing_supervisor_json_path)
+    parsed_artifacts: dict[str, dict[str, Any]] = {}
+    artifact_paths = {"pre_commit_finalizer": pre_commit_finalizer_json_path, "pr_metadata_finalizer": pr_metadata_finalizer_json_path, "pr_metadata_guard": pr_metadata_guard_json_path, "matrix": str(matrix_json_path), "landing_gate": landing_gate_json_path, "landing_supervisor": landing_supervisor_json_path}
+    artifact_digests = {k: file_sha256(Path(v)) for k, v in artifact_paths.items() if v}
+    for k, v in artifact_paths.items():
+        if v:
+            parsed_artifacts[k] = _load_json_object(Path(v), label=k)
+    commit_binding = parsed_artifacts.get("pr_metadata_finalizer", {}).get("commit_binding", {})
+    if any([pre_commit_finalizer_json_path, pr_metadata_finalizer_json_path, pr_metadata_guard_json_path]) and not isinstance(commit_binding, Mapping):
+        raise ValueError("parsed finalizer artifacts missing commit binding")
 
     status = str(matrix.get("status", "unknown"))
     required_failure_count = str(matrix.get("required_failure_count", "unknown"))
@@ -174,7 +188,7 @@ def build_body(
 
     sections = [
         ("### Motivation", _text(motivation, "Harden Codex landing evidence so late PR metadata/finalizer failures retain canonical, repo-native recovery information instead of relying on hand-written evidence bodies.")),
-        ("### Description", _text(description, f"Title: {title}\nIntended commit title: {intended_commit_title}\nGenerated from canonical matrix artifact and landing supervisor path.")),
+        ("### Description", _text(description, f"Title: {title}\nIntended commit title: {intended_commit_title}\nCommit SHA: {commit_binding.get('head_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nTree SHA: {commit_binding.get('tree_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nParent/base SHA: {commit_binding.get('parent_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nChanged-path manifest digest: {commit_binding.get('changed_path_manifest_digest', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nMatrix digest: {artifact_digests.get('matrix', 'not bound')}\nArtifact digests: {json.dumps(artifact_digests, sort_keys=True)}")),
         ("### Testing", _text(testing, "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.")),
         (
             "### Full command matrix results",
@@ -250,6 +264,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--motivation", default="")
     parser.add_argument("--description", default="")
     parser.add_argument("--testing", default="")
+    parser.add_argument("--pre-commit-finalizer-json-path", default="")
+    parser.add_argument("--pr-metadata-finalizer-json-path", default="")
+    parser.add_argument("--pr-metadata-guard-json-path", default="")
+    parser.add_argument("--landing-gate-json-path", default="")
+    parser.add_argument("--sidecar-output", default="")
+    parser.add_argument("--verify-body-binding", action="store_true")
     return parser
 
 
@@ -278,11 +298,25 @@ def main(argv: list[str] | None = None) -> int:
             motivation=args.motivation,
             description=args.description,
             testing=args.testing,
+            pre_commit_finalizer_json_path=args.pre_commit_finalizer_json_path,
+            pr_metadata_finalizer_json_path=args.pr_metadata_finalizer_json_path,
+            pr_metadata_guard_json_path=args.pr_metadata_guard_json_path,
+            landing_gate_json_path=args.landing_gate_json_path,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     Path(args.output).write_text(body, encoding="utf-8")
+    if args.sidecar_output:
+        artifacts = {k: v for k, v in {"pre_commit_finalizer": args.pre_commit_finalizer_json_path, "pr_metadata_finalizer": args.pr_metadata_finalizer_json_path, "pr_metadata_guard": args.pr_metadata_guard_json_path, "matrix": args.matrix_json_path, "landing_gate": args.landing_gate_json_path, "landing_supervisor": args.landing_supervisor_json_path}.items() if v}
+        pr_payload = _load_json_object(Path(args.pr_metadata_finalizer_json_path), label="pr metadata finalizer") if args.pr_metadata_finalizer_json_path else {}
+        commit = pr_payload.get("commit_binding", {}) if isinstance(pr_payload, Mapping) else {}
+        sidecar = create_body_binding(args.title, args.output, commit, artifacts).to_dict()
+        Path(args.sidecar_output).write_text(json.dumps(sidecar, indent=2, sort_keys=True), encoding="utf-8")
+        result = verify_body_binding(args.title, args.output, sidecar, artifacts)
+        if args.verify_body_binding:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+            return 0 if result.status == "pr_body_binding_ready" else 1
     return 0
 
 
