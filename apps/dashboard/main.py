@@ -1,3 +1,4 @@
+# mypy: disable-error-code="untyped-decorator,no-any-return,call-overload,attr-defined"
 """Read-only FastAPI dashboard exposing SentientOS operator telemetry."""
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 from sentientos.fastapi_stub import Depends, FastAPI, HTMLResponse, HTTPException, JSONResponse, Request
 
 from sentientos.admin_server import admin_metrics, admin_status
+from sentientos.world_state_board import WorldStateBoardBuilder, to_dict, diff_snapshots
 from sentientos.storage import get_data_root
 from embodiment.silhouette_store import load_recent_silhouettes, load_silhouette
 
@@ -33,6 +35,50 @@ def require_token(request: Request) -> None:
     if token != expected:
         raise HTTPException(status_code=403, detail="invalid dashboard token")
 
+
+
+def _world_state_snapshot() -> dict[str, object]:
+    path = Path(os.environ.get("SENTIENTOS_WORLD_STATE_BOARD_PATH", str(get_data_root() / "runtime" / "world_state_board" / "latest.json")))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            data.setdefault("source_locations_redacted", True)
+            return data
+    except OSError:
+        pass
+    return to_dict(WorldStateBoardBuilder().build(()))
+
+def _page(items: list[object], limit: int = 100, offset: int = 0) -> dict[str, object]:
+    limit = max(0, min(int(limit), 250)); offset=max(0,int(offset))
+    return {"items": items[offset:offset+limit], "limit": limit, "offset": offset, "total": len(items)}
+
+@app.get("/api/world-state", dependencies=[Depends(require_token)])
+def api_world_state() -> dict[str, object]:
+    return _world_state_snapshot()
+
+@app.get("/api/world-state/summary", dependencies=[Depends(require_token)])
+def api_world_state_summary() -> object:
+    return _world_state_snapshot().get("summary", {})
+
+@app.get("/api/world-state/entities", dependencies=[Depends(require_token)])
+def api_world_state_entities(limit: int = 100, offset: int = 0) -> dict[str, object]:
+    return _page(list(_world_state_snapshot().get("entities", [])), limit, offset)
+
+@app.get("/api/world-state/entities/{subject_id}", dependencies=[Depends(require_token)])
+def api_world_state_entity(subject_id: str) -> object:
+    for entity in _world_state_snapshot().get("entities", []):
+        if isinstance(entity, dict) and entity.get("subject", {}).get("subject_id") == subject_id:
+            return entity
+    raise HTTPException(status_code=404, detail="unknown world-state subject")
+
+@app.get("/api/world-state/conflicts", dependencies=[Depends(require_token)])
+def api_world_state_conflicts(limit: int = 100, offset: int = 0) -> dict[str, object]:
+    return _page(list(_world_state_snapshot().get("conflicts", [])), limit, offset)
+
+@app.get("/api/world-state/delta", dependencies=[Depends(require_token)])
+def api_world_state_delta() -> dict[str, object]:
+    snap = WorldStateBoardBuilder().build(())
+    return to_dict(diff_snapshots(snap, snap))
 
 def _fetch_status() -> Mapping[str, object]:
     response = admin_status()

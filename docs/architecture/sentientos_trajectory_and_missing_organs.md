@@ -456,3 +456,7 @@ The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_chan
 ## Governed Genesis model-advice runtime closure
 
 The `genesis_local_model_proposal_advice` capability is implemented as proposal-only local advice: `sentientos/genesis_model_advice.py`, `sentientos/genesis_forge.py`, and `sentientosd.py` connect governed local invocation to Genesis candidate evaluation while preserving deterministic fallback and forbidding adoption or repository mutation from model output.
+
+## World-State evidence board
+
+The `world_state_evidence_board` capability is implemented as a canonical read-only evidence projection. It derives digest-bound snapshots from bounded typed local evidence, evaluates source staleness and contradictions, exposes terminal `sentientosd` runtime feedback, and provides authenticated dashboard inspection endpoints. It is explicitly non-authoritative: display, summary, receipt, handoff, and proposal evidence do not grant decision, admission, execution, adoption, or repository-mutation authority.

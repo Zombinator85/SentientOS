@@ -341,3 +341,7 @@ files, create commits, mutate branches, push, create pull requests, mark
 proposals committed, adopt proposals, invoke providers, assemble prompts, or
 expand runtime authority. External Codex/operator landing controls, including
 finalizer, matrix, supervisor, and PR metadata guard, remain required.
+
+## World-State Evidence Board
+
+SentientOS includes a read-only World-State Evidence Board that normalizes bounded local evidence into deterministic snapshots and dashboard views. It separates observation, proposal, review, admission, execution, rollback, adoption, repository handoff, and repository landing, and it records contradiction/staleness posture without granting any runtime authority.

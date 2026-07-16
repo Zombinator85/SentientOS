@@ -58,3 +58,5 @@ files, create commits, mutate branches, push, create pull requests, mark
 proposals committed, adopt proposals, invoke providers, assemble prompts, or
 expand runtime authority. External Codex/operator landing controls, including
 finalizer, matrix, supervisor, and PR metadata guard, remain required.
+
+| `world_state_evidence_board` | `sentientosd` terminal projection / dashboard | `maintenance` | none; read-only metadata projection | snapshot build and authenticated view only | runtime-state `world_state_board/latest.json` |
