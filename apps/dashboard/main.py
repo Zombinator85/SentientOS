@@ -80,6 +80,38 @@ def api_world_state_delta() -> dict[str, object]:
     snap = WorldStateBoardBuilder().build(())
     return to_dict(diff_snapshots(snap, snap))
 
+
+def _host_resource_projection() -> dict[str, object]:
+    snap = _world_state_snapshot()
+    facts = [f for f in snap.get("facts", []) if isinstance(f, dict) and str(f.get("subject", {}).get("subject_kind", "")).startswith("host_resource")]
+    summary: dict[str, object] = {
+        "status": "unavailable" if not facts else "recorded",
+        "fact_count": len(facts),
+        "collection_triggered": False,
+        "read_only": True,
+        "no_effect_authority": True,
+        "host_mutation_performed": False,
+        "repository_mutation_performed": False,
+    }
+    for fact in facts:
+        payload = fact.get("payload", {}) if isinstance(fact.get("payload"), dict) else {}
+        sid = fact.get("subject", {}).get("subject_id") if isinstance(fact.get("subject"), dict) else ""
+        if sid == "host_resource_observation_epoch":
+            summary["admission"] = payload.get("admission")
+            summary["collector_status_counts"] = payload.get("status_counts", {})
+            summary["timed_out_collectors"] = payload.get("timed_out_collectors", [])
+        elif sid == "host_resource_pressure":
+            summary["pressure_labels"] = payload.get("pressure_labels", [])
+        elif sid == "host_resource_policy":
+            summary["policy_status"] = payload.get("status")
+        elif sid == "host_resource_proposal_receipts":
+            summary["proposal_receipts"] = payload.get("receipt_ids", payload.get("proposal_receipts", []))
+    return summary
+
+@app.get("/api/world-state/host-resource", dependencies=[Depends(require_token)])
+def api_world_state_host_resource() -> dict[str, object]:
+    return _host_resource_projection()
+
 def _fetch_status() -> Mapping[str, object]:
     response = admin_status()
     payload = json.loads(response.body.decode("utf-8"))
