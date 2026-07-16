@@ -459,7 +459,7 @@ def build_actuation_fulfillment_rehearsal_receipt(plan: ActuationFulfillmentPlan
         "backend_class": plan.backend_class,
         "plan_status": plan.plan_status,
         "rehearsal_status": rehearsal_status,
-        "created_at": created_at,
+        "semantic_schema_version": "actuation_fulfillment_rehearsal_receipt.semantic.v2",
     }
     provisional = ActuationFulfillmentRehearsalReceipt(
         receipt_id=_digest_payload("afrr_", material),
@@ -490,6 +490,8 @@ def actuation_fulfillment_plan_digest(plan: ActuationFulfillmentPlan) -> str:
 def actuation_fulfillment_rehearsal_receipt_digest(receipt: ActuationFulfillmentRehearsalReceipt) -> str:
     payload = receipt.to_dict()
     payload["digest"] = ""
+    payload.pop("created_at", None)
+    payload["semantic_schema_version"] = "actuation_fulfillment_rehearsal_receipt.semantic.v2"
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 

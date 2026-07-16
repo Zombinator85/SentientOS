@@ -352,3 +352,7 @@ Genesis adoption is now documented as an explicit reviewed-candidate path: a
 sealed packet, operator decision, separate control-plane admissions, exact
 candidate execution, receipt/rollback evidence, and World-State projection. The
 daemon remains proposal-only and does not approve or adopt candidates.
+
+### Host privilege review and fulfillment rehearsal runtime
+
+The host privilege review and fulfillment rehearsal runtime links the read-only host-resource observation runtime to the existing Privilege Broker and Actuation Fulfillment rehearsal builders during the same daemon tick. It consumes in-memory proposal-only receipts, obtains proposal-evaluation admission for metadata classification only, persists an external evidence bundle, projects read-only facts into World-State, and exposes `/api/world-state/host-privilege-review`. It does not grant privileged-effect admission, operator approval, real fulfillment, backend execution, host mutation, effect proof, or rollback execution. See `docs/architecture/host_privilege_review_rehearsal_runtime.md`.

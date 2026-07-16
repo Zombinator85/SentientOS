@@ -168,3 +168,7 @@ After the Execution Proof Wing, see `docs/architecture/host_embodiment_authoriza
 Fulfillment rehearsal remains non-mutating. The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) links this scaffold into a reviewer trace while keeping real fulfillment, host mutation, fan/PWM writes, thermal actuation, service restart, power mutation, and cleanup/delete deferred or blocked.
 
 Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+
+## Runtime closure note
+
+`sentientos/host_privilege_review_runtime.py` now composes broker review receipts with this rehearsal scaffold in the daemon maintenance tick. The runtime builds rehearsal plans and rehearsal receipts only. A rehearsal-ready plan or recorded rehearsal receipt remains dry-run evidence and is not privileged-effect admission, fulfillment, effect proof, or host mutation.

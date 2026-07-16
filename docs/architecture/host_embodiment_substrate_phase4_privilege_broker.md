@@ -170,3 +170,7 @@ Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wi
 ## Later authorization-review wing
 
 The later authorization-review layer is documented at `docs/architecture/host_embodiment_authorization_review_wing.md`. Eligibility is not authorization, authorization review is not authorization grant, and future host actions still require explicit future authorization, control-plane admission, audit, rollback, effect receipt, and postcondition checks.
+
+## Runtime closure note
+
+`sentientos/host_privilege_review_runtime.py` now composes admitted host-resource proposal receipts with this broker in the daemon maintenance tick. The broker remains eligibility-only: the runtime calls `evaluate_privilege_broker_eligibility` and `build_privilege_broker_review_receipt`, but eligibility and review receipts are not authorization, operator approval, fulfillment, or execution.

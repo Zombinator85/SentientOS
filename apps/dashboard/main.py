@@ -112,6 +112,34 @@ def _host_resource_projection() -> dict[str, object]:
 def api_world_state_host_resource() -> dict[str, object]:
     return _host_resource_projection()
 
+
+
+def _host_privilege_review_projection() -> dict[str, object]:
+    snap = _world_state_snapshot()
+    facts = [f for f in snap.get("facts", []) if isinstance(f, dict) and str(f.get("subject", {}).get("subject_kind", "")).startswith(("host_privilege_", "host_fulfillment_rehearsal_"))]
+    posture_counts: dict[str, int] = {}
+    blocked_actions: set[str] = set(); gates: set[str] = set(); latest: list[str] = []
+    ready = conditional = blocked = incomplete = contradicted = 0
+    valid_sources = invalid_sources = 0
+    for fact in facts:
+        disp = str(fact.get("disposition", "unknown")); posture_counts[disp] = posture_counts.get(disp, 0) + 1
+        payload = fact.get("payload", {}) if isinstance(fact.get("payload"), dict) else {}
+        blocked_actions.update(str(x) for x in payload.get("blocked_actions", []) if x)
+        gates.update(str(x) for x in payload.get("required_future_gates", []) if x)
+        latest.append(str(fact.get("subject", {}).get("subject_id", "")))
+        if payload.get("valid_source") is True: valid_sources += 1
+        elif payload.get("valid_source") is False: invalid_sources += 1
+        if "ready_with_conditions" in disp or "with_warnings" in disp: conditional += 1
+        if "ready" in disp: ready += 1
+        if "blocked" in disp: blocked += 1
+        if "incomplete" in disp: incomplete += 1
+        if "contradicted" in disp: contradicted += 1
+    return {"status": "unavailable" if not facts else "recorded", "source_proposal_count": valid_sources + invalid_sources, "valid_source_count": valid_sources, "invalid_source_count": invalid_sources, "broker_eligibility_posture_counts": posture_counts, "blocked_count": blocked, "incomplete_count": incomplete, "contradicted_count": contradicted, "rehearsal_ready_count": ready, "conditional_count": conditional, "blocked_action_categories": sorted(blocked_actions), "missing_future_gates": sorted(gates), "latest_chain_ids": [x for x in latest[-10:] if x], "freshness": snap.get("summary", {}).get("counts", {}).get("staleness_posture", {}), "read_only": True, "rehearsal_only": True, "collection_triggered": False, "privileged_execution_triggered": False, "host_mutation_performed": False}
+
+@app.get("/api/world-state/host-privilege-review", dependencies=[Depends(require_token)])
+def api_world_state_host_privilege_review() -> dict[str, object]:
+    return _host_privilege_review_projection()
+
 def _fetch_status() -> Mapping[str, object]:
     response = admin_status()
     payload = json.loads(response.body.decode("utf-8"))

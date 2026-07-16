@@ -254,7 +254,7 @@ def _source_digest(receipt: Any) -> str:
     if digest:
         return digest
     try:
-        return host_resource_proposal_receipt_digest(receipt)
+        return str(host_resource_proposal_receipt_digest(receipt))
     except Exception:  # defensive for mapping-like test doubles; no host effect.
         return hashlib.sha256(_canonical_json(getattr(receipt, "to_dict", lambda: dict(receipt))()).encode("utf-8")).hexdigest()
 
@@ -426,7 +426,7 @@ def build_privilege_broker_review_receipt(
         "review_status": review_status,
         "required_future_gates": decision.required_future_gates,
         "blocked_actions": decision.blocked_actions,
-        "created_at": created_at,
+        "semantic_schema_version": "privilege_broker_review_receipt.semantic.v2",
     }
     provisional = PrivilegeBrokerReviewReceipt(
         receipt_id=_digest_payload("pbr_", material),
@@ -453,6 +453,8 @@ def privilege_broker_decision_digest(decision: PrivilegeBrokerEligibilityDecisio
 def privilege_broker_receipt_digest(receipt: PrivilegeBrokerReviewReceipt) -> str:
     payload = receipt.to_dict()
     payload["digest"] = ""
+    payload.pop("created_at", None)
+    payload["semantic_schema_version"] = "privilege_broker_review_receipt.semantic.v2"
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
