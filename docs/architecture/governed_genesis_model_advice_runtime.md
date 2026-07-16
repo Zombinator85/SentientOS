@@ -23,3 +23,9 @@ A `GenesisModelAdvicePacket` binds the request, governed invocation receipt, nor
 ## Evidence
 
 Focused lane: `genesis_model_advice_runtime_closure_tests` runs the advice contract, CLI, governed invoker, GenesisForge, and sentientosd runtime closure tests. The CLI `scripts/build_genesis_model_advice.py` renders deterministic JSON/Markdown inspection artifacts and never bypasses control-plane admission, fabricates approval, calls remotes, executes tools, mutates source, invokes Git, or promotes adoption.
+
+## Reviewed adoption boundary
+
+Governed Genesis model advice remains proposal-time evidence only. The reviewed
+adoption coordinator consumes a sealed packet and explicit operator decision; it
+does not invoke the model or request fresh advice during adoption.

@@ -16,3 +16,9 @@ Legacy `model_bridge.py` and `relay_server.py` remain noncanonical/operator-invo
 ## Genesis proposal advice closure
 
 `genesis_proposal_advice` is consumed by `sentientos.genesis_model_advice.GenesisModelAdviceCoordinator` and `sentientos.genesis_forge`. The model output is validated as bounded structured advice, converted into at most one untrusted candidate inside the total proof budget K, and sent through the same IntegrityDaemon/router/sandbox path as deterministic variants. Missing evidence, denial, malformed output, timeout, oversized output, or unavailable models fall back to deterministic Genesis candidates.
+
+## Genesis adoption non-invocation
+
+Reviewed Genesis adoption receipts include `model_invocation=false`; local model
+admission and invocation receipts can be linked as proposal evidence but cannot
+be refreshed or executed by the adoption path.

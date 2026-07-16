@@ -15,3 +15,11 @@ Proof command:
 ```bash
 python -m scripts.run_tests -q tests/test_world_state_board.py tests/test_world_state_sources.py tests/test_build_world_state_board_script.py tests/test_dashboard_world_state.py tests/test_sentientosd_runtime_closure.py
 ```
+
+## Genesis reviewed adoption stages
+
+The board accepts generic authenticated `genesis_candidate` records emitted by
+`sentientos.genesis_reviewed_adoption.world_state_records_for`. These records
+preserve stage truth: review packet and operator decision are `review`, adoption
+plans and admissions are `admission`, receipts are `execution`, rollback receipts
+are `rollback`, and only validated adopted receipts produce an `adoption` fact.

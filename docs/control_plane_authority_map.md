@@ -60,3 +60,10 @@ expand runtime authority. External Codex/operator landing controls, including
 finalizer, matrix, supervisor, and PR metadata guard, remain required.
 
 | `world_state_evidence_board` | `sentientosd` terminal projection / dashboard | `maintenance` | none; read-only metadata projection | snapshot build and authenticated view only | runtime-state `world_state_board/latest.json` |
+
+## Genesis reviewed adoption authority
+
+Reviewed Genesis adoption requires two separate admissions before any write:
+manifest/identity lineage integration and `AuthorityClass.PROPOSAL_ADOPTION`.
+Operator approval is not an admission, admission is not execution, and lineage
+integration alone is not adoption.
