@@ -460,3 +460,7 @@ The `genesis_local_model_proposal_advice` capability is implemented as proposal-
 ## World-State evidence board
 
 The `world_state_evidence_board` capability is implemented as a canonical read-only evidence projection. It derives digest-bound snapshots from bounded typed local evidence, evaluates source staleness and contradictions, exposes terminal `sentientosd` runtime feedback, and provides authenticated dashboard inspection endpoints. It is explicitly non-authoritative: display, summary, receipt, handoff, and proposal evidence do not grant decision, admission, execution, adoption, or repository-mutation authority.
+
+## Host resource and privilege/rehearsal runtime reconciliation
+
+The read-only host-resource observation runtime and the host privilege review / fulfillment rehearsal runtime are implemented as evidence-only maintenance surfaces. They close the proposal-to-review-to-rehearsal metadata loop and project it into World-State. The future effect-capable privilege and fulfillment organs remain deferred: operator privileged approval, privileged-effect admission, backend execution, host mutation, effect proof, and rollback execution are not implemented by this runtime.

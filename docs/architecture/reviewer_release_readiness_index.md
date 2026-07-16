@@ -551,3 +551,13 @@ files, create commits, mutate branches, push, create pull requests, mark
 proposals committed, adopt proposals, invoke providers, assemble prompts, or
 expand runtime authority. External Codex/operator landing controls, including
 finalizer, matrix, supervisor, and PR metadata guard, remain required.
+
+## Host privilege review rehearsal runtime
+
+See `docs/architecture/host_privilege_review_rehearsal_runtime.md`. This capability is implemented as same-tick metadata/rehearsal closure only. It binds host proposal receipts through broker decisions, broker review receipts, rehearsal plans, and rehearsal receipts; projects them into World-State; and exposes an authenticated read-only dashboard projection. It does not authorize or perform host effects.
+
+Proof command:
+
+```bash
+python -m scripts.run_tests -q tests/test_host_privilege_review_runtime.py tests/test_build_host_privilege_review_runtime_script.py tests/test_host_resource_runtime.py tests/test_privilege_broker.py tests/test_actuation_fulfillment.py tests/test_sentientosd_runtime_closure.py tests/test_world_state_board.py tests/test_dashboard_world_state.py tests/test_capability_registry.py tests/test_reviewer_proof_bundle.py tests/test_codex_validation_matrix_lane_contract.py tests/test_repository_mutation_custody_regression.py
+```
