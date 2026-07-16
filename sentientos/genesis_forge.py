@@ -792,7 +792,20 @@ class GenesisForge:
         telemetry_streams: Sequence[TelemetryStream],
         vows: Sequence[CovenantVow],
     ) -> list[GenesisOutcome]:
-        outcomes: list[GenesisOutcome] = []
+        """Fail closed: raw Genesis expansion no longer performs adoption.
+
+        Mutation-capable adoption must enter through
+        sentientos.genesis_reviewed_adoption with a sealed review packet, an
+        explicit operator approval decision, and two control-plane admissions.
+        """
+        outcomes = self.propose_for_review(telemetry_streams, vows)
+        sealed: list[GenesisOutcome] = []
+        for outcome in outcomes:
+            details = dict(outcome.details)
+            details.update({"reason":"raw_expand_cannot_mutate", "required_entry_point":"sentientos.genesis_reviewed_adoption.GenesisReviewedAdoptionCoordinator", "reviewed_adoption_required": True})
+            sealed.append(GenesisOutcome(need=outcome.need, status="reviewed_adoption_required" if outcome.status == "proposal_ready_for_review" else outcome.status, details=details))
+        return sealed
+        outcomes = []
         needs = self._need_seer.scan(telemetry_streams, vows)
         trust_state = evaluate_audit_trust(Path.cwd(), context="genesis_forge")
         trust_artifacts = write_audit_trust_artifacts(Path.cwd(), trust_state, actor="genesis_forge")
@@ -1132,4 +1145,4 @@ def runtime_expand(repo_root: Path | str = Path.cwd(), *, telemetry_streams: Seq
         _RUNTIME_FORGE._advice_source = advice_source
     if proposal_only:
         return _RUNTIME_FORGE.propose_for_review(telemetry, covenant_vows)
-    return _RUNTIME_FORGE.expand(telemetry, covenant_vows)
+    raise GenesisForgeError("runtime_expand(proposal_only=False) requires sealed reviewed-adoption packet and explicit decision; use sentientos.genesis_reviewed_adoption")

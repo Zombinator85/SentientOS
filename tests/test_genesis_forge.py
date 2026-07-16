@@ -162,27 +162,13 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
     )
 
     outcomes = forge.expand(telemetry, vows)
-    assert outcomes and outcomes[0].status == "adopted"
+    assert outcomes and outcomes[0].status == "reviewed_adoption_required"
 
-    lineage_entries = [json.loads(line) for line in (lineage_root / "lineage.jsonl").read_text().splitlines()]
-    assert lineage_entries[0]["provenance"] == "GenesisForge"
-    assert lineage_entries[0]["admission_decision_ref"].startswith("kernel_decision:genesis:")
-    assert lineage_entries[0]["execution_owner"] == "genesis_forge"
-
-    ledger_lines = [json.loads(line) for line in ledger_path.read_text().splitlines()]
-    assert any(entry["status"] == "GenesisForge event" for entry in ledger_lines)
-    proof_budget_events = [entry for entry in ledger_lines if entry["status"] == "proof_budget"]
-    assert proof_budget_events
-    assert proof_budget_events[-1]["details"]["event_type"] == "proof_budget"
-
-    codex_payload = json.loads(codex_index.read_text())
-    assert codex_payload[0]["provenance"] == "GenesisForge"
-    assert codex_payload[0]["admission"]["action_kind"] == "proposal_adopt"
-
-    live_entries = list((live_mount).glob("*.json"))
-    assert live_entries
-    live_payload = json.loads(live_entries[0].read_text(encoding="utf-8"))
-    assert live_payload["admission"]["admission_decision_ref"].startswith("kernel_decision:genesis:")
+    assert outcomes[0].details["proposal_ready_for_review"] is True
+    assert outcomes[0].details["reviewed_adoption_required"] is True
+    assert not (lineage_root / "lineage.jsonl").exists()
+    assert not codex_index.exists()
+    assert not list((live_mount).glob("*.json"))
 
 
 def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
@@ -260,8 +246,8 @@ def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
         [CovenantVow("vision_input", "camera vow")],
     )
 
-    assert outcomes[0].status == "failed"
-    assert "Kernel denied adoption promotion" in str(outcomes[0].details["error"])
+    assert outcomes[0].status == "reviewed_adoption_required"
+    assert outcomes[0].details["reviewed_adoption_required"] is True
     assert not list((tmp_path / "live").glob("*.json"))
 
 
@@ -302,8 +288,8 @@ def test_prevents_overwriting_existing_daemon(tmp_path: Path) -> None:
     )
 
     outcomes = forge.expand(telemetry, vows)
-    assert outcomes[0].status == "failed"
-    assert isinstance(outcomes[0].details["error"], str)
+    assert outcomes[0].status == "reviewed_adoption_required"
+    assert outcomes[0].details["reviewed_adoption_required"] is True
     # Original file remains untouched.
     assert existing.read_text(encoding="utf-8") == "{}"
 
