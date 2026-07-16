@@ -33,6 +33,7 @@ from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, summary_for_evaluation, world_state_records
 from codex.amendments import (
     RepositoryMutationHandoffPlan,
     runtime_cycle as runtime_spec_cycle,
@@ -118,6 +119,8 @@ class RuntimeMaintenanceSurfaces:
         self._governed_local_invoker = governed_local_invoker
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
+        self._host_resource_runtime = HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
+        self._host_resource_evaluation = None
         self._feedback: dict[str, Any] = {
             "schema": "runtime_maintenance_feedback:v1",
             "degraded": False,
@@ -147,6 +150,20 @@ class RuntimeMaintenanceSurfaces:
         return evaluation
 
 
+    def run_host_resource_observation_runtime(self, *, tick_id: str) -> dict[str, Any]:
+        """Run at most one admitted host-resource observation epoch per tick."""
+        correlation_id = f"{tick_id}:host_resource_observation_runtime"
+        evaluation = self._host_resource_runtime.run_cycle(correlation_id=correlation_id)
+        if evaluation is None:
+            feedback = {"status": "not_allowed", "collector_calls": self._host_resource_runtime.collector_call_count, "no_effect_authority": True}
+            self._feedback.setdefault("surfaces", {})["host_resource_observation_runtime"] = feedback
+            return feedback
+        receipt = self._host_resource_runtime.persist_bundle(evaluation, tick_id=tick_id)
+        feedback = {**summary_for_evaluation(evaluation), "bundle_digest": receipt.bundle_digest, "artifact_root": receipt.artifact_root}
+        self._host_resource_evaluation = evaluation
+        self._feedback.setdefault("surfaces", {})["host_resource_observation_runtime"] = feedback
+        return feedback
+
     def build_world_state_board(self, *, tick_id: str | None = None) -> dict[str, Any]:
         """Persist one terminal read-only world-state snapshot per maintenance tick."""
         tick_key = tick_id or datetime.now(timezone.utc).isoformat()
@@ -156,10 +173,13 @@ class RuntimeMaintenanceSurfaces:
         signal = self._feedback.get("surfaces", {}).get("governed_improvement_signal_plane", {})
         if isinstance(signal, dict) and signal:
             records.append({"source_kind":"governed_improvement_signal_plane","source_id":"runtime:signal-plane","subject_id":"governed_improvement_signal_plane","subject_kind":"runtime_surface","stage":"proposal","disposition":"degraded" if signal.get("status") == "degraded" else "recorded","payload": {k:v for k,v in signal.items() if k != "runtime_artifacts"}, "observed_at": tick_key})
+        host_eval = self._host_resource_evaluation
+        if host_eval is not None:
+            records.extend(world_state_records(host_eval))
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
-        snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
+        snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
         out_dir = self._runtime_state_root / "world_state_board"
         out_dir.mkdir(parents=True, exist_ok=True)
         target = out_dir / "latest.json"
@@ -497,6 +517,11 @@ def _run_maintenance_tick(
             ),
             execute=merge_train.tick,
         )
+        current_surface = "host_resource_observation_runtime"
+        current_correlation_id = f"{tick_id}:host_resource_observation_runtime"
+        run_host_resource = getattr(runtime_surfaces, "run_host_resource_observation_runtime", None)
+        if callable(run_host_resource):
+            run_host_resource(tick_id=tick_id)
         current_surface = "world_state_evidence_board"
         current_correlation_id = f"{tick_id}:world_state_evidence_board"
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
