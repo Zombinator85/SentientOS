@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import subprocess
+import hashlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from sentientos.codex_landing_evidence_binding import verify_commit_matches_workspace, head_sha, tree_sha, file_sha256
 
 READY_STATUS = "pr_metadata_guard_ready"
 SOURCE_DOC_TEST_PREFIXES = ("sentientos/", "scripts/", "tests/", "docs/", "api/")
@@ -153,13 +155,13 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
     pre_load = "not_required_validation_only" if request.validation_only and not request.pre_commit_finalizer_json else "path_not_provided"
     if not request.validation_only or request.pre_commit_finalizer_json:
         pre_payload, pre_load = _load_json(request.pre_commit_finalizer_json)
-    proof["pre_commit_finalizer"] = {"path": request.pre_commit_finalizer_json, "load_status": pre_load, "decision": _decision_status(pre_payload)}
+    proof["pre_commit_finalizer"] = {"path": request.pre_commit_finalizer_json, "load_status": pre_load, "decision": _decision_status(pre_payload), "sha256": file_sha256(Path(request.pre_commit_finalizer_json)) if pre_payload is not None else ""}
 
     pr_payload, pr_load = _load_json(request.pr_metadata_finalizer_json)
-    proof["pr_metadata_finalizer"] = {"path": request.pr_metadata_finalizer_json, "load_status": pr_load, "decision": _decision_status(pr_payload)}
+    proof["pr_metadata_finalizer"] = {"path": request.pr_metadata_finalizer_json, "load_status": pr_load, "decision": _decision_status(pr_payload), "sha256": file_sha256(Path(request.pr_metadata_finalizer_json)) if pr_payload is not None else ""}
 
     matrix_payload, matrix_load = _load_json(request.matrix_json_path)
-    proof["matrix"] = {"path": request.matrix_json_path, "load_status": matrix_load, "status": str(matrix_payload.get("status", "")) if matrix_payload else ""}
+    proof["matrix"] = {"path": request.matrix_json_path, "load_status": matrix_load, "status": str(matrix_payload.get("status", "")) if matrix_payload else "", "sha256": file_sha256(Path(request.matrix_json_path)) if matrix_payload is not None else "", "required_failure_count": matrix_payload.get("required_failure_count") if matrix_payload else None}
 
     if request.validation_only:
         lines = request.git_status_lines or _git_status_lines(request.workspace_root)
@@ -205,6 +207,19 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
         if supervisor_exit not in (0, None) or (supervisor_exit is None and supervisor_status not in PASSING_SUPERVISOR_STATUSES):
             reasons.append("landing_supervisor_not_ready")
 
+    if pre_payload is not None and pr_payload is not None:
+        workspace_binding = pre_payload.get("workspace_binding")
+        commit_binding = pr_payload.get("commit_binding")
+        if not isinstance(workspace_binding, Mapping):
+            reasons.append("pre_commit_workspace_binding_missing")
+        if not isinstance(commit_binding, Mapping):
+            reasons.append("post_commit_binding_missing")
+        if isinstance(workspace_binding, Mapping) and isinstance(commit_binding, Mapping):
+            verification = verify_commit_matches_workspace(request.workspace_root, workspace_binding, commit_binding).to_dict()
+            proof["binding_verification"] = verification
+            reasons.extend(str(r) for r in verification.get("reasons", ()))
+            if proof["matrix"].get("sha256") and commit_binding.get("matrix_digest") != proof["matrix"].get("sha256"):
+                reasons.append("matrix_digest_mismatch")
     if not _matrix_passed(matrix_payload):
         reasons.append("matrix_not_passed")
 

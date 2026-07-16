@@ -288,3 +288,8 @@ See [Codex Workcell Storage Operator Consent Evidence Dossier Verifier](codex_wo
 ## Storage Operator Consent Request Presentation Boundary
 
 See [Codex Workcell Storage Operator Consent Request Presentation Boundary Contract](codex_workcell_storage_operator_consent_request_presentation_contract.md). The boundary is deterministic metadata only: request packets, verifier success, evidence dossiers, finalizer readiness, PR metadata guard readiness, matrix passage, daemon recommendations, federation state, runtime authority contracts, storage policy evidence, local files, notifications, displayed copies, and operator silence do not prove presentation, create a response artifact, collect consent, bind runtime authority, or allow active storage.
+
+
+## Codex landing commit/body binding
+
+The standard landing sequence binds evidence to one exact revision and exact PR body: pre-commit `workspace_binding`, one implementation commit, post-commit `commit_binding`, metadata guard artifact-chain proof, parsed-artifact PR body generation with sidecar, `pr_body_binding_ready`, clean tree/current HEAD check, exact-byte `make_pr`, publication-result classification, and only then independent remote inspection before claiming remote PR or merge verification. `ready_to_commit`, `ready_for_pr_metadata`, `pr_metadata_guard_ready`, and `pr_body_binding_ready` are local authorization states, not remote publication. A title/body payload echo is classified as `publication_payload_echo_unverified`, never as a PR.

@@ -75,6 +75,7 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 - Pre-commit finalizer must return `ready_to_commit` before commit.
 - Post-commit/pr-metadata finalizer must return `ready_for_pr_metadata` before PR metadata.
 - PR metadata guard must return `pr_metadata_guard_ready` before `make_pr`.
+- Body binding verifier must return `pr_body_binding_ready` for the exact body bytes before `make_pr`; payload echoes are not remote PR publication.
 - Memory-chain tasks should use the canonical memory-chain task profile or recovery profile unless a prompt explicitly justifies deviation.
 - Metadata-only, dry-run, sandbox, and review-only work grants no authority, truth, consent, policy, prompt assembly, action execution, external disclosure, or real live-memory mutation.
 
@@ -92,7 +93,7 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 - Before committing task-caused changes, run finalizer in pre-commit mode (normally with `--allow-current-tracked-changes`) and commit only if it returns `ready_to_commit`.
 - A pre-commit finalizer result of `manual_review_required` or `unknown_dirty_tree` blocks commit; resolve exact reported paths first.
 - After commit and before PR metadata/final report, rerun finalizer in pr-metadata/post-commit mode and require `ready_for_pr_metadata`.
-- After the pr-metadata/post-commit finalizer, run `python scripts/codex_pr_metadata_guard.py verify ...` and require `pr_metadata_guard_ready` before `make_pr` or PR metadata; finalizer artifacts alone are insufficient if the guard blocks.
+- After the pr-metadata/post-commit finalizer, run `python scripts/codex_pr_metadata_guard.py verify ...` and require `pr_metadata_guard_ready` before `make_pr` or PR metadata; finalizer artifacts alone are insufficient if the guard blocks. Then build the PR body from parsed finalizer/matrix/gate/supervisor/guard artifacts, verify the sidecar body digest, re-check clean tree/current HEAD, submit exact bytes, and classify any returned publication metadata without claiming independent remote verification.
 - Do not defer post-commit/pr-metadata finalizer to a later validation-only or seal follow-up turn.
 - If finalizer evidence becomes stale after strict-audit repair or generated-artifact cleanup, refresh matrix/gate/supervisor in the same task when allowed.
 - Do not final-report partial sealing when the only remaining blocker is stale validation evidence.

@@ -4,9 +4,11 @@ import argparse
 import json
 import subprocess
 import time
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, safe_runtime_roots, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
     CodexFinalizeLandingArtifactFinding,
     CodexFinalizeLandingCommandResult,
@@ -82,7 +84,14 @@ def _run_stage(
     started = time.monotonic()
     timeout_seconds = min(stage_timeout_seconds, max(1, int(overall_deadline - started)))
     try:
-        p = subprocess.run(cmd, shell=True, text=True, capture_output=True, timeout=timeout_seconds)
+        env = os.environ.copy()
+        sandbox = env.get("CODEX_FINALIZER_RUNTIME_ENV")
+        if sandbox:
+            try:
+                env.update(json.loads(sandbox))
+            except json.JSONDecodeError:
+                pass
+        p = subprocess.run(cmd, shell=True, text=True, capture_output=True, timeout=timeout_seconds, env=env)
         timed_out = False
         status = "passed" if p.returncode == 0 else "failed"
     except subprocess.TimeoutExpired as exc:
@@ -334,6 +343,8 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--progress", action="store_true", default=True)
         s.add_argument("--no-progress", action="store_false", dest="progress")
         s.add_argument("--summary", action="store_true")
+        s.add_argument("--pre-commit-finalizer-json")
+        s.add_argument("--runtime-sandbox-root")
     return p
 
 
@@ -368,6 +379,13 @@ def main(argv: list[str] | None = None) -> int:
                 candidates.append(path)
         inferred_untracked_task_files = tuple(sorted(set(candidates)))
 
+    runtime_env = {}
+    runtime_error = ""
+    try:
+        runtime_env = safe_runtime_roots(a.workspace_root, a.runtime_sandbox_root, (a.title or "codex-finalizer").replace("/", "_").replace(" ", "_"))
+    except ValueError as exc:
+        runtime_error = str(exc)
+
     req = CodexFinalizeLandingRequest(
         title=a.title or "",
         intended_commit_title=a.intended_commit_title or "",
@@ -391,11 +409,12 @@ def main(argv: list[str] | None = None) -> int:
     stage_specs: list[tuple[str, str, bool]] = [("preflight_hygiene", "git status --short", True)]
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
+    exact_matrix_reuse = a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
+    matrix_stages: list[tuple[str, str, bool]] = [] if exact_matrix_reuse else [("matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True), ("matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True)]
     stage_specs.extend(
         [
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
-            ("matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True),
-            ("matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True),
+            *matrix_stages,
             ("pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
             ("landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
             ("docs_check_deps", "python scripts/build_docs.py --check-deps", True),
@@ -412,7 +431,11 @@ def main(argv: list[str] | None = None) -> int:
     runtime: list[StageRuntime] = []
     decision_status = "finalizer_failed"
     decision_reasons: list[str] = []
+    if runtime_env:
+        os.environ["CODEX_FINALIZER_RUNTIME_ENV"] = json.dumps(runtime_env, sort_keys=True)
     try:
+        if runtime_error:
+            raise RuntimeError(runtime_error)
         for stage_id, cmd, required in stage_specs:
             result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
             commands.append(result)
@@ -439,8 +462,7 @@ def main(argv: list[str] | None = None) -> int:
     if command_map.get("strict_audits") and command_map.get("matrix_summary"):
         if command_map["strict_audits"].exit_code == 0 and command_map["matrix_summary"].exit_code != 0:
             stale_reasons.append("matrix_failed_before_strict_audits_healthy")
-    if cleanup_results:
-        stale_reasons.append("generated_artifact_cleanup_occurred")
+    # Generated runtime cleanup is excluded from semantic identity and does not by itself stale the matrix.
 
     refresh_attempted = False
     refresh_status = "not_required"
@@ -532,8 +554,36 @@ def main(argv: list[str] | None = None) -> int:
         "stages": [asdict(item) for item in runtime],
         "final_decision": {"status": decision_status, "reasons": decision_reasons},
     }
+    # Exact content bindings are semantic evidence; runtime roots are custody metadata only.
+    binding_errors = []
+    binding_obj = None
+    try:
+        semantic_status_paths = tuple((line[3:] if len(line) > 3 else line) for line in status_after_refresh if not (line[3:] if len(line) > 3 else line).startswith(("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")))
+        task_paths = tuple(p for p in (tuple(a.changed_file) + inferred_changed_files + inferred_untracked_task_files) if not p.startswith(("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")))
+        if not semantic_status_paths and not a.changed_file:
+            task_paths = ()
+        if a.phase.replace("_", "-") == "pre-commit" and task_paths:
+            binding_obj = create_workspace_binding(a.workspace_root, intended_paths=task_paths, intended_commit_title=a.intended_commit_title or a.title or "", focused_test_commands=tuple(a.focused_test_command), targeted_mypy_commands=tuple(a.targeted_mypy_command), matrix_json_path=a.matrix_json_path).to_dict()
+            payload["workspace_binding"] = binding_obj
+        elif a.pre_commit_finalizer_json:
+            pre_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))
+            workspace_binding = pre_payload.get("workspace_binding", {})
+            commit_binding = create_commit_binding(a.workspace_root, workspace_binding=workspace_binding, matrix_json_path=a.matrix_json_path).to_dict()
+            verification = verify_commit_matches_workspace(a.workspace_root, workspace_binding, commit_binding).to_dict()
+            payload["commit_binding"] = commit_binding
+            payload["binding_verification"] = verification
+            if verification["status"] != "landing_evidence_binding_ready":
+                binding_errors.extend(verification["reasons"])
+    except Exception as exc:
+        binding_errors.append(str(exc))
+    if runtime_error:
+        binding_errors.append("runtime_root_inside_workspace")
+    payload["runtime_custody"] = {"child_environment": runtime_env, "runtime_error": runtime_error}
     payload["evidence_freshness"] = {
         "stale_evidence_reasons": stale_reasons,
+        "matrix_execution_mode": "exact_binding_reuse" if exact_matrix_reuse else "executed",
+        "reused_matrix_digest": payload.get("workspace_binding", {}).get("matrix_digest") if exact_matrix_reuse else None,
+        "reuse_justification": "post-commit exact binding reuse requested with pre-commit finalizer artifact" if exact_matrix_reuse else "matrix executed",
         "stale_evidence_refresh_attempted": refresh_attempted,
         "stale_evidence_refresh_result": refresh_status,
         "refresh_failure_reason": refresh_failure_reason or None,
@@ -547,6 +597,9 @@ def main(argv: list[str] | None = None) -> int:
         "terminal_cleaned_paths": [path for path, result in terminal_cleanup_results.items() if result[1] in {"removed", "restored"}],
         "rerun_required": rerun_required,
     }
+    if binding_errors and decision_status in {"ready_to_commit", "ready_for_pr_metadata"}:
+        decision_status = "manual_review_required" if "runtime_root_inside_workspace" in binding_errors else "repair_required_task_caused"
+        decision_reasons = binding_errors
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
     if a.summary:

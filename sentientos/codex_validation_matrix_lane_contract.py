@@ -46,6 +46,7 @@ LANE_CONTRACT: tuple[LaneContract, ...] = (
     LaneContract("strict_audits", "Strict audits", ("strict_audits",), True),
     LaneContract("audit_immutability", "Audit immutability", ("audit_immutability",), True),
     LaneContract("capability_proof_readiness", "Capability/proof/readiness", ("capability_registry", "proof_bundle", "readiness_checks"), False),
+    LaneContract("codex_landing_commit_body_binding_tests", "Codex landing commit/body binding tests", ("codex_landing_commit_body_binding_tests",), False),
 )
 TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "selective_memory_distillation_contract_tests",
