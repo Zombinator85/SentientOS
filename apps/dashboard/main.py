@@ -866,3 +866,45 @@ def _host_execution_readiness_projection() -> dict[str, object]:
 @app.get("/api/world-state/host-execution-readiness", dependencies=[Depends(require_token)])
 def api_world_state_host_execution_readiness() -> dict[str, object]:
     return _host_execution_readiness_projection()
+
+def _host_live_grant_readiness_projection() -> dict[str, object]:
+    snap = _world_state_snapshot()
+    kinds = (
+        "host_live_grant_prerequisite_matrix",
+        "host_live_grant_prerequisite_record",
+        "host_live_grant_operator_policy_approval_packet",
+        "host_live_grant_issue_preflight",
+        "host_live_grant_denial_deferral",
+    )
+    facts = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", "")) if isinstance(subject, dict) else ""
+        if kind.startswith(kinds):
+            facts.append(fact)
+    prereq_counts: dict[str, int] = {}; satisfied: set[str] = set(); missing: set[str] = set(); blocked: set[str] = set(); latest: list[str] = []
+    approval = preflight = denial = "unavailable"; stale = degraded = contradicted = 0
+    for fact in facts:
+        payload = fact.get("payload", {}) if isinstance(fact.get("payload"), dict) else {}
+        subject = fact.get("subject", {}) if isinstance(fact.get("subject"), dict) else {}
+        kind = str(subject.get("subject_kind", "")); disp = str(fact.get("disposition", "unknown"))
+        latest.append(str(subject.get("subject_id", "")))
+        for p in payload.get("prerequisites", []) or []:
+            if isinstance(p, dict):
+                st = str(p.get("status", "unknown")); prereq_counts[st] = prereq_counts.get(st, 0) + 1
+        for label in payload.get("satisfied_labels", payload.get("satisfied_prerequisites", [])) or []: satisfied.add(str(label))
+        for label in payload.get("missing_labels", payload.get("missing_prerequisites", [])) or []: missing.add(str(label))
+        for action in payload.get("blocked_actions", []) or []: blocked.add(str(action))
+        if "approval_packet" in kind: approval = disp
+        if "preflight" in kind: preflight = disp
+        if "denial_deferral" in kind: denial = disp
+        if "stale" in disp: stale += 1
+        if "degraded" in disp or "stale" in disp: degraded += 1
+        if "contradicted" in disp: contradicted += 1
+    return {"status": "unavailable" if not facts else "recorded", "readiness_chain_count": len(facts), "prerequisite_counts_by_status": prereq_counts, "satisfied_prerequisite_labels": sorted(satisfied)[:50], "missing_prerequisite_labels": sorted(missing)[:50], "blocked_actions": sorted(blocked), "approval_packet_posture": approval, "preflight_posture": preflight, "denial_deferral_posture": denial, "stale_count": stale, "degraded_count": degraded, "contradicted_count": contradicted, "latest_ids": [x for x in latest[-20:] if x], "read_only": True, "review_only": True, "approval_packet_only": True, "operator_approval_granted": False, "policy_approval_granted": False, "live_authorization_granted": False, "local_grant_issued": False, "fulfillment_granted": False, "execution_triggered": False, "host_mutation_performed": False}
+
+@app.get("/api/world-state/host-live-grant-readiness", dependencies=[Depends(require_token)])
+def api_world_state_host_live_grant_readiness() -> dict[str, object]:
+    return _host_live_grant_readiness_projection()

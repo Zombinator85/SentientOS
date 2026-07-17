@@ -31,3 +31,7 @@ Semantic identities exclude custody-only timestamps, process paths, temporary ro
 ## Artifact custody and projection
 
 Bundles are written beneath the configured external runtime-state root, never inside repository source. The latest pointer is compact and review-only. World-State records are lifecycle `review` facts only and preserve false authority fields. The dashboard reads the terminal World-State snapshot only; it never invokes builders or requests admission.
+
+## Live-grant readiness runtime closure
+
+The follow-on `host_live_grant_readiness_runtime` consumes the exact same-tick `HostControlledAuthorizationEvaluation` in memory. It does not rebuild controlled authorization or safety evidence; it binds the controlled ledger and safety satisfaction manifest into review-only live-grant prerequisite, approval-packet, preflight, and denial/deferral records without issuing a grant or authorizing fulfillment.

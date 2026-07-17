@@ -361,7 +361,9 @@ def _evidence_from_sources(controlled_authorization_ledger: Any | None, safety_g
         if manifest.get("host_action_scope_manifest_id"): evidence.add("scope_manifest_present")
         for gate in tuple(manifest.get("satisfied_gate_labels", ()) or ()): evidence.add(_GATE_TO_PREREQUISITE.get(str(gate), str(gate)))
     if reviewer_proof_bundle_manifest is not None:
-        evidence.add("reviewer_proof_bundle_present")
+        proof = _source_payload(reviewer_proof_bundle_manifest)
+        if proof.get("manifest_id") and proof.get("metadata_only", True) and not proof.get("stale", False):
+            evidence.add("reviewer_proof_bundle_present")
     return evidence
 
 def _blocked_actions_for_domain(domain: str, safety_gate_manifest: Any | None = None) -> tuple[str, ...]:
@@ -381,7 +383,7 @@ def _build_prerequisite(label: str, evidence: set[str], contradicted: bool, *, c
         warning_codes=(),
         risk_codes=("live_grant_readiness_is_not_authorization",),
     )
-    return replace(provisional, prerequisite_id="lgp_" + hashlib.sha256((label + status + created_at).encode("utf-8")).hexdigest()[:16])
+    return replace(provisional, prerequisite_id="lgp_" + hashlib.sha256((label + status + _canonical_json({"evidence": sorted(evidence), "missing": provisional.missing_labels, "risk": provisional.risk_codes})).encode("utf-8")).hexdigest()[:16])
 
 def build_live_grant_prerequisite_matrix(
     readiness_domain: str,
