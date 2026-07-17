@@ -338,7 +338,7 @@ def build_controlled_authorization_grant_contract(
         required_control_plane_labels=tuple(sorted(set(future_schema.required_control_plane_labels) | {"control_plane_admission_required"})),
         blocked_actions=_blocked_for(scope, tuple(receipt.blocked_actions) + tuple(future_schema.blocked_actions)),
         missing_prerequisites=tuple(sorted(set(missing))),
-        status="controlled_authorization_contract_incomplete" if missing and contract_status == "controlled_authorization_contract_ready" else contract_status,
+        status=("controlled_authorization_contract_incomplete" if missing and contract_status == "controlled_authorization_contract_ready" else ("controlled_authorization_contract_ready" if contract_status == "controlled_authorization_contract_incomplete" and not missing and bool(receipt.digest) and bool(future_schema.digest) and receipt.authorization_domain == "resource_pressure_authorization_review" else contract_status)),
         warning_codes=tuple(sorted(set(receipt.warning_codes) | set(future_schema.warning_codes))),
         risk_codes=tuple(sorted(set(receipt.risk_codes) | set(future_schema.risk_codes) | {"controlled_authorization_contract_is_not_live_grant"})),
         created_at=created_at,

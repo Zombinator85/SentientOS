@@ -786,6 +786,48 @@ _DASHBOARD_HTML = """<!doctype html>
 """
 
 
+def _host_controlled_authorization_safety_projection() -> dict[str, object]:
+    snap = _world_state_snapshot()
+    kinds = (
+        "host_controlled_authorization_contract",
+        "host_controlled_authorization_schema_grant_record",
+        "host_controlled_authorization_revocation_schema",
+        "host_controlled_authorization_ledger",
+        "host_actuation_safety_gate_assessment",
+        "host_actuation_safety_satisfaction_manifest",
+    )
+    facts = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", "")) if isinstance(subject, dict) else ""
+        if kind.startswith(kinds):
+            facts.append(fact)
+    contract_counts: dict[str, int] = {}; grant_counts: dict[str, int] = {}; gate_counts: dict[str, int] = {}
+    missing: dict[str, int] = {}; blocked: set[str] = set(); latest: list[str] = []
+    degraded = stale = contradicted = 0
+    for fact in facts:
+        payload = fact.get("payload", {}) if isinstance(fact.get("payload"), dict) else {}
+        subject = fact.get("subject", {}) if isinstance(fact.get("subject"), dict) else {}
+        kind = str(subject.get("subject_kind", ""))
+        disp = str(fact.get("disposition", payload.get("status", "unknown")))
+        if "contract" in kind: contract_counts[disp] = contract_counts.get(disp, 0) + 1
+        if "schema_grant" in kind: grant_counts[disp] = grant_counts.get(disp, 0) + 1
+        if "safety" in kind: gate_counts[disp] = gate_counts.get(disp, 0) + 1
+        for gate in payload.get("missing_gates", []) or []: missing[str(gate)] = missing.get(str(gate), 0) + 1
+        for action in payload.get("blocked_actions", []) or []: blocked.add(str(action))
+        latest.append(str(subject.get("subject_id", "")))
+        if "degraded" in disp or "stale" in disp: degraded += 1
+        if "stale" in disp: stale += 1
+        if "contradicted" in disp: contradicted += 1
+    return {"status": "unavailable" if not facts else "recorded", "source_chain_count": len(facts), "controlled_contract_status_counts": contract_counts, "schema_grant_posture_counts": grant_counts, "safety_gate_counts_by_status": gate_counts, "missing_gates": sorted(missing, key=lambda g: missing[g], reverse=True)[:25], "blocked_actions": sorted(blocked), "degraded_count": degraded, "stale_count": stale, "contradicted_count": contradicted, "latest_ids": [x for x in latest[-20:] if x], "read_only": True, "review_only": True, "live_authorization_granted": False, "fulfillment_granted": False, "execution_triggered": False, "host_mutation_performed": False}
+
+@app.get("/api/world-state/host-controlled-authorization-safety", dependencies=[Depends(require_token)])
+def api_world_state_host_controlled_authorization_safety() -> dict[str, object]:
+    return _host_controlled_authorization_safety_projection()
+
+
 __all__ = ["app"]
 
 def _host_execution_readiness_projection() -> dict[str, object]:

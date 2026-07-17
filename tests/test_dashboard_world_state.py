@@ -36,3 +36,16 @@ def test_host_execution_readiness_dashboard_projection_read_only(tmp_path, monke
     assert payload['execution_triggered'] is False
     assert payload['host_mutation_performed'] is False
     assert payload['most_common_missing_proof_gates'] == ['operator_approval_required']
+
+def test_host_controlled_authorization_safety_dashboard_projection_read_only(tmp_path, monkeypatch):
+    monkeypatch.setenv('SENTIENTOS_DASHBOARD_TOKEN','t')
+    path=tmp_path/'ws.json'
+    path.write_text('{"facts":[{"subject":{"subject_id":"c1","subject_kind":"host_controlled_authorization_contract"},"disposition":"controlled_authorization_contract_incomplete","payload":{"blocked_actions":["host_mutation"],"missing_gates":["effect_receipt_required"]}},{"subject":{"subject_id":"g1","subject_kind":"host_actuation_safety_gate_assessment"},"disposition":"host_actuation_gate_missing","payload":{"blocked_actions":["fan_pwm_write"],"missing_gates":["effect_receipt_required"]}}],"summary":{"counts":{"staleness_posture":{"fresh":2}}}}', encoding='utf-8')
+    monkeypatch.setenv('SENTIENTOS_WORLD_STATE_BOARD_PATH', str(path))
+    c=app.test_client(); h={'Authorization':'Bearer t'}
+    payload=c.get('/api/world-state/host-controlled-authorization-safety', headers=h).json()
+    assert payload['read_only'] is True and payload['review_only'] is True
+    assert payload['live_authorization_granted'] is False
+    assert payload['execution_triggered'] is False
+    assert 'effect_receipt_required' in payload['missing_gates']
+    assert 'fan_pwm_write' in payload['blocked_actions']
