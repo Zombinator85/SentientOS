@@ -118,6 +118,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_execution_readiness_authorization_review_runtime_posture",
         "host_controlled_authorization_safety_runtime_posture",
         "host_live_grant_readiness_runtime_posture",
+        "host_local_authorization_grant_custody_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -235,6 +236,7 @@ BUNDLE_FILE_NAMES = {
     "host_execution_readiness_authorization_review_runtime_posture": "host_execution_readiness_authorization_review_runtime_posture.json",
     "host_controlled_authorization_safety_runtime_posture": "host_controlled_authorization_safety_runtime_posture.json",
     "host_live_grant_readiness_runtime_posture": "host_live_grant_readiness_runtime_posture.json",
+    "host_local_authorization_grant_custody_posture": "host_local_authorization_grant_custody_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2052,6 +2054,10 @@ def build_reviewer_proof_bundle_payload(
     if her_record is not None:
         contents["host_execution_readiness_authorization_review_runtime_posture"] = _pretty_json({"artifact_kind":"host_execution_readiness_authorization_review_runtime_posture", **her_record.to_dict(), "metadata_only": True, "review_only": True, "authorization_granted": False, "execution_triggered": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_execution_readiness_authorization_review_runtime.md", "matrix_reference":"host_execution_readiness_authorization_review_runtime_tests"})
 
+
+    hlar_record = registry.by_id().get("host_local_authorization_grant_custody")
+    if hlar_record is not None:
+        contents["host_local_authorization_grant_custody_posture"] = _pretty_json({"artifact_kind":"host_local_authorization_grant_custody_posture", **hlar_record.to_dict(), "metadata_only": True, "local_authority_metadata_only": True, "explicit_operator_decision_required": True, "explicit_policy_decision_required": True, "grant_issuance_admission_required": True, "sentientosd_issues_grants": False, "fulfillment_granted": False, "privileged_effect_admission_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_local_authorization_grant_custody.md", "matrix_reference":"host_local_authorization_grant_custody_tests"})
 
     hlgr_record = registry.by_id().get("host_live_grant_readiness_runtime")
     if hlgr_record is not None:
