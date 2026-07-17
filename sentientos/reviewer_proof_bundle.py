@@ -117,6 +117,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_privilege_review_rehearsal_runtime_posture",
         "host_execution_readiness_authorization_review_runtime_posture",
         "host_controlled_authorization_safety_runtime_posture",
+        "host_live_grant_readiness_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -233,6 +234,7 @@ BUNDLE_FILE_NAMES = {
     "host_privilege_review_rehearsal_runtime_posture": "host_privilege_review_rehearsal_runtime_posture.json",
     "host_execution_readiness_authorization_review_runtime_posture": "host_execution_readiness_authorization_review_runtime_posture.json",
     "host_controlled_authorization_safety_runtime_posture": "host_controlled_authorization_safety_runtime_posture.json",
+    "host_live_grant_readiness_runtime_posture": "host_live_grant_readiness_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2050,6 +2052,10 @@ def build_reviewer_proof_bundle_payload(
     if her_record is not None:
         contents["host_execution_readiness_authorization_review_runtime_posture"] = _pretty_json({"artifact_kind":"host_execution_readiness_authorization_review_runtime_posture", **her_record.to_dict(), "metadata_only": True, "review_only": True, "authorization_granted": False, "execution_triggered": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_execution_readiness_authorization_review_runtime.md", "matrix_reference":"host_execution_readiness_authorization_review_runtime_tests"})
 
+
+    hlgr_record = registry.by_id().get("host_live_grant_readiness_runtime")
+    if hlgr_record is not None:
+        contents["host_live_grant_readiness_runtime_posture"] = _pretty_json({"artifact_kind":"host_live_grant_readiness_runtime_posture", **hlgr_record.to_dict(), "metadata_only": True, "review_only": True, "approval_packet_only": True, "operator_approval_granted": False, "policy_approval_granted": False, "live_authorization_granted": False, "local_grant_issued": False, "privileged_effect_admission_granted": False, "fulfillment_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_live_grant_readiness_runtime.md", "matrix_reference":"host_live_grant_readiness_runtime_tests"})
     hca_record = registry.by_id().get("host_controlled_authorization_safety_runtime")
     if hca_record is not None:
         contents["host_controlled_authorization_safety_runtime_posture"] = _pretty_json({"artifact_kind":"host_controlled_authorization_safety_runtime_posture", **hca_record.to_dict(), "metadata_only": True, "review_only": True, "live_authorization_granted": False, "privileged_effect_admission_granted": False, "fulfillment_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_controlled_authorization_safety_runtime.md", "matrix_reference":"host_controlled_authorization_safety_runtime_tests"})
