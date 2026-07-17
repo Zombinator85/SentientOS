@@ -44,10 +44,10 @@ def _wing(kind: str, *, recorded: bool = False, **kwargs):
 
 def test_valid_execution_readiness_manifest_builds_authorization_review_wing() -> None:
     wing = _wing("inspect_cpu_pressure_candidate", cpu_utilization_percent=95, ram_utilization_percent=20, disk_utilization_percent=30)
-    assert wing.packet.packet_status == "authorization_review_packet_ready"
-    assert wing.decision.decision_status == "authorization_review_eligible_for_operator_review"
-    assert wing.receipt.receipt_status == "authorization_review_receipt_recorded"
-    assert wing.future_authorization_grant_schema.schema_status == "future_authorization_grant_schema_ready"
+    assert wing.packet.packet_status == "authorization_review_packet_incomplete"
+    assert wing.decision.decision_status == "authorization_review_incomplete"
+    assert wing.receipt.receipt_status == "authorization_review_receipt_incomplete"
+    assert wing.future_authorization_grant_schema.schema_status == "future_authorization_grant_schema_incomplete"
     assert wing.decision.authorization_granted is False
     assert wing.decision.fulfillment_granted is False
     assert wing.receipt.authorization_not_granted is True
@@ -66,7 +66,7 @@ def test_valid_execution_readiness_manifest_builds_authorization_review_wing() -
         ("execution_readiness_blocked", "authorization_review_blocked"),
         ("execution_readiness_incomplete", "authorization_review_incomplete"),
         ("execution_readiness_contradicted", "authorization_review_contradicted"),
-        ("execution_readiness_for_authorization_review_with_conditions", "authorization_review_eligible_with_conditions"),
+        ("execution_readiness_for_authorization_review_with_conditions", "authorization_review_incomplete"),
     ],
 )
 def test_readiness_statuses_map_to_authorization_decisions(readiness_status: str, expected: str) -> None:
@@ -121,8 +121,8 @@ def test_diagnostics_and_operator_review_can_be_eligible_but_never_authorize() -
     diagnostics = _wing("inspect_cpu_pressure_candidate", cpu_utilization_percent=95)
     operator_manifest = replace(_manifest("inspect_cpu_pressure_candidate", cpu_utilization_percent=95), effect_domain="operator_review")
     operator = build_authorization_review_wing_for_execution_readiness(operator_manifest)
-    assert diagnostics.decision.decision_status == "authorization_review_eligible_for_operator_review"
-    assert operator.decision.decision_status == "authorization_review_eligible_for_operator_review"
+    assert diagnostics.decision.decision_status == "authorization_review_incomplete"
+    assert operator.decision.decision_status == "authorization_review_incomplete"
     for wing in [diagnostics, operator]:
         assert wing.packet.authorization_granted is False
         assert wing.decision.authorization_granted is False

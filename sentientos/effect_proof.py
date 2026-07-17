@@ -337,7 +337,7 @@ def build_future_effect_receipt_schema(contract: EffectReceiptContract, *, creat
     elif contract.status.endswith("incomplete"): kind = "incomplete"
     elif contract.status.endswith("blocked"): kind = "blocked"
     elif contract.status.endswith("conditions"): kind = "conditions"
-    material = {"contract": contract.contract_id, "domain": contract.effect_domain, "created_at": created_at}
+    material = {"schema_version": "future_effect_receipt.semantic.v2", "contract": contract.contract_id, "source_digest": contract.source_rehearsal_receipt_digest, "domain": contract.effect_domain, "backend": contract.backend_class, "blocked": contract.blocked_actions, "warnings": contract.warning_codes, "risks": contract.risk_codes}
     provisional = FutureEffectReceipt(_digest_payload("fers_", material), contract.contract_id, contract.source_rehearsal_receipt_id, contract.source_rehearsal_receipt_digest, contract.effect_domain, contract.backend_class, _future_status(kind), contract.required_authority_refs, contract.required_precondition_labels, contract.required_postcondition_labels, contract.required_rollback_labels, contract.required_audit_labels, contract.required_supervisor_labels, ("schema_placeholder_only", "not_proof_that_effect_occurred"), contract.blocked_actions, contract.warning_codes, contract.risk_codes, created_at, "")
     return replace(provisional, digest=future_effect_receipt_digest(provisional))
 
@@ -365,20 +365,21 @@ def build_rollback_receipt(plan: RollbackPlan, *, source_effect_receipt_id_or_pl
     return replace(provisional, digest=rollback_receipt_digest(provisional))
 
 def build_execution_readiness_manifest(contract: EffectReceiptContract, future_receipt: FutureEffectReceipt, postcondition_plan: PostconditionCheckPlan, rollback_plan: RollbackPlan, *, runtime_supervisor_report: Any | None = None, satisfied_proof_gates: Sequence[str] | None = None, created_at: str = "1970-01-01T00:00:00+00:00") -> ExecutionReadinessManifest:
-    supplied = set(str(gate) for gate in (satisfied_proof_gates if satisfied_proof_gates is not None else contract.required_proof_gates))
-    if runtime_supervisor_report is not None:
+    supplied = set(str(gate) for gate in (satisfied_proof_gates if satisfied_proof_gates is not None else ()))
+    supplied.update({"rehearsal_required", "dry_run_required", "rollback_plan_required"} & set(contract.required_proof_gates))
+    if runtime_supervisor_report is not None and getattr(runtime_supervisor_report, "degraded", False) is not True and getattr(runtime_supervisor_report, "panic", False) is not True:
         supplied.add("runtime_supervisor_observation_required")
     missing = tuple(sorted(set(contract.required_proof_gates) - supplied))
     kind = "ready"
     if contract.status.endswith("contradicted") or future_receipt.status.endswith("contradicted") or postcondition_plan.status.endswith("contradicted") or rollback_plan.status.endswith("contradicted"):
         kind = "contradicted"
-    elif missing or contract.status.endswith("incomplete"):
-        kind = "incomplete"
     elif contract.status.endswith("blocked"):
         kind = "blocked"
+    elif missing or contract.status.endswith("incomplete"):
+        kind = "incomplete"
     elif contract.status.endswith("conditions") or future_receipt.status.endswith("conditions"):
         kind = "conditions"
-    material = {"contract": contract.contract_id, "future": future_receipt.receipt_id, "post": postcondition_plan.plan_id, "rollback": rollback_plan.plan_id, "supervisor": getattr(runtime_supervisor_report, "report_id", None), "created_at": created_at}
+    material = {"schema_version": "execution_readiness_manifest.semantic.v2", "contract": contract.contract_id, "contract_digest": effect_receipt_contract_digest(contract), "future": future_receipt.receipt_id, "future_digest": future_receipt.digest, "post": postcondition_plan.plan_id, "post_digest": postcondition_check_plan_digest(postcondition_plan), "rollback": rollback_plan.plan_id, "rollback_digest": rollback_plan_digest(rollback_plan), "required": contract.required_proof_gates, "satisfied": tuple(sorted(supplied & set(contract.required_proof_gates))), "missing": missing, "blocked": contract.blocked_actions, "supervisor": getattr(runtime_supervisor_report, "report_id", None), "supervisor_digest": getattr(runtime_supervisor_report, "digest", None)}
     provisional = ExecutionReadinessManifest(_digest_payload("erm_", material), contract.source_rehearsal_receipt_id, contract.source_rehearsal_receipt_digest, contract.contract_id, future_receipt.receipt_id, postcondition_plan.plan_id, rollback_plan.plan_id, getattr(runtime_supervisor_report, "report_id", None), _readiness_status(kind), contract.effect_domain, contract.backend_class, contract.required_proof_gates, tuple(sorted(supplied & set(contract.required_proof_gates))), missing, contract.blocked_actions, tuple(sorted(set(contract.warning_codes + getattr(runtime_supervisor_report, "warning_codes", ()) ))), tuple(sorted(set(contract.risk_codes + getattr(runtime_supervisor_report, "risk_codes", ())))), created_at, "")
     return replace(provisional, digest=execution_readiness_manifest_digest(provisional))
 
