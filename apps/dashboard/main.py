@@ -908,3 +908,31 @@ def _host_live_grant_readiness_projection() -> dict[str, object]:
 @app.get("/api/world-state/host-live-grant-readiness", dependencies=[Depends(require_token)])
 def api_world_state_host_live_grant_readiness() -> dict[str, object]:
     return _host_live_grant_readiness_projection()
+
+def _host_local_authorization_projection() -> dict[str, object]:
+    from sentientos.host_local_authorization_runtime import dashboard_projection
+    snap = _world_state_snapshot()
+    kinds = (
+        "host_local_authorization_review_request",
+        "host_local_authorization_operator_decision",
+        "host_local_authorization_policy_decision",
+        "host_local_authorization_issue_plan",
+        "host_local_authorization_issue_receipt",
+        "host_local_authorization_ledger",
+        "host_local_authorization_revocation",
+    )
+    records = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", fact.get("subject_kind", ""))) if isinstance(subject, dict) else str(fact.get("subject_kind", ""))
+        if kind.startswith(kinds):
+            records.append({**fact, "subject_kind": kind, "subject_id": subject.get("subject_id") if isinstance(subject, dict) else fact.get("subject_id")})
+    return dashboard_projection(records)
+
+@app.get("/api/world-state/host-local-authorization", dependencies=[Depends(require_token)])
+def api_world_state_host_local_authorization() -> dict[str, object]:
+    return _host_local_authorization_projection()
+
+__all__ = ["app"]

@@ -808,3 +808,15 @@ def test_work_item_attestation_artifacts_are_serialized_reviewer_evidence() -> N
     manifest = json.loads(payload["artifacts"]["bundle_manifest"])
     manifest_records = {record["relative_path"]: record["digest"] for record in manifest["artifact_records"]}
     assert {BUNDLE_FILE_NAMES[kind] for kind in artifact_kinds} <= set(manifest_records)
+
+
+def test_bundle_includes_host_local_authorization_grant_custody_posture() -> None:
+    from sentientos.reviewer_proof_bundle import build_reviewer_proof_bundle_payload
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "host_local_authorization_grant_custody_posture" in artifacts
+    data = json.loads(artifacts["host_local_authorization_grant_custody_posture"])
+    assert data["explicit_operator_decision_required"] is True
+    assert data["explicit_policy_decision_required"] is True
+    assert data["fulfillment_granted"] is False
+    assert data["host_mutation_performed"] is False

@@ -1110,3 +1110,13 @@ def test_sandboxed_live_memory_commit_adapter_envelope_registered() -> None:
     assert "scripts/build_sandboxed_live_memory_commit_adapter_envelope.py" in record.source_paths
     assert "docs/architecture/sandboxed_live_memory_commit_adapter_envelope.md" in record.source_paths
     assert "tests/test_sandboxed_live_memory_commit_adapter_envelope.py" in record.proof_tests
+
+
+def test_host_local_authorization_grant_custody_capability_is_metadata_only() -> None:
+    from sentientos.capability_registry import build_default_capability_registry
+    rec = build_default_capability_registry().by_id()["host_local_authorization_grant_custody"]
+    assert rec.status == "implemented"
+    assert rec.authority_level == "local_authorization_record_only"
+    assert "fulfillment authorization" in rec.deferred_surfaces
+    assert "host mutation" in rec.deferred_surfaces
+    assert any("sample approval" in x for x in rec.forbidden_implications)

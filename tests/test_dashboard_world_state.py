@@ -49,3 +49,24 @@ def test_host_controlled_authorization_safety_dashboard_projection_read_only(tmp
     assert payload['execution_triggered'] is False
     assert 'effect_receipt_required' in payload['missing_gates']
     assert 'fan_pwm_write' in payload['blocked_actions']
+
+def test_host_local_authorization_dashboard_projection_read_only(tmp_path, monkeypatch):
+    monkeypatch.setenv('SENTIENTOS_DASHBOARD_TOKEN','tok')
+    path=tmp_path/'ws.json'
+    path.write_text(json.dumps({'facts':[
+        {'subject': {'subject_id':'req1','subject_kind':'host_local_authorization_review_request'}, 'payload': {'requested_scope':'future_cooling_scope','expiry':'2030','blocked_actions':['fan_pwm_write'], 'fulfillment_granted': False}},
+        {'subject': {'subject_id':'op1','subject_kind':'host_local_authorization_operator_decision'}, 'payload': {'disposition':'approve'}},
+        {'subject': {'subject_id':'pol1','subject_kind':'host_local_authorization_policy_decision'}, 'payload': {'disposition':'approve'}},
+        {'subject': {'subject_id':'snap1','subject_kind':'host_local_authorization_ledger'}, 'payload': {'active_count':1,'expired_count':0,'revoked_count':0,'conflicted_count':0}},
+    ], 'summary': {}}), encoding='utf-8')
+    monkeypatch.setenv('SENTIENTOS_WORLD_STATE_BOARD_PATH', str(path))
+    c=TestClient(app); h={'Authorization':'Bearer tok'}
+    payload=c.get('/api/world-state/host-local-authorization', headers=h).json()
+    assert payload['pending_review_request_count'] == 1
+    assert payload['decision_counts']['approve'] == 2
+    assert payload['grant_counts']['active'] == 1
+    assert payload['read_only'] is True
+    assert payload['local_authority_metadata_only'] is True
+    assert payload['fulfillment_granted'] is False
+    assert payload['execution_triggered'] is False
+    assert payload['host_mutation_performed'] is False

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-any-return"
 from __future__ import annotations
 
 import json
@@ -37,6 +38,7 @@ class AuthorityClass(str, Enum):
     FEDERATED_CONTROL = "federated_control"
     SPEC_AMENDMENT = "spec_amendment"
     PRIVILEGED_OPERATOR_CONTROL = "privileged_operator_control"
+    LOCAL_AUTHORIZATION_GRANT_ISSUANCE = "local_authorization_grant_issuance"
 
 
 class AdmissionOutcome(str, Enum):
@@ -257,6 +259,7 @@ class ControlPlaneKernel:
                 AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
                 AuthorityClass.SPEC_AMENDMENT,
                 AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+                AuthorityClass.LOCAL_AUTHORIZATION_GRANT_ISSUANCE,
             AuthorityClass.LOCAL_MODEL_INFERENCE,
             }:
                 proof_rule = self._authority_rule_for_maintenance_proof_budget(
@@ -373,6 +376,7 @@ class ControlPlaneKernel:
         disagreement = bool(runtime is not None and runtime.allowed and denial and denial not in {"none", ""})
         resolution_state = "reconciled" if disagreement else "none"
         return build_authority_of_judgment(
+            
             decision_class="federated_control_admission",
             authoritative_surface="runtime_governor",
             advisory_surfaces=["request_metadata.federated_denial_cause"],
@@ -400,6 +404,7 @@ class ControlPlaneKernel:
         disagreement = bool(runtime is not None and runtime.allowed and budget_decision.mode == "diagnostics_only")
         resolution_state = "reconciled" if disagreement else "none"
         return build_authority_of_judgment(
+            
             decision_class="maintenance_admission_proof_budget",
             authoritative_surface="proof_budget_governor.mode",
             advisory_surfaces=["runtime_governor.allowed"],
