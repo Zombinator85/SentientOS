@@ -33,6 +33,7 @@ def _matrix() -> dict[str, object]:
             {"label": "phase101_invocation_denial_enforcement_tests", "exit_code": 0},
             {"label": "phase102_invocation_denial_drift_review_tests", "exit_code": 0},
             {"label": "phase103_invocation_denial_custody_checkpoint_tests", "exit_code": 0},
+            {"label": "host_execution_readiness_authorization_review_runtime_tests", "exit_code": 0},
             {"label": "targeted_mypy", "exit_code": 0},
             {"label": "mypy_baseline", "exit_code": 0},
             {"label": "docs_check_deps", "exit_code": 0},

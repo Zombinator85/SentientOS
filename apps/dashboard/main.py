@@ -787,3 +787,40 @@ _DASHBOARD_HTML = """<!doctype html>
 
 
 __all__ = ["app"]
+
+def _host_execution_readiness_projection() -> dict[str, object]:
+    snap = _world_state_snapshot()
+    execution_readiness_subjects = (
+        "host_execution_readiness",
+        "host_effect_receipt_contract",
+        "host_future_effect_receipt_schema",
+        "host_postcondition_check_plan",
+        "host_rollback_plan",
+        "host_authorization_review",
+        "host_future_authorization_grant_schema",
+    )
+    facts = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        subject_kind = str(subject.get("subject_kind", "")) if isinstance(subject, dict) else ""
+        if subject_kind.startswith(execution_readiness_subjects):
+            facts.append(fact)
+    readiness: dict[str, int] = {}; auth: dict[str, int] = {}; domains: dict[str, int] = {}; missing: dict[str, int] = {}; blocked: dict[str, int] = {}; latest: list[str] = []
+    invalid = stale_supervisor = 0
+    for fact in facts:
+        payload = fact.get("payload", {}) if isinstance(fact.get("payload"), dict) else {}
+        rs = str(payload.get("readiness_status", "unknown")); readiness[rs] = readiness.get(rs, 0) + 1
+        ars = str(payload.get("authorization_review_status", "unknown")); auth[ars] = auth.get(ars, 0) + 1
+        domain = str(payload.get("effect_domain", "unknown")); domains[domain] = domains.get(domain, 0) + 1
+        for gate in payload.get("missing_gates", []) or []: missing[str(gate)] = missing.get(str(gate), 0) + 1
+        for action in payload.get("blocked_actions", []) or []: blocked[str(action)] = blocked.get(str(action), 0) + 1
+        latest.append(str(fact.get("subject", {}).get("subject_id", "")))
+        if payload.get("findings"): invalid += 1
+        if "runtime_supervisor_observation_required" in (payload.get("missing_gates", []) or []): stale_supervisor += 1
+    return {"status": "unavailable" if not facts else "recorded", "source_rehearsal_count": len(facts), "valid_item_count": max(0, len(facts)-invalid), "invalid_item_count": invalid, "effect_domain_posture_counts": domains, "readiness_status_counts": readiness, "authorization_review_status_counts": auth, "ready_with_conditions_count": sum(v for k,v in {**readiness, **auth}.items() if "conditions" in k), "blocked_count": sum(v for k,v in {**readiness, **auth}.items() if "blocked" in k), "incomplete_count": sum(v for k,v in {**readiness, **auth}.items() if "incomplete" in k), "contradicted_count": sum(v for k,v in {**readiness, **auth}.items() if "contradicted" in k), "most_common_missing_proof_gates": sorted(missing, key=lambda gate: missing[gate], reverse=True)[:10], "blocked_action_categories": sorted(blocked), "stale_supervisor_evidence_count": stale_supervisor, "latest_chain_ids": [x for x in latest[-10:] if x], "freshness": snap.get("summary", {}).get("counts", {}).get("staleness_posture", {}), "read_only": True, "review_only": True, "authorization_granted": False, "execution_triggered": False, "host_mutation_performed": False}
+
+@app.get("/api/world-state/host-execution-readiness", dependencies=[Depends(require_token)])
+def api_world_state_host_execution_readiness() -> dict[str, object]:
+    return _host_execution_readiness_projection()

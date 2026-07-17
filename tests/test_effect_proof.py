@@ -51,7 +51,7 @@ def test_valid_phase5_rehearsal_builds_execution_proof_wing() -> None:
     assert wing.future_effect_receipt.status == "future_effect_receipt_schema_ready"
     assert wing.postcondition_plan.status == "postcondition_plan_ready"
     assert wing.rollback_plan.status == "rollback_plan_ready"
-    assert wing.execution_readiness_manifest.readiness_status == "execution_readiness_for_authorization_review"
+    assert wing.execution_readiness_manifest.readiness_status == "execution_readiness_incomplete"
     assert validate_effect_receipt_contract(wing.effect_contract).ok
     assert validate_future_effect_receipt_schema(wing.future_effect_receipt).ok
     assert validate_postcondition_check_plan(wing.postcondition_plan).ok

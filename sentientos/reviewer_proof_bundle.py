@@ -115,6 +115,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "genesis_local_model_proposal_advice_posture",
         "world_state_evidence_board_snapshot",
         "host_privilege_review_rehearsal_runtime_posture",
+        "host_execution_readiness_authorization_review_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -229,6 +230,7 @@ BUNDLE_FILE_NAMES = {
     "genesis_local_model_proposal_advice_posture": "genesis_local_model_proposal_advice.json",
     "world_state_evidence_board_snapshot": "world_state_evidence_board_snapshot.json",
     "host_privilege_review_rehearsal_runtime_posture": "host_privilege_review_rehearsal_runtime_posture.json",
+    "host_execution_readiness_authorization_review_runtime_posture": "host_execution_readiness_authorization_review_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2041,6 +2043,10 @@ def build_reviewer_proof_bundle_payload(
             "docs_reference": "docs/architecture/governed_improvement_signal_plane.md",
             "matrix_reference": "scripts/run_work_item_review_packet_matrix.py",
         })
+
+    her_record = registry.by_id().get("host_execution_readiness_authorization_review_runtime")
+    if her_record is not None:
+        contents["host_execution_readiness_authorization_review_runtime_posture"] = _pretty_json({"artifact_kind":"host_execution_readiness_authorization_review_runtime_posture", **her_record.to_dict(), "metadata_only": True, "review_only": True, "authorization_granted": False, "execution_triggered": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_execution_readiness_authorization_review_runtime.md", "matrix_reference":"host_execution_readiness_authorization_review_runtime_tests"})
 
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)

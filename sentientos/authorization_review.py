@@ -418,13 +418,9 @@ def _satisfied_auth_gates(manifest: Any) -> tuple[str, ...]:
         mapped = _PROOF_TO_AUTH_GATE.get(str(gate))
         if mapped:
             gates.add(mapped)
-    if getattr(manifest, "runtime_supervisor_report_id", None):
-        gates.add("runtime_supervisor_observation_required")
-    effect_domain = str(getattr(manifest, "effect_domain", ""))
-    if effect_domain == "future_cleanup_effect":
-        gates.update({"filesystem_scope_required_for_future_action", "path_scope_labels_required_for_future_action"})
-    if effect_domain == "future_service_effect":
-        gates.add("service_scope_required_for_future_action")
+    # Runtime-supervisor and domain scope gates are satisfied only when the
+    # execution-readiness manifest carries exact satisfied proof-gate evidence;
+    # an effect-domain label or report identifier alone is not authorization evidence.
     return tuple(sorted(g for g in gates if g))
 
 
@@ -529,7 +525,7 @@ def build_authorization_review_receipt(decision: AuthorizationReviewDecision, *,
         "control_plane_admission_required_before_any_future_action",
     )
     provisional = AuthorizationReviewReceipt(
-        receipt_id=_digest_payload("arr_", {"decision": decision.decision_id, "created_at": created_at}),
+        receipt_id=_digest_payload("arr_", {"schema_version": "authorization_review_receipt.semantic.v2", "decision": decision.decision_id, "packet": decision.packet_id, "status": decision.decision_status, "missing": decision.missing_authorization_gates, "blocked": decision.blocked_actions}),
         decision_id=decision.decision_id,
         packet_id=decision.packet_id,
         source_execution_readiness_manifest_id=decision.source_execution_readiness_manifest_id,
@@ -574,7 +570,7 @@ def build_future_authorization_grant_schema(receipt: AuthorizationReviewReceipt,
     if domain == "future_service_authorization_review":
         scope_labels += ["service_scope_required", "runtime_supervisor_observation_required"]
     provisional = FutureAuthorizationGrantSchema(
-        schema_id=_digest_payload("fags_", {"receipt": receipt.receipt_id, "digest": receipt.digest, "created_at": created_at}),
+        schema_id=_digest_payload("fags_", {"schema_version": "future_authorization_grant_schema.semantic.v2", "receipt": receipt.receipt_id, "digest": receipt.digest, "domain": domain, "approval_class": receipt.approval_class, "missing": receipt.missing_authorization_gates, "blocked": receipt.blocked_actions}),
         source_authorization_review_receipt_id=receipt.receipt_id,
         source_authorization_review_receipt_digest=receipt.digest,
         authorization_domain=domain,
