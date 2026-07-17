@@ -36,6 +36,7 @@ from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
+from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
 from codex.amendments import (
     RepositoryMutationHandoffPlan,
     runtime_cycle as runtime_spec_cycle,
@@ -124,9 +125,11 @@ class RuntimeMaintenanceSurfaces:
         self._host_resource_runtime = HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_privilege_review_runtime = HostPrivilegeReviewRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_execution_readiness_runtime = HostExecutionReadinessRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
+        self._host_controlled_authorization_runtime = HostControlledAuthorizationRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_resource_evaluation: HostResourceRuntimeEvaluation | None = None
         self._host_privilege_review_evaluation: HostPrivilegeReviewEvaluation | None = None
         self._host_execution_readiness_evaluation: HostExecutionReadinessEvaluation | None = None
+        self._host_controlled_authorization_evaluation: HostControlledAuthorizationEvaluation | None = None
         self._feedback: dict[str, Any] = {
             "schema": "runtime_maintenance_feedback:v1",
             "degraded": False,
@@ -195,6 +198,19 @@ class RuntimeMaintenanceSurfaces:
         self._feedback.setdefault("surfaces", {})["host_execution_readiness_authorization_review_runtime"] = feedback
         return feedback
 
+
+    def run_host_controlled_authorization_safety_runtime(self, *, tick_id: str) -> dict[str, Any]:
+        """Close same-tick execution-readiness review into metadata-only authorization/safety records."""
+        evaluation = self._host_controlled_authorization_runtime.run_cycle(tick_id=tick_id, source_evaluation=self._host_execution_readiness_evaluation)
+        if evaluation is None:
+            feedback = {"status": "not_available", "builder_calls": self._host_controlled_authorization_runtime.builder_call_count, "read_only": True, "review_only": True, "live_authorization_granted": False, "fulfillment_granted": False, "execution_triggered": False, "host_mutation_performed": False}
+            self._feedback.setdefault("surfaces", {})["host_controlled_authorization_safety_runtime"] = feedback
+            return feedback
+        self._host_controlled_authorization_evaluation = evaluation
+        feedback = {**controlled_authorization_summary(evaluation), "builder_calls": self._host_controlled_authorization_runtime.builder_call_count}
+        self._feedback.setdefault("surfaces", {})["host_controlled_authorization_safety_runtime"] = feedback
+        return feedback
+
     def build_world_state_board(self, *, tick_id: str | None = None) -> dict[str, Any]:
         """Persist one terminal read-only world-state snapshot per maintenance tick."""
         tick_key = tick_id or datetime.now(timezone.utc).isoformat()
@@ -213,6 +229,9 @@ class RuntimeMaintenanceSurfaces:
         execution_eval = self._host_execution_readiness_evaluation
         if execution_eval is not None:
             records.extend(execution_readiness_world_state_records(execution_eval))
+        controlled_eval = self._host_controlled_authorization_evaluation
+        if controlled_eval is not None:
+            records.extend(controlled_authorization_world_state_records(controlled_eval))
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
@@ -569,6 +588,11 @@ def _run_maintenance_tick(
         run_execution_readiness = getattr(runtime_surfaces, "run_host_execution_readiness_authorization_review_runtime", None)
         if callable(run_execution_readiness):
             run_execution_readiness(tick_id=tick_id)
+        current_surface = "host_controlled_authorization_safety_runtime"
+        current_correlation_id = f"{tick_id}:host_controlled_authorization_safety_runtime"
+        run_controlled_authorization = getattr(runtime_surfaces, "run_host_controlled_authorization_safety_runtime", None)
+        if callable(run_controlled_authorization):
+            run_controlled_authorization(tick_id=tick_id)
         current_surface = "world_state_evidence_board"
         current_correlation_id = f"{tick_id}:world_state_evidence_board"
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
