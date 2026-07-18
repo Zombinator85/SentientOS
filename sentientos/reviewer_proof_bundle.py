@@ -125,6 +125,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "live_grant_readiness_posture",
         "local_authorization_posture",
         "fulfillment_authorization_posture",
+        "host_fulfillment_authorization_consumption_custody_posture",
         "executor_contract_posture",
         "dry_run_execution_posture",
         "dry_run_audit_closure_posture",
@@ -243,6 +244,7 @@ BUNDLE_FILE_NAMES = {
     "live_grant_readiness_posture": "live_grant_readiness.json",
     "local_authorization_posture": "local_authorization.json",
     "fulfillment_authorization_posture": "fulfillment_authorization.json",
+    "host_fulfillment_authorization_consumption_custody_posture": "host_fulfillment_authorization_consumption_custody_posture.json",
     "executor_contract_posture": "executor_contract.json",
     "dry_run_execution_posture": "dry_run_execution.json",
     "dry_run_audit_closure_posture": "dry_run_audit_closure.json",
@@ -2058,6 +2060,9 @@ def build_reviewer_proof_bundle_payload(
     hlar_record = registry.by_id().get("host_local_authorization_grant_custody")
     if hlar_record is not None:
         contents["host_local_authorization_grant_custody_posture"] = _pretty_json({"artifact_kind":"host_local_authorization_grant_custody_posture", **hlar_record.to_dict(), "metadata_only": True, "local_authority_metadata_only": True, "explicit_operator_decision_required": True, "explicit_policy_decision_required": True, "grant_issuance_admission_required": True, "sentientosd_issues_grants": False, "fulfillment_granted": False, "privileged_effect_admission_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_local_authorization_grant_custody.md", "matrix_reference":"host_local_authorization_grant_custody_tests"})
+    hfac_record = registry.by_id().get("host_fulfillment_authorization_consumption_custody")
+    if hfac_record is not None:
+        contents["host_fulfillment_authorization_consumption_custody_posture"] = _pretty_json({"artifact_kind":"host_fulfillment_authorization_consumption_custody_posture", **hfac_record.to_dict(), "metadata_only": True, "explicit_future_fulfillment_request_required": True, "exact_active_local_grant_required": True, "exact_ledger_expiry_revocation_custody_required": True, "dedicated_metadata_consumption_admission_required": True, "append_only_idempotent_consumption_ledger": True, "sentientosd_consumes_authorization": False, "fulfillment_granted": False, "executor_authorized": False, "privileged_effect_admission_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_fulfillment_authorization_consumption_custody.md", "matrix_reference":"host_fulfillment_authorization_consumption_custody_tests"})
 
     hlgr_record = registry.by_id().get("host_live_grant_readiness_runtime")
     if hlgr_record is not None:

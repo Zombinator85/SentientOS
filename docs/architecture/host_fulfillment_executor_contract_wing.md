@@ -46,3 +46,6 @@ See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_w
 See also: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md), which follows the dry-run execution harness and remains metadata-only; it does not create real effect receipts, real postcondition checks, real rollback, production audit receipts, or actuation.
 
 Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
+
+
+See also [Host Fulfillment Authorization Consumption Custody](host_fulfillment_authorization_consumption_custody.md), which adds exact request-to-grant custody, dedicated metadata-consumption admission, and an append-only consumption ledger while preserving no-fulfillment and no-effect boundaries.

@@ -47,3 +47,6 @@ Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.
 
 
 See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.
+
+
+See also [Host Fulfillment Authorization Consumption Custody](host_fulfillment_authorization_consumption_custody.md), which adds exact request-to-grant custody, dedicated metadata-consumption admission, and an append-only consumption ledger while preserving no-fulfillment and no-effect boundaries.

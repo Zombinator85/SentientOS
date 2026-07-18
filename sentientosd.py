@@ -38,6 +38,7 @@ from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeC
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
 from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
 from sentientos.host_live_grant_readiness_runtime import HostLiveGrantReadinessRuntimeCoordinator, HostLiveGrantReadinessEvaluation, summary_for_evaluation as live_grant_readiness_summary, world_state_records as live_grant_readiness_world_state_records
+from sentientos.host_fulfillment_authorization_runtime import world_state_records as fulfillment_authorization_world_state_records
 from codex.amendments import (
     RepositoryMutationHandoffPlan,
     runtime_cycle as runtime_spec_cycle,
@@ -251,6 +252,14 @@ class RuntimeMaintenanceSurfaces:
         live_grant_eval = self._host_live_grant_readiness_evaluation
         if live_grant_eval is not None:
             records.extend(live_grant_readiness_world_state_records(live_grant_eval))
+        hfa_latest = self._runtime_state_root / "host_fulfillment_authorization" / "latest.json"
+        if hfa_latest.exists() and not hfa_latest.is_symlink():
+            try:
+                hfa = json.loads(hfa_latest.read_text(encoding="utf-8"))
+                if isinstance(hfa, dict) and hfa.get("request_id") and hfa.get("ledger_id"):
+                    records.extend(fulfillment_authorization_world_state_records({"schema_version":"host_fulfillment_authorization_runtime.v1","request_id":hfa.get("request_id"),"digest":hfa.get("request_digest",""),"ledger_id":hfa.get("ledger_id"),"ledger_digest":hfa.get("ledger_digest",""),"status":"observed_persisted_custody","authorization_consumed_for_future_fulfillment":False,"fulfillment_granted":False,"executor_authorized":False,"privileged_effect_admission_granted":False,"effect_performed":False,"host_mutation_performed":False}, observed_at=tick_key))
+            except (OSError, ValueError, json.JSONDecodeError):
+                pass
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})

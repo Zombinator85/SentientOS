@@ -561,3 +561,6 @@ Proof command:
 ```bash
 python -m scripts.run_tests -q tests/test_host_privilege_review_runtime.py tests/test_build_host_privilege_review_runtime_script.py tests/test_host_resource_runtime.py tests/test_privilege_broker.py tests/test_actuation_fulfillment.py tests/test_sentientosd_runtime_closure.py tests/test_world_state_board.py tests/test_dashboard_world_state.py tests/test_capability_registry.py tests/test_reviewer_proof_bundle.py tests/test_codex_validation_matrix_lane_contract.py tests/test_repository_mutation_custody_regression.py
 ```
+
+
+See also [Host Fulfillment Authorization Consumption Custody](host_fulfillment_authorization_consumption_custody.md), which adds exact request-to-grant custody, dedicated metadata-consumption admission, and an append-only consumption ledger while preserving no-fulfillment and no-effect boundaries.

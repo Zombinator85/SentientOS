@@ -18,3 +18,6 @@ This subsystem is local authority metadata only. It does not authorize fulfillme
 `sentientosd` remains non-issuing: it may observe persisted evidence and project pending review state, but it must not fabricate decisions, call sample approval builders, issue grants, revoke grants, expand scope, or treat local authority metadata as fulfillment authority.
 
 The dashboard endpoint `GET /api/world-state/host-local-authorization` is authenticated and read-only. It reports pending review counts, explicit decision counts, issuance posture, active/expired/revoked/conflicted grant counts, scope/expiry summaries, blocked actions, and latest IDs while preserving `fulfillment_granted=false`, `execution_triggered=false`, and `host_mutation_performed=false`.
+
+
+See also [Host Fulfillment Authorization Consumption Custody](host_fulfillment_authorization_consumption_custody.md), which adds exact request-to-grant custody, dedicated metadata-consumption admission, and an append-only consumption ledger while preserving no-fulfillment and no-effect boundaries.

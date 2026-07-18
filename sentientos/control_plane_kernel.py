@@ -39,6 +39,7 @@ class AuthorityClass(str, Enum):
     SPEC_AMENDMENT = "spec_amendment"
     PRIVILEGED_OPERATOR_CONTROL = "privileged_operator_control"
     LOCAL_AUTHORIZATION_GRANT_ISSUANCE = "local_authorization_grant_issuance"
+    FULFILLMENT_AUTHORIZATION_CONSUMPTION = "fulfillment_authorization_consumption"
 
 
 class AdmissionOutcome(str, Enum):
@@ -260,6 +261,7 @@ class ControlPlaneKernel:
                 AuthorityClass.SPEC_AMENDMENT,
                 AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
                 AuthorityClass.LOCAL_AUTHORIZATION_GRANT_ISSUANCE,
+                AuthorityClass.FULFILLMENT_AUTHORIZATION_CONSUMPTION,
             AuthorityClass.LOCAL_MODEL_INFERENCE,
             }:
                 proof_rule = self._authority_rule_for_maintenance_proof_budget(
@@ -474,6 +476,7 @@ class ControlPlaneKernel:
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
             AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
             AuthorityClass.LOCAL_MODEL_INFERENCE: "local_model_inference",
+            AuthorityClass.FULFILLMENT_AUTHORIZATION_CONSUMPTION: "control_plane_task",
         }
         action_class = action_map.get(request.authority_class)
         if action_class is None:

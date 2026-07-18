@@ -464,3 +464,6 @@ The `world_state_evidence_board` capability is implemented as a canonical read-o
 ## Host resource and privilege/rehearsal runtime reconciliation
 
 The read-only host-resource observation runtime and the host privilege review / fulfillment rehearsal runtime are implemented as evidence-only maintenance surfaces. They close the proposal-to-review-to-rehearsal metadata loop and project it into World-State. The future effect-capable privilege and fulfillment organs remain deferred: operator privileged approval, privileged-effect admission, backend execution, host mutation, effect proof, and rollback execution are not implemented by this runtime.
+
+
+See also [Host Fulfillment Authorization Consumption Custody](host_fulfillment_authorization_consumption_custody.md), which adds exact request-to-grant custody, dedicated metadata-consumption admission, and an append-only consumption ledger while preserving no-fulfillment and no-effect boundaries.
