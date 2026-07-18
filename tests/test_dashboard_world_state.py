@@ -88,3 +88,19 @@ def test_host_fulfillment_authorization_dashboard_projection_read_only(tmp_path,
     assert payload['backend_invoked'] is False
     assert payload['execution_triggered'] is False
     assert payload['host_mutation_performed'] is False
+
+def test_host_fulfillment_executor_readiness_dashboard_projection_read_only(tmp_path, monkeypatch):
+    monkeypatch.setenv('SENTIENTOS_DASHBOARD_TOKEN','tok')
+    path=tmp_path/'ws.json'
+    path.write_text(json.dumps({'facts':[
+        {'stage':'review','disposition':'ready_for_executor_contract_review_with_conditions','subject': {'subject_id':'c1','subject_kind':'host_fulfillment_executor_contract'}, 'payload': {'contract_id':'c1','executor_domain':'future_cooling_executor_contract','backend_class':'cooling_backend_future','blocked_actions':['fan_pwm_write'],'execution_ready':False}},
+        {'stage':'admission','disposition':'ready_for_executor_contract_review_with_conditions','subject': {'subject_id':'p1','subject_kind':'host_fulfillment_executor_future_execution_admission_packet'}, 'payload': {'packet_id':'p1','required_control_plane_labels':['control_plane_admission_required_for_future_execution'],'control_plane_admission_granted':False}},
+        {'stage':'review','disposition':'missing','subject': {'subject_id':'executor_identity_required','subject_kind':'host_fulfillment_executor_prerequisite_record'}, 'payload': {'status':'missing'}},
+        {'stage':'review','disposition':'ready_for_executor_contract_review_with_conditions','subject': {'subject_id':'r1','subject_kind':'host_fulfillment_executor_readiness_receipt'}, 'payload': {'receipt_id':'r1','executor_implemented':False}},
+    ], 'summary': {}}), encoding='utf-8')
+    monkeypatch.setenv('SENTIENTOS_WORLD_STATE_BOARD_PATH', str(path))
+    c=TestClient(app); h={'Authorization':'Bearer tok'}
+    payload=c.get('/api/world-state/host-fulfillment-executor-readiness', headers=h).json()
+    assert payload['read_only'] is True and payload['executor_contract_review_only'] is True
+    assert payload['execution_ready'] is False and payload['backend_loaded'] is False and payload['effect_performed'] is False
+    assert payload['latest_contract_id']=='c1' and payload['latest_packet_id']=='p1' and payload['latest_readiness_receipt_id']=='r1'

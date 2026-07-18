@@ -828,7 +828,6 @@ def api_world_state_host_controlled_authorization_safety() -> dict[str, object]:
     return _host_controlled_authorization_safety_projection()
 
 
-__all__ = ["app"]
 
 def _host_execution_readiness_projection() -> dict[str, object]:
     snap = _world_state_snapshot()
@@ -963,5 +962,23 @@ def _host_fulfillment_authorization_projection() -> dict[str, object]:
 @app.get("/api/world-state/host-fulfillment-authorization", dependencies=[Depends(require_token)])
 def api_world_state_host_fulfillment_authorization() -> dict[str, object]:
     return _host_fulfillment_authorization_projection()
+
+
+def _host_fulfillment_executor_readiness_projection() -> dict[str, object]:
+    from sentientos.host_fulfillment_executor_readiness_runtime import dashboard_projection
+    snap = _world_state_snapshot()
+    records = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", fact.get("subject_kind", ""))) if isinstance(subject, dict) else str(fact.get("subject_kind", ""))
+        if kind.startswith("host_fulfillment_executor_"):
+            records.append({**fact, "subject_kind": kind, "subject_id": subject.get("subject_id") if isinstance(subject, dict) else fact.get("subject_id")})
+    return dashboard_projection(records)
+
+@app.get("/api/world-state/host-fulfillment-executor-readiness", dependencies=[Depends(require_token)])
+def api_world_state_host_fulfillment_executor_readiness() -> dict[str, object]:
+    return _host_fulfillment_executor_readiness_projection()
 
 __all__ = ["app"]

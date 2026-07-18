@@ -46,3 +46,7 @@ See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_w
 See also: [Host Dry-Run Effect Verification / Audit Closure Wing](host_dry_run_audit_closure_wing.md), which follows the dry-run execution harness and remains metadata-only; it does not create real effect receipts, real postcondition checks, real rollback, production audit receipts, or actuation.
 
 Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
+
+## Readiness runtime closure
+
+The [Host Fulfillment Executor Contract Readiness Runtime](host_fulfillment_executor_contract_readiness_runtime.md) binds exact fulfillment-consumption custody and current local-grant posture to this contract wing. It remains contract-review-only: no executor is implemented, no backend is loaded or invoked, no dry-run is executed, no future execution admission is granted, no fulfillment is granted, and no host effect is performed.

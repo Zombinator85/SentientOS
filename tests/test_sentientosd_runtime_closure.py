@@ -589,3 +589,9 @@ def test_sentientosd_has_no_host_fulfillment_consumption_runtime_calls() -> None
     text = open(sentientosd.__file__, encoding='utf-8').read()
     assert 'HostFulfillmentAuthorizationRuntimeCoordinator' not in text
     assert 'host_fulfillment_authorization_consumption' not in text
+
+def test_sentientosd_has_no_host_fulfillment_executor_readiness_runtime_calls() -> None:
+    import sentientosd
+    text = open(sentientosd.__file__, encoding='utf-8').read()
+    assert 'HostFulfillmentExecutorReadinessRuntimeCoordinator' not in text
+    assert 'host_fulfillment_executor_contract_readiness_metadata_evaluation' not in text
