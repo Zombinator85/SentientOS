@@ -67,3 +67,7 @@ Reviewed Genesis adoption requires two separate admissions before any write:
 manifest/identity lineage integration and `AuthorityClass.PROPOSAL_ADOPTION`.
 Operator approval is not an admission, admission is not execution, and lineage
 integration alone is not adoption.
+
+## Host fulfillment executor readiness metadata admission
+
+`host_fulfillment_executor_contract_readiness_runtime` may request only `proposal_evaluation` admission for metadata review before composing executor-contract records. That admission is not future-execution admission, privileged-effect admission, fulfillment authorization, backend invocation authority, or permission to mutate host state.

@@ -160,6 +160,7 @@ TARGETED_TEST_LANE_ALIASES: tuple[str, ...] = (
     "host_live_grant_readiness_runtime_tests",
     "host_local_authorization_grant_custody_tests",
     "host_fulfillment_authorization_consumption_custody_tests",
+    "host_fulfillment_executor_contract_readiness_runtime_tests",
     "proof_bundle_tests",
     "codex_pr_validation_evidence_tests",
     "codex_pr_landing_gate_tests",

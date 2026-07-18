@@ -227,6 +227,7 @@ class ExecutorBackendDeclaration:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    contract_digest: str = ""
     metadata_only: bool = True
     declaration_only: bool = True
     backend_loaded: bool = False
@@ -250,6 +251,8 @@ class ExecutorPreconditionManifest:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    contract_digest: str = ""
+    source_consumption_receipt_digest: str = ""
     metadata_only: bool = True
     precondition_only: bool = True
     host_mutation_performed: bool = False
@@ -273,6 +276,7 @@ class ExecutorDryRunPlan:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    contract_digest: str = ""
     metadata_only: bool = True
     dry_run_plan_only: bool = True
     dry_run_executed: bool = False
@@ -303,10 +307,20 @@ class ExecutorAdmissionPacket:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    contract_digest: str = ""
+    source_consumption_receipt_digest: str = ""
+    backend_declaration_digest: str = ""
+    precondition_manifest_digest: str = ""
+    dry_run_plan_digest: str = ""
     metadata_only: bool = True
     admission_packet_only: bool = True
+    execution_admission_requested: bool = False
+    executor_authorized: bool = False
+    backend_loaded: bool = False
+    backend_invoked: bool = False
     control_plane_admission_granted: bool = False
     fulfillment_granted: bool = False
+    privileged_effect_admission_granted: bool = False
     effect_performed: bool = False
     host_mutation_performed: bool = False
 
@@ -330,13 +344,21 @@ class ExecutorContractReadinessReceipt:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    contract_digest: str = ""
+    backend_declaration_digest: str = ""
+    precondition_manifest_digest: str = ""
+    dry_run_plan_digest: str = ""
+    admission_packet_digest: str = ""
     metadata_only: bool = True
     readiness_receipt_only: bool = True
+    execution_ready: bool = False
     executor_implemented: bool = False
     backend_loaded: bool = False
+    backend_invoked: bool = False
     dry_run_executed: bool = False
     control_plane_admission_granted: bool = False
     fulfillment_granted: bool = False
+    privileged_effect_admission_granted: bool = False
     effect_performed: bool = False
     host_mutation_performed: bool = False
     fan_pwm_write_performed: bool = False
@@ -381,6 +403,8 @@ def _source_payload(source: Any) -> Mapping[str, Any]:
 def _payload(record_or_payload: Any) -> dict[str, Any]:
     payload = dict(_source_payload(record_or_payload))
     payload["digest"] = ""
+    for volatile in ("created_at", "observed_at", "duration", "absolute_root", "temporary_path", "process_id", "output_filename", "dashboard_request_time", "worker_order"):
+        payload.pop(volatile, None)
     return payload
 
 
@@ -502,6 +526,7 @@ def build_executor_backend_declaration(contract: FulfillmentExecutorContract | M
         tuple(sorted(set(_tuple(c.get("risk_codes"))) | {"backend_declaration_does_not_load_or_invoke_backend"})),
         created_at,
         "",
+        str(c.get("digest", "")),
     )
     return replace(provisional, digest=executor_backend_declaration_digest(provisional))
 
@@ -520,7 +545,7 @@ def build_executor_precondition_manifest(contract: FulfillmentExecutorContract |
     if missing and status == "executor_preconditions_ready":
         status = "executor_preconditions_incomplete"
     provisional = ExecutorPreconditionManifest(
-        manifest_id or _digest_id("executor-precondition-manifest-", {"contract": c.get("contract_id"), "missing": missing, "status": status}),
+        manifest_id or _digest_id("executor-precondition-manifest-", {"contract": c.get("contract_id"), "contract_digest": c.get("digest"), "receipt": r.get("receipt_id"), "receipt_digest": r.get("digest"), "missing": missing, "status": status}),
         str(c.get("contract_id", "")),
         str(r.get("receipt_id", "")),
         tuple(sorted(REQUIRED_EXECUTOR_LABELS)),
@@ -531,6 +556,8 @@ def build_executor_precondition_manifest(contract: FulfillmentExecutorContract |
         tuple(sorted(set(_tuple(c.get("risk_codes"))) | {"precondition_manifest_is_metadata_only"})),
         created_at,
         "",
+        str(c.get("digest", "")),
+        str(r.get("digest", "")),
     )
     return replace(provisional, digest=executor_precondition_manifest_digest(provisional))
 
@@ -545,7 +572,7 @@ def build_executor_dry_run_plan(contract: FulfillmentExecutorContract | Mapping[
         "fulfillment_executor_contract_contradicted": "executor_dry_run_plan_contradicted",
     }.get(str(c.get("contract_status")), "executor_dry_run_plan_incomplete")
     provisional = ExecutorDryRunPlan(
-        plan_id or _digest_id("executor-dry-run-plan-", {"contract": c.get("contract_id"), "backend": c.get("backend_class"), "status": status}),
+        plan_id or _digest_id("executor-dry-run-plan-", {"contract": c.get("contract_id"), "contract_digest": c.get("digest"), "backend": c.get("backend_class"), "status": status}),
         str(c.get("contract_id", "")),
         str(c.get("backend_class", "")),
         ("review_contract_metadata", "verify_precondition_manifest", "prepare_future_control_plane_packet_without_admission", "record_no_effect_expectations"),
@@ -557,6 +584,7 @@ def build_executor_dry_run_plan(contract: FulfillmentExecutorContract | Mapping[
         tuple(sorted(set(_tuple(c.get("risk_codes"))) | {"dry_run_plan_is_not_dry_run_execution"})),
         created_at,
         "",
+        str(c.get("digest", "")),
     )
     return replace(provisional, digest=executor_dry_run_plan_digest(provisional))
 
@@ -575,7 +603,7 @@ def build_executor_admission_packet(contract: FulfillmentExecutorContract | Mapp
         "fulfillment_executor_contract_contradicted": "executor_admission_packet_contradicted",
     }.get(str(c.get("contract_status")), "executor_admission_packet_incomplete")
     provisional = ExecutorAdmissionPacket(
-        packet_id or _digest_id("executor-admission-packet-", {"contract": c.get("contract_id"), "backend": b.get("declaration_id"), "manifest": m.get("manifest_id"), "plan": p.get("plan_id"), "status": status}),
+        packet_id or _digest_id("executor-admission-packet-", {"contract": c.get("contract_id"), "contract_digest": c.get("digest"), "backend": b.get("declaration_id"), "backend_digest": b.get("digest"), "manifest": m.get("manifest_id"), "manifest_digest": m.get("digest"), "plan": p.get("plan_id"), "plan_digest": p.get("digest"), "receipt": r.get("receipt_id"), "receipt_digest": r.get("digest"), "status": status}),
         str(c.get("contract_id", "")),
         str(r.get("receipt_id", "")),
         str(b.get("declaration_id", "")),
@@ -593,6 +621,11 @@ def build_executor_admission_packet(contract: FulfillmentExecutorContract | Mapp
         tuple(sorted(set(_tuple(c.get("risk_codes"))) | {"admission_packet_is_not_control_plane_admission"})),
         created_at,
         "",
+        str(c.get("digest", "")),
+        str(r.get("digest", "")),
+        str(b.get("digest", "")),
+        str(m.get("digest", "")),
+        str(p.get("digest", "")),
     )
     return replace(provisional, digest=executor_admission_packet_digest(provisional))
 
@@ -620,7 +653,7 @@ def build_executor_contract_readiness_receipt(contract: FulfillmentExecutorContr
         "readiness_receipt_does_not_implement_executor_or_perform_effects",
     )
     provisional = ExecutorContractReadinessReceipt(
-        receipt_id or _digest_id("executor-contract-readiness-", {"contract": c.get("contract_id"), "packet": a.get("packet_id"), "status": status, "missing": missing}),
+        receipt_id or _digest_id("executor-contract-readiness-", {"contract": c.get("contract_id"), "contract_digest": c.get("digest"), "backend": b.get("declaration_id"), "backend_digest": b.get("digest"), "manifest": m.get("manifest_id"), "manifest_digest": m.get("digest"), "plan": p.get("plan_id"), "plan_digest": p.get("digest"), "packet": a.get("packet_id"), "packet_digest": a.get("digest"), "status": status, "missing": missing}),
         str(c.get("contract_id", "")),
         str(b.get("declaration_id", "")),
         str(m.get("manifest_id", "")),
@@ -634,6 +667,11 @@ def build_executor_contract_readiness_receipt(contract: FulfillmentExecutorContr
         tuple(sorted(set(_tuple(c.get("risk_codes"))) | {"readiness_receipt_is_not_executor_implementation", "real_fulfillment_remains_deferred"})),
         created_at,
         "",
+        str(c.get("digest", "")),
+        str(b.get("digest", "")),
+        str(m.get("digest", "")),
+        str(p.get("digest", "")),
+        str(a.get("digest", "")),
     )
     return replace(provisional, digest=executor_contract_readiness_receipt_digest(provisional))
 
