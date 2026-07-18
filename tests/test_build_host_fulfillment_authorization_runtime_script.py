@@ -21,3 +21,12 @@ def test_cli_build_request_and_requires_apply(tmp_path: Path):
     out2=subprocess.run(cmd2,text=True,capture_output=True,env=env)
     assert out2.returncode in {3,4}
     assert ('not_applied' in out2.stdout) or ('denied' in out2.stdout)
+
+
+def test_cli_direct_executable_and_python_help():
+    direct=subprocess.run(['./scripts/build_host_fulfillment_authorization_runtime.py','--help'],text=True,capture_output=True)
+    assert direct.returncode == 0
+    assert 'build-request' in direct.stdout
+    via_python=subprocess.run([sys.executable,'scripts/build_host_fulfillment_authorization_runtime.py','--help'],text=True,capture_output=True)
+    assert via_python.returncode == 0
+    assert 'consume' in via_python.stdout

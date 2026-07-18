@@ -1,9 +1,10 @@
-# mypy: disable-error-code="no-any-return,no-untyped-def,no-untyped-call,var-annotated,union-attr"
 #!/usr/bin/env python3
+# mypy: disable-error-code="no-any-return,no-untyped-def,no-untyped-call,var-annotated,union-attr"
 """Build/inspect metadata-only host fulfillment authorization custody artifacts."""
 from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sentientos.host_fulfillment_authorization_runtime import build_source_ref, build_request_envelope, build_consumption_plan, validate_request_envelope, HostFulfillmentAuthorizationRuntimeCoordinator, render_markdown
 
 def _load(path:str):
