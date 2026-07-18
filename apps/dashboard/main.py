@@ -935,4 +935,33 @@ def _host_local_authorization_projection() -> dict[str, object]:
 def api_world_state_host_local_authorization() -> dict[str, object]:
     return _host_local_authorization_projection()
 
+
+def _host_fulfillment_authorization_projection() -> dict[str, object]:
+    from sentientos.host_fulfillment_authorization_runtime import dashboard_projection
+    snap = _world_state_snapshot()
+    kinds = (
+        "host_fulfillment_authorization_request_envelope",
+        "host_fulfillment_authorization_source",
+        "host_fulfillment_authorization_consumption_plan",
+        "host_fulfillment_authorization_consumption_admission",
+        "host_fulfillment_authorization_grant_consumption_verification",
+        "host_fulfillment_authorization_scope_assessment",
+        "host_fulfillment_authorization_consumption_receipt",
+        "host_fulfillment_authorization_consumption_ledger_entry",
+        "host_fulfillment_authorization_consumption_ledger",
+    )
+    records = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", fact.get("subject_kind", ""))) if isinstance(subject, dict) else str(fact.get("subject_kind", ""))
+        if kind.startswith(kinds):
+            records.append({**fact, "subject_kind": kind, "subject_id": subject.get("subject_id") if isinstance(subject, dict) else fact.get("subject_id")})
+    return dashboard_projection(records)
+
+@app.get("/api/world-state/host-fulfillment-authorization", dependencies=[Depends(require_token)])
+def api_world_state_host_fulfillment_authorization() -> dict[str, object]:
+    return _host_fulfillment_authorization_projection()
+
 __all__ = ["app"]

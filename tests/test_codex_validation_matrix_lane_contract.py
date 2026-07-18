@@ -111,3 +111,8 @@ def test_host_local_authorization_grant_custody_lane_required() -> None:
     from sentientos.codex_validation_matrix_lane_contract import verify_lane_contract
     m = _matrix(); m["results"].append({"label":"host_local_authorization_grant_custody_tests","exit_code":0})
     assert verify_lane_contract(m).status.endswith("ready")
+
+def test_host_fulfillment_authorization_consumption_custody_lane_required() -> None:
+    m = _matrix(); m["results"].append({"label":"host_fulfillment_authorization_consumption_custody_tests","exit_code":0})
+    result = verify_lane_contract(m)
+    assert result.status.endswith("ready")

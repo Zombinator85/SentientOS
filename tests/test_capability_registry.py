@@ -1120,3 +1120,14 @@ def test_host_local_authorization_grant_custody_capability_is_metadata_only() ->
     assert "fulfillment authorization" in rec.deferred_surfaces
     assert "host mutation" in rec.deferred_surfaces
     assert any("sample approval" in x for x in rec.forbidden_implications)
+
+def test_host_fulfillment_authorization_consumption_custody_capability_is_metadata_only() -> None:
+    rec = build_default_capability_registry().by_id()["host_fulfillment_authorization_consumption_custody"]
+    assert rec.status == "implemented"
+    assert "sentientos/host_fulfillment_authorization_runtime.py" in rec.source_paths
+    assert "tests/test_host_fulfillment_authorization_runtime.py" in rec.proof_tests
+    assert "automatic daemon consumption" in rec.deferred_surfaces
+    assert "fulfillment authorization" in rec.deferred_surfaces
+    assert "backend execution" in rec.deferred_surfaces
+    assert "host mutation" in rec.deferred_surfaces
+    assert "effect proof" in rec.deferred_surfaces

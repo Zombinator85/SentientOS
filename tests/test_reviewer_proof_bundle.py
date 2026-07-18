@@ -820,3 +820,15 @@ def test_bundle_includes_host_local_authorization_grant_custody_posture() -> Non
     assert data["explicit_policy_decision_required"] is True
     assert data["fulfillment_granted"] is False
     assert data["host_mutation_performed"] is False
+
+def test_bundle_includes_host_fulfillment_authorization_consumption_custody_posture() -> None:
+    payload = build_reviewer_proof_bundle_payload(created_at=FIXED_CREATED_AT)
+    artifacts = payload["artifacts"]
+    assert "host_fulfillment_authorization_consumption_custody_posture" in artifacts
+    data = json.loads(artifacts["host_fulfillment_authorization_consumption_custody_posture"])
+    assert data["explicit_request_required"] is True
+    assert data["current_expiry_and_revocation_checks_required"] is True
+    assert data["automatic_daemon_consumption"] is False
+    assert data["fulfillment_granted"] is False
+    assert data["backend_execution_performed"] is False
+    assert data["host_mutation_performed"] is False

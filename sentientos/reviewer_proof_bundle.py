@@ -119,6 +119,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_controlled_authorization_safety_runtime_posture",
         "host_live_grant_readiness_runtime_posture",
         "host_local_authorization_grant_custody_posture",
+        "host_fulfillment_authorization_consumption_custody_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -237,6 +238,7 @@ BUNDLE_FILE_NAMES = {
     "host_controlled_authorization_safety_runtime_posture": "host_controlled_authorization_safety_runtime_posture.json",
     "host_live_grant_readiness_runtime_posture": "host_live_grant_readiness_runtime_posture.json",
     "host_local_authorization_grant_custody_posture": "host_local_authorization_grant_custody_posture.json",
+    "host_fulfillment_authorization_consumption_custody_posture": "host_fulfillment_authorization_consumption_custody_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2066,6 +2068,11 @@ def build_reviewer_proof_bundle_payload(
     if hca_record is not None:
         contents["host_controlled_authorization_safety_runtime_posture"] = _pretty_json({"artifact_kind":"host_controlled_authorization_safety_runtime_posture", **hca_record.to_dict(), "metadata_only": True, "review_only": True, "live_authorization_granted": False, "privileged_effect_admission_granted": False, "fulfillment_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_controlled_authorization_safety_runtime.md", "matrix_reference":"host_controlled_authorization_safety_runtime_tests"})
 
+    hfac_record = registry.by_id().get("host_fulfillment_authorization_consumption_custody")
+    if hfac_record is not None:
+        contents["host_fulfillment_authorization_consumption_custody_posture"] = _pretty_json({"artifact_kind":"host_fulfillment_authorization_consumption_custody_posture", **hfac_record.to_dict(), "metadata_only": True, "explicit_request_required": True, "exact_active_grant_evidence_required": True, "current_expiry_and_revocation_checks_required": True, "dedicated_metadata_consumption_admission_required": True, "append_only_idempotent_ledger": True, "automatic_daemon_consumption": False, "fulfillment_granted": False, "executor_authorized": False, "privileged_effect_admission_granted": False, "backend_execution_performed": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_fulfillment_authorization_consumption_custody.md", "matrix_reference":"host_fulfillment_authorization_consumption_custody_tests"})
+
+
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)
         if verify:
@@ -2113,7 +2120,6 @@ def build_reviewer_proof_bundle_payload(
     manifest = replace(manifest, digest=reviewer_proof_bundle_manifest_digest(manifest))
     contents["bundle_manifest"] = _pretty_json(manifest.to_dict())
     return {"manifest": manifest, "artifacts": contents, "trace": trace, "capability_registry": registry, "safety_gates": safety_gates, "live_grant_readiness": live_grant_readiness, "local_authorization": local_authorization, "fulfillment_authorization": fulfillment_authorization, "executor_contract": executor_contract, "dry_run_execution": dry_run_execution, "dry_run_audit_closure": dry_run_audit_closure, "real_effect_admission": real_effect_admission, "host_steward_boundary": host_steward_boundary}
-
 
 def validate_reviewer_proof_bundle_manifest(manifest: ReviewerProofBundleManifest | Mapping[str, Any]) -> ReviewerProofBundleValidationResult:
     payload = manifest.to_dict() if isinstance(manifest, ReviewerProofBundleManifest) else dict(manifest)
