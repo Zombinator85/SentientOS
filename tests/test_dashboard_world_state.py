@@ -70,3 +70,21 @@ def test_host_local_authorization_dashboard_projection_read_only(tmp_path, monke
     assert payload['fulfillment_granted'] is False
     assert payload['execution_triggered'] is False
     assert payload['host_mutation_performed'] is False
+
+def test_host_fulfillment_authorization_dashboard_projection_read_only(tmp_path, monkeypatch):
+    monkeypatch.setenv('SENTIENTOS_DASHBOARD_TOKEN','tok')
+    path=tmp_path/'ws.json'
+    path.write_text(json.dumps({'facts':[
+        {'stage':'request','subject': {'subject_id':'env1','subject_kind':'host_fulfillment_authorization_request_envelope'}, 'payload': {'fulfillment_granted': False}},
+        {'stage':'admission','disposition':'allow','subject': {'subject_id':'plan1','subject_kind':'host_fulfillment_authorization_consumption_admission'}, 'payload': {'outcome':'allow'}},
+        {'stage':'receipt','disposition':'recorded','subject': {'subject_id':'rec1','subject_kind':'host_fulfillment_authorization_consumption_receipt'}, 'payload': {'effect_performed': False}},
+    ], 'summary': {}}), encoding='utf-8')
+    monkeypatch.setenv('SENTIENTOS_WORLD_STATE_BOARD_PATH', str(path))
+    c=TestClient(app); h={'Authorization':'Bearer tok'}
+    payload=c.get('/api/world-state/host-fulfillment-authorization', headers=h).json()
+    assert payload['read_only'] is True
+    assert payload['fact_count'] == 3
+    assert payload['dedicated_metadata_consumption_admission_required'] is True
+    assert payload['backend_invoked'] is False
+    assert payload['execution_triggered'] is False
+    assert payload['host_mutation_performed'] is False

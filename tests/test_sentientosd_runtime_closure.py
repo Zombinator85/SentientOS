@@ -583,3 +583,9 @@ def test_maintenance_tick_emits_handoff_without_git_or_mark_committed(tmp_path: 
     assert surfaces.handoff_calls == 1
     assert surfaces.mark_committed_calls == 0
     assert not _maintenance_degradations(tmp_path / "decisions.jsonl")
+
+def test_sentientosd_has_no_host_fulfillment_consumption_runtime_calls() -> None:
+    import sentientosd
+    text = open(sentientosd.__file__, encoding='utf-8').read()
+    assert 'HostFulfillmentAuthorizationRuntimeCoordinator' not in text
+    assert 'host_fulfillment_authorization_consumption' not in text
