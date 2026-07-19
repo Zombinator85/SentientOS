@@ -25,3 +25,13 @@ World-State projection uses proposal/review/admission-candidate lifecycle stages
 Capability: `host_fulfillment_executor_contract_readiness_runtime`.
 Matrix lane: `host_fulfillment_executor_contract_readiness_runtime_tests`.
 Proof artifact: `host_fulfillment_executor_contract_readiness_runtime_posture`.
+
+## Current authority snapshot reconciliation
+
+Executor-readiness now separates two evidence epochs. The historical epoch is the immutable fulfillment-authorization consumption custody: the consumed grant, verification, authorization ledger, expiry evaluation, revocation references, successful consumption receipt, consumption ledger entry, and consumption ledger remain recorded exactly as they existed when fulfillment authorization was consumed. The current epoch is mutable authority evidence: an exact validated `HostLocalAuthorizationLedgerSnapshot`, its underlying local authorization ledger, current grant record, current verification, current canonical expiry evaluation, ledger-contained revocation receipts, host-local issue receipt, host-local revocation receipts, validation time, and derived posture.
+
+Historical and current verification, ledger, and expiry digests may legitimately differ. Divergence is represented as current snapshot custody, not as historical tampering, when the current snapshot preserves semantic continuity to the same historical grant ID and digest and contains the matching issue receipt and exact grant bytes. Current revocation and expiry posture are derived from the authoritative snapshot; a caller-supplied empty revocation list is never authority to omit ledger-contained revocations.
+
+Snapshot validation recomputes nested grant, revocation, expiry, issue-receipt, host-local revocation-receipt, ledger, and snapshot digests; rejects duplicate semantic IDs with different bytes; recomputes active, revoked, expired, and conflicted counts; checks ledger/snapshot count agreement and ledger status; and verifies host-local revocation receipts cross-link to local revocation receipts. Non-positive current verification statuses (`blocked`, `expired`, `revoked`, `incomplete`, and `contradicted`) fail closed before metadata admission or executor-contract builders are called.
+
+Replay custody is fail-closed. Persisted bundles include a deterministic bundle manifest binding every required JSON/Markdown file by artifact kind, schema version, semantic ID, digest, relative filename, and size. Exact replay validates the replay index, latest pointer, runtime receipt, request, current evidence, and bundle manifest before returning the persisted review-only result; corrupt required bundle files produce a contradicted replay instead of reusing a positive evaluation.

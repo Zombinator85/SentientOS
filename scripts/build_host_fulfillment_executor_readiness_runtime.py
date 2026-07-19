@@ -18,7 +18,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument('--consumption-runtime-json', help='Strict JSON exported from typed runtime result; loose receipt-only JSON is rejected by evaluate.')
     ap.add_argument('--grant-json')
     ap.add_argument('--grant-verification-json')
-    ap.add_argument('--authorization-ledger-json')
+    ap.add_argument('--authorization-ledger-json', help='Legacy diagnostic only; not authoritative for strict current posture')
+    ap.add_argument('--current-ledger-snapshot-json', help='Exact HostLocalAuthorizationLedgerSnapshot authoritative for current grant posture')
     ap.add_argument('--expiry-evaluation-json')
     ap.add_argument('--revocation-receipts-json')
     ap.add_argument('--empty-revocation-manifest', action='store_true')
@@ -39,12 +40,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             raise SystemExit('loose JSON rejected: complete exact consumption runtime chain required')
     if ns.command == "evaluate":
-        required=(ns.grant_json, ns.grant_verification_json, ns.authorization_ledger_json, ns.expiry_evaluation_json)
-        if not all(required) or (not ns.revocation_receipts_json and not ns.empty_revocation_manifest):
-            raise SystemExit('exact current grant, verification, authorization ledger, expiry evaluation, and revocation manifest files required')
+        required=(ns.grant_json, ns.grant_verification_json, ns.current_ledger_snapshot_json)
+        if not all(required):
+            raise SystemExit('exact current grant, verification, and HostLocalAuthorizationLedgerSnapshot files required')
         out['strict_current_grant_evidence_required']=True
         out['derived_current_grant_posture']='computed_from_exact_evidence'
         out['current_grant_evidence_authoritative_input']=False
+        out['current_ledger_snapshot_authoritative_input']=True
+        out['separately_asserted_empty_revocation_manifest_authority']=False
     if ns.command.startswith('render-markdown'):
         text="# Host Fulfillment Executor Contract Readiness Runtime\n\n- execution_ready: False\n- backend_loaded: False\n- effect_performed: False\n"
         if ns.json_output: Path(ns.json_output).write_text(text,encoding='utf-8')
