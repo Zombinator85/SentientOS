@@ -124,3 +124,44 @@ def test_replay_conflict_concurrency_and_prerequisite_evidence(tmp_path):
     (out/ev1.request.request_id/'runtime_receipt.json').write_text('{"digest":"sha256:corrupt"}', encoding='utf-8')
     corrupt=c.evaluate(result, output_root=out, grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
     assert corrupt.status=='contradicted_contract_package'
+
+def _snapshot_for(grant, ledger, issue_source, *, created_at='2029-01-02T00:00:00+00:00', host_revocations=()):
+    from sentientos.host_local_authorization_runtime import HostLocalAuthorizationIssueReceipt, HostLocalAuthorizationLedgerSnapshot, _digest_record
+    from sentientos.host_fulfillment_executor_readiness_runtime import _id
+    issue0=HostLocalAuthorizationIssueReceipt('host_local_authorization_runtime.v1','hlair_test','', 'issued','req','sha256:req','plan','sha256:plan','adm','allow',grant.grant_id,grant.digest,ledger.ledger_id,ledger.digest,'idem','attempt',created_at)
+    issue=replace(issue0,digest=_digest_record(issue0.to_dict()))
+    snap0=HostLocalAuthorizationLedgerSnapshot('host_local_authorization_runtime.v1',_id('hlas_test_', {'ledger':ledger.digest,'host_revocations':[getattr(r,'digest',None) for r in host_revocations]}),'',ledger,(issue,),tuple(host_revocations),ledger.active_grant_count,ledger.expired_grant_count,ledger.revoked_grant_count,0,created_at)
+    return replace(snap0,digest=_digest_record(snap0.to_dict()))
+
+def test_current_snapshot_allows_later_current_digests_and_blocks_revocation_omission(tmp_path):
+    from sentientos.local_authorization_grant import build_local_authorization_grant_ledger, build_local_authorization_grant_expiry_evaluation, verify_local_authorization_grant, build_local_authorization_grant_revocation_receipt
+    from sentientos.host_local_authorization_runtime import HostLocalAuthorizationRevocationReceipt, _digest_record
+    issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    later_exp=build_local_authorization_grant_expiry_evaluation(g, evaluated_at='2029-01-02T00:00:00+00:00')
+    later_ver=verify_local_authorization_grant(g, checked_scope_labels=g.granted_scope_labels, checked_time_label='2029-01-02T00:00:00+00:00', expiry_evaluation=later_exp)
+    later_led=build_local_authorization_grant_ledger((g,), (), (later_exp,), created_at='2029-01-02T00:00:00+00:00')
+    snap=_snapshot_for(g,later_led,src)
+    ev=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'s', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(result, output_root=tmp_path/'external', grant=g, verification=later_ver, current_snapshot=snap, expiry_evaluation=later_exp)
+    assert ev.status in {'ready_for_executor_contract_review','ready_for_executor_contract_review_with_conditions'}
+    assert ev.request.current_grant_evidence_digest
+    by={p.label:p for p in ev.prerequisite_records}
+    assert by['grant_not_revoked_required'].evidence_digest != ev.request.current_grant_evidence_digest
+    rev=build_local_authorization_grant_revocation_receipt(g, created_at='2029-01-03T00:00:00+00:00')
+    revoked_led=build_local_authorization_grant_ledger((g,), (rev,), (later_exp,), created_at='2029-01-03T00:00:00+00:00')
+    host0=HostLocalAuthorizationRevocationReceipt('host_local_authorization_runtime.v1','hlarr_test','', 'revoked','decision','sha256:decision',g.grant_id,g.digest,revoked_led.ledger_id,revoked_led.digest,rev.receipt_id,rev.digest,'2029-01-03T00:00:00+00:00')
+    host=replace(host0,digest=_digest_record(host0.to_dict()))
+    revoked_snap=_snapshot_for(g,revoked_led,src,created_at='2029-01-03T00:00:00+00:00',host_revocations=(host,))
+    blocked=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'s2', kernel=Kernel(), clock=lambda:'2029-01-03T00:00:00+00:00').evaluate(result, output_root=tmp_path/'revoked', grant=g, verification=later_ver, current_snapshot=revoked_snap, expiry_evaluation=later_exp, revocation_receipts=())
+    assert blocked.status=='blocked_contract_package'
+    assert 'caller_revocation_omission_ignored' in blocked.findings
+    assert blocked.admission_call_count==0 and blocked.builder_call_count==0
+
+def test_replay_bundle_manifest_deep_corruption_blocks(tmp_path):
+    issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    c=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'s', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00')
+    out=tmp_path/'external'; ev=c.evaluate(result, output_root=out, grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
+    assert ev.persisted is True
+    (out/ev.request.request_id/'backend_declaration.json').write_text('{"corrupt": true}', encoding='utf-8')
+    replay=c.evaluate(result, output_root=out, grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
+    assert replay.status=='contradicted_contract_package'
+    assert 'semantic_replay_conflict' in replay.findings
