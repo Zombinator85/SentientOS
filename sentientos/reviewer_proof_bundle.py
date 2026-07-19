@@ -121,6 +121,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_local_authorization_grant_custody_posture",
         "host_fulfillment_authorization_consumption_custody_posture",
         "host_fulfillment_executor_contract_readiness_runtime_posture",
+        "host_dry_run_execution_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -241,6 +242,7 @@ BUNDLE_FILE_NAMES = {
     "host_local_authorization_grant_custody_posture": "host_local_authorization_grant_custody_posture.json",
     "host_fulfillment_authorization_consumption_custody_posture": "host_fulfillment_authorization_consumption_custody_posture.json",
     "host_fulfillment_executor_contract_readiness_runtime_posture": "host_fulfillment_executor_contract_readiness_runtime_posture.json",
+    "host_dry_run_execution_runtime_posture": "host_dry_run_execution_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2076,6 +2078,10 @@ def build_reviewer_proof_bundle_payload(
     hfer_record = registry.by_id().get("host_fulfillment_executor_contract_readiness_runtime")
     if hfer_record is not None:
         contents["host_fulfillment_executor_contract_readiness_runtime_posture"] = _pretty_json({"artifact_kind":"host_fulfillment_executor_contract_readiness_runtime_posture", **hfer_record.to_dict(), "exact_fulfillment_consumption_custody_required": True, "exact_current_local_grant_evidence_required": True, "exact_current_host_local_authorization_ledger_snapshot_required": True, "historical_current_authority_epochs_separated": True, "current_revocation_and_expiry_derived_from_snapshot": True, "caller_asserted_posture_not_authority": True, "replay_conflict_custody_required": True, "executor_contract_package_review_only": True, "backend_declaration_metadata_only": True, "dry_run_plan_unexecuted": True, "future_execution_admission_packet_only": True, "executor_implemented": False, "backend_loaded": False, "backend_invoked": False, "dry_run_executed": False, "control_plane_execution_admission_granted": False, "fulfillment_granted": False, "privileged_effect_admission_granted": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_fulfillment_executor_contract_readiness_runtime.md", "matrix_reference":"host_fulfillment_executor_contract_readiness_runtime_tests"})
+
+    hdr_record = registry.by_id().get("host_dry_run_execution_runtime")
+    if hdr_record is not None:
+        contents["host_dry_run_execution_runtime_posture"] = _pretty_json({"artifact_kind":"host_dry_run_execution_runtime_posture", **hdr_record.to_dict(), "metadata_only": True, "simulation_only": True, "exact_executor_readiness_runtime_custody_required": True, "exact_current_authority_snapshot_required": True, "deterministic_in_process_simulated_backend_only": True, "dry_run_executed_may_be_true": True, "executor_implemented": False, "real_executor_invoked": False, "backend_loaded": False, "backend_invoked": False, "real_backend_invoked": False, "future_execution_admission_granted": False, "fulfillment_granted": False, "privileged_effect_admission_granted": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_dry_run_execution_runtime.md", "matrix_reference":"host_dry_run_execution_runtime_tests"})
 
 
     if scenario == "work_item_attestation":

@@ -224,6 +224,15 @@ class DryRunExecutionRequest:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    readiness_runtime_receipt_id: str = ""
+    readiness_runtime_receipt_digest: str = ""
+    executor_contract_digest: str = ""
+    declarative_dry_run_plan_id: str = ""
+    declarative_dry_run_plan_digest: str = ""
+    current_snapshot_id: str = ""
+    current_snapshot_digest: str = ""
+    simulated_backend_registry_id: str = ""
+    simulated_backend_registry_digest: str = ""
     metadata_only: bool = True
     dry_run_request_only: bool = True
     does_not_execute_real_backend: bool = True
@@ -249,9 +258,19 @@ class DryRunExecutionResult:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    request_digest: str = ""
+    simulated_backend_digest: str = ""
     metadata_only: bool = True
     simulated_only: bool = True
+    simulation_executed: bool = True
     dry_run_executed: bool = True
+    executor_implemented: bool = False
+    real_executor_invoked: bool = False
+    backend_loaded: bool = False
+    backend_invoked: bool = False
+    control_plane_execution_admission_granted: bool = False
+    fulfillment_granted: bool = False
+    privileged_effect_admission_granted: bool = False
     real_backend_invoked: bool = False
     real_fulfillment_performed: bool = False
     real_effect_performed: bool = False
@@ -296,11 +315,22 @@ class DryRunExecutionReceipt:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    request_digest: str = ""
+    result_digest: str = ""
     metadata_only: bool = True
     dry_run_receipt_only: bool = True
+    simulation_executed: bool = True
     dry_run_executed: bool = True
+    executor_implemented: bool = False
+    real_executor_invoked: bool = False
+    backend_loaded: bool = False
+    backend_invoked: bool = False
+    control_plane_execution_admission_granted: bool = False
+    fulfillment_granted: bool = False
+    privileged_effect_admission_granted: bool = False
     real_fulfillment_performed: bool = False
     real_effect_performed: bool = False
+    effect_performed: bool = False
     real_backend_invoked: bool = False
     host_mutation_performed: bool = False
     fan_pwm_write_performed: bool = False
@@ -337,6 +367,8 @@ class DryRunExecutionBlockReceipt:
     risk_codes: tuple[str, ...]
     created_at: str
     digest: str
+    request_digest: str = ""
+    finding_digests: tuple[str, ...] = ()
     metadata_only: bool = True
     block_receipt_only: bool = True
     dry_run_executed: bool = False
