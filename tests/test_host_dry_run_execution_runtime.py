@@ -61,8 +61,8 @@ def test_domain_mapping_lineage_identity_and_timestamp_semantics(tmp_path):
     assert req1.request_id==req2.request_id and req1.digest==req2.digest
     assert req1.dry_run_domain=='future_cooling_dry_run' and req1.simulated_backend_class=='cooling_backend_simulated'
     changed_contract={**src.contract, 'digest':'sha256:changed'}
-    req3=build_request(replace(src, contract=changed_contract))
-    assert req3.request_id != req1.request_id
+    with pytest.raises(ValueError, match='invalid_readiness_source'):
+        build_request(replace(src, contract=changed_contract))
 
 def test_replay_conflict_concurrency_and_corruption(tmp_path):
     src=readiness(tmp_path); out=tmp_path/'external'
@@ -75,6 +75,19 @@ def test_replay_conflict_concurrency_and_corruption(tmp_path):
     (out/ev1.request.request_id/'dry_run_request.json').write_text('{"corrupt": true}', encoding='utf-8')
     corrupt=c.evaluate(src, output_root=out)
     assert corrupt.status=='contradicted_dry_run_runtime'
+
+def test_actual_concurrent_duplicate_evaluation_creates_one_bundle(tmp_path):
+    src=readiness(tmp_path); out=tmp_path/'external'
+    results=[]
+    def run():
+        c=HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel())
+        results.append(c.evaluate(src, output_root=out))
+    threads=[threading.Thread(target=run) for _ in range(2)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    assert {r.status for r in results} == {'dry_run_runtime_simulated'}
+    assert len([p for p in out.iterdir() if p.is_dir()]) == 1
+    assert sum(1 for r in results if r.replayed) == 1
 
 def test_world_state_dashboard_are_read_only_and_zero_runtime_calls(tmp_path):
     src=readiness(tmp_path); c=HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel())

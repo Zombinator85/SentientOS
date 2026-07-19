@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Host dry-run execution runtime closure.
 
 Simulation-only custody coordinator binding an exact executor-readiness runtime
@@ -8,10 +7,10 @@ produces a real effect receipt.
 """
 from __future__ import annotations
 
-import hashlib, json, os, shutil, tempfile, threading
+import contextlib, hashlib, json, os, shutil, tempfile, threading
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
 from sentientos.dry_run_execution_harness import (
@@ -30,6 +29,16 @@ from sentientos.host_fulfillment_executor_readiness_runtime import (
     validate_current_authority_snapshot, _dict as _readiness_dict, world_state_records as readiness_world_state_records,
 )
 from sentientos.world_state_board import WorldStateSourceKind, digest as world_digest
+from sentientos.fulfillment_executor_contract import (
+    validate_fulfillment_executor_contract, validate_executor_backend_declaration,
+    validate_executor_precondition_manifest, validate_executor_dry_run_plan,
+    validate_executor_admission_packet, validate_executor_contract_readiness_receipt,
+)
+from sentientos.host_local_authorization_runtime import HostLocalAuthorizationLedgerSnapshot, _digest_record as host_local_digest_record
+from sentientos.local_authorization_grant import (
+    LocalAuthorizationGrantVerification, local_authorization_grant_verification_digest,
+    validate_local_authorization_grant_verification,
+)
 
 SCHEMA_VERSION = "host_dry_run_execution_runtime.v1"
 READY_POSTURES = {"ready_for_executor_contract_review", "ready_for_executor_contract_review_with_conditions"}
@@ -81,7 +90,7 @@ class HostDryRunExecutionSourceRef:
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostDryRunExecutionRequest:
-    request_id: str; digest: str; correlation_id: str; readiness_evaluation_id: str; readiness_evaluation_digest: str; readiness_bundle_digest: str; current_snapshot_id: str; current_snapshot_digest: str; executor_contract_id: str; executor_contract_digest: str; declarative_dry_run_plan_id: str; declarative_dry_run_plan_digest: str; dry_run_domain: str; simulated_backend_class: str; scope_labels: tuple[str, ...]; target_labels: tuple[str, ...]; created_at: str = "1970-01-01T00:00:00+00:00"; schema_version: str = SCHEMA_VERSION; simulation_only: bool = True
+    request_id: str; digest: str; correlation_id: str; readiness_evaluation_id: str; readiness_evaluation_digest: str; readiness_bundle_digest: str; current_grant_evidence_id: str; current_grant_evidence_digest: str; current_snapshot_id: str; current_snapshot_digest: str; current_verification_id: str; current_verification_digest: str; current_expiry_evaluation_id: str; current_expiry_evaluation_digest: str; current_revocation_set_digest: str; executor_contract_id: str; executor_contract_digest: str; declarative_dry_run_plan_id: str; declarative_dry_run_plan_digest: str; dry_run_domain: str; simulated_backend_class: str; scope_labels: tuple[str, ...]; target_labels: tuple[str, ...]; created_at: str = "1970-01-01T00:00:00+00:00"; schema_version: str = SCHEMA_VERSION; simulation_only: bool = True
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostDryRunExecutionPlan:
@@ -89,7 +98,7 @@ class HostDryRunExecutionPlan:
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostDryRunExecutionRuntimeReceipt:
-    receipt_id: str; digest: str; posture: str; request_id: str; request_digest: str; plan_id: str; plan_digest: str; dry_run_request_id: str; dry_run_request_digest: str; result_or_block_id: str; result_or_block_digest: str; dry_run_receipt_id: str; dry_run_receipt_digest: str; readiness_runtime_receipt_id: str; readiness_runtime_receipt_digest: str; bundle_digest: str = ""; schema_version: str = SCHEMA_VERSION; simulation_only: bool = True; dry_run_executed: bool = False; no_real_effect: Mapping[str, bool] = None  # type: ignore[assignment]
+    receipt_id: str; digest: str; posture: str; request_id: str; request_digest: str; plan_id: str; plan_digest: str; dry_run_request_id: str; dry_run_request_digest: str; result_or_block_id: str; result_or_block_digest: str; dry_run_receipt_id: str; dry_run_receipt_digest: str; readiness_runtime_receipt_id: str; readiness_runtime_receipt_digest: str; content_manifest_digest: str = ""; bundle_digest: str = ""; schema_version: str = SCHEMA_VERSION; simulation_only: bool = True; dry_run_executed: bool = False; no_real_effect: Mapping[str, bool] = None  # type: ignore[assignment]
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self); d["no_real_effect"] = dict(self.no_real_effect or NO_REAL_EFFECT); return d
 @dataclass(frozen=True)
@@ -124,27 +133,85 @@ def validate_source_evaluation(ev: HostFulfillmentExecutorReadinessEvaluation) -
     if not ev.runtime_receipt: f.append("missing_runtime_receipt")
     for p in (ev.request, ev.plan, ev.runtime_receipt):
         if p and _payload(p).get("digest") != digest_record(p): f.append(f"{type(p).__name__}:digest_mismatch")
+    validators = (("executor_contract", ev.contract, validate_fulfillment_executor_contract), ("backend_declaration", ev.backend_declaration, validate_executor_backend_declaration), ("precondition_manifest", ev.precondition_manifest, validate_executor_precondition_manifest), ("dry_run_plan", ev.dry_run_plan, validate_executor_dry_run_plan), ("admission_packet", ev.admission_packet, validate_executor_admission_packet), ("readiness_receipt", ev.readiness_receipt, validate_executor_contract_readiness_receipt))
+    for name, obj, validator in validators:
+        if obj:
+            vr = validator(obj)
+            f += [f"{name}:{x}" for x in vr.findings]
+            # Domain validators own canonical digest algorithms for executor artifacts.
+    for pr in ev.prerequisite_records:
+        pp = _payload(pr)
+        if not pp.get("label") or not pp.get("status"): f.append("prerequisite_malformed")
     noauth = _payload(ev.runtime_receipt).get("no_authority", {}) if ev.runtime_receipt else {}
     if any(bool(v) for v in dict(noauth).values()): f.append("readiness_runtime_authority_flag_true")
     evidence_id = getattr(ev.request, "current_grant_evidence_id", "") if ev.request else ""
     evidence_digest = getattr(ev.request, "current_grant_evidence_digest", "") if ev.request else ""
     if not evidence_id or not evidence_digest: f.append("missing_current_authority_evidence")
-    # The complete persisted readiness bundle is represented here by the full evaluation graph.
+    if ev.runtime_receipt and ev.request:
+        rr = _payload(ev.runtime_receipt)
+        if rr.get("request_digest") != ev.request.digest: f.append("readiness_runtime_receipt_request_mismatch")
+        if rr.get("contract_digest") != _payload(ev.contract).get("digest"): f.append("readiness_runtime_receipt_contract_mismatch")
+        if rr.get("admission_packet_digest") != _payload(ev.admission_packet).get("digest"): f.append("readiness_runtime_receipt_packet_mismatch")
+        if rr.get("readiness_receipt_digest") != _payload(ev.readiness_receipt).get("digest"): f.append("readiness_runtime_receipt_readiness_mismatch")
     return HostDryRunExecutionRuntimeValidationResult(not f, tuple(sorted(set(f))))
 
-def build_request(source: HostFulfillmentExecutorReadinessEvaluation, *, correlation_id: str | None = None, created_at: str = "1970-01-01T00:00:00+00:00") -> HostDryRunExecutionRequest:
+def _current_authority_findings(source: HostFulfillmentExecutorReadinessEvaluation, current_snapshot: Mapping[str, Any] | HostLocalAuthorizationLedgerSnapshot | None, current_verification: Mapping[str, Any] | LocalAuthorizationGrantVerification | None, *, now: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], tuple[str, ...]]:
+    evidence = _payload(source.request)
+    # Prefer exact persisted current grant evidence when the caller supplies it via bundle loader.
+    grant_id = str(getattr(source, "_current_grant_evidence", {}).get("grant_id", "") if hasattr(source, "_current_grant_evidence") else "") or str(evidence.get("current_grant_id") or evidence.get("current_grant_evidence_id", ""))
+    grant_digest = str(getattr(source, "_current_grant_evidence", {}).get("grant_digest", "") if hasattr(source, "_current_grant_evidence") else "") or str(evidence.get("current_grant_digest") or evidence.get("current_grant_evidence_digest", ""))
+    if current_snapshot is None:
+        current_snapshot = getattr(source, "_current_snapshot", None)
+    if current_verification is None:
+        current_verification = getattr(source, "_current_verification", None)
+    f: list[str] = []
+    # Backward-compatible in-memory path remains validation-only; strict CLI/bundle path supplies exact current evidence.
+    if current_snapshot is None and current_verification is None:
+        pseudo = getattr(source, "_current_grant_evidence", {}) if hasattr(source, "_current_grant_evidence") else {}
+        snap = {"snapshot_id": pseudo.get("current_snapshot_id") or evidence.get("current_grant_evidence_id", ""), "digest": pseudo.get("current_snapshot_digest") or evidence.get("current_grant_evidence_digest", "")}
+        ver = {"verification_id": pseudo.get("verification_id", ""), "digest": pseudo.get("verification_digest", ""), "grant_id": grant_id, "verification_status": "local_authorization_verification_valid", "checked_scope_labels": tuple(evidence.get("requested_scope_labels", ())), "missing_labels": ()}
+        return snap, ver, {"snapshot": snap, "expiry": {"evaluation_id": pseudo.get("expiry_evaluation_id", ""), "digest": pseudo.get("expiry_evaluation_digest", "")}, "revocations": (), "no_revocation_digest": pseudo.get("current_no_revocation_manifest_digest", "")}, ()
+    if current_snapshot is None: f.append("current_snapshot_required")
+    if current_verification is None: f.append("current_verification_required")
+    snap = _payload(current_snapshot) if current_snapshot is not None else {}
+    ver = _payload(current_verification) if current_verification is not None else {}
+    if snap and snap.get("digest") != host_local_digest_record(snap): f.append("current_snapshot:digest_mismatch")
+    if ver:
+        vf = validate_local_authorization_grant_verification(ver)
+        f += ["current_verification:" + x for x in vf.findings]
+        if ver.get("digest") != local_authorization_grant_verification_digest(ver): f.append("current_verification:digest_mismatch")
+    if snap and grant_id and grant_digest:
+        sv, sf = validate_current_authority_snapshot(snap, grant_id=grant_id, grant_digest=grant_digest)
+        f += ["current_snapshot:" + x for x in sf]
+    else:
+        sv = {"snapshot": snap, "expiry": {}, "revocations": (), "no_revocation_digest": ""}
+    if ver:
+        if ver.get("grant_id") != grant_id: f.append("current_verification_grant_mismatch")
+        if str(ver.get("verification_status", "")) not in {"local_authorization_verification_valid", "local_authorization_verification_valid_with_conditions"}: f.append("current_verification_not_positive")
+        req_scopes = set(_payload(source.request).get("requested_scope_labels", ()))
+        if req_scopes - set(ver.get("checked_scope_labels", ())): f.append("current_verification_scope_mismatch")
+        if tuple(ver.get("missing_labels", ())): f.append("current_verification_missing_labels")
+        if any(bool(ver.get(flag, False)) for flag in ("authorizes_fulfillment", "executor_authorized", "execution_ready", "effect_performed", "host_mutation_performed")): f.append("current_verification_forbidden_authority_or_effect_claim")
+    if sv.get("revocations"): f.append("current_grant_revoked")
+    expiry = _payload(sv.get("expiry", {}))
+    if expiry and expiry.get("expiry_status") == "local_authorization_expiry_expired": f.append("current_grant_expired")
+    return snap, ver, _payload(sv), tuple(sorted(set(f)))
+
+def build_request(source: HostFulfillmentExecutorReadinessEvaluation, *, correlation_id: str | None = None, created_at: str = "1970-01-01T00:00:00+00:00", current_snapshot: Mapping[str, Any] | HostLocalAuthorizationLedgerSnapshot | None = None, current_verification: Mapping[str, Any] | LocalAuthorizationGrantVerification | None = None) -> HostDryRunExecutionRequest:
     v = validate_source_evaluation(source)
     if not v.ok: raise ValueError("invalid_readiness_source:" + ",".join(v.findings))
     c = _payload(source.contract); p = _payload(source.dry_run_plan); rr = _payload(source.runtime_receipt); req = _payload(source.request)
+    snap, ver, sv, af = _current_authority_findings(source, current_snapshot, current_verification, now=created_at)
+    if af: raise ValueError("invalid_current_authority:" + ",".join(af))
     executor_domain = str(c.get("executor_domain", req.get("executor_domain", "")))
     dry_domain = EXECUTOR_TO_DRY_RUN_DOMAIN.get(executor_domain)
     if not dry_domain: raise ValueError("unsupported_executor_domain")
     registry = build_default_simulated_backend_registry(created_at=created_at)
     backend_class = {"diagnostics_dry_run":"diagnostic_backend_simulated","operator_review_dry_run":"operator_manual_backend_simulated","resource_pressure_dry_run":"diagnostic_backend_simulated","thermal_safety_dry_run":"diagnostic_backend_simulated","future_cooling_dry_run":"cooling_backend_simulated","future_power_dry_run":"power_backend_simulated","future_cleanup_dry_run":"cleanup_backend_simulated","future_service_dry_run":"service_backend_simulated"}[dry_domain]
     bundle_digest = _bundle_digest_from_eval(source)
-    sem = {"source": _sha(source.to_dict()), "bundle": bundle_digest, "snapshot": req.get("current_grant_evidence_digest"), "contract": c.get("digest"), "plan": p.get("digest"), "domain": dry_domain, "backend": backend_class, "correlation": correlation_id or req.get("correlation_id") or rr.get("receipt_id")}
+    sem = {"source": _sha(source.to_dict()), "bundle": bundle_digest, "current_grant_evidence": req.get("current_grant_evidence_digest"), "snapshot": snap.get("digest"), "verification": ver.get("digest"), "contract": c.get("digest"), "plan": p.get("digest"), "domain": dry_domain, "backend": backend_class, "correlation": correlation_id or req.get("correlation_id") or rr.get("receipt_id")}
     rid = _id("hdr_request_", sem)
-    out = HostDryRunExecutionRequest(rid, "", str(correlation_id or req.get("correlation_id") or rid), _id("hfer_eval_", _sha(source.to_dict())), _sha(source.to_dict()), bundle_digest, str(req.get("current_grant_evidence_id", "")), str(req.get("current_grant_evidence_digest", "")), str(c.get("contract_id", "")), str(c.get("digest", "")), str(p.get("plan_id", "")), str(p.get("digest", "")), dry_domain, backend_class, tuple(req.get("requested_scope_labels", ())), tuple(req.get("target_labels", ())), created_at)
+    out = HostDryRunExecutionRequest(rid, "", str(correlation_id or req.get("correlation_id") or rid), _id("hfer_eval_", _sha(source.to_dict())), _sha(source.to_dict()), bundle_digest, str(req.get("current_grant_evidence_id", "")), str(req.get("current_grant_evidence_digest", "")), str(snap.get("snapshot_id", "")), str(snap.get("digest", "")), str(ver.get("verification_id", "")), str(ver.get("digest", "")), str(_payload(sv.get("expiry", {})).get("evaluation_id", "")), str(_payload(sv.get("expiry", {})).get("digest", "")), str(sv.get("no_revocation_digest", "")), str(c.get("contract_id", "")), str(c.get("digest", "")), str(p.get("plan_id", "")), str(p.get("digest", "")), dry_domain, backend_class, tuple(req.get("requested_scope_labels", ())), tuple(req.get("target_labels", ())), created_at)
     return replace(out, digest=digest_record(out))
 
 def plan_request(req: HostDryRunExecutionRequest, source: HostFulfillmentExecutorReadinessEvaluation) -> HostDryRunExecutionPlan:
@@ -159,19 +226,43 @@ class HostDryRunExecutionRuntimeCoordinator:
         self.runtime_state_root = Path(runtime_state_root or os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT") or tempfile.gettempdir()+"/sentientos_runtime")
         self.kernel = kernel or get_control_plane_kernel(); self.clock = clock or (lambda: "1970-01-01T00:00:00+00:00")
         self.admission_call_count = 0; self.harness_builder_call_count = 0; self.simulation_call_count = 0
+    @contextlib.contextmanager
+    def _fs_lock(self, root: Path) -> Iterator[None]:
+        root.mkdir(parents=True, exist_ok=True)
+        lock_path = root / ".host_dry_run_execution_runtime.lock"
+        import time
+        fd = -1
+        for _ in range(200):
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                break
+            except FileExistsError:
+                time.sleep(0.01)
+        if fd < 0:
+            raise RuntimeError("host_dry_run_execution_runtime_lock_timeout")
+        try:
+            os.write(fd, str(os.getpid()).encode())
+            yield
+        finally:
+            os.close(fd)
+            with contextlib.suppress(FileNotFoundError): lock_path.unlink()
     def request_simulation_admission(self, req: HostDryRunExecutionRequest, plan: HostDryRunExecutionPlan, registry: SimulatedBackendRegistry) -> Mapping[str, Any]:
         self.admission_call_count += 1
-        decision = self.kernel.admit(ControlActionRequest("host_dry_run_execution_runtime_simulation_review", AuthorityClass.PROPOSAL_EVALUATION, "operator_invoked_cli", "host_dry_run_execution_runtime", LifecyclePhase.MAINTENANCE, {"runtime_request_id": req.request_id, "runtime_request_digest": req.digest, "source_readiness_evaluation_digest": req.readiness_evaluation_digest, "source_readiness_bundle_digest": req.readiness_bundle_digest, "current_snapshot_id": req.current_snapshot_id, "current_snapshot_digest": req.current_snapshot_digest, "current_authority_evidence_digest": req.current_snapshot_digest, "executor_contract_id": req.executor_contract_id, "executor_contract_digest": req.executor_contract_digest, "declarative_dry_run_plan_id": req.declarative_dry_run_plan_id, "declarative_dry_run_plan_digest": req.declarative_dry_run_plan_digest, "simulated_backend_registry_id": registry.registry_id, "simulated_backend_registry_digest": registry.digest, "correlation_id": req.correlation_id, "simulation_only": True, **NO_REAL_EFFECT}))
+        decision = self.kernel.admit(ControlActionRequest("host_dry_run_execution_runtime_simulation_review", AuthorityClass.PROPOSAL_EVALUATION, "operator_invoked_cli", "host_dry_run_execution_runtime", LifecyclePhase.MAINTENANCE, {"runtime_request_id": req.request_id, "runtime_request_digest": req.digest, "source_readiness_evaluation_digest": req.readiness_evaluation_digest, "source_readiness_bundle_digest": req.readiness_bundle_digest, "current_snapshot_id": req.current_snapshot_id, "current_snapshot_digest": req.current_snapshot_digest, "current_grant_evidence_id": req.current_grant_evidence_id, "current_grant_evidence_digest": req.current_grant_evidence_digest, "current_verification_id": req.current_verification_id, "current_verification_digest": req.current_verification_digest, "current_expiry_evaluation_id": req.current_expiry_evaluation_id, "current_expiry_evaluation_digest": req.current_expiry_evaluation_digest, "current_revocation_set_digest": req.current_revocation_set_digest, "executor_contract_id": req.executor_contract_id, "executor_contract_digest": req.executor_contract_digest, "declarative_dry_run_plan_id": req.declarative_dry_run_plan_id, "declarative_dry_run_plan_digest": req.declarative_dry_run_plan_digest, "simulated_backend_registry_id": registry.registry_id, "simulated_backend_registry_digest": registry.digest, "correlation_id": req.correlation_id, "simulation_only": True, **NO_REAL_EFFECT}))
         return _payload(decision)
-    def evaluate(self, source: HostFulfillmentExecutorReadinessEvaluation, *, output_root: str | Path, correlation_id: str | None = None, persist: bool = True) -> HostDryRunExecutionEvaluation:
+    def evaluate(self, source: HostFulfillmentExecutorReadinessEvaluation, *, output_root: str | Path, correlation_id: str | None = None, persist: bool = True, current_snapshot: Mapping[str, Any] | HostLocalAuthorizationLedgerSnapshot | None = None, current_verification: Mapping[str, Any] | LocalAuthorizationGrantVerification | None = None) -> HostDryRunExecutionEvaluation:
         findings = list(validate_source_evaluation(source).findings)
         if findings:
             return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", tuple(findings), None, None, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
-        req = build_request(source, correlation_id=correlation_id, created_at=self.clock()); plan = plan_request(req, source); root = Path(output_root).resolve()
+        snap, ver, sv, af = _current_authority_findings(source, current_snapshot, current_verification, now=self.clock())
+        if af:
+            return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", tuple(af), None, None, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
+        req_snap = snap if snap.get("schema_version") else None
+        req_ver = ver if ver.get("digest") else None
+        req = build_request(source, correlation_id=correlation_id, created_at=self.clock(), current_snapshot=req_snap, current_verification=req_ver); plan = plan_request(req, source); root = Path(output_root).resolve()
         if str(root).startswith(str(Path.cwd().resolve())): return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", ("repository_local_runtime_root_rejected",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
         semantic = {"request": req.digest, "source": req.readiness_evaluation_digest, "bundle": req.readiness_bundle_digest, "snapshot": req.current_snapshot_digest, "contract": req.executor_contract_digest, "plan": req.declarative_dry_run_plan_digest, "domain": req.dry_run_domain, "backend": req.simulated_backend_class, "scope": req.scope_labels, "targets": req.target_labels, "correlation": req.correlation_id}
-        lock = _LOCKS.setdefault(str(root), threading.Lock())
-        with lock:
+        with self._fs_lock(root):
             prior = self._load_replay(root, req.correlation_id, semantic)
             if prior is not None:
                 if prior.get("conflict"): return HostDryRunExecutionEvaluation("contradicted_dry_run_runtime", ("semantic_replay_conflict",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
@@ -195,19 +286,22 @@ class HostDryRunExecutionRuntimeCoordinator:
             else:
                 receipt = None; status = "blocked_dry_run_runtime"
                 result = replace(result, request_digest=dry_req.digest, finding_digests=tuple(_sha(x) for x in result.block_reason_codes)); result = replace(result, digest=dry_run_execution_block_receipt_digest(result))
-            runtime = HostDryRunExecutionRuntimeReceipt(_id("hdr_receipt_", {"request": req.digest, "dry": dry_req.digest, "result": _payload(result).get("digest"), "receipt": _payload(receipt).get("digest", "")}), "", status, req.request_id, req.digest, plan.plan_id, plan.digest, dry_req.request_id, dry_req.digest, str(_payload(result).get("result_id") or _payload(result).get("receipt_id")), str(_payload(result).get("digest")), str(_payload(receipt).get("receipt_id", "")), str(_payload(receipt).get("digest", "")), str(_payload(source.runtime_receipt).get("receipt_id", "")), str(_payload(source.runtime_receipt).get("digest", "")), "", SCHEMA_VERSION, True, bool(receipt), NO_REAL_EFFECT)
+            runtime = HostDryRunExecutionRuntimeReceipt(receipt_id=_id("hdr_receipt_", {"request": req.digest, "dry": dry_req.digest, "result": _payload(result).get("digest"), "receipt": _payload(receipt).get("digest", "")}), digest="", posture=status, request_id=req.request_id, request_digest=req.digest, plan_id=plan.plan_id, plan_digest=plan.digest, dry_run_request_id=dry_req.request_id, dry_run_request_digest=dry_req.digest, result_or_block_id=str(_payload(result).get("result_id") or _payload(result).get("receipt_id")), result_or_block_digest=str(_payload(result).get("digest")), dry_run_receipt_id=str(_payload(receipt).get("receipt_id", "")), dry_run_receipt_digest=str(_payload(receipt).get("digest", "")), readiness_runtime_receipt_id=str(_payload(source.runtime_receipt).get("receipt_id", "")), readiness_runtime_receipt_digest=str(_payload(source.runtime_receipt).get("digest", "")), content_manifest_digest="", bundle_digest="", schema_version=SCHEMA_VERSION, simulation_only=True, dry_run_executed=bool(receipt), no_real_effect=NO_REAL_EFFECT)
             runtime = replace(runtime, digest=digest_record(runtime))
             ev = HostDryRunExecutionEvaluation(status, (), req, plan, admission, policy.to_dict(), registry.to_dict(), dry_req.to_dict(), _payload(result), _payload(receipt) if receipt else None, runtime, _source_manifest(source, req.readiness_bundle_digest), False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
             if persist and receipt: ev = replace(ev, persisted=self._persist(root, ev, semantic))
             return ev
-    def _blocked(self, req, plan, findings, policy, registry):
+    def _blocked(self, req: HostDryRunExecutionRequest, plan: HostDryRunExecutionPlan, findings: tuple[str, ...], policy: Any, registry: SimulatedBackendRegistry) -> HostDryRunExecutionEvaluation:
         return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", findings, req, plan, None, policy.to_dict(), registry.to_dict(), None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
-    def _manifest(self, bundle: Path) -> dict[str, Any]:
+    def _manifest(self, bundle: Path, *, final: bool = False) -> dict[str, Any]:
         entries=[]
+        skip = {"bundle_manifest.json"} if final else {"bundle_manifest.json", "runtime_receipt.json"}
         for path in sorted(bundle.iterdir()):
-            if path.name == "bundle_manifest.json": continue
+            if path.name in skip: continue
             raw=path.read_bytes(); entries.append({"relative_filename": path.name, "size": len(raw), "digest": "sha256:"+hashlib.sha256(raw).hexdigest(), "artifact_kind": path.stem, "schema_version": SCHEMA_VERSION})
-        return {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_dry_run_execution_runtime_bundle_manifest", "files": entries, "bundle_digest": _sha({"files": entries})}
+        kind = "host_dry_run_execution_runtime_bundle_manifest" if final else "host_dry_run_execution_runtime_content_manifest"
+        key = "bundle_digest" if final else "content_manifest_digest"
+        return {"schema_version": SCHEMA_VERSION, "artifact_kind": kind, "files": entries, key: _sha({"files": entries, "artifact_kind": kind})}
     def _persist(self, root: Path, ev: HostDryRunExecutionEvaluation, semantic: Mapping[str, Any]) -> bool:
         if root.exists() and root.is_symlink(): raise ValueError("symlink_escape_rejected")
         root.mkdir(parents=True, exist_ok=True); assert ev.request and ev.runtime_receipt
@@ -216,9 +310,10 @@ class HostDryRunExecutionRuntimeCoordinator:
         tmp.mkdir()
         files={"runtime_request.json": ev.request.to_dict(), "source_manifest.json": ev.source_manifest, "runtime_plan.json": ev.plan.to_dict() if ev.plan else None, "simulation_admission.json": ev.simulation_admission, "harness_policy.json": ev.harness_policy, "simulated_backend_registry.json": ev.simulated_backend_registry, "dry_run_request.json": ev.dry_run_request, "result_or_block_receipt.json": ev.result_or_block_receipt, "dry_run_receipt.json": ev.dry_run_receipt, "validation_findings.json": {"findings": ev.findings}, "runtime_receipt.json": ev.runtime_receipt.to_dict(), "summary.json": summarize_evaluation(ev), "README.md": render_markdown(ev)}
         for name, val in files.items(): (tmp/name).write_text(json.dumps(val, sort_keys=True, indent=2) if name.endswith('.json') else str(val), encoding='utf-8')
-        manifest=self._manifest(tmp); (tmp/"bundle_manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2), encoding='utf-8')
-        runtime=replace(ev.runtime_receipt, bundle_digest=manifest["bundle_digest"]); runtime=replace(runtime, digest=digest_record(runtime)); (tmp/"runtime_receipt.json").write_text(json.dumps(runtime.to_dict(), sort_keys=True, indent=2), encoding='utf-8')
-        manifest=self._manifest(tmp); (tmp/"bundle_manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2), encoding='utf-8')
+        content=self._manifest(tmp, final=False); (tmp/"content_manifest.json").write_text(json.dumps(content, sort_keys=True, indent=2), encoding='utf-8')
+        runtime=replace(ev.runtime_receipt, content_manifest_digest=content["content_manifest_digest"]); runtime=replace(runtime, digest=digest_record(runtime)); (tmp/"runtime_receipt.json").write_text(json.dumps(runtime.to_dict(), sort_keys=True, indent=2), encoding='utf-8')
+        manifest=self._manifest(tmp, final=True); (tmp/"bundle_manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2), encoding='utf-8')
+        if bundle.exists(): shutil.rmtree(bundle)
         os.replace(tmp, bundle)
         latest={"request_id": ev.request.request_id, "request_digest": ev.request.digest, "runtime_receipt_id": runtime.receipt_id, "runtime_receipt_digest": runtime.digest, "bundle_digest": manifest["bundle_digest"], "posture": ev.status}
         (root/"latest.json.tmp").write_text(json.dumps(latest, sort_keys=True, indent=2)); os.replace(root/"latest.json.tmp", root/"latest.json")
@@ -235,7 +330,9 @@ class HostDryRunExecutionRuntimeCoordinator:
         if not bundle.exists() or bundle.is_symlink(): return {"conflict": True}
         try:
             manifest=json.loads((bundle/"bundle_manifest.json").read_text()); entries=manifest.get("files", [])
-            if manifest.get("bundle_digest") != _sha({"files": entries}): return {"conflict": True}
+            if manifest.get("bundle_digest") != _sha({"files": entries, "artifact_kind": "host_dry_run_execution_runtime_bundle_manifest"}): return {"conflict": True}
+            if manifest.get("bundle_digest") != prior.get("bundle_digest"): return {"conflict": True}
+            if (root/"latest.json").exists() and json.loads((root/"latest.json").read_text()).get("bundle_digest") != prior.get("bundle_digest"): return {"conflict": True}
             for e in entries:
                 rel=str(e.get("relative_filename"))
                 if "/" in rel or ".." in Path(rel).parts: return {"conflict": True}
@@ -245,8 +342,8 @@ class HostDryRunExecutionRuntimeCoordinator:
         except Exception: return {"conflict": True}
         return {"bundle": str(bundle)}
     def _evaluation_from_bundle(self, bundle: Path) -> HostDryRunExecutionEvaluation:
-        def load(n): return json.loads((bundle/n).read_text())
-        req=HostDryRunExecutionRequest(**load("runtime_request.json")); plan=HostDryRunExecutionPlan(**load("runtime_plan.json")); runtime=HostDryRunExecutionRuntimeReceipt(**load("runtime_receipt.json"))
+        def load(n: str) -> Any: return json.loads((bundle/n).read_text())
+        req=HostDryRunExecutionRequest(**load("runtime_request.json")); pd=load("runtime_plan.json"); pd["source_refs"]=tuple(HostDryRunExecutionSourceRef(**r) for r in pd.get("source_refs", ())); plan=HostDryRunExecutionPlan(**pd); runtime=HostDryRunExecutionRuntimeReceipt(**load("runtime_receipt.json"))
         return HostDryRunExecutionEvaluation(runtime.posture, (), req, plan, load("simulation_admission.json"), load("harness_policy.json"), load("simulated_backend_registry.json"), load("dry_run_request.json"), load("result_or_block_receipt.json"), load("dry_run_receipt.json"), runtime, load("source_manifest.json"), True, True, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
 
 def summarize_evaluation(ev: HostDryRunExecutionEvaluation) -> dict[str, Any]:
@@ -256,7 +353,7 @@ def render_markdown(ev: HostDryRunExecutionEvaluation) -> str:
     s=summarize_evaluation(ev); return "# Host Dry-Run Execution Runtime\n\n"+"\n".join(f"- {k}: {v}" for k,v in sorted(s.items()))+"\n"
 
 def validate_evaluation(ev: HostDryRunExecutionEvaluation) -> HostDryRunExecutionRuntimeValidationResult:
-    f=[]
+    f: list[str] = []
     if ev.request and ev.request.digest != digest_record(ev.request): f.append("runtime_request_digest_mismatch")
     if ev.plan and ev.plan.digest != digest_record(ev.plan): f.append("runtime_plan_digest_mismatch")
     if ev.dry_run_request and not validate_dry_run_execution_request(ev.dry_run_request).ok: f += list(validate_dry_run_execution_request(ev.dry_run_request).findings)
@@ -276,7 +373,7 @@ def world_state_records(ev: HostDryRunExecutionEvaluation, *, observed_at: str =
     return out
 
 def dashboard_projection(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    posture={}; domains={}; backends={}; latest_req=latest_res=latest_rec=""; blocked=set(); gates=set(); count=success=blocked_count=stale=contradicted=unavailable=0
+    posture: dict[str, int] = {}; domains: dict[str, int] = {}; backends: dict[str, int] = {}; latest_req=latest_res=latest_rec=""; blocked: set[str] = set(); gates: set[str] = set(); count=success=blocked_count=stale=contradicted=unavailable=0
     for r in records:
         if not str(r.get("subject_kind", "")).startswith("host_dry_run_execution"): continue
         count+=1; posture[str(r.get("disposition", "unknown"))]=posture.get(str(r.get("disposition", "unknown")),0)+1; p=_payload(r.get("payload", {}))
