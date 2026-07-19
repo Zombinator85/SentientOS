@@ -981,4 +981,22 @@ def _host_fulfillment_executor_readiness_projection() -> dict[str, object]:
 def api_world_state_host_fulfillment_executor_readiness() -> dict[str, object]:
     return _host_fulfillment_executor_readiness_projection()
 
+
+def _host_dry_run_execution_projection() -> dict[str, object]:
+    from sentientos.host_dry_run_execution_runtime import dashboard_projection
+    snap = _world_state_snapshot()
+    records = []
+    for fact in snap.get("facts", []):
+        if not isinstance(fact, dict):
+            continue
+        subject = fact.get("subject", {})
+        kind = str(subject.get("subject_kind", fact.get("subject_kind", ""))) if isinstance(subject, dict) else str(fact.get("subject_kind", ""))
+        if kind.startswith("host_dry_run_execution"):
+            records.append({**fact, "subject_kind": kind, "subject_id": subject.get("subject_id") if isinstance(subject, dict) else fact.get("subject_id")})
+    return dashboard_projection(records)
+
+@app.get("/api/world-state/host-dry-run-execution", dependencies=[Depends(require_token)])
+def api_world_state_host_dry_run_execution() -> dict[str, object]:
+    return _host_dry_run_execution_projection()
+
 __all__ = ["app"]

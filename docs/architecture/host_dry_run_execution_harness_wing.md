@@ -52,3 +52,7 @@ Proof path: docs/architecture/host_dry_run_audit_closure_wing.md
 ## Real effect capability admission link
 
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
+
+## Runtime closure lineage
+
+`sentientos/host_dry_run_execution_runtime.py` now owns the canonical host runtime coordinator around this harness. The harness remains the deterministic inert simulation engine, while the runtime owns source custody, proposal-evaluation admission, parent-digest lineage, external bundle persistence, replay validation, World-State projection, and dashboard boundaries. Harness records include compatible parent lineage fields so strict runtime validation can reject legacy loose records.

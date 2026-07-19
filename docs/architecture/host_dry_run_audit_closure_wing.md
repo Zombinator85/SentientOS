@@ -48,3 +48,7 @@ The reviewer proof bundle includes `dry_run_audit_closure.json`. The artifact is
 See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
 
 Dry-run closure feeds real-effect admission; the first narrow real-effect successor is the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md).
+
+## Dry-run runtime is not audit closure
+
+The host dry-run execution runtime can produce simulation-only dry-run receipts and replay-safe runtime bundles, but it does not complete dry-run audit closure, real postcondition checks, real rollback, real fulfillment, effect proof, or host mutation. Audit closure remains a separate metadata-only wing.
