@@ -12,7 +12,7 @@ Backend declarations are bounded data-only metadata. Dry-run plans are declarati
 
 The runtime binds the exact `HostFulfillmentAuthorizationConsumptionResult`, request envelope, source reference, successful consumption receipt, consumption ledger entry and ledger, plus current grant expiry/revocation posture. After proposal/review metadata admission allows evaluation, it composes the canonical records from `sentientos/fulfillment_executor_contract.py`: contract, backend declaration, precondition manifest, dry-run plan, admission packet, and readiness receipt.
 
-Every downstream record carries direct parent IDs and digests. Semantic IDs exclude custody timestamps and runtime paths while including source IDs/digests, executor domain, backend class/label, scope, targets, current grant posture, prerequisites, blocked actions, future gates, risk/warning codes, and no-authority assertions.
+Every downstream record carries direct parent IDs and digests. Semantic IDs exclude custody timestamps and runtime paths while including source IDs/digests, executor domain, backend class/label, scope, targets, exact current grant/verification/authorization-ledger/expiry-evaluation/revocation evidence, the derived current grant evidence posture, prerequisites, blocked actions, future gates, risk/warning codes, and no-authority assertions. Caller-supplied posture labels are diagnostic expectations only and never establish authority.
 
 ## Persistence and projection
 
