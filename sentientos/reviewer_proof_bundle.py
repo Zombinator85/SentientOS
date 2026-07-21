@@ -122,6 +122,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_fulfillment_authorization_consumption_custody_posture",
         "host_fulfillment_executor_contract_readiness_runtime_posture",
         "host_dry_run_execution_runtime_posture",
+        "host_dry_run_audit_closure_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -243,6 +244,7 @@ BUNDLE_FILE_NAMES = {
     "host_fulfillment_authorization_consumption_custody_posture": "host_fulfillment_authorization_consumption_custody_posture.json",
     "host_fulfillment_executor_contract_readiness_runtime_posture": "host_fulfillment_executor_contract_readiness_runtime_posture.json",
     "host_dry_run_execution_runtime_posture": "host_dry_run_execution_runtime_posture.json",
+    "host_dry_run_audit_closure_runtime_posture": "host_dry_run_audit_closure_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2083,6 +2085,10 @@ def build_reviewer_proof_bundle_payload(
     if hdr_record is not None:
         contents["host_dry_run_execution_runtime_posture"] = _pretty_json({"artifact_kind":"host_dry_run_execution_runtime_posture", **hdr_record.to_dict(), "metadata_only": True, "simulation_only": True, "exact_executor_readiness_runtime_custody_required": True, "exact_current_authority_snapshot_required": True, "deterministic_in_process_simulated_backend_only": True, "dry_run_executed_may_be_true": True, "executor_implemented": False, "real_executor_invoked": False, "backend_loaded": False, "backend_invoked": False, "real_backend_invoked": False, "future_execution_admission_granted": False, "fulfillment_granted": False, "privileged_effect_admission_granted": False, "host_mutation_performed": False, "effect_proven": False, "docs_reference":"docs/architecture/host_dry_run_execution_runtime.md", "matrix_reference":"host_dry_run_execution_runtime_tests"})
 
+
+    hdrac_record = registry.by_id().get("host_dry_run_audit_closure_runtime")
+    if hdrac_record is not None:
+        contents["host_dry_run_audit_closure_runtime_posture"] = _pretty_json({"artifact_kind":"host_dry_run_audit_closure_runtime_posture", **hdrac_record.to_dict(), "metadata_only": True, "simulation_only": True, "exact_persisted_host_dry_run_bundle_required": True, "strict_parent_lineage_required": True, "production_audit_receipt_created": False, "real_effect_receipt_created": False, "real_postcondition_check_performed": False, "real_rollback_performed": False, "real_fulfillment_performed": False, "real_effect_performed": False, "real_backend_invoked": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_dry_run_audit_closure_runtime.md", "matrix_reference":"host_dry_run_audit_closure_runtime_tests"})
 
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)

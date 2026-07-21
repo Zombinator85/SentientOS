@@ -158,6 +158,7 @@ class DryRunEffectVerification:
     real_effect_performed: bool = False
     real_backend_invoked: bool = False
     host_mutation_performed: bool = False
+    source_dry_run_receipt_semantic_digest: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -183,6 +184,8 @@ class DryRunPostconditionVerification:
     dry_run_postcondition_only: bool = True
     real_postcondition_check_performed: bool = False
     host_mutation_performed: bool = False
+    source_dry_run_receipt_semantic_digest: str = ""
+    source_effect_verification_digest: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -207,6 +210,8 @@ class DryRunRollbackRehearsal:
     dry_run_rollback_only: bool = True
     real_rollback_performed: bool = False
     host_mutation_performed: bool = False
+    source_dry_run_receipt_semantic_digest: str = ""
+    source_effect_verification_digest: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -247,6 +252,10 @@ class DryRunAuditClosureReceipt:
     provider_invocation_performed: bool = False
     network_performed: bool = False
     prompt_assembly_performed: bool = False
+    source_dry_run_receipt_semantic_digest: str = ""
+    source_effect_verification_digest: str = ""
+    source_postcondition_verification_digest: str = ""
+    source_rollback_rehearsal_digest: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -272,6 +281,11 @@ class DryRunClosureBundle:
     real_fulfillment_performed: bool = False
     real_effect_performed: bool = False
     host_mutation_performed: bool = False
+    source_dry_run_receipt_semantic_digest: str = ""
+    effect_verification_digest: str = ""
+    postcondition_verification_digest: str = ""
+    rollback_rehearsal_digest: str = ""
+    audit_closure_receipt_digest: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -302,6 +316,10 @@ def _source_payload(source: Any) -> Mapping[str, Any]:
 def _payload(record_or_payload: Any) -> dict[str, Any]:
     payload = dict(_source_payload(record_or_payload))
     payload["digest"] = ""
+    payload.pop("created_at", None)
+    payload.pop("observed_at", None)
+    for _k in ("simulation_only", "executor_implemented", "real_executor_invoked", "backend_loaded", "backend_invoked", "control_plane_execution_admission_granted", "fulfillment_granted", "privileged_effect_admission_granted", "effect_performed", "no_real_effect"):
+        payload.pop(_k, None)
     return payload
 
 
@@ -413,7 +431,7 @@ def build_dry_run_effect_verification(
     blocked = _blocked_actions(closure_domain, receipt.get("blocked_actions"))
     risks = tuple(sorted(set(_tuple(receipt.get("risk_codes"))) | {"dry_run_effect_verification_is_not_real_effect_receipt"}))
     provisional = DryRunEffectVerification(
-        verification_id or _digest_id("dry-run-effect-verification-", {"receipt": receipt.get("receipt_id"), "status": base}),
+        verification_id or _digest_id("dry-run-effect-verification-", {"receipt": receipt.get("receipt_id"), "receipt_digest": receipt.get("digest"), "status": base}),
         str(receipt.get("receipt_id", "")),
         str(receipt.get("digest", "")),
         closure_domain,
@@ -426,6 +444,7 @@ def build_dry_run_effect_verification(
         risks,
         created_at,
         "",
+        source_dry_run_receipt_semantic_digest=dry_run_audit_closure_digest(receipt),
     )
     return replace(provisional, digest=dry_run_effect_verification_digest(provisional))
 
@@ -448,7 +467,7 @@ def build_dry_run_postcondition_verification(
         base = "incomplete"
     risks = tuple(sorted(set(_tuple(receipt.get("risk_codes"))) | {"dry_run_postcondition_is_not_real_host_postcondition_check"}))
     provisional = DryRunPostconditionVerification(
-        verification_id or _digest_id("dry-run-postcondition-verification-", {"receipt": receipt.get("receipt_id"), "effect": effect.get("verification_id"), "status": base}),
+        verification_id or _digest_id("dry-run-postcondition-verification-", {"receipt": receipt.get("receipt_id"), "receipt_digest": receipt.get("digest"), "effect": effect.get("verification_id"), "effect_digest": effect.get("digest"), "status": base}),
         str(receipt.get("receipt_id", "")),
         str(effect.get("verification_id", "")),
         str(effect.get("dry_run_domain", _closure_domain(str(receipt.get("dry_run_domain", ""))))),
@@ -462,6 +481,8 @@ def build_dry_run_postcondition_verification(
         risks,
         created_at,
         "",
+        source_dry_run_receipt_semantic_digest=dry_run_audit_closure_digest(receipt),
+        source_effect_verification_digest=str(effect.get("digest", "")),
     )
     return replace(provisional, digest=dry_run_postcondition_verification_digest(provisional))
 
@@ -479,7 +500,7 @@ def build_dry_run_rollback_rehearsal(
     labels = _tuple(receipt.get("simulated_rollback_labels")) or ("rollback_not_required_no_real_effect",)
     risks = tuple(sorted(set(_tuple(receipt.get("risk_codes"))) | {"dry_run_rollback_rehearsal_is_not_real_rollback"}))
     provisional = DryRunRollbackRehearsal(
-        rehearsal_id or _digest_id("dry-run-rollback-rehearsal-", {"receipt": receipt.get("receipt_id"), "effect": effect.get("verification_id"), "status": base}),
+        rehearsal_id or _digest_id("dry-run-rollback-rehearsal-", {"receipt": receipt.get("receipt_id"), "receipt_digest": receipt.get("digest"), "effect": effect.get("verification_id"), "effect_digest": effect.get("digest"), "status": base}),
         str(receipt.get("receipt_id", "")),
         str(effect.get("verification_id", "")),
         str(effect.get("dry_run_domain", _closure_domain(str(receipt.get("dry_run_domain", ""))))),
@@ -492,6 +513,8 @@ def build_dry_run_rollback_rehearsal(
         risks,
         created_at,
         "",
+        source_dry_run_receipt_semantic_digest=dry_run_audit_closure_digest(receipt),
+        source_effect_verification_digest=str(effect.get("digest", "")),
     )
     return replace(provisional, digest=dry_run_rollback_rehearsal_digest(provisional))
 
@@ -520,7 +543,7 @@ def build_dry_run_audit_closure_receipt(
     )
     risks = tuple(sorted(set(_tuple(receipt.get("risk_codes"))) | {"dry_run_audit_closure_is_not_production_audit_receipt"}))
     provisional = DryRunAuditClosureReceipt(
-        receipt_id or _digest_id("dry-run-audit-closure-receipt-", {"receipt": receipt.get("receipt_id"), "effect": effect.get("verification_id"), "status": base}),
+        receipt_id or _digest_id("dry-run-audit-closure-receipt-", {"receipt": receipt.get("receipt_id"), "receipt_digest": receipt.get("digest"), "effect": effect.get("verification_id"), "effect_digest": effect.get("digest"), "status": base}),
         str(receipt.get("receipt_id", "")),
         str(effect.get("verification_id", "")),
         str(post.get("verification_id", "")),
@@ -533,6 +556,10 @@ def build_dry_run_audit_closure_receipt(
         risks,
         created_at,
         "",
+        source_dry_run_receipt_semantic_digest=dry_run_audit_closure_digest(receipt),
+        source_effect_verification_digest=str(effect.get("digest", "")),
+        source_postcondition_verification_digest=str(post.get("digest", "")),
+        source_rollback_rehearsal_digest=str(rollback.get("digest", "")),
     )
     return replace(provisional, digest=dry_run_audit_closure_receipt_digest(provisional))
 
@@ -568,6 +595,11 @@ def build_dry_run_closure_bundle(
         risks,
         created_at,
         "",
+        source_dry_run_receipt_semantic_digest=dry_run_audit_closure_digest(receipt),
+        effect_verification_digest=str(effect.get("digest", "")),
+        postcondition_verification_digest=str(post.get("digest", "")),
+        rollback_rehearsal_digest=str(rollback.get("digest", "")),
+        audit_closure_receipt_digest=str(audit.get("digest", "")),
     )
     return replace(provisional, digest=dry_run_closure_bundle_digest(provisional))
 
@@ -627,6 +659,26 @@ def validate_dry_run_closure_bundle(record: DryRunClosureBundle | Mapping[str, A
         f.append("closure_bundle:unknown_closure_domain")
     return DryRunAuditClosureValidationResult(not f, tuple(f))
 
+
+
+def validate_dry_run_audit_closure_chain(
+    dry_run_receipt: DryRunExecutionReceipt | Mapping[str, Any],
+    effect_verification: DryRunEffectVerification | Mapping[str, Any],
+    postcondition_verification: DryRunPostconditionVerification | Mapping[str, Any],
+    rollback_rehearsal: DryRunRollbackRehearsal | Mapping[str, Any],
+    audit_closure_receipt: DryRunAuditClosureReceipt | Mapping[str, Any],
+    closure_bundle: DryRunClosureBundle | Mapping[str, Any],
+) -> DryRunAuditClosureValidationResult:
+    receipt = _source_payload(dry_run_receipt); effect = _source_payload(effect_verification); post = _source_payload(postcondition_verification); rollback = _source_payload(rollback_rehearsal); audit = _source_payload(audit_closure_receipt); bundle = _source_payload(closure_bundle)
+    rd = str(receipt.get("digest", "")); rsd = dry_run_audit_closure_digest(receipt); f: list[str] = []
+    if effect.get("source_dry_run_receipt_id") != receipt.get("receipt_id") or effect.get("source_dry_run_receipt_digest") != rd or effect.get("source_dry_run_receipt_semantic_digest") != rsd: f.append("effect_parent_mismatch")
+    for name, obj in (("postcondition", post), ("rollback", rollback)):
+        if obj.get("source_dry_run_receipt_id") != receipt.get("receipt_id") or obj.get("source_dry_run_receipt_semantic_digest") != rsd or obj.get("source_effect_verification_id") != effect.get("verification_id") or obj.get("source_effect_verification_digest") != effect.get("digest"): f.append(name + "_parent_mismatch")
+    if audit.get("source_dry_run_receipt_id") != receipt.get("receipt_id") or audit.get("source_dry_run_receipt_semantic_digest") != rsd or audit.get("source_effect_verification_id") != effect.get("verification_id") or audit.get("source_effect_verification_digest") != effect.get("digest") or audit.get("source_postcondition_verification_id") != post.get("verification_id") or audit.get("source_postcondition_verification_digest") != post.get("digest") or audit.get("source_rollback_rehearsal_id") != rollback.get("rehearsal_id") or audit.get("source_rollback_rehearsal_digest") != rollback.get("digest"): f.append("audit_parent_mismatch")
+    if bundle.get("source_dry_run_receipt_id") != receipt.get("receipt_id") or bundle.get("source_dry_run_receipt_semantic_digest") != rsd or bundle.get("effect_verification_id") != effect.get("verification_id") or bundle.get("effect_verification_digest") != effect.get("digest") or bundle.get("postcondition_verification_id") != post.get("verification_id") or bundle.get("postcondition_verification_digest") != post.get("digest") or bundle.get("rollback_rehearsal_id") != rollback.get("rehearsal_id") or bundle.get("rollback_rehearsal_digest") != rollback.get("digest") or bundle.get("audit_closure_receipt_id") != audit.get("receipt_id") or bundle.get("audit_closure_receipt_digest") != audit.get("digest"): f.append("bundle_parent_mismatch")
+    for label, obj, validator in (("effect", effect, validate_dry_run_effect_verification), ("postcondition", post, validate_dry_run_postcondition_verification), ("rollback", rollback, validate_dry_run_rollback_rehearsal), ("audit", audit, validate_dry_run_audit_closure_receipt), ("bundle", bundle, validate_dry_run_closure_bundle)):
+        vr = validator(obj); f.extend(label + ":" + x for x in vr.findings)
+    return DryRunAuditClosureValidationResult(not f, tuple(sorted(set(f))))
 
 def summarize_dry_run_effect_verification(record: DryRunEffectVerification | Mapping[str, Any]) -> dict[str, Any]:
     p = _source_payload(record)
