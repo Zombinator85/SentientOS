@@ -5,12 +5,15 @@ import argparse, json, sys
 from pathlib import Path
 from typing import Any, Mapping
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from sentientos.host_dry_run_audit_closure_runtime import HostDryRunAuditClosureRuntimeCoordinator, load_latest_evaluation, render_markdown, summarize_evaluation, validate_evaluation
+from sentientos.host_dry_run_audit_closure_runtime import HostDryRunAuditClosureRuntimeCoordinator, load_latest_evaluation, render_markdown, summarize_evaluation, validate_evaluation, validate_persisted_closure_bundle
 
 
 def _ev(args: argparse.Namespace) -> Any:
     if args.bundle:
-        return HostDryRunAuditClosureRuntimeCoordinator()._evaluation_from_bundle(Path(args.bundle))
+        v = validate_persisted_closure_bundle(Path(args.bundle))
+        if not v.ok or v.evaluation is None:
+            raise SystemExit(json.dumps(v.to_dict(), sort_keys=True))
+        return v.evaluation
     if args.output_root and args.cmd in {"summarize", "render-json", "render-markdown", "validate-bundle"}:
         ev = load_latest_evaluation(args.output_root)
         if ev is not None: return ev
@@ -37,11 +40,18 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "validate-source":
         c=HostDryRunAuditClosureRuntimeCoordinator(); _source, manifest, findings = c._read_source_bundle(args.dry_run_runtime_bundle_root or "")
         out={"ok": not findings, "findings": findings, "source_manifest": manifest}
+    elif args.cmd == "validate-bundle":
+        if args.bundle: out=validate_persisted_closure_bundle(args.bundle).to_dict()
+        elif args.output_root:
+            latest=Path(args.output_root)/"latest.json"
+            data=json.loads(latest.read_text(encoding="utf-8")); out=validate_persisted_closure_bundle(Path(args.output_root)/str(data.get("request_id", "")), expected_final_digest=str(data.get("bundle_digest", "")), expected_request_id=str(data.get("request_id", ""))).to_dict()
+        else:
+            ev=_ev(args); out=validate_evaluation(ev).to_dict()
     else:
         ev=_ev(args)
         if args.cmd == "build-request": out=ev.request.to_dict() if ev.request else {"status": ev.status, "findings": ev.findings}
         elif args.cmd == "plan": out=ev.plan.to_dict() if ev.plan else {"status": ev.status, "findings": ev.findings}
-        elif args.cmd in {"validate-evaluation", "validate-bundle"}: out=validate_evaluation(ev).to_dict()
+        elif args.cmd == "validate-evaluation": out=validate_evaluation(ev).to_dict()
         elif args.cmd == "summarize": out=summarize_evaluation(ev)
         elif args.cmd == "render-markdown":
             text=render_markdown(ev)
@@ -52,5 +62,5 @@ def main(argv: list[str] | None = None) -> int:
     text=json.dumps(out, sort_keys=True, indent=2)
     if args.output: Path(args.output).write_text(text, encoding="utf-8")
     else: print(text)
-    return 0
+    return 0 if not (isinstance(out, dict) and out.get("ok") is False and args.cmd in {"validate-source", "validate-bundle", "validate-evaluation"}) else 1
 if __name__ == "__main__": raise SystemExit(main())

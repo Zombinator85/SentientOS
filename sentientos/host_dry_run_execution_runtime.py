@@ -70,6 +70,7 @@ _LOCKS: dict[str, threading.Lock] = {}
 
 def _canon(o: Any) -> str: return json.dumps(o, sort_keys=True, separators=(",", ":"), default=str)
 def _sha(o: Any) -> str: return "sha256:" + hashlib.sha256(_canon(o).encode()).hexdigest()
+def _file_sha(raw: bytes) -> str: return "sha256:" + hashlib.sha256(raw).hexdigest()
 def _id(prefix: str, o: Any) -> str: return prefix + hashlib.sha256(_canon(o).encode()).hexdigest()[:24]
 def _payload(o: Any) -> dict[str, Any]:
     if o is None: return {}
@@ -113,6 +114,78 @@ class HostDryRunExecutionRuntimeSummary:
 class HostDryRunExecutionRuntimeValidationResult:
     ok: bool; findings: tuple[str, ...]
     def to_dict(self) -> dict[str, Any]: return asdict(self)
+@dataclass(frozen=True)
+class HostDryRunExecutionPersistedBundleValidation:
+    ok: bool; findings: tuple[str, ...]; evaluation: HostDryRunExecutionEvaluation | None = None; bundle_digest: str = ""; content_manifest_digest: str = ""
+    def to_dict(self) -> dict[str, Any]: return {"ok": self.ok, "findings": self.findings, "bundle_digest": self.bundle_digest, "content_manifest_digest": self.content_manifest_digest, "evaluation": self.evaluation.to_dict() if self.evaluation else None}
+
+
+SOURCE_CONTENT_FILES = {"runtime_request.json", "source_manifest.json", "runtime_plan.json", "simulation_admission.json", "harness_policy.json", "simulated_backend_registry.json", "dry_run_request.json", "result_or_block_receipt.json", "dry_run_receipt.json", "validation_findings.json", "summary.json", "README.md"}
+SOURCE_FINAL_FILES = SOURCE_CONTENT_FILES | {"content_manifest.json", "runtime_receipt.json"}
+SOURCE_SEMANTIC_JSON = SOURCE_FINAL_FILES - {"summary.json"}
+
+def _safe_bundle_root(path: str | Path) -> tuple[Path | None, list[str]]:
+    original=Path(path); f=[]
+    if original.is_symlink(): f.append("symlink_root_rejected")
+    root=original.resolve()
+    if not root.is_dir(): f.append("persisted_bundle_root_required")
+    return (root if not f else None), f
+
+def _read_manifest(bundle: Path, name: str, kind: str, digest_key: str, required: set[str]) -> tuple[dict[str, Any], list[str]]:
+    f=[]
+    try: manifest=json.loads((bundle/name).read_text(encoding="utf-8"))
+    except Exception: return {}, [name.replace('.json','') + "_unreadable"]
+    entries=manifest.get("files", [])
+    if manifest.get("artifact_kind") != kind: f.append(name.replace('.json','') + "_artifact_kind_mismatch")
+    seen=[]
+    for e in entries:
+        rel=str(e.get("relative_filename", "")); seen.append(rel)
+        target=bundle/rel
+        if rel in {"", name} or target.is_symlink() or rel != Path(rel).name or ".." in Path(rel).parts:
+            f.append("manifest_path_rejected:" + rel); continue
+        try:
+            resolved=target.resolve(); resolved.relative_to(bundle)
+        except Exception: f.append("manifest_path_escape:" + rel); continue
+        if not target.exists(): f.append("manifested_file_missing:" + rel); continue
+        raw=target.read_bytes()
+        if len(raw) != int(e.get("size", -1)): f.append("manifest_size_mismatch:" + rel)
+        if _file_sha(raw) != e.get("digest"): f.append("manifest_digest_mismatch:" + rel)
+    if len(seen) != len(set(seen)): f.append("duplicate_manifest_entry")
+    if set(seen) != required:
+        for missing in sorted(required-set(seen)): f.append("required_artifact_omitted:" + missing)
+        for extra in sorted(set(seen)-required): f.append("unexpected_manifested_artifact:" + extra)
+    disk={x.name for x in bundle.iterdir() if x.is_file() and not x.name.startswith('.')}
+    for missing in sorted(required-disk): f.append("required_artifact_missing:" + missing)
+    known_bundle_files = SOURCE_FINAL_FILES | {"bundle_manifest.json"} | {"content_manifest.json"}
+    for extra in sorted(disk-known_bundle_files):
+        if extra.endswith('.json'): f.append("unexpected_unmanifested_semantic_artifact:" + extra)
+    expected=_sha({"files": entries, "artifact_kind": kind})
+    if manifest.get(digest_key) != expected: f.append(name.replace('.json','') + "_digest_mismatch")
+    return manifest, f
+
+def validate_persisted_evaluation_bundle(bundle_root: str | Path, *, expected_final_digest: str | None = None, expected_request_id: str | None = None) -> HostDryRunExecutionPersistedBundleValidation:
+    bundle, f = _safe_bundle_root(bundle_root)
+    if bundle is None: return HostDryRunExecutionPersistedBundleValidation(False, tuple(sorted(set(f))))
+    content, cf = _read_manifest(bundle, "content_manifest.json", "host_dry_run_execution_runtime_content_manifest", "content_manifest_digest", SOURCE_CONTENT_FILES)
+    final, ff = _read_manifest(bundle, "bundle_manifest.json", "host_dry_run_execution_runtime_bundle_manifest", "bundle_digest", SOURCE_FINAL_FILES)
+    f += cf + ff
+    try: ev=HostDryRunExecutionRuntimeCoordinator()._evaluation_from_bundle(bundle)
+    except Exception as exc: return HostDryRunExecutionPersistedBundleValidation(False, tuple(sorted(set(f+["bundle_decode_failed:"+type(exc).__name__]))), None, str(final.get("bundle_digest", "")), str(content.get("content_manifest_digest", "")))
+    f += list(validate_evaluation(ev).findings)
+    rr=_payload(ev.runtime_receipt)
+    if rr.get("content_manifest_digest") != content.get("content_manifest_digest"): f.append("runtime_receipt_content_manifest_digest_mismatch")
+    if rr.get("bundle_digest", "") not in {"", final.get("bundle_digest")}: f.append("runtime_receipt_final_digest_mismatch")
+    if expected_final_digest and final.get("bundle_digest") != expected_final_digest: f.append("parent_final_manifest_digest_mismatch")
+    if expected_request_id and (not ev.request or ev.request.request_id != expected_request_id): f.append("parent_request_id_mismatch")
+    if ev.status != "dry_run_runtime_simulated": f.append("source_runtime_not_successful")
+    if not ev.dry_run_receipt: f.append("dry_run_receipt_required")
+    if ev.request and ev.plan and ev.plan.request_digest != ev.request.digest: f.append("plan_request_digest_mismatch")
+    if ev.runtime_receipt and ev.request and rr.get("request_digest") != ev.request.digest: f.append("runtime_receipt_request_digest_mismatch")
+    if ev.runtime_receipt and ev.plan and rr.get("plan_digest") != ev.plan.digest: f.append("runtime_receipt_plan_digest_mismatch")
+    if ev.dry_run_request and rr.get("dry_run_request_digest") != ev.dry_run_request.get("digest"): f.append("runtime_receipt_dry_run_request_digest_mismatch")
+    if ev.result_or_block_receipt and rr.get("result_or_block_digest") != ev.result_or_block_receipt.get("digest"): f.append("runtime_receipt_result_digest_mismatch")
+    if ev.dry_run_receipt and rr.get("dry_run_receipt_digest") != ev.dry_run_receipt.get("digest"): f.append("runtime_receipt_dry_run_receipt_digest_mismatch")
+    return HostDryRunExecutionPersistedBundleValidation(not f, tuple(sorted(set(f))), ev if not f else None, str(final.get("bundle_digest", "")), str(content.get("content_manifest_digest", "")))
 
 def _bundle_digest_from_eval(ev: HostFulfillmentExecutorReadinessEvaluation) -> str:
     return _sha({"readiness_evaluation": ev.to_dict()})
@@ -259,14 +332,20 @@ class HostDryRunExecutionRuntimeCoordinator:
             return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", tuple(af), None, None, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
         req_snap = snap if snap.get("schema_version") else None
         req_ver = ver if ver.get("digest") else None
-        req = build_request(source, correlation_id=correlation_id, created_at=self.clock(), current_snapshot=req_snap, current_verification=req_ver); plan = plan_request(req, source); root = Path(output_root).resolve()
-        if str(root).startswith(str(Path.cwd().resolve())): return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", ("repository_local_runtime_root_rejected",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
+        req = build_request(source, correlation_id=correlation_id, created_at=self.clock(), current_snapshot=req_snap, current_verification=req_ver); plan = plan_request(req, source); root_original=Path(output_root)
+        if root_original.is_symlink(): return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", ("symlink_root_rejected",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
+        root = root_original.resolve()
+        try:
+            root.relative_to(Path.cwd().resolve()); inside_repo=True
+        except ValueError:
+            inside_repo=False
+        if inside_repo: return HostDryRunExecutionEvaluation("blocked_dry_run_runtime", ("repository_local_runtime_root_rejected",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
         semantic = {"request": req.digest, "source": req.readiness_evaluation_digest, "bundle": req.readiness_bundle_digest, "snapshot": req.current_snapshot_digest, "contract": req.executor_contract_digest, "plan": req.declarative_dry_run_plan_digest, "domain": req.dry_run_domain, "backend": req.simulated_backend_class, "scope": req.scope_labels, "targets": req.target_labels, "correlation": req.correlation_id}
         with self._fs_lock(root):
             prior = self._load_replay(root, req.correlation_id, semantic)
             if prior is not None:
                 if prior.get("conflict"): return HostDryRunExecutionEvaluation("contradicted_dry_run_runtime", ("semantic_replay_conflict",), req, plan, None, None, None, None, None, None, None, None, False, False, self.admission_call_count, self.harness_builder_call_count, self.simulation_call_count)
-                return self._evaluation_from_bundle(Path(prior["bundle"]))
+                return validate_persisted_evaluation_bundle(Path(prior["bundle"]), expected_final_digest=str(prior.get("bundle_digest", ""))).evaluation  # type: ignore[return-value]
             policy = build_default_dry_run_harness_policy(); registry = build_default_simulated_backend_registry(created_at=self.clock())
             rv = validate_simulated_backend_registry(registry)
             if not rv.ok: return self._blocked(req, plan, tuple(rv.findings), policy, registry)
@@ -303,7 +382,7 @@ class HostDryRunExecutionRuntimeCoordinator:
         key = "bundle_digest" if final else "content_manifest_digest"
         return {"schema_version": SCHEMA_VERSION, "artifact_kind": kind, "files": entries, key: _sha({"files": entries, "artifact_kind": kind})}
     def _persist(self, root: Path, ev: HostDryRunExecutionEvaluation, semantic: Mapping[str, Any]) -> bool:
-        if root.exists() and root.is_symlink(): raise ValueError("symlink_escape_rejected")
+        if Path(root).is_symlink(): raise ValueError("symlink_root_rejected")
         root.mkdir(parents=True, exist_ok=True); assert ev.request and ev.runtime_receipt
         bundle=root/ev.request.request_id; tmp=root/(bundle.name+".tmp")
         if tmp.exists(): shutil.rmtree(tmp)
@@ -340,7 +419,9 @@ class HostDryRunExecutionRuntimeCoordinator:
                 if len(raw) != int(e.get("size", -1)) or "sha256:"+hashlib.sha256(raw).hexdigest() != e.get("digest"): return {"conflict": True}
                 if rel.endswith(".json"): json.loads(raw.decode())
         except Exception: return {"conflict": True}
-        return {"bundle": str(bundle)}
+        v=validate_persisted_evaluation_bundle(bundle, expected_final_digest=str(prior.get("bundle_digest", "")), expected_request_id=str(prior.get("request_id", "")))
+        if not v.ok: return {"conflict": True}
+        return {"bundle": str(bundle), "bundle_digest": v.bundle_digest}
     def _evaluation_from_bundle(self, bundle: Path) -> HostDryRunExecutionEvaluation:
         def load(n: str) -> Any: return json.loads((bundle/n).read_text())
         req=HostDryRunExecutionRequest(**load("runtime_request.json")); pd=load("runtime_plan.json"); pd["source_refs"]=tuple(HostDryRunExecutionSourceRef(**r) for r in pd.get("source_refs", ())); plan=HostDryRunExecutionPlan(**pd); runtime=HostDryRunExecutionRuntimeReceipt(**load("runtime_receipt.json"))
