@@ -72,3 +72,27 @@ Projected World-State evidence preserves `metadata_only=true`,
 `simulation_only=true`, and false flags for production audit receipts, real
 effect receipts, real postcondition checks, real rollback, real fulfillment,
 real effects, real backend invocation, and host mutation.
+
+## Persisted bundle validation repair
+
+The dry-run source runtime and the audit-closure runtime now treat persisted
+bundles as custody artifacts rather than convenient JSON directories.  Public
+read-only validators validate the originally supplied root before resolving it,
+reject symlink roots and symlink artifact files, require exact manifest
+membership, reject duplicate manifest entries, missing manifested files,
+required semantic artifacts omitted from manifests, and unexpected unmanifested
+semantic JSON artifacts, and bind both content and final manifests to recorded
+sizes and SHA-256 file digests.
+
+The non-self-referential digest structure is: the content manifest binds the
+semantic artifacts, the runtime receipt binds the content-manifest digest, the
+final manifest binds the content manifest plus runtime receipt, and latest.json
+or replay_index.json bind the final-manifest digest.  The runtime receipt no
+longer assigns meaning to an always-empty final bundle digest.
+
+CLI validation commands are read-only.  `validate-source` uses the source bundle
+validator, `validate-bundle` uses the closure bundle validator, and
+`validate-evaluation` remains only an in-memory diagnostic.  Invalid persisted
+evidence exits nonzero.  Daemon world-state projection follows only the public
+validated latest-bundle loader; corrupted latest evidence is unavailable rather
+than promoted into a positive World-State fact.

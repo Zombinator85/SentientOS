@@ -18,3 +18,25 @@ def test_cli_close_validate_render(tmp_path):
     assert json.loads(run('summarize', '--output-root', str(out)).stdout)['metadata_only'] is True
     assert '# Host Dry-Run Audit Closure Runtime' in run('render-markdown', '--output-root', str(out)).stdout
     assert json.loads(run('diff').stdout)['simulation_only'] is True
+
+def test_cli_validate_bundle_rejects_corruption_nonzero(tmp_path):
+    source=source_bundle(tmp_path); out=tmp_path/'closure'
+    run('close-audit', '--dry-run-runtime-bundle-root', str(source), '--output-root', str(out))
+    latest=json.loads((out/'latest.json').read_text(encoding='utf-8'))
+    bundle=out/latest['request_id']
+    receipt=json.loads((bundle/'runtime_receipt.json').read_text(encoding='utf-8'))
+    receipt['content_manifest_digest']='sha256:bad'
+    (bundle/'runtime_receipt.json').write_text(json.dumps(receipt, sort_keys=True), encoding='utf-8')
+    proc=subprocess.run([sys.executable, 'scripts/build_host_dry_run_audit_closure_runtime.py', 'validate-bundle', '--output-root', str(out)], text=True, capture_output=True)
+    assert proc.returncode != 0
+    assert 'content_manifest' in proc.stdout or 'content_manifest' in proc.stderr
+
+
+def test_cli_validate_source_rejects_corruption_nonzero(tmp_path):
+    source=source_bundle(tmp_path)
+    receipt=json.loads((source/'runtime_receipt.json').read_text(encoding='utf-8'))
+    receipt['content_manifest_digest']='sha256:bad'
+    (source/'runtime_receipt.json').write_text(json.dumps(receipt, sort_keys=True), encoding='utf-8')
+    proc=subprocess.run([sys.executable, 'scripts/build_host_dry_run_audit_closure_runtime.py', 'validate-source', '--dry-run-runtime-bundle-root', str(source)], text=True, capture_output=True)
+    assert proc.returncode != 0
+    assert 'content_manifest' in proc.stdout
