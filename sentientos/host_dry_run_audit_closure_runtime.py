@@ -16,9 +16,11 @@ from sentientos.host_dry_run_execution_runtime import (
     NO_REAL_EFFECT as SOURCE_NO_REAL_EFFECT, HostDryRunExecutionRuntimeCoordinator,
     HostDryRunExecutionEvaluation, validate_persisted_evaluation_bundle,
 )
+from sentientos.dry_run_execution_harness import validate_dry_run_execution_receipt
 from sentientos.world_state_board import WorldStateSourceKind, digest as world_digest
 
-SCHEMA_VERSION = "host_dry_run_audit_closure_runtime.v1"
+SCHEMA_VERSION = "host_dry_run_audit_closure_runtime.v2"
+LEGACY_SCHEMA_VERSION = "host_dry_run_audit_closure_runtime.v1"
 NO_REAL_EFFECT = {**SOURCE_NO_REAL_EFFECT, "metadata_only": True, "simulation_only": True, "production_audit_receipt_created": False, "real_effect_receipt_created": False, "real_postcondition_check_performed": False, "real_rollback_performed": False}
 _LOCKS: dict[str, threading.Lock] = {}
 
@@ -58,7 +60,7 @@ class HostDryRunAuditClosureRuntimeReceipt:
         d=asdict(self); d["no_real_effect"] = dict(self.no_real_effect or NO_REAL_EFFECT); return d
 @dataclass(frozen=True)
 class HostDryRunAuditClosureEvaluation:
-    status: str; findings: tuple[str, ...]; request: HostDryRunAuditClosureRequest | None; source_manifest: Mapping[str, Any] | None; source_bundle_reference: Mapping[str, Any] | None; plan: HostDryRunAuditClosurePlan | None; effect_verification: Mapping[str, Any] | None; postcondition_verification: Mapping[str, Any] | None; rollback_rehearsal: Mapping[str, Any] | None; audit_closure_receipt: Mapping[str, Any] | None; closure_bundle: Mapping[str, Any] | None; validation_findings: Mapping[str, Any] | None; runtime_receipt: HostDryRunAuditClosureRuntimeReceipt | None; persisted: bool = False; replayed: bool = False; builder_call_count: int = 0
+    status: str; findings: tuple[str, ...]; request: HostDryRunAuditClosureRequest | None; source_manifest: Mapping[str, Any] | None; source_bundle_reference: Mapping[str, Any] | None; plan: HostDryRunAuditClosurePlan | None; effect_verification: Mapping[str, Any] | None; postcondition_verification: Mapping[str, Any] | None; rollback_rehearsal: Mapping[str, Any] | None; audit_closure_receipt: Mapping[str, Any] | None; closure_bundle: Mapping[str, Any] | None; source_dry_run_receipt: Mapping[str, Any] | None; validation_findings: Mapping[str, Any] | None; runtime_receipt: HostDryRunAuditClosureRuntimeReceipt | None; persisted: bool = False; replayed: bool = False; builder_call_count: int = 0
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostDryRunAuditClosureRuntimeSummary:
@@ -74,7 +76,7 @@ class HostDryRunAuditClosurePersistedBundleValidation:
     def to_dict(self) -> dict[str, Any]: return {"ok": self.ok, "findings": self.findings, "final_bundle_digest": self.final_bundle_digest, "content_manifest_digest": self.content_manifest_digest, "evaluation": self.evaluation.to_dict() if self.evaluation else None}
 
 
-CLOSURE_CONTENT_FILES = {"runtime_request.json", "source_manifest.json", "source_bundle_reference.json", "runtime_plan.json", "dry_run_effect_verification.json", "simulated_postcondition_verification.json", "simulated_rollback_rehearsal.json", "dry_run_audit_closure_receipt.json", "dry_run_closure_bundle.json", "validation_findings.json", "summary.json", "README.md"}
+CLOSURE_CONTENT_FILES = {"runtime_request.json", "source_manifest.json", "source_bundle_reference.json", "source_dry_run_receipt.json", "runtime_plan.json", "dry_run_effect_verification.json", "simulated_postcondition_verification.json", "simulated_rollback_rehearsal.json", "dry_run_audit_closure_receipt.json", "dry_run_closure_bundle.json", "validation_findings.json", "summary.json", "README.md"}
 CLOSURE_FINAL_FILES = CLOSURE_CONTENT_FILES | {"content_manifest.json", "runtime_receipt.json"}
 
 def _safe_bundle_root(path: str | Path) -> tuple[Path | None, list[str]]:
@@ -118,6 +120,11 @@ def validate_persisted_closure_bundle(bundle_root: str | Path, *, expected_final
     content, cf = _read_manifest(bundle, "content_manifest.json", "host_dry_run_audit_closure_runtime_content_manifest", "content_manifest_digest", CLOSURE_CONTENT_FILES)
     final, ff = _read_manifest(bundle, "final_bundle_manifest.json", "host_dry_run_audit_closure_runtime_final_bundle_manifest", "final_bundle_digest", CLOSURE_FINAL_FILES)
     f += cf + ff
+    # Strict v2 replay rejects legacy v1 or bundles without the embedded source receipt.
+    for mf in (content, final):
+        if mf.get("schema_version") == LEGACY_SCHEMA_VERSION: f.append("legacy_v1_closure_bundle_rejected")
+        elif mf.get("schema_version") != SCHEMA_VERSION: f.append("closure_bundle_schema_version_mismatch")
+    if not (bundle/"source_dry_run_receipt.json").exists(): f.append("embedded_source_dry_run_receipt_required")
     try: ev=HostDryRunAuditClosureRuntimeCoordinator()._evaluation_from_bundle(bundle)
     except Exception as exc: return HostDryRunAuditClosurePersistedBundleValidation(False, tuple(sorted(set(f+["closure_bundle_decode_failed:"+type(exc).__name__]))), None, str(final.get("final_bundle_digest", "")), str(content.get("content_manifest_digest", "")))
     f += list(validate_evaluation(ev).findings)
@@ -133,16 +140,15 @@ def validate_persisted_closure_bundle(bundle_root: str | Path, *, expected_final
         for name,obj in pairs:
             if obj and rr.get(name+"_digest") != obj.get("digest"): f.append("runtime_receipt_"+name+"_digest_mismatch")
     if ev.effect_verification and ev.postcondition_verification and ev.rollback_rehearsal and ev.audit_closure_receipt and ev.closure_bundle:
-        source_receipt={"receipt_id": rr.get("dry_run_receipt_id"), "digest": rr.get("dry_run_receipt_digest"), "dry_run_executed": True}
-        with contextlib.suppress(Exception):
-            if ev.request:
-                source_receipt=json.loads((Path(ev.request.source_bundle_root)/"dry_run_receipt.json").read_text(encoding="utf-8"))
+        source_receipt=ev.source_dry_run_receipt or {}
+        recv=validate_dry_run_execution_receipt(source_receipt); f += ["source_receipt:" + x for x in recv.findings]
+        if source_receipt.get("receipt_id") != rr.get("dry_run_receipt_id") or source_receipt.get("digest") != rr.get("dry_run_receipt_digest"): f.append("runtime_receipt_source_dry_run_receipt_parent_mismatch")
         chain=validate_dry_run_audit_closure_chain(source_receipt, ev.effect_verification, ev.postcondition_verification, ev.rollback_rehearsal, ev.audit_closure_receipt, ev.closure_bundle)
         f += list(chain.findings)
     return HostDryRunAuditClosurePersistedBundleValidation(not f, tuple(sorted(set(f))), ev if not f else None, str(final.get("final_bundle_digest", "")), str(content.get("content_manifest_digest", "")))
 
 def _blocked(findings: Sequence[str], req: HostDryRunAuditClosureRequest | None = None, plan: HostDryRunAuditClosurePlan | None = None, source_manifest: Mapping[str, Any] | None = None) -> HostDryRunAuditClosureEvaluation:
-    return HostDryRunAuditClosureEvaluation("blocked_host_dry_run_audit_closure_runtime", tuple(sorted(set(findings))), req, source_manifest, None, plan, None, None, None, None, None, {"findings": tuple(sorted(set(findings)))}, None)
+    return HostDryRunAuditClosureEvaluation("blocked_host_dry_run_audit_closure_runtime", tuple(sorted(set(findings))), req, source_manifest, None, plan, None, None, None, None, None, None, {"findings": tuple(sorted(set(findings)))}, None)
 
 class HostDryRunAuditClosureRuntimeCoordinator:
     def __init__(self, *, runtime_state_root: str | Path | None = None, clock: Any | None = None, budget: HostDryRunAuditClosureBudget | None = None) -> None:
@@ -216,7 +222,7 @@ class HostDryRunAuditClosureRuntimeCoordinator:
             status="host_dry_run_audit_closure_runtime_closed" if validation.ok else "contradicted_host_dry_run_audit_closure_runtime"
             runtime=HostDryRunAuditClosureRuntimeReceipt(_id("hdr_closure_receipt_", {"request": req.digest, "bundle": records.closure_bundle.digest}), "", status, req.request_id, req.digest, plan.plan_id, plan.digest, req.source_runtime_receipt_id, req.source_runtime_receipt_digest, str((source.dry_run_receipt or {}).get("receipt_id", "")), str((source.dry_run_receipt or {}).get("digest", "")), records.effect_verification.verification_id, records.effect_verification.digest, records.postcondition_verification.verification_id, records.postcondition_verification.digest, records.rollback_rehearsal.rehearsal_id, records.rollback_rehearsal.digest, records.audit_closure_receipt.receipt_id, records.audit_closure_receipt.digest, records.closure_bundle.bundle_id, records.closure_bundle.digest, no_real_effect=NO_REAL_EFFECT)
             runtime=replace(runtime, digest=digest_record(runtime))
-            ev=HostDryRunAuditClosureEvaluation(status, validation.findings, req, manifest, {"source_bundle_root": req.source_bundle_root, "source_bundle_digest": req.source_bundle_digest}, plan, records.effect_verification.to_dict(), records.postcondition_verification.to_dict(), records.rollback_rehearsal.to_dict(), records.audit_closure_receipt.to_dict(), records.closure_bundle.to_dict(), validation.to_dict(), runtime, builder_call_count=self.builder_call_count)
+            ev=HostDryRunAuditClosureEvaluation(status, validation.findings, req, manifest, {"source_bundle_root": req.source_bundle_root, "source_bundle_digest": req.source_bundle_digest}, plan, records.effect_verification.to_dict(), records.postcondition_verification.to_dict(), records.rollback_rehearsal.to_dict(), records.audit_closure_receipt.to_dict(), records.closure_bundle.to_dict(), dict(source.dry_run_receipt or {}), validation.to_dict(), runtime, builder_call_count=self.builder_call_count)
             if persist and validation.ok: ev=replace(ev, persisted=self._persist(root, ev, semantic))
             return ev
     def _manifest(self, bundle: Path, *, final: bool=False) -> dict[str, Any]:
@@ -229,7 +235,7 @@ class HostDryRunAuditClosureRuntimeCoordinator:
         if Path(root).is_symlink(): raise ValueError("symlink_root_rejected")
         root.mkdir(parents=True, exist_ok=True); assert ev.request and ev.runtime_receipt
         bundle=root/ev.request.request_id; tmp=Path(tempfile.mkdtemp(prefix=bundle.name+".", dir=str(root)))
-        files={"runtime_request.json": ev.request.to_dict(), "source_manifest.json": ev.source_manifest, "source_bundle_reference.json": ev.source_bundle_reference, "runtime_plan.json": ev.plan.to_dict() if ev.plan else None, "dry_run_effect_verification.json": ev.effect_verification, "simulated_postcondition_verification.json": ev.postcondition_verification, "simulated_rollback_rehearsal.json": ev.rollback_rehearsal, "dry_run_audit_closure_receipt.json": ev.audit_closure_receipt, "dry_run_closure_bundle.json": ev.closure_bundle, "validation_findings.json": ev.validation_findings, "runtime_receipt.json": ev.runtime_receipt.to_dict(), "summary.json": summarize_evaluation(ev), "README.md": render_markdown(ev)}
+        files={"runtime_request.json": ev.request.to_dict(), "source_manifest.json": ev.source_manifest, "source_bundle_reference.json": ev.source_bundle_reference, "source_dry_run_receipt.json": ev.source_dry_run_receipt, "runtime_plan.json": ev.plan.to_dict() if ev.plan else None, "dry_run_effect_verification.json": ev.effect_verification, "simulated_postcondition_verification.json": ev.postcondition_verification, "simulated_rollback_rehearsal.json": ev.rollback_rehearsal, "dry_run_audit_closure_receipt.json": ev.audit_closure_receipt, "dry_run_closure_bundle.json": ev.closure_bundle, "validation_findings.json": ev.validation_findings, "runtime_receipt.json": ev.runtime_receipt.to_dict(), "summary.json": summarize_evaluation(ev), "README.md": render_markdown(ev)}
         for name,val in files.items(): (tmp/name).write_text(json.dumps(val, sort_keys=True, indent=2) if name.endswith('.json') else str(val), encoding='utf-8')
         content=self._manifest(tmp); (tmp/"content_manifest.json").write_text(json.dumps(content, sort_keys=True, indent=2), encoding='utf-8')
         runtime=replace(ev.runtime_receipt, content_manifest_digest=content["content_manifest_digest"]); runtime=replace(runtime, digest=digest_record(runtime)); (tmp/"runtime_receipt.json").write_text(json.dumps(runtime.to_dict(), sort_keys=True, indent=2), encoding='utf-8')
@@ -264,7 +270,7 @@ class HostDryRunAuditClosureRuntimeCoordinator:
     def _evaluation_from_bundle(self, bundle: Path) -> HostDryRunAuditClosureEvaluation:
         def load(n: str) -> Any: return json.loads((bundle/n).read_text())
         req=HostDryRunAuditClosureRequest(**load("runtime_request.json")); pd=load("runtime_plan.json"); pd["source_refs"]=tuple(HostDryRunAuditClosureSourceRef(**r) for r in pd.get("source_refs", ())); plan=HostDryRunAuditClosurePlan(**pd); runtime=HostDryRunAuditClosureRuntimeReceipt(**load("runtime_receipt.json"))
-        return HostDryRunAuditClosureEvaluation(runtime.posture, tuple(load("validation_findings.json").get("findings", ())), req, load("source_manifest.json"), load("source_bundle_reference.json"), plan, load("dry_run_effect_verification.json"), load("simulated_postcondition_verification.json"), load("simulated_rollback_rehearsal.json"), load("dry_run_audit_closure_receipt.json"), load("dry_run_closure_bundle.json"), load("validation_findings.json"), runtime, True, True, self.builder_call_count)
+        return HostDryRunAuditClosureEvaluation(runtime.posture, tuple(load("validation_findings.json").get("findings", ())), req, load("source_manifest.json"), load("source_bundle_reference.json"), plan, load("dry_run_effect_verification.json"), load("simulated_postcondition_verification.json"), load("simulated_rollback_rehearsal.json"), load("dry_run_audit_closure_receipt.json"), load("dry_run_closure_bundle.json"), load("source_dry_run_receipt.json"), load("validation_findings.json"), runtime, True, True, self.builder_call_count)
 
 def _with_flags(o: Any) -> dict[str, Any]:
     p=_payload(o); p.update(NO_REAL_EFFECT); return p
@@ -282,6 +288,7 @@ def validate_closure_records(source: HostDryRunExecutionEvaluation, records: Dry
     for x in validate_dry_run_rollback_rehearsal(records.rollback_rehearsal).findings: f.append("rollback:" + x)
     for x in validate_dry_run_audit_closure_receipt(records.audit_closure_receipt).findings: f.append("audit:" + x)
     for x in validate_dry_run_closure_bundle(records.closure_bundle).findings: f.append("bundle:" + x)
+    recv=validate_dry_run_execution_receipt(receipt); f += ["source_receipt:" + x for x in recv.findings]
     ch=validate_dry_run_audit_closure_chain(receipt, *records); f.extend(ch.findings)
     return HostDryRunAuditClosureRuntimeValidationResult(not f, tuple(sorted(set(f))))
 
@@ -291,7 +298,7 @@ def validate_evaluation(ev: HostDryRunAuditClosureEvaluation) -> HostDryRunAudit
     if ev.plan and ev.plan.digest != digest_record(ev.plan): f.append("runtime_plan_digest_mismatch")
     if ev.runtime_receipt and ev.runtime_receipt.digest != digest_record(ev.runtime_receipt): f.append("runtime_receipt_digest_mismatch")
     for k,v in NO_REAL_EFFECT.items():
-        for p in (ev.effect_verification, ev.postcondition_verification, ev.rollback_rehearsal, ev.audit_closure_receipt, ev.closure_bundle, _payload(ev.runtime_receipt)):
+        for p in (ev.effect_verification, ev.postcondition_verification, ev.rollback_rehearsal, ev.audit_closure_receipt, ev.closure_bundle, ev.source_dry_run_receipt, _payload(ev.runtime_receipt)):
             if p and k in p and p.get(k) != v: f.append("forbidden_real_effect_flag:" + k)
     return HostDryRunAuditClosureRuntimeValidationResult(not f, tuple(sorted(set(f))))
 

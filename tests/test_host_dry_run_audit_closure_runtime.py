@@ -75,3 +75,62 @@ def test_world_state_dashboard_are_read_only_zero_calls_and_no_repo_root(tmp_pat
     assert proj['metadata_only'] is True and proj['simulation_only'] is True and proj['host_mutation_performed'] is False and c.builder_call_count == before
     blocked=c.evaluate(dry_run_runtime_bundle_root=Path(ev.request.source_bundle_root), output_root='runtime_artifacts')
     assert 'repository_local_runtime_root_rejected' in blocked.findings
+
+from sentientos.host_dry_run_audit_closure_runtime import validate_persisted_closure_bundle, digest_record as closure_digest_record, _sha as closure_sha
+import hashlib, shutil
+
+def _closure_file_digest(path: Path) -> str:
+    return 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
+
+def _rewrite_closure_manifests(bundle: Path, *, legacy: bool = False) -> None:
+    schema='host_dry_run_audit_closure_runtime.v1' if legacy else 'host_dry_run_audit_closure_runtime.v2'
+    for manifest_name, kind, key, skip in (
+        ('content_manifest.json','host_dry_run_audit_closure_runtime_content_manifest','content_manifest_digest', {'runtime_receipt.json','content_manifest.json','final_bundle_manifest.json'}),
+        ('final_bundle_manifest.json','host_dry_run_audit_closure_runtime_final_bundle_manifest','final_bundle_digest', {'final_bundle_manifest.json'}),
+    ):
+        files=[]
+        for path in sorted(p for p in bundle.iterdir() if p.is_file() and p.name not in skip and not p.name.startswith('.')):
+            files.append({'relative_filename': path.name, 'size': path.stat().st_size, 'digest': _closure_file_digest(path), 'artifact_kind': path.stem, 'schema_version': schema})
+        data={'schema_version':schema,'artifact_kind':kind,'files':files,key:closure_sha({'files':files,'artifact_kind':kind})}
+        (bundle/manifest_name).write_text(json.dumps(data, sort_keys=True, indent=2), encoding='utf-8')
+
+def _rewrite_closure_runtime_receipt(bundle: Path) -> None:
+    content=json.loads((bundle/'content_manifest.json').read_text())
+    rr=json.loads((bundle/'runtime_receipt.json').read_text()); rr['content_manifest_digest']=content['content_manifest_digest']; rr['digest']=closure_digest_record(rr)
+    (bundle/'runtime_receipt.json').write_text(json.dumps(rr, sort_keys=True, indent=2), encoding='utf-8')
+    _rewrite_closure_manifests(bundle)
+
+def _closure_bundle(tmp_path: Path) -> tuple[Path, Path, object]:
+    src=source_bundle(tmp_path/'src')
+    ev=HostDryRunAuditClosureRuntimeCoordinator().evaluate(dry_run_runtime_bundle_root=src, output_root=tmp_path/'out')
+    assert ev.status == 'host_dry_run_audit_closure_runtime_closed'
+    return src, tmp_path/'out'/ev.request.request_id, ev
+
+def test_closure_v2_embeds_source_receipt_and_replays_after_source_deletion_or_mutation(tmp_path):
+    src,bundle,ev=_closure_bundle(tmp_path)
+    assert (bundle/'source_dry_run_receipt.json').exists()
+    shutil.rmtree(src)
+    v=validate_persisted_closure_bundle(bundle)
+    assert v.ok and v.evaluation and v.evaluation.replayed is True
+    assert HostDryRunAuditClosureRuntimeCoordinator().evaluate(dry_run_runtime_bundle_root=source_bundle(tmp_path/'newsrc'), output_root=tmp_path/'out', correlation_id=ev.request.correlation_id).status.startswith('blocked')
+
+def test_closure_v1_missing_and_altered_embedded_receipt_rejected_with_recomputed_manifests(tmp_path):
+    _src,bundle,_ev=_closure_bundle(tmp_path)
+    _rewrite_closure_manifests(bundle, legacy=True)
+    assert 'legacy_v1_closure_bundle_rejected' in validate_persisted_closure_bundle(bundle).findings
+    _src,bundle,_ev=_closure_bundle(tmp_path/'b')
+    (bundle/'source_dry_run_receipt.json').unlink(); _rewrite_closure_manifests(bundle)
+    assert 'embedded_source_dry_run_receipt_required' in validate_persisted_closure_bundle(bundle).findings
+    _src,bundle,_ev=_closure_bundle(tmp_path/'c')
+    receipt=json.loads((bundle/'source_dry_run_receipt.json').read_text()); receipt['simulated_backend_class']='operator_manual_backend_simulated'; (bundle/'source_dry_run_receipt.json').write_text(json.dumps(receipt, sort_keys=True), encoding='utf-8')
+    _rewrite_closure_manifests(bundle); _rewrite_closure_runtime_receipt(bundle)
+    findings=validate_persisted_closure_bundle(bundle).findings
+    assert any('source_receipt:' in f or 'chain:' in f or 'source_dry_run' in f for f in findings)
+
+def test_closure_record_substitution_rejected_and_replay_zero_builder_calls(tmp_path):
+    _src,bundle,ev=_closure_bundle(tmp_path)
+    effect=json.loads((bundle/'dry_run_effect_verification.json').read_text()); effect['source_dry_run_receipt_id']='substituted'; (bundle/'dry_run_effect_verification.json').write_text(json.dumps(effect, sort_keys=True), encoding='utf-8')
+    _rewrite_closure_manifests(bundle); _rewrite_closure_runtime_receipt(bundle)
+    assert not validate_persisted_closure_bundle(bundle).ok
+    src=source_bundle(tmp_path/'zsrc'); c=HostDryRunAuditClosureRuntimeCoordinator(); ev1=c.evaluate(dry_run_runtime_bundle_root=src, output_root=tmp_path/'zout'); before=c.builder_call_count; ev2=c.evaluate(dry_run_runtime_bundle_root=src, output_root=tmp_path/'zout')
+    assert ev2.replayed is True and c.builder_call_count == before

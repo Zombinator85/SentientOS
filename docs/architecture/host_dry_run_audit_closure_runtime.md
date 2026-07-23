@@ -96,3 +96,9 @@ validator, `validate-bundle` uses the closure bundle validator, and
 evidence exits nonzero.  Daemon world-state projection follows only the public
 validated latest-bundle loader; corrupted latest evidence is unavailable rather
 than promoted into a positive World-State fact.
+
+## Strict v2 persisted semantic custody
+
+New strict closure bundles use `host_dry_run_audit_closure_runtime.v2` and embed the already validated source dry-run execution receipt as `source_dry_run_receipt.json`. Strict replay validates that embedded receipt with the dry-run execution receipt domain validator and binds its exact ID/digest through the source runtime receipt, closure request, closure runtime receipt, and dry-run audit closure chain. The original source bundle path remains informational for reviewers; strict replay and persisted validation do not reread `dry_run_receipt.json` through that mutable path.
+
+The source dry-run execution bundle loader also revalidates persisted semantic custody beyond file digests: request/plan linkage, simulation admission posture, canonical inert harness policy, simulated backend registry domain posture, backend/domain agreement, dry-run request/result/receipt validators, exact runtime parent IDs and digests, successful-result-only persistence, and every no-real-effect assertion. Recomputing a tampered record's digest and manifests is therefore insufficient to make semantic substitution valid.
