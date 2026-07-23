@@ -293,3 +293,11 @@ See [Codex Workcell Storage Operator Consent Request Presentation Boundary Contr
 ## Codex landing commit/body binding
 
 The standard landing sequence binds evidence to one exact revision and exact PR body: pre-commit `workspace_binding`, one implementation commit, post-commit `commit_binding`, metadata guard artifact-chain proof, parsed-artifact PR body generation with sidecar, `pr_body_binding_ready`, clean tree/current HEAD check, exact-byte `make_pr`, publication-result classification, and only then independent remote inspection before claiming remote PR or merge verification. `ready_to_commit`, `ready_for_pr_metadata`, `pr_metadata_guard_ready`, and `pr_body_binding_ready` are local authorization states, not remote publication. A title/body payload echo is classified as `publication_payload_echo_unverified`, never as a PR.
+
+## Single-pass matrix execution and generated cleanup
+
+Each validation pass that executes the landing matrix runs one canonical matrix process with both `--summary` and `--output <matrix-json-path>`. Summary output is presentation layered onto that same matrix execution; it is not a separate full matrix run. Bounded stale-evidence refresh uses the same one-process matrix command before running the PR landing gate and landing supervisor.
+
+Post-commit and PR-metadata phases can still reuse the exact pre-commit matrix binding through `--pre-commit-finalizer-json`; that reuse path performs no new matrix process when the pre-commit finalizer artifact is supplied.
+
+Generated-artifact cleanup distinguishes tracked and untracked paths. Tracked generated artifacts under `glow/`, `pulse/`, `artifacts/codex/`, cache directories, and the runtime privileged audit artifact are restored with `git restore -- <path>`. Untracked generated artifacts are removed with `git clean -fd -- <path>`. Cleanup commands operate on exact argv path arguments, never through shell interpolation, and cleanup never restores or deletes intended task files, undeclared source changes, unknown dirty files, or versioned audit evidence that is not explicitly classified as a safe generated runtime artifact.

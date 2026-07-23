@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scripts.codex_finalize_landing import (
     _classify,
+    _cleanup_generated,
     _collect_dirty_diagnostics,
     _infer_task_slugs,
     _is_safe_untracked_task_file,
@@ -84,6 +85,61 @@ def test_dirty_diagnostics_include_exact_path_and_recommended_action() -> None:
     assert diagnostics[1].recommended_action == "manual_review_required"
 
 
+def test_cleanup_restores_tracked_generated_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str]) -> object:
+        calls.append(cmd)
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    result = _cleanup_generated([" M glow/test_runs/archive_index.jsonl"])
+    assert calls == [["git", "restore", "--", "glow/test_runs/archive_index.jsonl"]]
+    assert result["glow/test_runs/archive_index.jsonl"] == (True, "restored", "generated_artifact_restore")
+
+
+def test_cleanup_removes_untracked_generated_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str]) -> object:
+        calls.append(cmd)
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    result = _cleanup_generated(["?? glow/test runs/weird;name/"])
+    assert calls == [["git", "clean", "-fd", "--", "glow/test runs/weird;name/"]]
+    assert result["glow/test runs/weird;name/"] == (True, "removed", "generated_artifact_cleanup")
+
+
+def test_cleanup_restores_runtime_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str]) -> object:
+        calls.append(cmd)
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    result = _cleanup_generated([" M pulse/audit/privileged_audit.runtime.jsonl"])
+    assert calls == [["git", "restore", "--", "pulse/audit/privileged_audit.runtime.jsonl"]]
+    assert result["pulse/audit/privileged_audit.runtime.jsonl"] == (True, "restored", "runtime_audit_restore")
+
+
+def test_cleanup_leaves_source_paths_untouched(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", lambda cmd: calls.append(cmd))
+    assert _cleanup_generated([" M scripts/codex_finalize_landing.py", " M sentientos/codex_finalize_landing.py"]) == {}
+    assert calls == []
+
+
+def test_cleanup_failed_restore_remains_visible(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str]) -> object:
+        return type("Result", (), {"returncode": 1})()
+
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", fake_run)
+    result = _cleanup_generated([" M glow/test_runs/archive_index.jsonl"])
+    assert result["glow/test_runs/archive_index.jsonl"] == (True, "failed", "generated_artifact_restore")
+
+
 def test_parser_has_output_timeouts_and_progress_flags() -> None:
     p = build_parser()
     args = p.parse_args(["finalize", "--output", "/tmp/out.json", "--stage-timeout-seconds", "5", "--overall-timeout-seconds", "10", "--no-progress"])
@@ -95,7 +151,7 @@ def test_parser_has_output_timeouts_and_progress_flags() -> None:
 
 def test_finalize_writes_output_and_decision_line(tmp_path: Path, capsys: object) -> None:
     out = tmp_path / "finalizer.json"
-    code = main([
+    main([
         "finalize",
         "--title",
         "x",
@@ -210,10 +266,9 @@ def test_generated_cleanup_allowed_refresh_terminal_ready(monkeypatch: pytest.Mo
     freshness = payload["evidence_freshness"]
     assert freshness["cleanup_occurred"] is True
     assert freshness["cleaned_paths"] == ["glow/test_runs/run.json"]
-    assert freshness["stale_evidence_refresh_attempted"] is True
-    assert freshness["stale_evidence_refresh_result"] == "succeeded"
-    assert freshness["refreshed_matrix_json_path"]
-    assert freshness["refresh_stage_runs"] == 4
+    assert freshness["stale_evidence_refresh_attempted"] is False
+    assert freshness["stale_evidence_refresh_result"] == "not_required"
+    assert freshness["refresh_stage_runs"] == 0
     assert freshness["rerun_required"] is False
 
 
@@ -230,7 +285,8 @@ def test_stale_refresh_required_only_when_not_allowed(monkeypatch: pytest.Monkey
     def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
-        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
+        exit_code = 1 if stage_id == "matrix_summary" else 0
+        return CodexFinalizeLandingCommandResult(stage_id, command, exit_code, required=required), _successful_runtime(stage_id, command, required)
 
     monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
     code = main([
@@ -267,7 +323,7 @@ def test_refresh_failure_is_terminal_without_rerun_suggestion(monkeypatch: pytes
     def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
-        exit_code = 1 if stage_id == "stale_evidence_matrix_output" else 0
+        exit_code = 1 if stage_id in {"matrix_summary", "stale_evidence_pr_landing_gate"} else 0
         return CodexFinalizeLandingCommandResult(stage_id, command, exit_code, required=required), _successful_runtime(stage_id, command, required)
 
     monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
@@ -310,7 +366,8 @@ def test_dirty_source_blocks_after_cleanup_and_refresh(monkeypatch: pytest.Monke
     def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
-        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
+        exit_code = 1 if stage_id == "matrix_summary" else 0
+        return CodexFinalizeLandingCommandResult(stage_id, command, exit_code, required=required), _successful_runtime(stage_id, command, required)
 
     monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
     code = main([
@@ -332,4 +389,78 @@ def test_dirty_source_blocks_after_cleanup_and_refresh(monkeypatch: pytest.Monke
     assert code == 1
     assert payload["decision"]["status"] == "repair_required_task_caused"
     assert "source_change_not_declared" in payload["decision"]["reasons"]
-    assert payload["evidence_freshness"]["refresh_stage_runs"] == 4
+    assert payload["evidence_freshness"]["refresh_stage_runs"] == 3
+
+
+@pytest.mark.no_legacy_skip
+def test_pre_commit_uses_single_matrix_stage_with_summary_and_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "finalizer.json"
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    seen: list[tuple[str, str]] = []
+
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+
+        seen.append((stage_id, command))
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
+    code = main([
+        "finalize",
+        "--title",
+        "x",
+        "--intended-commit-title",
+        "x",
+        "--phase",
+        "pre-commit",
+        "--focused-test-command",
+        "python -c 'pass'",
+        "--matrix-json-path",
+        str(tmp_path / "matrix path;safe.json"),
+        "--output",
+        str(out),
+    ])
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    matrix_stages = [item for item in seen if item[0].startswith("matrix")]
+    assert code == 0
+    assert [item[0] for item in matrix_stages] == ["matrix_summary"]
+    assert "--summary" in matrix_stages[0][1]
+    assert "--output" in matrix_stages[0][1]
+    assert "matrix_output" not in [stage["stage_id"] for stage in payload["runtime"]["stages"]]
+
+
+@pytest.mark.no_legacy_skip
+def test_post_commit_exact_reuse_performs_zero_matrix_stages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    pre = tmp_path / "pre.json"
+    pre.write_text(json.dumps({"workspace_binding": {}}), encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(json.dumps({"status": "passed", "required_failure_count": 0}), encoding="utf-8")
+    out = tmp_path / "finalizer.json"
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    seen: list[str] = []
+
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+
+        seen.append(stage_id)
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
+    code = main([
+        "finalize",
+        "--title",
+        "x",
+        "--intended-commit-title",
+        "x",
+        "--phase",
+        "pr-metadata",
+        "--focused-test-command",
+        "python -c 'pass'",
+        "--pre-commit-finalizer-json",
+        str(pre),
+        "--matrix-json-path",
+        str(matrix),
+        "--output",
+        str(out),
+    ])
+    assert not any("matrix" in stage for stage in seen)

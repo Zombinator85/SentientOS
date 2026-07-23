@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 import time
 import os
@@ -136,6 +137,53 @@ def _run_stage(
     )
     _progress(progress, f"[finalizer] stage end: {stage_id} status={status} exit_code={p.returncode}")
     return result, runtime
+
+
+def _landing_matrix_command(matrix_json_path: str) -> str:
+    return " ".join(
+        [
+            "python",
+            "scripts/run_work_item_review_packet_matrix.py",
+            "--summary",
+            "--output",
+            shlex.quote(matrix_json_path),
+        ]
+    )
+
+
+def _landing_gate_command(title: str | None, intended_commit_title: str | None, matrix_json_path: str) -> str:
+    return " ".join(
+        [
+            "python",
+            "scripts/codex_pr_landing_gate.py",
+            "gate",
+            "--title",
+            shlex.quote(title or ""),
+            "--intended-commit-title",
+            shlex.quote(intended_commit_title or ""),
+            "--matrix-json-path",
+            shlex.quote(matrix_json_path),
+        ]
+    )
+
+
+def _landing_supervisor_command(title: str | None, intended_commit_title: str | None, matrix_json_path: str) -> str:
+    return " ".join(
+        [
+            "python",
+            "scripts/codex_landing_supervisor.py",
+            "evaluate",
+            "--title",
+            shlex.quote(title or ""),
+            "--intended-commit-title",
+            shlex.quote(intended_commit_title or ""),
+            "--matrix-json-path",
+            shlex.quote(matrix_json_path),
+            "--landing-gate-status",
+            "passed",
+            "--summary",
+        ]
+    )
 
 
 def _git_status() -> list[str]:
@@ -284,16 +332,22 @@ def _collect_dirty_diagnostics(
 def _cleanup_generated(status_lines: list[str]) -> dict[str, tuple[bool, str, str]]:
     cleanup: dict[str, tuple[bool, str, str]] = {}
     for line in status_lines:
+        git_status = line[:2]
         path = line[3:] if len(line) > 3 else line
         is_generated = path.startswith(GENERATED_PREFIXES) or any(part in path for part in BLOCKED_PATH_PARTS) or path == "pulse/audit/privileged_audit.runtime.jsonl"
         if not is_generated:
             continue
+        tracked = not git_status.startswith("??")
         if path == "pulse/audit/privileged_audit.runtime.jsonl":
-            p = subprocess.run("git restore pulse/audit/privileged_audit.runtime.jsonl", shell=True)
+            p = subprocess.run(["git", "restore", "--", path])
             cleanup[path] = (True, "restored" if p.returncode == 0 else "failed", "runtime_audit_restore")
             continue
-        p = subprocess.run(f"git clean -fd -- '{path}'", shell=True)
-        cleanup[path] = (True, "removed" if p.returncode == 0 else "failed", "generated_artifact_cleanup")
+        if tracked:
+            p = subprocess.run(["git", "restore", "--", path])
+            cleanup[path] = (True, "restored" if p.returncode == 0 else "failed", "generated_artifact_restore")
+        else:
+            p = subprocess.run(["git", "clean", "-fd", "--", path])
+            cleanup[path] = (True, "removed" if p.returncode == 0 else "failed", "generated_artifact_cleanup")
     return cleanup
 
 
@@ -410,13 +464,13 @@ def main(argv: list[str] | None = None) -> int:
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
     exact_matrix_reuse = a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
-    matrix_stages: list[tuple[str, str, bool]] = [] if exact_matrix_reuse else [("matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True), ("matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True)]
+    matrix_stages: list[tuple[str, str, bool]] = [] if exact_matrix_reuse else [("matrix_summary", _landing_matrix_command(a.matrix_json_path), True)]
     stage_specs.extend(
         [
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
             *matrix_stages,
-            ("pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
-            ("landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
+            ("pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
+            ("landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
             ("docs_check_deps", "python scripts/build_docs.py --check-deps", True),
             ("docs_build", "python scripts/build_docs.py", True),
             ("prompt_boundary", "python scripts/verify_context_hygiene_prompt_boundaries.py", True),
@@ -475,10 +529,9 @@ def main(argv: list[str] | None = None) -> int:
             refresh_attempted = True
             refresh_status = "attempted"
             refresh_plan = [
-                ("stale_evidence_matrix_summary", "python scripts/run_work_item_review_packet_matrix.py --summary", True),
-                ("stale_evidence_matrix_output", f"python scripts/run_work_item_review_packet_matrix.py --output {a.matrix_json_path}", True),
-                ("stale_evidence_pr_landing_gate", f"python scripts/codex_pr_landing_gate.py gate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path}", True),
-                ("stale_evidence_landing_supervisor", f"python scripts/codex_landing_supervisor.py evaluate --title \"{a.title}\" --intended-commit-title \"{a.intended_commit_title}\" --matrix-json-path {a.matrix_json_path} --landing-gate-status passed --summary", True),
+                ("stale_evidence_matrix_summary", _landing_matrix_command(a.matrix_json_path), True),
+                ("stale_evidence_pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
+                ("stale_evidence_landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
             ]
             # The refresh is intentionally bounded to one pass per finalizer
             # invocation; max_stale_evidence_refreshes controls permission, not
