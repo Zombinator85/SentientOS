@@ -103,3 +103,56 @@ def test_repository_local_root_rejected_and_no_git_mutation(tmp_path):
     src=readiness(tmp_path)
     ev=HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel()).evaluate(src, output_root='runtime_artifacts')
     assert 'repository_local_runtime_root_rejected' in ev.findings
+
+from sentientos.host_dry_run_execution_runtime import validate_persisted_evaluation_bundle, digest_record as hdr_digest_record, _sha as hdr_sha
+from sentientos.dry_run_execution_harness import dry_run_execution_request_digest, dry_run_execution_result_digest, dry_run_execution_receipt_digest, simulated_backend_registry_digest
+import hashlib
+
+def _file_digest(path: Path) -> str:
+    return 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
+
+def _rewrite_hdr_manifests(bundle: Path) -> None:
+    for manifest_name, kind, key, skip in (
+        ('content_manifest.json','host_dry_run_execution_runtime_content_manifest','content_manifest_digest', {'runtime_receipt.json','content_manifest.json','bundle_manifest.json'}),
+        ('bundle_manifest.json','host_dry_run_execution_runtime_bundle_manifest','bundle_digest', {'bundle_manifest.json'}),
+    ):
+        files=[]
+        for path in sorted(p for p in bundle.iterdir() if p.is_file() and p.name not in skip and not p.name.startswith('.')):
+            files.append({'relative_filename': path.name, 'size': path.stat().st_size, 'digest': _file_digest(path), 'artifact_kind': path.stem, 'schema_version': 'host_dry_run_execution_runtime.v1'})
+        data={'schema_version':'host_dry_run_execution_runtime.v1','artifact_kind':kind,'files':files,key:hdr_sha({'files':files,'artifact_kind':kind})}
+        (bundle/manifest_name).write_text(json.dumps(data, sort_keys=True, indent=2), encoding='utf-8')
+
+def _rewrite_hdr_runtime_receipt(bundle: Path) -> None:
+    content=json.loads((bundle/'content_manifest.json').read_text())
+    final=json.loads((bundle/'bundle_manifest.json').read_text())
+    rr=json.loads((bundle/'runtime_receipt.json').read_text())
+    rr['content_manifest_digest']=content['content_manifest_digest']; rr['bundle_digest']=''; rr['digest']=hdr_digest_record(rr)
+    (bundle/'runtime_receipt.json').write_text(json.dumps(rr, sort_keys=True, indent=2), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle)
+
+def test_recomputed_admission_authority_harness_registry_lineage_rejected(tmp_path):
+    bundle=tmp_path/'external'/HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel()).evaluate(readiness(tmp_path), output_root=tmp_path/'external').request.request_id
+    admission=json.loads((bundle/'simulation_admission.json').read_text()); admission['authority_class']='privileged_operator_control'; (bundle/'simulation_admission.json').write_text(json.dumps(admission, sort_keys=True), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle); _rewrite_hdr_runtime_receipt(bundle)
+    assert 'simulation_admission_authority_mismatch' in validate_persisted_evaluation_bundle(bundle).findings
+    bundle=source=tmp_path/'external2'/HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state2', kernel=Kernel()).evaluate(readiness(tmp_path/'r2'), output_root=tmp_path/'external2').request.request_id
+    policy=json.loads((bundle/'harness_policy.json').read_text()); policy['no_real_backends']=False; (bundle/'harness_policy.json').write_text(json.dumps(policy, sort_keys=True), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle); _rewrite_hdr_runtime_receipt(bundle)
+    assert 'harness_policy_not_canonical' in validate_persisted_evaluation_bundle(bundle).findings
+    bundle=tmp_path/'external3'/HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state3', kernel=Kernel()).evaluate(readiness(tmp_path/'r3'), output_root=tmp_path/'external3').request.request_id
+    registry=json.loads((bundle/'simulated_backend_registry.json').read_text()); registry['supported_dry_run_domains']=['operator_review_dry_run']; registry['digest']=simulated_backend_registry_digest(registry); (bundle/'simulated_backend_registry.json').write_text(json.dumps(registry, sort_keys=True), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle); _rewrite_hdr_runtime_receipt(bundle)
+    assert 'simulated_backend_registry_not_canonical' in validate_persisted_evaluation_bundle(bundle).findings
+
+def test_recomputed_result_receipt_lineage_and_runtime_parent_substitution_rejected(tmp_path):
+    bundle=tmp_path/'external'/HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel()).evaluate(readiness(tmp_path), output_root=tmp_path/'external').request.request_id
+    result=json.loads((bundle/'result_or_block_receipt.json').read_text()); result['request_id']='substituted'; result['digest']=dry_run_execution_result_digest(result); (bundle/'result_or_block_receipt.json').write_text(json.dumps(result, sort_keys=True), encoding='utf-8')
+    receipt=json.loads((bundle/'dry_run_receipt.json').read_text()); receipt['result_digest']=result['digest']; receipt['digest']=dry_run_execution_receipt_digest(receipt); (bundle/'dry_run_receipt.json').write_text(json.dumps(receipt, sort_keys=True), encoding='utf-8')
+    rr=json.loads((bundle/'runtime_receipt.json').read_text()); rr['result_or_block_digest']=result['digest']; rr['dry_run_receipt_digest']=receipt['digest']; rr['digest']=hdr_digest_record(rr); (bundle/'runtime_receipt.json').write_text(json.dumps(rr, sort_keys=True, indent=2), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle); _rewrite_hdr_runtime_receipt(bundle)
+    findings=validate_persisted_evaluation_bundle(bundle).findings
+    assert 'result_request_lineage_mismatch' in findings
+    bundle=tmp_path/'external2'/HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'state2', kernel=Kernel()).evaluate(readiness(tmp_path/'r2'), output_root=tmp_path/'external2').request.request_id
+    rr=json.loads((bundle/'runtime_receipt.json').read_text()); rr['dry_run_request_id']='substituted'; rr['digest']=hdr_digest_record(rr); (bundle/'runtime_receipt.json').write_text(json.dumps(rr, sort_keys=True), encoding='utf-8')
+    _rewrite_hdr_manifests(bundle); _rewrite_hdr_runtime_receipt(bundle)
+    assert 'runtime_receipt_dry_run_request_parent_mismatch' in validate_persisted_evaluation_bundle(bundle).findings

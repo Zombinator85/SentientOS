@@ -79,6 +79,7 @@ def _payload(o: Any) -> dict[str, Any]:
     return dict(o)
 def _semantic(d: Mapping[str, Any]) -> dict[str, Any]:
     p = dict(d); p.pop("created_at", None); p.pop("observed_at", None); p.pop("digest", None); return p
+def _json_norm(o: Any) -> Any: return json.loads(_canon(o))
 def digest_record(o: Any) -> str: return _sha(_semantic(_payload(o)))
 
 @dataclass(frozen=True)
@@ -163,6 +164,59 @@ def _read_manifest(bundle: Path, name: str, kind: str, digest_key: str, required
     if manifest.get(digest_key) != expected: f.append(name.replace('.json','') + "_digest_mismatch")
     return manifest, f
 
+
+def _validate_persisted_semantic_custody(ev: HostDryRunExecutionEvaluation) -> list[str]:
+    f: list[str] = []
+    req=_payload(ev.request); plan=_payload(ev.plan); admission=_payload(ev.simulation_admission)
+    policy=_payload(ev.harness_policy); registry=_payload(ev.simulated_backend_registry)
+    dry_req=_payload(ev.dry_run_request); rob=_payload(ev.result_or_block_receipt); receipt=_payload(ev.dry_run_receipt); rr=_payload(ev.runtime_receipt)
+    if req.get("schema_version") != SCHEMA_VERSION: f.append("request_schema_version_mismatch")
+    if plan.get("schema_version") != SCHEMA_VERSION: f.append("plan_schema_version_mismatch")
+    if req.get("simulation_only") is not True or rr.get("simulation_only") is not True: f.append("simulation_only_posture_required")
+    if plan.get("request_id") != req.get("request_id"): f.append("plan_request_id_mismatch")
+    if plan.get("request_digest") != req.get("digest"): f.append("plan_request_digest_mismatch")
+    refs={str(x.get("ref_id")): str(x.get("digest")) for x in plan.get("source_refs", ()) if isinstance(x, Mapping)}
+    for key, digest in (("runtime_request", req.get("digest")), ("readiness_evaluation", req.get("readiness_evaluation_digest")), ("readiness_bundle", req.get("readiness_bundle_digest")), ("current_snapshot", req.get("current_snapshot_digest")), ("executor_contract", req.get("executor_contract_digest")), ("declarative_dry_run_plan", req.get("declarative_dry_run_plan_digest")), ("readiness_runtime_receipt", rr.get("readiness_runtime_receipt_digest"))):
+        if refs.get(key) != digest: f.append("plan_source_ref_mismatch:" + key)
+    if admission:
+        if admission.get("action_kind") != "host_dry_run_execution_runtime_simulation_review": f.append("simulation_admission_action_mismatch")
+        if admission.get("authority_class") != AuthorityClass.PROPOSAL_EVALUATION.value: f.append("simulation_admission_authority_mismatch")
+        if admission.get("requested_phase") != LifecyclePhase.MAINTENANCE.value: f.append("simulation_admission_lifecycle_mismatch")
+        if admission.get("target_subsystem") != "host_dry_run_execution_runtime": f.append("simulation_admission_request_binding_mismatch")
+        if admission.get("outcome") != "allow": f.append("simulation_admission_not_allowed")
+    if _json_norm(policy) != _json_norm(_payload(build_default_dry_run_harness_policy())): f.append("harness_policy_not_canonical")
+    rv=validate_simulated_backend_registry(registry); f += ["registry:"+x for x in rv.findings]
+    created=str(registry.get("created_at", "1970-01-01T00:00:00+00:00"))
+    canonical_registry=_payload(build_default_simulated_backend_registry(created_at=created))
+    if _json_norm(registry) != _json_norm(canonical_registry): f.append("simulated_backend_registry_not_canonical")
+    if req.get("simulated_backend_class") != dry_req.get("requested_simulated_backend_class"): f.append("backend_class_request_mismatch")
+    if req.get("dry_run_domain") != dry_req.get("requested_dry_run_domain"): f.append("dry_run_domain_request_mismatch")
+    if dry_req.get("requested_simulated_backend_class") != rob.get("simulated_backend_class"): f.append("backend_class_result_mismatch")
+    if dry_req.get("requested_dry_run_domain") != rob.get("dry_run_domain"): f.append("dry_run_domain_result_mismatch")
+    drv=validate_dry_run_execution_request(dry_req); f += ["dry_run_request:"+x for x in drv.findings]
+    if dry_req.get("request_id") != rr.get("dry_run_request_id") or dry_req.get("digest") != rr.get("dry_run_request_digest"): f.append("runtime_receipt_dry_run_request_parent_mismatch")
+    if rob.get("block_receipt_only") is True or "block_status" in rob:
+        f.append("successful_persisted_bundle_contains_block")
+        brv=validate_dry_run_execution_block_receipt(rob); f += ["block_receipt:"+x for x in brv.findings]
+    else:
+        resv=validate_dry_run_execution_result(rob); f += ["result:"+x for x in resv.findings]
+        if rob.get("request_id") != dry_req.get("request_id") or rob.get("request_digest") != dry_req.get("digest"): f.append("result_request_lineage_mismatch")
+        if rob.get("result_id") != rr.get("result_or_block_id") or rob.get("digest") != rr.get("result_or_block_digest"): f.append("runtime_receipt_result_parent_mismatch")
+    recv=validate_dry_run_execution_receipt(receipt); f += ["receipt:"+x for x in recv.findings]
+    if receipt.get("request_id") != dry_req.get("request_id") or receipt.get("request_digest") != dry_req.get("digest"): f.append("receipt_request_lineage_mismatch")
+    if receipt.get("result_id") != rob.get("result_id") or receipt.get("result_digest") != rob.get("digest"): f.append("receipt_result_lineage_mismatch")
+    if receipt.get("dry_run_domain") != req.get("dry_run_domain") or receipt.get("simulated_backend_class") != req.get("simulated_backend_class"): f.append("receipt_domain_lineage_mismatch")
+    for key in ("request_id","request_digest","plan_id","plan_digest","dry_run_request_id","dry_run_request_digest","result_or_block_id","result_or_block_digest","dry_run_receipt_id","dry_run_receipt_digest","readiness_runtime_receipt_id","readiness_runtime_receipt_digest"):
+        if not rr.get(key): f.append("runtime_receipt_missing_parent:"+key)
+    if rr.get("request_id") != req.get("request_id") or rr.get("request_digest") != req.get("digest"): f.append("runtime_receipt_request_parent_mismatch")
+    if rr.get("plan_id") != plan.get("plan_id") or rr.get("plan_digest") != plan.get("digest"): f.append("runtime_receipt_plan_parent_mismatch")
+    if rr.get("dry_run_receipt_id") != receipt.get("receipt_id") or rr.get("dry_run_receipt_digest") != receipt.get("digest"): f.append("runtime_receipt_dry_run_receipt_parent_mismatch")
+    for k,v in NO_REAL_EFFECT.items():
+        for label,payload in (("plan", plan), ("runtime_receipt", rr), ("result", rob), ("receipt", receipt)):
+            container = payload.get("no_real_effect", payload) if label == "runtime_receipt" else payload
+            if k in container and container.get(k) != v: f.append(f"no_real_effect_mismatch:{label}:{k}")
+    return f
+
 def validate_persisted_evaluation_bundle(bundle_root: str | Path, *, expected_final_digest: str | None = None, expected_request_id: str | None = None) -> HostDryRunExecutionPersistedBundleValidation:
     bundle, f = _safe_bundle_root(bundle_root)
     if bundle is None: return HostDryRunExecutionPersistedBundleValidation(False, tuple(sorted(set(f))))
@@ -185,6 +239,7 @@ def validate_persisted_evaluation_bundle(bundle_root: str | Path, *, expected_fi
     if ev.dry_run_request and rr.get("dry_run_request_digest") != ev.dry_run_request.get("digest"): f.append("runtime_receipt_dry_run_request_digest_mismatch")
     if ev.result_or_block_receipt and rr.get("result_or_block_digest") != ev.result_or_block_receipt.get("digest"): f.append("runtime_receipt_result_digest_mismatch")
     if ev.dry_run_receipt and rr.get("dry_run_receipt_digest") != ev.dry_run_receipt.get("digest"): f.append("runtime_receipt_dry_run_receipt_digest_mismatch")
+    f += _validate_persisted_semantic_custody(ev)
     return HostDryRunExecutionPersistedBundleValidation(not f, tuple(sorted(set(f))), ev if not f else None, str(final.get("bundle_digest", "")), str(content.get("content_manifest_digest", "")))
 
 def _bundle_digest_from_eval(ev: HostFulfillmentExecutorReadinessEvaluation) -> str:
