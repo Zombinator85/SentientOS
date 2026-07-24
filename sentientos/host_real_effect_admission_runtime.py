@@ -18,12 +18,18 @@ from sentientos.host_dry_run_audit_closure_runtime import (
     validate_persisted_closure_bundle,
 )
 from sentientos.real_effect_admission import (
+    ADMISSION_STATUSES,
     RealEffectAdmissionBundle,
     RealEffectCapabilityAdmissionDecision,
     RealEffectCapabilityBlockReceipt,
     RealEffectCapabilityCandidate,
     RealEffectImplementationPlanScaffold,
     build_real_effect_admission_wing,
+    real_effect_admission_bundle_digest,
+    real_effect_capability_admission_decision_digest,
+    real_effect_capability_block_receipt_digest,
+    real_effect_capability_candidate_digest,
+    real_effect_implementation_plan_scaffold_digest,
     summarize_real_effect_admission_bundle,
     summarize_real_effect_capability_admission_decision,
     summarize_real_effect_capability_block_receipt,
@@ -105,6 +111,37 @@ class HostRealEffectAdmissionRuntimeValidation:
 
 CONTENT_FILES = {"runtime_request.json","runtime_plan.json","source_closure_reference.json","source_dry_run_closure_bundle.json","candidate.json","admission_decision.json","plan_or_block_receipt.json","real_effect_admission_bundle.json","validation_findings.json","summary.json","README.md"}
 FINAL_FILES = CONTENT_FILES | {"runtime_receipt.json","content_manifest.json"}
+SEMANTIC_FILES = {name for name in FINAL_FILES | {"final_bundle_manifest.json"} if name.endswith((".json", ".md"))}
+FORBIDDEN_FALSE_FLAGS = {
+    "authorizes_implementation",
+    "authorizes_execution",
+    "backend_loaded",
+    "backend_invoked",
+    "real_backend_implemented",
+    "real_fulfillment_performed",
+    "real_effect_performed",
+    "host_mutation_performed",
+    "control_plane_admission_execution_performed",
+    "fan_pwm_write_performed",
+    "thermal_actuation_performed",
+    "power_profile_mutation_performed",
+    "process_kill_performed",
+    "service_restart_performed",
+    "package_install_performed",
+    "driver_install_performed",
+    "file_cleanup_performed",
+    "file_delete_performed",
+    "network_performed",
+    "provider_invocation_performed",
+    "prompt_assembly_performed",
+    "subprocess_execution_performed",
+    "shell_execution_performed",
+    "os_backend_invoked",
+    "real_effect_receipt_created",
+    "real_postcondition_check_performed",
+    "real_rollback_performed",
+    "production_audit_receipt_created",
+}
 
 
 def _blocked(findings: Sequence[str]) -> HostRealEffectAdmissionRuntimeEvaluation:
@@ -245,11 +282,89 @@ def validate_evaluation(ev: HostRealEffectAdmissionRuntimeEvaluation) -> SimpleV
     if ev.candidate and ev.decision and ev.plan_or_block_receipt and ev.admission_bundle: f += list(validate_runtime_records(ev.candidate, ev.decision, ev.plan_or_block_receipt, ev.admission_bundle).findings)
     return SimpleValidation(not f, tuple(sorted(set(f))))
 
+def _all_payloads(ev: HostRealEffectAdmissionRuntimeEvaluation) -> tuple[Mapping[str, Any], ...]:
+    payloads: list[Mapping[str, Any]] = []
+    for value in (ev.request, ev.plan, ev.source_closure_reference, ev.source_closure_bundle, ev.candidate, ev.decision, ev.plan_or_block_receipt, ev.admission_bundle, ev.validation_findings, ev.runtime_receipt):
+        if value is None:
+            continue
+        payloads.append(_payload(value))
+    return tuple(payloads)
+
+def _validate_no_authority_flags(ev: HostRealEffectAdmissionRuntimeEvaluation) -> list[str]:
+    f: list[str] = []
+    for payload in _all_payloads(ev):
+        for key in ("metadata_only",):
+            if key in payload and payload.get(key) is not True:
+                f.append("authority_flag_mismatch:"+key)
+        for key in FORBIDDEN_FALSE_FLAGS:
+            if key in payload and payload.get(key) is not False:
+                f.append("authority_flag_mismatch:"+key)
+        if payload.get("implementation_not_started") is False:
+            f.append("authority_flag_mismatch:implementation_not_started")
+    return f
+
+def _validate_deep_lineage(ev: HostRealEffectAdmissionRuntimeEvaluation) -> list[str]:
+    f: list[str] = []
+    if not (ev.request and ev.plan and ev.runtime_receipt and ev.source_closure_reference and ev.source_closure_bundle and ev.candidate and ev.decision and ev.plan_or_block_receipt and ev.admission_bundle):
+        return ["persisted_semantic_records_missing"]
+    req=_payload(ev.request); plan=_payload(ev.plan); receipt=_payload(ev.runtime_receipt)
+    ref=dict(ev.source_closure_reference); closure=dict(ev.source_closure_bundle)
+    cand=dict(ev.candidate); dec=dict(ev.decision); pob=dict(ev.plan_or_block_receipt); adm=dict(ev.admission_bundle)
+    if plan.get("request_id") != req.get("request_id") or plan.get("request_digest") != req.get("digest"): f.append("runtime_request_plan_linkage_mismatch")
+    for key in ("source_closure_request_id","source_closure_request_digest","source_closure_bundle_id","source_closure_bundle_digest","source_closure_final_manifest_digest"):
+        if req.get(key) != ref.get(key): f.append("source_closure_reference_request_mismatch:"+key)
+    if ref.get("source_closure_bundle_id") != closure.get("bundle_id") or ref.get("source_closure_bundle_digest") != closure.get("digest"):
+        f.append("embedded_closure_bundle_reference_mismatch")
+    if cand.get("source_dry_run_closure_bundle_id") != ref.get("source_closure_bundle_id") or cand.get("source_dry_run_closure_bundle_digest") != ref.get("source_closure_bundle_digest"):
+        f.append("candidate_source_closure_mismatch")
+    if dec.get("candidate_id") != cand.get("candidate_id") or dec.get("source_dry_run_closure_bundle_id") != cand.get("source_dry_run_closure_bundle_id"):
+        f.append("decision_candidate_lineage_mismatch")
+    if dec.get("admission_domain") != cand.get("admission_domain") or dec.get("implementation_tier") != cand.get("requested_implementation_tier"):
+        f.append("decision_candidate_policy_mismatch")
+    if pob.get("candidate_id") != cand.get("candidate_id") or pob.get("decision_id") != dec.get("decision_id") or pob.get("admission_domain") != dec.get("admission_domain"):
+        f.append("plan_or_block_lineage_mismatch")
+    if "plan_id" in pob and (pob.get("implementation_tier") != dec.get("implementation_tier")):
+        f.append("plan_scaffold_tier_mismatch")
+    if adm.get("candidate_id") != cand.get("candidate_id") or adm.get("decision_id") != dec.get("decision_id") or adm.get("admission_domain") != dec.get("admission_domain"):
+        f.append("admission_bundle_lineage_mismatch")
+    eligible=dec.get("admission_status") in {"real_effect_admission_eligible_for_planning","real_effect_admission_eligible_with_conditions"}
+    if eligible and ("plan_id" not in pob or adm.get("plan_id") != pob.get("plan_id") or adm.get("block_receipt_id") is not None):
+        f.append("eligible_decision_requires_plan_scaffold")
+    if not eligible and ("receipt_id" not in pob or adm.get("block_receipt_id") != pob.get("receipt_id") or adm.get("plan_id") is not None):
+        f.append("blocked_decision_requires_block_receipt")
+    expected_bundle_status=dec.get("admission_status")
+    if str(expected_bundle_status).endswith(("blocked","incomplete","contradicted")) and expected_bundle_status in ADMISSION_STATUSES:
+        expected_bundle_status=expected_bundle_status
+    if adm.get("bundle_status") != expected_bundle_status: f.append("admission_bundle_status_mismatch")
+    for name, obj, digest_fn in (("candidate", cand, real_effect_capability_candidate_digest), ("decision", dec, real_effect_capability_admission_decision_digest), ("admission_bundle", adm, real_effect_admission_bundle_digest)):
+        if obj.get("digest") != digest_fn(obj): f.append(name+"_digest_mismatch")
+    if "plan_id" in pob and pob.get("digest") != real_effect_implementation_plan_scaffold_digest(pob): f.append("plan_digest_mismatch")
+    if "receipt_id" in pob and pob.get("digest") != real_effect_capability_block_receipt_digest(pob): f.append("block_receipt_digest_mismatch")
+    receipt_pairs={"request": req, "plan": plan, "candidate": cand, "decision": dec, "admission_bundle": adm}
+    for prefix, obj in receipt_pairs.items():
+        id_key = "bundle_id" if prefix == "admission_bundle" else prefix + "_id"
+        if receipt.get(prefix+"_id") != obj.get(id_key) or receipt.get(prefix+"_digest") != obj.get("digest"):
+            f.append("runtime_receipt_parent_mismatch:"+prefix)
+    if receipt.get("source_closure_final_manifest_digest") != req.get("source_closure_final_manifest_digest"):
+        f.append("runtime_receipt_source_final_manifest_digest_mismatch")
+    if ev.status != receipt.get("runtime_status") or receipt.get("runtime_status") != "host_real_effect_admission_runtime_recorded":
+        f.append("runtime_status_mismatch")
+    return f + _validate_no_authority_flags(ev)
+
 def validate_persisted_admission_bundle(bundle_root: str | Path, *, expected_final_digest: str | None = None, expected_request_id: str | None = None) -> HostRealEffectAdmissionRuntimeValidation:
-    bundle=Path(bundle_root).resolve(); f=[]
-    if not bundle.is_dir(): return HostRealEffectAdmissionRuntimeValidation(False, ("persisted_admission_bundle_root_required",))
+    raw_bundle=Path(bundle_root); f=[]
+    if raw_bundle.is_symlink(): f.append("persisted_admission_bundle_root_symlink_rejected")
+    if any(part == ".." for part in raw_bundle.parts): f.append("persisted_admission_bundle_traversal_rejected")
+    bundle=raw_bundle.resolve()
+    if not bundle.is_dir(): return HostRealEffectAdmissionRuntimeValidation(False, tuple(sorted(set(f+["persisted_admission_bundle_root_required"]))))
+    with contextlib.suppress(ValueError):
+        bundle.relative_to(Path.cwd().resolve()); f.append("repository_local_runtime_root_rejected")
+    for child in bundle.iterdir():
+        if child.is_file() and child.name.endswith((".json", ".md")) and child.name not in SEMANTIC_FILES:
+            f.append("unexpected_unmanifested_semantic_file:"+child.name)
     manifests={}
     for name, kind, key, required in (("content_manifest.json","host_real_effect_admission_runtime_content_manifest","content_manifest_digest",CONTENT_FILES),("final_bundle_manifest.json","host_real_effect_admission_runtime_final_manifest","final_bundle_digest",FINAL_FILES)):
+        if (bundle/name).is_symlink(): f.append("manifest_symlink_rejected:"+name); continue
         try: m=json.loads((bundle/name).read_text(encoding='utf-8')); manifests[name]=m
         except Exception: f.append(name.replace('.json','')+"_unreadable"); continue
         entries=m.get("files", [])
@@ -258,11 +373,15 @@ def validate_persisted_admission_bundle(bundle_root: str | Path, *, expected_fin
         seen=[]
         for e in entries:
             rel=str(e.get("relative_filename", "")); seen.append(rel); p=bundle/rel
+            if seen.count(rel) > 1: f.append("duplicate_manifest_entry:"+rel)
             if rel != Path(rel).name or rel in {"", name}: f.append("manifest_path_rejected:"+rel); continue
+            if p.is_symlink(): f.append("manifested_artifact_symlink_rejected:"+rel); continue
             if not p.exists(): f.append("manifested_file_missing:"+rel); continue
             raw=p.read_bytes()
             if len(raw) != int(e.get("size", -1)): f.append("manifest_size_mismatch:"+rel)
             if _file_sha(raw) != e.get("digest"): f.append("manifest_digest_mismatch:"+rel)
+            if e.get("schema_version") != SCHEMA_VERSION: f.append("manifest_entry_schema_version_mismatch:"+rel)
+            if e.get("artifact_kind") != Path(rel).stem: f.append("manifest_entry_artifact_kind_mismatch:"+rel)
         if set(seen) != required:
             for missing in sorted(required-set(seen)): f.append("required_artifact_omitted:"+missing)
             for extra in sorted(set(seen)-required): f.append("unexpected_manifested_artifact:"+extra)
@@ -270,6 +389,7 @@ def validate_persisted_admission_bundle(bundle_root: str | Path, *, expected_fin
     try: ev=HostRealEffectAdmissionRuntimeCoordinator()._evaluation_from_bundle(bundle)
     except Exception as exc: return HostRealEffectAdmissionRuntimeValidation(False, tuple(sorted(set(f+["admission_bundle_decode_failed:"+type(exc).__name__]))), None, str(manifests.get("final_bundle_manifest.json",{}).get("final_bundle_digest","")), str(manifests.get("content_manifest.json",{}).get("content_manifest_digest","")))
     f += list(validate_evaluation(ev).findings)
+    f += _validate_deep_lineage(ev)
     final_digest=str(manifests.get("final_bundle_manifest.json",{}).get("final_bundle_digest","")); content_digest=str(manifests.get("content_manifest.json",{}).get("content_manifest_digest",""))
     if expected_final_digest and final_digest != expected_final_digest: f.append("expected_final_manifest_digest_mismatch")
     if expected_request_id and (not ev.request or ev.request.request_id != expected_request_id): f.append("expected_request_id_mismatch")
