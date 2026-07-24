@@ -81,3 +81,83 @@ def test_replay_uses_zero_builder_calls(tmp_path):
     with mock.patch('sentientos.host_real_effect_admission_runtime.build_real_effect_admission_wing', side_effect=AssertionError('builder called')):
         ev=c.evaluate(closure_bundle_root=source, output_root=out, correlation_id='zero')
     assert ev.replayed is True
+
+def _rewrite_admission_manifests(root: Path) -> None:
+    coord=HostRealEffectAdmissionRuntimeCoordinator()
+    content=coord._manifest(root)
+    (root/'content_manifest.json').write_text(json.dumps(content, sort_keys=True, indent=2), encoding='utf-8')
+    receipt=json.loads((root/'runtime_receipt.json').read_text())
+    receipt['content_manifest_digest']=content['content_manifest_digest']
+    from sentientos.host_real_effect_admission_runtime import HostRealEffectAdmissionRuntimeReceipt, digest_record
+    receipt['digest']=''
+    rec=HostRealEffectAdmissionRuntimeReceipt(**receipt)
+    receipt['digest']=digest_record(rec)
+    (root/'runtime_receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2), encoding='utf-8')
+    final=coord._manifest(root, final=True)
+    (root/'final_bundle_manifest.json').write_text(json.dumps(final, sort_keys=True, indent=2), encoding='utf-8')
+
+def _fresh_runtime_root(tmp_path: Path, *, domain: str='diagnostics_real_effect_candidate') -> Path:
+    ev=HostRealEffectAdmissionRuntimeCoordinator().evaluate(closure_bundle_root=closure_bundle(tmp_path), output_root=tmp_path/'out', admission_domain=domain)
+    assert ev.request is not None
+    return tmp_path/'out'/ev.request.request_id
+
+def test_deep_validator_rejects_recomputed_semantic_substitutions(tmp_path):
+    cases=(
+        ('source_closure_reference.json', lambda d: d.update(source_closure_bundle_digest='sha256:substituted')),
+        ('source_dry_run_closure_bundle.json', lambda d: d.update(bundle_id='substituted-bundle')),
+        ('runtime_plan.json', lambda d: d.update(request_id='substituted-request')),
+        ('candidate.json', lambda d: d.update(source_dry_run_closure_bundle_id='substituted-source')),
+        ('admission_decision.json', lambda d: d.update(admission_domain='future_power_real_effect_candidate')),
+        ('plan_or_block_receipt.json', lambda d: d.update(candidate_id='substituted-candidate')),
+        ('real_effect_admission_bundle.json', lambda d: d.update(candidate_id='substituted-candidate')),
+        ('runtime_receipt.json', lambda d: d.update(candidate_digest='sha256:substituted')),
+    )
+    for i,(name, mutate) in enumerate(cases):
+        root=_fresh_runtime_root(tmp_path/f'case{i}')
+        data=json.loads((root/name).read_text())
+        mutate(data)
+        if name in {'candidate.json','admission_decision.json','plan_or_block_receipt.json','real_effect_admission_bundle.json','runtime_receipt.json'}:
+            data['digest']=''
+        (root/name).write_text(json.dumps(data, sort_keys=True, indent=2), encoding='utf-8')
+        _rewrite_admission_manifests(root)
+        assert not validate_persisted_admission_bundle(root).ok, name
+
+def test_deep_validator_rejects_plan_block_and_authority_substitution(tmp_path):
+    root=_fresh_runtime_root(tmp_path/'blocked', domain='future_power_real_effect_candidate')
+    block=json.loads((root/'plan_or_block_receipt.json').read_text())
+    block['receipt_id']=None
+    block['plan_id']='fake-plan'
+    block['digest']='sha256:fake'
+    (root/'plan_or_block_receipt.json').write_text(json.dumps(block, sort_keys=True, indent=2), encoding='utf-8')
+    _rewrite_admission_manifests(root)
+    assert not validate_persisted_admission_bundle(root).ok
+    root=_fresh_runtime_root(tmp_path/'flag')
+    receipt=json.loads((root/'runtime_receipt.json').read_text())
+    receipt['authorizes_execution']=True
+    receipt['digest']=''
+    (root/'runtime_receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2), encoding='utf-8')
+    _rewrite_admission_manifests(root)
+    assert not validate_persisted_admission_bundle(root).ok
+
+def test_manifest_duplicates_unmanifested_and_symlinks_rejected(tmp_path):
+    root=_fresh_runtime_root(tmp_path/'manifest')
+    final=json.loads((root/'final_bundle_manifest.json').read_text())
+    final['files'].append(dict(final['files'][0]))
+    final['final_bundle_digest']=closure_sha({'files': final['files'], 'artifact_kind': final['artifact_kind']})
+    (root/'final_bundle_manifest.json').write_text(json.dumps(final, sort_keys=True), encoding='utf-8')
+    assert not validate_persisted_admission_bundle(root).ok
+    root=_fresh_runtime_root(tmp_path/'extra')
+    (root/'evil.json').write_text('{}', encoding='utf-8')
+    assert not validate_persisted_admission_bundle(root).ok
+    root=_fresh_runtime_root(tmp_path/'linkroot')
+    link=tmp_path/'bundle-link'; link.symlink_to(root, target_is_directory=True)
+    assert not validate_persisted_admission_bundle(link).ok
+    root=_fresh_runtime_root(tmp_path/'linkfile')
+    (root/'candidate.json').unlink(); (root/'candidate.json').symlink_to(root/'runtime_request.json')
+    assert not validate_persisted_admission_bundle(root).ok
+
+def test_latest_loading_uses_deep_validator_without_builder_calls(tmp_path):
+    source=closure_bundle(tmp_path); out=tmp_path/'out'
+    HostRealEffectAdmissionRuntimeCoordinator().evaluate(closure_bundle_root=source, output_root=out, correlation_id='latest-zero')
+    with mock.patch('sentientos.host_real_effect_admission_runtime.build_real_effect_admission_wing', side_effect=AssertionError('builder called')):
+        assert load_latest_evaluation(out) is not None

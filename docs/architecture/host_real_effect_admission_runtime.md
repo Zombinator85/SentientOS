@@ -4,9 +4,13 @@ The host real effect admission runtime consumes an exact persisted `host_dry_run
 
 ## Persisted custody
 
+Validation rejects symlink bundle roots and symlink artifacts before trusting resolved paths, rejects traversal and repository-local runtime roots, and requires exact content and final-manifest membership. Duplicate manifest entries, missing required artifacts, unexpected manifested artifacts, unexpected unmanifested semantic JSON/Markdown files, and filename, size, digest, schema-version, or artifact-kind mismatches are invalid.
+
 Each admitted runtime request persists a replay-safe bundle containing the runtime request, runtime plan, exact source closure reference, embedded source `DryRunClosureBundle` semantic record, candidate, admission decision, plan scaffold or block receipt, `RealEffectAdmissionBundle`, validation findings, runtime receipt, content manifest, final manifest, deterministic JSON summary, Markdown summary, `latest.json`, and `replay_index.json`.
 
-Replay is independent of the original closure path. Once the admission bundle is persisted, an identical request with the same correlation ID replays from the stored admission bundle and performs zero admission-builder calls, even if the original source closure directory has been removed. Reusing the same correlation ID for different semantic input is rejected as a conflict.
+Replay is independent of the original closure path. Once the admission bundle is persisted, an identical request with the same correlation ID replays from the stored admission bundle and performs zero admission-builder calls, even if the original source closure directory has been removed. Reusing the same correlation ID for different semantic input is rejected as a conflict. Replay and latest-summary loading call the same public deep persisted-bundle validator used by validation commands and do not call admission builders.
+
+The deep validator checks exact request/plan linkage, source-closure reference and embedded closure consistency, candidate-to-decision-to-plan-or-block-to-admission-bundle lineage, runtime receipt parent IDs and digests, source final-manifest and content-manifest digests, eligible-versus-blocked outcome posture, recorded runtime status, and false authority flags across persisted records. Self-consistent semantic substitution is rejected even if the modified record, dependent records, and manifests are recomputed.
 
 ## Policy outcomes
 
