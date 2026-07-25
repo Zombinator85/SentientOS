@@ -4,6 +4,7 @@ import argparse, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from typing import Sequence, Any
+from sentientos.host_fulfillment_executor_readiness_runtime import validate_persisted_readiness_bundle
 
 COMMANDS=("build-request","validate-request","plan","evaluate","validate-evaluation","validate-bundle","list-prerequisites","inspect-prerequisite","show-contract","show-backend-declaration","show-precondition-manifest","show-dry-run-plan","show-admission-packet","show-readiness-receipt","summarize","render-json","render-markdown","diff")
 
@@ -31,6 +32,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if ns.command is None:
         ap.print_help(); return 0
     out={"command":ns.command,"metadata_only":True,"no_git_operations":True,"execution_ready":False,"executor_implemented":False,"backend_loaded":False,"backend_invoked":False,"dry_run_executed":False,"control_plane_execution_admission_granted":False,"fulfillment_granted":False,"privileged_effect_admission_granted":False,"effect_performed":False,"host_mutation_performed":False}
+    if ns.command == "validate-bundle":
+        if not ns.bundle_root: raise SystemExit("--bundle-root required")
+        validation=validate_persisted_readiness_bundle(ns.bundle_root)
+        print(json.dumps(validation.to_dict(),sort_keys=True,default=str))
+        return 0 if validation.ok else 1
     if ns.command in {"evaluate","build-request","validate-request","plan"} and not ns.consumption_runtime_json:
         raise SystemExit('explicit exact consumption-runtime input required')
     if ns.consumption_runtime_json:

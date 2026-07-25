@@ -1,5 +1,32 @@
 # Host Fulfillment Executor Contract Readiness Runtime
 
+## Persisted bundle custody
+
+`validate_persisted_readiness_bundle` is the authoritative public loader for a
+persisted `host_fulfillment_executor_readiness_runtime.v1` bundle. It reads the
+request, runtime plan, current-grant evidence, admission decision, prerequisite
+records, executor-contract chain, and runtime receipt from the bundle itself;
+callers cannot substitute equivalent-looking in-memory records during replay or
+downstream dry-run intake.
+
+Validation fails closed before decoding manifested artifacts when the bundle
+root is a symlink, is not a directory, resolves inside the repository, or uses
+an unsafe path. It requires exact manifest membership and verifies entry
+uniqueness, filenames, sizes, byte digests, schema versions, artifact kinds,
+semantic identifiers, path containment, artifact symlinks, and the bundle
+manifest digest. Unexpected manifested files and unmanifested JSON or Markdown
+artifacts are rejected.
+
+After byte custody succeeds, the loader validates record digests, request/plan
+and current-evidence bindings, exact prerequisite labels, metadata-admission
+posture, all executor-contract domain validators, the complete contract through
+readiness-receipt lineage, canonical routing, runtime-receipt parents, and the
+negative authority assertions. Replay binds the validated bundle digest,
+request digest, and current-evidence digest to the replay index and performs no
+new admission, builder, simulation, backend, executor, effect, or host action.
+Both readiness bundle validation and dry-run readiness intake use this same
+public loader.
+
 This runtime closes the executor-contract review loop without implementing an executor. It accepts exact fulfillment-authorization consumption custody, current local-grant posture, metadata-evaluation admission, and deterministic executor-contract records, then persists an external evidence bundle and projects review-only World-State/dashboard facts.
 
 ## Authority boundary

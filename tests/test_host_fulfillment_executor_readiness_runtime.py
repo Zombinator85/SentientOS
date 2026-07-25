@@ -4,7 +4,7 @@ import json, threading
 
 import pytest
 from sentientos.control_plane_kernel import AdmissionOutcome
-from sentientos.host_fulfillment_executor_readiness_runtime import HostFulfillmentExecutorReadinessRuntimeCoordinator, build_request, dashboard_projection, validate_consumption_source, world_state_records
+from sentientos.host_fulfillment_executor_readiness_runtime import HostFulfillmentExecutorReadinessRuntimeCoordinator, build_request, dashboard_projection, validate_consumption_source, validate_persisted_readiness_bundle, world_state_records
 from sentientos.fulfillment_authorization import fulfillment_authorization_consumption_receipt_digest
 from sentientos.host_fulfillment_authorization_runtime import _digest_record as hfac_digest_record
 from tests.test_host_fulfillment_authorization_runtime import Kernel, consume, chain
@@ -189,3 +189,24 @@ def test_replay_bundle_manifest_deep_corruption_blocks(tmp_path):
     replay=c.evaluate(result, output_root=out, grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
     assert replay.status=='contradicted_contract_package'
     assert 'semantic_replay_conflict' in replay.findings
+
+def test_public_persisted_bundle_validator_loads_disk_records_and_rejects_custody_tampering(tmp_path):
+    issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    coordinator=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00')
+    evaluation=coordinator.evaluate(result, output_root=tmp_path/'external', grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
+    bundle=tmp_path/'external'/evaluation.request.request_id
+    validation=validate_persisted_readiness_bundle(bundle)
+    assert validation.ok and validation.evaluation is not None and validation.current_grant_evidence is not None
+    assert validation.evaluation.request == evaluation.request
+    assert validation.request_digest == evaluation.request.digest and validation.bundle_digest
+    (bundle/'unmanifested.json').write_text('{}', encoding='utf-8')
+    assert 'unexpected_unmanifested_artifact:unmanifested.json' in validate_persisted_readiness_bundle(bundle).findings
+
+def test_public_persisted_bundle_validator_rejects_symlinks(tmp_path):
+    issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    evaluation=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'state', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(result, output_root=tmp_path/'external', grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
+    bundle=tmp_path/'external'/evaluation.request.request_id
+    linked=tmp_path/'linked'; linked.symlink_to(bundle, target_is_directory=True)
+    assert validate_persisted_readiness_bundle(linked).findings == ('symlink_bundle_root_rejected',)
+    target=bundle/'README.md'; saved=target.read_text(); target.unlink(); external=tmp_path/'outside.md'; external.write_text(saved); target.symlink_to(external)
+    assert any(x.startswith('symlink_manifested_artifact_rejected:README.md') for x in validate_persisted_readiness_bundle(bundle).findings)
