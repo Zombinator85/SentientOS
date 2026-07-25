@@ -6,6 +6,8 @@ import pytest
 
 from sentientos.fulfillment_executor_contract import (
     build_fulfillment_executor_contract_wing,
+    fulfillment_executor_contract_digest,
+    resolve_canonical_executor_route,
     executor_contract_readiness_receipt_digest,
     summarize_executor_admission_packet,
     summarize_executor_backend_declaration,
@@ -23,6 +25,33 @@ from sentientos.fulfillment_executor_contract import (
 from tests.test_fulfillment_authorization import FIXED, _wing
 
 pytestmark = pytest.mark.no_legacy_skip
+
+CANONICAL_ROUTES = (
+    ("diagnostics_fulfillment_authorization", "diagnostics_executor_contract", "diagnostic_backend_future"),
+    ("operator_review_fulfillment_authorization", "operator_review_executor_contract", "operator_manual_backend_future"),
+    ("resource_pressure_fulfillment_authorization", "resource_pressure_executor_contract", "diagnostic_backend_future"),
+    ("thermal_safety_fulfillment_authorization", "thermal_safety_executor_contract", "diagnostic_backend_future"),
+    ("future_cooling_fulfillment_authorization", "future_cooling_executor_contract", "cooling_backend_future"),
+    ("future_power_fulfillment_authorization", "future_power_executor_contract", "power_backend_future"),
+    ("future_cleanup_fulfillment_authorization", "future_cleanup_executor_contract", "cleanup_backend_future"),
+    ("future_service_fulfillment_authorization", "future_service_executor_contract", "service_backend_future"),
+)
+
+
+@pytest.mark.parametrize(("fulfillment_domain", "executor_domain", "backend_class"), CANONICAL_ROUTES)
+def test_canonical_executor_route_resolver(fulfillment_domain: str, executor_domain: str, backend_class: str) -> None:
+    assert resolve_canonical_executor_route(fulfillment_domain) == (executor_domain, backend_class)
+
+
+def test_unknown_and_recomputed_noncanonical_contract_routes_fail_closed() -> None:
+    with pytest.raises(ValueError, match="unknown_requested_fulfillment_domain"):
+        resolve_canonical_executor_route("unknown_fulfillment_authorization")
+    contract = build_fulfillment_executor_contract_wing(_consumed_receipt(), created_at=FIXED).contract
+    wrong = replace(contract, executor_domain="future_power_executor_contract", backend_class="power_backend_future", digest="")
+    wrong = replace(wrong, digest=fulfillment_executor_contract_digest(wrong))
+    validation = validate_fulfillment_executor_contract(wrong)
+    assert not validation.ok
+    assert {"contract:noncanonical_executor_domain", "contract:noncanonical_backend_class"} <= set(validation.findings)
 
 
 def _consumed_receipt(domain: str = "future_cooling_fulfillment_authorization"):

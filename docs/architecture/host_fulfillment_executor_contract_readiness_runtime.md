@@ -14,6 +14,26 @@ The runtime binds the exact `HostFulfillmentAuthorizationConsumptionResult`, req
 
 Every downstream record carries direct parent IDs and digests. Semantic IDs exclude custody timestamps and runtime paths while including source IDs/digests, executor domain, backend class/label, scope, targets, exact current grant/verification/authorization-ledger/expiry-evaluation/revocation evidence, the derived current grant evidence posture, prerequisites, blocked actions, future gates, risk/warning codes, and no-authority assertions. Caller-supplied posture labels are diagnostic expectations only and never establish authority.
 
+Executor routing is derived from the exact successful consumption receipt and is
+strictly canonical:
+
+| Fulfillment authorization domain | Executor-contract domain | Future backend class |
+| --- | --- | --- |
+| `diagnostics_fulfillment_authorization` | `diagnostics_executor_contract` | `diagnostic_backend_future` |
+| `operator_review_fulfillment_authorization` | `operator_review_executor_contract` | `operator_manual_backend_future` |
+| `resource_pressure_fulfillment_authorization` | `resource_pressure_executor_contract` | `diagnostic_backend_future` |
+| `thermal_safety_fulfillment_authorization` | `thermal_safety_executor_contract` | `diagnostic_backend_future` |
+| `future_cooling_fulfillment_authorization` | `future_cooling_executor_contract` | `cooling_backend_future` |
+| `future_power_fulfillment_authorization` | `future_power_executor_contract` | `power_backend_future` |
+| `future_cleanup_fulfillment_authorization` | `future_cleanup_executor_contract` | `cleanup_backend_future` |
+| `future_service_fulfillment_authorization` | `future_service_executor_contract` | `service_backend_future` |
+
+Unknown domains and caller overrides that differ from this route fail closed
+before metadata admission, builders, or persistence. The request identity,
+contract package, runtime receipt, summary, persistence bundle, and replay key
+bind the same route. Replay revalidates route consistency before returning a
+persisted result. These checks grant no executor or backend authority.
+
 ## Persistence and projection
 
 Bundles are written atomically under an explicit external runtime-state root. Repository-local roots and symlink escapes are rejected. Persisted files include the request, source manifest, metadata admission reference, runtime plan, prerequisites, contract records, validation findings, summary, deterministic Markdown, and a compact latest pointer.

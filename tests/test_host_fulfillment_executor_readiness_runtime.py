@@ -5,9 +5,33 @@ import json, threading
 import pytest
 from sentientos.control_plane_kernel import AdmissionOutcome
 from sentientos.host_fulfillment_executor_readiness_runtime import HostFulfillmentExecutorReadinessRuntimeCoordinator, build_request, dashboard_projection, validate_consumption_source, world_state_records
+from sentientos.fulfillment_authorization import fulfillment_authorization_consumption_receipt_digest
+from sentientos.host_fulfillment_authorization_runtime import _digest_record as hfac_digest_record
 from tests.test_host_fulfillment_authorization_runtime import Kernel, consume, chain
 
 pytestmark = pytest.mark.no_legacy_skip
+
+def reroute_result(result, domain):
+    receipt={**result.consumption_receipt,"requested_fulfillment_domain":domain,"digest":""}
+    receipt["digest"]=fulfillment_authorization_consumption_receipt_digest(receipt)
+    entry={**result.ledger_entry,"consumption_receipt":receipt,"digest":""}; entry["digest"]=hfac_digest_record(entry)
+    ledger={**result.ledger,"entries":[entry],"digest":""}; ledger["digest"]=hfac_digest_record(ledger)
+    return replace(result,consumption_receipt=receipt,ledger_entry=entry,ledger=ledger)
+
+def test_diagnostics_route_and_mismatched_overrides_fail_before_calls(tmp_path):
+    issue,g,ver,led,exp,src,env=chain(); original=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
+    diagnostics=reroute_result(original,"diagnostics_fulfillment_authorization")
+    c=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'state',kernel=Kernel(),clock=lambda:'2029-01-02T00:00:00+00:00')
+    ev=c.evaluate(diagnostics,output_root=tmp_path/'diagnostics',grant=g,verification=ver,authorization_ledger=led,expiry_evaluation=exp)
+    assert (ev.request.requested_fulfillment_domain,ev.request.executor_domain,ev.request.backend_class)==("diagnostics_fulfillment_authorization","diagnostics_executor_contract","diagnostic_backend_future")
+    wrong=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'wrong-state',kernel=Kernel(),clock=lambda:'2029-01-02T00:00:00+00:00')
+    blocked=wrong.evaluate(original,output_root=tmp_path/'wrong',grant=g,verification=ver,authorization_ledger=led,expiry_evaluation=exp,executor_domain="future_power_executor_contract",backend_class="power_backend_future")
+    assert "noncanonical_executor_domain_override" in blocked.findings
+    assert blocked.admission_call_count==0 and blocked.builder_call_count==0 and not blocked.persisted and not (tmp_path/'wrong').exists()
+    unknown=reroute_result(original,"unknown_fulfillment_authorization")
+    denied=wrong.evaluate(unknown,output_root=tmp_path/'unknown',grant=g,verification=ver,authorization_ledger=led,expiry_evaluation=exp)
+    assert "unknown_requested_fulfillment_domain" in denied.findings
+    assert denied.admission_call_count==0 and denied.builder_call_count==0 and not (tmp_path/'unknown').exists()
 
 def test_exact_typed_consumption_builds_review_package_without_authority(tmp_path):
     issue,g,ver,led,exp,src,env=chain(); result=consume(tmp_path/'hfac', bundle=(issue,g,ver,led,exp,src,env))
