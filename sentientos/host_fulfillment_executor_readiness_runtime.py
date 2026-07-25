@@ -101,6 +101,150 @@ class HostFulfillmentExecutorReadinessValidationResult:
     ok:bool; findings:tuple[str,...]
     def to_dict(self)->dict[str,Any]: return asdict(self)
 
+@dataclass(frozen=True)
+class HostFulfillmentExecutorReadinessPersistedBundleValidation:
+    """Authoritative result of decoding and validating a persisted v1 bundle."""
+    ok:bool; findings:tuple[str,...]; evaluation:HostFulfillmentExecutorReadinessEvaluation|None; current_grant_evidence:HostFulfillmentExecutorCurrentGrantEvidence|None; bundle_digest:str; request_id:str; request_digest:str
+    def to_dict(self)->dict[str,Any]:
+        return {"ok":self.ok,"findings":self.findings,"evaluation":self.evaluation.to_dict() if self.evaluation else None,"current_grant_evidence":self.current_grant_evidence.to_dict() if self.current_grant_evidence else None,"bundle_digest":self.bundle_digest,"request_id":self.request_id,"request_digest":self.request_digest}
+
+_PERSISTED_FILES={"readiness_request.json","current_grant_evidence.json","source_manifest.json","metadata_admission.json","runtime_plan.json","prerequisites.json","executor_contract.json","backend_declaration.json","precondition_manifest.json","dry_run_plan.json","admission_packet.json","readiness_receipt.json","runtime_receipt.json","validation_findings.json","summary.json","README.md"}
+
+def validate_persisted_readiness_bundle(bundle_root:str|Path, *, expected_bundle_digest:str|None=None, expected_request_id:str|None=None, expected_request_digest:str|None=None, expected_evidence_digest:str|None=None)->HostFulfillmentExecutorReadinessPersistedBundleValidation:
+    """Load persisted records from disk and validate their complete custody chain."""
+    f:list[str]=[]; root=Path(bundle_root); manifest:dict[str,Any]={}; decoded:dict[str,Any]={}
+    if root.is_symlink(): f.append("symlink_bundle_root_rejected")
+    if ".." in root.parts: f.append("bundle_path_traversal_rejected")
+    try: resolved=root.resolve(strict=True)
+    except (OSError,RuntimeError): resolved=root.absolute(); f.append("bundle_root_missing")
+    if not root.is_dir(): f.append("bundle_root_not_directory")
+    try:
+        if resolved == Path.cwd().resolve() or resolved.is_relative_to(Path.cwd().resolve()): f.append("repository_local_runtime_root_rejected")
+    except OSError: f.append("bundle_root_resolution_failed")
+    if f: return HostFulfillmentExecutorReadinessPersistedBundleValidation(False,tuple(sorted(set(f))),None,None,"","","")
+    try:
+        manifest=json.loads((resolved/"bundle_manifest.json").read_text(encoding="utf-8"))
+    except Exception as exc:
+        return HostFulfillmentExecutorReadinessPersistedBundleValidation(False,("bundle_manifest_decode_failed:"+type(exc).__name__,),None,None,"","","")
+    entries=manifest.get("files")
+    if manifest.get("schema_version") != SCHEMA_VERSION: f.append("bundle_manifest_schema_version_mismatch")
+    if manifest.get("artifact_kind") != "host_fulfillment_executor_readiness_bundle_manifest": f.append("bundle_manifest_artifact_kind_mismatch")
+    if not isinstance(entries,list): f.append("bundle_manifest_entries_malformed"); entries=[]
+    seen:list[str]=[]
+    for entry in entries:
+        if not isinstance(entry,dict): f.append("bundle_manifest_entry_malformed"); continue
+        rel=entry.get("relative_filename")
+        if not isinstance(rel,str) or not rel or Path(rel).name != rel or Path(rel).is_absolute() or ".." in Path(rel).parts:
+            f.append("manifest_path_rejected:"+str(rel)); continue
+        seen.append(rel)
+        if rel not in _PERSISTED_FILES: f.append("unexpected_manifested_artifact:"+rel)
+        target=resolved/rel
+        if target.is_symlink(): f.append("symlink_manifested_artifact_rejected:"+rel); continue
+        try:
+            if target.resolve(strict=False).parent != resolved: f.append("manifest_path_escape:"+rel); continue
+        except OSError: f.append("manifest_path_escape:"+rel); continue
+        if not target.is_file(): f.append("manifested_file_missing:"+rel); continue
+        raw=target.read_bytes()
+        if entry.get("size") != len(raw): f.append("manifest_size_mismatch:"+rel)
+        if entry.get("digest") != "sha256:"+hashlib.sha256(raw).hexdigest(): f.append("manifest_digest_mismatch:"+rel)
+        if entry.get("schema_version") != SCHEMA_VERSION: f.append("manifest_entry_schema_version_mismatch:"+rel)
+        if entry.get("artifact_kind") != Path(rel).stem: f.append("manifest_entry_artifact_kind_mismatch:"+rel)
+        if rel.endswith(".json"):
+            try: decoded[rel]=json.loads(raw.decode("utf-8"))
+            except Exception: f.append("manifested_json_decode_failed:"+rel)
+    if len(seen)!=len(set(seen)): f.append("duplicate_manifest_entry")
+    for name in sorted(_PERSISTED_FILES-set(seen)): f.append("missing_manifest_entry:"+name)
+    actual={p.name for p in resolved.iterdir() if p.is_file() and p.name != "bundle_manifest.json" and p.suffix in {".json",".md"}}
+    for name in sorted(actual-set(seen)): f.append("unexpected_unmanifested_artifact:"+name)
+    for name in sorted(set(seen)-actual): f.append("manifested_file_missing:"+name)
+    bundle_digest=str(manifest.get("bundle_digest", ""))
+    if bundle_digest != _sha({"files":entries}): f.append("bundle_manifest_digest_mismatch")
+    if expected_bundle_digest and bundle_digest != expected_bundle_digest: f.append("expected_bundle_digest_mismatch")
+    req=decoded.get("readiness_request.json",{}); plan=decoded.get("runtime_plan.json",{}); evidence=decoded.get("current_grant_evidence.json",{})
+    request_id=str(req.get("request_id", "")) if isinstance(req,dict) else ""; request_digest=str(req.get("digest", "")) if isinstance(req,dict) else ""
+    for filename,payload in decoded.items():
+        entry=next((e for e in entries if isinstance(e,dict) and e.get("relative_filename")==filename),{})
+        if isinstance(payload,dict):
+            semantic=str(payload.get("request_id") or payload.get("evidence_id") or payload.get("plan_id") or payload.get("contract_id") or payload.get("declaration_id") or payload.get("manifest_id") or payload.get("packet_id") or payload.get("receipt_id") or Path(filename).stem)
+        else: semantic=Path(filename).stem
+        if entry.get("semantic_id") != semantic: f.append("manifest_entry_semantic_id_mismatch:"+filename)
+    if not isinstance(req,dict) or req.get("schema_version") != SCHEMA_VERSION: f.append("request_schema_version_mismatch")
+    elif req.get("digest") != digest_record(req): f.append("request_digest_mismatch")
+    if expected_request_id and request_id != expected_request_id: f.append("expected_request_id_mismatch")
+    if expected_request_digest and request_digest != expected_request_digest: f.append("expected_request_digest_mismatch")
+    if not isinstance(plan,dict) or plan.get("digest") != digest_record(plan): f.append("runtime_plan_digest_mismatch")
+    if decoded.get("source_manifest.json") != plan: f.append("source_manifest_runtime_plan_mismatch")
+    if isinstance(plan,dict):
+        if (plan.get("request_id"),plan.get("request_digest")) != (request_id,request_digest): f.append("runtime_plan_request_mismatch")
+        if tuple(plan.get("prerequisite_labels",())) != tuple(sorted(REQUIRED_EXECUTOR_LABELS)): f.append("runtime_plan_prerequisite_labels_mismatch")
+        if tuple(plan.get("blocked_actions",())) != tuple(req.get("blocked_actions",())): f.append("runtime_plan_blocked_actions_mismatch")
+        refs=plan.get("source_refs",[]); keys=[(x.get("kind"),x.get("ref_id"),x.get("digest")) for x in refs if isinstance(x,dict)] if isinstance(refs,list) else []
+        if len(keys)!=len(set(keys)) or len(keys)!=len(refs): f.append("runtime_plan_source_refs_not_unique")
+        expected_refs={"consumption_result":(req.get("consumption_result_id"),req.get("consumption_result_digest")),"current_grant_evidence":(evidence.get("evidence_id"),evidence.get("digest"))}
+        for kind,pair in expected_refs.items():
+            if not any(k==kind and (i,d)==pair for k,i,d in keys): f.append("runtime_plan_source_ref_mismatch:"+kind)
+        refmap={str(k):(str(i),str(d)) for k,i,d in keys}
+        request_sem={"consumption_result_digest":req.get("consumption_result_digest"),"receipt_id":refmap.get("consumption_receipt",("",""))[0],"receipt_digest":refmap.get("consumption_receipt",("",""))[1],"ledger_digest":refmap.get("consumption_ledger",("",""))[1],"requested_fulfillment_domain":req.get("requested_fulfillment_domain"),"executor_domain":req.get("executor_domain"),"backend_class":req.get("backend_class"),"backend_label":req.get("backend_label"),"scope":req.get("requested_scope_labels",()),"targets":req.get("target_labels",()),"time":req.get("requested_time"),"grant_posture":req.get("current_grant_posture"),"blocked":req.get("blocked_actions",())}
+        if req.get("request_id") != _id("hfer_request_",request_sem): f.append("request_semantic_id_mismatch")
+        plan_sem={"request":request_digest,"refs":refs,"labels":sorted(REQUIRED_EXECUTOR_LABELS),"blocked":req.get("blocked_actions",()),"no_authority":NO_AUTHORITY}
+        if plan.get("plan_id") != _id("hfer_plan_",plan_sem): f.append("runtime_plan_semantic_id_mismatch")
+    if not isinstance(evidence,dict) or evidence.get("digest") != digest_record(evidence): f.append("current_grant_evidence_digest_mismatch")
+    elif evidence.get("evidence_id") != _id("hfer_current_grant_",{**evidence,"evidence_id":"","digest":""}): f.append("current_grant_evidence_semantic_id_mismatch")
+    if expected_evidence_digest and evidence.get("digest") != expected_evidence_digest: f.append("expected_current_grant_evidence_digest_mismatch")
+    if isinstance(req,dict) and (req.get("current_grant_evidence_id"),req.get("current_grant_evidence_digest")) != (evidence.get("evidence_id"),evidence.get("digest")): f.append("request_current_grant_evidence_mismatch")
+    if isinstance(req,dict) and (tuple(req.get("requested_scope_labels",())),tuple(req.get("target_labels",())),req.get("requested_time")) != (tuple(evidence.get("requested_scope_labels",())),tuple(evidence.get("target_labels",())),evidence.get("requested_fulfillment_time")): f.append("request_current_grant_scope_time_mismatch")
+    admission=decoded.get("metadata_admission.json",{})
+    if not isinstance(admission,dict) or admission.get("outcome") != "allow" or admission.get("final_disposition") != "allow": f.append("metadata_admission_not_allowed")
+    else:
+        if admission.get("authority_class") not in {AuthorityClass.PROPOSAL_EVALUATION,AuthorityClass.PROPOSAL_EVALUATION.value}: f.append("metadata_admission_authority_mismatch")
+        if admission.get("action_kind") != "host_fulfillment_executor_contract_readiness_metadata_evaluation": f.append("metadata_admission_action_mismatch")
+        if admission.get("lifecycle_phase") != "maintenance" or admission.get("target_subsystem") != "host_fulfillment_executor_readiness": f.append("metadata_admission_scope_mismatch")
+        if admission.get("correlation_id") != req.get("correlation_id"): f.append("metadata_admission_correlation_mismatch")
+        details=admission.get("details") or admission.get("request_details") or admission.get("metadata") or {}
+        if isinstance(details,dict):
+            for key,val in (("readiness_request_id",request_id),("readiness_request_digest",request_digest),("runtime_plan_id",plan.get("plan_id")),("runtime_plan_digest",plan.get("digest")),("current_grant_evidence_id",evidence.get("evidence_id")),("current_grant_evidence_digest",evidence.get("digest"))):
+                if key in details and details.get(key)!=val: f.append("metadata_admission_binding_mismatch:"+key)
+    prereqs=decoded.get("prerequisites.json",[])
+    labels=[str(x.get("label", "")) for x in prereqs if isinstance(x,dict)] if isinstance(prereqs,list) else []
+    if len(labels)!=len(set(labels)): f.append("duplicate_prerequisite_label")
+    if tuple(sorted(labels)) != tuple(sorted(REQUIRED_EXECUTOR_LABELS)): f.append("prerequisite_label_set_mismatch")
+    objects=[("executor_contract.json",validate_fulfillment_executor_contract),("backend_declaration.json",validate_executor_backend_declaration),("precondition_manifest.json",validate_executor_precondition_manifest),("dry_run_plan.json",validate_executor_dry_run_plan),("admission_packet.json",validate_executor_admission_packet),("readiness_receipt.json",validate_executor_contract_readiness_receipt)]
+    for filename,validator in objects:
+        payload=decoded.get(filename,{})
+        try:
+            findings=validator(payload).findings
+            f.extend(filename+":"+x for x in findings)
+        except Exception as exc: f.append(filename+":validator_failed:"+type(exc).__name__)
+    chain=[decoded.get(x,{}) for x in ("executor_contract.json","backend_declaration.json","precondition_manifest.json","dry_run_plan.json","admission_packet.json","readiness_receipt.json")]
+    contract,declaration,precondition,dryrun,packet,ready=chain
+    for payload,label in ((contract,"contract"),(precondition,"precondition_manifest"),(packet,"admission_packet")):
+        if isinstance(payload,dict) and (payload.get("source_consumption_receipt_id"),payload.get("source_consumption_receipt_digest")) != (evidence.get("source_consumption_receipt_id"),evidence.get("source_consumption_receipt_digest")): f.append(label+":source_consumption_receipt_mismatch")
+    bindings=((declaration,"contract",contract),(precondition,"contract",contract),(dryrun,"contract",contract),(packet,"contract",contract),(packet,"backend_declaration",declaration),(packet,"precondition_manifest",precondition),(packet,"dry_run_plan",dryrun),(ready,"contract",contract),(ready,"backend_declaration",declaration),(ready,"precondition_manifest",precondition),(ready,"dry_run_plan",dryrun),(ready,"admission_packet",packet))
+    def parent_id(prefix:str,o:Mapping[str,Any])->str:
+        return str(o.get({"backend_declaration":"declaration_id","precondition_manifest":"manifest_id","dry_run_plan":"plan_id","admission_packet":"packet_id","readiness_receipt":"receipt_id"}.get(prefix,prefix+"_id"),""))
+    for child,prefix,parent in bindings:
+        if isinstance(child,dict) and isinstance(parent,dict) and ((prefix+"_id" in child and child.get(prefix+"_id")!=parent_id(prefix,parent)) or (prefix+"_digest" in child and child.get(prefix+"_digest")!=parent.get("digest"))): f.append("lineage_binding_mismatch:"+prefix)
+    runtime=decoded.get("runtime_receipt.json",{})
+    if not isinstance(runtime,dict) or runtime.get("digest") != digest_record(runtime): f.append("runtime_receipt_digest_mismatch")
+    else:
+        for prefix,parent in (("request",req),("contract",contract),("admission_packet",packet),("readiness_receipt",ready)):
+            if runtime.get(prefix+"_id") != parent_id(prefix,parent) or runtime.get(prefix+"_digest") != parent.get("digest"): f.append("runtime_receipt_parent_mismatch:"+prefix)
+    try:
+        request_record=HostFulfillmentExecutorReadinessRequest(**{**req,"requested_scope_labels":tuple(req.get("requested_scope_labels",())),"target_labels":tuple(req.get("target_labels",())),"missing_future_gates":tuple(req.get("missing_future_gates",())),"blocked_actions":tuple(req.get("blocked_actions",()))})
+        plan_record=HostFulfillmentExecutorReadinessPlan(**{**plan,"source_refs":tuple(HostFulfillmentExecutorSourceRef(**x) for x in plan.get("source_refs",())),"prerequisite_labels":tuple(plan.get("prerequisite_labels",())),"blocked_actions":tuple(plan.get("blocked_actions",()))})
+        ev=HostFulfillmentExecutorReadinessEvaluation(str(runtime.get("posture","")),tuple(decoded.get("validation_findings.json",{}).get("findings",())),request_record,plan_record,admission,tuple(HostFulfillmentExecutorPrerequisiteRecord(**x) for x in prereqs),contract,declaration,precondition,dryrun,packet,ready,HostFulfillmentExecutorReadinessReceipt(**runtime),True,False,0,0)
+        f.extend(validate_route_consistency(ev))
+        if ev.findings: f.append("persisted_positive_bundle_has_findings")
+        for payload in (req,plan,evidence,admission,contract,declaration,precondition,dryrun,packet,ready,runtime):
+            if isinstance(payload,dict):
+                for key in NO_AUTHORITY:
+                    if payload.get(key) is True or (isinstance(payload.get("no_authority"),dict) and payload["no_authority"].get(key) is True): f.append("authority_flag_true:"+key)
+        current=HostFulfillmentExecutorCurrentGrantEvidence(**{**evidence,"revocation_receipt_refs":tuple(HostFulfillmentExecutorSourceRef(**x) for x in evidence.get("revocation_receipt_refs",())),"requested_scope_labels":tuple(evidence.get("requested_scope_labels",())),"target_labels":tuple(evidence.get("target_labels",())),"warning_labels":tuple(evidence.get("warning_labels",())),"risk_labels":tuple(evidence.get("risk_labels",())),"blocked_action_labels":tuple(evidence.get("blocked_action_labels",())),"current_issue_receipt_refs":tuple(HostFulfillmentExecutorSourceRef(**x) for x in evidence.get("current_issue_receipt_refs",())),"current_host_local_revocation_receipt_refs":tuple(HostFulfillmentExecutorSourceRef(**x) for x in evidence.get("current_host_local_revocation_receipt_refs",()))})
+    except Exception as exc:
+        f.append("persisted_bundle_decode_failed:"+type(exc).__name__); ev=None; current=None
+    findings=tuple(sorted(set(f)))
+    return HostFulfillmentExecutorReadinessPersistedBundleValidation(not findings,findings,ev if not findings else None,current if not findings else None,bundle_digest,request_id,request_digest)
+
 
 def _host_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
     return host_local_digest_record(snapshot)
@@ -348,7 +492,10 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
             if replay is not None:
                 if replay.get("conflict"):
                     return HostFulfillmentExecutorReadinessEvaluation("contradicted_contract_package",("semantic_replay_conflict",),req,plan,None,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
-                return self._evaluation_from_bundle(replay["bundle"], req, plan, evidence)
+                validated=validate_persisted_readiness_bundle(replay["bundle"],expected_bundle_digest=str(replay.get("bundle_digest","")),expected_request_id=req.request_id,expected_request_digest=req.digest,expected_evidence_digest=evidence.digest)
+                if not validated.ok or validated.evaluation is None:
+                    return HostFulfillmentExecutorReadinessEvaluation("contradicted_contract_package",tuple(sorted(set(("semantic_replay_conflict",)+validated.findings))),req,plan,None,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
+                return replace(validated.evaluation,replayed=True,builder_call_count=0,admission_call_count=self.admission_call_count)
             adm=self.request_metadata_admission(req,plan,result,evidence); ad=_dict(adm)
             if not adm.allowed or adm.authority_class != AuthorityClass.PROPOSAL_EVALUATION:
                 return HostFulfillmentExecutorReadinessEvaluation("blocked_contract_package",("metadata_admission_not_allowed",),req,plan,ad,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
@@ -402,36 +549,12 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         if prior.get("semantic") != json.loads(_canon(semantic)): return {"conflict": True}
         bundle=root/str(prior.get("request_id",""))
         if not bundle.exists() or bundle.is_symlink(): return {"conflict": True}
-        try:
-            br=json.loads((bundle/"runtime_receipt.json").read_text()); rq=json.loads((bundle/"readiness_request.json").read_text()); ce=json.loads((bundle/"current_grant_evidence.json").read_text())
+        validated=validate_persisted_readiness_bundle(bundle,expected_bundle_digest=str(prior.get("bundle_digest","")),expected_request_id=str(prior.get("request_id","")),expected_request_digest=str(prior.get("request_digest","")),expected_evidence_digest=str(prior.get("current_grant_evidence_digest","")))
+        if not validated.ok: return {"conflict": True}
+        try: latest=json.loads((root/"latest.json").read_text())
         except Exception: return {"conflict": True}
-        if br.get("digest") != prior.get("runtime_receipt_digest") or rq.get("digest") != prior.get("request_digest") or ce.get("digest") != prior.get("current_grant_evidence_digest"): return {"conflict": True}
-        if not self._validate_bundle_manifest(root, bundle, prior): return {"conflict": True}
-        return {"bundle": bundle}
-
-    def _validate_bundle_manifest(self, root:Path, bundle:Path, prior:Mapping[str,Any])->bool:
-        try:
-            manifest=json.loads((bundle/"bundle_manifest.json").read_text())
-            entries=manifest.get("files", [])
-            if manifest.get("bundle_digest") != _sha({"files":entries}): return False
-            if json.loads((root/"latest.json").read_text()).get("request_digest") != prior.get("request_digest"): return False
-            for entry in entries:
-                rel=str(entry.get("relative_filename")); raw=(bundle/rel).read_bytes()
-                if len(raw) != int(entry.get("size", -1)): return False
-                if "sha256:"+hashlib.sha256(raw).hexdigest() != entry.get("digest"): return False
-                if rel.endswith(".json"):
-                    json.loads(raw.decode())
-            return True
-        except Exception:
-            return False
-
-    def _evaluation_from_bundle(self, bundle:Path, req:HostFulfillmentExecutorReadinessRequest, plan:HostFulfillmentExecutorReadinessPlan, evidence:HostFulfillmentExecutorCurrentGrantEvidence)->HostFulfillmentExecutorReadinessEvaluation:
-        def load(name:str)->Any: return json.loads((bundle/name).read_text())
-        runtime=HostFulfillmentExecutorReadinessReceipt(**load("runtime_receipt.json"))
-        prereq=tuple(HostFulfillmentExecutorPrerequisiteRecord(**x) for x in load("prerequisites.json"))
-        ev=HostFulfillmentExecutorReadinessEvaluation(runtime.posture,(),req,plan,load("metadata_admission.json"),prereq,load("executor_contract.json"),load("backend_declaration.json"),load("precondition_manifest.json"),load("dry_run_plan.json"),load("admission_packet.json"),load("readiness_receipt.json"),runtime,True,True,0,self.admission_call_count)
-        findings=validate_route_consistency(ev)
-        return replace(ev,status="contradicted_contract_package",findings=findings,persisted=False,replayed=False) if findings else ev
+        if latest.get("bundle_digest") != validated.bundle_digest: return {"conflict": True}
+        return {"bundle": bundle,"bundle_digest":validated.bundle_digest}
 
     def _persist(self, root:Path, ev:HostFulfillmentExecutorReadinessEvaluation, evidence:HostFulfillmentExecutorCurrentGrantEvidence, semantic:Mapping[str,Any])->bool:
         if root.exists() and root.is_symlink(): raise ValueError("symlink_escape_rejected")
@@ -455,7 +578,7 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         bundle_manifest["bundle_digest"]=_sha({"files":manifest_entries})
         (tmp/"bundle_manifest.json").write_text(json.dumps(bundle_manifest,sort_keys=True,indent=2),encoding="utf-8")
         os.replace(tmp,bundle)
-        latest={"request_id":ev.request.request_id,"request_digest":ev.request.digest,"current_grant_evidence_id":evidence.evidence_id,"current_grant_evidence_digest":evidence.digest,"runtime_receipt_id":ev.runtime_receipt.receipt_id if ev.runtime_receipt else "","runtime_receipt_digest":ev.runtime_receipt.digest if ev.runtime_receipt else "","posture":ev.status,"contract_id":ev.contract.get("contract_id") if ev.contract else "","readiness_receipt_id":ev.readiness_receipt.get("receipt_id") if ev.readiness_receipt else ""}
+        latest={"request_id":ev.request.request_id,"request_digest":ev.request.digest,"current_grant_evidence_id":evidence.evidence_id,"current_grant_evidence_digest":evidence.digest,"runtime_receipt_id":ev.runtime_receipt.receipt_id if ev.runtime_receipt else "","runtime_receipt_digest":ev.runtime_receipt.digest if ev.runtime_receipt else "","bundle_digest":bundle_manifest["bundle_digest"],"posture":ev.status,"contract_id":ev.contract.get("contract_id") if ev.contract else "","readiness_receipt_id":ev.readiness_receipt.get("receipt_id") if ev.readiness_receipt else ""}
         tmp_latest=root/"latest.json.tmp"; tmp_latest.write_text(json.dumps(latest,sort_keys=True,indent=2),encoding='utf-8'); os.replace(tmp_latest, root/"latest.json")
         idx=root/"replay_index.json"; data=json.loads(idx.read_text()) if idx.exists() else {}; data[ev.request.correlation_id]={**latest,"semantic":json.loads(_canon(semantic))}; tmp_idx=root/"replay_index.json.tmp"; tmp_idx.write_text(json.dumps(data,sort_keys=True,indent=2),encoding="utf-8"); os.replace(tmp_idx, idx)
         return True

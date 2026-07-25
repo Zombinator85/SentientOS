@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLI for the simulation-only host dry-run execution runtime."""
 from __future__ import annotations
-import argparse, hashlib, json, sys
+import argparse, json, sys
 from pathlib import Path
 from typing import Any, Mapping
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -15,6 +15,7 @@ from sentientos.host_fulfillment_executor_readiness_runtime import (
     HostFulfillmentExecutorReadinessPlan,
     HostFulfillmentExecutorReadinessReceipt,
     HostFulfillmentExecutorReadinessRequest,
+    validate_persisted_readiness_bundle,
 )
 
 
@@ -39,49 +40,11 @@ def _decode_eval(data: dict[str, Any]) -> HostFulfillmentExecutorReadinessEvalua
 
 
 def _decode_readiness_bundle(root: str | Path) -> HostFulfillmentExecutorReadinessEvaluation:
-    bundle = Path(root)
-    if not bundle.is_dir():
-        raise SystemExit("persisted_readiness_bundle_directory_required")
-    allowed_extra = {"README.md"}
-    required = ["bundle_manifest.json","readiness_request.json","current_grant_evidence.json","source_manifest.json","metadata_admission.json","runtime_plan.json","prerequisites.json","executor_contract.json","backend_declaration.json","precondition_manifest.json","dry_run_plan.json","admission_packet.json","readiness_receipt.json","runtime_receipt.json","validation_findings.json","summary.json"]
-    missing = [name for name in required if not (bundle/name).is_file()]
-    if missing:
-        raise SystemExit("missing_readiness_bundle_artifacts:" + ",".join(missing))
-    manifest = _load_json(bundle/"bundle_manifest.json")
-    seen = [str(e.get("relative_filename")) for e in manifest.get("files", ()) if isinstance(e, dict)]
-    for name in required:
-        if name == "bundle_manifest.json":
-            continue
-        if seen.count(name) != 1:
-            raise SystemExit("readiness_bundle_manifest_required_artifact_mismatch:" + name)
-    for entry in manifest.get("files", ()):
-        if not isinstance(entry, dict):
-            raise SystemExit("readiness_bundle_manifest_entry_malformed")
-        rel = str(entry.get("relative_filename", ""))
-        if (rel not in required and rel not in allowed_extra) or rel == "bundle_manifest.json":
-            raise SystemExit("readiness_bundle_unmanifested_or_unknown_artifact:" + rel)
-        raw = (bundle/rel).read_bytes()
-        if len(raw) != int(entry.get("size", -1)) or "sha256:" + hashlib.sha256(raw).hexdigest() != entry.get("digest"):
-            raise SystemExit("readiness_bundle_file_custody_mismatch:" + rel)
-    data = {
-        "status": _load_json(bundle/"runtime_receipt.json").get("posture", ""),
-        "findings": tuple(_load_json(bundle/"validation_findings.json").get("findings", ())),
-        "request": _load_json(bundle/"readiness_request.json"),
-        "plan": _load_json(bundle/"runtime_plan.json"),
-        "metadata_admission": _load_json(bundle/"metadata_admission.json"),
-        "prerequisite_records": json.loads((bundle/"prerequisites.json").read_text(encoding="utf-8")),
-        "contract": _load_json(bundle/"executor_contract.json"),
-        "backend_declaration": _load_json(bundle/"backend_declaration.json"),
-        "precondition_manifest": _load_json(bundle/"precondition_manifest.json"),
-        "dry_run_plan": _load_json(bundle/"dry_run_plan.json"),
-        "admission_packet": _load_json(bundle/"admission_packet.json"),
-        "readiness_receipt": _load_json(bundle/"readiness_receipt.json"),
-        "runtime_receipt": _load_json(bundle/"runtime_receipt.json"),
-        "persisted": True,
-    }
-    ev = _decode_eval(data)
-    object.__setattr__(ev, "_current_grant_evidence", _load_json(bundle/"current_grant_evidence.json"))
-    return ev
+    validation=validate_persisted_readiness_bundle(root)
+    if not validation.ok or validation.evaluation is None:
+        raise SystemExit("invalid_readiness_custody:"+",".join(validation.findings))
+    object.__setattr__(validation.evaluation,"_current_grant_evidence",validation.current_grant_evidence.to_dict() if validation.current_grant_evidence else {})
+    return validation.evaluation
 
 
 def _decode_diagnostic_source(path: str) -> HostFulfillmentExecutorReadinessEvaluation:
