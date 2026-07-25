@@ -22,6 +22,7 @@ from sentientos.fulfillment_executor_contract import (
     validate_fulfillment_executor_contract, validate_executor_backend_declaration,
     validate_executor_precondition_manifest, validate_executor_dry_run_plan,
     validate_executor_admission_packet, validate_executor_contract_readiness_receipt,
+    resolve_canonical_executor_route,
 )
 from sentientos.host_fulfillment_authorization_runtime import HostFulfillmentAuthorizationConsumptionResult, _digest_record as hfac_digest_record
 from sentientos.host_local_authorization_runtime import HostLocalAuthorizationLedgerSnapshot, HostLocalAuthorizationIssueReceipt, HostLocalAuthorizationRevocationReceipt, _digest_record as host_local_digest_record
@@ -71,7 +72,7 @@ class HostFulfillmentExecutorCurrentGrantEvidence:
 
 @dataclass(frozen=True)
 class HostFulfillmentExecutorReadinessRequest:
-    request_id:str; digest:str; correlation_id:str; consumption_result_id:str; consumption_result_digest:str; executor_domain:str; backend_class:str; backend_label:str; requested_scope_labels:tuple[str,...]; target_labels:tuple[str,...]; requested_time:str; current_grant_posture:str; current_grant_evidence_id:str; current_grant_evidence_digest:str; missing_future_gates:tuple[str,...]; blocked_actions:tuple[str,...]; created_at:str= "1970-01-01T00:00:00+00:00"; schema_version:str=SCHEMA_VERSION
+    request_id:str; digest:str; correlation_id:str; consumption_result_id:str; consumption_result_digest:str; requested_fulfillment_domain:str; executor_domain:str; backend_class:str; backend_label:str; requested_scope_labels:tuple[str,...]; target_labels:tuple[str,...]; requested_time:str; current_grant_posture:str; current_grant_evidence_id:str; current_grant_evidence_digest:str; missing_future_gates:tuple[str,...]; blocked_actions:tuple[str,...]; created_at:str= "1970-01-01T00:00:00+00:00"; schema_version:str=SCHEMA_VERSION
     def to_dict(self)->dict[str,Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostFulfillmentExecutorPrerequisiteRecord:
@@ -85,6 +86,7 @@ class HostFulfillmentExecutorReadinessPlan:
 @dataclass(frozen=True)
 class HostFulfillmentExecutorReadinessReceipt:
     receipt_id:str; digest:str; posture:str; request_id:str; request_digest:str; contract_id:str; contract_digest:str; admission_packet_id:str; admission_packet_digest:str; readiness_receipt_id:str; readiness_receipt_digest:str; no_authority:Mapping[str,bool]
+    requested_fulfillment_domain:str=""; executor_domain:str=""; backend_class:str=""
     def to_dict(self)->dict[str,Any]: return asdict(self)
 @dataclass(frozen=True)
 class HostFulfillmentExecutorReadinessEvaluation:
@@ -180,11 +182,13 @@ def build_request(result:HostFulfillmentAuthorizationConsumptionResult, *, execu
     if not isinstance(result, HostFulfillmentAuthorizationConsumptionResult): raise ValueError("strict_typed_consumption_result_required")
     if result.status!="recorded" or not result.consumption_receipt: raise ValueError("successful_consumption_receipt_required")
     rec=_dict(result.consumption_receipt); env=_dict(result.envelope)
-    domain=executor_domain or "future_cooling_executor_contract"
-    backend=backend_class or "cooling_backend_future"
-    sem={"consumption_result_digest":_sha(result.to_dict()),"receipt_id":rec.get("receipt_id"),"receipt_digest":rec.get("digest"),"ledger_digest":_dict(result.ledger or {}).get("digest"),"executor_domain":domain,"backend_class":backend,"backend_label":backend_label,"scope":tuple(env.get("requested_scope_labels",())),"targets":tuple(env.get("target_labels",())),"time":env.get("requested_time"),"grant_posture":current_grant_posture,"blocked":tuple(sorted(rec.get("blocked_actions",()))) }
+    requested_domain=str(rec.get("requested_fulfillment_domain", ""))
+    domain, backend=resolve_canonical_executor_route(requested_domain)
+    if executor_domain is not None and executor_domain != domain: raise ValueError("noncanonical_executor_domain_override")
+    if backend_class is not None and backend_class != backend: raise ValueError("noncanonical_backend_class_override")
+    sem={"consumption_result_digest":_sha(result.to_dict()),"receipt_id":rec.get("receipt_id"),"receipt_digest":rec.get("digest"),"ledger_digest":_dict(result.ledger or {}).get("digest"),"requested_fulfillment_domain":requested_domain,"executor_domain":domain,"backend_class":backend,"backend_label":backend_label,"scope":tuple(env.get("requested_scope_labels",())),"targets":tuple(env.get("target_labels",())),"time":env.get("requested_time"),"grant_posture":current_grant_posture,"blocked":tuple(sorted(rec.get("blocked_actions",()))) }
     rid=_id("hfer_request_",sem)
-    req=HostFulfillmentExecutorReadinessRequest(rid,"",str(env.get("idempotency_key") or rid),_id("hfac_result_",_sha(result.to_dict())),_sha(result.to_dict()),domain,backend,backend_label,tuple(env.get("requested_scope_labels",())),tuple(env.get("target_labels",())),str(env.get("requested_time")),current_grant_posture,"","",("control_plane_admission_required_for_future_execution","effect_receipt_required_for_future_execution","executor_identity_required"),tuple(sorted(rec.get("blocked_actions",()))),created_at)
+    req=HostFulfillmentExecutorReadinessRequest(rid,"",str(env.get("idempotency_key") or rid),_id("hfac_result_",_sha(result.to_dict())),_sha(result.to_dict()),requested_domain,domain,backend,backend_label,tuple(env.get("requested_scope_labels",())),tuple(env.get("target_labels",())),str(env.get("requested_time")),current_grant_posture,"","",("control_plane_admission_required_for_future_execution","effect_receipt_required_for_future_execution","executor_identity_required"),tuple(sorted(rec.get("blocked_actions",()))),created_at)
     return replace(req,digest=digest_record(req))
 
 def validate_consumption_source(result:HostFulfillmentAuthorizationConsumptionResult)->HostFulfillmentExecutorReadinessValidationResult:
@@ -195,6 +199,9 @@ def validate_consumption_source(result:HostFulfillmentAuthorizationConsumptionRe
     if not rec: f.append("missing_successful_consumption_receipt")
     if rec and not rec.get("authorization_consumed_for_future_fulfillment",False): f.append("authorization_not_consumed_for_future_fulfillment")
     if rec and rec.get("digest") != fulfillment_authorization_consumption_receipt_digest(rec): f.append("consumption_receipt_digest_unverified")
+    if rec:
+        try: resolve_canonical_executor_route(str(rec.get("requested_fulfillment_domain", "")))
+        except ValueError: f.append("unknown_requested_fulfillment_domain")
     if entry:
         if entry.get("consumption_receipt",{}).get("digest") != rec.get("digest"): f.append("ledger_entry_receipt_mismatch")
         if entry.get("digest") != hfac_digest_record(entry): f.append("consumption_ledger_entry_digest_unverified")
@@ -301,8 +308,12 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         sem={"request":req.digest,"refs":[r.to_dict() for r in refs],"labels":sorted(REQUIRED_EXECUTOR_LABELS),"blocked":req.blocked_actions,"no_authority":NO_AUTHORITY}
         pl=HostFulfillmentExecutorReadinessPlan(_id("hfer_plan_",sem),"",req.request_id,req.digest,refs,tuple(sorted(REQUIRED_EXECUTOR_LABELS)),req.blocked_actions,True,NO_AUTHORITY)
         return replace(pl,digest=digest_record(pl))
-    def evaluate(self, result:HostFulfillmentAuthorizationConsumptionResult, *, output_root:str|Path, grant:LocalAuthorizationGrant|None=None, verification:LocalAuthorizationGrantVerification|None=None, authorization_ledger:LocalAuthorizationGrantLedger|None=None, expiry_evaluation:LocalAuthorizationGrantExpiryEvaluation|None=None, current_snapshot:HostLocalAuthorizationLedgerSnapshot|Mapping[str,Any]|None=None, revocation_receipts:Sequence[LocalAuthorizationGrantRevocationReceipt]=(), ledger_predecessor_digest:str|None=None, backend_label:str="declaration-only-not-loaded", current_grant_posture:str|None=None, persist:bool=True)->HostFulfillmentExecutorReadinessEvaluation:
+    def evaluate(self, result:HostFulfillmentAuthorizationConsumptionResult, *, output_root:str|Path, grant:LocalAuthorizationGrant|None=None, verification:LocalAuthorizationGrantVerification|None=None, authorization_ledger:LocalAuthorizationGrantLedger|None=None, expiry_evaluation:LocalAuthorizationGrantExpiryEvaluation|None=None, current_snapshot:HostLocalAuthorizationLedgerSnapshot|Mapping[str,Any]|None=None, revocation_receipts:Sequence[LocalAuthorizationGrantRevocationReceipt]=(), ledger_predecessor_digest:str|None=None, backend_label:str="declaration-only-not-loaded", executor_domain:str|None=None, backend_class:str|None=None, current_grant_posture:str|None=None, persist:bool=True)->HostFulfillmentExecutorReadinessEvaluation:
         findings=list(validate_consumption_source(result).findings)+_validate_backend_label(backend_label)
+        if not findings:
+            try: build_request(result, executor_domain=executor_domain, backend_class=backend_class, backend_label=backend_label)
+            except ValueError as exc: findings.append(str(exc))
+        route_input_valid=not findings
         missing=[]
         if grant is None: missing.append("current_grant_evidence_missing")
         if verification is None: missing.append("current_grant_verification_evidence_missing")
@@ -321,17 +332,17 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         active=evidence.derived_posture in {"currently_active","active_with_conditions"}
         if findings or not active:
             status=blocked_status(evidence.derived_posture)
-            req=build_request(result,backend_label=backend_label,current_grant_posture=evidence.derived_posture,created_at=self.clock()) if not validate_consumption_source(result).findings and not _validate_backend_label(backend_label) else None
+            req=build_request(result,executor_domain=executor_domain,backend_class=backend_class,backend_label=backend_label,current_grant_posture=evidence.derived_posture,created_at=self.clock()) if route_input_valid else None
             prereq=tuple(self._prerequisites(req, evidence, None, None, None, None, current_blocked=True)) if req else ()
             return HostFulfillmentExecutorReadinessEvaluation(status,tuple(sorted(set(findings))),req,None,None,prereq,None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
-        req0=build_request(result,backend_label=backend_label,current_grant_posture=evidence.derived_posture,created_at=self.clock())
+        req0=build_request(result,executor_domain=executor_domain,backend_class=backend_class,backend_label=backend_label,current_grant_posture=evidence.derived_posture,created_at=self.clock())
         req=replace(req0,current_grant_evidence_id=evidence.evidence_id,current_grant_evidence_digest=evidence.digest)
         req=replace(req,digest=digest_record(req))
         plan=self.plan(req,result,evidence)
         root=Path(output_root).resolve()
         if str(root).startswith(str(Path.cwd().resolve())): return HostFulfillmentExecutorReadinessEvaluation("blocked_contract_package",("repository_local_runtime_root_rejected",),req,plan,None,(),None,None,None,None,None,None,None,False,False,0,self.admission_call_count)
         lock=_LOCKS.setdefault(str(root), threading.Lock())
-        semantic={"request":req.digest,"evidence":evidence.digest,"backend":backend_label,"scope":req.requested_scope_labels,"targets":req.target_labels,"time":req.requested_time,"correlation":req.correlation_id}
+        semantic={"request":req.digest,"evidence":evidence.digest,"requested_fulfillment_domain":req.requested_fulfillment_domain,"executor_domain":req.executor_domain,"backend_class":req.backend_class,"backend_label":backend_label,"scope":req.requested_scope_labels,"targets":req.target_labels,"time":req.requested_time,"correlation":req.correlation_id}
         with lock:
             replay=self._load_replay(root, req.correlation_id, semantic)
             if replay is not None:
@@ -353,9 +364,12 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
                 vf+=list(vr.findings)
             prereq=tuple(self._prerequisites(req,evidence,c,b,m,p,current_blocked=False,result=result))
             posture="ready_for_executor_contract_review_with_conditions" if evidence.derived_posture=="active_with_conditions" else "ready_for_executor_contract_review"
-            runtime=HostFulfillmentExecutorReadinessReceipt(_id("hfer_receipt_",{"req":req.digest,"evidence":evidence.digest,"contract":c.digest,"packet":a.digest,"rr":rr.digest}),"",posture,req.request_id,req.digest,c.contract_id,c.digest,a.packet_id,a.digest,rr.receipt_id,rr.digest,NO_AUTHORITY)
+            runtime=HostFulfillmentExecutorReadinessReceipt(_id("hfer_receipt_",{"req":req.digest,"evidence":evidence.digest,"contract":c.digest,"packet":a.digest,"rr":rr.digest}),"",posture,req.request_id,req.digest,c.contract_id,c.digest,a.packet_id,a.digest,rr.receipt_id,rr.digest,NO_AUTHORITY,req.requested_fulfillment_domain,req.executor_domain,req.backend_class)
             runtime=replace(runtime,digest=digest_record(runtime))
             ev=HostFulfillmentExecutorReadinessEvaluation(posture,tuple(vf),req,plan,ad,prereq,c.to_dict(),b.to_dict(),m.to_dict(),p.to_dict(),a.to_dict(),rr.to_dict(),runtime,False,False,self.builder_call_count,self.admission_call_count)
+            route_findings=validate_route_consistency(ev)
+            if route_findings:
+                return replace(ev,status="contradicted_contract_package",findings=route_findings,persisted=False)
             if persist: ev=replace(ev,persisted=self._persist(root,ev,evidence,semantic))
             return ev
 
@@ -415,7 +429,9 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         def load(name:str)->Any: return json.loads((bundle/name).read_text())
         runtime=HostFulfillmentExecutorReadinessReceipt(**load("runtime_receipt.json"))
         prereq=tuple(HostFulfillmentExecutorPrerequisiteRecord(**x) for x in load("prerequisites.json"))
-        return HostFulfillmentExecutorReadinessEvaluation(runtime.posture,(),req,plan,load("metadata_admission.json"),prereq,load("executor_contract.json"),load("backend_declaration.json"),load("precondition_manifest.json"),load("dry_run_plan.json"),load("admission_packet.json"),load("readiness_receipt.json"),runtime,True,True,0,self.admission_call_count)
+        ev=HostFulfillmentExecutorReadinessEvaluation(runtime.posture,(),req,plan,load("metadata_admission.json"),prereq,load("executor_contract.json"),load("backend_declaration.json"),load("precondition_manifest.json"),load("dry_run_plan.json"),load("admission_packet.json"),load("readiness_receipt.json"),runtime,True,True,0,self.admission_call_count)
+        findings=validate_route_consistency(ev)
+        return replace(ev,status="contradicted_contract_package",findings=findings,persisted=False,replayed=False) if findings else ev
 
     def _persist(self, root:Path, ev:HostFulfillmentExecutorReadinessEvaluation, evidence:HostFulfillmentExecutorCurrentGrantEvidence, semantic:Mapping[str,Any])->bool:
         if root.exists() and root.is_symlink(): raise ValueError("symlink_escape_rejected")
@@ -444,8 +460,37 @@ class HostFulfillmentExecutorReadinessRuntimeCoordinator:
         idx=root/"replay_index.json"; data=json.loads(idx.read_text()) if idx.exists() else {}; data[ev.request.correlation_id]={**latest,"semantic":json.loads(_canon(semantic))}; tmp_idx=root/"replay_index.json.tmp"; tmp_idx.write_text(json.dumps(data,sort_keys=True,indent=2),encoding="utf-8"); os.replace(tmp_idx, idx)
         return True
 
+
+def validate_route_consistency(ev:HostFulfillmentExecutorReadinessEvaluation)->tuple[str,...]:
+    """Validate the single canonical route across a completed runtime bundle."""
+    if ev.request is None:
+        return ("route:missing_request",)
+    requested=ev.request.requested_fulfillment_domain
+    try:
+        executor, backend=resolve_canonical_executor_route(requested)
+    except ValueError:
+        return ("route:unknown_requested_fulfillment_domain",)
+    findings:list[str]=[]
+    if ev.request.executor_domain != executor: findings.append("route:request_executor_domain_mismatch")
+    if ev.request.backend_class != backend: findings.append("route:request_backend_class_mismatch")
+    contract=_dict(ev.contract or {})
+    declaration=_dict(ev.backend_declaration or {})
+    dry_run=_dict(ev.dry_run_plan or {})
+    admission=_dict(ev.admission_packet or {})
+    runtime=_dict(ev.runtime_receipt or {})
+    if contract.get("requested_fulfillment_domain") != requested: findings.append("route:contract_fulfillment_domain_mismatch")
+    if contract.get("executor_domain") != executor: findings.append("route:contract_executor_domain_mismatch")
+    if contract.get("backend_class") != backend: findings.append("route:contract_backend_class_mismatch")
+    if declaration.get("backend_class") != backend: findings.append("route:declaration_backend_class_mismatch")
+    if tuple(declaration.get("supported_executor_domains",())) != (executor,): findings.append("route:declaration_executor_domain_mismatch")
+    if dry_run.get("backend_class") != backend: findings.append("route:dry_run_backend_class_mismatch")
+    if admission.get("executor_domain") != executor: findings.append("route:admission_executor_domain_mismatch")
+    for field, expected in (("requested_fulfillment_domain",requested),("executor_domain",executor),("backend_class",backend)):
+        if runtime.get(field) != expected: findings.append("route:runtime_receipt_"+field+"_mismatch")
+    return tuple(sorted(set(findings)))
+
 def summarize_evaluation(ev:HostFulfillmentExecutorReadinessEvaluation)->dict[str,Any]:
-    return {"schema_version":SCHEMA_VERSION,"posture":ev.status,"contract_package_count":1 if ev.contract else 0,"request_id":ev.request.request_id if ev.request else "","latest_contract_id":ev.contract.get("contract_id") if ev.contract else "","latest_packet_id":ev.admission_packet.get("packet_id") if ev.admission_packet else "","latest_readiness_receipt_id":ev.readiness_receipt.get("receipt_id") if ev.readiness_receipt else "",**NO_AUTHORITY}
+    return {"schema_version":SCHEMA_VERSION,"posture":ev.status,"contract_package_count":1 if ev.contract else 0,"request_id":ev.request.request_id if ev.request else "","requested_fulfillment_domain":ev.request.requested_fulfillment_domain if ev.request else "","executor_domain":ev.request.executor_domain if ev.request else "","backend_class":ev.request.backend_class if ev.request else "","latest_contract_id":ev.contract.get("contract_id") if ev.contract else "","latest_packet_id":ev.admission_packet.get("packet_id") if ev.admission_packet else "","latest_readiness_receipt_id":ev.readiness_receipt.get("receipt_id") if ev.readiness_receipt else "",**NO_AUTHORITY}
 
 def render_markdown(ev:HostFulfillmentExecutorReadinessEvaluation)->str:
     s=summarize_evaluation(ev); return "# Host Fulfillment Executor Contract Readiness Runtime\n\n"+"\n".join(f"- {k}: {v}" for k,v in sorted(s.items()))+"\n"

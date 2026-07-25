@@ -134,6 +134,19 @@ _EXECUTOR_TO_BACKEND = {
     "future_cleanup_executor_contract": "cleanup_backend_future",
     "future_service_executor_contract": "service_backend_future",
 }
+
+
+def resolve_canonical_executor_route(requested_fulfillment_domain: str) -> tuple[str, str]:
+    """Return the sole executor/backend route for a fulfillment domain.
+
+    Unknown domains are deliberately errors: executor readiness must never turn
+    an unrecognised authorization into an operator-review or cooling request.
+    """
+    executor_domain = _DOMAIN_TO_EXECUTOR.get(requested_fulfillment_domain)
+    if executor_domain is None:
+        raise ValueError("unknown_requested_fulfillment_domain")
+    backend_class = _EXECUTOR_TO_BACKEND[executor_domain]
+    return executor_domain, backend_class
 _DOMAIN_BLOCKS = {
     "future_cooling_executor_contract": ("fan_pwm_write", "thermal_actuation"),
     "future_power_executor_contract": ("power_profile_mutation",),
@@ -447,13 +460,19 @@ def _statuses_for_consumption(receipt: Mapping[str, Any]) -> tuple[str, str, str
 
 
 def _executor_domain(receipt: Mapping[str, Any], requested: str | None = None) -> str:
-    return requested or _DOMAIN_TO_EXECUTOR.get(str(receipt.get("requested_fulfillment_domain", "")), "operator_review_executor_contract")
+    canonical, _ = resolve_canonical_executor_route(str(receipt.get("requested_fulfillment_domain", "")))
+    if requested is not None and requested != canonical:
+        raise ValueError("noncanonical_executor_domain")
+    return canonical
 
 
 def _backend_class(executor_domain: str, requested: str | None = None) -> str:
-    if requested in BACKEND_CLASSES:
-        return requested
-    return _EXECUTOR_TO_BACKEND.get(executor_domain, "operator_manual_backend_future")
+    canonical = _EXECUTOR_TO_BACKEND.get(executor_domain)
+    if canonical is None:
+        raise ValueError("unknown_executor_domain")
+    if requested is not None and requested != canonical:
+        raise ValueError("noncanonical_backend_class")
+    return canonical
 
 
 def _blocked_actions(receipt: Mapping[str, Any], executor_domain: str, extra: Sequence[str] | None = None) -> tuple[str, ...]:
@@ -699,6 +718,15 @@ def validate_fulfillment_executor_contract(contract: FulfillmentExecutorContract
         f.append("contract:unknown_executor_domain")
     if p.get("backend_class") not in BACKEND_CLASSES:
         f.append("contract:unknown_backend_class")
+    try:
+        executor_domain, backend_class = resolve_canonical_executor_route(str(p.get("requested_fulfillment_domain", "")))
+    except ValueError:
+        f.append("contract:unknown_requested_fulfillment_domain")
+    else:
+        if p.get("executor_domain") != executor_domain:
+            f.append("contract:noncanonical_executor_domain")
+        if p.get("backend_class") != backend_class:
+            f.append("contract:noncanonical_backend_class")
     return FulfillmentExecutorValidationResult(not f, tuple(f))
 
 

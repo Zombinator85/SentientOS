@@ -8,6 +8,7 @@ from sentientos.control_plane_kernel import AdmissionOutcome
 from sentientos.host_fulfillment_executor_readiness_runtime import HostFulfillmentExecutorReadinessRuntimeCoordinator
 from sentientos.host_dry_run_execution_runtime import HostDryRunExecutionRuntimeCoordinator, dashboard_projection, validate_source_evaluation, world_state_records, build_request
 from tests.test_host_fulfillment_authorization_runtime import Kernel, consume, chain
+from tests.test_host_fulfillment_executor_readiness_runtime import reroute_result
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -16,6 +17,15 @@ def readiness(tmp_path):
     ev=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'hfer-state', kernel=Kernel(), clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(result, output_root=tmp_path/'hfer-external', grant=g, verification=ver, authorization_ledger=led, expiry_evaluation=exp)
     assert ev.status.startswith('ready_for_executor_contract_review')
     return ev
+
+def test_diagnostics_readiness_routes_to_diagnostic_simulation(tmp_path):
+    issue,g,ver,led,exp,src,env=chain(); consumed=consume(tmp_path/'hfac',bundle=(issue,g,ver,led,exp,src,env))
+    ready=HostFulfillmentExecutorReadinessRuntimeCoordinator(runtime_state_root=tmp_path/'ready-state',kernel=Kernel(),clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(reroute_result(consumed,"diagnostics_fulfillment_authorization"),output_root=tmp_path/'ready',grant=g,verification=ver,authorization_ledger=led,expiry_evaluation=exp)
+    ev=HostDryRunExecutionRuntimeCoordinator(runtime_state_root=tmp_path/'dry-state',kernel=Kernel(),clock=lambda:'2029-01-02T00:00:00+00:00').evaluate(ready,output_root=tmp_path/'dry')
+    assert ev.request.dry_run_domain=="diagnostics_dry_run"
+    assert ev.request.simulated_backend_class=="diagnostic_backend_simulated"
+    for key in ('executor_implemented','real_executor_invoked','backend_loaded','backend_invoked','real_backend_invoked','fulfillment_granted','effect_performed','host_mutation_performed'):
+        assert ev.dry_run_receipt[key] is False
 
 def test_complete_exact_readiness_bundle_simulates_and_persists(tmp_path):
     src=readiness(tmp_path)
