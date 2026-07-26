@@ -1,5 +1,13 @@
 # Host local diagnostic execution-source runtime
 
+New packages use schema `host_local_diagnostic_execution_source_runtime.v2`.
+Schema v1 is retained only as `LEGACY_SCHEMA_VERSION` and is rejected rather
+than upgraded or reinterpreted. The public semantic validator replays persisted
+records without consulting original source directories. Publication and replay
+are guarded by a cross-process filesystem lock. Manifest entries bind schema,
+kind, size, digest, and semantic identity, while lexical path components are
+checked before resolution so traversed symlinks remain visible.
+
 This runtime closes the provenance gap between persisted real-effect admission,
 dry-run execution, executor readiness, and a **fresh current** host-local
 authorization snapshot. It produces one self-contained, replay-safe source

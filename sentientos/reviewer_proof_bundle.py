@@ -125,6 +125,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_dry_run_audit_closure_runtime_posture",
         "host_real_effect_admission_runtime_posture",
         "host_local_diagnostic_execution_source_runtime_posture",
+        "host_local_diagnostic_execution_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -249,6 +250,7 @@ BUNDLE_FILE_NAMES = {
     "host_dry_run_audit_closure_runtime_posture": "host_dry_run_audit_closure_runtime_posture.json",
     "host_real_effect_admission_runtime_posture": "host_real_effect_admission_runtime_posture.json",
     "host_local_diagnostic_execution_source_runtime_posture": "host_local_diagnostic_execution_source_runtime_posture.json",
+    "host_local_diagnostic_execution_runtime_posture": "host_local_diagnostic_execution_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2100,6 +2102,9 @@ def build_reviewer_proof_bundle_payload(
     hldes_record = registry.by_id().get("host_local_diagnostic_execution_source_runtime")
     if hldes_record is not None:
         contents["host_local_diagnostic_execution_source_runtime_posture"] = _pretty_json({"artifact_kind":"host_local_diagnostic_execution_source_runtime_posture", **hldes_record.to_dict(), "metadata_only": True, "source_custody_only": True, "replay_independent_of_source_paths": True, "authorizes_execution": False, "runner_invoked": False, "backend_invoked": False, "effect_performed": False, "local_file_write_performed": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_local_diagnostic_execution_source_runtime.md", "matrix_reference":"host_local_diagnostic_execution_source_runtime_tests"})
+    hlder_record = registry.by_id().get("host_local_diagnostic_execution_runtime")
+    if hlder_record is not None:
+        contents["host_local_diagnostic_execution_runtime_posture"] = _pretty_json({"artifact_kind":"host_local_diagnostic_execution_runtime_posture", **hlder_record.to_dict(), "real_effect_exists": True, "effect_invoked_during_proof_generation": False, "exact_v2_source_custody_required": True, "fresh_current_authority_required": True, "exact_operator_confirmation_challenge_required": True, "only_diagnostic_write_with_ledger_supported": True, "rollback_execution_available": False, "broader_action_available": False, "docs_reference":"docs/architecture/host_local_diagnostic_execution_runtime.md", "matrix_reference":"host_local_diagnostic_execution_runtime_tests"})
 
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)

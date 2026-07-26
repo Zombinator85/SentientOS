@@ -1,7 +1,10 @@
 from __future__ import annotations
+import pytest
 import inspect
 from pathlib import Path
 import sentientos.host_local_diagnostic_execution_source_runtime as runtime
+
+pytestmark = pytest.mark.no_legacy_skip
 
 def test_boundary_and_target_are_fixed() -> None:
     assert runtime.BOUNDARY["metadata_only"] is True

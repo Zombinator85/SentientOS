@@ -1,6 +1,9 @@
 from __future__ import annotations
+import pytest
 from typing import Any
 from scripts.build_host_local_diagnostic_execution_source_runtime import main
+
+pytestmark = pytest.mark.no_legacy_skip
 
 def test_help(capsys: Any) -> None:
     assert main([])==0
