@@ -6,7 +6,7 @@ copies only its semantic records into an independently replayable bundle.
 """
 from __future__ import annotations
 
-import hashlib, json, os, tempfile
+import fcntl, hashlib, json, os, tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -16,7 +16,8 @@ from sentientos.host_dry_run_execution_runtime import validate_persisted_evaluat
 from sentientos.host_fulfillment_executor_readiness_runtime import validate_current_authority_snapshot, validate_persisted_readiness_bundle
 from sentientos.local_authorization_grant import local_authorization_grant_verification_digest, validate_local_authorization_grant_verification
 
-SCHEMA_VERSION = "host_local_diagnostic_execution_source_runtime.v1"
+LEGACY_SCHEMA_VERSION = "host_local_diagnostic_execution_source_runtime.v1"
+SCHEMA_VERSION = "host_local_diagnostic_execution_source_runtime.v2"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FALSE_FLAGS = ("authorizes_execution","runner_invoked","backend_invoked","fulfillment_performed","effect_performed","real_effect_performed","local_file_write_performed","host_mutation_performed","rollback_performed","subprocess_execution_performed","shell_execution_performed","network_performed","provider_invocation_performed","prompt_assembly_performed","service_action_performed","power_action_performed","thermal_actuation_performed","fan_pwm_write_performed","cleanup_performed","package_action_performed","driver_action_performed","hardware_action_performed")
 BOUNDARY: dict[str, bool] = {"metadata_only": True, "source_custody_only": True, **{x: False for x in FALSE_FLAGS}}
@@ -54,15 +55,21 @@ def _path_findings(path: str|Path, *, may_not_exist: bool=False) -> tuple[Path,l
     raw=str(path); p=Path(raw); f=[]
     if not raw.strip(): f.append("empty_path_rejected")
     if ".." in p.parts: f.append("path_traversal_rejected")
-    if p.is_symlink(): f.append("symlink_path_rejected")
+    # Walk the lexical path, before resolve(), so a symlink that is traversed by
+    # the caller cannot disappear from the custody proof.
+    lexical = Path(p.anchor) if p.is_absolute() else Path.cwd()
+    for component in p.parts[(1 if p.is_absolute() else 0):]:
+        lexical /= component
+        try:
+            if lexical.lstat() and lexical.is_symlink():
+                f.append("symlink_path_rejected" if lexical == p else "symlink_ancestor_rejected")
+                break
+        except FileNotFoundError:
+            pass
     q=p.resolve(strict=False)
     if q==Path(q.anchor): f.append("filesystem_root_rejected")
     try: q.relative_to(REPO_ROOT); f.append("repository_local_path_rejected")
     except ValueError: pass
-    cur=q
-    while cur != Path(cur.anchor):
-        if cur.exists() and cur.is_symlink(): f.append("symlink_ancestor_rejected"); break
-        cur=cur.parent
     if not may_not_exist and not q.is_dir(): f.append("directory_required")
     return q,f
 def _overlap(a: Path,b: Path)->bool:
@@ -122,6 +129,41 @@ def _chain(ad: Any, dr: Any, rd: Any, snapshot: Mapping[str,Any], verification: 
     f += _positive_flags(records)
     return records,f
 
+def validate_execution_source_records(records: Mapping[str, Any]) -> tuple[str, ...]:
+    """Deeply validate decoded v2 records without consulting source folders."""
+    r = {str(k): _dict(v) for k, v in records.items()}
+    f: list[str] = []
+    for name in ("runtime_request", "runtime_plan", "runtime_receipt", "target_specification", "validation_findings"):
+        value = r.get(name, {})
+        if value and value.get("schema_version", SCHEMA_VERSION) != SCHEMA_VERSION:
+            f.append("legacy_or_unknown_schema:" + name)
+    req, plan, receipt = r.get("runtime_request", {}), r.get("runtime_plan", {}), r.get("runtime_receipt", {})
+    target = r.get("target_specification", {})
+    expected_target = dict(TARGET, output_directory=req.get("effect_output_dir"))
+    if target != expected_target or plan.get("target_specification") != TARGET:
+        f.append("target_specification_mismatch")
+    if req.get("source_references") != r.get("source_references"):
+        f.append("source_reference_mismatch")
+    if plan.get("request_id") != req.get("request_id") or plan.get("request_digest") != req.get("digest"):
+        f.append("request_plan_lineage_mismatch")
+    if receipt and (receipt.get("request_id") != req.get("request_id") or receipt.get("request_digest") != req.get("digest") or receipt.get("plan_id") != plan.get("plan_id") or receipt.get("plan_digest") != plan.get("digest")):
+        f.append("runtime_receipt_lineage_mismatch")
+    admission = r.get("admission_records", {})
+    closure = r.get("closure_records", {})
+    dry = r.get("dry_run_records", {})
+    ready = r.get("readiness_records", {})
+    rebuilt, chain_findings = _chain(
+        {"candidate": admission.get("candidate"), "decision": admission.get("decision"), "plan_or_block_receipt": admission.get("plan"), "admission_bundle": admission.get("admission_bundle"), "runtime_receipt": admission.get("runtime_receipt"), "source_closure_bundle": closure.get("closure_bundle")},
+        {"request": dry.get("request"), "dry_run_request": dry.get("dry_run_request"), "result_or_block_receipt": dry.get("result_or_block_receipt"), "dry_run_receipt": dry.get("dry_run_receipt"), "runtime_receipt": dry.get("runtime_receipt")},
+        {"request": ready.get("request"), "runtime_receipt": ready.get("runtime_receipt"), "contract": ready.get("contract"), "dry_run_plan": ready.get("dry_run_plan"), "_current_grant_evidence": ready.get("current_grant_evidence"), "_bundle_digest": r.get("source_references", {}).get("readiness_final_bundle_digest")},
+        r.get("current_snapshot", {}), r.get("current_verification", {}),
+    )
+    f.extend(chain_findings)
+    for name in ("admission_records", "closure_records", "dry_run_records", "readiness_records", "current_authority_posture"):
+        if rebuilt.get(name) != r.get(name): f.append(name + "_semantic_mismatch")
+    f.extend(_positive_flags(r))
+    return tuple(sorted(set(f)))
+
 class HostLocalDiagnosticExecutionSourceRuntimeCoordinator:
     def evaluate(self, *, admission_bundle_root:str|Path, dry_run_bundle_root:str|Path, readiness_bundle_root:str|Path, current_snapshot:Mapping[str,Any], current_verification:Mapping[str,Any], effect_output_dir:str|Path, output_root:str|Path, correlation_id:str|None=None)->HostLocalDiagnosticExecutionSourceEvaluation:
         av=validate_persisted_admission_bundle(admission_bundle_root); dv=validate_persisted_evaluation_bundle(dry_run_bundle_root); rv=validate_persisted_readiness_bundle(readiness_bundle_root)
@@ -145,13 +187,27 @@ class HostLocalDiagnosticExecutionSourceRuntimeCoordinator:
         return self._persist(out,records)
     def _persist(self,root:Path,records:dict[str,Any])->HostLocalDiagnosticExecutionSourceEvaluation:
         req=records["runtime_request"]; bundle=root/req["request_id"]
+        semantic_findings = validate_execution_source_records(records)
+        if semantic_findings:
+            return HostLocalDiagnosticExecutionSourceEvaluation("blocked_host_local_diagnostic_execution_source_runtime", semantic_findings, records)
         semantic=_sha({k:v for k,v in records.items() if k not in ("source_paths",)})
         index=root/"replay_index.json"
-        if index.exists():
-            old=json.loads(index.read_text()); prior=old.get(req["correlation_id"])
-            if prior and prior.get("semantic_digest")!=semantic: return HostLocalDiagnosticExecutionSourceEvaluation("host_local_diagnostic_execution_source_conflict",("correlation_semantic_conflict",),records)
-            if prior: return load_persisted_execution_source_bundle(root/prior["request_id"]).evaluation  # type: ignore[return-value]
-        root.mkdir(parents=True,exist_ok=True); tmp=Path(tempfile.mkdtemp(prefix=".hldes-",dir=root))
+        root.mkdir(parents=True,exist_ok=True)
+        lock = root/".execution-source.lock"
+        with lock.open("a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            if index.exists():
+                old=json.loads(index.read_text()); prior=old.get(req["correlation_id"])
+                if prior and prior.get("semantic_digest")!=semantic: return HostLocalDiagnosticExecutionSourceEvaluation("host_local_diagnostic_execution_source_conflict",("correlation_semantic_conflict",),records)
+                if prior:
+                    replay=load_persisted_execution_source_bundle(root/prior["request_id"], expected_bundle_digest=prior.get("bundle_digest"))
+                    if replay.ok and replay.evaluation: return replay.evaluation
+                    return HostLocalDiagnosticExecutionSourceEvaluation("blocked_host_local_diagnostic_execution_source_runtime", replay.findings, records)
+            return self._publish_locked(root, bundle, index, records, semantic)
+
+    def _publish_locked(self, root:Path, bundle:Path, index:Path, records:dict[str,Any], semantic:str)->HostLocalDiagnosticExecutionSourceEvaluation:
+        req=records["runtime_request"]
+        tmp=Path(tempfile.mkdtemp(prefix=".hldes-",dir=root))
         mapping={"runtime_request.json":"runtime_request","runtime_plan.json":"runtime_plan","source_references.json":"source_references","admission_records.json":"admission_records","closure_records.json":"closure_records","dry_run_records.json":"dry_run_records","readiness_records.json":"readiness_records","current_snapshot.json":"current_snapshot","current_verification.json":"current_verification","current_authority_posture.json":"current_authority_posture","target_specification.json":"target_specification","validation_findings.json":"validation_findings"}
         for fn,key in mapping.items(): (tmp/fn).write_text(_canon(records[key])+"\n")
         summary={"schema_version":SCHEMA_VERSION,"status":"host_local_diagnostic_execution_source_ready","request_id":req["request_id"],"semantic_digest":semantic,**BOUNDARY}; (tmp/"summary.json").write_text(_canon(summary)+"\n"); (tmp/"README.md").write_text("# Diagnostic execution source custody\n\nMetadata only; does not authorize or perform execution.\n")
@@ -164,12 +220,19 @@ class HostLocalDiagnosticExecutionSourceRuntimeCoordinator:
 def _manifest(root:Path,files:set[str],kind:str,key:str)->dict[str,Any]:
     entries=[]
     for fn in sorted(files):
-        raw=(root/fn).read_bytes(); entries.append({"relative_filename":fn,"size_bytes":len(raw),"sha256":_raw_sha(raw)})
+        raw=(root/fn).read_bytes()
+        artifact_kind = "markdown_summary" if fn.endswith(".md") else fn.removesuffix(".json")
+        semantic_id = None
+        if fn.endswith(".json"):
+            try:
+                value=json.loads(raw); semantic_id=next((value.get(k) for k in ("request_id","plan_id","receipt_id","candidate_id","decision_id") if value.get(k)),None)
+            except Exception: pass
+        entries.append({"relative_filename":fn,"size_bytes":len(raw),"sha256":_raw_sha(raw),"entry_schema_version":SCHEMA_VERSION,"entry_artifact_kind":artifact_kind,"semantic_id":semantic_id})
     out={"schema_version":SCHEMA_VERSION,"artifact_kind":kind,"files":entries}; out[key]=_sha(out); return out
 def _atomic(path:Path,value:Any)->None:
     fd,name=tempfile.mkstemp(dir=path.parent,prefix=".tmp-"); os.close(fd); p=Path(name); p.write_text(_canon(value)+"\n"); os.replace(p,path)
 
-def load_persisted_execution_source_bundle(bundle_root:str|Path)->HostLocalDiagnosticExecutionSourceValidation:
+def load_persisted_execution_source_bundle(bundle_root:str|Path, *, expected_bundle_digest:str|None=None)->HostLocalDiagnosticExecutionSourceValidation:
     root,f=_path_findings(bundle_root)
     if f: return HostLocalDiagnosticExecutionSourceValidation(False,tuple(sorted(set(f))))
     allowed=FINAL_FILES|{"bundle_manifest.json"}; actual={p.name for p in root.iterdir() if p.suffix in (".json",".md")}
@@ -180,7 +243,7 @@ def load_persisted_execution_source_bundle(bundle_root:str|Path)->HostLocalDiagn
         except Exception: f.append(manifest_name+":decode_failed"); continue
         names=[e.get("relative_filename") for e in entries]
         if len(names)!=len(set(names)): f.append(manifest_name+":duplicate_entries")
-        if set(names)!=files or m.get("artifact_kind")!=kind: f.append(manifest_name+":shape_mismatch")
+        if set(names)!=files or m.get("artifact_kind")!=kind or m.get("schema_version") != SCHEMA_VERSION: f.append(manifest_name+":shape_mismatch")
         check=dict(m); claimed=check.pop(key,None)
         if claimed!=_sha(check): f.append(manifest_name+":digest_mismatch")
         for e in entries:
@@ -189,16 +252,26 @@ def load_persisted_execution_source_bundle(bundle_root:str|Path)->HostLocalDiagn
             if not p.is_file(): f.append("manifest_file_missing:"+fn); continue
             raw=p.read_bytes()
             if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): f.append("manifest_file_mismatch:"+fn)
+            if e.get("entry_schema_version") != SCHEMA_VERSION or not e.get("entry_artifact_kind"):
+                f.append("manifest_entry_metadata_mismatch:"+fn)
         if key=="bundle_digest": bundle_digest=str(claimed or "")
     for fn in RECORD_FILES-{"README.md"}:
         try: decoded[fn[:-5]]=json.loads((root/fn).read_text())
         except Exception: f.append("record_decode_failed:"+fn)
     req=decoded.get("runtime_request",{}); plan=decoded.get("runtime_plan",{}); receipt=decoded.get("runtime_receipt",{})
+    if req.get("schema_version") == LEGACY_SCHEMA_VERSION: f.append("legacy_v1_bundle_rejected")
+    if req.get("schema_version") != SCHEMA_VERSION: f.append("unsupported_schema_version")
     for obj,name in ((req,"request"),(plan,"plan"),(receipt,"receipt")):
         if obj.get("digest")!=digest_record(obj): f.append(name+"_digest_mismatch")
     if plan.get("request_digest")!=req.get("digest") or receipt.get("request_digest")!=req.get("digest") or receipt.get("plan_digest")!=plan.get("digest"): f.append("runtime_lineage_mismatch")
     f += _positive_flags(decoded)
     if decoded.get("target_specification",{}).get("artifact_name")!=TARGET["artifact_name"]: f.append("target_substitution")
+    f += list(validate_execution_source_records(decoded))
+    try:
+        content=json.loads((root/"content_manifest.json").read_text())
+        if receipt.get("content_manifest_digest") != content.get("content_manifest_digest"): f.append("receipt_content_manifest_mismatch")
+    except Exception: pass
+    if expected_bundle_digest is not None and locals().get("bundle_digest","") != expected_bundle_digest: f.append("expected_bundle_digest_mismatch")
     ev=HostLocalDiagnosticExecutionSourceEvaluation("host_local_diagnostic_execution_source_ready",(),decoded,str(root),True)
     return HostLocalDiagnosticExecutionSourceValidation(not f,tuple(sorted(set(f))),ev if not f else None,locals().get("bundle_digest",""))
 
