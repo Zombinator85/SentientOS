@@ -124,6 +124,7 @@ REVIEWER_PROOF_ARTIFACT_KINDS = frozenset(
         "host_dry_run_execution_runtime_posture",
         "host_dry_run_audit_closure_runtime_posture",
         "host_real_effect_admission_runtime_posture",
+        "host_local_diagnostic_execution_source_runtime_posture",
         "reviewer_readme",
         "bundle_manifest",
         "safety_gate_posture",
@@ -247,6 +248,7 @@ BUNDLE_FILE_NAMES = {
     "host_dry_run_execution_runtime_posture": "host_dry_run_execution_runtime_posture.json",
     "host_dry_run_audit_closure_runtime_posture": "host_dry_run_audit_closure_runtime_posture.json",
     "host_real_effect_admission_runtime_posture": "host_real_effect_admission_runtime_posture.json",
+    "host_local_diagnostic_execution_source_runtime_posture": "host_local_diagnostic_execution_source_runtime_posture.json",
     "reviewer_readme": "README.md",
     "bundle_manifest": "bundle_manifest.json",
     "safety_gate_posture": "safety_gates.json",
@@ -2095,6 +2097,9 @@ def build_reviewer_proof_bundle_payload(
     hrea_record = registry.by_id().get("host_real_effect_admission_runtime")
     if hrea_record is not None:
         contents["host_real_effect_admission_runtime_posture"] = _pretty_json({"artifact_kind":"host_real_effect_admission_runtime_posture", **hrea_record.to_dict(), "metadata_only": True, "admission_runtime_only": True, "exact_strict_v2_source_closure_required": True, "replay_independent_of_source_path": True, "authorizes_implementation": False, "authorizes_execution": False, "backend_loaded": False, "backend_invoked": False, "real_backend_implemented": False, "real_fulfillment_performed": False, "real_effect_performed": False, "host_mutation_performed": False, "control_plane_admission_execution_performed": False, "docs_reference":"docs/architecture/host_real_effect_admission_runtime.md", "matrix_reference":"host_real_effect_admission_runtime_tests"})
+    hldes_record = registry.by_id().get("host_local_diagnostic_execution_source_runtime")
+    if hldes_record is not None:
+        contents["host_local_diagnostic_execution_source_runtime_posture"] = _pretty_json({"artifact_kind":"host_local_diagnostic_execution_source_runtime_posture", **hldes_record.to_dict(), "metadata_only": True, "source_custody_only": True, "replay_independent_of_source_paths": True, "authorizes_execution": False, "runner_invoked": False, "backend_invoked": False, "effect_performed": False, "local_file_write_performed": False, "host_mutation_performed": False, "docs_reference":"docs/architecture/host_local_diagnostic_execution_source_runtime.md", "matrix_reference":"host_local_diagnostic_execution_source_runtime_tests"})
 
     if scenario == "work_item_attestation":
         _apply_work_item_attestation_artifact_posture(contents, created_at=created_at)
