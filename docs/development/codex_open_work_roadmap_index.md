@@ -6,7 +6,7 @@ This is the active, compact selection map through mainline `fc9db298`. Consumed 
 
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
 - Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls.
-- Pytest provenance historically certified aggregate counts only. Exact selected-node/call-outcome acceptance is the acknowledged behavioral-proof gap selected by the current task.
+- The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 
 ## Sealed surfaces

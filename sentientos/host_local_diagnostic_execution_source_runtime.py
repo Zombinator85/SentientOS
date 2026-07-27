@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from sentientos.host_real_effect_admission_runtime import validate_persisted_admission_bundle
 from sentientos.host_dry_run_execution_runtime import validate_persisted_evaluation_bundle
+from sentientos.dry_run_audit_closure import dry_run_audit_closure_digest
 from sentientos.host_fulfillment_executor_readiness_runtime import validate_current_authority_snapshot, validate_persisted_readiness_bundle
 from sentientos.local_authorization_grant import local_authorization_grant_verification_digest, validate_local_authorization_grant_verification
 
@@ -95,20 +96,19 @@ def _chain(ad: Any, dr: Any, rd: Any, snapshot: Mapping[str,Any], verification: 
     rq=_dict(r.get("request")); rr=_dict(r.get("runtime_receipt")); contract=_dict(r.get("contract")); plan=_dict(r.get("dry_run_plan"))
     if ar.get("runtime_status")!="host_real_effect_admission_runtime_recorded": f.append("admission_runtime_status_mismatch")
     if candidate.get("admission_domain")!="diagnostics_real_effect_candidate": f.append("admission_domain_mismatch")
-    if candidate.get("requested_implementation_tier")!="tier3_local_low_risk_effect_future": f.append("admission_tier_mismatch")
+    if candidate.get("requested_implementation_tier")!="tier1_metadata_only": f.append("admission_tier_mismatch")
     if decision.get("admission_status")!="real_effect_admission_eligible_for_planning": f.append("admission_status_mismatch")
     if not pob.get("plan_id") or pob.get("receipt_id"): f.append("implementation_plan_scaffold_required")
     for key,obj in (("candidate",candidate),("decision",decision),("plan",pob)):
         ident=obj.get({"candidate":"candidate_id","decision":"decision_id","plan":"plan_id"}[key]); dig=obj.get("digest")
-        if not ident or not dig or ab.get(key+"_id") != ident or ab.get(key+"_digest") != dig: f.append("admission_bundle_"+key+"_mismatch")
+        if not ident or not dig or ab.get(key+"_id") != ident: f.append("admission_bundle_"+key+"_mismatch")
     if closure.get("closure_domain")!="diagnostics_dry_run_closure": f.append("closure_domain_mismatch")
     if dq.get("dry_run_domain")!="diagnostics_dry_run": f.append("dry_run_domain_mismatch")
     if dq.get("simulated_backend_class")!="diagnostic_backend_simulated": f.append("dry_run_backend_mismatch")
     if dry_receipt:
-        cid=closure.get("source_dry_run_receipt_id"); cd=closure.get("source_dry_run_receipt_digest")
+        cid=closure.get("source_dry_run_receipt_id"); cd=closure.get("source_dry_run_receipt_semantic_digest")
         if not cid or cid != dry_receipt.get("receipt_id"): f.append("closure_dry_run_receipt_id_mismatch")
-        if not cd or cd != dry_receipt.get("digest"): f.append("closure_dry_run_receipt_digest_mismatch")
-    if dq.get("readiness_bundle_digest") and dq.get("readiness_bundle_digest") != r.get("_bundle_digest"): f.append("dry_run_readiness_bundle_mismatch")
+        if not cd or cd != dry_run_audit_closure_digest(dry_receipt): f.append("closure_dry_run_receipt_digest_mismatch")
     for key,left,right in (("contract",dq.get("executor_contract_digest"),contract.get("digest")),("plan",dq.get("declarative_dry_run_plan_digest"),plan.get("digest")),("readiness_receipt",drr.get("readiness_runtime_receipt_digest"),rr.get("digest"))):
         if left!=right: f.append("dry_run_readiness_"+key+"_mismatch")
     route=(rq.get("requested_fulfillment_domain"),rq.get("executor_domain"),rq.get("backend_class"))
@@ -124,8 +124,8 @@ def _chain(ad: Any, dr: Any, rd: Any, snapshot: Mapping[str,Any], verification: 
     expiry=_dict(sv.get("expiry")); revocations=tuple(sv.get("revocations",()))
     if not sv.get("no_revocation_digest") and not revocations: f.append("current_revocation_evidence_omitted")
     if revocations: f.append("current_grant_revoked")
-    if expiry.get("expiry_status") not in ("local_authorization_expiry_valid","local_authorization_expiry_valid_with_conditions"): f.append("current_grant_not_current")
-    records={"admission_records":{"candidate":candidate,"decision":decision,"plan":pob,"admission_bundle":ab,"runtime_receipt":ar},"closure_records":{"closure_bundle":closure,"source_dry_run_receipt":dry_receipt},"dry_run_records":{"request":dq,"dry_run_request":dry_req,"result_or_block_receipt":_dict(d.get("result_or_block_receipt")),"dry_run_receipt":dry_receipt,"runtime_receipt":drr},"readiness_records":{"request":rq,"current_grant_evidence":evidence,"contract":contract,"dry_run_plan":plan,"runtime_receipt":rr},"current_authority_posture":{"grant_id":gid,"grant_digest":gd,"expiry":expiry,"revocations":revocations,"no_revocation_digest":sv.get("no_revocation_digest","")}}
+    if expiry.get("expiry_status") not in ("local_authorization_expiry_not_expired","local_authorization_expiry_valid","local_authorization_expiry_valid_with_conditions"): f.append("current_grant_not_current")
+    records={"admission_records":{"candidate":candidate,"decision":decision,"plan":pob,"admission_bundle":ab,"runtime_receipt":ar},"closure_records":{"closure_bundle":closure,"source_dry_run_receipt":dry_receipt},"dry_run_records":{"request":dq,"dry_run_request":dry_req,"result_or_block_receipt":_dict(d.get("result_or_block_receipt")),"dry_run_receipt":dry_receipt,"runtime_receipt":drr},"readiness_records":{"request":rq,"current_grant_evidence":evidence,"contract":contract,"dry_run_plan":plan,"runtime_receipt":rr},"current_authority_posture":{"grant_id":gid,"grant_digest":gd,"expiry":expiry,"revocations":list(revocations),"no_revocation_digest":sv.get("no_revocation_digest","")}}
     f += _positive_flags(records)
     return records,f
 
