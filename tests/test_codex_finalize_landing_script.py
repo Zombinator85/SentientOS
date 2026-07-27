@@ -464,3 +464,24 @@ def test_post_commit_exact_reuse_performs_zero_matrix_stages(monkeypatch: pytest
         str(out),
     ])
     assert not any("matrix" in stage for stage in seen)
+
+@pytest.mark.no_legacy_skip
+def test_finalizer_blocks_unsatisfied_task_acceptance(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "finalizer.json"
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text("{}", encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"test_provenance_path": str(provenance)}), encoding="utf-8")
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    monkeypatch.setattr("scripts.codex_finalize_landing.verify_task_acceptance", lambda *args, **kwargs: {"status": "task_acceptance_blocked", "reasons": ["required_node_not_passed:x"]})
+
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_run_stage)
+    code = main(["finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit", "--focused-test-command", "python -c 'pass'", "--task-acceptance-manifest", str(manifest), "--output", str(out)])
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert code == 1
+    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["task_acceptance"]["status"] == "task_acceptance_blocked"

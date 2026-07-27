@@ -164,6 +164,7 @@ def build_body(
         if v:
             parsed_artifacts[k] = _load_json_object(Path(v), label=k)
     commit_binding = parsed_artifacts.get("pr_metadata_finalizer", {}).get("commit_binding", {})
+    acceptance = parsed_artifacts.get("pr_metadata_finalizer", {}).get("task_acceptance")
     if any([pre_commit_finalizer_json_path, pr_metadata_finalizer_json_path, pr_metadata_guard_json_path]) and not isinstance(commit_binding, Mapping):
         raise ValueError("parsed finalizer artifacts missing commit binding")
 
@@ -189,7 +190,7 @@ def build_body(
     sections = [
         ("### Motivation", _text(motivation, "Harden Codex landing evidence so late PR metadata/finalizer failures retain canonical, repo-native recovery information instead of relying on hand-written evidence bodies.")),
         ("### Description", _text(description, f"Title: {title}\nIntended commit title: {intended_commit_title}\nCommit SHA: {commit_binding.get('head_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nTree SHA: {commit_binding.get('tree_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nParent/base SHA: {commit_binding.get('parent_sha', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nChanged-path manifest digest: {commit_binding.get('changed_path_manifest_digest', 'not bound') if isinstance(commit_binding, Mapping) else 'not bound'}\nMatrix digest: {artifact_digests.get('matrix', 'not bound')}\nArtifact digests: {json.dumps(artifact_digests, sort_keys=True)}")),
-        ("### Testing", _text(testing, "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.")),
+        ("### Testing", _text(testing, "See full matrix, targeted checks, landing gate, supervisor, finalizer, and PR metadata guard sections below.") + ("\n\nExact task acceptance: " + json.dumps(acceptance, sort_keys=True) if isinstance(acceptance, Mapping) else "")),
         (
             "### Full command matrix results",
             "\n".join(

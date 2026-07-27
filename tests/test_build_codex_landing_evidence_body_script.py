@@ -157,3 +157,17 @@ def test_contradictory_stale_and_ready_markers_fail(tmp_path: Path) -> None:
     )
     assert code == 1
     assert not output.exists()
+
+
+def test_generated_pr_evidence_includes_bound_acceptance_result(tmp_path: Path) -> None:
+    matrix = _matrix(tmp_path / "matrix.json")
+    supervisor = tmp_path / "supervisor.json"
+    supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}}, sort_keys=True), encoding="utf-8")
+    finalizer = tmp_path / "finalizer.json"
+    finalizer.write_text(json.dumps({"commit_binding": {}, "task_acceptance": {"status": "task_acceptance_ready", "manifest_digest": "sha256:manifest", "provenance_digest": "sha256:provenance", "required_node_ids": ["tests/test_x.py::test_ok"], "successful_path_node_ids": ["tests/test_x.py::test_ok"], "node_outcomes": [{"node_id": "tests/test_x.py::test_ok", "outcome": "passed"}]}}, sort_keys=True), encoding="utf-8")
+    output = tmp_path / "body.txt"
+    assert main(["--title", TITLE, "--intended-commit-title", TITLE, "--matrix-json-path", str(matrix), "--landing-supervisor-json-path", str(supervisor), "--output", str(output), "--pr-metadata-finalizer-json-path", str(finalizer)]) == 0
+    body = output.read_text(encoding="utf-8")
+    assert "task_acceptance_ready" in body
+    assert "sha256:manifest" in body
+    assert "sha256:provenance" in body
