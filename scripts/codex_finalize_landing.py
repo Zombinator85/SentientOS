@@ -17,6 +17,7 @@ from sentientos.codex_finalize_landing import (
     CodexFinalizeLandingRequest,
     evaluate_finalize_landing,
 )
+from sentientos.task_acceptance import verify as verify_task_acceptance
 
 GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
@@ -399,6 +400,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--summary", action="store_true")
         s.add_argument("--pre-commit-finalizer-json")
         s.add_argument("--runtime-sandbox-root")
+        s.add_argument("--task-acceptance-manifest")
     return p
 
 
@@ -578,6 +580,16 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
 
+    acceptance_result = None
+    if a.task_acceptance_manifest:
+        try:
+            manifest_path = Path(a.task_acceptance_manifest)
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            provenance_path = Path(str(manifest_payload["test_provenance_path"]))
+            acceptance_result = verify_task_acceptance(manifest_path, provenance_path, repo_root=Path(a.workspace_root))
+        except (OSError, KeyError, json.JSONDecodeError, TypeError) as exc:
+            acceptance_result = {"status": "task_acceptance_blocked", "reasons": [f"invalid_acceptance_input:{exc}"]}
+
     if generated_dirty_after_refresh and a.allow_generated_artifact_cleanup:
         decision_status = "generated_artifact_cleanup_incomplete"
         decision_reasons = ["generated_artifacts_remain_after_cleanup", *generated_dirty_after_refresh]
@@ -597,7 +609,10 @@ def main(argv: list[str] | None = None) -> int:
         "intended_commit_title": req.intended_commit_title,
         "phase": req.phase,
         "matrix_json_path": req.matrix_json_path,
+        "task_acceptance_manifest": a.task_acceptance_manifest,
     }
+    if acceptance_result is not None:
+        payload["task_acceptance"] = acceptance_result
     payload["dirty_paths"] = [asdict(item) for item in diagnostics_after_refresh]
     payload["dirty_paths_after_cleanup"] = [asdict(item) for item in diagnostics]
     payload["cleanup_actions"] = {k: {"attempted": v[0], "result": v[1], "reason": v[2]} for k, v in cleanup_results.items()}
@@ -653,6 +668,9 @@ def main(argv: list[str] | None = None) -> int:
     if binding_errors and decision_status in {"ready_to_commit", "ready_for_pr_metadata"}:
         decision_status = "manual_review_required" if "runtime_root_inside_workspace" in binding_errors else "repair_required_task_caused"
         decision_reasons = binding_errors
+    if acceptance_result is not None and acceptance_result.get("status") != "task_acceptance_ready":
+        decision_status = "repair_required_task_caused"
+        decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"]))
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
     if a.summary:

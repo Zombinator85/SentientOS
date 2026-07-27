@@ -495,6 +495,8 @@ def _write_provenance(
     install_mode: str | None = None,
     install_fallback_reason: str | None = None,
     install_attempted_modes: list[str] | tuple[str, ...] | None = None,
+    selected_node_ids: list[str] | None = None,
+    node_outcomes: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     run_dir = repo_root / "glow" / "test_runs"
     provenance_dir = run_dir / "provenance"
@@ -530,6 +532,8 @@ def _write_provenance(
         "metrics_status": metrics_status,
         "reporter_ok": reporter_ok,
         "reporter_error": reporter_error,
+        "selected_node_ids": list(selected_node_ids or ()),
+        "node_outcomes": list(node_outcomes or ()),
     }
     if pytest_exit_code is not None:
         payload["pytest_exit_code"] = pytest_exit_code
@@ -819,6 +823,8 @@ def main(argv: list[str] | None = None) -> int:
     tests_skipped = None
     tests_xfailed = None
     tests_xpassed = None
+    selected_node_ids: list[str] = []
+    node_outcomes: list[dict[str, object]] = []
     metrics_status = "ok"
     reporter_ok = True
     reporter_error: dict[str, str] | None = None
@@ -873,6 +879,8 @@ def main(argv: list[str] | None = None) -> int:
             tests_xpassed = report.get("tests_xpassed")
             reporter_ok = bool(report.get("reporter_ok", True))
             reporter_error = _normalize_reporter_error(report.get("reporter_error"))
+            selected_node_ids = [str(node) for node in report.get("selected_node_ids", [])]
+            node_outcomes = [item for item in report.get("node_outcomes", []) if isinstance(item, dict)]
             required_metrics = (
                 tests_collected,
                 tests_selected,
@@ -1091,6 +1099,8 @@ def main(argv: list[str] | None = None) -> int:
         install_mode=install_mode,
         install_fallback_reason=install_fallback_reason,
         install_attempted_modes=install_attempted_modes,
+        selected_node_ids=selected_node_ids,
+        node_outcomes=node_outcomes,
     )
     if failure_report_path is not None and failure_report_path.exists():
         try:

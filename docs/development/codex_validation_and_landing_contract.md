@@ -1,5 +1,13 @@
 # Codex Validation and Landing Contract
 
+## Exact behavioral acceptance
+
+Aggregate lane and pytest counts do not prove that task-required behavior ran. A behavior-adding task must provide a versioned JSON manifest (`sentientos.task_acceptance:v1`) with `task_classification`, `repository_sha`, `test_provenance_path`, `required_nodes` (objects containing an exact `node_id` and optional `rationale`), and `successful_path_nodes` (exact node IDs, all also required). At least one successful-path node is mandatory for `behavior_adding`; governance/documentation and legacy tasks may omit the manifest during migration only when they do not add behavior.
+
+Repository-native pytest provenance records `selected_node_ids` and call-phase `node_outcomes`. `python scripts/verify_task_acceptance.py` is the canonical read-only verifier. It binds manifest and provenance SHA-256 digests and requires every exact node to exist, be selected, reach the call phase, and pass normally for the manifest repository SHA and current HEAD. Collection, deselection, setup-only execution, skip, xfail/xpass, failure, missing outcomes, incomplete reporting, stale SHA, and tampering fail closed.
+
+Pass `--task-acceptance-manifest PATH` to both finalizer phases when the task uses exact acceptance. The finalizer embeds the complete bound result and blocks readiness for missing, malformed, stale, tampered, SHA-mismatched, or unsatisfied evidence. The generated PR body renders that finalizer result; it never substitutes aggregate counts.
+
 ## Two-phase finalizer contract
 1. Before commit, run `python scripts/codex_finalize_landing.py finalize --phase pre-commit ...`.
    - Commit only if status is `ready_to_commit`.
