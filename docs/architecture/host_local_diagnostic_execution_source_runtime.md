@@ -67,3 +67,13 @@ python scripts/build_host_local_diagnostic_execution_source_runtime.py latest-su
 
 Any later real-write runtime remains a separate, explicitly operator-confirmed
 task and must revalidate current authority immediately before its write.
+# Version 2 custody hardening
+
+Version 2 remains the only accepted execution-source format.  Parent IDs and
+digests are exact, nonempty relationships rather than optional hints.  Its
+runtime receipt binds the request and plan, source references, current snapshot
+and verification, authority posture, target specification, validation
+findings, semantic root, and content manifest.  Content and final manifests
+have exact membership and entry metadata; latest and replay pointers are
+validated against their stored bundle digest, and replay-index updates preserve
+unrelated correlations.
