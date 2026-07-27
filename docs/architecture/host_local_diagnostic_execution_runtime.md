@@ -26,3 +26,20 @@ invokes it. It requires exact v2 source custody, fresh current authority, and
 the exact operator challenge. It grants no general filesystem, rollback,
 subprocess, shell, network, provider, service, power, thermal, fan/PWM,
 hardware, remote, daemon, dashboard, or control-plane authority.
+# Custody and recovery hardening
+
+Execution uses one output-root lock from correlation lookup through final pointer
+publication.  A durable intent is discovered independently from the final
+bundle and carries the legal `prepared`, `invocation_committed`,
+`runner_returned`, `observation_persisted`, and `finalized` digest chain.  A
+retry never invokes the transaction runner after invocation commitment:
+incomplete evidence is reported as partial or ambiguous, while a complete
+runner-returned observation may be finalized as reconciled evidence.
+
+The confirmation challenge deterministically binds the source, current grant,
+fresh snapshot and verification, execution instant, normalized target, fixed
+artifact and ledger paths, and the no-force/no-rollback transaction posture.
+Fresh authority is checked during preflight and again immediately before the
+invocation commitment.  Final bundles retain source records and target bytes so
+historical validation does not depend on either live tree; live-target
+validation is a separate read-only comparison.

@@ -100,14 +100,14 @@ def _chain(ad: Any, dr: Any, rd: Any, snapshot: Mapping[str,Any], verification: 
     if not pob.get("plan_id") or pob.get("receipt_id"): f.append("implementation_plan_scaffold_required")
     for key,obj in (("candidate",candidate),("decision",decision),("plan",pob)):
         ident=obj.get({"candidate":"candidate_id","decision":"decision_id","plan":"plan_id"}[key]); dig=obj.get("digest")
-        if ab.get(key+"_id") not in (None,ident) or ab.get(key+"_digest") not in (None,dig): f.append("admission_bundle_"+key+"_mismatch")
+        if not ident or not dig or ab.get(key+"_id") != ident or ab.get(key+"_digest") != dig: f.append("admission_bundle_"+key+"_mismatch")
     if closure.get("closure_domain")!="diagnostics_dry_run_closure": f.append("closure_domain_mismatch")
     if dq.get("dry_run_domain")!="diagnostics_dry_run": f.append("dry_run_domain_mismatch")
     if dq.get("simulated_backend_class")!="diagnostic_backend_simulated": f.append("dry_run_backend_mismatch")
     if dry_receipt:
         cid=closure.get("source_dry_run_receipt_id"); cd=closure.get("source_dry_run_receipt_digest")
-        if cid not in (None,dry_receipt.get("receipt_id")): f.append("closure_dry_run_receipt_id_mismatch")
-        if cd not in (None,dry_receipt.get("digest")): f.append("closure_dry_run_receipt_digest_mismatch")
+        if not cid or cid != dry_receipt.get("receipt_id"): f.append("closure_dry_run_receipt_id_mismatch")
+        if not cd or cd != dry_receipt.get("digest"): f.append("closure_dry_run_receipt_digest_mismatch")
     if dq.get("readiness_bundle_digest") and dq.get("readiness_bundle_digest") != r.get("_bundle_digest"): f.append("dry_run_readiness_bundle_mismatch")
     for key,left,right in (("contract",dq.get("executor_contract_digest"),contract.get("digest")),("plan",dq.get("declarative_dry_run_plan_digest"),plan.get("digest")),("readiness_receipt",drr.get("readiness_runtime_receipt_digest"),rr.get("digest"))):
         if left!=right: f.append("dry_run_readiness_"+key+"_mismatch")
@@ -212,7 +212,7 @@ class HostLocalDiagnosticExecutionSourceRuntimeCoordinator:
         for fn,key in mapping.items(): (tmp/fn).write_text(_canon(records[key])+"\n")
         summary={"schema_version":SCHEMA_VERSION,"status":"host_local_diagnostic_execution_source_ready","request_id":req["request_id"],"semantic_digest":semantic,**BOUNDARY}; (tmp/"summary.json").write_text(_canon(summary)+"\n"); (tmp/"README.md").write_text("# Diagnostic execution source custody\n\nMetadata only; does not authorize or perform execution.\n")
         content=_manifest(tmp,CONTENT_FILES,"host_local_diagnostic_execution_source_runtime_content_manifest","content_manifest_digest"); (tmp/"content_manifest.json").write_text(_canon(content)+"\n")
-        receipt={"schema_version":SCHEMA_VERSION,"receipt_id":_id("hldes_receipt_",req["digest"]),"digest":"","runtime_status":"host_local_diagnostic_execution_source_ready","request_id":req["request_id"],"request_digest":req["digest"],"plan_id":records["runtime_plan"]["plan_id"],"plan_digest":records["runtime_plan"]["digest"],"content_manifest_digest":content["content_manifest_digest"],"semantic_digest":semantic,**BOUNDARY}; receipt["digest"]=digest_record(receipt); (tmp/"runtime_receipt.json").write_text(_canon(receipt)+"\n")
+        receipt={"schema_version":SCHEMA_VERSION,"receipt_id":_id("hldes_receipt_",req["digest"]),"digest":"","runtime_status":"host_local_diagnostic_execution_source_ready","request_id":req["request_id"],"request_digest":req["digest"],"plan_id":records["runtime_plan"]["plan_id"],"plan_digest":records["runtime_plan"]["digest"],"source_reference_digest":_sha(records["source_references"]),"current_snapshot_digest":records["current_snapshot"].get("digest"),"current_verification_digest":records["current_verification"].get("digest"),"current_authority_posture_digest":_sha(records["current_authority_posture"]),"target_specification_digest":_sha(records["target_specification"]),"validation_findings_digest":_sha(records["validation_findings"]),"content_manifest_digest":content["content_manifest_digest"],"semantic_digest":semantic,**BOUNDARY}; receipt["digest"]=digest_record(receipt); (tmp/"runtime_receipt.json").write_text(_canon(receipt)+"\n")
         final=_manifest(tmp,FINAL_FILES,"host_local_diagnostic_execution_source_runtime_bundle_manifest","bundle_digest"); (tmp/"bundle_manifest.json").write_text(_canon(final)+"\n"); os.replace(tmp,bundle)
         latest={"request_id":req["request_id"],"bundle_digest":final["bundle_digest"]}; _atomic(root/"latest.json",latest); old=json.loads(index.read_text()) if index.exists() else {}; old[req["correlation_id"]]={"request_id":req["request_id"],"semantic_digest":semantic,"bundle_digest":final["bundle_digest"]}; _atomic(index,old)
         return HostLocalDiagnosticExecutionSourceEvaluation("host_local_diagnostic_execution_source_ready",(),records,str(bundle))
@@ -252,7 +252,13 @@ def load_persisted_execution_source_bundle(bundle_root:str|Path, *, expected_bun
             if not p.is_file(): f.append("manifest_file_missing:"+fn); continue
             raw=p.read_bytes()
             if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): f.append("manifest_file_mismatch:"+fn)
-            if e.get("entry_schema_version") != SCHEMA_VERSION or not e.get("entry_artifact_kind"):
+            expected_kind = "markdown_summary" if fn.endswith(".md") else fn.removesuffix(".json")
+            semantic_id = None
+            if fn.endswith(".json"):
+                try:
+                    value=json.loads(raw); semantic_id=next((value.get(k) for k in ("request_id","plan_id","receipt_id","candidate_id","decision_id") if value.get(k)),None)
+                except Exception: pass
+            if e.get("entry_schema_version") != SCHEMA_VERSION or e.get("entry_artifact_kind") != expected_kind or e.get("semantic_id") != semantic_id:
                 f.append("manifest_entry_metadata_mismatch:"+fn)
         if key=="bundle_digest": bundle_digest=str(claimed or "")
     for fn in RECORD_FILES-{"README.md"}:
@@ -270,6 +276,9 @@ def load_persisted_execution_source_bundle(bundle_root:str|Path, *, expected_bun
     try:
         content=json.loads((root/"content_manifest.json").read_text())
         if receipt.get("content_manifest_digest") != content.get("content_manifest_digest"): f.append("receipt_content_manifest_mismatch")
+        bindings={"source_reference_digest":_sha(decoded.get("source_references",{})),"current_snapshot_digest":decoded.get("current_snapshot",{}).get("digest"),"current_verification_digest":decoded.get("current_verification",{}).get("digest"),"current_authority_posture_digest":_sha(decoded.get("current_authority_posture",{})),"target_specification_digest":_sha(decoded.get("target_specification",{})),"validation_findings_digest":_sha(decoded.get("validation_findings",{}))}
+        for key,value in bindings.items():
+            if not value or receipt.get(key)!=value: f.append("runtime_receipt_binding_mismatch:"+key)
     except Exception: pass
     if expected_bundle_digest is not None and locals().get("bundle_digest","") != expected_bundle_digest: f.append("expected_bundle_digest_mismatch")
     ev=HostLocalDiagnosticExecutionSourceEvaluation("host_local_diagnostic_execution_source_ready",(),decoded,str(root),True)
@@ -279,5 +288,5 @@ validate_persisted_execution_source_bundle = load_persisted_execution_source_bun
 
 def load_latest_evaluation(output_root:str|Path)->HostLocalDiagnosticExecutionSourceEvaluation|None:
     root=Path(output_root)
-    try: latest=json.loads((root/"latest.json").read_text()); v=load_persisted_execution_source_bundle(root/str(latest["request_id"])); return v.evaluation if v.ok else None
+    try: latest=json.loads((root/"latest.json").read_text()); v=load_persisted_execution_source_bundle(root/str(latest["request_id"]),expected_bundle_digest=str(latest["bundle_digest"])); return v.evaluation if v.ok else None
     except Exception: return None

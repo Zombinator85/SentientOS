@@ -27,3 +27,19 @@ def test_preflight_path_does_not_call_runner_or_write(tmp_path: Path) -> None:
     assert result.status.startswith("blocked_")
     assert calls == []
     assert set(tmp_path.iterdir()) == before
+
+
+def test_runtime_discovers_intent_and_merges_replay_index() -> None:
+    source = inspect.getsource(runtime.HostLocalDiagnosticExecutionRuntimeCoordinator)
+    assert 'intent_dir.exists()' in source
+    assert 'mapping[pointer["correlation_id"]]=pointer' in source
+    assert source.index('self._state(intent_dir,history,"finalized"') < source.index('bundle=self._persist')
+
+
+def test_challenge_and_authority_records_are_digest_bound() -> None:
+    challenge_source = inspect.getsource(runtime._challenge)
+    authority_source = inspect.getsource(runtime.validate_fresh_execution_authority)
+    assert "confirmation_challenge_id" in challenge_source
+    assert "confirmation_challenge_digest" in challenge_source
+    assert "execution_time" in authority_source
+    assert "authority_validation_id" in authority_source

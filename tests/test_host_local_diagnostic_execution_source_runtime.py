@@ -22,3 +22,15 @@ def test_target_custody_rejects_repository_and_traversal() -> None:
     assert "repository_local_path_rejected" in findings
     _, findings=runtime._path_findings("/tmp/a/../b",may_not_exist=True)
     assert "path_traversal_rejected" in findings
+
+
+def test_v2_parent_bindings_are_not_nullable() -> None:
+    source=inspect.getsource(runtime._chain)
+    assert 'not in (None,ident)' not in source
+    assert 'not in (None,dig)' not in source
+    assert 'ab.get(key+"_id") != ident' in source
+
+
+def test_latest_uses_pointer_bundle_digest() -> None:
+    source=inspect.getsource(runtime.load_latest_evaluation)
+    assert 'expected_bundle_digest=str(latest["bundle_digest"])' in source

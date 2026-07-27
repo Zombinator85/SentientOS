@@ -27,7 +27,8 @@ def main(argv:list[str]|None=None)->int:
         elif args.command=="validate-live-target": result=validate_live_target(args.bundle_root)
         else:
             latest=json.loads((Path(args.output_root)/"latest.json").read_text()); result=validate_persisted_execution_bundle(Path(args.output_root)/latest["execution_id"],expected_final_bundle_digest=latest["bundle_digest"])
-        print(json.dumps(result.to_dict(),sort_keys=True,indent=2)); return 0 if result.status.endswith(("ready","completed","valid")) else 1
+        successful={"host_local_diagnostic_execution_preflight_ready","host_local_diagnostic_execution_completed","host_local_diagnostic_execution_live_target_valid"}
+        print(json.dumps(result.to_dict(),sort_keys=True,indent=2)); return 0 if result.status in successful else 1
     except Exception as exc:
         print(json.dumps({"status":"blocked_host_local_diagnostic_execution_runtime","findings":[type(exc).__name__+":"+str(exc)]},sort_keys=True)); return 1
 if __name__=="__main__": raise SystemExit(main())
