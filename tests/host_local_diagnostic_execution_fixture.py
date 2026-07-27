@@ -1,7 +1,7 @@
 """Repository-native end-to-end fixture for diagnostic execution tests."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 
@@ -10,7 +10,8 @@ from sentientos.host_dry_run_execution_runtime import HostDryRunExecutionRuntime
 from sentientos.host_fulfillment_executor_readiness_runtime import HostFulfillmentExecutorReadinessRuntimeCoordinator
 from sentientos.host_local_diagnostic_execution_source_runtime import HostLocalDiagnosticExecutionSourceRuntimeCoordinator
 from sentientos.host_real_effect_admission_runtime import HostRealEffectAdmissionRuntimeCoordinator
-from sentientos.local_authorization_grant import build_local_authorization_grant_expiry_evaluation, build_local_authorization_grant_ledger, verify_local_authorization_grant
+from sentientos.local_authorization_grant import build_local_authorization_grant_expiry_evaluation, build_local_authorization_grant_ledger, local_authorization_grant_digest, verify_local_authorization_grant
+from sentientos.host_fulfillment_authorization_runtime import build_request_envelope, recompute_source
 from tests.test_host_fulfillment_authorization_runtime import Kernel, chain, consume
 from tests.test_host_fulfillment_executor_readiness_runtime import _snapshot_for, reroute_result
 
@@ -29,6 +30,17 @@ class DiagnosticExecutionFixture:
 def build_diagnostic_execution_fixture(root: Path) -> DiagnosticExecutionFixture:
     """Build every persisted source rung through its public coordinator."""
     issue, grant, _verification, _ledger, _expiry, issue_source, environment = chain()
+    # Diagnostic execution authority deliberately includes the separately named
+    # exact-rollback scope; write authority alone never implies deletion.
+    grant = replace(grant, granted_scope_labels=tuple(sorted(set(grant.granted_scope_labels) | {"local_diagnostic_exact_rollback"})), digest="")
+    grant = replace(grant, digest=local_authorization_grant_digest(grant))
+    issue = dict(issue) | {"grant_digest": grant.digest}
+    provisional_expiry = build_local_authorization_grant_expiry_evaluation(grant, evaluated_at=NOW)
+    provisional_verification = verify_local_authorization_grant(grant, checked_scope_labels=grant.granted_scope_labels, checked_time_label=NOW, expiry_evaluation=provisional_expiry)
+    provisional_ledger = build_local_authorization_grant_ledger((grant,), (), (provisional_expiry,), created_at=NOW)
+    issue_source = recompute_source(issue_receipt=issue, grant=grant, verification=provisional_verification, authorization_ledger=provisional_ledger, ledger_predecessor_digest="sha256:empty", expiry_evaluation=provisional_expiry)
+    environment = build_request_envelope(issue_source, requested_scope_labels=grant.granted_scope_labels, requested_time=NOW)
+    _verification, _ledger, _expiry = provisional_verification, provisional_ledger, provisional_expiry
     consumed = consume(root / "authorization-consumption", bundle=(issue, grant, _verification, _ledger, _expiry, issue_source, environment))
     consumed = reroute_result(consumed, "diagnostics_fulfillment_authorization")
     expiry = build_local_authorization_grant_expiry_evaluation(grant, evaluated_at=NOW)
