@@ -19,6 +19,12 @@ from sentientos.host_local_diagnostic_execution_source_runtime import (
     validate_execution_source_records,
 )
 from sentientos.local_authorization_grant import local_authorization_grant_verification_digest, validate_local_authorization_grant_verification
+from sentientos.local_diagnostic_effect import (
+    validate_local_diagnostic_effect_receipt,
+    validate_local_diagnostic_postcondition_check, validate_local_diagnostic_production_audit_receipt,
+    validate_local_diagnostic_rollback_plan,
+)
+from sentientos.local_effect_transaction_ledger import validate_local_effect_transaction_ledger, validate_local_effect_transaction_lifecycle_report
 
 SCHEMA_VERSION = "host_local_diagnostic_execution_runtime.v1"
 ARTIFACT_NAME = "sentientos_local_diagnostic_effect.json"
@@ -53,7 +59,7 @@ def validate_fresh_execution_authority(source:Mapping[str,Any], snapshot:Mapping
     current,sf=validate_current_authority_snapshot(snapshot,grant_id=gid,grant_digest=gd); findings += list(sf)
     vv=validate_local_authorization_grant_verification(verification); findings += list(vv.findings)
     if verification.get("digest") != local_authorization_grant_verification_digest(verification): findings.append("verification_digest_mismatch")
-    if verification.get("grant_id") != gid or verification.get("grant_digest") != gd: findings.append("grant_substitution")
+    if verification.get("grant_id") != gid or (verification.get("grant_digest") is not None and verification.get("grant_digest") != gd): findings.append("grant_substitution")
     grants=[_dict(x) for x in snapshot.get("grants",()) if _dict(x).get("grant_id")==gid]
     if current.get("grant") and not grants: grants=[_dict(current["grant"])]
     if not grants or any(g.get("digest")!=gd for g in grants): findings.append("current_grant_bytes_mismatch")
@@ -94,6 +100,16 @@ class HostLocalDiagnosticExecutionRuntimeCoordinator:
         challenge=_challenge(source,expected_source_bundle_digest,current_snapshot,current_verification,execution_time)
         return ExecutionOutcome("host_local_diagnostic_execution_preflight_ready" if not findings else "blocked_host_local_diagnostic_execution_preflight",tuple(sorted(set(findings))),{"confirmation_challenge":challenge,"current_authority_validation":authority,"source_records":source})
     def execute(self, *, execution_source_bundle_root:str|Path, expected_source_bundle_digest:str, current_snapshot:Mapping[str,Any], current_verification:Mapping[str,Any], execution_time:str, output_root:str|Path, confirm_local_diagnostic_write:bool, confirm_source_bundle_digest:str, confirm_effect_output_dir:str, confirmation_challenge_digest:str, correlation_id:str|None=None)->ExecutionOutcome:
+        out=Path(output_root).resolve(strict=False)
+        if correlation_id and (out/"replay_index.json").is_file():
+            try:
+                pointer=json.loads((out/"replay_index.json").read_text()).get(correlation_id)
+                if pointer:
+                    loaded=validate_persisted_execution_bundle(out/pointer["execution_id"],expected_final_bundle_digest=pointer.get("bundle_digest"),expected_source_bundle_digest=expected_source_bundle_digest,correlation_id=correlation_id)
+                    if loaded.status=="host_local_diagnostic_execution_completed": return ExecutionOutcome(loaded.status,loaded.findings,loaded.records,loaded.bundle_root,0,True)
+                    return ExecutionOutcome("host_local_diagnostic_execution_bundle_invalid",loaded.findings,loaded.records,loaded.bundle_root)
+            except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError):
+                return ExecutionOutcome("host_local_diagnostic_execution_bundle_invalid",("replay_index_invalid",),{})
         pre=self.preflight(execution_source_bundle_root=execution_source_bundle_root,expected_source_bundle_digest=expected_source_bundle_digest,current_snapshot=current_snapshot,current_verification=current_verification,execution_time=execution_time)
         if pre.status != "host_local_diagnostic_execution_preflight_ready": return pre
         challenge=_dict(pre.records["confirmation_challenge"]); target=Path(challenge["effect_output_directory"])
@@ -102,8 +118,6 @@ class HostLocalDiagnosticExecutionRuntimeCoordinator:
         out,of=_path_findings(output_root,may_not_exist=True); target,tf=_path_findings(target,may_not_exist=True); source_root=Path(execution_source_bundle_root).resolve()
         findings=of+tf
         if _overlap(out,target) or _overlap(out,source_root) or _overlap(target,source_root): findings.append("execution_roots_overlap")
-        for name in TARGET_FILES:
-            if (target/name).exists() or (target/name).is_symlink(): findings.append("runtime_owned_target_exists:"+name)
         if findings: return ExecutionOutcome("blocked_host_local_diagnostic_execution_target",tuple(sorted(set(findings))),{})
         identity={"source_bundle_digest":expected_source_bundle_digest,"source_request_id":challenge["source_request_id"],"source_request_digest":challenge["source_request_digest"],"snapshot_digest":challenge["current_snapshot_digest"],"verification_digest":challenge["current_verification_digest"],"grant_id":challenge["grant_id"],"grant_digest":challenge["grant_digest"],"target_path":str(target),"artifact_name":ARTIFACT_NAME,"ledger_path":challenge["ledger_output_path"],"transaction_mode":"diagnostic_write_with_ledger","execution_time":execution_time,"operator_confirmation_digest":confirmation_challenge_digest,"correlation_id":correlation_id or challenge["source_request_id"]}
         execution_id="hlder-"+hashlib.sha256(_canon(identity).encode()).hexdigest()[:24]
@@ -116,6 +130,9 @@ class HostLocalDiagnosticExecutionRuntimeCoordinator:
                 if loaded.status=="host_local_diagnostic_execution_completed": return ExecutionOutcome(loaded.status,loaded.findings,loaded.records,loaded.bundle_root,0,True)
                 return ExecutionOutcome("host_local_diagnostic_execution_bundle_invalid",loaded.findings,loaded.records,loaded.bundle_root)
             if intent_dir.exists(): return self._reconcile(intent_dir,target,identity,pre.records)
+            for name in TARGET_FILES:
+                if (target/name).exists() or (target/name).is_symlink():
+                    return ExecutionOutcome("blocked_host_local_diagnostic_execution_target",("runtime_owned_target_exists:"+name,),{})
             siblings={p.name:{"kind":"file","size_bytes":len(p.read_bytes()),"sha256":_raw_sha(p.read_bytes())} for p in target.iterdir() if p.is_file()} if target.is_dir() else {}
             intent_dir.mkdir()
             history: list[dict[str, Any]]=[]
@@ -171,8 +188,9 @@ class HostLocalDiagnosticExecutionRuntimeCoordinator:
         present=[name for name in TARGET_FILES if (target/name).is_file()]
         if "runner_returned" in names and set(present)==set(TARGET_FILES):
             returned=next(r for r in history if r.get("state")=="runner_returned"); prepared=history[0]
-            challenge=_challenge(pre["source_records"],str(identity["source_bundle_digest"]),pre["fresh_current_snapshot"],pre["fresh_current_verification"],str(identity["execution_time"]))
-            records=self._records(pre,pre["fresh_current_snapshot"],pre["fresh_current_verification"],challenge,identity,history,returned.get("transaction_records",{}),target,prepared.get("unrelated_siblings_before",{}))
+            snapshot=pre["source_records"]["current_snapshot"]; verification=pre["source_records"]["current_verification"]
+            challenge=_challenge(pre["source_records"],str(identity["source_bundle_digest"]),snapshot,verification,str(identity["execution_time"]))
+            records=self._records(pre,snapshot,verification,challenge,identity,history,returned.get("transaction_records",{}),target,prepared.get("unrelated_siblings_before",{}))
             self._state(intent,history,"observation_persisted",identity); self._state(intent,history,"finalized",identity); records["execution_intent_history"]=list(history); records["runtime_result"]["runner_invoked"]=False; records["runtime_result"]["reconciled_effect_observed"]=True
             bundle=self._persist(intent.parent,intent.name.removesuffix(".intent"),records)
             return ExecutionOutcome("host_local_diagnostic_execution_completed",(),records,str(bundle),0,False)
@@ -239,6 +257,28 @@ def validate_persisted_execution_bundle(bundle_root:str|Path, *, expected_final_
     result=records.get("runtime_result",{})
     required_true=("operator_confirmation_present","exact_diagnostic_transaction_authorized","local_diagnostic_write_performed","real_effect_performed","ledger_artifact_written","host_mutation_performed")
     if any(result.get(k) is not True for k in required_true) or result.get("rollback_performed") is not False or any(result.get(k) is not False for k in FORBIDDEN_FLAGS): findings.append("runtime_result_flags_invalid")
+    transaction=records.get("transaction_records",{})
+    for name,validator in (("plan",validate_builtin_runner_transaction_plan),("request",validate_builtin_runner_transaction_execution_request),("result",validate_builtin_runner_transaction_result),("receipt",validate_builtin_runner_transaction_receipt),("closure_report",validate_builtin_runner_transaction_closure_report)):
+        validation=validator(transaction.get(name,{}))
+        if not validation.ok: findings.extend("transaction_"+name+":"+finding for finding in validation.findings)
+    snapshots=records.get("target_snapshots",{})
+    if set(snapshots)!=set(TARGET_FILES): findings.append("target_snapshot_membership_invalid")
+    for name,snapshot in snapshots.items():
+        try:
+            raw=bytes.fromhex(str(snapshot.get("bytes_hex","")))
+            if snapshot.get("relative_filename")!=name or snapshot.get("size_bytes")!=len(raw) or snapshot.get("sha256")!=_raw_sha(raw): findings.append("target_snapshot_invalid:"+name)
+            decoded=json.loads(raw)
+            target_validator={"effect_receipt.json":validate_local_diagnostic_effect_receipt,"postcondition_check.json":validate_local_diagnostic_postcondition_check,"production_audit.json":validate_local_diagnostic_production_audit_receipt,"rollback_plan.json":validate_local_diagnostic_rollback_plan}.get(name)
+            if target_validator:
+                target_validation=target_validator(decoded)
+                if not target_validation.ok: findings.extend("target_record_"+name+":"+finding for finding in target_validation.findings)
+            elif name==ARTIFACT_NAME and (decoded.get("effect_domain")!="diagnostics_local_file_effect" or decoded.get("diagnostic_only") is not True or decoded.get("local_only") is not True or any(decoded.get(flag) is not False for flag in ("network_performed","provider_invocation_performed","prompt_assembly_performed","subprocess_performed","shell_performed"))):
+                findings.append("target_record_"+name+":artifact_shape_invalid")
+            elif name==LEDGER_NAME:
+                for label,value,ledger_validator in (("ledger",decoded.get("ledger",{}),validate_local_effect_transaction_ledger),("lifecycle_report",decoded.get("lifecycle_report",{}),validate_local_effect_transaction_lifecycle_report)):
+                    ledger_validation=ledger_validator(value)
+                    if not ledger_validation.ok: findings.extend("target_record_"+name+":"+label+":"+finding for finding in ledger_validation.findings)
+        except (ValueError,json.JSONDecodeError): findings.append("target_snapshot_invalid:"+name)
     status="host_local_diagnostic_execution_completed" if not findings else "host_local_diagnostic_execution_bundle_invalid"
     return ExecutionOutcome(status,tuple(sorted(set(findings))),records,str(root),0,True)
 
