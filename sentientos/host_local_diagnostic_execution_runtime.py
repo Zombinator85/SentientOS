@@ -212,35 +212,10 @@ class HostLocalDiagnosticExecutionRuntimeCoordinator:
 def _atomic_json(path:Path,value:Any)->None:
     fd,name=tempfile.mkstemp(dir=path.parent,prefix=".tmp-"); os.close(fd); Path(name).write_text(_canon(value)+"\n"); os.replace(name,path)
 
-def validate_persisted_execution_bundle(bundle_root:str|Path, *, expected_final_bundle_digest:str|None=None, expected_request_id:str|None=None, expected_request_digest:str|None=None, expected_source_bundle_digest:str|None=None, correlation_id:str|None=None)->ExecutionOutcome:
-    root,findings=_path_findings(bundle_root)
-    records={}
-    try:
-        actual={p.name for p in root.iterdir()}
-        if any(p.is_symlink() for p in root.iterdir()): findings.append("symlinked_bundle_artifact")
-        manifest=json.loads((root/"bundle_manifest.json").read_text()); claimed=manifest.get("bundle_digest"); check=dict(manifest); check.pop("bundle_digest",None)
-        if claimed!=_sha(check) or (expected_final_bundle_digest and claimed!=expected_final_bundle_digest): findings.append("bundle_digest_mismatch")
-        entries=manifest.get("files",[]); names=[e.get("relative_filename") for e in entries]
-        if len(names)!=len(set(names)) or set(names)|{"bundle_manifest.json"}!=actual: findings.append("exact_final_manifest_membership_mismatch")
-        if manifest.get("schema_version")!=SCHEMA_VERSION or manifest.get("artifact_kind")!="host_local_diagnostic_execution_bundle_manifest": findings.append("final_manifest_shape_mismatch")
-        for e in entries:
-            fn=str(e.get("relative_filename","")); p=root/fn
-            if Path(fn).name!=fn or ".." in Path(fn).parts or p.is_symlink(): findings.append("manifest_path_rejected:"+fn); continue
-            raw=p.read_bytes()
-            if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): findings.append("manifest_file_mismatch")
-        content=json.loads((root/"content_manifest.json").read_text()); ccheck=dict(content); cclaimed=ccheck.pop("content_manifest_digest",None)
-        centries=content.get("files",[]); cnames=[e.get("relative_filename") for e in centries]
-        if len(cnames)!=len(set(cnames)) or set(cnames)!=(set(names)-{"content_manifest.json","runtime_receipt.json"}): findings.append("exact_content_manifest_membership_mismatch")
-        if cclaimed!=_sha(ccheck): findings.append("content_manifest_digest_mismatch")
-        for e in centries:
-            p=root/str(e.get("relative_filename","")); raw=p.read_bytes()
-            if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): findings.append("content_manifest_file_mismatch")
-        receipt=json.loads((root/"runtime_receipt.json").read_text()); summary=json.loads((root/"summary.json").read_text())
-        if receipt.get("digest")!=digest_record(receipt) or receipt.get("content_manifest_digest")!=cclaimed: findings.append("runtime_receipt_invalid")
-        if summary.get("status")!="host_local_diagnostic_execution_completed": findings.append("summary_status_invalid")
-        for p in root.glob("*.json"):
-            if p.name not in ("bundle_manifest.json","content_manifest.json","runtime_receipt.json","summary.json"): records[p.stem]=json.loads(p.read_text())
-    except Exception as exc: findings.append("bundle_decode_failed:"+type(exc).__name__)
+
+def validate_completed_execution_records(records: Mapping[str, Any], *, expected_execution_id: str | None = None, expected_request_id: str | None = None, expected_request_digest: str | None = None, expected_source_bundle_digest: str | None = None, correlation_id: str | None = None) -> tuple[str, ...]:
+    """Deeply validate persisted completed-execution records without live inputs."""
+    findings: list[str] = []
     req=records.get("runtime_request",{}); source=records.get("source_records",{})
     findings += list(validate_execution_source_records(source))
     if expected_request_id and req.get("source_request_id")!=expected_request_id: findings.append("request_id_mismatch")
@@ -279,6 +254,41 @@ def validate_persisted_execution_bundle(bundle_root:str|Path, *, expected_final_
                     ledger_validation=ledger_validator(value)
                     if not ledger_validation.ok: findings.extend("target_record_"+name+":"+label+":"+finding for finding in ledger_validation.findings)
         except (ValueError,json.JSONDecodeError): findings.append("target_snapshot_invalid:"+name)
+    identity=dict(req); identity.pop("schema_version",None)
+    execution_id="hlder-"+hashlib.sha256(_canon(identity).encode()).hexdigest()[:24]
+    if expected_execution_id and execution_id != expected_execution_id: findings.append("execution_id_mismatch")
+    return tuple(sorted(set(findings)))
+
+def validate_persisted_execution_bundle(bundle_root:str|Path, *, expected_final_bundle_digest:str|None=None, expected_request_id:str|None=None, expected_request_digest:str|None=None, expected_source_bundle_digest:str|None=None, correlation_id:str|None=None)->ExecutionOutcome:
+    root,findings=_path_findings(bundle_root)
+    records={}
+    try:
+        actual={p.name for p in root.iterdir()}
+        if any(p.is_symlink() for p in root.iterdir()): findings.append("symlinked_bundle_artifact")
+        manifest=json.loads((root/"bundle_manifest.json").read_text()); claimed=manifest.get("bundle_digest"); check=dict(manifest); check.pop("bundle_digest",None)
+        if claimed!=_sha(check) or (expected_final_bundle_digest and claimed!=expected_final_bundle_digest): findings.append("bundle_digest_mismatch")
+        entries=manifest.get("files",[]); names=[e.get("relative_filename") for e in entries]
+        if len(names)!=len(set(names)) or set(names)|{"bundle_manifest.json"}!=actual: findings.append("exact_final_manifest_membership_mismatch")
+        if manifest.get("schema_version")!=SCHEMA_VERSION or manifest.get("artifact_kind")!="host_local_diagnostic_execution_bundle_manifest": findings.append("final_manifest_shape_mismatch")
+        for e in entries:
+            fn=str(e.get("relative_filename","")); p=root/fn
+            if Path(fn).name!=fn or ".." in Path(fn).parts or p.is_symlink(): findings.append("manifest_path_rejected:"+fn); continue
+            raw=p.read_bytes()
+            if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): findings.append("manifest_file_mismatch")
+        content=json.loads((root/"content_manifest.json").read_text()); ccheck=dict(content); cclaimed=ccheck.pop("content_manifest_digest",None)
+        centries=content.get("files",[]); cnames=[e.get("relative_filename") for e in centries]
+        if len(cnames)!=len(set(cnames)) or set(cnames)!=(set(names)-{"content_manifest.json","runtime_receipt.json"}): findings.append("exact_content_manifest_membership_mismatch")
+        if cclaimed!=_sha(ccheck): findings.append("content_manifest_digest_mismatch")
+        for e in centries:
+            p=root/str(e.get("relative_filename","")); raw=p.read_bytes()
+            if len(raw)!=e.get("size_bytes") or _raw_sha(raw)!=e.get("sha256"): findings.append("content_manifest_file_mismatch")
+        receipt=json.loads((root/"runtime_receipt.json").read_text()); summary=json.loads((root/"summary.json").read_text())
+        if receipt.get("digest")!=digest_record(receipt) or receipt.get("content_manifest_digest")!=cclaimed: findings.append("runtime_receipt_invalid")
+        if summary.get("status")!="host_local_diagnostic_execution_completed": findings.append("summary_status_invalid")
+        for p in root.glob("*.json"):
+            if p.name not in ("bundle_manifest.json","content_manifest.json","runtime_receipt.json","summary.json"): records[p.stem]=json.loads(p.read_text())
+    except Exception as exc: findings.append("bundle_decode_failed:"+type(exc).__name__)
+    findings.extend(validate_completed_execution_records(records, expected_request_id=expected_request_id, expected_request_digest=expected_request_digest, expected_source_bundle_digest=expected_source_bundle_digest, correlation_id=correlation_id))
     status="host_local_diagnostic_execution_completed" if not findings else "host_local_diagnostic_execution_bundle_invalid"
     return ExecutionOutcome(status,tuple(sorted(set(findings))),records,str(root),0,True)
 

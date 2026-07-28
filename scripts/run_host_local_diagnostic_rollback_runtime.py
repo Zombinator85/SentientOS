@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     p=sub.add_parser("latest-summary"); p.add_argument("--output-root",required=True)
     args=parser.parse_args(argv)
     if not args.command: parser.print_help(); return 0
-    from sentientos.host_local_diagnostic_rollback_runtime import HostLocalDiagnosticRollbackRuntimeCoordinator, validate_live_rollback_postcondition, validate_persisted_rollback_bundle
+    from sentientos.host_local_diagnostic_rollback_runtime import HostLocalDiagnosticRollbackRuntimeCoordinator, validate_live_rollback_postcondition, validate_persisted_rollback_bundle, validate_rollback_pointer
     try:
         if args.command in ("preflight","rollback"):
             common={"execution_bundle_root":args.execution_bundle_root,"expected_execution_bundle_digest":args.expected_execution_bundle_digest,"current_snapshot":json.loads(Path(args.current_snapshot_json).read_text()),"current_verification":json.loads(Path(args.current_verification_json).read_text()),"rollback_time":args.rollback_time}; coordinator=HostLocalDiagnosticRollbackRuntimeCoordinator()
@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command=="validate-bundle": result=validate_persisted_rollback_bundle(args.bundle_root,expected_final_bundle_digest=args.expected_final_bundle_digest,expected_execution_bundle_digest=args.expected_execution_bundle_digest)
         elif args.command=="validate-live-postcondition": result=validate_live_rollback_postcondition(args.bundle_root,expected_final_bundle_digest=args.expected_final_bundle_digest)
         else:
-            pointer=json.loads((Path(args.output_root)/"latest.json").read_text()); result=validate_persisted_rollback_bundle(Path(args.output_root)/pointer["rollback_id"],expected_final_bundle_digest=pointer["bundle_digest"])
+            pointer=json.loads((Path(args.output_root)/"latest.json").read_text()); result=validate_rollback_pointer(args.output_root, pointer)
         print(json.dumps(result.to_dict(),sort_keys=True,indent=2)); return 0 if result.status in {"host_local_diagnostic_rollback_preflight_ready","host_local_diagnostic_rollback_completed","host_local_diagnostic_rollback_live_postcondition_valid"} else 1
     except Exception as exc:
         print(json.dumps({"status":"blocked_host_local_diagnostic_rollback_runtime","findings":[type(exc).__name__+":"+str(exc)]},sort_keys=True)); return 1
