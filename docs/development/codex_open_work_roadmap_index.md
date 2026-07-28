@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `fc9db298`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `955534ad`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -8,6 +8,7 @@ This is the active, compact selection map through mainline `fc9db298`. Consumed 
 - Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls.
 - The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
 - The diagnostic rollback deep-custody gap is closed: completed bundles independently bind execution, historical authority, confirmation, rollback/lifecycle evidence, exact manifests, latest metadata, and replay metadata without widening mutation authority.
+- Diagnostic lifecycle closure packets now package exact execution and rollback bundles with deterministic cross-lifecycle custody for deletion-independent historical review; this read-only surface adds no effect authority.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 
 ## Sealed surfaces
