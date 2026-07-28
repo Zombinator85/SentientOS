@@ -16,6 +16,7 @@ from sentientos.host_local_diagnostic_execution_runtime import (
     NO_BROAD_AUTHORITY,
     TARGET_FILES,
     validate_fresh_execution_authority,
+    validate_completed_execution_records,
     validate_persisted_execution_bundle,
 )
 from sentientos.host_local_diagnostic_execution_source_runtime import _canon, _dict, _path_findings, _raw_sha, _sha, digest_record
@@ -35,6 +36,16 @@ from sentientos.local_effect_transaction_ledger import (
 
 SCHEMA_VERSION = "host_local_diagnostic_rollback_runtime.v1"
 ROLLBACK_SCOPE = "local_diagnostic_exact_rollback"
+RECORD_NAMES = {
+    "embedded_execution_records", "expected_execution_bundle_digest",
+    "fresh_current_snapshot", "fresh_current_verification",
+    "fresh_authority_validation", "confirmation_challenge",
+    "operator_confirmation", "rollback_intent_history", "rollback_records",
+    "updated_transaction_ledger", "updated_lifecycle_report",
+    "pre_rollback_artifact_snapshot", "post_rollback_snapshot",
+    "unrelated_siblings_before", "unrelated_siblings_after", "runtime_result",
+    "record_bindings",
+}
 
 
 @dataclass(frozen=True)
@@ -61,7 +72,7 @@ def _challenge(records: Mapping[str, Any], bundle_digest: str, snapshot: Mapping
         "schema_version": SCHEMA_VERSION,
         "artifact_kind": "host_local_diagnostic_rollback_confirmation_challenge",
         "completed_execution_bundle_digest": bundle_digest,
-        "execution_id": Path(str(request.get("correlation_id", ""))).name or request["source_request_id"],
+        "execution_id": "hlder-" + hashlib.sha256(_canon({k: v for k, v in request.items() if k != "schema_version"}).encode()).hexdigest()[:24],
         "correlation_id": request["correlation_id"],
         "source_request_id": request["source_request_id"],
         "source_request_digest": request["source_request_digest"],
@@ -171,7 +182,7 @@ class HostLocalDiagnosticRollbackRuntimeCoordinator:
         root, path_findings = _path_findings(out, may_not_exist=True)
         if path_findings or root == artifact.parent or root in artifact.parents or artifact.parent in root.parents:
             return RollbackOutcome("blocked_host_local_diagnostic_rollback_target", tuple(path_findings + ["rollback_roots_overlap"]), {})
-        identity_data = {"execution_bundle_digest": expected_execution_bundle_digest, "artifact_path": str(artifact), "artifact_digest": challenge["historical_artifact_digest"], "rollback_plan_digest": challenge["rollback_plan_digest"], "snapshot_digest": challenge["fresh_snapshot_digest"], "verification_digest": challenge["fresh_verification_digest"], "rollback_time": rollback_time, "confirmation_digest": confirmation_challenge_digest, "correlation_id": correlation_id or challenge["correlation_id"]}
+        identity_data = {"execution_id": challenge["execution_id"], "execution_bundle_digest": expected_execution_bundle_digest, "source_request_id": challenge["source_request_id"], "source_request_digest": challenge["source_request_digest"], "artifact_path": str(artifact), "artifact_digest": challenge["historical_artifact_digest"], "rollback_plan_digest": challenge["rollback_plan_digest"], "snapshot_digest": challenge["fresh_snapshot_digest"], "verification_digest": challenge["fresh_verification_digest"], "rollback_time": rollback_time, "confirmation_digest": confirmation_challenge_digest, "correlation_id": correlation_id or challenge["correlation_id"]}
         rollback_id = "hldrr-" + hashlib.sha256(_canon(identity_data).encode()).hexdigest()[:24]
         root.mkdir(parents=True, exist_ok=True)
         with (root / ".rollback.lock").open("a+b") as lock:
@@ -257,7 +268,13 @@ class HostLocalDiagnosticRollbackRuntimeCoordinator:
         if closure.get("lifecycle_status") != "local_effect_lifecycle_rollback_pending": findings.append("historical_lifecycle_not_pending")
         self._state(intent, history, "observation_persisted", identity)
         self._state(intent, history, "finalized", identity)
-        records = {"embedded_execution_records": execution, "expected_execution_bundle_digest": identity["execution_bundle_digest"], "fresh_current_snapshot": pre["fresh_current_snapshot"], "fresh_current_verification": pre["fresh_current_verification"], "fresh_authority_validation": pre["fresh_authority_validation"], "confirmation_challenge": challenge, "operator_confirmation": {"present": True, "confirmed_bundle_digest": identity["execution_bundle_digest"], "confirmed_artifact_path": identity["artifact_path"], "confirmed_challenge_digest": identity["confirmation_digest"], "exact_rollback_scope": ROLLBACK_SCOPE, **NO_BROAD_AUTHORITY}, "rollback_intent_history": history, "rollback_records": returned, "updated_transaction_ledger": lifecycle.ledger.to_dict(), "updated_lifecycle_report": lifecycle.lifecycle_report.to_dict(), "pre_rollback_artifact_snapshot": _dict(execution["target_snapshots"])[ARTIFACT_NAME], "post_rollback_snapshot": {"path": str(artifact), "exists": False}, "unrelated_siblings_before": before, "unrelated_siblings_after": after, "runtime_result": {"status": "host_local_diagnostic_rollback_completed", "historical_diagnostic_write": True, "rollback_invoked_historically": True, "rollback_invoked_by_current_coordinator": direct, "prior_invocation_reconciled": not direct, "exact_file_mutation": "deleted:" + str(artifact), "rollback_call_count": 1 if direct else 0, "exact_diagnostic_rollback_authorized": True, **NO_BROAD_AUTHORITY}}
+        confirmation = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_operator_confirmation", "present": True, "execution_id": identity["execution_id"], "source_request_id": identity["source_request_id"], "source_request_digest": identity["source_request_digest"], "correlation_id": identity["correlation_id"], "confirmed_bundle_digest": identity["execution_bundle_digest"], "confirmed_artifact_path": identity["artifact_path"], "confirmed_challenge_digest": identity["confirmation_digest"], "exact_rollback_scope": ROLLBACK_SCOPE, **NO_BROAD_AUTHORITY}
+        confirmation["operator_confirmation_id"] = "hldrr-confirmation-" + hashlib.sha256(_canon(confirmation).encode()).hexdigest()[:24]
+        confirmation["digest"] = digest_record(confirmation)
+        records = {"embedded_execution_records": execution, "expected_execution_bundle_digest": identity["execution_bundle_digest"], "fresh_current_snapshot": pre["fresh_current_snapshot"], "fresh_current_verification": pre["fresh_current_verification"], "fresh_authority_validation": pre["fresh_authority_validation"], "confirmation_challenge": challenge, "operator_confirmation": confirmation, "rollback_intent_history": history, "rollback_records": returned, "updated_transaction_ledger": lifecycle.ledger.to_dict(), "updated_lifecycle_report": lifecycle.lifecycle_report.to_dict(), "pre_rollback_artifact_snapshot": _dict(execution["target_snapshots"])[ARTIFACT_NAME], "post_rollback_snapshot": {"path": str(artifact), "exists": False}, "unrelated_siblings_before": before, "unrelated_siblings_after": after, "runtime_result": {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_runtime_result", "rollback_id": rollback_id, "execution_id": identity["execution_id"], "source_request_id": identity["source_request_id"], "source_request_digest": identity["source_request_digest"], "correlation_id": identity["correlation_id"], "execution_bundle_digest": identity["execution_bundle_digest"], "status": "host_local_diagnostic_rollback_completed", "historical_diagnostic_write": True, "rollback_invoked_historically": True, "rollback_invoked_by_current_coordinator": direct, "prior_invocation_reconciled": not direct, "exact_file_mutation": "deleted:" + str(artifact), "rollback_call_count": 1 if direct else 0, "exact_diagnostic_rollback_authorized": True, **NO_BROAD_AUTHORITY}}
+        records["runtime_result"]["digest"] = digest_record(records["runtime_result"])
+        records["record_bindings"] = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_record_bindings", "rollback_id": rollback_id, "record_digests": {name: _sha(value) for name, value in sorted(records.items())}}
+        records["record_bindings"]["digest"] = digest_record(records["record_bindings"])
         bundle = self._persist(root, rollback_id, records, str(identity["correlation_id"]))
         return RollbackOutcome("host_local_diagnostic_rollback_completed", (), records, str(bundle), 1 if direct else 0, False, not direct)
 
@@ -265,12 +282,13 @@ class HostLocalDiagnosticRollbackRuntimeCoordinator:
         tmp = Path(tempfile.mkdtemp(prefix=".hldrr-", dir=root)); files: list[str] = []
         for name, value in sorted(records.items()):
             path = tmp / (name + ".json"); path.write_text(_canon(value) + "\n"); files.append(path.name)
-        summary = {"schema_version": SCHEMA_VERSION, "status": "host_local_diagnostic_rollback_completed", "rollback_id": rollback_id}; (tmp / "summary.json").write_text(_canon(summary) + "\n"); files.append("summary.json")
+        runtime = _dict(records["runtime_result"])
+        summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_summary", "status": "host_local_diagnostic_rollback_completed", "rollback_id": rollback_id, "execution_id": runtime["execution_id"], "source_request_id": runtime["source_request_id"], "source_request_digest": runtime["source_request_digest"], "correlation_id": runtime["correlation_id"], "execution_bundle_digest": runtime["execution_bundle_digest"]}; summary["digest"] = digest_record(summary); (tmp / "summary.json").write_text(_canon(summary) + "\n"); files.append("summary.json")
         content = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_content_manifest", "files": [{"relative_filename": n, "size_bytes": len((tmp/n).read_bytes()), "sha256": _raw_sha((tmp/n).read_bytes())} for n in sorted(files)]}; content["content_manifest_digest"] = _sha(content); (tmp/"content_manifest.json").write_text(_canon(content)+"\n")
-        receipt = {"schema_version": SCHEMA_VERSION, "rollback_id": rollback_id, "content_manifest_digest": content["content_manifest_digest"], "runtime_result_digest": _sha(records["runtime_result"])}; receipt["digest"] = digest_record(receipt); (tmp/"runtime_receipt.json").write_text(_canon(receipt)+"\n")
+        receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_runtime_receipt", "rollback_id": rollback_id, "execution_id": runtime["execution_id"], "source_request_id": runtime["source_request_id"], "source_request_digest": runtime["source_request_digest"], "correlation_id": runtime["correlation_id"], "execution_bundle_digest": runtime["execution_bundle_digest"], "content_manifest_digest": content["content_manifest_digest"], "runtime_result_digest": _sha(records["runtime_result"]), "challenge_digest": _sha(records["confirmation_challenge"]), "operator_confirmation_digest": _sha(records["operator_confirmation"]), "rollback_records_digest": _sha(records["rollback_records"]), "updated_lifecycle_digest": _sha(records["updated_lifecycle_report"]), "record_bindings_digest": _sha(records["record_bindings"])}; receipt["digest"] = digest_record(receipt); (tmp/"runtime_receipt.json").write_text(_canon(receipt)+"\n")
         finals = files + ["content_manifest.json", "runtime_receipt.json"]; manifest = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_bundle_manifest", "files": [{"relative_filename": n, "size_bytes": len((tmp/n).read_bytes()), "sha256": _raw_sha((tmp/n).read_bytes())} for n in sorted(finals)]}; manifest["bundle_digest"] = _sha(manifest); (tmp/"bundle_manifest.json").write_text(_canon(manifest)+"\n")
         bundle = root/rollback_id; os.replace(tmp, bundle)
-        pointer = {"rollback_id": rollback_id, "correlation_id": correlation_id, "execution_bundle_digest": records["expected_execution_bundle_digest"], "bundle_digest": manifest["bundle_digest"]}
+        pointer = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_rollback_pointer", "rollback_id": rollback_id, "execution_id": runtime["execution_id"], "request_id": runtime["source_request_id"], "request_digest": runtime["source_request_digest"], "correlation_id": correlation_id, "execution_bundle_digest": records["expected_execution_bundle_digest"], "bundle_digest": manifest["bundle_digest"]}; pointer["digest"] = digest_record(pointer)
         _atomic_json(root/"latest.json", pointer); index = root/"replay_index.json"; mapping = json.loads(index.read_text()) if index.exists() else {}; mapping[correlation_id] = pointer; _atomic_json(index, mapping)
         return bundle
 
@@ -279,8 +297,8 @@ class HostLocalDiagnosticRollbackRuntimeCoordinator:
         try:
             pointer = json.loads((root/"replay_index.json").read_text()).get(correlation_id)
             if not pointer: return None
-            if pointer.get("execution_bundle_digest") != execution_digest: return RollbackOutcome("host_local_diagnostic_rollback_bundle_invalid", ("replay_execution_digest_mismatch",), {})
-            loaded = validate_persisted_rollback_bundle(root/pointer["rollback_id"], expected_final_bundle_digest=pointer["bundle_digest"], expected_execution_bundle_digest=execution_digest)
+            if pointer.get("execution_bundle_digest") != execution_digest or pointer.get("correlation_id") != correlation_id: return RollbackOutcome("host_local_diagnostic_rollback_bundle_invalid", ("replay_execution_digest_mismatch",), {})
+            loaded = validate_rollback_pointer(root, _dict(pointer))
             if loaded.status != "host_local_diagnostic_rollback_completed": return loaded
             return RollbackOutcome(loaded.status, (), loaded.records, loaded.bundle_root, 0, True, bool(_dict(loaded.records["runtime_result"]).get("prior_invocation_reconciled")))
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc: return RollbackOutcome("host_local_diagnostic_rollback_bundle_invalid", ("replay_index_invalid:"+type(exc).__name__,), {})
@@ -290,47 +308,97 @@ def _atomic_json(path: Path, value: Any) -> None:
     fd, name = tempfile.mkstemp(dir=path.parent, prefix=".tmp-"); os.close(fd); Path(name).write_text(_canon(value)+"\n"); os.replace(name, path)
 
 
+def validate_rollback_pointer(output_root: str | Path, pointer: Mapping[str, Any]) -> RollbackOutcome:
+    """Validate a latest/replay pointer and every identity it names."""
+    root = Path(output_root).resolve(strict=False); value = _dict(pointer)
+    if value.get("schema_version") != SCHEMA_VERSION or value.get("artifact_kind") != "host_local_diagnostic_rollback_pointer" or value.get("digest") != digest_record(value):
+        return RollbackOutcome("host_local_diagnostic_rollback_bundle_invalid", ("rollback_pointer_invalid",), {})
+    loaded = validate_persisted_rollback_bundle(root/str(value.get("rollback_id", "")), expected_final_bundle_digest=str(value.get("bundle_digest", "")), expected_execution_bundle_digest=str(value.get("execution_bundle_digest", "")))
+    runtime = _dict(loaded.records.get("runtime_result"))
+    keys = {"rollback_id":"rollback_id", "execution_id":"execution_id", "request_id":"source_request_id", "request_digest":"source_request_digest", "correlation_id":"correlation_id", "execution_bundle_digest":"execution_bundle_digest"}
+    if any(value.get(pointer_key) != runtime.get(runtime_key) for pointer_key, runtime_key in keys.items()):
+        return RollbackOutcome("host_local_diagnostic_rollback_bundle_invalid", tuple(sorted(set(loaded.findings + ("rollback_pointer_identity_mismatch",)))), loaded.records, loaded.bundle_root, 0, True)
+    return loaded
+
+
 def validate_persisted_rollback_bundle(bundle_root: str | Path, *, expected_final_bundle_digest: str | None = None, expected_execution_bundle_digest: str | None = None) -> RollbackOutcome:
+    """Validate a rollback as self-contained historical custody, without live state."""
     root, findings = _path_findings(bundle_root); records: dict[str, Any] = {}
+    manifest: dict[str, Any] = {}; content: dict[str, Any] = {}; receipt: dict[str, Any] = {}; summary: dict[str, Any] = {}
     try:
-        actual = {p.name for p in root.iterdir()}
-        if any(p.is_symlink() for p in root.iterdir()): findings.append("symlinked_bundle_artifact")
-        manifest = json.loads((root/"bundle_manifest.json").read_text()); check = dict(manifest); claimed = check.pop("bundle_digest", None)
+        paths = list(root.iterdir()); actual = {p.name for p in paths}
+        if any(p.is_symlink() for p in paths): findings.append("symlinked_bundle_artifact")
+        manifest = _dict(json.loads((root/"bundle_manifest.json").read_text())); check = dict(manifest); claimed = check.pop("bundle_digest", None)
+        if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("artifact_kind") != "host_local_diagnostic_rollback_bundle_manifest": findings.append("final_manifest_shape_mismatch")
         if claimed != _sha(check) or (expected_final_bundle_digest and claimed != expected_final_bundle_digest): findings.append("bundle_digest_mismatch")
         entries = manifest.get("files", []); names = [e.get("relative_filename") for e in entries]
-        if len(names) != len(set(names)) or set(names)|{"bundle_manifest.json"} != actual: findings.append("exact_final_manifest_membership_mismatch")
+        if len(names) != len(set(names)) or set(names) | {"bundle_manifest.json"} != actual: findings.append("exact_final_manifest_membership_mismatch")
         for entry in entries:
             name = str(entry.get("relative_filename", "")); path = root/name
-            if Path(name).name != name or path.is_symlink(): findings.append("manifest_path_rejected:"+name); continue
+            if Path(name).name != name or ".." in Path(name).parts or path.is_symlink() or not path.is_file(): findings.append("manifest_path_rejected:"+name); continue
             raw = path.read_bytes()
-            if len(raw) != entry.get("size_bytes") or _raw_sha(raw) != entry.get("sha256"): findings.append("manifest_file_mismatch:"+name)
-        content = json.loads((root/"content_manifest.json").read_text()); ccheck = dict(content); cdigest = ccheck.pop("content_manifest_digest", None)
+            if set(entry) != {"relative_filename", "size_bytes", "sha256"} or len(raw) != entry.get("size_bytes") or _raw_sha(raw) != entry.get("sha256"): findings.append("manifest_file_mismatch:"+name)
+        content = _dict(json.loads((root/"content_manifest.json").read_text())); ccheck = dict(content); cdigest = ccheck.pop("content_manifest_digest", None)
+        centries = content.get("files", []); cnames = [e.get("relative_filename") for e in centries]
+        if content.get("schema_version") != SCHEMA_VERSION or content.get("artifact_kind") != "host_local_diagnostic_rollback_content_manifest": findings.append("content_manifest_shape_mismatch")
+        if len(cnames) != len(set(cnames)) or set(cnames) != {name+".json" for name in RECORD_NAMES} | {"summary.json"}: findings.append("exact_content_manifest_membership_mismatch")
+        if set(names) != set(cnames) | {"content_manifest.json", "runtime_receipt.json"}: findings.append("manifest_cross_membership_mismatch")
         if cdigest != _sha(ccheck): findings.append("content_manifest_digest_mismatch")
-        for entry in content.get("files", []):
-            raw=(root/entry["relative_filename"]).read_bytes()
-            if len(raw)!=entry["size_bytes"] or _raw_sha(raw)!=entry["sha256"]: findings.append("content_manifest_file_mismatch")
-        receipt=json.loads((root/"runtime_receipt.json").read_text())
-        if receipt.get("digest")!=digest_record(receipt) or receipt.get("content_manifest_digest")!=cdigest: findings.append("runtime_receipt_invalid")
-        for path in root.glob("*.json"):
-            if path.name not in ("bundle_manifest.json","content_manifest.json","runtime_receipt.json","summary.json"): records[path.stem]=json.loads(path.read_text())
+        for entry in centries:
+            name=str(entry.get("relative_filename", "")); path=root/name
+            if Path(name).name != name or ".." in Path(name).parts or path.is_symlink() or not path.is_file(): findings.append("content_manifest_path_rejected:"+name); continue
+            raw=path.read_bytes()
+            if set(entry) != {"relative_filename", "size_bytes", "sha256"} or len(raw)!=entry.get("size_bytes") or _raw_sha(raw)!=entry.get("sha256"): findings.append("content_manifest_file_mismatch:"+name)
+        receipt=_dict(json.loads((root/"runtime_receipt.json").read_text())); summary=_dict(json.loads((root/"summary.json").read_text()))
+        for name in RECORD_NAMES: records[name]=json.loads((root/(name+".json")).read_text())
     except Exception as exc: findings.append("bundle_decode_failed:"+type(exc).__name__)
-    if expected_execution_bundle_digest and records.get("expected_execution_bundle_digest") != expected_execution_bundle_digest: findings.append("execution_bundle_digest_mismatch")
-    embedded = _dict(records.get("embedded_execution_records")); runtime = _dict(records.get("runtime_result")); history = records.get("rollback_intent_history", [])
-    if _dict(embedded.get("runtime_result")).get("status") != "host_local_diagnostic_execution_completed" or _dict(embedded.get("transaction_records")).get("closure_report", {}).get("lifecycle_status") != "local_effect_lifecycle_rollback_pending": findings.append("embedded_execution_invalid")
-    previous=""
-    for state in history:
-        if state.get("digest")!=digest_record(state) or state.get("previous_state_digest")!=previous: findings.append("intent_chain_invalid")
+    embedded=_dict(records.get("embedded_execution_records")); req=_dict(embedded.get("runtime_request")); runtime=_dict(records.get("runtime_result")); challenge=_dict(records.get("confirmation_challenge")); confirmation=_dict(records.get("operator_confirmation")); authority=_dict(records.get("fresh_authority_validation")); history=records.get("rollback_intent_history", [])
+    execution_id="hlder-"+hashlib.sha256(_canon({k:v for k,v in req.items() if k != "schema_version"}).encode()).hexdigest()[:24] if req else ""
+    findings.extend(validate_completed_execution_records(embedded, expected_execution_id=execution_id, expected_request_id=req.get("source_request_id"), expected_request_digest=req.get("source_request_digest"), expected_source_bundle_digest=req.get("source_bundle_digest"), correlation_id=req.get("correlation_id")))
+    if _dict(_dict(embedded.get("transaction_records")).get("closure_report")).get("lifecycle_status") != "local_effect_lifecycle_rollback_pending": findings.append("embedded_execution_not_rollback_pending")
+    execution_digest=records.get("expected_execution_bundle_digest")
+    if expected_execution_bundle_digest and execution_digest != expected_execution_bundle_digest: findings.append("execution_bundle_digest_mismatch")
+    rollback_time=str(challenge.get("rollback_time", "")); expected_authority, authority_findings=validate_fresh_execution_authority(_dict(embedded.get("source_records")), _dict(records.get("fresh_current_snapshot")), _dict(records.get("fresh_current_verification")), rollback_time)
+    findings.extend("historical_authority:"+x for x in authority_findings)
+    if _canon(authority) != _canon(expected_authority) or authority.get("digest") != digest_record(authority) or ROLLBACK_SCOPE not in set(_dict(records.get("fresh_current_verification")).get("checked_scope_labels", ())): findings.append("historical_authority_invalid")
+    if embedded:
+        try:
+            expected_challenge=_challenge(embedded, str(execution_digest), _dict(records.get("fresh_current_snapshot")), _dict(records.get("fresh_current_verification")), rollback_time)
+            if challenge != expected_challenge: findings.append("confirmation_challenge_invalid")
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            findings.append("confirmation_challenge_invalid")
+    confirmation_check=dict(confirmation); confirmation_digest=confirmation_check.pop("digest", None); confirmation_id=confirmation_check.pop("operator_confirmation_id", None)
+    expected_confirmation_id="hldrr-confirmation-"+hashlib.sha256(_canon(confirmation_check).encode()).hexdigest()[:24]
+    if confirmation_digest != digest_record(confirmation) or confirmation_id != expected_confirmation_id or confirmation.get("present") is not True or confirmation.get("execution_id") != execution_id or confirmation.get("source_request_id") != req.get("source_request_id") or confirmation.get("source_request_digest") != req.get("source_request_digest") or confirmation.get("confirmed_bundle_digest") != execution_digest or confirmation.get("confirmed_artifact_path") != challenge.get("historical_artifact_path") or confirmation.get("confirmed_challenge_digest") != challenge.get("confirmation_challenge_digest") or confirmation.get("exact_rollback_scope") != ROLLBACK_SCOPE or any(confirmation.get(x) is not False for x in FORBIDDEN_FLAGS): findings.append("operator_confirmation_invalid")
+    bindings=_dict(records.get("record_bindings")); bound=_dict(bindings.get("record_digests"))
+    if bindings.get("digest") != digest_record(bindings) or set(bound) != (RECORD_NAMES-{"record_bindings"}) or any(bound.get(name) != _sha(records.get(name)) for name in RECORD_NAMES-{"record_bindings"}): findings.append("record_bindings_invalid")
+    previous=""; identity: dict[str, Any]={}
+    for state in history if isinstance(history, list) else []:
+        if not identity: identity=_dict(state.get("identity"))
+        if state.get("digest")!=digest_record(state) or state.get("previous_state_digest")!=previous or _dict(state.get("identity")) != identity: findings.append("intent_chain_invalid")
         previous=str(state.get("digest", ""))
     if tuple(x.get("state") for x in history) != ("prepared","invocation_committed","rollback_returned","observation_persisted","finalized"): findings.append("intent_state_sequence_invalid")
-    findings += HostLocalDiagnosticRollbackRuntimeCoordinator()._rollback_evidence_findings(_dict(records.get("rollback_records")))
-    for name, validator in (("updated_transaction_ledger",validate_local_effect_transaction_ledger),("updated_lifecycle_report",validate_local_effect_transaction_lifecycle_report)):
-        validation=validator(_dict(records.get(name))); findings.extend(name+":"+x for x in validation.findings)
-    if _dict(records.get("updated_lifecycle_report")).get("lifecycle_status") != "local_effect_lifecycle_complete_with_rollback": findings.append("updated_lifecycle_not_complete")
-    required=("historical_diagnostic_write","rollback_invoked_historically","exact_diagnostic_rollback_authorized")
-    if any(runtime.get(x) is not True for x in required) or any(runtime.get(x) is not False for x in FORBIDDEN_FLAGS): findings.append("runtime_flags_invalid")
-    if runtime.get("rollback_invoked_by_current_coordinator") == runtime.get("prior_invocation_reconciled"): findings.append("direct_reconciled_posture_invalid")
+    expected_identity={"execution_id":execution_id,"execution_bundle_digest":execution_digest,"source_request_id":req.get("source_request_id"),"source_request_digest":req.get("source_request_digest"),"artifact_path":challenge.get("historical_artifact_path"),"artifact_digest":challenge.get("historical_artifact_digest"),"rollback_plan_digest":challenge.get("rollback_plan_digest"),"snapshot_digest":challenge.get("fresh_snapshot_digest"),"verification_digest":challenge.get("fresh_verification_digest"),"rollback_time":rollback_time,"confirmation_digest":challenge.get("confirmation_challenge_digest"),"correlation_id":confirmation.get("correlation_id")}
+    if identity != expected_identity: findings.append("rollback_identity_invalid")
+    rollback_records=_dict(records.get("rollback_records")); findings += HostLocalDiagnosticRollbackRuntimeCoordinator()._rollback_evidence_findings(rollback_records)
+    try:
+        snapshots=_dict(embedded["target_snapshots"])
+        def historical(name: str) -> dict[str, Any]:
+            return dict(cast(Mapping[str, Any], json.loads(bytes.fromhex(str(_dict(snapshots[name])["bytes_hex"])))))
+        rr=rollback_records
+        lifecycle=build_transaction_ledger_from_local_diagnostic_records(effect_receipt=historical("effect_receipt.json"),postcondition_check=historical("postcondition_check.json"),production_audit=historical("production_audit.json"),rollback_plan=historical("rollback_plan.json"),exact_rollback_request=_dict(rr["request"]),exact_rollback_result=_dict(rr["result"]),exact_rollback_receipt=_dict(rr["receipt"]),rollback_postcondition_check=_dict(rr["postcondition_check"]),rollback_audit=_dict(rr["audit_receipt"]),created_at=rollback_time)
+        if _canon(records.get("updated_transaction_ledger")) != _canon(lifecycle.ledger.to_dict()) or _canon(records.get("updated_lifecycle_report")) != _canon(lifecycle.lifecycle_report.to_dict()): findings.append("updated_lifecycle_custody_invalid")
+    except Exception: findings.append("updated_lifecycle_custody_invalid")
+    artifact_snapshot=_dict(_dict(embedded.get("target_snapshots")).get(ARTIFACT_NAME))
+    if records.get("pre_rollback_artifact_snapshot") != artifact_snapshot or records.get("post_rollback_snapshot") != {"path":challenge.get("historical_artifact_path"),"exists":False}: findings.append("artifact_snapshot_custody_invalid")
+    if records.get("unrelated_siblings_before") != records.get("unrelated_siblings_after"): findings.append("sibling_custody_invalid")
+    direct=runtime.get("rollback_invoked_by_current_coordinator"); reconciled=runtime.get("prior_invocation_reconciled")
+    if runtime.get("digest") != digest_record(runtime) or runtime.get("rollback_id") != bindings.get("rollback_id") or runtime.get("execution_id") != execution_id or runtime.get("source_request_id") != req.get("source_request_id") or runtime.get("source_request_digest") != req.get("source_request_digest") or runtime.get("correlation_id") != confirmation.get("correlation_id") or runtime.get("execution_bundle_digest") != execution_digest or direct is reconciled or runtime.get("rollback_call_count") != (1 if direct is True else 0) or any(runtime.get(x) is not False for x in FORBIDDEN_FLAGS): findings.append("runtime_flags_invalid")
+    expected_receipt={"runtime_result_digest":_sha(runtime),"challenge_digest":_sha(challenge),"operator_confirmation_digest":_sha(confirmation),"rollback_records_digest":_sha(rollback_records),"updated_lifecycle_digest":_sha(records.get("updated_lifecycle_report")),"record_bindings_digest":_sha(bindings)}
+    if receipt.get("digest") != digest_record(receipt) or receipt.get("content_manifest_digest") != content.get("content_manifest_digest") or any(receipt.get(k)!=v for k,v in expected_receipt.items()) or any(receipt.get(k)!=runtime.get(k) for k in ("rollback_id","execution_id","source_request_id","source_request_digest","correlation_id","execution_bundle_digest")): findings.append("runtime_receipt_invalid")
+    if summary.get("digest") != digest_record(summary) or summary.get("status") != "host_local_diagnostic_rollback_completed" or any(summary.get(k)!=runtime.get(k) for k in ("rollback_id","execution_id","source_request_id","source_request_digest","correlation_id","execution_bundle_digest")): findings.append("summary_invalid")
     status="host_local_diagnostic_rollback_completed" if not findings else "host_local_diagnostic_rollback_bundle_invalid"
-    return RollbackOutcome(status, tuple(sorted(set(findings))), records, str(root), 0, True)
+    return RollbackOutcome(status,tuple(sorted(set(findings))),records,str(root),0,True)
 
 
 def validate_live_rollback_postcondition(bundle_root: str | Path, *, expected_final_bundle_digest: str | None = None) -> RollbackOutcome:

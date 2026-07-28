@@ -7,6 +7,7 @@ This is the active, compact selection map through mainline `fc9db298`. Consumed 
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
 - Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls.
 - The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
+- The diagnostic rollback deep-custody gap is closed: completed bundles independently bind execution, historical authority, confirmation, rollback/lifecycle evidence, exact manifests, latest metadata, and replay metadata without widening mutation authority.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 
 ## Sealed surfaces
