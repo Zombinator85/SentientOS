@@ -65,8 +65,52 @@ def _rehash(root:Path)->None:
 def test_recomputed_rollback_bundle_tampering_is_rejected(tmp_path:Path)->None:
     f,e,digest,_=_execution(tmp_path); c,_,args=_args(tmp_path,f,e,digest); r=c.rollback_execution(**args); root=Path(r.bundle_root); data=json.loads((root/'runtime_result.json').read_text()); data['network_performed']=True; (root/'runtime_result.json').write_text(json.dumps(data,sort_keys=True,separators=(',',':'))+'\n'); _rehash(root); assert validate_persisted_rollback_bundle(root).status=='host_local_diagnostic_rollback_bundle_invalid'
 
+def _write_record(root:Path,name:str,value)->None:
+    (root/(name+'.json')).write_text(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n')
+
 def _reseal(root:Path)->None:
+    """Regenerate every attacker-computable inner and enclosing custody field."""
+    import hashlib
     from sentientos.host_local_diagnostic_execution_source_runtime import digest_record
+    from sentientos.local_authorization_grant import local_authorization_grant_verification_digest
+    from sentientos.local_diagnostic_effect import local_diagnostic_effect_digest
+    from sentientos.local_effect_transaction_ledger import local_effect_transaction_digest
+
+    verification=json.loads((root/'fresh_current_verification.json').read_text())
+    verification['digest']=local_authorization_grant_verification_digest(verification); _write_record(root,'fresh_current_verification',verification)
+    authority=json.loads((root/'fresh_authority_validation.json').read_text())
+    authority['verification_digest']=verification['digest']
+    authority_without_id={k:v for k,v in authority.items() if k not in ('authority_validation_id','digest')}
+    authority['authority_validation_id']='hlder-authority-'+hashlib.sha256(json.dumps(authority_without_id,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:24]
+    authority['digest']=digest_record(authority); _write_record(root,'fresh_authority_validation',authority)
+    challenge=json.loads((root/'confirmation_challenge.json').read_text())
+    challenge['fresh_verification_digest']=verification['digest']; challenge['grant_digest']=authority['grant_digest']
+    challenge_without_id={k:v for k,v in challenge.items() if k not in ('confirmation_challenge_id','confirmation_challenge_digest')}
+    challenge['confirmation_challenge_id']='hldrr-challenge-'+hashlib.sha256(json.dumps(challenge_without_id,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:24]
+    challenge.pop('confirmation_challenge_digest',None); challenge['confirmation_challenge_digest']=digest_record(challenge); _write_record(root,'confirmation_challenge',challenge)
+    confirmation=json.loads((root/'operator_confirmation.json').read_text())
+    confirmation['confirmed_challenge_digest']=challenge['confirmation_challenge_digest']
+    confirmation_without_id={k:v for k,v in confirmation.items() if k not in ('operator_confirmation_id','digest')}
+    confirmation['operator_confirmation_id']='hldrr-confirmation-'+hashlib.sha256(json.dumps(confirmation_without_id,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:24]
+    confirmation['digest']=digest_record(confirmation); _write_record(root,'operator_confirmation',confirmation)
+    history=json.loads((root/'rollback_intent_history.json').read_text()); previous=''
+    for state in history:
+        identity=state['identity']; identity['confirmation_digest']=challenge['confirmation_challenge_digest']; identity['verification_digest']=challenge['fresh_verification_digest']; identity['artifact_path']=challenge['historical_artifact_path']; identity['artifact_digest']=challenge['historical_artifact_digest']; identity['rollback_plan_digest']=challenge['rollback_plan_digest']
+        state['previous_state_digest']=previous; state['digest']=digest_record(state); previous=state['digest']
+    _write_record(root,'rollback_intent_history',history)
+    rollback=json.loads((root/'rollback_records.json').read_text())
+    if rollback['result'].get('rollback_status')!='local_diagnostic_exact_rollback_performed':
+        rollback['result']['digest']=local_diagnostic_effect_digest(rollback['result'])
+    _write_record(root,'rollback_records',rollback)
+    ledger_id=''
+    for name,id_field,prefix in (('updated_transaction_ledger','ledger_id','local-effect-transaction-ledger-'),('updated_lifecycle_report','report_id','local-effect-lifecycle-report-')):
+        record=json.loads((root/(name+'.json')).read_text()); payload=dict(record); payload['digest']=''; payload[id_field]=''
+        if name=='updated_lifecycle_report': record['ledger_id']=ledger_id; payload['ledger_id']=ledger_id
+        record[id_field]=prefix+hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:16]
+        record['digest']=local_effect_transaction_digest(record); _write_record(root,name,record)
+        if name=='updated_transaction_ledger': ledger_id=record['ledger_id']
+    runtime=json.loads((root/'runtime_result.json').read_text()); runtime['digest']=digest_record(runtime); _write_record(root,'runtime_result',runtime)
+    summary=json.loads((root/'summary.json').read_text()); summary['digest']=digest_record(summary); _write_record(root,'summary',summary)
     bindings=json.loads((root/'record_bindings.json').read_text())
     names=set(bindings['record_digests'])
     bindings['record_digests']={name:_sha(json.loads((root/(name+'.json')).read_text())) for name in sorted(names)}
@@ -78,13 +122,31 @@ def _reseal(root:Path)->None:
     receipt['content_manifest_digest']=content['content_manifest_digest']; receipt['digest']=digest_record(receipt); (root/'runtime_receipt.json').write_text(json.dumps(receipt,sort_keys=True,separators=(',',':'))+'\n')
     manifest=json.loads((root/'bundle_manifest.json').read_text()); manifest['files']=[{'relative_filename':n,'size_bytes':len((root/n).read_bytes()),'sha256':_raw_sha((root/n).read_bytes())} for n in sorted(x['relative_filename'] for x in manifest['files'])]; check=dict(manifest); check.pop('bundle_digest',None); manifest['bundle_digest']=_sha(check); (root/'bundle_manifest.json').write_text(json.dumps(manifest,sort_keys=True,separators=(',',':'))+'\n')
 
+def _assert_inner_integrity(root:Path)->None:
+    """Assert hash consistency without invoking the production bundle validator."""
+    from sentientos.host_local_diagnostic_execution_source_runtime import digest_record
+    from sentientos.local_authorization_grant import local_authorization_grant_verification_digest
+    verification=json.loads((root/'fresh_current_verification.json').read_text()); assert verification['digest']==local_authorization_grant_verification_digest(verification)
+    for name in ('fresh_authority_validation','operator_confirmation','runtime_result','summary','record_bindings'):
+        value=json.loads((root/(name+'.json')).read_text()); assert value['digest']==digest_record(value)
+    challenge=json.loads((root/'confirmation_challenge.json').read_text()); challenge_payload=dict(challenge); claimed=challenge_payload.pop('confirmation_challenge_digest'); assert claimed==digest_record(challenge_payload)
+    history=json.loads((root/'rollback_intent_history.json').read_text()); previous=''
+    for state in history: assert state['previous_state_digest']==previous and state['digest']==digest_record(state); previous=state['digest']
+    bindings=json.loads((root/'record_bindings.json').read_text())
+    assert all(digest==_sha(json.loads((root/(name+'.json')).read_text())) for name,digest in bindings['record_digests'].items())
+    content=json.loads((root/'content_manifest.json').read_text()); check=dict(content); assert check.pop('content_manifest_digest')==_sha(check)
+    for entry in content['files']: raw=(root/entry['relative_filename']).read_bytes(); assert (entry['size_bytes'],entry['sha256'])==(len(raw),_raw_sha(raw))
+    receipt=json.loads((root/'runtime_receipt.json').read_text()); assert receipt['digest']==digest_record(receipt) and receipt['content_manifest_digest']==content['content_manifest_digest']
+    manifest=json.loads((root/'bundle_manifest.json').read_text()); check=dict(manifest); assert check.pop('bundle_digest')==_sha(check)
+    for entry in manifest['files']: raw=(root/entry['relative_filename']).read_bytes(); assert (entry['size_bytes'],entry['sha256'])==(len(raw),_raw_sha(raw))
+
 def _completed(root:Path):
     f,e,digest,_=_execution(root); c,_,args=_args(root,f,e,digest); result=c.rollback_execution(**args); assert result.status=='host_local_diagnostic_rollback_completed'; return f,e,digest,result
 
 def _reject_mutations(tmp_path:Path, mutations)->None:
     _,_,_,result=_completed(tmp_path/'base')
     for index,mutation in enumerate(mutations):
-        root=tmp_path/f'tamper-{index}'; shutil.copytree(result.bundle_root,root); mutation(root); _reseal(root)
+        root=tmp_path/f'tamper-{index}'; shutil.copytree(result.bundle_root,root); mutation(root); _reseal(root); _assert_inner_integrity(root)
         assert validate_persisted_rollback_bundle(root).status=='host_local_diagnostic_rollback_bundle_invalid'
 
 def _edit(root:Path,name:str,change)->None:
@@ -95,34 +157,33 @@ def test_confirmation_challenge_binds_actual_execution_identity(tmp_path:Path)->
     assert pre.records['confirmation_challenge']['execution_id']==Path(e.bundle_root).name
     assert pre.records['confirmation_challenge']['execution_id']!=pre.records['confirmation_challenge']['correlation_id']
 
-def test_deep_historical_validation_accepts_direct_and_reconciled_bundles(tmp_path:Path)->None:
+def test_inner_reseal_helper_preserves_valid_direct_and_reconciled_bundles(tmp_path:Path)->None:
     f,e,digest,direct=_completed(tmp_path/'direct'); shutil.rmtree(e.bundle_root); shutil.rmtree(f.source_bundle); shutil.rmtree(f.target)
-    assert validate_persisted_rollback_bundle(direct.bundle_root).status=='host_local_diagnostic_rollback_completed'
+    _reseal(Path(direct.bundle_root)); _assert_inner_integrity(Path(direct.bundle_root)); assert validate_persisted_rollback_bundle(direct.bundle_root).status=='host_local_diagnostic_rollback_completed'
     f,e,digest,_=_execution(tmp_path/'reconciled'); calls=[]
     def rollback(*a,**kw): calls.append(1); return run_local_diagnostic_exact_rollback_wing(*a,**kw)
     c,_,args=_args(tmp_path/'reconciled',f,e,digest); c.rollback=rollback; c.failure_hook=lambda state: (_ for _ in ()).throw(RuntimeError('crash')) if state=='rollback_returned' else None
     with pytest.raises(RuntimeError): c.rollback_execution(**args)
     c.failure_hook=None; reconciled=c.rollback_execution(**args); shutil.rmtree(e.bundle_root); shutil.rmtree(f.source_bundle); shutil.rmtree(f.target)
-    assert calls==[1] and reconciled.reconciled and validate_persisted_rollback_bundle(reconciled.bundle_root).status=='host_local_diagnostic_rollback_completed'
+    _reseal(Path(reconciled.bundle_root)); _assert_inner_integrity(Path(reconciled.bundle_root)); assert calls==[1] and reconciled.reconciled and validate_persisted_rollback_bundle(reconciled.bundle_root).status=='host_local_diagnostic_rollback_completed'
 
-def test_embedded_execution_and_authority_tampering_is_rejected(tmp_path:Path)->None:
-    _reject_mutations(tmp_path,[lambda r:_edit(r,'embedded_execution_records',lambda v:v['runtime_result'].__setitem__('rollback_performed',True)),lambda r:_edit(r,'embedded_execution_records',lambda v:v['target_snapshots'].pop('rollback_plan.json')),lambda r:_edit(r,'fresh_authority_validation',lambda v:v.__setitem__('grant_id','substitute')),lambda r:_edit(r,'fresh_current_verification',lambda v:v.__setitem__('checked_scope_labels',[]))])
+def test_inner_resealed_authority_and_challenge_contradictions_are_rejected(tmp_path:Path)->None:
+    _reject_mutations(tmp_path,[lambda r:_edit(r,'fresh_current_verification',lambda v:v.__setitem__('checked_scope_labels',[])),lambda r:_edit(r,'confirmation_challenge',lambda v:v.__setitem__('historical_artifact_path',v['historical_artifact_path']+'-other')),lambda r:_edit(r,'confirmation_challenge',lambda v:v.__setitem__('rollback_plan_digest','sha256:'+'1'*64))])
 
-def test_confirmation_and_intent_tampering_is_rejected(tmp_path:Path)->None:
-    _reject_mutations(tmp_path,[lambda r:_edit(r,'confirmation_challenge',lambda v:v.__setitem__('historical_artifact_path',v['historical_artifact_path']+'-other')),lambda r:_edit(r,'operator_confirmation',lambda v:v.__setitem__('exact_rollback_scope','broader')),lambda r:_edit(r,'rollback_intent_history',lambda v:v[0]['identity'].__setitem__('artifact_digest','substitute')),lambda r:_edit(r,'rollback_intent_history',lambda v:v.pop())])
+def test_inner_resealed_confirmation_and_intent_contradictions_are_rejected(tmp_path:Path)->None:
+    def rewrite_intent(root:Path)->None: _edit(root,'rollback_intent_history',lambda states:[state['identity'].__setitem__('execution_bundle_digest','sha256:'+'2'*64) for state in states])
+    _reject_mutations(tmp_path,[lambda r:_edit(r,'operator_confirmation',lambda v:v.__setitem__('confirmed_artifact_path',v['confirmed_artifact_path']+'-other')),rewrite_intent])
 
-def test_rollback_records_and_lifecycle_tampering_is_rejected(tmp_path:Path)->None:
+def test_inner_resealed_rollback_and_lifecycle_contradictions_are_rejected(tmp_path:Path)->None:
     _reject_mutations(tmp_path,[lambda r:_edit(r,'rollback_records',lambda v:v['result'].__setitem__('rollback_status','not_performed')),lambda r:_edit(r,'updated_transaction_ledger',lambda v:v.__setitem__('current_transaction_status','pending')),lambda r:_edit(r,'updated_lifecycle_report',lambda v:v.__setitem__('lifecycle_status','local_effect_lifecycle_rollback_pending'))])
 
-def test_target_snapshots_and_sibling_custody_tampering_is_rejected(tmp_path:Path)->None:
-    _reject_mutations(tmp_path,[lambda r:_edit(r,'pre_rollback_artifact_snapshot',lambda v:v.__setitem__('sha256','sha256:substitute')),lambda r:_edit(r,'post_rollback_snapshot',lambda v:v.__setitem__('exists',True)),lambda r:_edit(r,'unrelated_siblings_after',lambda v:v.pop(next(iter(v))))])
+def test_inner_resealed_snapshot_receipt_and_summary_contradictions_are_rejected(tmp_path:Path)->None:
+    _reject_mutations(tmp_path,[lambda r:_edit(r,'pre_rollback_artifact_snapshot',lambda v:v.__setitem__('sha256','sha256:'+'3'*64)),lambda r:_edit(r,'unrelated_siblings_after',lambda v:v.__setitem__('injected.txt',{'exists':True})),lambda r:_edit(r,'runtime_result',lambda v:v.__setitem__('rollback_call_count',7)),lambda r:_edit(r,'summary',lambda v:v.__setitem__('execution_id','substitute'))])
 
-def test_runtime_receipt_and_exact_manifests_reject_recomputed_tampering(tmp_path:Path)->None:
-    _reject_mutations(tmp_path,[lambda r:_edit(r,'runtime_result',lambda v:v.__setitem__('network_performed',True)),lambda r:_edit(r,'runtime_result',lambda v:v.__setitem__('rollback_call_count',7)),lambda r:_edit(r,'summary',lambda v:v.__setitem__('execution_id','substitute'))])
-
-def test_latest_and_replay_pointer_substitution_is_rejected(tmp_path:Path)->None:
+def test_validly_redigested_latest_and_replay_pointer_substitution_is_rejected(tmp_path:Path)->None:
     from sentientos.host_local_diagnostic_rollback_runtime import validate_rollback_pointer
+    from sentientos.host_local_diagnostic_execution_source_runtime import digest_record
     _,_,_,result=_completed(tmp_path); output=Path(result.bundle_root).parent; pointer=json.loads((output/'latest.json').read_text())
-    for field in ('execution_id','request_digest','correlation_id','bundle_digest'):
-        changed=dict(pointer); changed[field]='substitute'; changed['digest']='substitute'
+    for field in ('execution_id','request_digest','correlation_id','execution_bundle_digest','bundle_digest'):
+        changed=dict(pointer); changed[field]='substitute'; changed['digest']=digest_record(changed); assert changed['digest']==digest_record(changed)
         assert validate_rollback_pointer(output,changed).status=='host_local_diagnostic_rollback_bundle_invalid'

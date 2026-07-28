@@ -11,9 +11,10 @@ def test_cli_executes_exact_rollback_and_validates_historical_bundle(tmp_path:Pa
     base=['rollback','--execution-bundle-root',e.bundle_root,'--expected-execution-bundle-digest',digest,'--current-snapshot-json',str(snapshot),'--current-verification-json',str(verification),'--rollback-time',args['rollback_time'],'--output-root',str(tmp_path/'cli-rollback'),'--confirm-exact-rollback','--confirm-execution-bundle-digest',digest,'--confirm-artifact-path',ch['historical_artifact_path'],'--confirmation-challenge-digest',ch['confirmation_challenge_digest'],'--correlation-id','cli-proof']
     assert main(base)==0; result=json.loads(capsys.readouterr().out); assert result['rollback_call_count']==1; bundle=result['bundle_root']; final=json.loads((Path(bundle)/'bundle_manifest.json').read_text())['bundle_digest']; assert main(['validate-bundle','--bundle-root',bundle,'--expected-final-bundle-digest',final,'--expected-execution-bundle-digest',digest])==0
 
-def test_cli_latest_summary_validates_exact_bound_rollback_bundle(tmp_path:Path,capsys)->None:
+def test_cli_latest_summary_rejects_validly_redigested_pointer_substitution(tmp_path:Path,capsys)->None:
+    from sentientos.host_local_diagnostic_execution_source_runtime import digest_record
     f,e,digest,_=_execution(tmp_path); c,_,args=_args(tmp_path,f,e,digest); result=c.rollback_execution(**args); shutil_target=Path(e.bundle_root); import shutil; shutil.rmtree(shutil_target); shutil.rmtree(f.source_bundle); shutil.rmtree(f.target)
     assert main(['latest-summary','--output-root',str(Path(result.bundle_root).parent)])==0
     output=json.loads(capsys.readouterr().out); assert output['status']=='host_local_diagnostic_rollback_completed'
-    pointer=Path(result.bundle_root).parent/'latest.json'; value=json.loads(pointer.read_text()); value['request_id']='substitute'; pointer.write_text(json.dumps(value))
+    pointer=Path(result.bundle_root).parent/'latest.json'; value=json.loads(pointer.read_text()); value['request_id']='substitute'; value['digest']=digest_record(value); assert value['digest']==digest_record(value); pointer.write_text(json.dumps(value))
     assert main(['latest-summary','--output-root',str(Path(result.bundle_root).parent)])==1
