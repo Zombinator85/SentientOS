@@ -233,11 +233,14 @@ def _successful_runtime(stage_id: str, command: str, required: bool):
 ACCEPTANCE_NODE = "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready"
 
 
-def _acceptance_fixture(tmp_path: Path, provenance: Path | None = None) -> tuple[Path, Path, bytes, bytes]:
+def _acceptance_fixture(tmp_path: Path, provenance: Path | None = None, fixture_marker: str | None = None) -> tuple[Path, Path, bytes, bytes]:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
     provenance = provenance or tmp_path / "provenance.json"
     provenance.parent.mkdir(parents=True, exist_ok=True)
-    provenance_bytes = json.dumps({"git_sha": sha, "reporter_ok": True, "metrics_status": "ok", "selected_node_ids": [ACCEPTANCE_NODE], "node_outcomes": [{"node_id": ACCEPTANCE_NODE, "phase": "call", "outcome": "passed"}]}, separators=(",", ":")).encode()
+    provenance_payload = {"git_sha": sha, "reporter_ok": True, "metrics_status": "ok", "selected_node_ids": [ACCEPTANCE_NODE], "node_outcomes": [{"node_id": ACCEPTANCE_NODE, "phase": "call", "outcome": "passed"}]}
+    if fixture_marker is not None:
+        provenance_payload["fixture_marker"] = fixture_marker
+    provenance_bytes = json.dumps(provenance_payload, separators=(",", ":")).encode()
     provenance.write_bytes(provenance_bytes)
     manifest = tmp_path / "manifest.json"
     manifest_bytes = json.dumps({"schema_version": "sentientos.task_acceptance:v1", "task_classification": "behavior_adding", "repository_sha": sha, "test_provenance_path": str(provenance), "required_nodes": [{"node_id": ACCEPTANCE_NODE}], "successful_path_nodes": [ACCEPTANCE_NODE]}, separators=(",", ":")).encode()
@@ -391,8 +394,9 @@ def test_child_stages_receive_only_their_invocation_runtime_environment(monkeypa
     assert len({tuple(sorted(item.items())) for item in seen}) == 1
 
 
-def _concurrent_finalizers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[list[dict[str, object]], list[dict[str, str]]]:
-    manifests = [_acceptance_fixture(tmp_path / f"source-{i}")[0] for i in range(2)]
+def _concurrent_finalizers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[list[dict[str, object]], list[dict[str, str]], list[tuple[Path, Path, bytes, bytes]]]:
+    sources = [_acceptance_fixture(tmp_path / f"source-{i}", fixture_marker=f"concurrent-source-{i}") for i in range(2)]
+    manifests = [source[0] for source in sources]
     ids = iter(["invocation-a", "invocation-b"])
     monkeypatch.setattr("scripts.codex_finalize_landing._new_invocation_id", lambda: next(ids))
     monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
@@ -412,12 +416,12 @@ def _concurrent_finalizers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> t
     threads = [threading.Thread(target=run, args=(i,)) for i in range(2)]
     for thread in threads: thread.start()
     for thread in threads: thread.join()
-    return [json.loads((tmp_path / f"out-{i}.json").read_text()) for i in range(2)], seen
+    return [json.loads((tmp_path / f"out-{i}.json").read_text()) for i in range(2)], seen, sources
 
 
 @pytest.mark.no_legacy_skip
 def test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    payloads, seen = _concurrent_finalizers(monkeypatch, tmp_path)
+    payloads, seen, _ = _concurrent_finalizers(monkeypatch, tmp_path)
     roots = {p["runtime_custody"]["invocation_context"]["resolved_invocation_root"] for p in payloads}
     assert len(roots) == 2
     assert {Path(item["SENTIENTOS_DATA_DIR"]).parent for item in seen} == {Path(root) for root in roots}
@@ -425,14 +429,21 @@ def test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots(monkeypat
 
 @pytest.mark.no_legacy_skip
 def test_concurrent_same_sandbox_finalizers_preserve_distinct_acceptance_custody(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    payloads, _ = _concurrent_finalizers(monkeypatch, tmp_path)
-    paths = {(p["task_acceptance_custody"]["captured_manifest_path"], p["task_acceptance_custody"]["captured_provenance_path"]) for p in payloads}
-    assert len(paths) == 2
-    for payload in payloads:
+    payloads, seen, sources = _concurrent_finalizers(monkeypatch, tmp_path)
+    assert sources[0][3] != sources[1][3]
+    assert _sha(sources[0][3]) != _sha(sources[1][3])
+    captured_paths = [path for p in payloads for path in (p["task_acceptance_custody"]["captured_manifest_path"], p["task_acceptance_custody"]["captured_provenance_path"])]
+    assert len(set(captured_paths)) == 4
+    for index, payload in enumerate(payloads):
         custody = payload["task_acceptance_custody"]
         assert custody["initial_verification_status"] == custody["terminal_verification_status"] == "task_acceptance_ready"
         assert _sha(Path(custody["captured_manifest_path"]).read_bytes()) == custody["captured_manifest_digest"]
-        assert _sha(Path(custody["captured_provenance_path"]).read_bytes()) == custody["captured_provenance_digest"]
+        captured = Path(custody["captured_provenance_path"]).read_bytes()
+        assert captured == sources[index][3]
+        assert captured != sources[1 - index][3]
+        assert custody["captured_provenance_digest"] == _sha(sources[index][3])
+        assert custody["captured_provenance_digest"] != _sha(sources[1 - index][3])
+    assert len({tuple(sorted(item.items())) for item in seen}) == 2
 
 
 def _sha(data: bytes) -> str:
@@ -456,9 +467,94 @@ def test_symlinked_runtime_custody_ancestor_is_rejected_before_write(monkeypatch
 
 
 @pytest.mark.no_legacy_skip
+def test_existing_finalizer_owned_invocations_directory_requires_private_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path / "source")
+    runtime = tmp_path / "runtime"
+    invocations = runtime / "invocations"
+    invocations.mkdir(parents=True)
+    sentinel = invocations / "sentinel"
+    sentinel.write_bytes(b"preserve")
+    if os.name == "posix":
+        invocations.chmod(0o755)
+    observed = stat.S_IMODE(invocations.stat().st_mode)
+    seen: list[str] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", lambda *args, **kwargs: seen.append("stage"))
+    out = tmp_path / "out.json"
+    main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(runtime), "--output", str(out)])
+    payload = json.loads(out.read_text())
+    if os.name == "posix":
+        assert payload["decision"]["status"] == "repair_required_task_caused"
+        assert payload["decision"]["reasons"] == [f"finalizer_owned_directory_mode_mismatch:{invocations}:0755"]
+        assert seen == [] and list(invocations.iterdir()) == [sentinel]
+        assert sentinel.read_bytes() == b"preserve" and stat.S_IMODE(invocations.stat().st_mode) == observed
+    else:
+        assert payload["runtime_custody"]["mode_enforcement_applicability"] == "not_applicable"
+
+
+@pytest.mark.no_legacy_skip
+def test_caller_owned_requested_sandbox_mode_is_preserved(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path / "source")
+    runtime = tmp_path / "runtime"
+    runtime.mkdir(mode=0o755)
+    if os.name == "posix":
+        runtime.chmod(0o755)
+    before = stat.S_IMODE(runtime.stat().st_mode)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, extra=["--runtime-sandbox-root", str(runtime)])
+    custody = payload["runtime_custody"]
+    assert stat.S_IMODE(runtime.stat().st_mode) == before
+    assert custody["requested_root"]["ownership"] == "caller_owned_requested_root"
+    if os.name == "posix":
+        assert custody["requested_root"]["mode"] == "0755"
+        assert all(record["mode"] == "0700" for record in custody["directory_custody_initial"].values())
+
+
+@pytest.mark.no_legacy_skip
+def test_runtime_directory_mode_tampering_blocks_terminal_decision(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    changed = False
+    tampered: Path | None = None
+    def hook(stage: str, timeout: int) -> None:
+        nonlocal changed, tampered
+        if os.name == "posix" and not changed:
+            tampered = next((tmp_path / "runtime" / "invocations").glob("*/data"))
+            tampered.chmod(0o755)
+            changed = True
+    try:
+        payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
+        if os.name == "posix":
+            assert payload["decision"]["status"] == "repair_required_task_caused"
+            assert payload["decision"]["reasons"] == [f"finalizer_owned_directory_mode_mismatch:{tampered}:0755"]
+            assert payload["runtime_custody"]["terminal_directory_identity_status"] == "blocked"
+        else:
+            assert payload["runtime_custody"]["mode_enforcement_applicability"] == "not_applicable"
+    finally:
+        if tampered is not None and tampered.exists():
+            tampered.chmod(0o700)
+
+
+@pytest.mark.no_legacy_skip
+def test_finalizer_artifact_records_initial_and_terminal_directory_mode_custody(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest)
+    custody = payload["runtime_custody"]
+    assert custody["requested_root"]["ownership"] == "caller_owned_requested_root"
+    assert custody["invocations_parent_path"].endswith("/runtime/invocations")
+    assert set(custody["directory_custody_initial"]) == {"invocations_parent", "invocation_root", "data", "state", "task_acceptance"}
+    assert set(custody["directory_custody_terminal"]) == set(custody["directory_custody_initial"])
+    assert custody["terminal_directory_identity_status"] == "unchanged"
+    for name, initial in custody["directory_custody_initial"].items():
+        terminal = custody["directory_custody_terminal"][name]
+        assert terminal["identity_status"] == "unchanged"
+        assert (initial["device"], initial["inode"], initial["type"]) == (terminal["device"], terminal["inode"], terminal["type"])
+        assert initial["mode_status"] == terminal["mode_status"] == ("private" if os.name == "posix" else "not_applicable")
+
+
+@pytest.mark.no_legacy_skip
 def test_existing_invocation_directory_is_never_reused_or_overwritten(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     runtime = tmp_path / "runtime"; stale = runtime / "invocations" / "stale"
     stale.mkdir(parents=True); sentinel = stale / "sentinel"; sentinel.write_bytes(b"preserve")
+    if os.name == "posix":
+        (runtime / "invocations").chmod(0o700)
     ids = iter(["stale", "fresh"]); monkeypatch.setattr("scripts.codex_finalize_landing._new_invocation_id", lambda: next(ids))
     context = __import__("scripts.codex_finalize_landing", fromlist=["_create_invocation_context"])._create_invocation_context(str(Path.cwd()), str(runtime), "x")
     assert context.invocation_id == "fresh" and context.collision_attempt_count == 1
