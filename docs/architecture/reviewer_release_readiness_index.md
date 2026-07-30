@@ -44,6 +44,36 @@ The [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_le
 
 ## Current implemented proof surfaces
 
+### Bounded host-local diagnostic lifecycle
+
+The complete proof path is in the [host-local diagnostic lifecycle reviewer
+guide](host_local_diagnostic_lifecycle_reviewer_guide.md), with stage-specific
+architecture in [execution source](host_local_diagnostic_execution_source_runtime.md),
+[execution](host_local_diagnostic_execution_runtime.md), [rollback](host_local_diagnostic_rollback_runtime.md),
+and [lifecycle closure](host_local_diagnostic_lifecycle_closure.md).
+
+The implementation modules are
+`sentientos/host_local_diagnostic_execution_source_runtime.py`,
+`sentientos/host_local_diagnostic_execution_runtime.py`,
+`sentientos/host_local_diagnostic_rollback_runtime.py`, and
+`sentientos/host_local_diagnostic_lifecycle_closure.py`. Their CLI scripts are
+`scripts/build_host_local_diagnostic_execution_source_runtime.py`,
+`scripts/run_host_local_diagnostic_execution_runtime.py`,
+`scripts/run_host_local_diagnostic_rollback_runtime.py`, and
+`scripts/build_host_local_diagnostic_lifecycle_closure.py`. Representative proof
+files are `tests/test_host_local_diagnostic_execution_source_runtime.py`,
+`tests/test_host_local_diagnostic_execution_runtime.py`,
+`tests/test_host_local_diagnostic_rollback_runtime.py`, and
+`tests/test_host_local_diagnostic_lifecycle_closure.py`.
+
+```bash
+python -m scripts.run_tests -q tests/test_host_local_diagnostic_execution_source_runtime.py tests/test_host_local_diagnostic_execution_runtime.py tests/test_host_local_diagnostic_rollback_runtime.py tests/test_host_local_diagnostic_lifecycle_closure.py tests/test_host_local_diagnostic_lifecycle_reviewer_guide.py
+```
+
+These receipts, bundles, closures, validators, tests, and reviewer results do
+not grant provider, network, federation-adoption, broader host-effect,
+control-plane, or live-memory authority.
+
 ### Control plane / authority admission
 
 `tests/test_control_plane_kernel.py` covers explicit authority admission,

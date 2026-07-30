@@ -1,5 +1,9 @@
 # Host-local diagnostic lifecycle closure
 
+For the complete operator and reviewer path through source admission, confirmed
+execution, confirmed exact rollback, and deletion-independent closure, see the
+[host-local diagnostic lifecycle reviewer guide](host_local_diagnostic_lifecycle_reviewer_guide.md).
+
 This read-only subsystem packages one deeply validated completed diagnostic execution bundle and its matching deeply validated completed rollback bundle. The caller supplies both final bundle digests and an explicit closure time. The builder revalidates both public bundle formats before writing anything and rejects inconsistent execution, request, historical correlation, artifact, rollback-plan, or lifecycle identities. A supplied correlation is an equality assertion against the historical execution correlation, never a caller-selected alias, and a mismatch is rejected before any staging or publication path is created.
 
 ## Packet custody
