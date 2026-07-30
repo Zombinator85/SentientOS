@@ -4,6 +4,9 @@ import pytest
 import hashlib
 import json
 import subprocess
+import os
+import stat
+import threading
 from pathlib import Path
 
 from scripts.codex_finalize_landing import (
@@ -245,7 +248,7 @@ def _acceptance_fixture(tmp_path: Path, provenance: Path | None = None) -> tuple
 def _run_fake_finalizer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, manifest: Path, hook=None, extra: list[str] | None = None) -> dict[str, object]:
     out = tmp_path / "out.json"
     monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
-    def fake(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float):
+    def fake(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
         if hook:
             hook(stage_id, timeout)
@@ -265,7 +268,7 @@ def _run_fake_finalizer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, manifes
 def test_acceptance_evidence_is_captured_before_any_child_stage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     manifest, _, manifest_bytes, _ = _acceptance_fixture(tmp_path)
     def hook(stage: str, timeout: int) -> None:
-        captured = tmp_path / "runtime" / "task_acceptance_custody" / "manifest.json"
+        captured = next((tmp_path / "runtime" / "invocations").glob("*/task_acceptance/manifest.json"))
         assert captured.read_bytes() == manifest_bytes
     payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
     assert payload["task_acceptance_custody"]["initial_verification_status"] == "task_acceptance_ready"
@@ -319,7 +322,7 @@ def test_captured_acceptance_tampering_blocks_final_decision(monkeypatch: pytest
     def hook(stage: str, timeout: int) -> None:
         nonlocal changed
         if not changed:
-            path = tmp_path / "runtime" / "task_acceptance_custody" / "provenance.json"
+            path = next((tmp_path / "runtime" / "invocations").glob("*/task_acceptance/provenance.json"))
             path.write_bytes(path.read_bytes() + b" "); changed = True
     payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
     assert payload["decision"]["status"] == "repair_required_task_caused"
@@ -338,7 +341,7 @@ def test_stale_refresh_matrix_uses_independent_matrix_timeout(monkeypatch: pytes
     manifest, _, _, _ = _acceptance_fixture(tmp_path); seen: list[tuple[str, int]] = []
     # Force the primary matrix failure while allowing the bounded refresh to pass.
     calls = 0
-    def fake(stage: str, command: str, required: bool, progress: bool, timeout: int, deadline: float):
+    def fake(stage: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
         nonlocal calls
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
         seen.append((stage, timeout)); exit_code = 1 if stage == "matrix_summary" else 0; calls += 1
@@ -362,6 +365,130 @@ def test_finalizer_artifact_records_acceptance_and_timeout_custody(monkeypatch: 
 
 
 @pytest.mark.no_legacy_skip
+def test_finalizer_does_not_mutate_process_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    sentinel = '{"sentinel":"unchanged"}'
+    monkeypatch.setenv("CODEX_FINALIZER_RUNTIME_ENV", sentinel)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest)
+    assert os.environ["CODEX_FINALIZER_RUNTIME_ENV"] == sentinel
+    assert payload["runtime_custody"]["process_environment_mutated"] is False
+
+
+@pytest.mark.no_legacy_skip
+def test_child_stages_receive_only_their_invocation_runtime_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    seen: list[dict[str, str]] = []
+    monkeypatch.setenv("CODEX_FINALIZER_RUNTIME_ENV", '{"SENTIENTOS_DATA_DIR":"sentinel"}')
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    def fake(stage: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        seen.append(dict(child_environment))
+        return CodexFinalizeLandingCommandResult(stage, command, 0, required=required), _successful_runtime(stage, command, required)
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake)
+    out = tmp_path / "out.json"
+    main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--focused-test-command", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(out)])
+    assert seen and all(item["SENTIENTOS_DATA_DIR"] != "sentinel" for item in seen)
+    assert len({tuple(sorted(item.items())) for item in seen}) == 1
+
+
+def _concurrent_finalizers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[list[dict[str, object]], list[dict[str, str]]]:
+    manifests = [_acceptance_fixture(tmp_path / f"source-{i}")[0] for i in range(2)]
+    ids = iter(["invocation-a", "invocation-b"])
+    monkeypatch.setattr("scripts.codex_finalize_landing._new_invocation_id", lambda: next(ids))
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    barrier = threading.Barrier(2)
+    seen: list[dict[str, str]] = []
+    seen_lock = threading.Lock()
+    def fake(stage: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        if stage == "preflight_hygiene":
+            barrier.wait()
+        with seen_lock:
+            seen.append(dict(child_environment))
+        return CodexFinalizeLandingCommandResult(stage, command, 0, required=required), _successful_runtime(stage, command, required)
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake)
+    def run(i: int) -> None:
+        main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--focused-test-command", "x", "--task-acceptance-manifest", str(manifests[i]), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(tmp_path / f"out-{i}.json")])
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(2)]
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
+    return [json.loads((tmp_path / f"out-{i}.json").read_text()) for i in range(2)], seen
+
+
+@pytest.mark.no_legacy_skip
+def test_concurrent_same_sandbox_finalizers_use_distinct_runtime_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    payloads, seen = _concurrent_finalizers(monkeypatch, tmp_path)
+    roots = {p["runtime_custody"]["invocation_context"]["resolved_invocation_root"] for p in payloads}
+    assert len(roots) == 2
+    assert {Path(item["SENTIENTOS_DATA_DIR"]).parent for item in seen} == {Path(root) for root in roots}
+
+
+@pytest.mark.no_legacy_skip
+def test_concurrent_same_sandbox_finalizers_preserve_distinct_acceptance_custody(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    payloads, _ = _concurrent_finalizers(monkeypatch, tmp_path)
+    paths = {(p["task_acceptance_custody"]["captured_manifest_path"], p["task_acceptance_custody"]["captured_provenance_path"]) for p in payloads}
+    assert len(paths) == 2
+    for payload in payloads:
+        custody = payload["task_acceptance_custody"]
+        assert custody["initial_verification_status"] == custody["terminal_verification_status"] == "task_acceptance_ready"
+        assert _sha(Path(custody["captured_manifest_path"]).read_bytes()) == custody["captured_manifest_digest"]
+        assert _sha(Path(custody["captured_provenance_path"]).read_bytes()) == custody["captured_provenance_digest"]
+
+
+def _sha(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+@pytest.mark.no_legacy_skip
+def test_symlinked_runtime_custody_ancestor_is_rejected_before_write(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path / "source")
+    runtime = tmp_path / "runtime"; runtime.mkdir()
+    target = Path.cwd() / "symlink-custody-test-target"
+    (runtime / "invocations").symlink_to(target)
+    seen: list[str] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", lambda *args, **kwargs: seen.append("stage"))
+    out = tmp_path / "out.json"
+    main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(runtime), "--output", str(out)])
+    payload = json.loads(out.read_text())
+    assert seen == [] and not target.exists()
+    assert "symlinked_runtime_custody_component" in payload["runtime_custody"]["runtime_error"]
+    assert payload["decision"]["status"] == "repair_required_task_caused"
+
+
+@pytest.mark.no_legacy_skip
+def test_existing_invocation_directory_is_never_reused_or_overwritten(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"; stale = runtime / "invocations" / "stale"
+    stale.mkdir(parents=True); sentinel = stale / "sentinel"; sentinel.write_bytes(b"preserve")
+    ids = iter(["stale", "fresh"]); monkeypatch.setattr("scripts.codex_finalize_landing._new_invocation_id", lambda: next(ids))
+    context = __import__("scripts.codex_finalize_landing", fromlist=["_create_invocation_context"])._create_invocation_context(str(Path.cwd()), str(runtime), "x")
+    assert context.invocation_id == "fresh" and context.collision_attempt_count == 1
+    assert sentinel.read_bytes() == b"preserve"
+
+
+@pytest.mark.no_legacy_skip
+def test_acceptance_custody_uses_private_exclusive_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest)
+    custody = payload["task_acceptance_custody"]
+    for key in ("captured_manifest_path", "captured_provenance_path"):
+        assert stat.S_IMODE(Path(custody[key]).stat().st_mode) == (0o600 if os.name == "posix" else stat.S_IMODE(Path(custody[key]).stat().st_mode))
+    context = payload["runtime_custody"]["invocation_context"]
+    for key in ("resolved_invocation_root", "child_data_root", "child_state_root", "acceptance_custody_root"):
+        assert os.name != "posix" or stat.S_IMODE(Path(context[key]).stat().st_mode) == 0o700
+
+
+@pytest.mark.no_legacy_skip
+def test_finalizer_artifact_binds_invocation_runtime_and_acceptance_identity(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest)
+    runtime = payload["runtime_custody"]; custody = payload["task_acceptance_custody"]
+    assert runtime["invocation_context"]["schema_version"] == "sentientos.finalizer_invocation_context:v1"
+    assert runtime["child_environment_digest"].startswith("sha256:")
+    assert custody["source_manifest"]["stable_read"] and custody["source_provenance"]["stable_read"]
+    assert custody["terminal_file_identity_status"] == "unchanged"
+
+
+@pytest.mark.no_legacy_skip
 def test_generated_cleanup_allowed_refresh_terminal_ready(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     out = tmp_path / "finalizer.json"
     statuses = iter([["?? glow/test_runs/run.json"], [], []])
@@ -371,7 +498,7 @@ def test_generated_cleanup_allowed_refresh_terminal_ready(monkeypatch: pytest.Mo
         lambda status_lines: {"glow/test_runs/run.json": (True, "removed", "generated_artifact_cleanup")},
     )
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
@@ -418,7 +545,7 @@ def test_stale_refresh_required_only_when_not_allowed(monkeypatch: pytest.Monkey
         lambda status_lines: {"glow/test_runs/run.json": (True, "removed", "generated_artifact_cleanup")},
     )
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         exit_code = 1 if stage_id == "matrix_summary" else 0
@@ -456,7 +583,7 @@ def test_refresh_failure_is_terminal_without_rerun_suggestion(monkeypatch: pytes
         lambda status_lines: {"glow/test_runs/run.json": (True, "removed", "generated_artifact_cleanup")},
     )
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         exit_code = 1 if stage_id in {"matrix_summary", "stale_evidence_pr_landing_gate"} else 0
@@ -499,7 +626,7 @@ def test_dirty_source_blocks_after_cleanup_and_refresh(monkeypatch: pytest.Monke
         lambda status_lines: {"glow/test_runs/run.json": (True, "removed", "generated_artifact_cleanup")},
     )
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         exit_code = 1 if stage_id == "matrix_summary" else 0
@@ -534,7 +661,7 @@ def test_pre_commit_uses_single_matrix_stage_with_summary_and_output(monkeypatch
     monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
     seen: list[tuple[str, str]] = []
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         seen.append((stage_id, command))
@@ -575,7 +702,7 @@ def test_post_commit_exact_reuse_performs_zero_matrix_stages(monkeypatch: pytest
     monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
     seen: list[str] = []
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
 
         seen.append(stage_id)
@@ -611,7 +738,7 @@ def test_finalizer_blocks_unsatisfied_task_acceptance(monkeypatch: pytest.Monkey
     monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
     monkeypatch.setattr("scripts.codex_finalize_landing.verify_task_acceptance", lambda *args, **kwargs: {"status": "task_acceptance_blocked", "reasons": ["required_node_not_passed:x"]})
 
-    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float):
+    def fake_run_stage(stage_id: str, command: str, required: bool, progress: bool, stage_timeout_seconds: int, overall_deadline: float, child_environment: dict[str, str]):
         from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
         return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), _successful_runtime(stage_id, command, required)
 

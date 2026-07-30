@@ -18,6 +18,8 @@ The fix is to make landing evidence durable and repo-native before PR metadata i
 
 ## No-files-found recovery limit
 
+An interrupted finalizer's external `invocations/<id>/` directory is diagnostic custody only. It must never be silently reused, adopted, overwritten, or treated as current landing authority; a recovery or repeated finalizer call must exclusively reserve a new invocation child beneath the requested sandbox parent.
+
 `no-files-found` means recovery cannot find task-owned files, commits, branches, or patches in the current workspace. In a fresh workspace, uncommitted files from a closed Codex task are not present unless the previous task exported a patch, committed a branch, created a PR, or otherwise produced a durable artifact. A recovery prompt can inspect the current checkout, but it cannot reconstruct files that existed only in a previous ephemeral workspace.
 
 When `no-files-found` is reported, the correct conclusion is that recovery of uncommitted implementation is impossible in that workspace. Do not continue as if missing files are hidden implementation contracts. Either locate a durable artifact or perform a new implementation from the current repo state.
