@@ -77,6 +77,8 @@ class InvocationContext:
     collision_attempt_count: int
     exclusive_reservation_status: str
     symlink_check_status: str
+    requested_root_custody: dict[str, Any]
+    directory_custody_initial: dict[str, dict[str, Any]]
 
 
 INVOCATION_RESERVATION_RETRIES = 4
@@ -98,13 +100,30 @@ def _assert_no_symlink_components(path: Path) -> None:
             continue
 
 
-def _private_mkdir(path: Path) -> None:
+def _directory_identity(path: Path, *, enforce_private_mode: bool) -> dict[str, Any]:
+    info = path.lstat()
+    kind = "directory" if stat.S_ISDIR(info.st_mode) else "symlink" if stat.S_ISLNK(info.st_mode) else "other"
+    mode = stat.S_IMODE(info.st_mode)
+    applicable = os.name == "posix"
+    record: dict[str, Any] = {
+        "path": str(path), "device": info.st_dev, "inode": info.st_ino,
+        "type": kind, "mode": f"{mode:04o}" if applicable else None,
+        "mode_enforcement": "applicable" if applicable else "not_applicable",
+        "mode_status": "private" if applicable and mode == 0o700 else "not_applicable" if not applicable else "mismatch",
+    }
+    if kind != "directory":
+        raise ValueError(f"runtime_custody_component_not_directory:{path}")
+    if enforce_private_mode and applicable and mode != 0o700:
+        raise ValueError(f"finalizer_owned_directory_mode_mismatch:{path}:{mode:04o}")
+    return record
+
+
+def _private_mkdir(path: Path) -> dict[str, Any]:
     try:
         os.mkdir(path, 0o700)
     except FileExistsError:
         _assert_no_symlink_components(path)
-        if not path.is_dir():
-            raise ValueError(f"runtime_custody_component_not_directory:{path}")
+    return _directory_identity(path, enforce_private_mode=True)
 
 
 def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_id: str) -> InvocationContext:
@@ -122,9 +141,13 @@ def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_i
         missing.append(cursor)
         cursor = cursor.parent
     for component in reversed(missing):
-        _private_mkdir(component)
+        os.mkdir(component, 0o700)
+        _assert_no_symlink_components(component)
+        _directory_identity(component, enforce_private_mode=False)
+    requested_record = _directory_identity(requested, enforce_private_mode=False)
+    requested_record["ownership"] = "caller_owned_requested_root"
     invocations = requested / "invocations"
-    _private_mkdir(invocations)
+    directory_custody = {"invocations_parent": _private_mkdir(invocations)}
     collisions = 0
     invocation_id = ""
     invocation_root: Path | None = None
@@ -140,21 +163,47 @@ def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_i
     if invocation_root is None:
         raise ValueError(f"invocation_reservation_collisions_exhausted:{collisions}")
     _assert_no_symlink_components(invocation_root)
+    directory_custody["invocation_root"] = _directory_identity(invocation_root, enforce_private_mode=True)
     resolved_invocation = invocation_root.resolve(strict=True)
     if resolved_requested not in resolved_invocation.parents or resolved_invocation == repo or repo in resolved_invocation.parents:
         raise ValueError("reserved_invocation_root_outside_requested_sandbox")
     data = invocation_root / "data"
     state = invocation_root / "state"
     acceptance = invocation_root / "task_acceptance"
-    for directory in (data, state, acceptance):
-        _private_mkdir(directory)
+    for name, directory in (("data", data), ("state", state), ("task_acceptance", acceptance)):
+        directory_custody[name] = _private_mkdir(directory)
         _assert_no_symlink_components(directory)
     child = {"SENTIENTOS_DATA_DIR": str(data), "SENTIENTOS_RUNTIME_STATE_ROOT": str(state)}
     return InvocationContext(
         "sentientos.finalizer_invocation_context:v1", invocation_id, str(requested),
         str(resolved_invocation), str(data), str(state), str(acceptance), child,
         collisions, "exclusive_directory_reserved", "all_existing_components_not_symlinks",
+        requested_record, directory_custody,
     )
+
+
+def _terminal_directory_custody(context: InvocationContext) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    paths = {
+        "invocations_parent": Path(context.requested_sandbox_root) / "invocations",
+        "invocation_root": Path(context.resolved_invocation_root),
+        "data": Path(context.child_data_root), "state": Path(context.child_state_root),
+        "task_acceptance": Path(context.acceptance_custody_root),
+    }
+    terminal: dict[str, dict[str, Any]] = {}
+    reasons: list[str] = []
+    for name, path in paths.items():
+        try:
+            current = _directory_identity(path, enforce_private_mode=True)
+            initial = context.directory_custody_initial[name]
+            same = current["device"] == initial["device"] and current["inode"] == initial["inode"]
+            current["identity_status"] = "unchanged" if same else "replaced"
+            terminal[name] = current
+            if not same:
+                reasons.append(f"finalizer_owned_directory_identity_mismatch:{path}")
+        except (OSError, ValueError) as exc:
+            terminal[name] = {"path": str(path), "identity_status": "unreadable", "reason": str(exc)}
+            reasons.append(str(exc))
+    return terminal, reasons
 
 
 class FinalizerTimeoutError(RuntimeError):
@@ -749,7 +798,7 @@ def main(argv: list[str] | None = None) -> int:
 
     status_before_cleanup = _git_status()
     cleanup_results: dict[str, tuple[bool, str, str]] = {}
-    if acceptance_ready and a.allow_generated_artifact_cleanup:
+    if acceptance_ready and not runtime_error and a.allow_generated_artifact_cleanup:
         _progress(a.progress, "[finalizer] stage start: generated_artifact_cleanup")
         cleanup_results = _cleanup_generated(status_before_cleanup)
         _progress(a.progress, "[finalizer] stage end: generated_artifact_cleanup status=passed exit_code=0")
@@ -770,7 +819,7 @@ def main(argv: list[str] | None = None) -> int:
     refresh_failure_reason = ""
     refresh_stage_names: list[str] = []
     rerun_required = False
-    if acceptance_ready and stale_reasons:
+    if acceptance_ready and not runtime_error and stale_reasons:
         if a.allow_stale_evidence_refresh and a.max_stale_evidence_refreshes > 0:
             refresh_attempted = True
             refresh_status = "attempted"
@@ -805,7 +854,7 @@ def main(argv: list[str] | None = None) -> int:
             rerun_required = True
 
     terminal_cleanup_results: dict[str, tuple[bool, str, str]] = {}
-    if acceptance_ready and refresh_status == "succeeded" and a.allow_generated_artifact_cleanup:
+    if acceptance_ready and not runtime_error and refresh_status == "succeeded" and a.allow_generated_artifact_cleanup:
         status_after_refresh_before_cleanup = _git_status()
         terminal_cleanup_results = _cleanup_generated(status_after_refresh_before_cleanup)
         cleanup_results.update(terminal_cleanup_results)
@@ -874,6 +923,11 @@ def main(argv: list[str] | None = None) -> int:
         if terminal["status"] != "task_acceptance_ready" or initial_status != terminal["status"]:
             acceptance_result = terminal
 
+    terminal_directory_custody: dict[str, dict[str, Any]] = {}
+    terminal_directory_reasons: list[str] = []
+    if invocation_context is not None:
+        terminal_directory_custody, terminal_directory_reasons = _terminal_directory_custody(invocation_context)
+
     if generated_dirty_after_refresh and a.allow_generated_artifact_cleanup:
         decision_status = "generated_artifact_cleanup_incomplete"
         decision_reasons = ["generated_artifacts_remain_after_cleanup", *generated_dirty_after_refresh]
@@ -941,6 +995,12 @@ def main(argv: list[str] | None = None) -> int:
         "child_environment_digest": child_environment_digest,
         "process_environment_mutated": False,
         "runtime_error": runtime_error,
+        "requested_root": invocation_context.requested_root_custody if invocation_context else None,
+        "invocations_parent_path": str(Path(invocation_context.requested_sandbox_root) / "invocations") if invocation_context else None,
+        "directory_custody_initial": invocation_context.directory_custody_initial if invocation_context else {},
+        "directory_custody_terminal": terminal_directory_custody,
+        "mode_enforcement_applicability": "applicable" if os.name == "posix" else "not_applicable",
+        "terminal_directory_identity_status": "unchanged" if invocation_context is not None and not terminal_directory_reasons else "blocked",
     }
     payload["evidence_freshness"] = {
         "stale_evidence_reasons": stale_reasons,
@@ -966,6 +1026,9 @@ def main(argv: list[str] | None = None) -> int:
     if acceptance_result is not None and acceptance_result.get("status") != "task_acceptance_ready":
         decision_status = "repair_required_task_caused"
         decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"]))
+    if terminal_directory_reasons:
+        decision_status = "repair_required_task_caused"
+        decision_reasons = terminal_directory_reasons
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
     if a.summary:
