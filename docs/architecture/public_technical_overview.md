@@ -207,6 +207,23 @@ python scripts/build_docs.py --check-deps
 python scripts/build_docs.py
 ```
 
+## Bounded diagnostic execution lifecycle
+
+The [host-local diagnostic lifecycle reviewer guide](host_local_diagnostic_lifecycle_reviewer_guide.md)
+maps the implemented admitted source evidence -> operator-confirmed diagnostic
+write -> operator-confirmed exact rollback -> deletion-independent closure
+path. Execution changes exactly the six runtime-owned diagnostic files and
+preserves unrelated siblings; rollback deletes exactly
+`sentientos_local_diagnostic_effect.json` and changes no sibling or other owned
+file. Closure packages historical evidence below its external output root and
+does not supply current runtime authority.
+
+Focused proof is available without duplicating the complete guide:
+
+```bash
+python -m scripts.run_tests -q tests/test_host_local_diagnostic_execution_source_runtime.py tests/test_host_local_diagnostic_execution_runtime.py tests/test_host_local_diagnostic_rollback_runtime.py tests/test_host_local_diagnostic_lifecycle_closure.py
+```
+
 ## Internal language / cultural layer
 
 Internal and legacy cultural documentation remains available and is not removed by this overview. Reviewers who need term mapping should start with:
