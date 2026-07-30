@@ -1,11 +1,11 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `df1f042`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `697febe`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
-- Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls.
+- Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls. The observed finalizer gap around mutable exact-acceptance provenance and a shared marginal matrix timeout is closed by external byte custody, fail-fast verification, terminal digest checks, and an independent matrix budget.
 - The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
 - The diagnostic rollback deep-custody gap is closed: completed bundles independently bind execution, historical authority, confirmation, rollback/lifecycle evidence, exact manifests, latest metadata, and replay metadata without widening mutation authority.
 - Diagnostic lifecycle closure packets now package exact execution and rollback bundles with hardened derived identity, staged-copy validation, atomic concurrent publication, interrupted pointer recovery, and substituted-pointer rejection for deletion-independent historical review; this read-only surface adds no effect authority.

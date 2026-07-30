@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shlex
 import subprocess
 import time
 import os
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, safe_runtime_roots, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
@@ -23,7 +26,8 @@ GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
 MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wav", ".mp3")
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
-DEFAULT_OVERALL_TIMEOUT_SECONDS = 3600
+DEFAULT_MATRIX_TIMEOUT_SECONDS = 2400
+DEFAULT_OVERALL_TIMEOUT_SECONDS = 5400
 MAX_OUTPUT_LINES = 40
 
 
@@ -40,6 +44,10 @@ class StageRuntime:
     decision_impact: str
     status: str
     timed_out: bool
+    configured_timeout_class: str = "generic"
+    configured_timeout_seconds: int = 0
+    effective_timeout_seconds: int = 0
+    overall_deadline_reduced_timeout: bool = False
 
 
 @dataclass(frozen=True)
@@ -84,7 +92,10 @@ def _run_stage(
         raise FinalizerTimeoutError(stage_id, "overall")
     _progress(progress, f"[finalizer] stage start: {stage_id}")
     started = time.monotonic()
-    timeout_seconds = min(stage_timeout_seconds, max(1, int(overall_deadline - started)))
+    remaining = max(1, int(overall_deadline - started))
+    timeout_seconds = min(stage_timeout_seconds, remaining)
+    timeout_class = "matrix" if stage_id in {"matrix_summary", "stale_evidence_matrix_summary"} else "generic"
+    deadline_reduced = timeout_seconds < stage_timeout_seconds
     try:
         env = os.environ.copy()
         sandbox = env.get("CODEX_FINALIZER_RUNTIME_ENV")
@@ -112,6 +123,10 @@ def _run_stage(
             decision_impact="required_stage_timeout" if required else "optional_stage_timeout",
             status="timed_out",
             timed_out=True,
+            configured_timeout_class=timeout_class,
+            configured_timeout_seconds=stage_timeout_seconds,
+            effective_timeout_seconds=timeout_seconds,
+            overall_deadline_reduced_timeout=deadline_reduced,
         )
         _progress(progress, f"[finalizer] stage end: {stage_id} status=timed_out exit_code=124")
         raise FinalizerTimeoutError(stage_id, "stage") from exc
@@ -135,9 +150,94 @@ def _run_stage(
         decision_impact="required" if required else "optional",
         status=status,
         timed_out=timed_out,
+        configured_timeout_class=timeout_class,
+        configured_timeout_seconds=stage_timeout_seconds,
+        effective_timeout_seconds=timeout_seconds,
+        overall_deadline_reduced_timeout=deadline_reduced,
     )
     _progress(progress, f"[finalizer] stage end: {stage_id} status={status} exit_code={p.returncode}")
     return result, runtime
+
+
+def _sha256(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _capture_task_acceptance(manifest_arg: str, workspace_root: str, runtime_env: dict[str, str]) -> dict[str, Any]:
+    custody: dict[str, Any] = {
+        "schema_version": "sentientos.task_acceptance_custody:v1",
+        "capture_status": "task_acceptance_capture_blocked",
+        "initial_verification_status": "task_acceptance_blocked",
+        "initial_verification_reasons": [],
+        "terminal_verification_status": "not_run",
+        "terminal_verification_reasons": [],
+        "captured_evidence_unchanged": False,
+    }
+    try:
+        repo = Path(workspace_root).resolve()
+        manifest = Path(manifest_arg)
+        if not manifest.is_absolute():
+            manifest = repo / manifest
+        if manifest.is_symlink() or not manifest.is_file():
+            raise ValueError("manifest_not_regular_file")
+        manifest = manifest.resolve(strict=True)
+        manifest_bytes = manifest.read_bytes()
+        manifest_payload = json.loads(manifest_bytes.decode("utf-8"))
+        if not isinstance(manifest_payload, dict) or not isinstance(manifest_payload.get("test_provenance_path"), str):
+            raise ValueError("manifest_missing_test_provenance_path")
+        declared = Path(manifest_payload["test_provenance_path"])
+        provenance = declared if declared.is_absolute() else repo / declared
+        if provenance.is_symlink() or not provenance.is_file():
+            raise ValueError("provenance_not_regular_file")
+        provenance = provenance.resolve(strict=True)
+        provenance_bytes = provenance.read_bytes()
+        json.loads(provenance_bytes.decode("utf-8"))
+        custody_root = Path(runtime_env["SENTIENTOS_DATA_DIR"]).parent / "task_acceptance_custody"
+        if custody_root == repo or repo in custody_root.parents:
+            raise ValueError("custody_root_inside_workspace")
+        captured_manifest = custody_root / "manifest.json"
+        captured_provenance = custody_root / "provenance.json"
+        _atomic_write(captured_manifest, manifest_bytes)
+        _atomic_write(captured_provenance, provenance_bytes)
+        repository_sha = str(manifest_payload.get("repository_sha", ""))
+        custody.update({
+            "capture_status": "task_acceptance_captured",
+            "original_manifest_path": str(manifest),
+            "original_provenance_path": str(provenance),
+            "original_manifest_digest": _sha256(manifest_bytes),
+            "original_manifest_byte_length": len(manifest_bytes),
+            "original_provenance_digest": _sha256(provenance_bytes),
+            "original_provenance_byte_length": len(provenance_bytes),
+            "captured_manifest_path": str(captured_manifest),
+            "captured_provenance_path": str(captured_provenance),
+            "captured_manifest_digest": _sha256(captured_manifest.read_bytes()),
+            "captured_manifest_byte_length": captured_manifest.stat().st_size,
+            "captured_provenance_digest": _sha256(captured_provenance.read_bytes()),
+            "captured_provenance_byte_length": captured_provenance.stat().st_size,
+            "repository_sha": repository_sha,
+        })
+        result = verify_task_acceptance(captured_manifest, captured_provenance, repo_root=repo)
+        custody["initial_verification_status"] = result.get("status")
+        custody["initial_verification_reasons"] = list(result.get("reasons", []))
+        custody["initial_verification"] = result
+        return custody
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError) as exc:
+        custody["initial_verification_reasons"] = [f"invalid_acceptance_input:{exc}"]
+        return custody
 
 
 def _landing_matrix_command(matrix_json_path: str) -> str:
@@ -394,6 +494,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--allow-no-focused-tests", action="store_true")
         s.add_argument("--output")
         s.add_argument("--stage-timeout-seconds", type=int, default=DEFAULT_STAGE_TIMEOUT_SECONDS)
+        s.add_argument("--matrix-timeout-seconds", type=int, default=DEFAULT_MATRIX_TIMEOUT_SECONDS)
         s.add_argument("--overall-timeout-seconds", type=int, default=DEFAULT_OVERALL_TIMEOUT_SECONDS)
         s.add_argument("--progress", action="store_true", default=True)
         s.add_argument("--no-progress", action="store_false", dest="progress")
@@ -406,6 +507,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
+    if a.stage_timeout_seconds <= 0 or a.matrix_timeout_seconds <= 0 or a.overall_timeout_seconds <= 0:
+        print(json.dumps({"status": "error", "reason": "timeout_arguments_must_be_positive"}, indent=2))
+        return 2
     if a.cmd in {"plan", "summarize", "validate-evidence"}:
         print(json.dumps({"status": "ok", "command": a.cmd}, indent=2))
         return 0
@@ -489,13 +593,29 @@ def main(argv: list[str] | None = None) -> int:
     decision_reasons: list[str] = []
     if runtime_env:
         os.environ["CODEX_FINALIZER_RUNTIME_ENV"] = json.dumps(runtime_env, sort_keys=True)
+    acceptance_custody: dict[str, Any] | None = None
+    acceptance_result: dict[str, Any] | None = None
+    if a.task_acceptance_manifest and not runtime_error:
+        acceptance_custody = _capture_task_acceptance(a.task_acceptance_manifest, a.workspace_root, runtime_env)
+        acceptance_result = acceptance_custody.get("initial_verification")
+        if not isinstance(acceptance_result, dict):
+            acceptance_result = {
+                "status": "task_acceptance_blocked",
+                "reasons": list(acceptance_custody.get("initial_verification_reasons", ["task_acceptance_capture_blocked"])),
+            }
+    acceptance_ready = acceptance_result is None or acceptance_result.get("status") == "task_acceptance_ready"
     try:
         if runtime_error:
             raise RuntimeError(runtime_error)
-        for stage_id, cmd, required in stage_specs:
-            result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
-            commands.append(result)
-            runtime.append(stage_runtime)
+        if not acceptance_ready:
+            decision_status = "repair_required_task_caused"
+            decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"])) if acceptance_result else ["task_acceptance_blocked"]
+        else:
+            for stage_id, cmd, required in stage_specs:
+                timeout = a.matrix_timeout_seconds if stage_id == "matrix_summary" else a.stage_timeout_seconds
+                result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline)
+                commands.append(result)
+                runtime.append(stage_runtime)
     except FinalizerTimeoutError as exc:
         decision_status = "environment_blocked" if exc.kind == "overall" else "finalizer_failed"
         decision_reasons = [f"{exc.kind}_timeout:{exc.stage_id}", "rerun_with_higher_timeout_or_fix_hung_stage"]
@@ -505,7 +625,7 @@ def main(argv: list[str] | None = None) -> int:
 
     status_before_cleanup = _git_status()
     cleanup_results: dict[str, tuple[bool, str, str]] = {}
-    if a.allow_generated_artifact_cleanup:
+    if acceptance_ready and a.allow_generated_artifact_cleanup:
         _progress(a.progress, "[finalizer] stage start: generated_artifact_cleanup")
         cleanup_results = _cleanup_generated(status_before_cleanup)
         _progress(a.progress, "[finalizer] stage end: generated_artifact_cleanup status=passed exit_code=0")
@@ -526,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
     refresh_failure_reason = ""
     refresh_stage_names: list[str] = []
     rerun_required = False
-    if stale_reasons:
+    if acceptance_ready and stale_reasons:
         if a.allow_stale_evidence_refresh and a.max_stale_evidence_refreshes > 0:
             refresh_attempted = True
             refresh_status = "attempted"
@@ -540,7 +660,8 @@ def main(argv: list[str] | None = None) -> int:
             # recursive retries.
             try:
                 for stage_id, cmd, required in refresh_plan[:1 if a.max_stale_evidence_refreshes < 1 else len(refresh_plan)]:
-                    result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, a.stage_timeout_seconds, deadline)
+                    timeout = a.matrix_timeout_seconds if stage_id == "stale_evidence_matrix_summary" else a.stage_timeout_seconds
+                    result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline)
                     commands.append(result)
                     runtime.append(stage_runtime)
                     refresh_runs += 1
@@ -560,7 +681,7 @@ def main(argv: list[str] | None = None) -> int:
             rerun_required = True
 
     terminal_cleanup_results: dict[str, tuple[bool, str, str]] = {}
-    if refresh_status == "succeeded" and a.allow_generated_artifact_cleanup:
+    if acceptance_ready and refresh_status == "succeeded" and a.allow_generated_artifact_cleanup:
         status_after_refresh_before_cleanup = _git_status()
         terminal_cleanup_results = _cleanup_generated(status_after_refresh_before_cleanup)
         cleanup_results.update(terminal_cleanup_results)
@@ -580,15 +701,42 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
 
-    acceptance_result = None
-    if a.task_acceptance_manifest:
+    if acceptance_custody and acceptance_custody.get("capture_status") == "task_acceptance_captured":
+        captured_manifest = Path(str(acceptance_custody["captured_manifest_path"]))
+        captured_provenance = Path(str(acceptance_custody["captured_provenance_path"]))
         try:
-            manifest_path = Path(a.task_acceptance_manifest)
-            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            provenance_path = Path(str(manifest_payload["test_provenance_path"]))
-            acceptance_result = verify_task_acceptance(manifest_path, provenance_path, repo_root=Path(a.workspace_root))
-        except (OSError, KeyError, json.JSONDecodeError, TypeError) as exc:
-            acceptance_result = {"status": "task_acceptance_blocked", "reasons": [f"invalid_acceptance_input:{exc}"]}
+            manifest_bytes = captured_manifest.read_bytes()
+            provenance_bytes = captured_provenance.read_bytes()
+            unchanged = (
+                _sha256(manifest_bytes) == acceptance_custody["captured_manifest_digest"]
+                and len(manifest_bytes) == acceptance_custody["captured_manifest_byte_length"]
+                and _sha256(provenance_bytes) == acceptance_custody["captured_provenance_digest"]
+                and len(provenance_bytes) == acceptance_custody["captured_provenance_byte_length"]
+            )
+            acceptance_custody["captured_evidence_unchanged"] = unchanged
+            if unchanged:
+                terminal = verify_task_acceptance(captured_manifest, captured_provenance, repo_root=Path(a.workspace_root))
+            else:
+                terminal = {"status": "task_acceptance_blocked", "reasons": ["captured_acceptance_evidence_changed"]}
+        except OSError as exc:
+            acceptance_custody["captured_evidence_unchanged"] = False
+            terminal = {"status": "task_acceptance_blocked", "reasons": [f"captured_acceptance_evidence_unreadable:{exc}"]}
+        acceptance_custody["terminal_verification_status"] = terminal["status"]
+        acceptance_custody["terminal_verification_reasons"] = list(terminal.get("reasons", []))
+        acceptance_custody["terminal_verification"] = terminal
+        for kind in ("manifest", "provenance"):
+            original = Path(str(acceptance_custody[f"original_{kind}_path"]))
+            exists = original.is_file() and not original.is_symlink()
+            acceptance_custody[f"original_{kind}_still_exists"] = exists
+            if exists:
+                current = original.read_bytes()
+                changed = _sha256(current) != acceptance_custody[f"original_{kind}_digest"] or len(current) != acceptance_custody[f"original_{kind}_byte_length"]
+            else:
+                changed = True
+            acceptance_custody[f"original_{kind}_changed_or_disappeared"] = changed
+        initial_status = acceptance_custody["initial_verification_status"]
+        if terminal["status"] != "task_acceptance_ready" or initial_status != terminal["status"]:
+            acceptance_result = terminal
 
     if generated_dirty_after_refresh and a.allow_generated_artifact_cleanup:
         decision_status = "generated_artifact_cleanup_incomplete"
@@ -613,11 +761,14 @@ def main(argv: list[str] | None = None) -> int:
     }
     if acceptance_result is not None:
         payload["task_acceptance"] = acceptance_result
+    if acceptance_custody is not None:
+        payload["task_acceptance_custody"] = acceptance_custody
     payload["dirty_paths"] = [asdict(item) for item in diagnostics_after_refresh]
     payload["dirty_paths_after_cleanup"] = [asdict(item) for item in diagnostics]
     payload["cleanup_actions"] = {k: {"attempted": v[0], "result": v[1], "reason": v[2]} for k, v in cleanup_results.items()}
     payload["runtime"] = {
         "stage_timeout_seconds": a.stage_timeout_seconds,
+        "matrix_timeout_seconds": a.matrix_timeout_seconds,
         "overall_timeout_seconds": a.overall_timeout_seconds,
         "stages": [asdict(item) for item in runtime],
         "final_decision": {"status": decision_status, "reasons": decision_reasons},

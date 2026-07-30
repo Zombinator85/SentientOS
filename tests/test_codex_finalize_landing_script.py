@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import pytest
+import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from scripts.codex_finalize_landing import (
@@ -151,7 +153,7 @@ def test_parser_has_output_timeouts_and_progress_flags() -> None:
 
 def test_finalize_writes_output_and_decision_line(tmp_path: Path, capsys: object) -> None:
     out = tmp_path / "finalizer.json"
-    main([
+    code = main([
         "finalize",
         "--title",
         "x",
@@ -223,6 +225,140 @@ def _successful_runtime(stage_id: str, command: str, required: bool):
         status="passed",
         timed_out=False,
     )
+
+
+ACCEPTANCE_NODE = "tests/test_codex_finalize_landing_script.py::test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready"
+
+
+def _acceptance_fixture(tmp_path: Path, provenance: Path | None = None) -> tuple[Path, Path, bytes, bytes]:
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+    provenance = provenance or tmp_path / "provenance.json"
+    provenance.parent.mkdir(parents=True, exist_ok=True)
+    provenance_bytes = json.dumps({"git_sha": sha, "reporter_ok": True, "metrics_status": "ok", "selected_node_ids": [ACCEPTANCE_NODE], "node_outcomes": [{"node_id": ACCEPTANCE_NODE, "phase": "call", "outcome": "passed"}]}, separators=(",", ":")).encode()
+    provenance.write_bytes(provenance_bytes)
+    manifest = tmp_path / "manifest.json"
+    manifest_bytes = json.dumps({"schema_version": "sentientos.task_acceptance:v1", "task_classification": "behavior_adding", "repository_sha": sha, "test_provenance_path": str(provenance), "required_nodes": [{"node_id": ACCEPTANCE_NODE}], "successful_path_nodes": [ACCEPTANCE_NODE]}, separators=(",", ":")).encode()
+    manifest.write_bytes(manifest_bytes)
+    return manifest, provenance, manifest_bytes, provenance_bytes
+
+
+def _run_fake_finalizer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, manifest: Path, hook=None, extra: list[str] | None = None) -> dict[str, object]:
+    out = tmp_path / "out.json"
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    def fake(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float):
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        if hook:
+            hook(stage_id, timeout)
+        runtime = _successful_runtime(stage_id, command, required)
+        object.__setattr__(runtime, "configured_timeout_class", "matrix" if "matrix_summary" in stage_id else "generic")
+        object.__setattr__(runtime, "configured_timeout_seconds", timeout)
+        object.__setattr__(runtime, "effective_timeout_seconds", timeout)
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), runtime
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake)
+    args = ["finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit", "--focused-test-command", "python -c 'pass'", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(out)]
+    args.extend(extra or [])
+    main(args)
+    return json.loads(out.read_text())
+
+
+@pytest.mark.no_legacy_skip
+def test_acceptance_evidence_is_captured_before_any_child_stage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, manifest_bytes, _ = _acceptance_fixture(tmp_path)
+    def hook(stage: str, timeout: int) -> None:
+        captured = tmp_path / "runtime" / "task_acceptance_custody" / "manifest.json"
+        assert captured.read_bytes() == manifest_bytes
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
+    assert payload["task_acceptance_custody"]["initial_verification_status"] == "task_acceptance_ready"
+
+
+@pytest.mark.no_legacy_skip
+def test_invalid_acceptance_blocks_before_matrix_execution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    data = json.loads(manifest.read_text()); data["repository_sha"] = "0" * 40; manifest.write_text(json.dumps(data))
+    seen: list[str] = []
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, lambda stage, timeout: seen.append(stage))
+    assert seen == []
+    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert "repository_sha_mismatch" in payload["decision"]["reasons"]
+
+
+@pytest.mark.no_legacy_skip
+def test_child_stage_overwrite_of_original_provenance_does_not_change_captured_acceptance(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, provenance, _, provenance_bytes = _acceptance_fixture(tmp_path)
+    changed = False
+    def hook(stage: str, timeout: int) -> None:
+        nonlocal changed
+        if not changed:
+            provenance.write_text('{"valid":"different"}'); changed = True
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
+    custody = payload["task_acceptance_custody"]
+    assert custody["terminal_verification_status"] == "task_acceptance_ready"
+    assert custody["original_provenance_changed_or_disappeared"] is True
+    assert custody["captured_provenance_digest"] == "sha256:" + hashlib.sha256(provenance_bytes).hexdigest()
+
+
+@pytest.mark.no_legacy_skip
+def test_generated_cleanup_can_remove_original_glow_provenance_and_still_reach_ready(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    provenance = Path("glow/test_runs/test_run_provenance.json")
+    manifest, provenance, _, _ = _acceptance_fixture(tmp_path, provenance)
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: ["?? glow/test_runs/test_run_provenance.json"] if provenance.exists() else [])
+    def cleanup(lines):
+        provenance.unlink(missing_ok=True)
+        return {str(provenance): (True, "removed", "generated_artifact_cleanup")}
+    monkeypatch.setattr("scripts.codex_finalize_landing._cleanup_generated", cleanup)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, extra=["--allow-generated-artifact-cleanup"])
+    assert payload["decision"]["status"] == "ready_to_commit"
+    assert payload["task_acceptance_custody"]["original_provenance_still_exists"] is False
+    assert "glow/" in __import__("scripts.codex_finalize_landing", fromlist=["GENERATED_PREFIXES"]).GENERATED_PREFIXES
+
+
+@pytest.mark.no_legacy_skip
+def test_captured_acceptance_tampering_blocks_final_decision(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    changed = False
+    def hook(stage: str, timeout: int) -> None:
+        nonlocal changed
+        if not changed:
+            path = tmp_path / "runtime" / "task_acceptance_custody" / "provenance.json"
+            path.write_bytes(path.read_bytes() + b" "); changed = True
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
+    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["task_acceptance_custody"]["captured_evidence_unchanged"] is False
+
+
+@pytest.mark.no_legacy_skip
+def test_primary_matrix_uses_independent_matrix_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path); seen = {}
+    _run_fake_finalizer(monkeypatch, tmp_path, manifest, lambda stage, timeout: seen.setdefault(stage, timeout), ["--stage-timeout-seconds", "7", "--matrix-timeout-seconds", "23"])
+    assert seen["matrix_summary"] == 23 and seen["focused_tests"] == 7
+
+
+@pytest.mark.no_legacy_skip
+def test_stale_refresh_matrix_uses_independent_matrix_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, _, _ = _acceptance_fixture(tmp_path); seen: list[tuple[str, int]] = []
+    # Force the primary matrix failure while allowing the bounded refresh to pass.
+    calls = 0
+    def fake(stage: str, command: str, required: bool, progress: bool, timeout: int, deadline: float):
+        nonlocal calls
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        seen.append((stage, timeout)); exit_code = 1 if stage == "matrix_summary" else 0; calls += 1
+        return CodexFinalizeLandingCommandResult(stage, command, exit_code, required=required), _successful_runtime(stage, command, required)
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake); monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    out = tmp_path / "out.json"
+    main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--focused-test-command", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--allow-stale-evidence-refresh", "--stage-timeout-seconds", "7", "--matrix-timeout-seconds", "23", "--output", str(out)])
+    assert ("matrix_summary", 23) in seen and ("stale_evidence_matrix_summary", 23) in seen and ("focused_tests", 7) in seen
+
+
+@pytest.mark.no_legacy_skip
+def test_finalizer_artifact_records_acceptance_and_timeout_custody(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest, _, manifest_bytes, provenance_bytes = _acceptance_fixture(tmp_path)
+    payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest)
+    custody = payload["task_acceptance_custody"]
+    assert custody["original_manifest_byte_length"] == custody["captured_manifest_byte_length"] == len(manifest_bytes)
+    assert custody["original_provenance_byte_length"] == custody["captured_provenance_byte_length"] == len(provenance_bytes)
+    assert custody["repository_sha"] and custody["initial_verification_status"] == custody["terminal_verification_status"] == "task_acceptance_ready"
+    assert payload["runtime"]["stage_timeout_seconds"] == 900 and payload["runtime"]["matrix_timeout_seconds"] == 2400 and payload["runtime"]["overall_timeout_seconds"] == 5400
+    assert next(x for x in payload["runtime"]["stages"] if x["stage_id"] == "matrix_summary")["configured_timeout_class"] == "matrix"
 
 
 @pytest.mark.no_legacy_skip
