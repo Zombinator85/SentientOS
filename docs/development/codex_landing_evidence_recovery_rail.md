@@ -1,5 +1,7 @@
 # Codex landing evidence and recovery rail
 
+The finalizer freezes exact task-acceptance manifest and provenance bytes in its external runtime custody root before child stages and cleanup. Do not manually copy normal `glow/test_runs` provenance to `/tmp` merely to survive routine finalizer cleanup; the original may be overwritten or removed after successful capture. Manual external preservation remains appropriate for recovery from workspace loss, not as routine landing authority.
+
 This rail hardening covers Codex process failures around late PR metadata and finalizer evidence. It is not a memory-chain advancement path and does not authorize Real Executor Invocation Gate implementation, executor invocation, prompt assembly, live-context retrieval, external disclosure, live-memory mutation, lock acquisition, or runtime flag changes.
 
 ## Failure pattern: Real Executor Invocation Gate attempts
