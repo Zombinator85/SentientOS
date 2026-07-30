@@ -7,12 +7,13 @@ import shlex
 import subprocess
 import time
 import os
-import tempfile
+import stat
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, safe_runtime_roots, verify_commit_matches_workspace
+from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
     CodexFinalizeLandingArtifactFinding,
     CodexFinalizeLandingCommandResult,
@@ -63,6 +64,99 @@ class DirtyPathDiagnostic:
     recommended_action: str
 
 
+@dataclass(frozen=True)
+class InvocationContext:
+    schema_version: str
+    invocation_id: str
+    requested_sandbox_root: str
+    resolved_invocation_root: str
+    child_data_root: str
+    child_state_root: str
+    acceptance_custody_root: str
+    child_environment: dict[str, str]
+    collision_attempt_count: int
+    exclusive_reservation_status: str
+    symlink_check_status: str
+
+
+INVOCATION_RESERVATION_RETRIES = 4
+
+
+def _new_invocation_id() -> str:
+    """Return an identifier used only for collision-resistant custody naming."""
+    return uuid.uuid4().hex
+
+
+def _assert_no_symlink_components(path: Path) -> None:
+    current = Path(path.anchor)
+    for part in path.parts[1:] if path.is_absolute() else path.parts:
+        current /= part
+        try:
+            if stat.S_ISLNK(current.lstat().st_mode):
+                raise ValueError(f"symlinked_runtime_custody_component:{current}")
+        except FileNotFoundError:
+            continue
+
+
+def _private_mkdir(path: Path) -> None:
+    try:
+        os.mkdir(path, 0o700)
+    except FileExistsError:
+        _assert_no_symlink_components(path)
+        if not path.is_dir():
+            raise ValueError(f"runtime_custody_component_not_directory:{path}")
+
+
+def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_id: str) -> InvocationContext:
+    repo = Path(repo_arg).resolve()
+    requested = Path(sandbox_arg or f"/tmp/sentientos-codex-finalizer/{binding_id}").absolute()
+    _assert_no_symlink_components(requested)
+    resolved_requested = requested.resolve()
+    if resolved_requested == repo or repo in resolved_requested.parents or resolved_requested == repo / ".git" or repo / ".git" in resolved_requested.parents:
+        raise ValueError("runtime_root_inside_workspace")
+    # The caller-owned requested root retains its existing permissions. Only
+    # descendants created by the finalizer have a private-mode contract.
+    missing: list[Path] = []
+    cursor = requested
+    while not cursor.exists():
+        missing.append(cursor)
+        cursor = cursor.parent
+    for component in reversed(missing):
+        _private_mkdir(component)
+    invocations = requested / "invocations"
+    _private_mkdir(invocations)
+    collisions = 0
+    invocation_id = ""
+    invocation_root: Path | None = None
+    for _ in range(INVOCATION_RESERVATION_RETRIES):
+        invocation_id = _new_invocation_id()
+        candidate = invocations / invocation_id
+        try:
+            os.mkdir(candidate, 0o700)
+            invocation_root = candidate
+            break
+        except FileExistsError:
+            collisions += 1
+    if invocation_root is None:
+        raise ValueError(f"invocation_reservation_collisions_exhausted:{collisions}")
+    _assert_no_symlink_components(invocation_root)
+    resolved_invocation = invocation_root.resolve(strict=True)
+    if resolved_requested not in resolved_invocation.parents or resolved_invocation == repo or repo in resolved_invocation.parents:
+        raise ValueError("reserved_invocation_root_outside_requested_sandbox")
+    data = invocation_root / "data"
+    state = invocation_root / "state"
+    acceptance = invocation_root / "task_acceptance"
+    for directory in (data, state, acceptance):
+        _private_mkdir(directory)
+        _assert_no_symlink_components(directory)
+    child = {"SENTIENTOS_DATA_DIR": str(data), "SENTIENTOS_RUNTIME_STATE_ROOT": str(state)}
+    return InvocationContext(
+        "sentientos.finalizer_invocation_context:v1", invocation_id, str(requested),
+        str(resolved_invocation), str(data), str(state), str(acceptance), child,
+        collisions, "exclusive_directory_reserved", "all_existing_components_not_symlinks",
+    )
+
+
 class FinalizerTimeoutError(RuntimeError):
     def __init__(self, stage_id: str, kind: str) -> None:
         super().__init__(f"{kind}_timeout:{stage_id}")
@@ -87,6 +181,7 @@ def _run_stage(
     progress: bool,
     stage_timeout_seconds: int,
     overall_deadline: float,
+    child_environment: dict[str, str],
 ) -> tuple[CodexFinalizeLandingCommandResult, StageRuntime]:
     if time.monotonic() >= overall_deadline:
         raise FinalizerTimeoutError(stage_id, "overall")
@@ -98,12 +193,7 @@ def _run_stage(
     deadline_reduced = timeout_seconds < stage_timeout_seconds
     try:
         env = os.environ.copy()
-        sandbox = env.get("CODEX_FINALIZER_RUNTIME_ENV")
-        if sandbox:
-            try:
-                env.update(json.loads(sandbox))
-            except json.JSONDecodeError:
-                pass
+        env.update(child_environment)
         p = subprocess.run(cmd, shell=True, text=True, capture_output=True, timeout=timeout_seconds, env=env)
         timed_out = False
         status = "passed" if p.returncode == 0 else "failed"
@@ -163,21 +253,44 @@ def _sha256(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-def _atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+def _exclusive_write(path: Path, data: bytes) -> dict[str, Any]:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    info = path.stat(follow_symlinks=False)
+    return {"device": info.st_dev, "inode": info.st_ino, "mode": stat.S_IMODE(info.st_mode), "size": info.st_size}
+
+
+def _stable_regular_read(path: Path) -> tuple[bytes, dict[str, Any]]:
+    if path.is_symlink():
+        raise ValueError(f"source_symlink:{path}")
+    flags = os.O_RDONLY | (getattr(os, "O_NOFOLLOW", 0))
+    fd = os.open(path, flags)
     try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError(f"source_not_regular_file:{path}")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        after = os.fstat(fd)
     finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+        os.close(fd)
+    identity = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+    if identity != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+        raise ValueError(f"source_changed_during_capture:{path}")
+    return b"".join(chunks), {"file_type": "regular", "stable_read": True, "device": before.st_dev, "inode": before.st_ino, "size": before.st_size, "mtime_ns": before.st_mtime_ns}
 
 
-def _capture_task_acceptance(manifest_arg: str, workspace_root: str, runtime_env: dict[str, str]) -> dict[str, Any]:
+def _capture_task_acceptance(manifest_arg: str, workspace_root: str, context: InvocationContext) -> dict[str, Any]:
     custody: dict[str, Any] = {
         "schema_version": "sentientos.task_acceptance_custody:v1",
         "capture_status": "task_acceptance_capture_blocked",
@@ -192,27 +305,29 @@ def _capture_task_acceptance(manifest_arg: str, workspace_root: str, runtime_env
         manifest = Path(manifest_arg)
         if not manifest.is_absolute():
             manifest = repo / manifest
-        if manifest.is_symlink() or not manifest.is_file():
-            raise ValueError("manifest_not_regular_file")
-        manifest = manifest.resolve(strict=True)
-        manifest_bytes = manifest.read_bytes()
+        manifest_bytes, manifest_source = _stable_regular_read(manifest)
         manifest_payload = json.loads(manifest_bytes.decode("utf-8"))
         if not isinstance(manifest_payload, dict) or not isinstance(manifest_payload.get("test_provenance_path"), str):
             raise ValueError("manifest_missing_test_provenance_path")
         declared = Path(manifest_payload["test_provenance_path"])
         provenance = declared if declared.is_absolute() else repo / declared
-        if provenance.is_symlink() or not provenance.is_file():
-            raise ValueError("provenance_not_regular_file")
-        provenance = provenance.resolve(strict=True)
-        provenance_bytes = provenance.read_bytes()
+        provenance_bytes, provenance_source = _stable_regular_read(provenance)
         json.loads(provenance_bytes.decode("utf-8"))
-        custody_root = Path(runtime_env["SENTIENTOS_DATA_DIR"]).parent / "task_acceptance_custody"
+        custody_root = Path(context.acceptance_custody_root)
         if custody_root == repo or repo in custody_root.parents:
             raise ValueError("custody_root_inside_workspace")
         captured_manifest = custody_root / "manifest.json"
         captured_provenance = custody_root / "provenance.json"
-        _atomic_write(captured_manifest, manifest_bytes)
-        _atomic_write(captured_provenance, provenance_bytes)
+        manifest_identity = _exclusive_write(captured_manifest, manifest_bytes)
+        provenance_identity = _exclusive_write(captured_provenance, provenance_bytes)
+        try:
+            directory_fd = os.open(custody_root, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
         repository_sha = str(manifest_payload.get("repository_sha", ""))
         custody.update({
             "capture_status": "task_acceptance_captured",
@@ -229,6 +344,13 @@ def _capture_task_acceptance(manifest_arg: str, workspace_root: str, runtime_env
             "captured_provenance_digest": _sha256(captured_provenance.read_bytes()),
             "captured_provenance_byte_length": captured_provenance.stat().st_size,
             "repository_sha": repository_sha,
+            "acceptance_custody_root": str(custody_root),
+            "source_manifest": manifest_source,
+            "source_provenance": provenance_source,
+            "captured_manifest_identity": manifest_identity,
+            "captured_provenance_identity": provenance_identity,
+            "captured_file_modes_applicable": os.name == "posix",
+            "symlink_check_status": "no_symlinks_followed",
         })
         result = verify_task_acceptance(captured_manifest, captured_provenance, repo_root=repo)
         custody["initial_verification_status"] = result.get("status")
@@ -539,10 +661,12 @@ def main(argv: list[str] | None = None) -> int:
                 candidates.append(path)
         inferred_untracked_task_files = tuple(sorted(set(candidates)))
 
-    runtime_env = {}
+    runtime_env: dict[str, str] = {}
+    invocation_context: InvocationContext | None = None
     runtime_error = ""
     try:
-        runtime_env = safe_runtime_roots(a.workspace_root, a.runtime_sandbox_root, (a.title or "codex-finalizer").replace("/", "_").replace(" ", "_"))
+        invocation_context = _create_invocation_context(a.workspace_root, a.runtime_sandbox_root, (a.title or "codex-finalizer").replace("/", "_").replace(" ", "_"))
+        runtime_env = invocation_context.child_environment
     except ValueError as exc:
         runtime_error = str(exc)
 
@@ -591,12 +715,11 @@ def main(argv: list[str] | None = None) -> int:
     runtime: list[StageRuntime] = []
     decision_status = "finalizer_failed"
     decision_reasons: list[str] = []
-    if runtime_env:
-        os.environ["CODEX_FINALIZER_RUNTIME_ENV"] = json.dumps(runtime_env, sort_keys=True)
     acceptance_custody: dict[str, Any] | None = None
     acceptance_result: dict[str, Any] | None = None
     if a.task_acceptance_manifest and not runtime_error:
-        acceptance_custody = _capture_task_acceptance(a.task_acceptance_manifest, a.workspace_root, runtime_env)
+        assert invocation_context is not None
+        acceptance_custody = _capture_task_acceptance(a.task_acceptance_manifest, a.workspace_root, invocation_context)
         acceptance_result = acceptance_custody.get("initial_verification")
         if not isinstance(acceptance_result, dict):
             acceptance_result = {
@@ -606,14 +729,15 @@ def main(argv: list[str] | None = None) -> int:
     acceptance_ready = acceptance_result is None or acceptance_result.get("status") == "task_acceptance_ready"
     try:
         if runtime_error:
-            raise RuntimeError(runtime_error)
-        if not acceptance_ready:
+            decision_status = "repair_required_task_caused"
+            decision_reasons = [runtime_error]
+        elif not acceptance_ready:
             decision_status = "repair_required_task_caused"
             decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"])) if acceptance_result else ["task_acceptance_blocked"]
         else:
             for stage_id, cmd, required in stage_specs:
                 timeout = a.matrix_timeout_seconds if stage_id == "matrix_summary" else a.stage_timeout_seconds
-                result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline)
+                result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline, runtime_env)
                 commands.append(result)
                 runtime.append(stage_runtime)
     except FinalizerTimeoutError as exc:
@@ -661,7 +785,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 for stage_id, cmd, required in refresh_plan[:1 if a.max_stale_evidence_refreshes < 1 else len(refresh_plan)]:
                     timeout = a.matrix_timeout_seconds if stage_id == "stale_evidence_matrix_summary" else a.stage_timeout_seconds
-                    result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline)
+                    result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline, runtime_env)
                     commands.append(result)
                     runtime.append(stage_runtime)
                     refresh_runs += 1
@@ -705,22 +829,34 @@ def main(argv: list[str] | None = None) -> int:
         captured_manifest = Path(str(acceptance_custody["captured_manifest_path"]))
         captured_provenance = Path(str(acceptance_custody["captured_provenance_path"]))
         try:
-            manifest_bytes = captured_manifest.read_bytes()
-            provenance_bytes = captured_provenance.read_bytes()
+            manifest_bytes, manifest_terminal_identity = _stable_regular_read(captured_manifest)
+            provenance_bytes, provenance_terminal_identity = _stable_regular_read(captured_provenance)
+            original_manifest_identity = acceptance_custody["captured_manifest_identity"]
+            original_provenance_identity = acceptance_custody["captured_provenance_identity"]
+            identity_unchanged = (
+                manifest_terminal_identity["device"] == original_manifest_identity["device"]
+                and manifest_terminal_identity["inode"] == original_manifest_identity["inode"]
+                and provenance_terminal_identity["device"] == original_provenance_identity["device"]
+                and provenance_terminal_identity["inode"] == original_provenance_identity["inode"]
+            )
             unchanged = (
+                identity_unchanged
+                and
                 _sha256(manifest_bytes) == acceptance_custody["captured_manifest_digest"]
                 and len(manifest_bytes) == acceptance_custody["captured_manifest_byte_length"]
                 and _sha256(provenance_bytes) == acceptance_custody["captured_provenance_digest"]
                 and len(provenance_bytes) == acceptance_custody["captured_provenance_byte_length"]
             )
             acceptance_custody["captured_evidence_unchanged"] = unchanged
+            acceptance_custody["terminal_file_identity_status"] = "unchanged" if identity_unchanged else "replaced"
             if unchanged:
                 terminal = verify_task_acceptance(captured_manifest, captured_provenance, repo_root=Path(a.workspace_root))
             else:
                 terminal = {"status": "task_acceptance_blocked", "reasons": ["captured_acceptance_evidence_changed"]}
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
             acceptance_custody["captured_evidence_unchanged"] = False
             terminal = {"status": "task_acceptance_blocked", "reasons": [f"captured_acceptance_evidence_unreadable:{exc}"]}
+            acceptance_custody["terminal_file_identity_status"] = "unreadable"
         acceptance_custody["terminal_verification_status"] = terminal["status"]
         acceptance_custody["terminal_verification_reasons"] = list(terminal.get("reasons", []))
         acceptance_custody["terminal_verification"] = terminal
@@ -796,8 +932,16 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         binding_errors.append(str(exc))
     if runtime_error:
-        binding_errors.append("runtime_root_inside_workspace")
-    payload["runtime_custody"] = {"child_environment": runtime_env, "runtime_error": runtime_error}
+        binding_errors.append(runtime_error)
+    context_payload = asdict(invocation_context) if invocation_context is not None else None
+    child_environment_digest = _sha256(json.dumps(runtime_env, sort_keys=True, separators=(",", ":")).encode())
+    payload["runtime_custody"] = {
+        "invocation_context": context_payload,
+        "child_environment": runtime_env,
+        "child_environment_digest": child_environment_digest,
+        "process_environment_mutated": False,
+        "runtime_error": runtime_error,
+    }
     payload["evidence_freshness"] = {
         "stale_evidence_reasons": stale_reasons,
         "matrix_execution_mode": "exact_binding_reuse" if exact_matrix_reuse else "executed",
