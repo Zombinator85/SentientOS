@@ -16,12 +16,18 @@ pytestmark=pytest.mark.no_legacy_skip
 def _process_worker(config:dict[str,Any], barrier:Any=None, connection:Any=None, release:Any=None)->None:
     import sentientos.host_local_diagnostic_lifecycle_closure as worker_closure
     def hook(event:str,path:Path)->None:
-        if event in {"locked_enter","locked_exit"} and config.get("events"):
+        if event in {"lock_waiting","locked_enter","locked_exit"} and config.get("events"):
             with Path(config["events"]).open("a") as stream:
                 stream.write(json.dumps({"event":event,"pid":os.getpid()})+"\n"); stream.flush(); os.fsync(stream.fileno())
         if event==config.get("death_event"):
-            if connection is not None: connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
+            notice={"event":event,"pid":os.getpid(),"path":str(path)}
+            if event=="staging_identity_prepared":
+                record=json.loads(path.read_text()); notice["temporary_identity_path"]=str(path); notice["staging_path"]=str(Path(config["output_root"])/record["staging_name"])
+            if connection is not None: connection.send(notice)
             os._exit(int(config.get("death_code",71)))
+        if event=="lock_waiting" and config.get("pause_before_flock"):
+            if connection is not None: connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
+            assert release is not None and release.wait(20)
         if event=="locked_enter" and release is not None:
             if connection is not None: connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
             release.wait(20)
@@ -45,9 +51,10 @@ def _join(process:Any,expected:int=0)->None:
 
 def _packet_snapshot(root:Path)->dict[str,tuple[Any,...]]:
     answer={}
-    for path in sorted(root.rglob("*")):
-        info=path.stat(); raw=path.read_bytes() if path.is_file() else b""
-        answer[path.relative_to(root).as_posix()]=(raw,hashlib.sha256(raw).hexdigest(),len(raw),stat.S_IMODE(info.st_mode),info.st_dev,info.st_ino,info.st_mtime_ns)
+    for path in [root,*sorted(root.rglob("*"))]:
+        info=path.lstat(); raw=path.read_bytes() if stat.S_ISREG(info.st_mode) else b""
+        kind="file" if stat.S_ISREG(info.st_mode) else "directory" if stat.S_ISDIR(info.st_mode) else "symlink" if stat.S_ISLNK(info.st_mode) else "other"
+        answer["." if path==root else path.relative_to(root).as_posix()]=(kind,raw,hashlib.sha256(raw).hexdigest(),info.st_size,stat.S_IMODE(info.st_mode),info.st_dev,info.st_ino,info.st_mtime_ns)
     return answer
 
 def _closed(root:Path)->tuple[Any,Any,Any,Any,list[Any],list[Any]]:
@@ -184,7 +191,7 @@ def test_spawned_process_builders_publish_one_valid_closure_packet(tmp_path:Path
     assert len(packets)==1 and validate_lifecycle_closure(packets[0]).status.endswith("_valid")
     assert load_latest_summary(out).status.endswith("_valid") and not list(out.glob(".hldlc-*"))
 
-def test_process_death_after_packet_rename_recovers_pointer_without_rewriting_packet(tmp_path:Path)->None:
+def test_process_death_after_packet_rename_preserves_packet_root_and_descendants(tmp_path:Path)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"rename-death"; ctx=multiprocessing.get_context("spawn"); parent,child=ctx.Pipe(False)
     dying=_process_config(execution,rollback,out,tmp_path/"unused.json",death_event="packet_published",death_code=72)
     process=ctx.Process(target=_process_worker,args=(dying,None,child)); process.start(); notice=parent.recv(); _join(process,72)
@@ -203,16 +210,57 @@ def test_process_death_with_staging_releases_lock_and_next_builder_reconciles_re
     assert not stale.exists() and not list(out.glob(".hldlc-*"))
     assert json.loads(Path(recovery["result"]).read_text())["publication_posture"]=="published" and load_latest_summary(out).status.endswith("_valid")
 
-def test_process_shared_lock_allows_only_one_publication_critical_section(tmp_path:Path)->None:
+def test_process_death_before_staging_identity_publication_recovers(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"reserved-death"; ctx=multiprocessing.get_context("spawn"); parent,child=ctx.Pipe(False)
+    dying=_process_config(execution,rollback,out,tmp_path/"unused.json",death_event="staging_directory_reserved",death_code=74)
+    process=ctx.Process(target=_process_worker,args=(dying,None,child)); process.start(); notice=parent.recv(); _join(process,74)
+    stale=Path(notice["path"]); assert notice["pid"]==process.pid and stale.is_dir() and not any(stale.iterdir())
+    assert not list(out.glob(".hldlc-staging-identity-*")) and not (out/"latest.json").exists()
+    recovery=_process_config(execution,rollback,out,tmp_path/"recovered.json"); worker=ctx.Process(target=_process_worker,args=(recovery,)); worker.start(); _join(worker)
+    result=json.loads(Path(recovery["result"]).read_text()); final=result["records"]["final_manifest"]
+    assert worker.pid!=process.pid and final["closure_id"] and final["packet_digest"] and not stale.exists()
+    assert len([p for p in out.iterdir() if p.is_dir()])==1 and (out/"latest.json").is_file() and not list(out.glob(".hldlc-*"))
+
+def test_process_death_after_staging_identity_prepare_recovers(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"prepared-death"; ctx=multiprocessing.get_context("spawn"); parent,child=ctx.Pipe(False)
+    dying=_process_config(execution,rollback,out,tmp_path/"unused.json",death_event="staging_identity_prepared",death_code=75)
+    process=ctx.Process(target=_process_worker,args=(dying,None,child)); process.start(); notice=parent.recv(); _join(process,75)
+    staging=Path(notice["staging_path"]); temporary=Path(notice["temporary_identity_path"]); raw=temporary.read_bytes(); record=json.loads(raw)
+    assert notice["pid"]==process.pid and staging.is_dir() and not any(staging.iterdir()) and raw.endswith(b"\n")
+    assert closure._valid_staging_record(record,out=out.resolve(),staging_name=staging.name)[0] and not (staging/"staging_identity.json").exists()
+    recovery=_process_config(execution,rollback,out,tmp_path/"recovered.json"); worker=ctx.Process(target=_process_worker,args=(recovery,)); worker.start(); _join(worker)
+    assert worker.pid!=process.pid and not staging.exists() and not temporary.exists() and not list(out.glob(".hldlc-*"))
+    assert json.loads(Path(recovery["result"]).read_text())["status"].endswith("_valid")
+
+def test_process_shared_lock_waiter_is_blocked_until_owner_release(tmp_path:Path)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"serialized"; events=tmp_path/"events.jsonl"; ctx=multiprocessing.get_context("spawn"); release=ctx.Event(); parent,child=ctx.Pipe(False)
     first=_process_config(execution,rollback,out,tmp_path/"first.json",events=str(events)); second=_process_config(execution,rollback,out,tmp_path/"second.json",events=str(events))
     one=ctx.Process(target=_process_worker,args=(first,None,child,release)); one.start(); entered=parent.recv(); assert entered["event"]=="locked_enter"
-    two=ctx.Process(target=_process_worker,args=(second,)); two.start(); release.set(); _join(one); _join(two)
+    waiter_permit=ctx.Event(); waiting_parent,waiting_child=ctx.Pipe(False); second["pause_before_flock"]=True
+    two=ctx.Process(target=_process_worker,args=(second,None,waiting_child,waiter_permit)); two.start(); waiting=waiting_parent.recv(); assert waiting["event"]=="lock_waiting"
+    waiter_permit.set(); assert two.is_alive() and not Path(second["result"]).exists() and not waiting_parent.poll(0.25)
+    assert not any(json.loads(line)["event"]=="locked_enter" and json.loads(line)["pid"]==two.pid for line in events.read_text().splitlines())
+    release.set(); _join(one); _join(two)
     occupancy=maximum=0
     records=[json.loads(line) for line in events.read_text().splitlines()]
     for record in records:
-        occupancy += 1 if record["event"]=="locked_enter" else -1; maximum=max(maximum,occupancy)
+        if record["event"]=="locked_enter": occupancy += 1; maximum=max(maximum,occupancy)
+        elif record["event"]=="locked_exit": occupancy -= 1
     assert maximum==1 and occupancy==0 and len({record["pid"] for record in records})==2
+
+def test_bootstrap_staging_reconciliation_is_bounded_and_preserves_unsafe_residue(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"unsafe-bootstrap").resolve(); out.mkdir(); outside=tmp_path/"outside"; outside.mkdir(); (outside/"sentinel").write_bytes(b"outside")
+    safe=out/".hldlc-safe-empty"; safe.mkdir(); nonempty=out/".hldlc-nonempty"; nonempty.mkdir(); (nonempty/"child").write_bytes(b"keep")
+    malformed=out/".hldlc-staging-identity-malformed"; malformed.write_bytes(b'{"partial":')
+    symlink=out/".hldlc-staging-identity-symlink"; symlink.symlink_to(outside/"sentinel")
+    directory=out/".hldlc-staging-identity-directory"; directory.mkdir()
+    for suffix,root,name in (("wrong-root",outside,".hldlc-wrong-root"),("unsafe-name",out,"../escape")):
+        record=closure._staging_record("hldlc-"+"1"*24,name,root.resolve()); (out/f".hldlc-staging-identity-{suffix}").write_text(_canon(record)+"\n")
+    unrelated=out/"unrelated-empty"; unrelated.mkdir(); sentinel=out/"sentinel"; sentinel.write_bytes(b"preserve")
+    paths=[safe,nonempty,malformed,symlink,directory,unrelated,sentinel,outside]; before={str(path):_packet_snapshot(path) if path.is_dir() and not path.is_symlink() else (path.lstat(),path.read_bytes() if path.is_file() and not path.is_symlink() else b"") for path in paths}
+    config=_process_config(execution,rollback,out,tmp_path/"blocked.json"); _process_worker(config); result=json.loads(Path(config["result"]).read_text())
+    after={str(path):_packet_snapshot(path) if path.is_dir() and not path.is_symlink() else (path.lstat(),path.read_bytes() if path.is_file() and not path.is_symlink() else b"") for path in paths}
+    assert result["status"].startswith("blocked_") and before==after and all(path.exists() or path.is_symlink() for path in paths)
 
 def test_malformed_or_symlinked_staging_residue_fails_closed_without_unrelated_deletion(tmp_path:Path)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"malformed"; out.mkdir(); target=tmp_path/"outside"; target.mkdir(); (target/"sentinel").write_bytes(b"outside")
@@ -225,7 +273,7 @@ def test_malformed_or_symlinked_staging_residue_fails_closed_without_unrelated_d
     assert result["status"].startswith("blocked_") and all(path.exists() for path in (symlink,regular,malformed,unrelated,sentinel))
     assert before==(_packet_snapshot(unrelated)|_packet_snapshot(target)) and not (out/"latest.json").exists()
 
-def test_cross_process_results_bind_one_closure_and_packet_digest(tmp_path:Path)->None:
+def test_bootstrap_crash_recovery_binds_one_closure_and_packet_digest(tmp_path:Path)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"identity"; ctx=multiprocessing.get_context("spawn"); barrier=ctx.Barrier(3)
     configs=[_process_config(execution,rollback,out,tmp_path/f"identity-{index}.json") for index in range(2)]; workers=[ctx.Process(target=_process_worker,args=(config,barrier)) for config in configs]
     for worker in workers: worker.start()
