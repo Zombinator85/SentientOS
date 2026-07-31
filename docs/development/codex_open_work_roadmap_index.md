@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `fc1959e`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `b7c0058`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -10,7 +10,7 @@ This is the active, compact selection map through mainline `fc1959e`. Consumed h
 - The remaining finalizer invocation-isolation proof gaps are closed: existing finalizer-owned directories cannot be reused with broad permissions, current-invocation directory identity and exact private modes are terminally rebound, and concurrent acceptance tests use distinct valid provenance bytes and digests to prove exact source-to-capture ownership.
 - The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
 - The diagnostic rollback deep-custody gap is closed: completed bundles independently bind execution, historical authority, confirmation, rollback/lifecycle evidence, exact manifests, latest metadata, and replay metadata without widening mutation authority.
-- Diagnostic lifecycle closure packets now package exact execution and rollback bundles with hardened derived identity, staged-copy validation, independently spawned-process serialization, kernel lock release across abrupt death, bounded stale-staging reconciliation, packet-preserving pointer recovery, and substituted-pointer rejection for deletion-independent historical review; this read-only surface adds no effect authority.
+- Diagnostic lifecycle closure packets now package exact execution and rollback bundles with hardened derived identity, staged-copy validation, crash-recoverable atomic staging initialization, genuine pre-flock independently spawned-process waiter proof, kernel lock release across abrupt death, bounded two-phase stale-staging reconciliation, packet-root-and-descendant-preserving pointer recovery, and substituted-pointer rejection for deletion-independent historical review; this read-only surface adds no effect authority.
 - One reviewer path now consolidates the sealed diagnostic source, confirmed execution, exact rollback, and lifecycle-closure proof surfaces without reopening their runtime behavior, packet formats, authority, effects, capabilities, or CLI contracts.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 

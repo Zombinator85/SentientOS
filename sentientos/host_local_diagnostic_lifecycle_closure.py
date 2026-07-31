@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import fcntl
+import errno
 import hashlib
 import json
 import os
 import shutil
+import stat
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
@@ -25,6 +27,7 @@ ROLLBACK_PATH = "bundles/rollback"
 OUTER_FILES = ("closure_report.json", "summary.json", "receipt.json")
 _HEX = frozenset("0123456789abcdef")
 _STAGING_PREFIX = ".hldlc-"
+_STAGING_IDENTITY_PREFIX = ".hldlc-staging-identity-"
 _STAGING_IDENTITY = "host_local_diagnostic_lifecycle_closure_staging.v1"
 
 
@@ -273,21 +276,82 @@ def _staging_record(closure_id: str, staging_name: str, publication_root: Path) 
     return value
 
 
+def _valid_staging_record(record: Mapping[str, Any], *, out: Path, staging_name: str) -> tuple[bool, str]:
+    check = dict(record); claimed = check.pop("digest", None)
+    closure_id = check.get("closure_id")
+    safe_name = (
+        isinstance(staging_name, str)
+        and staging_name.startswith(_STAGING_PREFIX)
+        and not staging_name.startswith(_STAGING_IDENTITY_PREFIX)
+        and Path(staging_name).name == staging_name
+        and PurePosixPath(staging_name).parts == (staging_name,)
+    )
+    valid_id = isinstance(closure_id, str) and closure_id.startswith("hldlc-") and len(closure_id) == 30 and set(closure_id[6:]) <= _HEX
+    valid = (
+        set(record) == {"artifact_kind", "closure_id", "publication_root", "staging_name", "digest"}
+        and check.get("artifact_kind") == _STAGING_IDENTITY
+        and valid_id and safe_name
+        and check.get("publication_root") == str(out)
+        and check.get("staging_name") == staging_name
+        and claimed == digest_record(record)
+    )
+    return valid, str(closure_id or "")
+
+
+def _stable_lstat(path: Path, before: os.stat_result) -> bool:
+    try:
+        after = path.lstat()
+    except FileNotFoundError:
+        return False
+    return (before.st_mode, before.st_dev, before.st_ino) == (after.st_mode, after.st_dev, after.st_ino)
+
+
+def _empty_real_directory(path: Path) -> tuple[bool, os.stat_result | None]:
+    try:
+        before = path.lstat()
+        if not stat.S_ISDIR(before.st_mode) or path.is_symlink():
+            return False, None
+        empty = not any(os.scandir(path))
+        return empty and _stable_lstat(path, before), before
+    except (FileNotFoundError, OSError):
+        return False, None
+
+
 def _reconcile_staging(out: Path) -> tuple[list[str], list[str]]:
     candidates = sorted((entry for entry in os.scandir(out) if entry.name.startswith(_STAGING_PREFIX)), key=lambda entry: entry.name)
-    verified: list[Path] = []
+    verified: list[tuple[str, Path, Path | None]] = []
     findings: list[str] = []
     for entry in candidates:
         path = out / entry.name
         try:
-            if entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+            before = path.lstat()
+            if entry.name.startswith(_STAGING_IDENTITY_PREFIX):
+                if entry.is_symlink() or not stat.S_ISREG(before.st_mode):
+                    raise ValueError("temporary_identity_not_real_file")
+                raw = path.read_bytes()
+                record = _dict(json.loads(raw))
+                staging_name = record.get("staging_name")
+                valid, _ = _valid_staging_record(record, out=out, staging_name=str(staging_name or ""))
+                if not raw.endswith(b"\n") or _canon(record).encode() + b"\n" != raw or not valid or not _stable_lstat(path, before):
+                    raise ValueError("temporary_identity_invalid")
+                associated = out / str(staging_name)
+                if associated.exists() or associated.is_symlink():
+                    empty, _ = _empty_real_directory(associated)
+                    if not empty:
+                        raise ValueError("temporary_identity_staging_unsafe")
+                    verified.append(("prepared", path, associated))
+                else:
+                    verified.append(("prepared", path, None))
+                continue
+            if entry.is_symlink() or not stat.S_ISDIR(before.st_mode):
                 raise ValueError("staging_entry_not_real_directory")
-            record = _json(path / "staging_identity.json")
-            check = dict(record); claimed = check.pop("digest", None)
-            closure_id = check.get("closure_id")
-            if set(record) != {"artifact_kind", "closure_id", "publication_root", "staging_name", "digest"} or check.get("artifact_kind") != _STAGING_IDENTITY or not isinstance(closure_id, str) or not closure_id.startswith("hldlc-") or check.get("publication_root") != str(out) or check.get("staging_name") != entry.name or claimed != digest_record(record):
-                raise ValueError("staging_identity_invalid")
             children = list(os.scandir(path))
+            if not children and _stable_lstat(path, before):
+                verified.append(("reserved", path, None)); continue
+            record = _json(path / "staging_identity.json")
+            valid, closure_id = _valid_staging_record(record, out=out, staging_name=entry.name)
+            if not valid:
+                raise ValueError("staging_identity_invalid")
             if {child.name for child in children} - {"staging_identity.json", closure_id}:
                 raise ValueError("staging_membership_invalid")
             packet_child = path / closure_id
@@ -297,17 +361,69 @@ def _reconcile_staging(out: Path) -> tuple[list[str], list[str]]:
                 for name in [*directories, *files]:
                     if (Path(nested_root) / name).is_symlink():
                         raise ValueError("staging_symlink_membership")
-            verified.append(path)
+            if not _stable_lstat(path, before):
+                raise ValueError("staging_identity_changed")
+            verified.append(("canonical", path, None))
         except Exception as exc:
             findings.append(f"unsafe_staging_residue:{entry.name}:{type(exc).__name__}")
     if findings:
         return findings, []
     reconciled: list[str] = []
-    for path in verified:
-        shutil.rmtree(path)
+    prepared_directories = {associated for kind, _, associated in verified if kind == "prepared" and associated is not None}
+    for kind, path, associated_path in verified:
+        if kind == "reserved" and path in prepared_directories:
+            continue
+        if kind == "canonical":
+            shutil.rmtree(path)
+        elif kind == "prepared":
+            path.unlink()
+            if associated_path is not None:
+                os.rmdir(associated_path)
+        else:
+            os.rmdir(path)
         reconciled.append(path.name)
         _publication_hook("staging_reconciled", path)
     return [], reconciled
+
+
+def _flush_directory(path: Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        if exc.errno in {errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP}:
+            return
+        raise
+    try:
+        try:
+            os.fsync(fd)
+        except OSError as exc:
+            if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP}:
+                raise
+    finally:
+        os.close(fd)
+
+
+def _prepare_staging_identity(out: Path, staging: Path, closure_id: str) -> Path:
+    raw = (_canon(_staging_record(closure_id, staging.name, out)) + "\n").encode()
+    fd, name = tempfile.mkstemp(prefix=_STAGING_IDENTITY_PREFIX, dir=out)
+    temporary = Path(name)
+    try:
+        offset = 0
+        while offset < len(raw):
+            written = os.write(fd, raw[offset:])
+            if written <= 0:
+                raise OSError("short staging identity write")
+            offset += written
+        os.fsync(fd)
+    except BaseException:
+        os.close(fd); temporary.unlink(missing_ok=True); raise
+    os.close(fd)
+    _publication_hook("staging_identity_prepared", temporary)
+    os.replace(temporary, staging / "staging_identity.json")
+    _flush_directory(staging); _flush_directory(out)
+    _publication_hook("staging_identity_published", staging)
+    return temporary
 
 
 def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bundle_digest: str, rollback_bundle_root: str | Path, rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
@@ -324,6 +440,7 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
     identity = _identity(base_report, closure_id, closure_time, execution_bundle_digest, rollback_bundle_digest)
     out.mkdir(parents=True, exist_ok=True)
     with (out / ".closure.lock").open("a+b") as lock:
+        _publication_hook("lock_waiting", out)
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX); destination = out / closure_id
         _publication_hook("locked_enter", out)
         staging_findings, _ = _reconcile_staging(out)
@@ -343,8 +460,10 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
             return ClosureOutcome(loaded.status, (), loaded.records, loaded.packet_root, True, "recovered" if recovered else "replayed")
         if (out / "latest.json").exists(): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
         temporary_parent = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=out)); staged = temporary_parent / closure_id
+        temporary_identity: Path | None = None
         try:
-            (temporary_parent / "staging_identity.json").write_text(_canon(_staging_record(closure_id, temporary_parent.name, out)) + "\n")
+            _publication_hook("staging_directory_reserved", temporary_parent)
+            temporary_identity = _prepare_staging_identity(out, temporary_parent, closure_id)
             staged.mkdir()
             _publication_hook("staging_created", temporary_parent)
             _copy_bundle(execution_root, staged / EXECUTION_PATH); _copy_bundle(rollback_root, staged / ROLLBACK_PATH)
@@ -363,6 +482,8 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
             _publication_hook("packet_published", destination)
             _write_pointer(out, _pointer(identity, str(final["packet_digest"])))
         finally:
+            if temporary_identity is not None:
+                temporary_identity.unlink(missing_ok=True)
             shutil.rmtree(temporary_parent, ignore_errors=True)
         _publication_hook("locked_exit", out)
     return ClosureOutcome(published.status, published.findings, published.records, published.packet_root, False, "published")

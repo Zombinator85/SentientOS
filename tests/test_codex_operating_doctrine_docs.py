@@ -39,7 +39,7 @@ def test_stable_law_has_one_policy_and_one_command_reference() -> None:
 
 def test_active_roadmap_is_current_and_archive_is_linked() -> None:
     roadmap = _read("docs/development/codex_open_work_roadmap_index.md")
-    assert "fc1959e" in roadmap
+    assert "b7c0058" in roadmap
     assert "operator-confirmed diagnostic runtime" in roadmap.lower()
     assert "behavioral-proof gap" in roadmap
     assert "codex_open_work_roadmap_archive_2026-07.md" in roadmap
