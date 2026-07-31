@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, shutil, threading
+import hashlib, json, multiprocessing, os, shutil, stat, threading
 from pathlib import Path
 from typing import Any
 import pytest
@@ -12,6 +12,43 @@ from tests.test_host_local_diagnostic_rollback_runtime import _args, _execution
 
 NOW="2026-07-28T12:00:00+00:00"
 pytestmark=pytest.mark.no_legacy_skip
+
+def _process_worker(config:dict[str,Any], barrier:Any=None, connection:Any=None, release:Any=None)->None:
+    import sentientos.host_local_diagnostic_lifecycle_closure as worker_closure
+    def hook(event:str,path:Path)->None:
+        if event in {"locked_enter","locked_exit"} and config.get("events"):
+            with Path(config["events"]).open("a") as stream:
+                stream.write(json.dumps({"event":event,"pid":os.getpid()})+"\n"); stream.flush(); os.fsync(stream.fileno())
+        if event==config.get("death_event"):
+            if connection is not None: connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
+            os._exit(int(config.get("death_code",71)))
+        if event=="locked_enter" and release is not None:
+            if connection is not None: connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
+            release.wait(20)
+    worker_closure._publication_hook=hook
+    if barrier is not None: barrier.wait(20)
+    result=worker_closure.build_lifecycle_closure(
+        execution_bundle_root=config["execution_root"],execution_bundle_digest=config["execution_digest"],
+        rollback_bundle_root=config["rollback_root"],rollback_bundle_digest=config["rollback_digest"],
+        closure_time=NOW,output_root=config["output_root"])
+    Path(config["result"]).write_text(json.dumps({"pid":os.getpid(),**result.to_dict()}))
+
+def _process_config(execution:Any,rollback:Any,out:Path,result:Path,**extra:Any)->dict[str,Any]:
+    ed,rd=_digests(execution,rollback)
+    return {"execution_root":execution.bundle_root,"execution_digest":ed,"rollback_root":rollback.bundle_root,
+            "rollback_digest":rd,"output_root":str(out),"result":str(result),**extra}
+
+def _join(process:Any,expected:int=0)->None:
+    process.join(30)
+    if process.is_alive(): process.terminate(); process.join(10); pytest.fail("spawned closure worker hung")
+    assert process.exitcode==expected
+
+def _packet_snapshot(root:Path)->dict[str,tuple[Any,...]]:
+    answer={}
+    for path in sorted(root.rglob("*")):
+        info=path.stat(); raw=path.read_bytes() if path.is_file() else b""
+        answer[path.relative_to(root).as_posix()]=(raw,hashlib.sha256(raw).hexdigest(),len(raw),stat.S_IMODE(info.st_mode),info.st_dev,info.st_ino,info.st_mtime_ns)
+    return answer
 
 def _closed(root:Path)->tuple[Any,Any,Any,Any,list[Any],list[Any]]:
     fixture,execution,execution_digest,execution_calls=_execution(root)
@@ -132,6 +169,74 @@ def test_interrupted_latest_publication_recovers_without_rewriting_packet(tmp_pa
     packet=out/derive_closure_id(ed,rd,NOW); before={p.relative_to(packet):p.read_bytes() for p in packet.rglob("*") if p.is_file()}; monkeypatch.setattr(closure,"_publish_latest",original)
     recovered=build_lifecycle_closure(execution_bundle_root=execution.bundle_root,execution_bundle_digest=ed,rollback_bundle_root=rollback.bundle_root,rollback_bundle_digest=rd,closure_time=NOW,output_root=out)
     assert recovered.replayed and recovered.publication_posture=="recovered" and before=={p.relative_to(packet):p.read_bytes() for p in packet.rglob("*") if p.is_file()}
+
+def test_spawned_process_builders_publish_one_valid_closure_packet(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"spawned"; ctx=multiprocessing.get_context("spawn"); barrier=ctx.Barrier(3)
+    configs=[_process_config(execution,rollback,out,tmp_path/f"result-{index}.json") for index in range(2)]
+    workers=[ctx.Process(target=_process_worker,args=(config,barrier)) for config in configs]
+    for worker in workers: worker.start()
+    barrier.wait(20)
+    for worker in workers: _join(worker)
+    results=[json.loads(Path(config["result"]).read_text()) for config in configs]
+    assert len({result["pid"] for result in results})==2
+    assert len({result["packet_root"] for result in results})==1 and {result["publication_posture"] for result in results}=={"published","replayed"}
+    packets=[path for path in out.iterdir() if path.is_dir()]
+    assert len(packets)==1 and validate_lifecycle_closure(packets[0]).status.endswith("_valid")
+    assert load_latest_summary(out).status.endswith("_valid") and not list(out.glob(".hldlc-*"))
+
+def test_process_death_after_packet_rename_recovers_pointer_without_rewriting_packet(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"rename-death"; ctx=multiprocessing.get_context("spawn"); parent,child=ctx.Pipe(False)
+    dying=_process_config(execution,rollback,out,tmp_path/"unused.json",death_event="packet_published",death_code=72)
+    process=ctx.Process(target=_process_worker,args=(dying,None,child)); process.start(); notice=parent.recv(); _join(process,72)
+    packet=Path(notice["path"]); before=_packet_snapshot(packet); assert not (out/"latest.json").exists()
+    recovery=_process_config(execution,rollback,out,tmp_path/"recovered.json"); worker=ctx.Process(target=_process_worker,args=(recovery,)); worker.start(); _join(worker)
+    result=json.loads(Path(recovery["result"]).read_text())
+    assert result["publication_posture"]=="recovered" and result["replayed"] is True
+    assert before==_packet_snapshot(packet) and load_latest_summary(out).status.endswith("_valid")
+
+def test_process_death_with_staging_releases_lock_and_next_builder_reconciles_residue(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"staging-death"; ctx=multiprocessing.get_context("spawn"); parent,child=ctx.Pipe(False)
+    dying=_process_config(execution,rollback,out,tmp_path/"unused.json",death_event="staging_created",death_code=73)
+    process=ctx.Process(target=_process_worker,args=(dying,None,child)); process.start(); notice=parent.recv(); _join(process,73)
+    stale=Path(notice["path"]); assert stale.is_dir() and (stale/"staging_identity.json").is_file()
+    recovery=_process_config(execution,rollback,out,tmp_path/"recovered.json"); worker=ctx.Process(target=_process_worker,args=(recovery,)); worker.start(); _join(worker)
+    assert not stale.exists() and not list(out.glob(".hldlc-*"))
+    assert json.loads(Path(recovery["result"]).read_text())["publication_posture"]=="published" and load_latest_summary(out).status.endswith("_valid")
+
+def test_process_shared_lock_allows_only_one_publication_critical_section(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"serialized"; events=tmp_path/"events.jsonl"; ctx=multiprocessing.get_context("spawn"); release=ctx.Event(); parent,child=ctx.Pipe(False)
+    first=_process_config(execution,rollback,out,tmp_path/"first.json",events=str(events)); second=_process_config(execution,rollback,out,tmp_path/"second.json",events=str(events))
+    one=ctx.Process(target=_process_worker,args=(first,None,child,release)); one.start(); entered=parent.recv(); assert entered["event"]=="locked_enter"
+    two=ctx.Process(target=_process_worker,args=(second,)); two.start(); release.set(); _join(one); _join(two)
+    occupancy=maximum=0
+    records=[json.loads(line) for line in events.read_text().splitlines()]
+    for record in records:
+        occupancy += 1 if record["event"]=="locked_enter" else -1; maximum=max(maximum,occupancy)
+    assert maximum==1 and occupancy==0 and len({record["pid"] for record in records})==2
+
+def test_malformed_or_symlinked_staging_residue_fails_closed_without_unrelated_deletion(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"malformed"; out.mkdir(); target=tmp_path/"outside"; target.mkdir(); (target/"sentinel").write_bytes(b"outside")
+    symlink=out/".hldlc-symlink"; symlink.symlink_to(target, target_is_directory=True)
+    regular=out/".hldlc-file"; regular.write_bytes(b"file")
+    malformed=out/".hldlc-malformed"; malformed.mkdir(); (malformed/"unknown").write_bytes(b"unknown")
+    unrelated=out/"unrelated"; unrelated.mkdir(); sentinel=unrelated/"sentinel"; sentinel.write_bytes(b"preserve"); before=_packet_snapshot(unrelated)|_packet_snapshot(target)
+    config=_process_config(execution,rollback,out,tmp_path/"blocked.json"); _process_worker(config)
+    result=json.loads(Path(config["result"]).read_text())
+    assert result["status"].startswith("blocked_") and all(path.exists() for path in (symlink,regular,malformed,unrelated,sentinel))
+    assert before==(_packet_snapshot(unrelated)|_packet_snapshot(target)) and not (out/"latest.json").exists()
+
+def test_cross_process_results_bind_one_closure_and_packet_digest(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=tmp_path/"identity"; ctx=multiprocessing.get_context("spawn"); barrier=ctx.Barrier(3)
+    configs=[_process_config(execution,rollback,out,tmp_path/f"identity-{index}.json") for index in range(2)]; workers=[ctx.Process(target=_process_worker,args=(config,barrier)) for config in configs]
+    for worker in workers: worker.start()
+    barrier.wait(20)
+    for worker in workers: _join(worker)
+    results=[json.loads(Path(config["result"]).read_text()) for config in configs]; packet=validate_lifecycle_closure(results[0]["packet_root"]); final=packet.records["final_manifest"]
+    keys=("closure_id","closure_time","correlation_id","execution_id","rollback_id","execution_bundle_digest","rollback_bundle_digest","final_lifecycle")
+    for result in results:
+        worker_final=result["records"]["final_manifest"]
+        assert all(worker_final[key]==final[key] for key in keys) and worker_final["packet_digest"]==final["packet_digest"]
+    assert len({result["pid"] for result in results})==2 and len({result["records"]["final_manifest"]["packet_digest"] for result in results})==1
 
 def test_validly_redigested_latest_pointer_substitution_is_rejected(tmp_path:Path)->None:
     _,_,_,packet,_,_=_closed(tmp_path); out=Path(packet.packet_root).parent; pristine=json.loads((out/"latest.json").read_text())
