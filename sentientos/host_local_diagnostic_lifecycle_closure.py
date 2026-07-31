@@ -24,6 +24,8 @@ EXECUTION_PATH = "bundles/execution"
 ROLLBACK_PATH = "bundles/rollback"
 OUTER_FILES = ("closure_report.json", "summary.json", "receipt.json")
 _HEX = frozenset("0123456789abcdef")
+_STAGING_PREFIX = ".hldlc-"
+_STAGING_IDENTITY = "host_local_diagnostic_lifecycle_closure_staging.v1"
 
 
 @dataclass(frozen=True)
@@ -228,6 +230,10 @@ def validate_lifecycle_closure(packet_root: str | Path, *, expected_packet_diges
 
 
 # Small named hooks deliberately provide deterministic test interception points.
+def _publication_hook(event: str, path: Path) -> None:
+    """Internal no-op boundary hook used only by explicitly injected tests."""
+
+
 def _copy_bundle(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination)
 
@@ -256,6 +262,54 @@ def _write_pointer(out: Path, pointer: Mapping[str, Any]) -> None:
         staged.unlink(missing_ok=True)
 
 
+def _staging_record(closure_id: str, staging_name: str, publication_root: Path) -> dict[str, Any]:
+    value = {
+        "artifact_kind": _STAGING_IDENTITY,
+        "closure_id": closure_id,
+        "publication_root": str(publication_root),
+        "staging_name": staging_name,
+    }
+    value["digest"] = digest_record(value)
+    return value
+
+
+def _reconcile_staging(out: Path) -> tuple[list[str], list[str]]:
+    candidates = sorted((entry for entry in os.scandir(out) if entry.name.startswith(_STAGING_PREFIX)), key=lambda entry: entry.name)
+    verified: list[Path] = []
+    findings: list[str] = []
+    for entry in candidates:
+        path = out / entry.name
+        try:
+            if entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+                raise ValueError("staging_entry_not_real_directory")
+            record = _json(path / "staging_identity.json")
+            check = dict(record); claimed = check.pop("digest", None)
+            closure_id = check.get("closure_id")
+            if set(record) != {"artifact_kind", "closure_id", "publication_root", "staging_name", "digest"} or check.get("artifact_kind") != _STAGING_IDENTITY or not isinstance(closure_id, str) or not closure_id.startswith("hldlc-") or check.get("publication_root") != str(out) or check.get("staging_name") != entry.name or claimed != digest_record(record):
+                raise ValueError("staging_identity_invalid")
+            children = list(os.scandir(path))
+            if {child.name for child in children} - {"staging_identity.json", closure_id}:
+                raise ValueError("staging_membership_invalid")
+            packet_child = path / closure_id
+            if packet_child.exists() and (packet_child.is_symlink() or not packet_child.is_dir()):
+                raise ValueError("staging_packet_not_real_directory")
+            for nested_root, directories, files in os.walk(path, followlinks=False):
+                for name in [*directories, *files]:
+                    if (Path(nested_root) / name).is_symlink():
+                        raise ValueError("staging_symlink_membership")
+            verified.append(path)
+        except Exception as exc:
+            findings.append(f"unsafe_staging_residue:{entry.name}:{type(exc).__name__}")
+    if findings:
+        return findings, []
+    reconciled: list[str] = []
+    for path in verified:
+        shutil.rmtree(path)
+        reconciled.append(path.name)
+        _publication_hook("staging_reconciled", path)
+    return [], reconciled
+
+
 def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bundle_digest: str, rollback_bundle_root: str | Path, rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
     execution_root = Path(execution_bundle_root).resolve(); rollback_root = Path(rollback_bundle_root).resolve(); out, findings = _safe_root(output_root)
     if findings or any(a == b or a in b.parents or b in a.parents for a, b in ((out, execution_root), (out, rollback_root))): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(findings + ["roots_overlap"]), {})
@@ -271,6 +325,11 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
     out.mkdir(parents=True, exist_ok=True)
     with (out / ".closure.lock").open("a+b") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX); destination = out / closure_id
+        _publication_hook("locked_enter", out)
+        staging_findings, _ = _reconcile_staging(out)
+        if staging_findings:
+            _publication_hook("locked_exit", out)
+            return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(staging_findings), {})
         if destination.exists():
             loaded = validate_lifecycle_closure(destination)
             loaded_final = _dict(loaded.records.get("final_manifest")); loaded_summary = _dict(loaded.records.get("summary"))
@@ -280,11 +339,14 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
             recovered = not latest.exists()
             if latest.exists() and _json(latest) != pointer: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
             if not latest.exists(): _write_pointer(out, pointer)
+            _publication_hook("locked_exit", out)
             return ClosureOutcome(loaded.status, (), loaded.records, loaded.packet_root, True, "recovered" if recovered else "replayed")
         if (out / "latest.json").exists(): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
-        temporary_parent = Path(tempfile.mkdtemp(prefix=".hldlc-", dir=out)); staged = temporary_parent / closure_id
+        temporary_parent = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=out)); staged = temporary_parent / closure_id
         try:
+            (temporary_parent / "staging_identity.json").write_text(_canon(_staging_record(closure_id, temporary_parent.name, out)) + "\n")
             staged.mkdir()
+            _publication_hook("staging_created", temporary_parent)
             _copy_bundle(execution_root, staged / EXECUTION_PATH); _copy_bundle(rollback_root, staged / ROLLBACK_PATH)
             report = {**base_report, **identity}; report["digest"] = digest_record(report); (staged / "closure_report.json").write_text(_canon(report) + "\n")
             summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); (staged / "summary.json").write_text(_canon(summary) + "\n")
@@ -298,9 +360,11 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
             _publish_packet(staged, destination)
             published = validate_lifecycle_closure(destination, expected_packet_digest=str(final["packet_digest"]))
             if published.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published.findings, {})
+            _publication_hook("packet_published", destination)
             _write_pointer(out, _pointer(identity, str(final["packet_digest"])))
         finally:
             shutil.rmtree(temporary_parent, ignore_errors=True)
+        _publication_hook("locked_exit", out)
     return ClosureOutcome(published.status, published.findings, published.records, published.packet_root, False, "published")
 
 

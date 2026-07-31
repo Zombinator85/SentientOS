@@ -120,7 +120,7 @@ def test_public_overview_and_release_index_link_reviewer_guide() -> None:
 
 def test_active_roadmap_matches_current_main_and_implemented_posture() -> None:
     roadmap = _text(ROADMAP)
-    assert "mainline `a344ea4`" in roadmap, "active roadmap current-main marker is not a344ea4"
-    for posture in ("staged-copy validation", "atomic concurrent publication", "reviewer path now consolidates"):
+    assert "mainline `fc1959e`" in roadmap, "active roadmap current-main marker is not fc1959e"
+    for posture in ("staged-copy validation", "independently spawned-process serialization", "kernel lock release across abrupt death", "reviewer path now consolidates"):
         assert posture in roadmap, f"active roadmap is missing implemented diagnostic posture: {posture}"
     assert "## Available next work" in roadmap
