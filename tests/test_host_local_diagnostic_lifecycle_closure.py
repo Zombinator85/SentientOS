@@ -423,3 +423,92 @@ def test_descriptor_bound_publication_commits_packet_and_pointer_to_bound_root(t
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); sentinel=out/"sentinel"; sentinel.write_bytes(b"unchanged"); result=_rebuild(execution,rollback,out)
     assert result.status.endswith("_valid") and result.packet_root==str(out/derive_closure_id(*_digests(execution,rollback),NOW)) and sentinel.read_bytes()==b"unchanged"
     assert len([p for p in out.iterdir() if p.is_dir() and p.name.startswith("hldlc-")])==1 and (out/"latest.json").is_file() and not list(out.glob(".hldlc-*")) and not list(out.glob(".latest-*"))
+
+
+def test_staging_identity_source_substitution_before_atomic_commit_is_rejected(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); backup=tmp_path/"identity-backup"
+    def hook(event:str,path:Path)->None:
+        if event=="staging_identity_prepared": path.rename(backup); path.write_bytes(b"substitute")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_staging_identity_source_changed",) and backup.is_file() and backup.read_text().endswith("\n")
+    assert next(out.glob(".hldlc-staging-identity-*")).read_bytes()==b"substitute" and not (out/"latest.json").exists() and not list(out.glob("hldlc-*"))
+
+
+def test_staging_identity_destination_injection_is_preserved(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); captured:dict[str,Any]={}
+    def hook(event:str,path:Path)->None:
+        if event=="staging_identity_prepared":
+            record=json.loads(path.read_text()); target=out/record["staging_name"]/"staging_identity.json"; target.write_bytes(b"sentinel"); captured["target"]=target; captured["stat"]=target.stat()
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out); target=Path(captured["target"]); before=captured["stat"]; after=target.stat()
+    assert result.findings==("lifecycle_staging_identity_destination_conflict",) and target.read_bytes()==b"sentinel" and (before.st_dev,before.st_ino,before.st_mode,before.st_mtime_ns)==(after.st_dev,after.st_ino,after.st_mode,after.st_mtime_ns)
+    assert list(out.glob(".hldlc-staging-identity-*")) and not (out/"latest.json").exists()
+
+
+def test_packet_source_substitution_before_atomic_commit_is_rejected(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); backup=tmp_path/"packet-backup"
+    def hook(event:str,path:Path)->None:
+        if event=="lifecycle_publication_before_packet_publish": path.rename(backup); path.mkdir(); (path/"sentinel").write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_packet_source_changed_before_commit",) and backup.is_dir() and not (out/backup.name).exists() and not (out/"latest.json").exists()
+    assert next(out.glob(".hldlc-*/hldlc-*/sentinel")).read_bytes()==b"replacement"
+
+
+def test_packet_destination_injection_is_preserved_by_no_replace_commit(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); captured:dict[str,Any]={}
+    def hook(event:str,path:Path)->None:
+        if event=="lifecycle_publication_before_packet_publish":
+            target=out/path.name; target.mkdir(); sentinel=target/"sentinel"; sentinel.write_bytes(b"destination"); captured.update(target=target,snapshot=_packet_snapshot(target))
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out); target=Path(captured["target"])
+    assert result.findings==("lifecycle_packet_destination_conflict",) and _packet_snapshot(target)==captured["snapshot"] and not (out/"latest.json").exists()
+    assert list(out.glob(".hldlc-*/hldlc-*"))
+
+
+def test_pointer_source_substitution_before_atomic_commit_is_rejected(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); backup=tmp_path/"pointer-backup"
+    def hook(event:str,path:Path)->None:
+        if event=="lifecycle_pointer_before_commit": (out/path.name).rename(backup); (out/path.name).write_bytes(b"substitute")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_pointer_source_changed_before_commit",) and backup.is_file() and next(out.glob(".latest-*")).read_bytes()==b"substitute" and not (out/"latest.json").exists()
+    assert validate_lifecycle_closure(out/derive_closure_id(*_digests(execution,rollback),NOW)).status.endswith("_valid")
+
+
+def test_pointer_destination_injection_is_preserved_by_no_replace_commit(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); captured:dict[str,Any]={}
+    def hook(event:str,path:Path)->None:
+        if event=="lifecycle_pointer_before_commit": (out/"latest.json").write_bytes(b"sentinel"); captured["stat"]=(out/"latest.json").stat()
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out); before=captured["stat"]; after=(out/"latest.json").stat()
+    assert result.findings==("lifecycle_pointer_destination_conflict",) and (out/"latest.json").read_bytes()==b"sentinel" and (before.st_dev,before.st_ino,before.st_mode,before.st_mtime_ns)==(after.st_dev,after.st_ino,after.st_mode,after.st_mtime_ns)
+    assert list(out.glob(".latest-*")) and validate_lifecycle_closure(out/derive_closure_id(*_digests(execution,rollback),NOW)).status.endswith("_valid")
+
+
+def test_publication_cleanup_rejects_regular_member_substitution_before_unlink(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_cleanup_before_remove_member" and not fired:
+            fired=True; target=out/path; target.rename(target.with_suffix(".original")); target.write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "publication_cleanup_member_identity_changed" in result.findings and result.publication_posture=="cleanup_blocked" and next(out.glob(".hldlc-*/staging_identity.json")).read_bytes()==b"replacement"
+    assert (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")
+
+
+def test_publication_cleanup_rejects_directory_substitution_before_descent(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); injected=False; swapped=False
+    def hook(event:str,path:Path)->None:
+        nonlocal injected,swapped
+        if event=="lifecycle_pointer_before_commit" and not injected:
+            injected=True; staging=next(out.glob(".hldlc-*")); (staging/"cleanup-dir").mkdir(); (staging/"cleanup-dir"/"original").write_bytes(b"original")
+        if event=="lifecycle_cleanup_before_remove_directory" and path.name=="cleanup-dir" and not swapped:
+            swapped=True; target=out/path; target.rename(target.with_name("cleanup-original")); target.mkdir(); (target/"sentinel").write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "publication_cleanup_member_identity_changed" in result.findings and result.publication_posture=="cleanup_blocked" and next(out.glob(".hldlc-*/cleanup-dir/sentinel")).read_bytes()==b"replacement"
+    assert next(out.glob(".hldlc-*/cleanup-original/original")).read_bytes()==b"original" and (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")
+
+
+def test_atomic_no_replace_publication_commits_exact_packet_and_pointer(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); calls:list[tuple[str,str]]=[]; original=closure._atomic_rename_noreplace
+    def observed(source_fd:int,source_name:str,destination_fd:int,destination_name:str)->None:
+        calls.append((source_name,destination_name)); original(source_fd,source_name,destination_fd,destination_name)
+    monkeypatch.setattr(closure,"_atomic_rename_noreplace",observed); result=_rebuild(execution,rollback,out)
+    assert result.status.endswith("_valid") and len(calls)==3 and calls[0][1]=="staging_identity.json" and calls[1][0]==calls[1][1]==Path(result.packet_root).name and calls[2][1]=="latest.json"
+    assert not list(out.glob(".hldlc-*")) and not list(out.glob(".latest-*")) and (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")
