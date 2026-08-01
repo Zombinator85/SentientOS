@@ -291,3 +291,63 @@ def test_validly_redigested_latest_pointer_substitution_is_rejected(tmp_path:Pat
     for field in ("execution_id","source_request_digest","final_lifecycle"):
         pointer=dict(pristine); pointer[field]="substituted"; pointer["digest"]=digest_record(pointer); (out/"latest.json").write_text(_canon(pointer)+"\n")
         assert load_latest_summary(out).status=="host_local_diagnostic_lifecycle_closure_latest_invalid"
+
+def _rebuild(execution:Any,rollback:Any,out:Path)->Any:
+    ed,rd=_digests(execution,rollback)
+    return build_lifecycle_closure(execution_bundle_root=execution.bundle_root,execution_bundle_digest=ed,rollback_bundle_root=rollback.bundle_root,rollback_bundle_digest=rd,closure_time=NOW,output_root=out)
+
+def _prepared_staging_residue(out:Path,name:str=".hldlc-prepared") -> tuple[Path,Path]:
+    out.mkdir(parents=True,exist_ok=True); staging=out/name; staging.mkdir(); identity=out/".hldlc-staging-identity-test"
+    identity.write_text(_canon(closure._staging_record("hldlc-"+"1"*24,name,out.resolve()))+"\n")
+    return identity,staging
+
+def _canonical_staging_residue(source:Path,out:Path,name:str=".hldlc-canonical") -> Path:
+    out.mkdir(parents=True,exist_ok=True); staging=out/name; staging.mkdir(); shutil.copytree(source,staging/source.name)
+    (staging/"staging_identity.json").write_text(_canon(closure._staging_record(source.name,name,out.resolve()))+"\n")
+    return staging
+
+def test_reconciliation_rejects_reserved_directory_substitution_before_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); reserved=out/".hldlc-reserved"; reserved.mkdir(); original=out/"reserved-original"; replacement=reserved/"replacement"
+    def hook(event:str,path:Path)->None:
+        nonlocal replacement
+        if event=="staging_reconciliation_classified": reserved.rename(original); (original/"sentinel").write_bytes(b"original"); reserved.mkdir(); replacement=reserved/"replacement"; replacement.write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_candidate_identity_changed" in result.findings and (original/"sentinel").read_bytes()==b"original" and replacement.read_bytes()==b"replacement" and not (out/"latest.json").exists()
+
+def test_reconciliation_rejects_prepared_identity_substitution_before_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); identity,associated=_prepared_staging_residue(out); original=out/"identity-original"; replacement=b"replacement\n"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="staging_reconciliation_before_remove_candidate" and path.name==identity.name and not fired: fired=True; identity.rename(original); identity.write_bytes(replacement)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_candidate_bytes_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings) and identity.read_bytes()==replacement and original.is_file() and associated.is_dir() and not (out/"latest.json").exists()
+
+def test_reconciliation_rejects_canonical_staging_root_substitution_before_recursive_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); staging=_canonical_staging_residue(Path(packet.packet_root),out); original=out/"canonical-original"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="staging_reconciliation_before_remove_candidate" and path.name==staging.name and not fired: fired=True; staging.rename(original); staging.mkdir(); (staging/"replacement").write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_candidate_identity_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings) and (staging/"replacement").read_bytes()==b"replacement" and original.is_dir()
+
+def test_reconciliation_rejects_canonical_nested_member_substitution_before_recursive_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); staging=_canonical_staging_residue(Path(packet.packet_root),out); target=staging/"staging_identity.json"; original=staging/"identity-original"; sibling=staging/Path(packet.packet_root).name; before=_packet_snapshot(sibling); fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="staging_reconciliation_before_remove_member" and path.name==target.name and not fired: fired=True; target.rename(original); target.write_bytes(b"replacement\n")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_nested_member_identity_changed" in result.findings and target.read_bytes()==b"replacement\n" and original.is_file() and before==_packet_snapshot(sibling) and not (out/"latest.json").exists()
+
+def test_reconciliation_rejects_publication_root_replacement_before_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); reserved=out/".hldlc-reserved"; reserved.mkdir(); original=tmp_path/"publication-original"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="staging_reconciliation_classified" and not fired: fired=True; out.rename(original); out.mkdir(); (out/"replacement").write_bytes(b"replacement")
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("staging_reconciliation_publication_root_identity_changed",) and (original/reserved.name).is_dir() and (out/"replacement").read_bytes()==b"replacement" and not (original/"latest.json").exists() and not (out/"latest.json").exists()
+
+def test_descriptor_relative_reconciliation_removes_only_identity_bound_candidates(tmp_path:Path)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); reserved=out/".hldlc-reserved"; reserved.mkdir(); identity,associated=_prepared_staging_residue(out); canonical=_canonical_staging_residue(Path(packet.packet_root),out); sentinel=out/"unrelated"; sentinel.mkdir(); (sentinel/"bytes").write_bytes(b"unchanged"); before=_packet_snapshot(sentinel)
+    result=_rebuild(execution,rollback,out)
+    assert result.status.endswith("_valid") and not any(path.exists() for path in (reserved,identity,associated,canonical)) and not list(out.glob(".hldlc-*")) and before==_packet_snapshot(sentinel)
+    assert len([path for path in out.iterdir() if path.is_dir() and path.name.startswith("hldlc-")])==1 and (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")

@@ -298,93 +298,256 @@ def _valid_staging_record(record: Mapping[str, Any], *, out: Path, staging_name:
     return valid, str(closure_id or "")
 
 
-def _stable_lstat(path: Path, before: os.stat_result) -> bool:
+@dataclass(frozen=True)
+class _StagingMemberCustody:
+    relative_path: str
+    basename: str
+    device: int
+    inode: int
+    object_type: str
+    mode: int
+    size: int
+    modification_time_ns: int
+    exact_bytes: bytes = b""
+    digest: str = ""
+    expected_child_membership: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _StagingCandidateCustody:
+    kind: str
+    basename: str
+    device: int
+    inode: int
+    object_type: str
+    mode: int
+    size: int
+    modification_time_ns: int
+    exact_bytes: bytes = b""
+    digest: str = ""
+    associated_staging_basename: str = ""
+    staging_identity_record: tuple[tuple[str, Any], ...] = ()
+    expected_immediate_membership: tuple[str, ...] = ()
+    nested_members: tuple[_StagingMemberCustody, ...] = ()
+
+
+class _StagingCustodyMismatch(Exception):
+    def __init__(self, finding: str) -> None:
+        super().__init__(finding); self.finding = finding
+
+
+def _fs_type(mode: int) -> str:
+    if stat.S_ISREG(mode): return "regular"
+    if stat.S_ISDIR(mode): return "directory"
+    if stat.S_ISLNK(mode): return "symlink"
+    return "unsupported"
+
+
+def _fs_identity(info: os.stat_result) -> tuple[int, int, str]:
+    return info.st_dev, info.st_ino, _fs_type(info.st_mode)
+
+
+def _directory_flags() -> int:
+    return os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+
+
+def _open_directory(name: str | Path, *, dir_fd: int | None = None) -> int:
+    return os.open(name, _directory_flags(), dir_fd=dir_fd)
+
+
+def _root_is_bound(out: Path, root_fd: int, expected: tuple[int, int, str]) -> bool:
     try:
-        after = path.lstat()
-    except FileNotFoundError:
+        opened = os.fstat(root_fd); named = os.stat(out, follow_symlinks=False)
+    except OSError:
         return False
-    return (before.st_mode, before.st_dev, before.st_ino) == (after.st_mode, after.st_dev, after.st_ino)
+    return stat.S_ISDIR(opened.st_mode) and _fs_identity(opened) == expected == _fs_identity(named)
 
 
-def _empty_real_directory(path: Path) -> tuple[bool, os.stat_result | None]:
+def _read_file_at(parent_fd: int, name: str) -> tuple[bytes, os.stat_result]:
+    entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if not stat.S_ISREG(entry.st_mode): raise ValueError("not_regular")
+    fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
     try:
-        before = path.lstat()
-        if not stat.S_ISDIR(before.st_mode) or path.is_symlink():
-            return False, None
-        empty = not any(os.scandir(path))
-        return empty and _stable_lstat(path, before), before
-    except (FileNotFoundError, OSError):
-        return False, None
+        before = os.fstat(fd)
+        if _fs_identity(before) != _fs_identity(entry): raise ValueError("identity_changed")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(fd, 131072)
+            if not chunk: break
+            chunks.append(chunk)
+        after = os.fstat(fd); rebound = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (_fs_identity(before), before.st_size, before.st_mtime_ns) != (_fs_identity(after), after.st_size, after.st_mtime_ns) or _fs_identity(after) != _fs_identity(rebound): raise ValueError("identity_changed")
+        return b"".join(chunks), after
+    finally: os.close(fd)
 
 
-def _reconcile_staging(out: Path) -> tuple[list[str], list[str]]:
-    candidates = sorted((entry for entry in os.scandir(out) if entry.name.startswith(_STAGING_PREFIX)), key=lambda entry: entry.name)
-    verified: list[tuple[str, Path, Path | None]] = []
-    findings: list[str] = []
-    for entry in candidates:
-        path = out / entry.name
+def _snapshot_directory_at(parent_fd: int, name: str) -> tuple[os.stat_result, tuple[str, ...], tuple[_StagingMemberCustody, ...]]:
+    entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if not stat.S_ISDIR(entry.st_mode): raise ValueError("not_directory")
+    fd = _open_directory(name, dir_fd=parent_fd)
+    try:
+        opened = os.fstat(fd)
+        if _fs_identity(opened) != _fs_identity(entry): raise ValueError("identity_changed")
+        immediate = tuple(sorted(os.listdir(fd))); members: list[_StagingMemberCustody] = []
+        def walk(current_fd: int, prefix: str) -> None:
+            names = tuple(sorted(os.listdir(current_fd)))
+            for child_name in names:
+                info = os.stat(child_name, dir_fd=current_fd, follow_symlinks=False); kind = _fs_type(info.st_mode)
+                relative = f"{prefix}/{child_name}" if prefix else child_name
+                if kind == "regular":
+                    raw, stable = _read_file_at(current_fd, child_name)
+                    members.append(_StagingMemberCustody(relative, child_name, stable.st_dev, stable.st_ino, kind, stat.S_IMODE(stable.st_mode), stable.st_size, stable.st_mtime_ns, raw, _raw_sha(raw)))
+                elif kind == "directory":
+                    child_fd = _open_directory(child_name, dir_fd=current_fd)
+                    try:
+                        stable = os.fstat(child_fd)
+                        if _fs_identity(stable) != _fs_identity(info): raise ValueError("identity_changed")
+                        membership = tuple(sorted(os.listdir(child_fd)))
+                        members.append(_StagingMemberCustody(relative, child_name, stable.st_dev, stable.st_ino, kind, stat.S_IMODE(stable.st_mode), stable.st_size, stable.st_mtime_ns, expected_child_membership=membership))
+                        walk(child_fd, relative)
+                    finally: os.close(child_fd)
+                else: raise ValueError("unsupported_member")
+        walk(fd, "")
+        if _fs_identity(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != _fs_identity(opened): raise ValueError("identity_changed")
+        return opened, immediate, tuple(members)
+    finally: os.close(fd)
+
+
+def _read_relative_file(root_fd: int, directory_name: str, relative: str) -> tuple[bytes, os.stat_result]:
+    fd = _open_directory(directory_name, dir_fd=root_fd); opened: list[int] = []
+    try:
+        current = fd; parts = PurePosixPath(relative).parts
+        for part in parts[:-1]:
+            current = _open_directory(part, dir_fd=current); opened.append(current)
+        return _read_file_at(current, parts[-1])
+    finally:
+        for child in reversed(opened): os.close(child)
+        os.close(fd)
+
+
+def _classify_staging(out: Path, root_fd: int) -> tuple[tuple[_StagingCandidateCustody, ...], list[str]]:
+    names = tuple(sorted(name for name in os.listdir(root_fd) if name.startswith(_STAGING_PREFIX)))
+    findings: list[str] = []; prepared: dict[str, tuple[str, bytes, os.stat_result, Mapping[str, Any]]] = {}
+    for name in names:
+        if not name.startswith(_STAGING_IDENTITY_PREFIX): continue
         try:
-            before = path.lstat()
-            if entry.name.startswith(_STAGING_IDENTITY_PREFIX):
-                if entry.is_symlink() or not stat.S_ISREG(before.st_mode):
-                    raise ValueError("temporary_identity_not_real_file")
-                raw = path.read_bytes()
-                record = _dict(json.loads(raw))
-                staging_name = record.get("staging_name")
-                valid, _ = _valid_staging_record(record, out=out, staging_name=str(staging_name or ""))
-                if not raw.endswith(b"\n") or _canon(record).encode() + b"\n" != raw or not valid or not _stable_lstat(path, before):
-                    raise ValueError("temporary_identity_invalid")
-                associated = out / str(staging_name)
-                if associated.exists() or associated.is_symlink():
-                    empty, _ = _empty_real_directory(associated)
-                    if not empty:
-                        raise ValueError("temporary_identity_staging_unsafe")
-                    verified.append(("prepared", path, associated))
-                else:
-                    verified.append(("prepared", path, None))
-                continue
-            if entry.is_symlink() or not stat.S_ISDIR(before.st_mode):
-                raise ValueError("staging_entry_not_real_directory")
-            children = list(os.scandir(path))
-            if not children and _stable_lstat(path, before):
-                verified.append(("reserved", path, None)); continue
-            record = _json(path / "staging_identity.json")
-            valid, closure_id = _valid_staging_record(record, out=out, staging_name=entry.name)
-            if not valid:
-                raise ValueError("staging_identity_invalid")
-            if {child.name for child in children} - {"staging_identity.json", closure_id}:
-                raise ValueError("staging_membership_invalid")
-            packet_child = path / closure_id
-            if packet_child.exists() and (packet_child.is_symlink() or not packet_child.is_dir()):
-                raise ValueError("staging_packet_not_real_directory")
-            for nested_root, directories, files in os.walk(path, followlinks=False):
-                for name in [*directories, *files]:
-                    if (Path(nested_root) / name).is_symlink():
-                        raise ValueError("staging_symlink_membership")
-            if not _stable_lstat(path, before):
-                raise ValueError("staging_identity_changed")
-            verified.append(("canonical", path, None))
-        except Exception as exc:
-            findings.append(f"unsafe_staging_residue:{entry.name}:{type(exc).__name__}")
-    if findings:
-        return findings, []
-    reconciled: list[str] = []
-    prepared_directories = {associated for kind, _, associated in verified if kind == "prepared" and associated is not None}
-    for kind, path, associated_path in verified:
-        if kind == "reserved" and path in prepared_directories:
-            continue
-        if kind == "canonical":
-            shutil.rmtree(path)
-        elif kind == "prepared":
-            path.unlink()
-            if associated_path is not None:
-                os.rmdir(associated_path)
-        else:
-            os.rmdir(path)
-        reconciled.append(path.name)
-        _publication_hook("staging_reconciled", path)
-    return [], reconciled
+            raw, info = _read_file_at(root_fd, name); record = _dict(json.loads(raw)); staging_name = str(record.get("staging_name", ""))
+            valid, _ = _valid_staging_record(record, out=out, staging_name=staging_name)
+            if not raw.endswith(b"\n") or raw != _canon(record).encode() + b"\n" or not valid or staging_name in prepared: raise ValueError("invalid_identity")
+            prepared[staging_name] = name, raw, info, record
+        except Exception as exc: findings.append(f"unsafe_staging_residue:{name}:{type(exc).__name__}")
+    plans: list[_StagingCandidateCustody] = []
+    for association, prepared_value in prepared.items():
+        name, raw, info, prepared_record = prepared_value
+        plans.append(_StagingCandidateCustody("prepared_identity", name, info.st_dev, info.st_ino, "regular", stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns, raw, _raw_sha(raw), association, tuple(sorted(prepared_record.items()))))
+    for name in names:
+        if name.startswith(_STAGING_IDENTITY_PREFIX): continue
+        try:
+            info, immediate, members = _snapshot_directory_at(root_fd, name)
+            if name in prepared:
+                if immediate: raise ValueError("associated_not_empty")
+                kind = "prepared_directory"; record_items: tuple[tuple[str, Any], ...] = ()
+            elif not immediate: kind = "reserved"; record_items = ()
+            else:
+                raw, _ = _read_relative_file(root_fd, name, "staging_identity.json"); record = _dict(json.loads(raw))
+                valid, closure_id = _valid_staging_record(record, out=out, staging_name=name)
+                if not raw.endswith(b"\n") or raw != _canon(record).encode() + b"\n" or not valid: raise ValueError("invalid_identity")
+                if set(immediate) - {"staging_identity.json", closure_id}: raise ValueError("invalid_membership")
+                kind = "canonical"; record_items = tuple(sorted(record.items()))
+            plans.append(_StagingCandidateCustody(kind, name, info.st_dev, info.st_ino, "directory", stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns, associated_staging_basename=name if kind == "prepared_directory" else "", staging_identity_record=record_items, expected_immediate_membership=immediate, nested_members=members))
+        except Exception as exc: findings.append(f"unsafe_staging_residue:{name}:{type(exc).__name__}")
+    priority = {"prepared_identity": 0, "prepared_directory": 1, "reserved": 2, "canonical": 3}
+    return tuple(sorted(plans, key=lambda plan: (priority[plan.kind], plan.basename))), findings
 
+
+def _plan_difference(initial: tuple[_StagingCandidateCustody, ...], terminal: tuple[_StagingCandidateCustody, ...]) -> str:
+    if {(x.kind, x.basename) for x in initial} != {(x.kind, x.basename) for x in terminal}: return "staging_reconciliation_candidate_set_changed"
+    for before, after in zip(initial, terminal):
+        if (before.device, before.inode, before.object_type, before.mode) != (after.device, after.inode, after.object_type, after.mode): return "staging_reconciliation_candidate_identity_changed"
+        if before.exact_bytes != after.exact_bytes or before.digest != after.digest: return "staging_reconciliation_candidate_bytes_changed"
+        if before.expected_immediate_membership != after.expected_immediate_membership or before.nested_members != after.nested_members: return "staging_reconciliation_candidate_membership_changed"
+        if before != after: return "staging_reconciliation_candidate_identity_changed"
+    return ""
+
+
+def _verify_candidate(root_fd: int, plan: _StagingCandidateCustody) -> int | None:
+    try:
+        if plan.object_type == "regular":
+            raw, info = _read_file_at(root_fd, plan.basename)
+            if (_fs_identity(info), stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns, raw, _raw_sha(raw)) != ((plan.device, plan.inode, plan.object_type), plan.mode, plan.size, plan.modification_time_ns, plan.exact_bytes, plan.digest): raise _StagingCustodyMismatch("staging_reconciliation_candidate_bytes_changed")
+            return None
+        info, membership, members = _snapshot_directory_at(root_fd, plan.basename)
+        if _fs_identity(info) != (plan.device, plan.inode, plan.object_type): raise _StagingCustodyMismatch("staging_reconciliation_candidate_identity_changed")
+        if membership != plan.expected_immediate_membership or members != plan.nested_members: raise _StagingCustodyMismatch("staging_reconciliation_candidate_membership_changed")
+        return _open_directory(plan.basename, dir_fd=root_fd)
+    except _StagingCustodyMismatch: raise
+    except Exception as exc: raise _StagingCustodyMismatch("staging_reconciliation_candidate_identity_changed") from exc
+
+
+def _remove_canonical(root_fd: int, plan: _StagingCandidateCustody, staging_fd: int) -> None:
+    expected = {member.relative_path: member for member in plan.nested_members}
+    def remove(parent_fd: int, prefix: str) -> None:
+        direct = [member for path, member in expected.items() if PurePosixPath(path).parent.as_posix() == (prefix or ".")]
+        if tuple(sorted(os.listdir(parent_fd))) != tuple(sorted(member.basename for member in direct)): raise _StagingCustodyMismatch("staging_reconciliation_candidate_membership_changed")
+        for member in sorted(direct, key=lambda item: item.basename, reverse=True):
+            _publication_hook("staging_reconciliation_before_remove_member", Path(plan.basename) / member.relative_path)
+            try: entry = os.stat(member.basename, dir_fd=parent_fd, follow_symlinks=False)
+            except OSError as exc: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed") from exc
+            if _fs_identity(entry) != (member.device, member.inode, member.object_type) or stat.S_IMODE(entry.st_mode) != member.mode: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+            if member.object_type == "regular":
+                raw, stable = _read_file_at(parent_fd, member.basename)
+                if raw != member.exact_bytes or _raw_sha(raw) != member.digest or stable.st_size != member.size: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                os.unlink(member.basename, dir_fd=parent_fd)
+            else:
+                child_fd = _open_directory(member.basename, dir_fd=parent_fd)
+                try:
+                    if _fs_identity(os.fstat(child_fd)) != (member.device, member.inode, member.object_type) or tuple(sorted(os.listdir(child_fd))) != member.expected_child_membership: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                    remove(child_fd, member.relative_path)
+                    rebound = os.stat(member.basename, dir_fd=parent_fd, follow_symlinks=False)
+                    if _fs_identity(rebound) != _fs_identity(os.fstat(child_fd)): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                    os.rmdir(member.basename, dir_fd=parent_fd)
+                finally: os.close(child_fd)
+    remove(staging_fd, "")
+
+
+def _reconcile_staging(out: Path, root_fd: int, root_identity: tuple[int, int, str]) -> tuple[list[str], list[str]]:
+    initial, findings = _classify_staging(out, root_fd)
+    if findings: return findings, []
+    _publication_hook("staging_reconciliation_classified", out)
+    if not _root_is_bound(out, root_fd, root_identity): return ["staging_reconciliation_publication_root_identity_changed"], []
+    terminal, terminal_findings = _classify_staging(out, root_fd)
+    if terminal_findings: return ["staging_reconciliation_candidate_identity_changed"], []
+    difference = _plan_difference(initial, terminal)
+    if difference: return [difference], []
+    _publication_hook("staging_reconciliation_terminal_validated", out)
+    if not _root_is_bound(out, root_fd, root_identity): return ["staging_reconciliation_publication_root_identity_changed"], []
+    removed: list[str] = []
+    try:
+        for plan in terminal:
+            _publication_hook("staging_reconciliation_before_remove_candidate", out / plan.basename); directory_fd = _verify_candidate(root_fd, plan)
+            if plan.kind == "prepared_identity": os.unlink(plan.basename, dir_fd=root_fd)
+            elif plan.kind == "canonical":
+                assert directory_fd is not None
+                try: _remove_canonical(root_fd, plan, directory_fd)
+                finally: os.close(directory_fd)
+                if _fs_identity(os.stat(plan.basename, dir_fd=root_fd, follow_symlinks=False)) != (plan.device, plan.inode, plan.object_type): raise _StagingCustodyMismatch("staging_reconciliation_candidate_identity_changed")
+                os.rmdir(plan.basename, dir_fd=root_fd)
+            else:
+                assert directory_fd is not None
+                try:
+                    if os.listdir(directory_fd): raise _StagingCustodyMismatch("staging_reconciliation_candidate_membership_changed")
+                    if _fs_identity(os.stat(plan.basename, dir_fd=root_fd, follow_symlinks=False)) != _fs_identity(os.fstat(directory_fd)): raise _StagingCustodyMismatch("staging_reconciliation_candidate_identity_changed")
+                    os.rmdir(plan.basename, dir_fd=root_fd)
+                finally: os.close(directory_fd)
+            removed.append(plan.basename); _publication_hook("staging_reconciled", out / plan.basename)
+    except _StagingCustodyMismatch as exc:
+        return [exc.finding, "staging_reconciliation_cleanup_posture:" + ("some_verified_candidates_removed" if removed else "zero_candidates_removed")], removed
+    if not _root_is_bound(out, root_fd, root_identity): return ["staging_reconciliation_publication_root_identity_changed"], removed
+    if any(name.startswith(_STAGING_PREFIX) for name in os.listdir(root_fd)): return ["staging_reconciliation_candidate_set_changed"], removed
+    try: os.fsync(root_fd)
+    except OSError as exc:
+        if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP}: raise
+    return [], removed
 
 def _flush_directory(path: Path) -> None:
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
@@ -443,49 +606,59 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
         _publication_hook("lock_waiting", out)
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX); destination = out / closure_id
         _publication_hook("locked_enter", out)
-        staging_findings, _ = _reconcile_staging(out)
-        if staging_findings:
-            _publication_hook("locked_exit", out)
-            return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(staging_findings), {})
-        if destination.exists():
-            loaded = validate_lifecycle_closure(destination)
-            loaded_final = _dict(loaded.records.get("final_manifest")); loaded_summary = _dict(loaded.records.get("summary"))
-            if loaded.status != "host_local_diagnostic_lifecycle_closure_valid" or any(loaded_summary.get(k) != v for k, v in identity.items()): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("closure_identity_conflict",), {})
-            pointer = _pointer(identity, str(loaded_final.get("packet_digest", "")))
-            latest = out / "latest.json"
-            recovered = not latest.exists()
-            if latest.exists() and _json(latest) != pointer: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
-            if not latest.exists(): _write_pointer(out, pointer)
-            _publication_hook("locked_exit", out)
-            return ClosureOutcome(loaded.status, (), loaded.records, loaded.packet_root, True, "recovered" if recovered else "replayed")
-        if (out / "latest.json").exists(): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
-        temporary_parent = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=out)); staged = temporary_parent / closure_id
-        temporary_identity: Path | None = None
         try:
-            _publication_hook("staging_directory_reserved", temporary_parent)
-            temporary_identity = _prepare_staging_identity(out, temporary_parent, closure_id)
-            staged.mkdir()
-            _publication_hook("staging_created", temporary_parent)
-            _copy_bundle(execution_root, staged / EXECUTION_PATH); _copy_bundle(rollback_root, staged / ROLLBACK_PATH)
-            report = {**base_report, **identity}; report["digest"] = digest_record(report); (staged / "closure_report.json").write_text(_canon(report) + "\n")
-            summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); (staged / "summary.json").write_text(_canon(summary) + "\n")
-            content_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
-            content = _manifest(staged, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); (staged / "content_manifest.json").write_text(_canon(content) + "\n")
-            receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content["content_manifest_digest"]}; receipt["digest"] = digest_record(receipt); (staged / "receipt.json").write_text(_canon(receipt) + "\n")
-            final_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
-            final = _manifest(staged, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); (staged / "final_manifest.json").write_text(_canon(final) + "\n")
-            staged_result = validate_lifecycle_closure(staged, expected_packet_digest=str(final["packet_digest"]))
-            if staged_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", staged_result.findings, {})
-            _publish_packet(staged, destination)
-            published = validate_lifecycle_closure(destination, expected_packet_digest=str(final["packet_digest"]))
-            if published.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published.findings, {})
-            _publication_hook("packet_published", destination)
-            _write_pointer(out, _pointer(identity, str(final["packet_digest"])))
+            root_fd = _open_directory(out)
+        except OSError:
+            return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("staging_reconciliation_publication_root_identity_changed",), {})
+        try:
+            root_info = os.fstat(root_fd); root_identity = _fs_identity(root_info)
+            if not stat.S_ISDIR(root_info.st_mode) or not _root_is_bound(out, root_fd, root_identity):
+                return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("staging_reconciliation_publication_root_identity_changed",), {})
+            staging_findings, _ = _reconcile_staging(out, root_fd, root_identity)
+            if staging_findings:
+                _publication_hook("locked_exit", out)
+                return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(staging_findings), {})
+            if destination.exists():
+                loaded = validate_lifecycle_closure(destination)
+                loaded_final = _dict(loaded.records.get("final_manifest")); loaded_summary = _dict(loaded.records.get("summary"))
+                if loaded.status != "host_local_diagnostic_lifecycle_closure_valid" or any(loaded_summary.get(k) != v for k, v in identity.items()): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("closure_identity_conflict",), {})
+                pointer = _pointer(identity, str(loaded_final.get("packet_digest", "")))
+                latest = out / "latest.json"
+                recovered = not latest.exists()
+                if latest.exists() and _json(latest) != pointer: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
+                if not latest.exists(): _write_pointer(out, pointer)
+                _publication_hook("locked_exit", out)
+                return ClosureOutcome(loaded.status, (), loaded.records, loaded.packet_root, True, "recovered" if recovered else "replayed")
+            if (out / "latest.json").exists(): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
+            temporary_parent = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=out)); staged = temporary_parent / closure_id
+            temporary_identity: Path | None = None
+            try:
+                _publication_hook("staging_directory_reserved", temporary_parent)
+                temporary_identity = _prepare_staging_identity(out, temporary_parent, closure_id)
+                staged.mkdir()
+                _publication_hook("staging_created", temporary_parent)
+                _copy_bundle(execution_root, staged / EXECUTION_PATH); _copy_bundle(rollback_root, staged / ROLLBACK_PATH)
+                report = {**base_report, **identity}; report["digest"] = digest_record(report); (staged / "closure_report.json").write_text(_canon(report) + "\n")
+                summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); (staged / "summary.json").write_text(_canon(summary) + "\n")
+                content_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
+                content = _manifest(staged, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); (staged / "content_manifest.json").write_text(_canon(content) + "\n")
+                receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content["content_manifest_digest"]}; receipt["digest"] = digest_record(receipt); (staged / "receipt.json").write_text(_canon(receipt) + "\n")
+                final_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
+                final = _manifest(staged, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); (staged / "final_manifest.json").write_text(_canon(final) + "\n")
+                staged_result = validate_lifecycle_closure(staged, expected_packet_digest=str(final["packet_digest"]))
+                if staged_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", staged_result.findings, {})
+                _publish_packet(staged, destination)
+                published = validate_lifecycle_closure(destination, expected_packet_digest=str(final["packet_digest"]))
+                if published.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published.findings, {})
+                _publication_hook("packet_published", destination)
+                _write_pointer(out, _pointer(identity, str(final["packet_digest"])))
+            finally:
+                if temporary_identity is not None:
+                    temporary_identity.unlink(missing_ok=True)
+                shutil.rmtree(temporary_parent, ignore_errors=True)
+            _publication_hook("locked_exit", out)
         finally:
-            if temporary_identity is not None:
-                temporary_identity.unlink(missing_ok=True)
-            shutil.rmtree(temporary_parent, ignore_errors=True)
-        _publication_hook("locked_exit", out)
+            os.close(root_fd)
     return ClosureOutcome(published.status, published.findings, published.records, published.packet_root, False, "published")
 
 
