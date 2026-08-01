@@ -89,3 +89,8 @@ Representative exact behavioral nodes are:
 - `tests/test_host_local_diagnostic_lifecycle_closure.py::test_process_death_after_packet_rename_preserves_packet_root_and_descendants`
 - `tests/test_host_local_diagnostic_lifecycle_closure.py::test_bootstrap_crash_recovery_binds_one_closure_and_packet_digest`
 - `tests/test_host_local_diagnostic_lifecycle_closure.py::test_validly_redigested_latest_pointer_substitution_is_rejected`
+
+
+## Publication-root custody proof
+
+Representative focused proofs cover metadata-only reconciliation blocking, pathname replacement after reconciliation and immediately before packet or pointer publication, descriptor-bound successful packet/pointer commit, and recovery of a complete packet whose pointer was withheld. Reviewers should use the named lifecycle-closure tests and confirm that schemas and caller-visible logical paths remain unchanged; the architecture document owns the detailed algorithm.

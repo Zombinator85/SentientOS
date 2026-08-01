@@ -351,3 +351,75 @@ def test_descriptor_relative_reconciliation_removes_only_identity_bound_candidat
     result=_rebuild(execution,rollback,out)
     assert result.status.endswith("_valid") and not any(path.exists() for path in (reserved,identity,associated,canonical)) and not list(out.glob(".hldlc-*")) and before==_packet_snapshot(sentinel)
     assert len([path for path in out.iterdir() if path.is_dir() and path.name.startswith("hldlc-")])==1 and (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")
+
+def test_reconciliation_rejects_reserved_directory_mode_change_before_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); target=out/".hldlc-reserved"; target.mkdir(); sentinel=out/"sentinel"; sentinel.write_bytes(b"keep"); before=sentinel.stat()
+    def hook(event:str,path:Path)->None:
+        if event=="staging_reconciliation_before_remove_candidate" and path.name==target.name: target.chmod(0o700)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_candidate_metadata_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings)
+    assert target.is_dir() and sentinel.read_bytes()==b"keep" and (sentinel.stat().st_dev,sentinel.stat().st_ino)==(before.st_dev,before.st_ino) and not (out/"latest.json").exists()
+
+
+def test_reconciliation_rejects_canonical_root_mtime_change_before_recursive_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); target=_canonical_staging_residue(Path(packet.packet_root),out); original=target.stat().st_mtime_ns
+    def hook(event:str,path:Path)->None:
+        if event=="staging_reconciliation_before_remove_candidate" and path.name==target.name: os.utime(target,ns=(target.stat().st_atime_ns,original+1_000_000))
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_candidate_metadata_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings) and target.is_dir() and not (out/"latest.json").exists()
+
+
+def test_reconciliation_rejects_nested_file_metadata_change_before_unlink(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); staging=_canonical_staging_residue(Path(packet.packet_root),out); target=staging/"staging_identity.json"; raw=target.read_bytes(); original=target.stat().st_mtime_ns
+    def hook(event:str,path:Path)->None:
+        if event=="staging_reconciliation_before_remove_member" and path.name==target.name: os.utime(target,ns=(target.stat().st_atime_ns,original+1_000_000))
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_nested_member_metadata_changed" in result.findings and "zero_candidates_removed" in " ".join(result.findings) and target.read_bytes()==raw and not (out/"latest.json").exists()
+
+
+def test_reconciliation_rejects_nested_directory_metadata_change_before_recursive_delete(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); staging=_canonical_staging_residue(Path(packet.packet_root),out); target=staging/Path(packet.packet_root).name/"bundles"; before=_packet_snapshot(target); fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="staging_reconciliation_before_remove_member" and path.name==target.name and not fired: fired=True; target.chmod(0o700)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert "staging_reconciliation_nested_member_metadata_changed" in result.findings and target.is_dir() and before.keys()==_packet_snapshot(target).keys() and not (out/"latest.json").exists()
+
+
+def _replace_root(out:Path, original:Path)->bytes:
+    out.rename(original); out.mkdir(); sentinel=out/"replacement-sentinel"; sentinel.write_bytes(b"replacement"); return sentinel.read_bytes()
+
+
+def test_publication_root_replacement_after_reconciliation_does_not_redirect_staging(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); original=tmp_path/"original"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_publication_after_reconciliation" and not fired: fired=True; _replace_root(out,original)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_publication_root_identity_changed_after_reconciliation",) and (out/"replacement-sentinel").read_bytes()==b"replacement" and not list(out.glob(".hldlc-*")) and not (out/"latest.json").exists()
+
+
+def test_publication_root_replacement_before_packet_publish_preserves_replacement(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); original=tmp_path/"original"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_publication_before_packet_publish" and not fired: fired=True; _replace_root(out,original)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_publication_root_identity_changed_before_packet_publish",) and (out/"replacement-sentinel").read_bytes()==b"replacement" and not (out/"latest.json").exists() and len(list(original.glob(".hldlc-*")))==1
+
+
+def test_publication_root_replacement_before_pointer_publish_withholds_pointer_from_replacement(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); original=tmp_path/"original"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_publication_before_pointer_publish" and not fired: fired=True; _replace_root(out,original)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_publication_root_identity_changed_before_pointer_publish",) and (out/"replacement-sentinel").read_bytes()==b"replacement" and not (out/"latest.json").exists()
+    packet=original/derive_closure_id(*_digests(execution,rollback),NOW); before=_packet_snapshot(packet); shutil.rmtree(out); original.rename(out); monkeypatch.setattr(closure,"_publication_hook",lambda *_:None); recovered=_rebuild(execution,rollback,out)
+    assert recovered.publication_posture=="recovered" and before==_packet_snapshot(out/packet.name) and (out/"latest.json").is_file()
+
+
+def test_descriptor_bound_publication_commits_packet_and_pointer_to_bound_root(tmp_path:Path)->None:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); out.mkdir(); sentinel=out/"sentinel"; sentinel.write_bytes(b"unchanged"); result=_rebuild(execution,rollback,out)
+    assert result.status.endswith("_valid") and result.packet_root==str(out/derive_closure_id(*_digests(execution,rollback),NOW)) and sentinel.read_bytes()==b"unchanged"
+    assert len([p for p in out.iterdir() if p.is_dir() and p.name.startswith("hldlc-")])==1 and (out/"latest.json").is_file() and not list(out.glob(".hldlc-*")) and not list(out.glob(".latest-*"))
