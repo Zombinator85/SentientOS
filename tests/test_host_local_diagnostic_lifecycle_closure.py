@@ -132,13 +132,13 @@ def test_correlation_override_is_rejected_before_any_publication(tmp_path:Path)-
     assert result.findings==("correlation_override_mismatch",) and not out.exists()
 
 def test_staged_copy_is_deeply_validated_before_publication(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); ed,rd=_digests(execution,rollback); original=closure._copy_bundle; calls=[]
-    def racing_copy(source:Path,destination:Path)->None:
-        calls.append(source); original(source,destination)
-        if len(calls)==1: (destination/"runtime_result.json").write_text("{}\n")
-    monkeypatch.setattr(closure,"_copy_bundle",racing_copy); out=tmp_path/"race"
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); ed,rd=_digests(execution,rollback); fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_packet_after_staged_validation" and not fired: fired=True; (path/"summary.json").write_text("{}\n")
+    monkeypatch.setattr(closure,"_publication_hook",hook); out=tmp_path/"race"
     result=build_lifecycle_closure(execution_bundle_root=execution.bundle_root,execution_bundle_digest=ed,rollback_bundle_root=rollback.bundle_root,rollback_bundle_digest=rd,closure_time=NOW,output_root=out)
-    assert result.status.startswith("blocked_") and not (out/derive_closure_id(ed,rd,NOW)).exists() and not (out/"latest.json").exists() and not list(out.glob(".hldlc-*"))
+    assert result.status.startswith("blocked_") and not (out/derive_closure_id(ed,rd,NOW)).exists() and not (out/"latest.json").exists() and list(out.glob(".hldlc-*"))
 
 def test_pending_lifecycle_is_rejected_after_nested_reseal(tmp_path:Path)->None:
     _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); rb=Path(rollback.bundle_root); value=json.loads((rb/"updated_lifecycle_report.json").read_text()); value["lifecycle_status"]="local_effect_lifecycle_rollback_pending"; (rb/"updated_lifecycle_report.json").write_text(_canon(value)+"\n"); _reseal_rollback(rb)
@@ -381,7 +381,7 @@ def test_reconciliation_rejects_nested_directory_metadata_change_before_recursiv
     _,execution,rollback,packet,_,_=_closed(tmp_path/"inputs"); out=(tmp_path/"out").resolve(); staging=_canonical_staging_residue(Path(packet.packet_root),out); target=staging/Path(packet.packet_root).name/"bundles"; before=_packet_snapshot(target); fired=False
     def hook(event:str,path:Path)->None:
         nonlocal fired
-        if event=="staging_reconciliation_before_remove_member" and path.name==target.name and not fired: fired=True; target.chmod(0o700)
+        if event=="staging_reconciliation_before_remove_member" and path.name==target.name and not fired: fired=True; target.chmod(0o755)
     monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
     assert "staging_reconciliation_nested_member_metadata_changed" in result.findings and target.is_dir() and before.keys()==_packet_snapshot(target).keys() and not (out/"latest.json").exists()
 
@@ -512,3 +512,99 @@ def test_atomic_no_replace_publication_commits_exact_packet_and_pointer(tmp_path
     monkeypatch.setattr(closure,"_atomic_rename_noreplace",observed); result=_rebuild(execution,rollback,out)
     assert result.status.endswith("_valid") and len(calls)==3 and calls[0][1]=="staging_identity.json" and calls[1][0]==calls[1][1]==Path(result.packet_root).name and calls[2][1]=="latest.json"
     assert not list(out.glob(".hldlc-*")) and not list(out.glob(".latest-*")) and (out/"latest.json").is_file() and validate_lifecycle_closure(result.packet_root).status.endswith("_valid")
+
+
+def _race_inputs(tmp_path:Path)->tuple[Any,Any,str,str,Path]:
+    _,execution,rollback,_,_,_=_closed(tmp_path/"inputs"); ed,rd=_digests(execution,rollback); return execution,rollback,ed,rd,(tmp_path/"out").resolve()
+
+
+def test_descriptor_native_copy_rejects_source_file_substitution_before_open(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    execution,rollback,ed,rd,out=_race_inputs(tmp_path); target=Path(execution.bundle_root)/"runtime_result.json"; original=target.with_name("runtime_result.original"); replacement=b'replacement'; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_copy_before_source_member_open" and path.as_posix().endswith("bundles/execution/runtime_result.json") and not fired: fired=True; target.rename(original); target.write_bytes(replacement)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_source_member_identity_changed_before_copy",) and target.read_bytes()==replacement and original.is_file() and not (out/derive_closure_id(ed,rd,NOW)).exists() and not (out/"latest.json").exists()
+    assert all(replacement not in path.read_bytes() for path in out.rglob("*") if path.is_file())
+
+
+def test_descriptor_native_copy_rejects_source_symlink_injection_without_reading_external_target(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    execution,rollback,ed,rd,out=_race_inputs(tmp_path); target=Path(execution.bundle_root)/"runtime_result.json"; original=target.with_name("runtime_result.original"); external=tmp_path/"external"; external.write_bytes(b'external-secret'); before=external.stat(); fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_copy_before_source_member_open" and path.as_posix().endswith("bundles/execution/runtime_result.json") and not fired: fired=True; target.rename(original); target.symlink_to(external)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out); after=external.stat()
+    assert result.status.startswith("blocked_") and target.is_symlink() and external.read_bytes()==b'external-secret' and (before.st_dev,before.st_ino,before.st_mtime_ns)==(after.st_dev,after.st_ino,after.st_mtime_ns)
+    assert all(b'external-secret' not in path.read_bytes() for path in out.rglob("*") if path.is_file()) and not (out/derive_closure_id(ed,rd,NOW)).exists() and not (out/"latest.json").exists()
+
+
+def test_descriptor_native_copy_rejects_source_metadata_change_during_copy(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    execution,rollback,_,_,out=_race_inputs(tmp_path); target=Path(execution.bundle_root)/"runtime_result.json"; fired=False
+    def hook(event:str,path:Path)->None:
+        nonlocal fired
+        if event=="lifecycle_copy_before_source_member_finalize" and path.as_posix().endswith("bundles/execution/runtime_result.json") and not fired: fired=True; target.chmod(0o640)
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==("lifecycle_source_member_metadata_changed_during_copy",) and not (out/"latest.json").exists()
+
+
+@pytest.mark.parametrize(("kind","finding"),(('file','lifecycle_destination_file_conflict'),('directory','lifecycle_destination_directory_conflict')))
+def test_descriptor_native_copy_preserves_injected_destination(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,kind:str,finding:str)->None:
+    execution,rollback,_,_,out=_race_inputs(tmp_path); captured:dict[str,Any]={}; event="lifecycle_copy_before_destination_member_create" if kind=='file' else "lifecycle_copy_before_destination_directory_create"
+    def hook(current:str,path:Path)->None:
+        if current==event and path.as_posix().endswith("bundles/execution/runtime_result.json" if kind=='file' else "bundles/execution") and not captured:
+            if kind=='file': path.write_bytes(b'sentinel')
+            else: path.mkdir(); (path/"sentinel").write_bytes(b'keep')
+            captured.update(path=path,snapshot=_packet_snapshot(path) if kind=='directory' else (path.stat(),path.read_bytes()))
+    monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out); path=Path(captured['path'])
+    assert result.findings==(finding,) and not (out/"latest.json").exists()
+    if kind=='file': assert path.read_bytes()==b'sentinel' and (path.stat().st_dev,path.stat().st_ino)==(captured['snapshot'][0].st_dev,captured['snapshot'][0].st_ino)
+    else: assert _packet_snapshot(path)==captured['snapshot']
+
+
+def test_descriptor_native_copy_preserves_injected_destination_file(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    test_descriptor_native_copy_preserves_injected_destination(tmp_path,monkeypatch,'file','lifecycle_destination_file_conflict')
+
+
+def test_descriptor_native_copy_preserves_injected_destination_directory(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    test_descriptor_native_copy_preserves_injected_destination(tmp_path,monkeypatch,'directory','lifecycle_destination_directory_conflict')
+
+
+@pytest.mark.parametrize(("mutation","finding"),(('bytes','lifecycle_packet_member_bytes_changed_before_commit'),('metadata','lifecycle_packet_member_metadata_changed_before_commit'),('membership','lifecycle_packet_membership_changed_before_commit')))
+def test_packet_mutation_after_staged_validation_blocks(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,mutation:str,finding:str)->None:
+    execution,rollback,ed,rd,out=_race_inputs(tmp_path); renamed=False
+    original=closure._atomic_rename_noreplace
+    def rename(*args:Any,**kwargs:Any)->None:
+        nonlocal renamed
+        if args[1]==args[3] and str(args[1]).startswith('hldlc-'): renamed=True
+        original(*args,**kwargs)
+    def hook(event:str,path:Path)->None:
+        if event=="lifecycle_publication_before_packet_publish":
+            target=path/"summary.json"
+            if mutation=='bytes': target.write_bytes(b'changed\n')
+            elif mutation=='metadata': target.chmod(0o640)
+            else: (path/"injected").write_bytes(b'injected')
+    monkeypatch.setattr(closure,"_atomic_rename_noreplace",rename); monkeypatch.setattr(closure,"_publication_hook",hook); result=_rebuild(execution,rollback,out)
+    assert result.findings==(finding,) and not renamed and not (out/derive_closure_id(ed,rd,NOW)).exists() and not (out/"latest.json").exists() and list(out.glob(".hldlc-*"))
+
+
+def test_packet_byte_mutation_after_staged_validation_blocks_before_final_rename(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None: test_packet_mutation_after_staged_validation_blocks(tmp_path,monkeypatch,'bytes','lifecycle_packet_member_bytes_changed_before_commit')
+def test_packet_metadata_mutation_after_staged_validation_blocks_before_final_rename(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None: test_packet_mutation_after_staged_validation_blocks(tmp_path,monkeypatch,'metadata','lifecycle_packet_member_metadata_changed_before_commit')
+def test_packet_membership_injection_after_staged_validation_blocks_before_final_rename(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None: test_packet_mutation_after_staged_validation_blocks(tmp_path,monkeypatch,'membership','lifecycle_packet_membership_changed_before_commit')
+
+
+def test_descriptor_native_packet_construction_uses_no_copytree_or_alias_mutation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    execution,rollback,_,_,out=_race_inputs(tmp_path); monkeypatch.setattr(shutil,"copytree",lambda *_a,**_k:pytest.fail("copytree used")); monkeypatch.setattr(closure,"_copy_bundle",lambda *_a,**_k:pytest.fail("pathname copy used"))
+    result=_rebuild(execution,rollback,out); assert result.status.endswith('_valid') and validate_lifecycle_closure(result.packet_root).status.endswith('_valid')
+
+
+def test_descriptor_native_packet_snapshots_match_before_and_after_commit(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
+    execution,rollback,_,_,out=_race_inputs(tmp_path); snapshots=[]; original=closure._packet_snapshot
+    def observed(fd:int)->Any:
+        value=original(fd); snapshots.append(value); return value
+    monkeypatch.setattr(closure,"_packet_snapshot",observed); result=_rebuild(execution,rollback,out)
+    assert result.status.endswith('_valid') and snapshots[-3]==snapshots[-2]==snapshots[-1]
+
+
+def test_atomic_rename_basename_validation_rejects_dot_and_dotdot()->None:
+    for name in ('','.', '..','a/b','a\\b','/absolute'): assert not closure._safe_basename(name)
+    assert closure._safe_basename('.hldlc-safe')

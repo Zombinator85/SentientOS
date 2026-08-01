@@ -7,7 +7,6 @@ import errno
 import hashlib
 import json
 import os
-import shutil
 import stat
 import tempfile
 from dataclasses import asdict, dataclass
@@ -239,11 +238,11 @@ def _publication_hook(event: str, path: Path) -> None:
 
 
 def _copy_bundle(source: Path, destination: Path) -> None:
-    shutil.copytree(source, destination)
+    raise RuntimeError("pathname bundle copying is forbidden")
 
 
 def _safe_basename(name: str) -> bool:
-    return bool(name) and Path(name).name == name and PurePosixPath(name).parts == (name,) and "\\" not in name
+    return name not in {"", ".", ".."} and Path(name).name == name and PurePosixPath(name).parts == (name,) and "\\" not in name
 
 
 def _atomic_rename_noreplace(source_dir_fd: int, source_name: str, destination_dir_fd: int, destination_name: str) -> None:
@@ -374,6 +373,96 @@ class _PreparedFileCustody:
     parent_role: str
 
 
+@dataclass(frozen=True)
+class _SourceMemberPlan:
+    relative_path: str
+    basename: str
+    parent_path: str
+    role: str
+    object_type: str
+    device: int
+    inode: int
+    mode: int
+    size: int
+    modification_time_ns: int
+    child_membership: tuple[str, ...] = ()
+    digest: str = ""
+
+
+_MAX_PACKET_ENTRIES = 4096
+_MAX_PACKET_BYTES = 256 * 1024 * 1024
+_MAX_PACKET_DEPTH = 32
+_MAX_PACKET_PATH = 4096
+
+
+def _metadata(info: os.stat_result) -> tuple[tuple[int, int, str], int, int, int]:
+    return _fs_identity(info), stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns
+
+
+def _source_root_bound(path: Path, fd: int, expected: tuple[tuple[int, int, str], int, int, int]) -> bool:
+    try:
+        return _metadata(os.fstat(fd)) == expected == _metadata(os.stat(path, follow_symlinks=False))
+    except OSError:
+        return False
+
+
+def _safe_relative(relative: str) -> bool:
+    pure = PurePosixPath(relative)
+    return (
+        bool(relative) and not pure.is_absolute() and len(relative) <= _MAX_PACKET_PATH
+        and len(pure.parts) <= _MAX_PACKET_DEPTH and all(_safe_basename(part) for part in pure.parts)
+    )
+
+
+def _read_fd(fd: int, maximum: int) -> bytes:
+    chunks: list[bytes] = []; total = 0
+    os.lseek(fd, 0, os.SEEK_SET)
+    while True:
+        chunk = os.read(fd, min(131072, maximum + 1 - total))
+        if not chunk: break
+        chunks.append(chunk); total += len(chunk)
+        if total > maximum: raise _StagingCustodyMismatch("lifecycle_source_plan_byte_bound_exceeded")
+    return b"".join(chunks)
+
+
+def _build_source_plan(root_fd: int, role: str) -> tuple[_SourceMemberPlan, ...]:
+    plans: list[_SourceMemberPlan] = []; total = 0
+    def walk(parent_fd: int, parent_path: str) -> None:
+        nonlocal total
+        names = tuple(sorted(os.listdir(parent_fd)))
+        for name in names:
+            relative = f"{parent_path}/{name}" if parent_path else name
+            if not _safe_basename(name) or not _safe_relative(relative):
+                raise _StagingCustodyMismatch("lifecycle_source_member_symlink_or_unsupported")
+            entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False); kind = _fs_type(entry.st_mode)
+            if kind == "directory":
+                child_fd = _open_directory(name, dir_fd=parent_fd)
+                try:
+                    opened = os.fstat(child_fd)
+                    if _metadata(opened) != _metadata(entry): raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy")
+                    children = tuple(sorted(os.listdir(child_fd)))
+                    plans.append(_SourceMemberPlan(relative, name, parent_path, role, kind, opened.st_dev, opened.st_ino, stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns, children))
+                    walk(child_fd, relative)
+                    if _metadata(os.fstat(child_fd)) != _metadata(opened) or _metadata(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != _metadata(opened):
+                        raise _StagingCustodyMismatch("lifecycle_source_member_metadata_changed_during_copy")
+                finally: os.close(child_fd)
+            elif kind == "regular":
+                fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+                try:
+                    opened = os.fstat(fd)
+                    if _metadata(opened) != _metadata(entry): raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy")
+                    raw = _read_fd(fd, _MAX_PACKET_BYTES - total); terminal = os.fstat(fd)
+                    if _metadata(terminal) != _metadata(opened) or _metadata(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != _metadata(opened):
+                        raise _StagingCustodyMismatch("lifecycle_source_member_metadata_changed_during_copy")
+                    total += len(raw)
+                    plans.append(_SourceMemberPlan(relative, name, parent_path, role, kind, opened.st_dev, opened.st_ino, stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns, digest=_raw_sha(raw)))
+                finally: os.close(fd)
+            else: raise _StagingCustodyMismatch("lifecycle_source_member_symlink_or_unsupported")
+            if len(plans) > _MAX_PACKET_ENTRIES: raise _StagingCustodyMismatch("lifecycle_source_plan_entry_bound_exceeded")
+    walk(root_fd, "")
+    return tuple(plans)
+
+
 def _fs_type(mode: int) -> str:
     if stat.S_ISREG(mode): return "regular"
     if stat.S_ISDIR(mode): return "directory"
@@ -391,6 +480,142 @@ def _directory_flags() -> int:
 
 def _open_directory(name: str | Path, *, dir_fd: int | None = None) -> int:
     return os.open(name, _directory_flags(), dir_fd=dir_fd)
+
+
+def _mkdir_at(parent_fd: int, name: str, hint: Path) -> int:
+    if not _safe_basename(name): raise _StagingCustodyMismatch("lifecycle_destination_directory_conflict")
+    _publication_hook("lifecycle_copy_before_destination_directory_create", hint)
+    try: os.mkdir(name, 0o700, dir_fd=parent_fd)
+    except FileExistsError as exc: raise _StagingCustodyMismatch("lifecycle_destination_directory_conflict") from exc
+    fd = _open_directory(name, dir_fd=parent_fd); opened = os.fstat(fd); entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    if _metadata(opened) != _metadata(entry) or stat.S_IMODE(opened.st_mode) != 0o700:
+        os.close(fd); raise _StagingCustodyMismatch("lifecycle_destination_member_identity_mismatch")
+    _publication_hook("lifecycle_copy_after_destination_directory_create", hint)
+    return fd
+
+
+def _open_relative_directory(root_fd: int, relative: str) -> tuple[int, list[int]]:
+    current = root_fd; opened: list[int] = []
+    if relative:
+        for part in PurePosixPath(relative).parts:
+            current = _open_directory(part, dir_fd=current); opened.append(current)
+    return current, opened
+
+
+def _copy_planned_bundle(source_fd: int, destination_parent_fd: int, destination_name: str, plan: tuple[_SourceMemberPlan, ...], role: str, hint_root: Path) -> None:
+    destination_fd = _mkdir_at(destination_parent_fd, destination_name, hint_root / destination_name)
+    destination_dirs: dict[str, int] = {"": destination_fd}
+    try:
+        for member in plan:
+            source_parent, source_opened = _open_relative_directory(source_fd, member.parent_path)
+            try:
+                if member.object_type == "directory":
+                    destination_parent = destination_dirs[member.parent_path]
+                    child = _mkdir_at(destination_parent, member.basename, hint_root / destination_name / member.relative_path)
+                    info = os.fstat(child)
+                    if _metadata(info) != (((member.device, member.inode, "directory")), member.mode, member.size, member.modification_time_ns):
+                        # Destination metadata intentionally differs from the source; only its private mode is authoritative.
+                        if stat.S_IMODE(info.st_mode) != 0o700: raise _StagingCustodyMismatch("lifecycle_destination_member_identity_mismatch")
+                    destination_dirs[member.relative_path] = child
+                    source_entry = os.stat(member.basename, dir_fd=source_parent, follow_symlinks=False)
+                    source_child = _open_directory(member.basename, dir_fd=source_parent)
+                    try:
+                        if _metadata(source_entry) != ((member.device, member.inode, member.object_type), member.mode, member.size, member.modification_time_ns) or _metadata(os.fstat(source_child)) != _metadata(source_entry) or tuple(sorted(os.listdir(source_child))) != member.child_membership:
+                            raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy")
+                    finally: os.close(source_child)
+                    continue
+                _publication_hook("lifecycle_copy_before_source_member_open", hint_root / destination_name / member.relative_path)
+                try: entry = os.stat(member.basename, dir_fd=source_parent, follow_symlinks=False)
+                except OSError as exc: raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy") from exc
+                expected = ((member.device, member.inode, member.object_type), member.mode, member.size, member.modification_time_ns)
+                if _metadata(entry) != expected: raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy")
+                try: source_member_fd = os.open(member.basename, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=source_parent)
+                except OSError as exc: raise _StagingCustodyMismatch("lifecycle_source_member_symlink_or_unsupported") from exc
+                try:
+                    if _metadata(os.fstat(source_member_fd)) != expected: raise _StagingCustodyMismatch("lifecycle_source_member_identity_changed_before_copy")
+                    _publication_hook("lifecycle_copy_after_source_member_open", hint_root / destination_name / member.relative_path)
+                    destination_parent = destination_dirs[member.parent_path]
+                    _publication_hook("lifecycle_copy_before_destination_member_create", hint_root / destination_name / member.relative_path)
+                    try: destination_member_fd = os.open(member.basename, os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=destination_parent)
+                    except FileExistsError as exc: raise _StagingCustodyMismatch("lifecycle_destination_file_conflict") from exc
+                    try:
+                        _publication_hook("lifecycle_copy_after_destination_member_create", hint_root / destination_name / member.relative_path)
+                        digest = hashlib.sha256(); copied = 0
+                        while True:
+                            chunk = os.read(source_member_fd, 131072)
+                            if not chunk: break
+                            copied += len(chunk); digest.update(chunk); offset = 0
+                            while offset < len(chunk):
+                                written = os.write(destination_member_fd, chunk[offset:])
+                                if written <= 0: raise OSError("short descriptor-relative write")
+                                offset += written
+                        _publication_hook("lifecycle_copy_before_source_member_finalize", hint_root / destination_name / member.relative_path)
+                        terminal = os.fstat(source_member_fd); rebound = os.stat(member.basename, dir_fd=source_parent, follow_symlinks=False)
+                        if _metadata(terminal) != expected or _metadata(rebound) != expected:
+                            finding = "lifecycle_source_member_identity_changed_before_copy" if _fs_identity(terminal) != expected[0] or _fs_identity(rebound) != expected[0] else "lifecycle_source_member_metadata_changed_during_copy"
+                            raise _StagingCustodyMismatch(finding)
+                        actual_digest = "sha256:" + digest.hexdigest()
+                        if copied != member.size or actual_digest != member.digest: raise _StagingCustodyMismatch("lifecycle_source_member_bytes_changed_during_copy")
+                        os.fsync(destination_member_fd); destination_info = os.fstat(destination_member_fd); destination_entry = os.stat(member.basename, dir_fd=destination_parent, follow_symlinks=False)
+                        if _fs_identity(destination_info) != _fs_identity(destination_entry) or stat.S_IMODE(destination_info.st_mode) != 0o600 or destination_info.st_size != member.size:
+                            raise _StagingCustodyMismatch("lifecycle_destination_member_identity_mismatch")
+                        raw = _read_fd(destination_member_fd, member.size)
+                        if len(raw) != member.size or _raw_sha(raw) != member.digest: raise _StagingCustodyMismatch("lifecycle_destination_member_digest_mismatch")
+                    finally: os.close(destination_member_fd)
+                finally: os.close(source_member_fd)
+            finally:
+                for fd in reversed(source_opened): os.close(fd)
+        for fd in destination_dirs.values(): _fsync_directory_fd(fd)
+    finally:
+        for relative, fd in reversed(tuple(destination_dirs.items())):
+            os.close(fd)
+
+
+def _packet_snapshot(packet_fd: int) -> tuple[_StagingMemberCustody, ...]:
+    root = os.fstat(packet_fd)
+    members: list[_StagingMemberCustody] = [_StagingMemberCustody("", "", root.st_dev, root.st_ino, "directory", stat.S_IMODE(root.st_mode), root.st_size, root.st_mtime_ns, expected_child_membership=tuple(sorted(os.listdir(packet_fd))))]
+    total = 0
+    def walk(parent_fd: int, prefix: str) -> None:
+        nonlocal total
+        for name in tuple(sorted(os.listdir(parent_fd))):
+            relative = f"{prefix}/{name}" if prefix else name
+            if not _safe_relative(relative): raise _StagingCustodyMismatch("lifecycle_packet_membership_changed_before_commit")
+            entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False); kind = _fs_type(entry.st_mode)
+            if kind == "directory":
+                fd = _open_directory(name, dir_fd=parent_fd)
+                try:
+                    opened = os.fstat(fd)
+                    if _metadata(opened) != _metadata(entry): raise _StagingCustodyMismatch("lifecycle_packet_member_identity_changed_before_commit")
+                    children = tuple(sorted(os.listdir(fd)))
+                    members.append(_StagingMemberCustody(relative, name, opened.st_dev, opened.st_ino, kind, stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns, expected_child_membership=children)); walk(fd, relative)
+                finally: os.close(fd)
+            elif kind == "regular":
+                raw, opened = _read_file_at(parent_fd, name); total += len(raw)
+                members.append(_StagingMemberCustody(relative, name, opened.st_dev, opened.st_ino, kind, stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns, digest=_raw_sha(raw)))
+            else: raise _StagingCustodyMismatch("lifecycle_packet_membership_changed_before_commit")
+            if len(members) > _MAX_PACKET_ENTRIES or total > _MAX_PACKET_BYTES: raise _StagingCustodyMismatch("lifecycle_packet_membership_changed_before_commit")
+    walk(packet_fd, "")
+    terminal = os.fstat(packet_fd)
+    if _fs_identity(terminal) != _fs_identity(root): raise _StagingCustodyMismatch("lifecycle_packet_member_identity_changed_before_commit")
+    return tuple(members)
+
+
+def _manifest_from_snapshot(snapshot: tuple[_StagingMemberCustody, ...], names: list[str], kind: str, digest_name: str, metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    files = {member.relative_path: member for member in snapshot if member.object_type == "regular"}
+    value: dict[str, Any] = {"schema_version": SCHEMA_VERSION, "artifact_kind": kind, **dict(metadata or {}), "files": [{"relative_filename": name, "size_bytes": files[name].size, "sha256": files[name].digest} for name in sorted(names)]}
+    value[digest_name] = _sha(value)
+    return value
+
+
+def _packet_snapshot_difference(before: tuple[_StagingMemberCustody, ...], after: tuple[_StagingMemberCustody, ...]) -> str:
+    before_paths = {x.relative_path for x in before}; after_paths = {x.relative_path for x in after}
+    if before_paths != after_paths: return "lifecycle_packet_membership_changed_before_commit"
+    for old, new in zip(before, after):
+        if old.relative_path != new.relative_path: return "lifecycle_packet_membership_changed_before_commit"
+        if (old.device, old.inode, old.object_type) != (new.device, new.inode, new.object_type): return "lifecycle_packet_member_identity_changed_before_commit"
+        if old.object_type == "regular" and old.digest != new.digest: return "lifecycle_packet_member_bytes_changed_before_commit"
+        if (old.mode, old.size, old.modification_time_ns, old.expected_child_membership) != (new.mode, new.size, new.modification_time_ns, new.expected_child_membership): return "lifecycle_packet_member_metadata_changed_before_commit"
+    return ""
 
 
 def _root_is_bound(out: Path, root_fd: int, expected: tuple[int, int, str]) -> bool:
@@ -773,15 +998,24 @@ def _root_blocked(finding: str) -> ClosureOutcome:
     return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", (finding,), {})
 
 
-def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bundle_digest: str, rollback_bundle_root: str | Path, rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
-    execution_root = Path(execution_bundle_root).resolve(); rollback_root = Path(rollback_bundle_root).resolve(); out, findings = _safe_root(output_root)
+def _build_lifecycle_closure_bound(*, execution_root: Path, execution_fd: int, execution_identity: tuple[tuple[int, int, str], int, int, int], execution_bundle_digest: str, rollback_root: Path, rollback_fd: int, rollback_identity: tuple[tuple[int, int, str], int, int, int], rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
+    out, findings = _safe_root(output_root)
     if findings or any(a == b or a in b.parents or b in a.parents for a, b in ((out, execution_root), (out, rollback_root))): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(findings + ["roots_overlap"]), {})
-    ev = validate_persisted_execution_bundle(execution_root, expected_final_bundle_digest=execution_bundle_digest)
-    rv = validate_persisted_rollback_bundle(rollback_root, expected_final_bundle_digest=rollback_bundle_digest, expected_execution_bundle_digest=execution_bundle_digest)
+    if not _source_root_bound(execution_root, execution_fd, execution_identity): return _root_blocked("lifecycle_execution_source_root_identity_changed")
+    if not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_rollback_source_root_identity_changed")
+    execution_alias = _fd_alias(execution_fd).resolve(strict=True); rollback_alias = _fd_alias(rollback_fd).resolve(strict=True)
+    ev = validate_persisted_execution_bundle(execution_alias, expected_final_bundle_digest=execution_bundle_digest)
+    rv = validate_persisted_rollback_bundle(rollback_alias, expected_final_bundle_digest=rollback_bundle_digest, expected_execution_bundle_digest=execution_bundle_digest)
+    if not _source_root_bound(execution_root, execution_fd, execution_identity): return _root_blocked("lifecycle_execution_source_root_identity_changed")
+    if not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_rollback_source_root_identity_changed")
     if ev.status != "host_local_diagnostic_execution_completed" or rv.status != "host_local_diagnostic_rollback_completed": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(sorted(set(ev.findings + rv.findings))), {})
     base_report, cross = _cross_validate(ev.records, rv.records, execution_bundle_digest); historical_correlation = str(base_report.get("correlation_id", ""))
     if correlation_id is not None and correlation_id != historical_correlation: cross.append("correlation_override_mismatch")
     if cross: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(sorted(set(cross))), {})
+    try:
+        if not _source_root_bound(execution_root, execution_fd, execution_identity) or not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_source_root_identity_changed_before_copy")
+        execution_plan = _build_source_plan(execution_fd, "execution"); rollback_plan = _build_source_plan(rollback_fd, "rollback")
+    except _StagingCustodyMismatch as exc: return _root_blocked(exc.finding)
     closure_id = derive_closure_id(execution_bundle_digest, rollback_bundle_digest, closure_time); identity = _identity(base_report, closure_id, closure_time, execution_bundle_digest, rollback_bundle_digest)
     out.mkdir(parents=True, exist_ok=True)
     with (out / ".closure.lock").open("a+b") as lock:
@@ -837,21 +1071,42 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
                 _publication_hook("staging_identity_published", staging_path)
                 os.mkdir(closure_id, 0o700, dir_fd=staging_fd); packet_fd = _open_directory(closure_id, dir_fd=staging_fd); packet_identity = _fs_identity(os.fstat(packet_fd))
                 try:
-                    packet_alias = _fd_alias(packet_fd); _publication_hook("staging_created", staging_path)
-                    _copy_bundle(execution_root, packet_alias / EXECUTION_PATH); _copy_bundle(rollback_root, packet_alias / ROLLBACK_PATH)
+                    _publication_hook("staging_created", staging_path)
+                    if not _source_root_bound(execution_root, execution_fd, execution_identity) or not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_source_root_identity_changed_before_copy")
+                    bundles_fd = _mkdir_at(packet_fd, "bundles", staging_path / closure_id / "bundles")
+                    try:
+                        _copy_planned_bundle(execution_fd, bundles_fd, "execution", execution_plan, "execution", staging_path / closure_id / "bundles")
+                        if not _source_root_bound(execution_root, execution_fd, execution_identity): return _root_blocked("lifecycle_source_root_identity_changed_after_copy")
+                        _copy_planned_bundle(rollback_fd, bundles_fd, "rollback", rollback_plan, "rollback", staging_path / closure_id / "bundles")
+                        if not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_source_root_identity_changed_after_copy")
+                        _fsync_directory_fd(bundles_fd)
+                    finally: os.close(bundles_fd)
                     report = {**base_report, **identity}; report["digest"] = digest_record(report); _write_file_at(packet_fd, "closure_report.json", (_canon(report)+"\n").encode())
                     summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); _write_file_at(packet_fd, "summary.json", (_canon(summary)+"\n").encode())
-                    content_names = [p.relative_to(packet_alias).as_posix() for p in packet_alias.rglob("*") if p.is_file()]; content = _manifest(packet_alias, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); _write_file_at(packet_fd, "content_manifest.json", (_canon(content)+"\n").encode())
+                    construction_snapshot = _packet_snapshot(packet_fd); content_names = [member.relative_path for member in construction_snapshot if member.object_type == "regular"]; content = _manifest_from_snapshot(construction_snapshot, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); _write_file_at(packet_fd, "content_manifest.json", (_canon(content)+"\n").encode())
                     receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content["content_manifest_digest"]}; receipt["digest"] = digest_record(receipt); _write_file_at(packet_fd, "receipt.json", (_canon(receipt)+"\n").encode())
-                    final_names = [p.relative_to(packet_alias).as_posix() for p in packet_alias.rglob("*") if p.is_file()]; final = _manifest(packet_alias, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); _write_file_at(packet_fd, "final_manifest.json", (_canon(final)+"\n").encode()); _fsync_directory_fd(packet_fd)
+                    pre_final_snapshot = _packet_snapshot(packet_fd); final_names = [member.relative_path for member in pre_final_snapshot if member.object_type == "regular"]; final = _manifest_from_snapshot(pre_final_snapshot, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); _write_file_at(packet_fd, "final_manifest.json", (_canon(final)+"\n").encode()); _fsync_directory_fd(packet_fd)
                     if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_staged_validation")
+                    if not _source_root_bound(execution_root, execution_fd, execution_identity) or not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_source_root_identity_changed_before_copy")
                     staged_result = _validate_bound_packet(packet_fd, closure_id, expected_packet_digest=str(final["packet_digest"]))
                     if staged_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", staged_result.findings, {})
+                    staged_snapshot = _packet_snapshot(packet_fd); _publication_hook("lifecycle_packet_after_staged_validation", staging_path / closure_id)
                     _publication_hook("lifecycle_publication_before_packet_publish", staging_path / closure_id)
                     if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_packet_publish")
                     source_info = os.stat(closure_id, dir_fd=staging_fd, follow_symlinks=False)
                     if _fs_identity(source_info) != packet_identity or stat.S_IMODE(source_info.st_mode) != stat.S_IMODE(os.fstat(packet_fd).st_mode):
                         preserve_staging = True; return _root_blocked("lifecycle_packet_source_changed_before_commit")
+                    try: terminal_snapshot = _packet_snapshot(packet_fd)
+                    except _StagingCustodyMismatch as exc:
+                        preserve_staging = True; return _root_blocked(exc.finding)
+                    difference = _packet_snapshot_difference(staged_snapshot, terminal_snapshot)
+                    if difference:
+                        preserve_staging = True; return _root_blocked(difference)
+                    terminal_result = _validate_bound_packet(packet_fd, closure_id, expected_packet_digest=str(final["packet_digest"]))
+                    if terminal_result.status != "host_local_diagnostic_lifecycle_closure_valid":
+                        preserve_staging = True; return _root_blocked("lifecycle_packet_validation_changed_before_commit")
+                    if not _source_root_bound(execution_root, execution_fd, execution_identity) or not _source_root_bound(rollback_root, rollback_fd, rollback_identity):
+                        preserve_staging = True; return _root_blocked("lifecycle_source_root_identity_changed_before_copy")
                     try: _publish_packet(closure_id, closure_id, staging_fd=staging_fd, root_fd=root_fd)
                     except _AtomicDestinationConflict:
                         preserve_staging = True; return _root_blocked("lifecycle_packet_destination_conflict")
@@ -861,6 +1116,9 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
                     if _fs_identity(os.stat(closure_id, dir_fd=root_fd, follow_symlinks=False)) != packet_identity or _entry_exists_at(staging_fd, closure_id): return _root_blocked("lifecycle_packet_install_identity_mismatch")
                     _publication_hook("packet_published", out / closure_id); _publication_hook("lifecycle_publication_after_packet_publish", out / closure_id)
                     if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_packet_publish")
+                    installed_snapshot = _packet_snapshot(packet_fd)
+                    difference = _packet_snapshot_difference(staged_snapshot, installed_snapshot)
+                    if difference: return _root_blocked(difference)
                     published_result = _validate_bound_packet(packet_fd, closure_id, expected_packet_digest=str(final["packet_digest"]))
                     if published_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published_result.findings, {})
                     _publication_hook("lifecycle_publication_before_pointer_publish", out / "latest.json")
@@ -869,6 +1127,10 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
                     except _StagingCustodyMismatch as exc: return _root_blocked(exc.finding)
                     _publication_hook("lifecycle_publication_after_pointer_publish", out / "latest.json")
                     if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_pointer_publish")
+                    if not _source_root_bound(execution_root, execution_fd, execution_identity) or not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_source_root_identity_changed_after_copy")
+                except _StagingCustodyMismatch as exc:
+                    preserve_staging = True
+                    return _root_blocked(exc.finding)
                 finally: os.close(packet_fd)
                 if _fs_identity(os.stat(staging_name, dir_fd=root_fd, follow_symlinks=False)) != staging_identity: raise _StagingCustodyMismatch("publication_cleanup_identity_changed")
                 try: _remove_tree_fd(root_fd, staging_name, staging_identity)
@@ -884,6 +1146,23 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
                     # Preserve staged evidence on root-binding failure; otherwise bounded cleanup is safe.
                     if _root_is_bound(out, root_fd, root_identity): _remove_tree_fd(root_fd, staging_name, staging_identity)
         finally: os.close(root_fd)
+
+
+def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bundle_digest: str, rollback_bundle_root: str | Path, rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
+    """Build a closure while source descriptors remain the sole copy read authority."""
+    execution_root = Path(execution_bundle_root).resolve(); rollback_root = Path(rollback_bundle_root).resolve()
+    try: execution_fd = _open_directory(execution_root)
+    except OSError: return _root_blocked("lifecycle_execution_source_root_identity_changed")
+    try:
+        try: rollback_fd = _open_directory(rollback_root)
+        except OSError: return _root_blocked("lifecycle_rollback_source_root_identity_changed")
+        try:
+            execution_identity = _metadata(os.fstat(execution_fd)); rollback_identity = _metadata(os.fstat(rollback_fd))
+            if execution_identity[0][2] != "directory": return _root_blocked("lifecycle_execution_source_root_identity_changed")
+            if rollback_identity[0][2] != "directory": return _root_blocked("lifecycle_rollback_source_root_identity_changed")
+            return _build_lifecycle_closure_bound(execution_root=execution_root, execution_fd=execution_fd, execution_identity=execution_identity, execution_bundle_digest=execution_bundle_digest, rollback_root=rollback_root, rollback_fd=rollback_fd, rollback_identity=rollback_identity, rollback_bundle_digest=rollback_bundle_digest, closure_time=closure_time, output_root=output_root, correlation_id=correlation_id)
+        finally: os.close(rollback_fd)
+    finally: os.close(execution_fd)
 
 def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
     root = Path(output_root).resolve(strict=False)

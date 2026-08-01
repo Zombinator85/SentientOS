@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `bcaf6ab`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `6ff422c`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -11,6 +11,7 @@ This is the active, compact selection map through mainline `bcaf6ab`. Consumed h
 - The former behavioral-proof gap for the operator-confirmed diagnostic runtime is closed with exact selected-node/call-outcome proof for a repository-native source chain, one bounded transaction, historical replay, crash reconciliation, ambiguous-invocation refusal, concurrent at-most-once execution, and recomputed tamper rejection.
 - The diagnostic rollback deep-custody gap is closed: completed bundles independently bind execution, historical authority, confirmation, rollback/lifecycle evidence, exact manifests, latest metadata, and replay metadata without widening mutation authority.
 - Diagnostic lifecycle closure packets now package exact execution and rollback bundles with hardened derived identity, staged-copy validation, crash-recoverable atomic staging initialization, genuine pre-flock independently spawned-process waiter proof, kernel lock release across abrupt death, publication-root descriptor custody, terminal complete-plan staging revalidation, immediate deletion-time identity rebinding, descriptor-relative canonical cleanup, and bounded partial-cleanup fail-closed posture, packet-root-and-descendant-preserving pointer recovery, and substituted-pointer rejection for deletion-independent historical review; this read-only surface adds no effect authority.
+- Lifecycle packet construction retains descriptor-bound execution and rollback source custody, copies nested directories and files with descriptor-relative no-follow exclusive creation, derives manifests from descriptor-native traversal, and compares the complete packet-tree custody snapshot after the final hook and before no-replace commit. An invalid staged packet therefore cannot occupy the deterministic closure-ID namespace.
 - One reviewer path now consolidates the sealed diagnostic source, confirmed execution, exact rollback, and lifecycle-closure proof surfaces without reopening their runtime behavior, packet formats, authority, effects, capabilities, or CLI contracts.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 
@@ -32,6 +33,6 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 
-### Lifecycle closure publication custody at `bcaf6ab`
+### Lifecycle closure publication custody at `6ff422c`
 
 The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.
