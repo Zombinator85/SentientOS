@@ -94,3 +94,7 @@ Representative exact behavioral nodes are:
 ## Publication-root custody proof
 
 Representative focused proofs cover metadata-only reconciliation blocking, pathname replacement after reconciliation and immediately before packet or pointer publication, descriptor-bound successful packet/pointer commit, and recovery of a complete packet whose pointer was withheld. Reviewers should use the named lifecycle-closure tests and confirm that schemas and caller-visible logical paths remain unchanged; the architecture document owns the detailed algorithm.
+
+## Source-bound atomic-entry proof
+
+Representative proofs are `test_atomic_no_replace_publication_commits_exact_packet_and_pointer`, `test_packet_destination_injection_is_preserved_by_no_replace_commit`, `test_pointer_source_substitution_before_atomic_commit_is_rejected`, and `test_publication_cleanup_rejects_regular_member_substitution_before_unlink`. Together they distinguish prepared descriptor custody, atomic destination conflicts, post-install identity validation, and cleanup-blocked posture, while proving injected evidence remains untouched. The architecture document owns the detailed algorithm.

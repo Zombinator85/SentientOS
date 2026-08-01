@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `7e64fe7`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `bcaf6ab`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -32,6 +32,6 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 
-### Lifecycle closure publication custody at `7e64fe7`
+### Lifecycle closure publication custody at `bcaf6ab`
 
-The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging reservation, staging identity installation, packet rename, pointer temporary creation, pointer commit, and bounded cleanup are descriptor-relative. Publication-transition binding checks block configured-root replacement without redirecting writes, while reconciliation enforces immediate directory and nested-member mode, size, and nanosecond-mtime custody before deletion.
+The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.
