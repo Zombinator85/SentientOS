@@ -241,28 +241,18 @@ def _copy_bundle(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination)
 
 
-def _publish_packet(staged: Path, destination: Path) -> None:
-    os.replace(staged, destination)
+def _publish_packet(staged_name: str, destination_name: str, *, staging_fd: int, root_fd: int) -> None:
+    os.replace(staged_name, destination_name, src_dir_fd=staging_fd, dst_dir_fd=root_fd)
 
 
-def _publish_latest(staged: Path, destination: Path) -> None:
-    os.replace(staged, destination)
+def _publish_latest(staged_name: str, destination_name: str, root_fd: int) -> None:
+    os.replace(staged_name, destination_name, src_dir_fd=root_fd, dst_dir_fd=root_fd)
 
 
 def _pointer(identity: Mapping[str, Any], packet_digest: str) -> dict[str, Any]:
     value = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_pointer", **dict(identity), "packet_digest": packet_digest}
     value["digest"] = digest_record(value)
     return value
-
-
-def _write_pointer(out: Path, pointer: Mapping[str, Any]) -> None:
-    fd, name = tempfile.mkstemp(dir=out, prefix=".latest-")
-    os.close(fd); staged = Path(name)
-    try:
-        staged.write_text(_canon(pointer) + "\n")
-        _publish_latest(staged, out / "latest.json")
-    finally:
-        staged.unlink(missing_ok=True)
 
 
 def _staging_record(closure_id: str, staging_name: str, publication_root: Path) -> dict[str, Any]:
@@ -478,6 +468,7 @@ def _verify_candidate(root_fd: int, plan: _StagingCandidateCustody) -> int | Non
             return None
         info, membership, members = _snapshot_directory_at(root_fd, plan.basename)
         if _fs_identity(info) != (plan.device, plan.inode, plan.object_type): raise _StagingCustodyMismatch("staging_reconciliation_candidate_identity_changed")
+        if (stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns) != (plan.mode, plan.size, plan.modification_time_ns): raise _StagingCustodyMismatch("staging_reconciliation_candidate_metadata_changed")
         if membership != plan.expected_immediate_membership or members != plan.nested_members: raise _StagingCustodyMismatch("staging_reconciliation_candidate_membership_changed")
         return _open_directory(plan.basename, dir_fd=root_fd)
     except _StagingCustodyMismatch: raise
@@ -493,15 +484,18 @@ def _remove_canonical(root_fd: int, plan: _StagingCandidateCustody, staging_fd: 
             _publication_hook("staging_reconciliation_before_remove_member", Path(plan.basename) / member.relative_path)
             try: entry = os.stat(member.basename, dir_fd=parent_fd, follow_symlinks=False)
             except OSError as exc: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed") from exc
-            if _fs_identity(entry) != (member.device, member.inode, member.object_type) or stat.S_IMODE(entry.st_mode) != member.mode: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+            if _fs_identity(entry) != (member.device, member.inode, member.object_type): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+            if (stat.S_IMODE(entry.st_mode), entry.st_size, entry.st_mtime_ns) != (member.mode, member.size, member.modification_time_ns): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_metadata_changed")
             if member.object_type == "regular":
                 raw, stable = _read_file_at(parent_fd, member.basename)
-                if raw != member.exact_bytes or _raw_sha(raw) != member.digest or stable.st_size != member.size: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                if raw != member.exact_bytes or _raw_sha(raw) != member.digest or (stable.st_size, stable.st_mtime_ns, stat.S_IMODE(stable.st_mode)) != (member.size, member.modification_time_ns, member.mode): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_metadata_changed")
                 os.unlink(member.basename, dir_fd=parent_fd)
             else:
                 child_fd = _open_directory(member.basename, dir_fd=parent_fd)
                 try:
-                    if _fs_identity(os.fstat(child_fd)) != (member.device, member.inode, member.object_type) or tuple(sorted(os.listdir(child_fd))) != member.expected_child_membership: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                    opened = os.fstat(child_fd)
+                    if _fs_identity(opened) != (member.device, member.inode, member.object_type): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
+                    if (stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns) != (member.mode, member.size, member.modification_time_ns) or tuple(sorted(os.listdir(child_fd))) != member.expected_child_membership: raise _StagingCustodyMismatch("staging_reconciliation_nested_member_metadata_changed")
                     remove(child_fd, member.relative_path)
                     rebound = os.stat(member.basename, dir_fd=parent_fd, follow_symlinks=False)
                     if _fs_identity(rebound) != _fs_identity(os.fstat(child_fd)): raise _StagingCustodyMismatch("staging_reconciliation_nested_member_identity_changed")
@@ -589,78 +583,174 @@ def _prepare_staging_identity(out: Path, staging: Path, closure_id: str) -> Path
     return temporary
 
 
+def _fsync_directory_fd(fd: int) -> None:
+    try: os.fsync(fd)
+    except OSError as exc:
+        if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP}: raise
+
+
+def _write_file_at(parent_fd: int, name: str, raw: bytes) -> tuple[int, int, str]:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(name, flags, 0o600, dir_fd=parent_fd)
+    try:
+        offset = 0
+        while offset < len(raw):
+            written = os.write(fd, raw[offset:])
+            if written <= 0: raise OSError("short descriptor-relative write")
+            offset += written
+        os.fsync(fd); info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode): raise OSError("created entry is not regular")
+        return _fs_identity(info)
+    finally: os.close(fd)
+
+
+def _fd_alias(fd: int) -> Path:
+    alias = Path("/proc/self/fd") / str(fd)
+    if _fs_identity(alias.stat()) != _fs_identity(os.fstat(fd)): raise OSError("descriptor alias mismatch")
+    return alias
+
+
+def _validate_bound_packet(packet_fd: int, closure_id: str, *, expected_packet_digest: str | None = None) -> ClosureOutcome:
+    alias = _fd_alias(packet_fd); result = validate_lifecycle_closure(alias, expected_packet_digest=expected_packet_digest)
+    if _fs_identity(alias.stat()) != _fs_identity(os.fstat(packet_fd)): return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", ("descriptor_alias_identity_changed",), {})
+    # The alias is never caller-visible or serialized.
+    return ClosureOutcome(result.status, result.findings, result.records, closure_id, result.replayed, result.publication_posture)
+
+
+def _entry_exists_at(parent_fd: int, name: str) -> bool:
+    try: os.stat(name, dir_fd=parent_fd, follow_symlinks=False); return True
+    except FileNotFoundError: return False
+
+
+def _reserve_directory(parent_fd: int, prefix: str) -> tuple[str, int]:
+    for _ in range(128):
+        name = prefix + os.urandom(16).hex()
+        try: os.mkdir(name, 0o700, dir_fd=parent_fd)
+        except FileExistsError: continue
+        fd = _open_directory(name, dir_fd=parent_fd); opened = os.fstat(fd); entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if _fs_identity(opened) != _fs_identity(entry) or stat.S_IMODE(opened.st_mode) != 0o700:
+            os.close(fd); raise OSError("reserved directory custody mismatch")
+        return name, fd
+    raise FileExistsError("staging namespace exhausted")
+
+
+def _remove_tree_fd(parent_fd: int, name: str, expected: tuple[int, int, str]) -> None:
+    fd = _open_directory(name, dir_fd=parent_fd)
+    try:
+        if _fs_identity(os.fstat(fd)) != expected: raise _StagingCustodyMismatch("publication_cleanup_identity_changed")
+        for child in tuple(os.listdir(fd)):
+            info = os.stat(child, dir_fd=fd, follow_symlinks=False)
+            if stat.S_ISDIR(info.st_mode): _remove_tree_fd(fd, child, _fs_identity(info))
+            elif stat.S_ISREG(info.st_mode): os.unlink(child, dir_fd=fd)
+            else: raise _StagingCustodyMismatch("publication_cleanup_unsupported_member")
+        rebound = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if _fs_identity(rebound) != expected or os.listdir(fd): raise _StagingCustodyMismatch("publication_cleanup_identity_changed")
+        os.rmdir(name, dir_fd=parent_fd)
+    finally: os.close(fd)
+
+
+def _write_pointer_at(root_fd: int, pointer: Mapping[str, Any]) -> tuple[int, int, str]:
+    raw = (_canon(pointer) + "\n").encode(); name = ".latest-" + os.urandom(16).hex()
+    identity = _write_file_at(root_fd, name, raw)
+    try:
+        _publish_latest(name, "latest.json", root_fd)
+        installed_raw, installed = _read_file_at(root_fd, "latest.json")
+        if installed_raw != raw or _fs_identity(installed) != identity: raise OSError("pointer publication custody mismatch")
+        _fsync_directory_fd(root_fd); return identity
+    finally:
+        if _entry_exists_at(root_fd, name): os.unlink(name, dir_fd=root_fd)
+
+
+def _root_blocked(finding: str) -> ClosureOutcome:
+    return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", (finding,), {})
+
+
 def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bundle_digest: str, rollback_bundle_root: str | Path, rollback_bundle_digest: str, closure_time: str, output_root: str | Path, correlation_id: str | None = None) -> ClosureOutcome:
     execution_root = Path(execution_bundle_root).resolve(); rollback_root = Path(rollback_bundle_root).resolve(); out, findings = _safe_root(output_root)
     if findings or any(a == b or a in b.parents or b in a.parents for a, b in ((out, execution_root), (out, rollback_root))): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(findings + ["roots_overlap"]), {})
     ev = validate_persisted_execution_bundle(execution_root, expected_final_bundle_digest=execution_bundle_digest)
     rv = validate_persisted_rollback_bundle(rollback_root, expected_final_bundle_digest=rollback_bundle_digest, expected_execution_bundle_digest=execution_bundle_digest)
     if ev.status != "host_local_diagnostic_execution_completed" or rv.status != "host_local_diagnostic_rollback_completed": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(sorted(set(ev.findings + rv.findings))), {})
-    base_report, cross = _cross_validate(ev.records, rv.records, execution_bundle_digest)
-    historical_correlation = str(base_report.get("correlation_id", ""))
+    base_report, cross = _cross_validate(ev.records, rv.records, execution_bundle_digest); historical_correlation = str(base_report.get("correlation_id", ""))
     if correlation_id is not None and correlation_id != historical_correlation: cross.append("correlation_override_mismatch")
     if cross: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(sorted(set(cross))), {})
-    closure_id = derive_closure_id(execution_bundle_digest, rollback_bundle_digest, closure_time)
-    identity = _identity(base_report, closure_id, closure_time, execution_bundle_digest, rollback_bundle_digest)
+    closure_id = derive_closure_id(execution_bundle_digest, rollback_bundle_digest, closure_time); identity = _identity(base_report, closure_id, closure_time, execution_bundle_digest, rollback_bundle_digest)
     out.mkdir(parents=True, exist_ok=True)
     with (out / ".closure.lock").open("a+b") as lock:
-        _publication_hook("lock_waiting", out)
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX); destination = out / closure_id
-        _publication_hook("locked_enter", out)
+        _publication_hook("lock_waiting", out); fcntl.flock(lock.fileno(), fcntl.LOCK_EX); _publication_hook("locked_enter", out)
+        try: root_fd = _open_directory(out)
+        except OSError: return _root_blocked("staging_reconciliation_publication_root_identity_changed")
         try:
-            root_fd = _open_directory(out)
-        except OSError:
-            return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("staging_reconciliation_publication_root_identity_changed",), {})
-        try:
-            root_info = os.fstat(root_fd); root_identity = _fs_identity(root_info)
-            if not stat.S_ISDIR(root_info.st_mode) or not _root_is_bound(out, root_fd, root_identity):
-                return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("staging_reconciliation_publication_root_identity_changed",), {})
+            root_identity = _fs_identity(os.fstat(root_fd))
+            if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("staging_reconciliation_publication_root_identity_changed")
             staging_findings, _ = _reconcile_staging(out, root_fd, root_identity)
-            if staging_findings:
-                _publication_hook("locked_exit", out)
-                return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(staging_findings), {})
-            if destination.exists():
-                loaded = validate_lifecycle_closure(destination)
+            if staging_findings: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(staging_findings), {})
+            _publication_hook("lifecycle_publication_after_reconciliation", out)
+            if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_reconciliation")
+            if _entry_exists_at(root_fd, closure_id):
+                packet_fd = _open_directory(closure_id, dir_fd=root_fd)
+                try: loaded = _validate_bound_packet(packet_fd, closure_id)
+                finally: os.close(packet_fd)
                 loaded_final = _dict(loaded.records.get("final_manifest")); loaded_summary = _dict(loaded.records.get("summary"))
-                if loaded.status != "host_local_diagnostic_lifecycle_closure_valid" or any(loaded_summary.get(k) != v for k, v in identity.items()): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("closure_identity_conflict",), {})
-                pointer = _pointer(identity, str(loaded_final.get("packet_digest", "")))
-                latest = out / "latest.json"
-                recovered = not latest.exists()
-                if latest.exists() and _json(latest) != pointer: return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
-                if not latest.exists(): _write_pointer(out, pointer)
+                if loaded.status != "host_local_diagnostic_lifecycle_closure_valid" or any(loaded_summary.get(k) != v for k, v in identity.items()): return _root_blocked("closure_identity_conflict")
+                pointer = _pointer(identity, str(loaded_final.get("packet_digest", ""))); recovered = not _entry_exists_at(root_fd, "latest.json")
+                if not recovered:
+                    raw, _ = _read_file_at(root_fd, "latest.json")
+                    if _dict(json.loads(raw)) != pointer: return _root_blocked("latest_pointer_conflict")
+                else:
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_pointer_publish")
+                    _write_pointer_at(root_fd, pointer)
+                if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_pointer_publish")
                 _publication_hook("locked_exit", out)
-                return ClosureOutcome(loaded.status, (), loaded.records, loaded.packet_root, True, "recovered" if recovered else "replayed")
-            if (out / "latest.json").exists(): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", ("latest_pointer_conflict",), {})
-            temporary_parent = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=out)); staged = temporary_parent / closure_id
-            temporary_identity: Path | None = None
+                return ClosureOutcome(loaded.status, (), loaded.records, str(out / closure_id), True, "recovered" if recovered else "replayed")
+            if _entry_exists_at(root_fd, "latest.json"): return _root_blocked("latest_pointer_conflict")
+            _publication_hook("lifecycle_publication_before_staging_reservation", out)
+            if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_staging_reservation")
+            staging_name, staging_fd = _reserve_directory(root_fd, _STAGING_PREFIX); staging_identity = _fs_identity(os.fstat(staging_fd)); published = False
             try:
-                _publication_hook("staging_directory_reserved", temporary_parent)
-                temporary_identity = _prepare_staging_identity(out, temporary_parent, closure_id)
-                staged.mkdir()
-                _publication_hook("staging_created", temporary_parent)
-                _copy_bundle(execution_root, staged / EXECUTION_PATH); _copy_bundle(rollback_root, staged / ROLLBACK_PATH)
-                report = {**base_report, **identity}; report["digest"] = digest_record(report); (staged / "closure_report.json").write_text(_canon(report) + "\n")
-                summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); (staged / "summary.json").write_text(_canon(summary) + "\n")
-                content_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
-                content = _manifest(staged, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); (staged / "content_manifest.json").write_text(_canon(content) + "\n")
-                receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content["content_manifest_digest"]}; receipt["digest"] = digest_record(receipt); (staged / "receipt.json").write_text(_canon(receipt) + "\n")
-                final_names = [p.relative_to(staged).as_posix() for p in staged.rglob("*") if p.is_file()]
-                final = _manifest(staged, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); (staged / "final_manifest.json").write_text(_canon(final) + "\n")
-                staged_result = validate_lifecycle_closure(staged, expected_packet_digest=str(final["packet_digest"]))
-                if staged_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", staged_result.findings, {})
-                _publish_packet(staged, destination)
-                published = validate_lifecycle_closure(destination, expected_packet_digest=str(final["packet_digest"]))
-                if published.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published.findings, {})
-                _publication_hook("packet_published", destination)
-                _write_pointer(out, _pointer(identity, str(final["packet_digest"])))
+                staging_path = out / staging_name; _publication_hook("staging_directory_reserved", staging_path); _publication_hook("lifecycle_publication_after_staging_reservation", staging_path)
+                if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_staging_reservation")
+                record_raw = (_canon(_staging_record(closure_id, staging_name, out)) + "\n").encode(); identity_name = _STAGING_IDENTITY_PREFIX + os.urandom(16).hex()
+                _write_file_at(root_fd, identity_name, record_raw); _publication_hook("staging_identity_prepared", out / identity_name)
+                os.replace(identity_name, "staging_identity.json", src_dir_fd=root_fd, dst_dir_fd=staging_fd); _fsync_directory_fd(staging_fd); _fsync_directory_fd(root_fd); _publication_hook("staging_identity_published", staging_path)
+                os.mkdir(closure_id, 0o700, dir_fd=staging_fd); packet_fd = _open_directory(closure_id, dir_fd=staging_fd); packet_identity = _fs_identity(os.fstat(packet_fd))
+                try:
+                    packet_alias = _fd_alias(packet_fd); _publication_hook("staging_created", staging_path)
+                    _copy_bundle(execution_root, packet_alias / EXECUTION_PATH); _copy_bundle(rollback_root, packet_alias / ROLLBACK_PATH)
+                    report = {**base_report, **identity}; report["digest"] = digest_record(report); _write_file_at(packet_fd, "closure_report.json", (_canon(report)+"\n").encode())
+                    summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; summary["digest"] = digest_record(summary); _write_file_at(packet_fd, "summary.json", (_canon(summary)+"\n").encode())
+                    content_names = [p.relative_to(packet_alias).as_posix() for p in packet_alias.rglob("*") if p.is_file()]; content = _manifest(packet_alias, content_names, "host_local_diagnostic_lifecycle_closure_content_manifest", "content_manifest_digest"); _write_file_at(packet_fd, "content_manifest.json", (_canon(content)+"\n").encode())
+                    receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content["content_manifest_digest"]}; receipt["digest"] = digest_record(receipt); _write_file_at(packet_fd, "receipt.json", (_canon(receipt)+"\n").encode())
+                    final_names = [p.relative_to(packet_alias).as_posix() for p in packet_alias.rglob("*") if p.is_file()]; final = _manifest(packet_alias, final_names, "host_local_diagnostic_lifecycle_closure_final_manifest", "packet_digest", identity); _write_file_at(packet_fd, "final_manifest.json", (_canon(final)+"\n").encode()); _fsync_directory_fd(packet_fd)
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_staged_validation")
+                    staged_result = _validate_bound_packet(packet_fd, closure_id, expected_packet_digest=str(final["packet_digest"]))
+                    if staged_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", staged_result.findings, {})
+                    _publication_hook("lifecycle_publication_before_packet_publish", staging_path / closure_id)
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_packet_publish")
+                    if _fs_identity(os.stat(closure_id, dir_fd=staging_fd, follow_symlinks=False)) != packet_identity: return _root_blocked("lifecycle_packet_identity_changed_before_publish")
+                    _publish_packet(closure_id, closure_id, staging_fd=staging_fd, root_fd=root_fd); published = True; _fsync_directory_fd(root_fd)
+                    if _fs_identity(os.stat(closure_id, dir_fd=root_fd, follow_symlinks=False)) != packet_identity: return _root_blocked("lifecycle_packet_identity_changed_after_publish")
+                    _publication_hook("packet_published", out / closure_id); _publication_hook("lifecycle_publication_after_packet_publish", out / closure_id)
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_packet_publish")
+                    published_result = _validate_bound_packet(packet_fd, closure_id, expected_packet_digest=str(final["packet_digest"]))
+                    if published_result.status != "host_local_diagnostic_lifecycle_closure_valid": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", published_result.findings, {})
+                    _publication_hook("lifecycle_publication_before_pointer_publish", out / "latest.json")
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_pointer_publish")
+                    _write_pointer_at(root_fd, _pointer(identity, str(final["packet_digest"])))
+                    _publication_hook("lifecycle_publication_after_pointer_publish", out / "latest.json")
+                    if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_after_pointer_publish")
+                finally: os.close(packet_fd)
+                if _fs_identity(os.stat(staging_name, dir_fd=root_fd, follow_symlinks=False)) != staging_identity: raise _StagingCustodyMismatch("publication_cleanup_identity_changed")
+                _remove_tree_fd(root_fd, staging_name, staging_identity); _fsync_directory_fd(root_fd)
+                if not _root_is_bound(out, root_fd, root_identity): return _root_blocked("lifecycle_publication_root_identity_changed_before_cleanup_complete")
+                _publication_hook("locked_exit", out)
+                return ClosureOutcome(published_result.status, published_result.findings, published_result.records, str(out / closure_id), False, "published")
             finally:
-                if temporary_identity is not None:
-                    temporary_identity.unlink(missing_ok=True)
-                shutil.rmtree(temporary_parent, ignore_errors=True)
-            _publication_hook("locked_exit", out)
-        finally:
-            os.close(root_fd)
-    return ClosureOutcome(published.status, published.findings, published.records, published.packet_root, False, "published")
-
+                os.close(staging_fd)
+                if not published and _entry_exists_at(root_fd, staging_name):
+                    # Preserve staged evidence on root-binding failure; otherwise bounded cleanup is safe.
+                    if _root_is_bound(out, root_fd, root_identity): _remove_tree_fd(root_fd, staging_name, staging_identity)
+        finally: os.close(root_fd)
 
 def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
     root = Path(output_root).resolve(strict=False)
