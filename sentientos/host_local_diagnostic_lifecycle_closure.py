@@ -192,44 +192,146 @@ def _packet_files(root: Path) -> tuple[set[str], list[str]]:
     return names, findings
 
 
-def validate_lifecycle_closure(packet_root: str | Path, *, expected_packet_digest: str | None = None) -> ClosureOutcome:
-    root, findings = _safe_root(packet_root); records: dict[str, Any] = {}
+def _snapshot_finding(prefix: str, before: tuple[_StagingMemberCustody, ...], after: tuple[_StagingMemberCustody, ...]) -> str:
+    difference = _packet_snapshot_difference(before, after)
+    mapping = {
+        "lifecycle_packet_membership_changed_before_commit": prefix + "membership_changed",
+        "lifecycle_packet_member_identity_changed_before_commit": prefix + "member_identity_changed",
+        "lifecycle_packet_member_metadata_changed_before_commit": prefix + "member_metadata_changed",
+        "lifecycle_packet_member_bytes_changed_before_commit": prefix + "member_bytes_changed",
+    }
+    return mapping.get(difference, "")
+
+
+def _descriptor_adapter(fd: int, callback: Any) -> Any:
+    """Invoke a read-only path API through an unresolved, identity-checked fd alias."""
+    alias = Path("/proc/self/fd") / str(fd)
     try:
-        actual, path_findings = _packet_files(root); findings.extend(path_findings)
-        execution_digest = _bundle_digest(root / EXECUTION_PATH); rollback_digest = _bundle_digest(root / ROLLBACK_PATH)
-        ev = validate_persisted_execution_bundle(root / EXECUTION_PATH, expected_final_bundle_digest=execution_digest)
-        rv = validate_persisted_rollback_bundle(root / ROLLBACK_PATH, expected_final_bundle_digest=rollback_digest, expected_execution_bundle_digest=execution_digest)
+        expected = _metadata(os.fstat(fd))
+        if _metadata(os.stat(alias, follow_symlinks=True)) != expected:
+            raise OSError("descriptor adapter identity mismatch")
+        result = callback(alias)
+        if _metadata(os.fstat(fd)) != expected or _metadata(os.stat(alias, follow_symlinks=True)) != expected:
+            raise OSError("descriptor adapter identity changed")
+        return result
+    except OSError as exc:
+        raise _StagingCustodyMismatch("lifecycle_descriptor_adapter_unavailable") from exc
+
+
+def _validate_nested_bound(packet_fd: int, role: str, execution_digest: str = "", expected_member: _StagingMemberCustody | None = None) -> Any:
+    bundles_fd = _open_directory("bundles", dir_fd=packet_fd)
+    try:
+        nested_fd = _open_directory(role, dir_fd=bundles_fd)
+        try:
+            entry = os.stat(role, dir_fd=bundles_fd, follow_symlinks=False)
+            expected = _metadata(os.fstat(nested_fd))
+            if _metadata(entry) != expected or (expected_member is not None and _metadata(entry) != ((expected_member.device, expected_member.inode, expected_member.object_type), expected_member.mode, expected_member.size, expected_member.modification_time_ns)):
+                raise _StagingCustodyMismatch(f"nested_{role}_root_identity_changed")
+            before = _packet_snapshot(nested_fd)
+            if role == "execution":
+                digest = _descriptor_adapter(nested_fd, lambda path: _bundle_digest(path))
+                result = _descriptor_adapter(nested_fd, lambda path: validate_persisted_execution_bundle(path, expected_final_bundle_digest=digest))
+            else:
+                digest = _descriptor_adapter(nested_fd, lambda path: _bundle_digest(path))
+                result = _descriptor_adapter(nested_fd, lambda path: validate_persisted_rollback_bundle(path, expected_final_bundle_digest=digest, expected_execution_bundle_digest=execution_digest))
+            after = _packet_snapshot(nested_fd)
+            rebound = os.stat(role, dir_fd=bundles_fd, follow_symlinks=False)
+            if _metadata(rebound) != expected or _metadata(os.fstat(nested_fd)) != expected:
+                raise _StagingCustodyMismatch(f"nested_{role}_root_identity_changed")
+            if before != after:
+                raise _StagingCustodyMismatch(f"nested_{role}_tree_changed_during_validation")
+            return digest, result
+        finally:
+            os.close(nested_fd)
+    finally:
+        os.close(bundles_fd)
+
+
+def _validate_lifecycle_closure_bound(packet_fd: int, logical_packet_path: Path, logical_packet_basename: str, *, expected_packet_digest: str | None = None, initial_snapshot: tuple[_StagingMemberCustody, ...] | None = None) -> ClosureOutcome:
+    findings: list[str] = []; records: dict[str, Any] = {}
+    root_expected = _metadata(os.fstat(packet_fd))
+    try:
+        if initial_snapshot is None:
+            initial_snapshot = _packet_snapshot(packet_fd)
+        _publication_hook("lifecycle_validation_after_initial_snapshot", logical_packet_path)
+        initial_members = {member.relative_path: member for member in initial_snapshot}
+        execution_digest, ev = _validate_nested_bound(packet_fd, "execution", expected_member=initial_members.get(EXECUTION_PATH))
+        _publication_hook("lifecycle_validation_after_nested_execution", logical_packet_path)
+        rollback_digest, rv = _validate_nested_bound(packet_fd, "rollback", execution_digest, initial_members.get(ROLLBACK_PATH))
+        _publication_hook("lifecycle_validation_after_nested_rollback", logical_packet_path)
         findings.extend("nested_execution:" + x for x in ev.findings); findings.extend("nested_rollback:" + x for x in rv.findings)
         base_report, cross = _cross_validate(ev.records, rv.records, execution_digest); findings.extend(cross)
-        report = _json(root / "closure_report.json"); summary = _json(root / "summary.json"); receipt = _json(root / "receipt.json")
-        content = _json(root / "content_manifest.json"); final = _json(root / "final_manifest.json")
-        times = {record.get("closure_time") for record in (report, summary, receipt, final)}
-        if len(times) != 1 or not isinstance(next(iter(times), None), str) or not next(iter(times), ""):
-            findings.append("closure_time_custody_mismatch"); closure_time = ""
-        else: closure_time = str(next(iter(times)))
-        derived_id = derive_closure_id(execution_digest, rollback_digest, closure_time)
-        ids = {record.get("closure_id") for record in (report, summary, receipt, final)}
-        if ids != {derived_id} or root.name != derived_id: findings.append("closure_identity_custody_mismatch")
-        identity = _identity(base_report, derived_id, closure_time, execution_digest, rollback_digest)
-        expected_report = {**base_report, **identity}; expected_report["digest"] = digest_record(expected_report)
-        if report != expected_report: findings.append("closure_report_invalid")
-        expected_summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; expected_summary["digest"] = digest_record(expected_summary)
-        if summary != expected_summary: findings.append("summary_invalid")
-        nested_names = {name for name in actual if name.startswith(EXECUTION_PATH + "/") or name.startswith(ROLLBACK_PATH + "/")}
-        content_names = nested_names | {"closure_report.json", "summary.json"}
-        findings.extend(_validate_manifest(root, content, kind="host_local_diagnostic_lifecycle_closure_content_manifest", digest_name="content_manifest_digest", expected_names=content_names))
-        expected_receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content.get("content_manifest_digest")}; expected_receipt["digest"] = digest_record(expected_receipt)
-        if receipt != expected_receipt: findings.append("receipt_invalid")
-        final_names = content_names | {"content_manifest.json", "receipt.json"}
-        findings.extend(_validate_manifest(root, final, kind="host_local_diagnostic_lifecycle_closure_final_manifest", digest_name="packet_digest", expected_names=final_names, metadata=identity))
-        if actual != final_names | {"final_manifest.json"}: findings.append("exact_packet_membership_invalid")
-        packet_digest = final.get("packet_digest")
-        if expected_packet_digest is not None and packet_digest != expected_packet_digest: findings.append("expected_packet_digest_mismatch")
-        records = {"closure_report": report, "summary": summary, "receipt": receipt, "content_manifest": content, "final_manifest": final}
+        def semantic(alias: Path) -> tuple[dict[str, Any], set[str]]:
+            actual, path_findings = _packet_files(alias); findings.extend(path_findings)
+            report = _json(alias / "closure_report.json"); summary = _json(alias / "summary.json"); receipt = _json(alias / "receipt.json")
+            content = _json(alias / "content_manifest.json"); final = _json(alias / "final_manifest.json")
+            times = {record.get("closure_time") for record in (report, summary, receipt, final)}
+            if len(times) != 1 or not isinstance(next(iter(times), None), str) or not next(iter(times), ""):
+                findings.append("closure_time_custody_mismatch"); closure_time = ""
+            else: closure_time = str(next(iter(times)))
+            derived_id = derive_closure_id(execution_digest, rollback_digest, closure_time)
+            ids = {record.get("closure_id") for record in (report, summary, receipt, final)}
+            if ids != {derived_id} or logical_packet_basename != derived_id: findings.append("closure_identity_custody_mismatch")
+            identity = _identity(base_report, derived_id, closure_time, execution_digest, rollback_digest)
+            expected_report = {**base_report, **identity}; expected_report["digest"] = digest_record(expected_report)
+            if report != expected_report: findings.append("closure_report_invalid")
+            expected_summary = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_summary", "status": "host_local_diagnostic_lifecycle_closed", **identity}; expected_summary["digest"] = digest_record(expected_summary)
+            if summary != expected_summary: findings.append("summary_invalid")
+            nested_names = {name for name in actual if name.startswith(EXECUTION_PATH + "/") or name.startswith(ROLLBACK_PATH + "/")}
+            content_names = nested_names | {"closure_report.json", "summary.json"}
+            findings.extend(_validate_manifest(alias, content, kind="host_local_diagnostic_lifecycle_closure_content_manifest", digest_name="content_manifest_digest", expected_names=content_names))
+            expected_receipt = {"schema_version": SCHEMA_VERSION, "artifact_kind": "host_local_diagnostic_lifecycle_closure_receipt", **identity, "closure_report_digest": _sha(report), "summary_digest": _sha(summary), "content_manifest_digest": content.get("content_manifest_digest")}; expected_receipt["digest"] = digest_record(expected_receipt)
+            if receipt != expected_receipt: findings.append("receipt_invalid")
+            final_names = content_names | {"content_manifest.json", "receipt.json"}
+            findings.extend(_validate_manifest(alias, final, kind="host_local_diagnostic_lifecycle_closure_final_manifest", digest_name="packet_digest", expected_names=final_names, metadata=identity))
+            if actual != final_names | {"final_manifest.json"}: findings.append("exact_packet_membership_invalid")
+            if expected_packet_digest is not None and final.get("packet_digest") != expected_packet_digest: findings.append("expected_packet_digest_mismatch")
+            return {"closure_report": report, "summary": summary, "receipt": receipt, "content_manifest": content, "final_manifest": final}, actual
+        records, _ = _descriptor_adapter(packet_fd, semantic)
+        _publication_hook("lifecycle_validation_before_terminal_snapshot", logical_packet_path)
+        terminal = _packet_snapshot(packet_fd)
+        difference = _snapshot_finding("lifecycle_validation_packet_", initial_snapshot, terminal)
+        if difference: findings.append(difference)
+        if _metadata(os.fstat(packet_fd)) != root_expected:
+            findings.append("lifecycle_validation_packet_root_metadata_changed")
+    except _StagingCustodyMismatch as exc:
+        findings.append({
+            "lifecycle_packet_membership_changed_before_commit": "lifecycle_validation_packet_membership_changed",
+            "lifecycle_packet_member_identity_changed_before_commit": "lifecycle_validation_packet_member_identity_changed",
+            "lifecycle_packet_member_metadata_changed_before_commit": "lifecycle_validation_packet_member_metadata_changed",
+            "lifecycle_packet_member_bytes_changed_before_commit": "lifecycle_validation_packet_member_bytes_changed",
+        }.get(exc.finding, exc.finding))
     except Exception as exc:
         findings.append("packet_decode_failed:" + type(exc).__name__)
     status = "host_local_diagnostic_lifecycle_closure_valid" if not findings else "host_local_diagnostic_lifecycle_closure_invalid"
-    return ClosureOutcome(status, tuple(sorted(set(findings))), records, str(root), True, "validated" if not findings else "rejected")
+    return ClosureOutcome(status, tuple(sorted(set(findings))), records, str(logical_packet_path), True, "validated" if not findings else "rejected")
+
+
+def validate_lifecycle_closure(packet_root: str | Path, *, expected_packet_digest: str | None = None) -> ClosureOutcome:
+    logical, findings = _safe_root(packet_root)
+    if findings:
+        return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", tuple(findings), {}, str(logical), True, "rejected")
+    try:
+        packet_fd = _open_directory(logical)
+    except OSError:
+        return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", ("lifecycle_validation_packet_root_identity_changed",), {}, str(logical), True, "rejected")
+    try:
+        expected = _metadata(os.fstat(packet_fd))
+        _publication_hook("lifecycle_validation_after_packet_root_open", logical)
+        if not _source_root_bound(logical, packet_fd, expected):
+            return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", ("lifecycle_validation_packet_root_identity_changed",), {}, str(logical), True, "rejected")
+        result = _validate_lifecycle_closure_bound(packet_fd, logical, logical.name, expected_packet_digest=expected_packet_digest)
+        final_findings = list(result.findings)
+        try:
+            named = _metadata(os.stat(logical, follow_symlinks=False)); opened = _metadata(os.fstat(packet_fd))
+            if named[0] != expected[0] or opened[0] != expected[0]: final_findings.append("lifecycle_validation_packet_root_identity_changed")
+            elif named != expected or opened != expected: final_findings.append("lifecycle_validation_packet_root_metadata_changed")
+        except OSError: final_findings.append("lifecycle_validation_packet_root_identity_changed")
+        if final_findings:
+            return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", tuple(sorted(set(final_findings))), result.records, str(logical), True, "rejected")
+        return result
+    finally:
+        os.close(packet_fd)
 
 
 # Small named hooks deliberately provide deterministic test interception points.
@@ -920,10 +1022,8 @@ def _fd_alias(fd: int) -> Path:
 
 
 def _validate_bound_packet(packet_fd: int, closure_id: str, *, expected_packet_digest: str | None = None) -> ClosureOutcome:
-    alias = _fd_alias(packet_fd); result = validate_lifecycle_closure(alias, expected_packet_digest=expected_packet_digest)
-    if _fs_identity(alias.stat()) != _fs_identity(os.fstat(packet_fd)): return ClosureOutcome("host_local_diagnostic_lifecycle_closure_invalid", ("descriptor_alias_identity_changed",), {})
-    # The alias is never caller-visible or serialized.
-    return ClosureOutcome(result.status, result.findings, result.records, closure_id, result.replayed, result.publication_posture)
+    # Construction already owns the descriptor; never resolve its adapter or expose it.
+    return _validate_lifecycle_closure_bound(packet_fd, Path(closure_id), closure_id, expected_packet_digest=expected_packet_digest)
 
 
 def _entry_exists_at(parent_fd: int, name: str) -> bool:
@@ -1003,9 +1103,8 @@ def _build_lifecycle_closure_bound(*, execution_root: Path, execution_fd: int, e
     if findings or any(a == b or a in b.parents or b in a.parents for a, b in ((out, execution_root), (out, rollback_root))): return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(findings + ["roots_overlap"]), {})
     if not _source_root_bound(execution_root, execution_fd, execution_identity): return _root_blocked("lifecycle_execution_source_root_identity_changed")
     if not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_rollback_source_root_identity_changed")
-    execution_alias = _fd_alias(execution_fd).resolve(strict=True); rollback_alias = _fd_alias(rollback_fd).resolve(strict=True)
-    ev = validate_persisted_execution_bundle(execution_alias, expected_final_bundle_digest=execution_bundle_digest)
-    rv = validate_persisted_rollback_bundle(rollback_alias, expected_final_bundle_digest=rollback_bundle_digest, expected_execution_bundle_digest=execution_bundle_digest)
+    ev = _descriptor_adapter(execution_fd, lambda path: validate_persisted_execution_bundle(path, expected_final_bundle_digest=execution_bundle_digest))
+    rv = _descriptor_adapter(rollback_fd, lambda path: validate_persisted_rollback_bundle(path, expected_final_bundle_digest=rollback_bundle_digest, expected_execution_bundle_digest=execution_bundle_digest))
     if not _source_root_bound(execution_root, execution_fd, execution_identity): return _root_blocked("lifecycle_execution_source_root_identity_changed")
     if not _source_root_bound(rollback_root, rollback_fd, rollback_identity): return _root_blocked("lifecycle_rollback_source_root_identity_changed")
     if ev.status != "host_local_diagnostic_execution_completed" or rv.status != "host_local_diagnostic_rollback_completed": return ClosureOutcome("blocked_host_local_diagnostic_lifecycle_closure", tuple(sorted(set(ev.findings + rv.findings))), {})
@@ -1164,16 +1263,120 @@ def build_lifecycle_closure(*, execution_bundle_root: str | Path, execution_bund
         finally: os.close(rollback_fd)
     finally: os.close(execution_fd)
 
-def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
-    root = Path(output_root).resolve(strict=False)
+def _latest_invalid(*findings: str) -> ClosureOutcome:
+    return ClosureOutcome("host_local_diagnostic_lifecycle_closure_latest_invalid", tuple(sorted(set(findings))), {}, publication_posture="rejected")
+
+
+def _safe_closure_basename(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 30 and value.startswith("hldlc-") and set(value[6:]) <= _HEX and _safe_basename(value)
+
+
+def _read_pointer_custody(root_fd: int) -> _PreparedFileCustody:
+    name = "latest.json"
+    try: entry = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+    except FileNotFoundError as exc: raise _StagingCustodyMismatch("lifecycle_latest_pointer_missing") from exc
+    if not stat.S_ISREG(entry.st_mode): raise _StagingCustodyMismatch("lifecycle_latest_pointer_not_regular")
+    if entry.st_size > 1024 * 1024: raise _StagingCustodyMismatch("lifecycle_latest_pointer_too_large")
+    try: fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=root_fd)
+    except OSError as exc: raise _StagingCustodyMismatch("lifecycle_latest_pointer_identity_changed") from exc
     try:
-        pointer = _json(root / "latest.json")
+        opened = os.fstat(fd); expected = _metadata(entry)
+        if _metadata(opened) != expected: raise _StagingCustodyMismatch("lifecycle_latest_pointer_identity_changed")
+        raw = _read_fd(fd, 1024 * 1024); terminal = os.fstat(fd)
+        rebound = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        if _fs_identity(terminal) != expected[0] or _fs_identity(rebound) != expected[0]: raise _StagingCustodyMismatch("lifecycle_latest_pointer_identity_changed")
+        if _metadata(terminal) != expected or _metadata(rebound) != expected: raise _StagingCustodyMismatch("lifecycle_latest_pointer_metadata_changed")
+        return _PreparedFileCustody(name, fd, opened.st_dev, opened.st_ino, "regular", stat.S_IMODE(opened.st_mode), opened.st_size, opened.st_mtime_ns, raw, _raw_sha(raw), "publication_root")
+    except BaseException:
+        os.close(fd); raise
+
+
+def _verify_read_custody(root_fd: int, custody: _PreparedFileCustody) -> str:
+    try:
+        entry = os.stat(custody.basename, dir_fd=root_fd, follow_symlinks=False); opened = os.fstat(custody.descriptor)
+    except OSError: return "lifecycle_latest_pointer_identity_changed"
+    expected = ((custody.device, custody.inode, custody.object_type), custody.mode, custody.size, custody.modification_time_ns)
+    if _fs_identity(entry) != expected[0] or _fs_identity(opened) != expected[0]: return "lifecycle_latest_pointer_identity_changed"
+    if _metadata(entry) != expected or _metadata(opened) != expected: return "lifecycle_latest_pointer_metadata_changed"
+    try: raw = _read_fd(custody.descriptor, custody.size)
+    except Exception: return "lifecycle_latest_pointer_bytes_changed"
+    return "" if raw == custody.exact_bytes and _raw_sha(raw) == custody.digest else "lifecycle_latest_pointer_bytes_changed"
+
+
+def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
+    logical = Path(output_root).absolute()
+    try: root_fd = _open_directory(logical)
+    except OSError: return _latest_invalid("lifecycle_latest_publication_root_identity_changed")
+    pointer_custody: _PreparedFileCustody | None = None; lock_fd = -1; packet_fd = -1
+    try:
+        root_expected = _metadata(os.fstat(root_fd))
+        _publication_hook("lifecycle_latest_after_publication_root_open", logical)
+        if not _source_root_bound(logical, root_fd, root_expected): return _latest_invalid("lifecycle_latest_publication_root_identity_changed")
+        try:
+            lock_entry = os.stat(".closure.lock", dir_fd=root_fd, follow_symlinks=False)
+            if not stat.S_ISREG(lock_entry.st_mode): raise OSError("unsafe lock")
+            lock_fd = os.open(".closure.lock", os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=root_fd)
+            if _metadata(os.fstat(lock_fd)) != _metadata(lock_entry): raise OSError("changed lock")
+            fcntl.flock(lock_fd, fcntl.LOCK_SH)
+        except OSError: return _latest_invalid("lifecycle_latest_lock_missing_or_unsafe")
+        pointer_custody = _read_pointer_custody(root_fd)
+        _publication_hook("lifecycle_latest_after_pointer_read", logical / "latest.json")
+        try: pointer = _dict(json.loads(pointer_custody.exact_bytes))
+        except Exception: return _latest_invalid("lifecycle_latest_pointer_invalid")
         exact = {"schema_version", "artifact_kind", "digest", "packet_digest", *(_identity({}, "", "", "", "").keys())}
-        if set(pointer) != exact or pointer.get("schema_version") != SCHEMA_VERSION or pointer.get("artifact_kind") != "host_local_diagnostic_lifecycle_closure_pointer" or pointer.get("digest") != digest_record(pointer): raise ValueError("pointer_invalid")
-        closure_id = str(pointer.get("closure_id", ""))
-        result = validate_lifecycle_closure(root / closure_id, expected_packet_digest=str(pointer.get("packet_digest", "")))
+        if set(pointer) != exact or pointer.get("schema_version") != SCHEMA_VERSION or pointer.get("artifact_kind") != "host_local_diagnostic_lifecycle_closure_pointer" or pointer.get("digest") != digest_record(pointer):
+            return _latest_invalid("lifecycle_latest_pointer_invalid")
+        closure_id = pointer.get("closure_id")
+        if not _safe_closure_basename(closure_id): return _latest_invalid("lifecycle_latest_closure_id_unsafe")
+        assert isinstance(closure_id, str)
+        try: packet_entry = os.stat(closure_id, dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError: return _latest_invalid("lifecycle_latest_packet_missing")
+        if not stat.S_ISDIR(packet_entry.st_mode): return _latest_invalid("lifecycle_latest_packet_not_directory")
+        _publication_hook("lifecycle_latest_before_packet_open", logical / closure_id)
+        try: packet_fd = _open_directory(closure_id, dir_fd=root_fd)
+        except OSError: return _latest_invalid("lifecycle_latest_packet_identity_changed")
+        packet_expected = _metadata(os.fstat(packet_fd))
+        if packet_expected != _metadata(packet_entry): return _latest_invalid("lifecycle_latest_packet_identity_changed")
+        _publication_hook("lifecycle_latest_after_packet_open", logical / closure_id)
+        initial = _packet_snapshot(packet_fd)
+        result = _validate_lifecycle_closure_bound(packet_fd, logical / closure_id, closure_id, expected_packet_digest=str(pointer.get("packet_digest", "")), initial_snapshot=initial)
+        _publication_hook("lifecycle_latest_after_packet_validation", logical / closure_id)
+        if result.status != "host_local_diagnostic_lifecycle_closure_valid":
+            mapped = []
+            for finding in result.findings:
+                mapped.append(finding.replace("lifecycle_validation_packet_", "lifecycle_latest_packet_"))
+            return _latest_invalid(*mapped)
         summary = _dict(result.records.get("summary")); final = _dict(result.records.get("final_manifest"))
-        if result.status != "host_local_diagnostic_lifecycle_closure_valid" or any(pointer.get(k) != summary.get(k) for k in _identity({}, "", "", "", "")) or pointer.get("packet_digest") != final.get("packet_digest"): raise ValueError("pointer_identity_invalid")
-        return ClosureOutcome(result.status, (), result.records, result.packet_root, True, "latest_replay")
-    except Exception as exc:
-        return ClosureOutcome("host_local_diagnostic_lifecycle_closure_latest_invalid", (type(exc).__name__,), {}, publication_posture="rejected")
+        if any(pointer.get(k) != summary.get(k) for k in _identity({}, "", "", "", "")):
+            return _latest_invalid("lifecycle_latest_pointer_summary_identity_mismatch")
+        if pointer.get("packet_digest") != final.get("packet_digest"):
+            return _latest_invalid("lifecycle_latest_packet_digest_mismatch")
+        _publication_hook("lifecycle_latest_before_terminal_rebind", logical)
+        findings: list[str] = []
+        try:
+            named_root = _metadata(os.stat(logical, follow_symlinks=False)); opened_root = _metadata(os.fstat(root_fd))
+            if named_root[0] != root_expected[0] or opened_root[0] != root_expected[0]: findings.append("lifecycle_latest_publication_root_identity_changed")
+            elif named_root != root_expected or opened_root != root_expected: findings.append("lifecycle_latest_publication_root_metadata_changed")
+        except OSError: findings.append("lifecycle_latest_publication_root_identity_changed")
+        pointer_finding = _verify_read_custody(root_fd, pointer_custody)
+        if pointer_finding: findings.append(pointer_finding)
+        try:
+            rebound_packet = _metadata(os.stat(closure_id, dir_fd=root_fd, follow_symlinks=False)); opened_packet = _metadata(os.fstat(packet_fd))
+            if rebound_packet[0] != packet_expected[0] or opened_packet[0] != packet_expected[0]: findings.append("lifecycle_latest_packet_identity_changed")
+            elif rebound_packet != packet_expected or opened_packet != packet_expected: findings.append("lifecycle_latest_packet_metadata_changed")
+        except OSError: findings.append("lifecycle_latest_packet_identity_changed")
+        terminal = _packet_snapshot(packet_fd); difference = _snapshot_finding("lifecycle_latest_packet_", initial, terminal)
+        if difference: findings.append(difference)
+        if findings: return _latest_invalid(*findings)
+        return ClosureOutcome(result.status, (), result.records, str(logical / closure_id), True, "latest_replay")
+    except _StagingCustodyMismatch as exc:
+        return _latest_invalid(exc.finding)
+    except Exception:
+        return _latest_invalid("lifecycle_latest_pointer_invalid")
+    finally:
+        if packet_fd >= 0: os.close(packet_fd)
+        if pointer_custody is not None: os.close(pointer_custody.descriptor)
+        if lock_fd >= 0:
+            try: fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            finally: os.close(lock_fd)
+        os.close(root_fd)
