@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `6d6eb4d`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `d610386`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -36,6 +36,10 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 
-### Lifecycle closure publication custody at `6d6eb4d`
+### Provenance-bound behavioral witnesses at `d610386`
+
+Developer-workflow proof now supports bounded behavioral witnesses bound to the exact pytest node, run, repository SHA, call phase, contract, kind, and provenance hash chain. Legacy `sentientos.task_acceptance:v1` manifests remain valid; v2 witness contracts add evidence without authority expansion.
+
+### Lifecycle closure publication custody at `d610386`
 
 The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.

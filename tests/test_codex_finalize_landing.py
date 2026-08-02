@@ -45,6 +45,25 @@ def test_pr_metadata_clean_ready() -> None:
     assert res.decision.status == "ready_for_pr_metadata"
 
 
+def test_valid_v2_witness_acceptance_reaches_existing_custody_boundary(tmp_path, monkeypatch) -> None:
+    """The finalizer consumes the generic verifier result; v2 needs no production special case."""
+    import json
+    from sentientos.behavioral_witness import build_witness, digest
+    from sentientos.task_acceptance import verify
+    monkeypatch.setattr("sentientos.task_acceptance.subprocess.run", lambda *a, **k: type("R", (), {"stdout": "sha\n"})())
+    node = "tests/test_codex_finalize_landing.py::test_valid_v2_witness_acceptance_reaches_existing_custody_boundary"
+    witness = build_witness(repository_sha="sha", run_id="run", node_id=node, contract_id="c", witness_kind="k", facts={"ok": True})
+    provenance = {"git_sha":"sha", "run_id":"run", "reporter_ok":True, "metrics_status":"ok",
+                  "selected_node_ids":[node], "node_outcomes":[{"node_id":node,"phase":"call","outcome":"passed"}],
+                  "behavioral_witnesses":[witness], "behavioral_witness_digest":digest([witness])}
+    manifest = {"schema_version":"sentientos.task_acceptance:v2", "repository_sha":"sha", "task_classification":"behavior_adding",
+                "required_nodes":[{"node_id":node,"witness_contracts":[{"contract_id":"c","witness_kind":"k","assertions":[{"op":"is_true","path":"/ok"}]}]}],
+                "successful_path_nodes":[node]}
+    mp, pp = tmp_path/"manifest.json", tmp_path/"provenance.json"
+    mp.write_text(json.dumps(manifest)); pp.write_text(json.dumps(provenance))
+    assert verify(mp, pp)["status"] == "task_acceptance_ready"
+
+
 def test_pre_commit_ready_with_inferred_source_changes() -> None:
     req = CodexFinalizeLandingRequest(
         title="x",
