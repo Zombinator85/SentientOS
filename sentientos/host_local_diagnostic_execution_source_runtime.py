@@ -56,6 +56,11 @@ def _path_findings(path: str|Path, *, may_not_exist: bool=False) -> tuple[Path,l
     raw=str(path); p=Path(raw); f=[]
     if not raw.strip(): f.append("empty_path_rejected")
     if ".." in p.parts: f.append("path_traversal_rejected")
+    # A retained descriptor may be supplied as an unresolved Linux read adapter.
+    # Its owner identity-checks it before and after this validator call.
+    if p.is_absolute() and p.parts[:4] == ("/", "proc", "self", "fd") and len(p.parts) == 5 and p.parts[4].isdigit():
+        if not may_not_exist and not p.is_dir(): f.append("directory_required")
+        return p, f
     # Walk the lexical path, before resolve(), so a symlink that is traversed by
     # the caller cannot disappear from the custody proof.
     lexical = Path(p.anchor) if p.is_absolute() else Path.cwd()
