@@ -497,6 +497,11 @@ def _write_provenance(
     install_attempted_modes: list[str] | tuple[str, ...] | None = None,
     selected_node_ids: list[str] | None = None,
     node_outcomes: list[dict[str, object]] | None = None,
+    run_id: str | None = None,
+    behavioral_witnesses: list[dict[str, object]] | None = None,
+    behavioral_witness_digest: str | None = None,
+    behavioral_witness_counts_by_node: dict[str, int] | None = None,
+    behavioral_witness_reporter_status: str = "legacy",
 ) -> dict[str, object]:
     run_dir = repo_root / "glow" / "test_runs"
     provenance_dir = run_dir / "provenance"
@@ -534,6 +539,12 @@ def _write_provenance(
         "reporter_error": reporter_error,
         "selected_node_ids": list(selected_node_ids or ()),
         "node_outcomes": list(node_outcomes or ()),
+        "run_id": run_id or uuid4().hex,
+        "behavioral_witnesses": list(behavioral_witnesses or ()),
+        "behavioral_witness_count": len(behavioral_witnesses or ()),
+        "behavioral_witness_digest": behavioral_witness_digest,
+        "behavioral_witness_counts_by_node": dict(behavioral_witness_counts_by_node or {}),
+        "behavioral_witness_reporter_status": behavioral_witness_reporter_status,
     }
     if pytest_exit_code is not None:
         payload["pytest_exit_code"] = pytest_exit_code
@@ -806,6 +817,10 @@ def main(argv: list[str] | None = None) -> int:
     junitxml_path: Path | None = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"
     failure_report_path: Path | None = run_dir / "test_failure_digest.json"
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
+    run_id = uuid4().hex
+    repository_sha = _git_sha(REPO_ROOT)
+    env["SENTIENTOS_TEST_RUN_ID"] = run_id
+    env["SENTIENTOS_REPOSITORY_SHA"] = repository_sha
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
     if "--junitxml" not in pytest_args and not any(arg.startswith("--junitxml=") for arg in pytest_args):
@@ -825,6 +840,10 @@ def main(argv: list[str] | None = None) -> int:
     tests_xpassed = None
     selected_node_ids: list[str] = []
     node_outcomes: list[dict[str, object]] = []
+    behavioral_witnesses: list[dict[str, object]] = []
+    behavioral_witness_digest: str | None = None
+    behavioral_witness_counts_by_node: dict[str, int] = {}
+    behavioral_witness_reporter_status = "incomplete"
     metrics_status = "ok"
     reporter_ok = True
     reporter_error: dict[str, str] | None = None
@@ -881,6 +900,32 @@ def main(argv: list[str] | None = None) -> int:
             reporter_error = _normalize_reporter_error(report.get("reporter_error"))
             selected_node_ids = [str(node) for node in report.get("selected_node_ids", [])]
             node_outcomes = [item for item in report.get("node_outcomes", []) if isinstance(item, dict)]
+            witness_fields_present = "behavioral_witnesses" in report
+            raw_witnesses = report.get("behavioral_witnesses", [])
+            from sentientos.behavioral_witness import digest as witness_digest, valid_witness
+            witness_valid = (
+                isinstance(raw_witnesses, list)
+                and all(valid_witness(item) for item in raw_witnesses)
+                and all(item.get("repository_sha") == repository_sha and item.get("run_id") == run_id
+                        and item.get("node_id") in selected_node_ids and item.get("phase") == "call"
+                        and any(outcome.get("node_id") == item.get("node_id") and outcome.get("phase") == "call" for outcome in node_outcomes)
+                        for item in raw_witnesses if isinstance(item, dict))
+                and report.get("behavioral_witness_count") == len(raw_witnesses)
+                and report.get("behavioral_witness_digest") == witness_digest(raw_witnesses)
+            )
+            if not witness_fields_present:
+                behavioral_witness_reporter_status = "legacy"
+            elif witness_valid:
+                behavioral_witnesses = raw_witnesses
+                behavioral_witness_digest = str(report.get("behavioral_witness_digest"))
+                counts = report.get("behavioral_witness_counts_by_node", {})
+                behavioral_witness_counts_by_node = counts if isinstance(counts, dict) else {}
+                behavioral_witness_reporter_status = "complete"
+            else:
+                reporter_ok = False
+                metrics_status = "unavailable"
+                behavioral_witness_reporter_status = "incomplete"
+                reporter_error = {"type": "BehavioralWitnessReporterError", "message": "malformed behavioral witness reporter data"}
             required_metrics = (
                 tests_collected,
                 tests_selected,
@@ -1101,6 +1146,11 @@ def main(argv: list[str] | None = None) -> int:
         install_attempted_modes=install_attempted_modes,
         selected_node_ids=selected_node_ids,
         node_outcomes=node_outcomes,
+        run_id=run_id,
+        behavioral_witnesses=behavioral_witnesses,
+        behavioral_witness_digest=behavioral_witness_digest,
+        behavioral_witness_counts_by_node=behavioral_witness_counts_by_node,
+        behavioral_witness_reporter_status=behavioral_witness_reporter_status,
     )
     if failure_report_path is not None and failure_report_path.exists():
         try:

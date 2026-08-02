@@ -1,5 +1,7 @@
 # Codex Validation and Landing Contract
 
+Repository-native acceptance distinguishes exact node outcome evidence from optional structured behavioral witness evidence. The latter is specified by the [task-acceptance behavioral-witness contract](task_acceptance_behavioral_witnesses.md); it supplements rather than replaces node selection, call-phase outcome, SHA, and reporter-completeness proof.
+
 ## Exact behavioral acceptance
 
 Aggregate lane and pytest counts do not prove that task-required behavior ran. A behavior-adding task must provide a versioned JSON manifest (`sentientos.task_acceptance:v1`) with `task_classification`, `repository_sha`, `test_provenance_path`, `required_nodes` (objects containing an exact `node_id` and optional `rationale`), and `successful_path_nodes` (exact node IDs, all also required). At least one successful-path node is mandatory for `behavior_adding`; governance/documentation and legacy tasks may omit the manifest during migration only when they do not add behavior.
