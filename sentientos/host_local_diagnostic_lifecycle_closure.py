@@ -339,6 +339,24 @@ def _publication_hook(event: str, path: Path) -> None:
     """Internal no-op boundary hook used only by explicitly injected tests."""
 
 
+def _custody_observation_hook(event: str, payload: Mapping[str, Any]) -> None:
+    """Internal no-op hook exposing bounded, read-only custody observations to tests."""
+
+
+def _snapshot_digest(snapshot: tuple[_StagingMemberCustody, ...]) -> str:
+    """Return the canonical digest of a complete immutable packet snapshot."""
+    return str(_sha([{
+        "relative_path": member.relative_path,
+        "device": member.device,
+        "inode": member.inode,
+        "object_type": member.object_type,
+        "mode": member.mode,
+        "size": member.size,
+        "modification_time_ns": member.modification_time_ns,
+        "digest": member.digest,
+    } for member in snapshot]))
+
+
 def _copy_bundle(source: Path, destination: Path) -> None:
     raise RuntimeError("pathname bundle copying is forbidden")
 
@@ -1312,6 +1330,7 @@ def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
         root_expected = _metadata(os.fstat(root_fd))
         _publication_hook("lifecycle_latest_after_publication_root_open", logical)
         if not _source_root_bound(logical, root_fd, root_expected): return _latest_invalid("lifecycle_latest_publication_root_identity_changed")
+        _custody_observation_hook("latest_publication_root_bound", {"identity": root_expected, "logical_path": str(logical)})
         try:
             lock_entry = os.stat(".closure.lock", dir_fd=root_fd, follow_symlinks=False)
             if not stat.S_ISREG(lock_entry.st_mode): raise OSError("unsafe lock")
@@ -1321,6 +1340,8 @@ def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
         except OSError: return _latest_invalid("lifecycle_latest_lock_missing_or_unsafe")
         pointer_custody = _read_pointer_custody(root_fd)
         _publication_hook("lifecycle_latest_after_pointer_read", logical / "latest.json")
+        pointer_identity = ((pointer_custody.device, pointer_custody.inode, pointer_custody.object_type), pointer_custody.mode, pointer_custody.size, pointer_custody.modification_time_ns)
+        _custody_observation_hook("latest_pointer_custody_acquired", {"identity": pointer_identity, "pointer_digest": pointer_custody.digest})
         try: pointer = _dict(json.loads(pointer_custody.exact_bytes))
         except Exception: return _latest_invalid("lifecycle_latest_pointer_invalid")
         exact = {"schema_version", "artifact_kind", "digest", "packet_digest", *(_identity({}, "", "", "", "").keys())}
@@ -1337,8 +1358,10 @@ def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
         except OSError: return _latest_invalid("lifecycle_latest_packet_identity_changed")
         packet_expected = _metadata(os.fstat(packet_fd))
         if packet_expected != _metadata(packet_entry): return _latest_invalid("lifecycle_latest_packet_identity_changed")
+        _custody_observation_hook("latest_packet_entry_bound", {"identity": packet_expected, "logical_path": str(logical / closure_id), "pointer_packet_digest": str(pointer.get("packet_digest", ""))})
         _publication_hook("lifecycle_latest_after_packet_open", logical / closure_id)
         initial = _packet_snapshot(packet_fd)
+        _custody_observation_hook("latest_packet_initial_snapshot", {"packet_snapshot_digest": _snapshot_digest(initial)})
         result = _validate_lifecycle_closure_bound(packet_fd, logical / closure_id, closure_id, expected_packet_digest=str(pointer.get("packet_digest", "")), initial_snapshot=initial)
         _publication_hook("lifecycle_latest_after_packet_validation", logical / closure_id)
         if result.status != "host_local_diagnostic_lifecycle_closure_valid":
@@ -1347,10 +1370,13 @@ def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
                 mapped.append(finding.replace("lifecycle_validation_packet_", "lifecycle_latest_packet_"))
             return _latest_invalid(*mapped)
         summary = _dict(result.records.get("summary")); final = _dict(result.records.get("final_manifest"))
+        _custody_observation_hook("latest_packet_semantic_validation_complete", {"semantic_packet_digest": str(final.get("packet_digest", "")), "status": result.status})
         if any(pointer.get(k) != summary.get(k) for k in _identity({}, "", "", "", "")):
             return _latest_invalid("lifecycle_latest_pointer_summary_identity_mismatch")
         if pointer.get("packet_digest") != final.get("packet_digest"):
             return _latest_invalid("lifecycle_latest_packet_digest_mismatch")
+        terminal = _packet_snapshot(packet_fd)
+        _custody_observation_hook("latest_packet_terminal_snapshot", {"packet_snapshot_digest": _snapshot_digest(terminal)})
         _publication_hook("lifecycle_latest_before_terminal_rebind", logical)
         findings: list[str] = []
         try:
@@ -1359,16 +1385,20 @@ def load_latest_summary(output_root: str | Path) -> ClosureOutcome:
             elif named_root != root_expected or opened_root != root_expected: findings.append("lifecycle_latest_publication_root_metadata_changed")
         except OSError: findings.append("lifecycle_latest_publication_root_identity_changed")
         pointer_finding = _verify_read_custody(root_fd, pointer_custody)
+        _custody_observation_hook("latest_pointer_terminal_rebound", {"identity": pointer_identity, "pointer_digest": pointer_custody.digest})
         if pointer_finding: findings.append(pointer_finding)
         try:
             rebound_packet = _metadata(os.stat(closure_id, dir_fd=root_fd, follow_symlinks=False)); opened_packet = _metadata(os.fstat(packet_fd))
             if rebound_packet[0] != packet_expected[0] or opened_packet[0] != packet_expected[0]: findings.append("lifecycle_latest_packet_identity_changed")
             elif rebound_packet != packet_expected or opened_packet != packet_expected: findings.append("lifecycle_latest_packet_metadata_changed")
         except OSError: findings.append("lifecycle_latest_packet_identity_changed")
-        terminal = _packet_snapshot(packet_fd); difference = _snapshot_finding("lifecycle_latest_packet_", initial, terminal)
+        _custody_observation_hook("latest_packet_terminal_rebound", {"identity": packet_expected})
+        difference = _snapshot_finding("lifecycle_latest_packet_", initial, terminal)
         if difference: findings.append(difference)
         if findings: return _latest_invalid(*findings)
-        return ClosureOutcome(result.status, (), result.records, str(logical / closure_id), True, "latest_replay")
+        outcome = ClosureOutcome(result.status, (), result.records, str(logical / closure_id), True, "latest_replay")
+        _custody_observation_hook("latest_transaction_complete", {"status": outcome.status, "publication_posture": outcome.publication_posture})
+        return outcome
     except _StagingCustodyMismatch as exc:
         return _latest_invalid(exc.finding)
     except Exception:

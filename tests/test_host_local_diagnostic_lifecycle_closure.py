@@ -16,6 +16,8 @@ pytestmark=pytest.mark.no_legacy_skip
 def _process_worker(config:dict[str,Any], barrier:Any=None, connection:Any=None, release:Any=None)->None:
     import sentientos.host_local_diagnostic_lifecycle_closure as worker_closure
     def hook(event:str,path:Path)->None:
+        if event in {"lock_waiting","locked_enter"} and config.get("report_lock_events") and connection is not None:
+            connection.send({"event":event,"pid":os.getpid(),"path":str(path)})
         if event in {"lock_waiting","locked_enter","locked_exit"} and config.get("events"):
             with Path(config["events"]).open("a") as stream:
                 stream.write(json.dumps({"event":event,"pid":os.getpid()})+"\n"); stream.flush(); os.fsync(stream.fileno())
@@ -38,6 +40,16 @@ def _process_worker(config:dict[str,Any], barrier:Any=None, connection:Any=None,
         rollback_bundle_root=config["rollback_root"],rollback_bundle_digest=config["rollback_digest"],
         closure_time=NOW,output_root=config["output_root"])
     Path(config["result"]).write_text(json.dumps({"pid":os.getpid(),**result.to_dict()}))
+
+def _latest_reader_worker(output_root:str,result_path:str,connection:Any,release:Any)->None:
+    import sentientos.host_local_diagnostic_lifecycle_closure as worker_closure
+    def observe(event:str,payload:Any)->None:
+        if event=="latest_pointer_custody_acquired":
+            connection.send({"event":"reader_lock_held","pid":os.getpid()})
+            assert release.wait(20)
+    worker_closure._custody_observation_hook=observe
+    result=worker_closure.load_latest_summary(output_root)
+    Path(result_path).write_text(json.dumps({"pid":os.getpid(),**result.to_dict()}))
 
 def _process_config(execution:Any,rollback:Any,out:Path,result:Path,**extra:Any)->dict[str,Any]:
     ed,rd=_digests(execution,rollback)
@@ -610,50 +622,79 @@ def test_atomic_rename_basename_validation_rejects_dot_and_dotdot()->None:
     assert closure._safe_basename('.hldlc-safe')
 
 def test_public_validation_rejects_packet_root_replacement_after_open(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root); original=root.with_name(root.name+'.original')
+    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root); original=root.with_name(root.name+'.original'); before=_packet_snapshot(root)
     def hook(event:str,path:Path)->None:
         if event=='lifecycle_validation_after_packet_root_open': root.rename(original); root.mkdir(); (root/'sentinel').write_bytes(b'keep')
     monkeypatch.setattr(closure,'_publication_hook',hook); result=validate_lifecycle_closure(root)
-    assert 'lifecycle_validation_packet_root_identity_changed' in result.findings and (root/'sentinel').read_bytes()==b'keep' and '/proc/self/fd' not in result.packet_root
+    assert 'lifecycle_validation_packet_root_identity_changed' in result.findings and _packet_snapshot(original)==before and (root/'sentinel').read_bytes()==b'keep' and _packet_snapshot(root)=={'.':_packet_snapshot(root)['.'],'sentinel':_packet_snapshot(root)['sentinel']} and '/proc/self/fd' not in result.packet_root
 
 
-def _validation_mutation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,kind:str)->Any:
-    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root); fired=False
+def _validation_mutation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,kind:str)->tuple[Any,Path,dict[str,Any]]:
+    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root); fired=False; evidence:dict[str,Any]={}; target=root/'summary.json'; evidence['before']=target.read_bytes(); evidence['inode']=target.stat().st_ino; evidence['mode']=stat.S_IMODE(target.stat().st_mode)
     def hook(event:str,path:Path)->None:
         nonlocal fired
         if event=='lifecycle_validation_after_initial_snapshot' and not fired:
-            fired=True; target=root/'summary.json'
-            if kind=='identity': target.rename(root.parent/'summary.original'); target.write_bytes(b'{}\n')
+            fired=True
+            if kind=='identity': target.rename(root.parent/'summary.original'); target.write_bytes(b'{}\n'); evidence['replacement_inode']=target.stat().st_ino
             elif kind=='metadata': target.chmod(0o640)
             else: (root/'injected').write_bytes(b'keep')
-    monkeypatch.setattr(closure,'_publication_hook',hook); return validate_lifecycle_closure(root)
+    monkeypatch.setattr(closure,'_publication_hook',hook); return validate_lifecycle_closure(root),root,evidence
 
 
 def test_public_validation_rejects_packet_member_substitution_during_validation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    assert set(_validation_mutation(tmp_path,monkeypatch,'identity').findings) & {'lifecycle_validation_packet_member_identity_changed','lifecycle_validation_packet_member_bytes_changed','lifecycle_validation_packet_member_metadata_changed'}
+    result,root,evidence=_validation_mutation(tmp_path,monkeypatch,'identity'); original=root.parent/'summary.original'; replacement=root/'summary.json'
+    assert not result.status.endswith('_valid') and set(result.findings) & {'lifecycle_validation_packet_member_identity_changed','lifecycle_validation_packet_member_bytes_changed','lifecycle_validation_packet_member_metadata_changed'}
+    assert original.read_bytes()==evidence['before'] and replacement.read_bytes()==b'{}\n' and original.stat().st_ino==evidence['inode'] and replacement.stat().st_ino==evidence['replacement_inode']
 
 def test_public_validation_rejects_packet_metadata_change_during_validation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    assert 'lifecycle_validation_packet_member_metadata_changed' in _validation_mutation(tmp_path,monkeypatch,'metadata').findings
+    result,root,evidence=_validation_mutation(tmp_path,monkeypatch,'metadata'); target=root/'summary.json'
+    assert result.findings==('lifecycle_validation_packet_member_metadata_changed',) and target.read_bytes()==evidence['before'] and target.stat().st_ino==evidence['inode'] and stat.S_IMODE(target.stat().st_mode)==0o640 and evidence['mode']!=0o640
 
 def test_public_validation_rejects_packet_membership_change_during_validation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    assert 'lifecycle_validation_packet_membership_changed' in _validation_mutation(tmp_path,monkeypatch,'membership').findings
+    result,root,evidence=_validation_mutation(tmp_path,monkeypatch,'membership')
+    assert 'lifecycle_validation_packet_membership_changed' in result.findings and (root/'injected').read_bytes()==b'keep' and (root/'summary.json').read_bytes()==evidence['before']
+
+
+def _guard_descriptor_adapter(monkeypatch:pytest.MonkeyPatch)->dict[str,int]:
+    observed={'uses':0,'identity_checks':0,'canonicalizations':0}; original_adapter=closure._descriptor_adapter
+    original_resolve=Path.resolve; original_realpath=os.path.realpath; original_readlink=os.readlink; original_path_readlink=getattr(Path,'readlink',None); original_stat=os.stat
+    def forbidden(value:Any)->bool:
+        parts=str(value).split('/'); return len(parts)>=5 and parts[:4]==['','proc','self','fd'] and parts[4].isdigit()
+    def adapter(fd:int,callback:Any)->Any:
+        observed['uses']+=1; return original_adapter(fd,callback)
+    def resolve(self:Path,*a:Any,**k:Any)->Path:
+        if forbidden(self): observed['canonicalizations']+=1; pytest.fail('descriptor adapter resolved')
+        return original_resolve(self,*a,**k)
+    def realpath(path:Any,*a:Any,**k:Any)->Any:
+        if forbidden(path): observed['canonicalizations']+=1; pytest.fail('descriptor adapter realpathed')
+        return original_realpath(path,*a,**k)
+    def readlink(path:Any,*a:Any,**k:Any)->Any:
+        if forbidden(path): observed['canonicalizations']+=1; pytest.fail('descriptor adapter readlinked')
+        return original_readlink(path,*a,**k)
+    def path_readlink(self:Path,*a:Any,**k:Any)->Path:
+        if forbidden(self): observed['canonicalizations']+=1; pytest.fail('descriptor adapter Path.readlink called')
+        assert original_path_readlink is not None; return original_path_readlink(self,*a,**k)
+    def checked_stat(path:Any,*a:Any,**k:Any)->Any:
+        if forbidden(path): observed['identity_checks']+=1
+        return original_stat(path,*a,**k)
+    monkeypatch.setattr(closure,'_descriptor_adapter',adapter); monkeypatch.setattr(Path,'resolve',resolve); monkeypatch.setattr(os.path,'realpath',realpath); monkeypatch.setattr(os,'readlink',readlink); monkeypatch.setattr(os,'stat',checked_stat)
+    if original_path_readlink is not None: monkeypatch.setattr(Path,'readlink',path_readlink)
+    return observed
 
 
 def test_public_validation_uses_unresolved_descriptor_alias(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); original=Path.resolve
-    def guarded(self:Path,*a:Any,**k:Any)->Path:
-        if str(self).startswith('/proc/self/fd/'): pytest.fail('descriptor alias resolved')
-        return original(self,*a,**k)
-    monkeypatch.setattr(Path,'resolve',guarded); result=validate_lifecycle_closure(packet.packet_root)
+    _,_,_,packet,_,_=_closed(tmp_path); observed=_guard_descriptor_adapter(monkeypatch)
+    result=validate_lifecycle_closure(packet.packet_root)
     assert result.status.endswith('_valid') and '/proc/self/fd/' not in result.packet_root
+    assert observed['uses']>0 and observed['identity_checks']>=observed['uses']*2 and observed['canonicalizations']==0
 
 
 def test_nested_bundle_validation_rejects_descriptor_relative_substitution(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); rollback=Path(packet.packet_root)/closure.ROLLBACK_PATH; replacement=rollback.with_name('rollback.original')
+    _,_,_,packet,_,_=_closed(tmp_path); rollback=Path(packet.packet_root)/closure.ROLLBACK_PATH; replacement=rollback.with_name('rollback.original'); before=_packet_snapshot(rollback)
     def hook(event:str,path:Path)->None:
         if event=='lifecycle_validation_after_nested_execution': rollback.rename(replacement); rollback.mkdir(); (rollback/'sentinel').write_bytes(b'keep')
     monkeypatch.setattr(closure,'_publication_hook',hook); result=validate_lifecycle_closure(packet.packet_root)
-    assert 'nested_rollback_root_identity_changed' in result.findings and (rollback/'sentinel').read_bytes()==b'keep'
+    assert 'nested_rollback_root_identity_changed' in result.findings and _packet_snapshot(replacement)==before and (rollback/'sentinel').read_bytes()==b'keep' and 'nested_rollback:' not in ' '.join(result.findings)
 
 
 def test_latest_replay_rejects_publication_root_replacement_after_open(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
@@ -664,62 +705,99 @@ def test_latest_replay_rejects_publication_root_replacement_after_open(tmp_path:
     assert 'lifecycle_latest_publication_root_identity_changed' in result.findings and (root/'sentinel').read_bytes()==b'keep'
 
 
-def _latest_pointer_mutation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,metadata:bool)->Any:
+def _latest_pointer_mutation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch,metadata:bool)->tuple[Any,Path,bytes,int]:
     _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root).parent; pointer=root/'latest.json'
+    before=pointer.read_bytes(); inode=pointer.stat().st_ino
     def hook(event:str,path:Path)->None:
         if event=='lifecycle_latest_after_pointer_read':
             if metadata: pointer.chmod(0o640)
             else: pointer.rename(root/'latest.original'); pointer.write_bytes((root/'latest.original').read_bytes())
-    monkeypatch.setattr(closure,'_publication_hook',hook); return load_latest_summary(root)
+    monkeypatch.setattr(closure,'_publication_hook',hook); return load_latest_summary(root),root,before,inode
 
 
 def test_latest_replay_rejects_pointer_substitution_after_read(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    assert 'lifecycle_latest_pointer_identity_changed' in _latest_pointer_mutation(tmp_path,monkeypatch,False).findings
+    result,root,before,inode=_latest_pointer_mutation(tmp_path,monkeypatch,False)
+    assert 'lifecycle_latest_pointer_identity_changed' in result.findings and (root/'latest.original').read_bytes()==before and (root/'latest.original').stat().st_ino==inode and (root/'latest.json').read_bytes()==before and (root/'latest.json').stat().st_ino!=inode
 
 def test_latest_replay_rejects_pointer_metadata_change_after_read(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    assert 'lifecycle_latest_pointer_metadata_changed' in _latest_pointer_mutation(tmp_path,monkeypatch,True).findings
+    result,root,before,inode=_latest_pointer_mutation(tmp_path,monkeypatch,True)
+    assert 'lifecycle_latest_pointer_metadata_changed' in result.findings and (root/'latest.json').read_bytes()==before and (root/'latest.json').stat().st_ino==inode
 
 
 def test_latest_replay_rejects_packet_entry_substitution_before_open(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); selected=Path(packet.packet_root); old=selected.with_name(selected.name+'.old')
+    _,_,_,packet,_,_=_closed(tmp_path); selected=Path(packet.packet_root); old=selected.with_name(selected.name+'.old'); before=_packet_snapshot(selected)
     def hook(event:str,path:Path)->None:
         if event=='lifecycle_latest_before_packet_open': selected.rename(old); selected.mkdir(); (selected/'sentinel').write_bytes(b'keep')
     monkeypatch.setattr(closure,'_publication_hook',hook); result=load_latest_summary(selected.parent)
-    assert 'lifecycle_latest_packet_identity_changed' in result.findings and (selected/'sentinel').read_bytes()==b'keep'
+    assert 'lifecycle_latest_packet_identity_changed' in result.findings and _packet_snapshot(old)==before and (selected/'sentinel').read_bytes()==b'keep' and result.records=={}
 
 
 def test_latest_replay_rejects_packet_mutation_during_validation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root)
+    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root); pointer=(root.parent/'latest.json').read_bytes(); summary=(root/'summary.json').read_bytes()
     def hook(event:str,path:Path)->None:
         if event=='lifecycle_validation_after_initial_snapshot': (root/'injected').write_bytes(b'keep')
     monkeypatch.setattr(closure,'_publication_hook',hook); result=load_latest_summary(root.parent)
-    assert 'lifecycle_latest_packet_membership_changed' in result.findings
+    assert 'lifecycle_latest_packet_membership_changed' in result.findings and not result.status.endswith('_valid') and (root/'injected').read_bytes()==b'keep' and (root.parent/'latest.json').read_bytes()==pointer and (root/'summary.json').read_bytes()==summary
 
 
 def test_latest_replay_rejects_unsafe_closure_id_before_packet_lookup(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root).parent; pointer=json.loads((root/'latest.json').read_text()); pointer['closure_id']='../outside'; pointer['digest']=digest_record(pointer); (root/'latest.json').write_text(_canon(pointer)+'\n')
-    original=os.stat
-    def guarded(path:Any,*a:Any,**k:Any)->Any:
-        if path=='../outside': pytest.fail('unsafe packet lookup')
-        return original(path,*a,**k)
-    monkeypatch.setattr(os,'stat',guarded); assert load_latest_summary(root).findings==('lifecycle_latest_closure_id_unsafe',)
+    _,_,_,packet,_,_=_closed(tmp_path); root=Path(packet.packet_root).parent; canonical=json.loads((root/'latest.json').read_text()); sentinel=root.parent/'outside'; sentinel.write_bytes(b'outside evidence\n')
+    unsafe:list[Any]=['../outside','/absolute','.','', '..','hldlc-'+'a'*23,'hldlc-'+'a'*25,'hldlc-ABCDEFABCDEFABCDEFABCDEF','hldlc-safe/child','hldlc-safe\\child','C:\\outside',None,7,[],{}]
+    original_stat=os.stat; original_open=os.open; original_directory=closure._open_directory; attempts=[]
+    def selected(value:Any,path:Any)->bool: return path is value or (isinstance(value,str) and path==value)
+    for value in unsafe:
+        pointer={**canonical,'closure_id':value}; pointer['digest']=digest_record(pointer); (root/'latest.json').write_text(_canon(pointer)+'\n')
+        def guarded_stat(path:Any,*a:Any,_value:Any=value,**k:Any)->Any:
+            if selected(_value,path) and k.get('dir_fd') is not None: attempts.append(('stat',_value))
+            return original_stat(path,*a,**k)
+        def guarded_open(path:Any,*a:Any,_value:Any=value,**k:Any)->Any:
+            if selected(_value,path) and k.get('dir_fd') is not None: attempts.append(('open',_value))
+            return original_open(path,*a,**k)
+        def guarded_directory(path:Any,*a:Any,_value:Any=value,**k:Any)->Any:
+            if selected(_value,path) and k.get('dir_fd') is not None: attempts.append(('directory',_value))
+            return original_directory(path,*a,**k)
+        with monkeypatch.context() as patch:
+            patch.setattr(os,'stat',guarded_stat); patch.setattr(os,'open',guarded_open); patch.setattr(closure,'_open_directory',guarded_directory)
+            assert load_latest_summary(root).findings==('lifecycle_latest_closure_id_unsafe',)
+        assert sentinel.read_bytes()==b'outside evidence\n'
+    assert len(unsafe)==15 and attempts==[]
 
 
 def test_latest_replay_shared_lock_serializes_with_builder(tmp_path:Path)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); result=load_latest_summary(Path(packet.packet_root).parent)
-    assert result.status.endswith('_valid') and result.publication_posture=='latest_replay'
+    _,execution,rollback,packet,_,_=_closed(tmp_path); out=Path(packet.packet_root).parent; ctx=multiprocessing.get_context('spawn'); release=ctx.Event()
+    reader_result=tmp_path/'reader.json'; builder_result=tmp_path/'builder.json'; reader_parent,reader_child=ctx.Pipe(False); builder_parent,builder_child=ctx.Pipe(False)
+    packet_before=_packet_snapshot(Path(packet.packet_root)); pointer_before=(out/'latest.json').read_bytes(); pointer_identity=(out/'latest.json').stat().st_dev,(out/'latest.json').stat().st_ino
+    reader=ctx.Process(target=_latest_reader_worker,args=(str(out),str(reader_result),reader_child,release)); reader.start()
+    assert reader_parent.poll(20); reader_event=reader_parent.recv(); assert reader_event=={'event':'reader_lock_held','pid':reader.pid}
+    config=_process_config(execution,rollback,out,builder_result,report_lock_events=True); builder=ctx.Process(target=_process_worker,args=(config,None,builder_child,None)); builder.start()
+    assert builder_parent.poll(20); waiting=builder_parent.recv(); assert waiting=={'event':'lock_waiting','pid':builder.pid,'path':str(out)}
+    assert reader.pid!=builder.pid and reader.is_alive() and builder.is_alive() and not builder_parent.poll(0.25) and not builder_result.exists()
+    assert packet_before==_packet_snapshot(Path(packet.packet_root)) and pointer_before==(out/'latest.json').read_bytes() and pointer_identity==((out/'latest.json').stat().st_dev,(out/'latest.json').stat().st_ino)
+    release.set(); _join(reader); assert builder_parent.poll(20); entered=builder_parent.recv(); assert entered['event']=='locked_enter' and entered['pid']==builder.pid; _join(builder)
+    reader_value=json.loads(reader_result.read_text()); builder_value=json.loads(builder_result.read_text())
+    assert reader_value['publication_posture']=='latest_replay' and reader_value['status'].endswith('_valid')
+    assert builder_value['status'].endswith('_valid') and builder_value['replayed'] and builder_value['publication_posture'] in {'replayed','recovered'}
+    assert validate_lifecycle_closure(packet.packet_root).status.endswith('_valid') and load_latest_summary(out).status.endswith('_valid')
+    assert len([p for p in out.iterdir() if p.is_dir()])==1 and len(list(out.glob('latest.json')))==1 and not list(out.glob('.hldlc-*')) and not list(out.glob('.latest-*'))
+    assert packet_before==_packet_snapshot(Path(packet.packet_root)) and pointer_before==(out/'latest.json').read_bytes()
 
 
 def test_latest_replay_returns_one_bound_pointer_and_packet_observation(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    _,_,_,packet,_,_=_closed(tmp_path); snapshots=[]; original=closure._packet_snapshot
-    def observed(fd:int)->Any: value=original(fd); snapshots.append(value); return value
-    monkeypatch.setattr(closure,'_packet_snapshot',observed); result=load_latest_summary(Path(packet.packet_root).parent)
-    assert result.status.endswith('_valid') and result.replayed and any(a==b for a,b in zip(snapshots,snapshots[1:]))
+    _,_,_,packet,_,_=_closed(tmp_path); events=[]
+    monkeypatch.setattr(closure,'_custody_observation_hook',lambda event,payload:events.append((event,dict(payload))))
+    result=load_latest_summary(Path(packet.packet_root).parent)
+    expected=['latest_publication_root_bound','latest_pointer_custody_acquired','latest_packet_entry_bound','latest_packet_initial_snapshot','latest_packet_semantic_validation_complete','latest_packet_terminal_snapshot','latest_pointer_terminal_rebound','latest_packet_terminal_rebound','latest_transaction_complete']
+    assert [event for event,_ in events]==expected and all(sum(event==wanted for event,_ in events)==1 for wanted in expected)
+    values={event:payload for event,payload in events}; root=Path(packet.packet_root).parent
+    assert values['latest_publication_root_bound']['identity']==closure._metadata(os.stat(root,follow_symlinks=False))
+    assert values['latest_pointer_custody_acquired']==values['latest_pointer_terminal_rebound']
+    assert values['latest_packet_entry_bound']['identity']==values['latest_packet_terminal_rebound']['identity']
+    assert values['latest_packet_initial_snapshot']['packet_snapshot_digest']==values['latest_packet_terminal_snapshot']['packet_snapshot_digest']
+    assert values['latest_packet_semantic_validation_complete']['semantic_packet_digest']==values['latest_packet_entry_bound']['pointer_packet_digest']
+    assert result.status.endswith('_valid') and result.replayed and result.publication_posture=='latest_replay' and result.packet_root==packet.packet_root and not result.packet_root.startswith('/proc/self/fd/')
+    assert not any(any(word in event for word in ('repair','cleanup','pointer_publication','packet_mutation')) for event,_ in events)
 
 
 def test_build_source_validation_uses_unresolved_descriptor_alias(tmp_path:Path,monkeypatch:pytest.MonkeyPatch)->None:
-    execution,rollback,_,_,out=_race_inputs(tmp_path); original=Path.resolve
-    def guarded(self:Path,*a:Any,**k:Any)->Path:
-        if str(self).startswith('/proc/self/fd/'): pytest.fail('descriptor alias resolved')
-        return original(self,*a,**k)
-    monkeypatch.setattr(Path,'resolve',guarded); assert _rebuild(execution,rollback,out).status.endswith('_valid')
+    execution,rollback,_,_,out=_race_inputs(tmp_path); observed=_guard_descriptor_adapter(monkeypatch); result=_rebuild(execution,rollback,out)
+    assert result.status.endswith('_valid') and observed['uses']>0 and observed['identity_checks']>=observed['uses']*2 and observed['canonicalizations']==0 and '/proc/self/fd/' not in result.packet_root
