@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `43fb82b`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `6d6eb4d`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -14,6 +14,7 @@ This is the active, compact selection map through mainline `43fb82b`. Consumed h
 - Lifecycle packet construction retains descriptor-bound execution and rollback source custody, copies nested directories and files with descriptor-relative no-follow exclusive creation, derives manifests from descriptor-native traversal, and compares the complete packet-tree custody snapshot after the final hook and before no-replace commit. An invalid staged packet therefore cannot occupy the deterministic closure-ID namespace.
 - Public lifecycle validation is descriptor-bound: unresolved identity-checked read adapters feed the authoritative semantic validators while stable nested-bundle envelopes and exact initial-to-terminal packet snapshots reject identity, metadata, byte, and membership races.
 - Latest replay retains publication-root, pointer-file, and pointer-selected packet descriptors under the existing shared closure lock; canonical safe closure basenames are required before lookup, and terminal pointer/packet rebinding rejects mixed observations.
+- The lifecycle read-custody implementation remains unchanged while its acceptance proof is now process-real and boundary-specific: distinct reader/builder PIDs prove shared/exclusive lock serialization, exact named custody events prove one coherent latest observation, unsafe pointer names prove zero selected-packet lookup, and unresolved descriptor adapters prove actual use without resolution.
 - One reviewer path now consolidates the sealed diagnostic source, confirmed execution, exact rollback, and lifecycle-closure proof surfaces without reopening their runtime behavior, packet formats, authority, effects, capabilities, or CLI contracts.
 - Repository mutation custody remains external Codex/operator work; readiness evidence is not repository or runtime authority.
 
@@ -35,6 +36,6 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 
-### Lifecycle closure publication custody at `43fb82b`
+### Lifecycle closure publication custody at `6d6eb4d`
 
 The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.

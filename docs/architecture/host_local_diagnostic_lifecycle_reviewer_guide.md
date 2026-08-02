@@ -104,3 +104,5 @@ Descriptor-native packet construction is represented by `test_descriptor_native_
 ## Descriptor-bound read proof
 
 Representative proof nodes cover unresolved descriptor adapters, public packet root/member replacement, nested bundle substitution, retained pointer replacement, unsafe pointer-selected basenames, shared-lock serialization, and one bound latest observation. Review these as custody proof around the existing semantic validators; they do not add repair or runtime authority.
+
+The shared-lock proof uses distinct spawned reader and builder processes plus explicit synchronization, so the builder's exclusive-lock entry is observed only after the reader releases shared custody. The coherent-observation proof requires the exact named publication-root, pointer, packet-entry, initial-snapshot, semantic-validation, terminal-snapshot, and terminal-rebinding sequence. Unsafe-name cases require zero selected-packet lookup. Unresolved-adapter proofs require actual identity-checked adapter use and zero adapter resolution or canonicalization. These are boundary proofs rather than a duplicate of the production algorithm.
