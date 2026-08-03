@@ -18,9 +18,6 @@ import textwrap
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
-
 LOCKS = (
     "requirements-lock.txt",
     "requirements-src-lock.txt",
@@ -46,6 +43,8 @@ def _pip_compile(lock: str, pip_args: str = "") -> None:
 
 
 def freeze() -> None:
+    require_admin_banner()
+    require_lumos_approval()
     for lock, args in zip(LOCKS, ("", "--no-binary :all:")):
         print(f"[lock] regenerating {lock}")
         _pip_compile(lock, args)
@@ -54,6 +53,8 @@ def freeze() -> None:
 
 
 def install() -> None:
+    require_admin_banner()
+    require_lumos_approval()
     for lock in LOCKS:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", lock])
     subprocess.check_call([sys.executable, "-m", "pip", "install", "."])

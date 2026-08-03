@@ -244,3 +244,7 @@ See [Codex Workcell Storage Operator Consent Request Presentation Boundary Contr
 ## Codex landing commit/body binding
 
 The standard landing sequence binds evidence to one exact revision and exact PR body: pre-commit `workspace_binding`, one implementation commit, post-commit `commit_binding`, metadata guard artifact-chain proof, parsed-artifact PR body generation with sidecar, `pr_body_binding_ready`, clean tree/current HEAD check, exact-byte `make_pr`, publication-result classification, and only then independent remote inspection before claiming remote PR or merge verification. `ready_to_commit`, `ready_for_pr_metadata`, `pr_metadata_guard_ready`, and `pr_body_binding_ready` are local authorization states, not remote publication. A title/body payload echo is classified as `publication_payload_echo_unverified`, never as a PR.
+
+## Hosted validation sufficiency
+
+Hosted evidence is authoritative only when its canonical validation status is `validation_complete`, provenance is bound to the candidate SHA, and every exact required node was selected, reached the pytest call phase, and passed. Artifact-chain integrity is an independent dimension and cannot convert absent, collection-only, zero-test, zero-call, malformed-metrics, bootstrap-failed, collection-failed, or failed-test evidence into successful validation. See [GitHub-hosted acceptance](github_hosted_acceptance.md).

@@ -294,8 +294,15 @@ def analyze(
     require_contiguous_history: bool = False,
 ) -> dict[str, Any]:
     ordered_runs = _ordered_runs_for_analysis(runs)
-    latest_runs = ordered_runs[-thresholds.window_size :]
-    prior_runs = ordered_runs[-(2 * thresholds.window_size) : -thresholds.window_size]
+    def complete(run: dict[str, Any]) -> bool:
+        if run.get("validation_status") == "validation_complete" and run.get("validation_complete") is True:
+            return True
+        return "validation_status" not in run and _safe_number(run, "tests_executed") > 0 and _safe_number(run, "tests_passed") > 0
+
+    complete_runs = [run for run in ordered_runs if complete(run)]
+    incomplete_runs = [run for run in ordered_runs if not complete(run)]
+    latest_runs = complete_runs[-thresholds.window_size :]
+    prior_runs = complete_runs[-(2 * thresholds.window_size) : -thresholds.window_size]
 
     current = _extract_window_metrics(latest_runs)
     prior = _extract_window_metrics(prior_runs)
@@ -365,6 +372,7 @@ def analyze(
         "schema_version": 2,
         "window_size": thresholds.window_size,
         "runs_analyzed": len(latest_runs),
+        "runs_discovered": len(ordered_runs),
         "avoidance_alert": avoidance_alert,
         "avoidance_score": avoidance_score,
         "avoidance_reasons": unique_reasons,
@@ -415,6 +423,23 @@ def analyze(
             }
         )
 
+    incomplete_reasons = Counter(str(run.get("validation_status") or "legacy_incomplete") for run in incomplete_runs)
+    insufficient = not complete_runs or (bool(ordered_runs) and not complete(ordered_runs[-1]))
+    report.update({
+        "validation_evidence_status": "insufficient" if insufficient else "complete",
+        "validation_complete_run_count": len(complete_runs),
+        "incomplete_run_count": len(incomplete_runs),
+        "incomplete_run_reasons": dict(sorted(incomplete_reasons.items())),
+        "insufficient_evidence": insufficient,
+    })
+    if not report.get("integrity_ok", True):
+        report["overall_status"] = "INTEGRITY_BROKEN"
+    elif insufficient:
+        report["overall_status"] = "INSUFFICIENT_EVIDENCE"
+    elif report["avoidance_alert"]:
+        report["overall_status"] = "ALERT"
+    else:
+        report["overall_status"] = "OK"
     return report
 
 
@@ -424,7 +449,7 @@ def _write_report(path: Path, report: dict[str, Any]) -> None:
 
 
 def _summary(report: dict[str, Any]) -> str:
-    status = "ALERT" if report["avoidance_alert"] else "OK"
+    status = report["overall_status"]
     reasons = ", ".join(report["avoidance_reasons"]) if report["avoidance_reasons"] else "none"
     integrity = "OK" if report.get("integrity_ok", True) else "BROKEN"
     return (
@@ -550,6 +575,11 @@ def main(argv: list[str] | None = None) -> int:
         default=os.getenv("SENTIENTOS_CI_FAIL_ON_PROOF_BURN_SPIKE") == "1",
         help="Return non-zero when proof_burn_spike is emitted.",
     )
+    parser.add_argument(
+        "--require-validation-complete",
+        action="store_true",
+        help="Require explicit complete executable validation evidence.",
+    )
     args = parser.parse_args(argv)
 
     input_files = list(args.file)
@@ -610,6 +640,9 @@ def main(argv: list[str] | None = None) -> int:
     _write_report(args.output, report)
     print(_summary(report))
 
+    if report["insufficient_evidence"]:
+        print("Validation evidence is insufficient.")
+        return 1
     if report["avoidance_alert"] and args.fail_on_alert:
         print("Avoidance alert emitted and fail-on-alert is enabled.")
         return 1
