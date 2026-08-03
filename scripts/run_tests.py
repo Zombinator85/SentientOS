@@ -14,6 +14,7 @@ from uuid import uuid4
 from scripts.editable_install import EditableInstallStatus, get_editable_install_status
 from scripts.analyze_test_failures import generate_failure_digest
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
+from scripts.validation_completion import classify_validation
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRECHECK_MESSAGE = (
@@ -580,6 +581,24 @@ def _write_provenance(
         payload["junitxml_path"] = str(junitxml_path)
     if failure_report_path is not None:
         payload["failure_report_path"] = str(failure_report_path)
+
+    call_phase_outcome_count = sum(
+        1 for outcome in (node_outcomes or ()) if outcome.get("phase") == "call"
+    )
+    payload.update(
+        {
+            "reporter_loaded": metrics_status != "unavailable",
+            "reporter_status": "complete" if reporter_ok and metrics_status == "ok" else "incomplete",
+            "collection_started": pytest_exit_code is not None,
+            "collection_completed": pytest_exit_code is not None and pytest_exit_code not in {2, 3, 4},
+            "collection_error": pytest_exit_code in {2, 3, 4},
+            "session_finish_reached": metrics_status == "ok",
+            "call_phase_outcome_count": call_phase_outcome_count,
+        }
+    )
+    validation_status = classify_validation(payload)
+    payload["validation_status"] = validation_status
+    payload["validation_complete"] = validation_status == "validation_complete"
 
     prev_provenance_hash: str | None = None
     chain_status: str | None = None
@@ -1196,9 +1215,6 @@ def main(argv: list[str] | None = None) -> int:
             f"exit_reason={targeted_execution_failure_reason}."
         )
         return 1
-    if pytest_exit_code == 5 and allow_no_tests:
-        print("WARNING: pytest collected 0 tests, but SENTIENTOS_ALLOW_NO_TESTS=1 overrides failure.")
-        return 0
     return pytest_exit_code
 
 

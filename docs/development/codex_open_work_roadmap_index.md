@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `d610386`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `398a0f9`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -36,10 +36,14 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 
-### Provenance-bound behavioral witnesses at `d610386`
+### Provenance-bound behavioral witnesses at `398a0f9`
 
 Developer-workflow proof now supports bounded behavioral witnesses bound to the exact pytest node, run, repository SHA, call phase, contract, kind, and provenance hash chain. Legacy `sentientos.task_acceptance:v1` manifests remain valid; v2 witness contracts add evidence without authority expansion.
 
-### Lifecycle closure publication custody at `d610386`
+### Lifecycle closure publication custody at `398a0f9`
 
 The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.
+
+### GitHub-hosted acceptance at `398a0f9`
+
+Hosted validation now reaches import-inert lock and actuator modules: privilege checks occur at protected effect boundaries, external actuator plugins require explicit initialization, and imports create neither sandbox/log directories nor plugin effects. Bootstrap, collection, zero-test, zero-call, missing-metrics, and failed-test runs are non-green; provenance integrity is reported independently from validation sufficiency. Ubuntu 24.04 uses `/opt/venv`, disabled accelerator entries perform no setup, and pull-request release validation installs the project without publication authority. The uniquely named `Required / Quality Gate` proves real call-phase execution and exact acceptance. Requiring that check through remote branch protection remains an explicit operator action.

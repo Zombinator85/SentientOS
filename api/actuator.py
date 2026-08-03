@@ -1,8 +1,6 @@
 from __future__ import annotations
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 import os
@@ -15,12 +13,10 @@ import time
 import queue
 from email.message import EmailMessage
 from pathlib import Path
-import autonomous_audit as aa
 import ast
 from typing import Any, Dict, Callable, Mapping
 
 from logging_config import get_log_path
-from talkback_bridge import CameraTalkback
 from sentientos.optional_deps import optional_import
 
 # --- Pluggable actuator registry -------------------------------------------
@@ -37,7 +33,12 @@ PLUGINS_INFO: dict[str, str] = {}
 _LOADED_PLUGIN_FILES: list[Path] = []
 
 AUTONOMOUS_LOG = get_log_path("autonomous_calls.jsonl", "AUTONOMOUS_CALLS_LOG")
-AUTONOMOUS_LOG.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _authorize_effect() -> None:
+    """Apply Cathedral privilege policy immediately before a protected effect."""
+    require_admin_banner()
+    require_lumos_approval()
 
 
 def register_actuator(name: str, actuator: BaseActuator) -> None:
@@ -46,6 +47,7 @@ def register_actuator(name: str, actuator: BaseActuator) -> None:
 
 def load_plugins() -> None:
     """Load actuator plugins from the plugins directory."""
+    _authorize_effect()
     global PLUGINS_INFO, _LOADED_PLUGIN_FILES
     PLUGINS_INFO = {}
     plugins_dir = Path(os.getenv("ACT_PLUGINS_DIR", "plugins"))
@@ -82,8 +84,6 @@ def reload_plugins() -> None:
     load_plugins()
 
 
-from memory_manager import write_mem, save_reflection
-
 # Load whitelist
 WHITELIST_PATH = Path(os.getenv("ACT_WHITELIST", "config/act_whitelist.yml"))
 TEMPLATES_PATH = Path(os.getenv("ACT_TEMPLATES", "config/act_templates.yml"))
@@ -117,7 +117,6 @@ else:
     WHITELIST = {"shell": [], "http": [], "timeout": 30}
 
 SANDBOX_DIR = Path(os.getenv("ACT_SANDBOX", "sandbox"))
-SANDBOX_DIR.mkdir(exist_ok=True)
 
 
 class ShellActuator(BaseActuator):
@@ -152,6 +151,7 @@ class WorkflowActuator(BaseActuator):
     """Execute a registered workflow via ``workflow_controller``."""
 
     def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        _authorize_effect()
         name = intent.get("name")
         if not name:
             raise ValueError("workflow name required")
@@ -165,12 +165,14 @@ class TalkbackActuator(BaseActuator):
     """Send synthesized speech through a configured camera audio channel."""
 
     def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        _authorize_effect()
         message = intent.get("message") or intent.get("text")
         if not message or not isinstance(message, str):
             raise ValueError("talkback requires a 'message' string")
         url = intent.get("url") or intent.get("rtsp") or None
         ffmpeg_path = intent.get("ffmpeg")
         voice = intent.get("voice")
+        from talkback_bridge import CameraTalkback
         talkback = CameraTalkback(rtsp_url=url, ffmpeg_path=ffmpeg_path)
         audio_path = talkback.speak(message, voice=voice)
         return {"ok": True, "target": talkback.rtsp_url, "audio_path": str(audio_path)}
@@ -186,8 +188,14 @@ def register_builtin_actuators() -> None:
     register_actuator("talkback", TalkbackActuator())
 
 
-register_builtin_actuators()
-load_plugins()
+def initialize_actuators(*, load_external_plugins: bool = False) -> None:
+    """Idempotently register builtins and optionally load authorized plugins."""
+    register_builtin_actuators()
+    if load_external_plugins:
+        load_plugins()
+
+
+initialize_actuators()
 
 
 def _match_patterns(value: str, patterns: list[str]) -> bool:
@@ -222,6 +230,7 @@ def _timeout_seconds() -> float:
         return 30.0
 
 def run_shell(cmd: str, cwd: str = ".") -> dict[str, object]:
+    _authorize_effect()
     if not _allowed_shell(cmd):
         raise PermissionError("Command not allowed")
     cwd_path = _safe_path(cwd if cwd != "." else "")
@@ -240,6 +249,7 @@ def run_shell(cmd: str, cwd: str = ".") -> dict[str, object]:
     }
 
 def http_fetch(url: str, method: str = "GET", **kwargs: object) -> dict[str, object]:
+    _authorize_effect()
     patterns_obj = WHITELIST.get("http", [])
     patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
     if not _match_patterns(url, patterns):
@@ -264,6 +274,8 @@ def _safe_path(rel: str) -> Path:
 
 
 def file_write(path: str, content: str) -> dict[str, object]:
+    _authorize_effect()
+    SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
     target = _safe_path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content)
@@ -271,6 +283,7 @@ def file_write(path: str, content: str) -> dict[str, object]:
 
 
 def send_email(to: str, subject: str, body: str) -> dict[str, object]:
+    _authorize_effect()
     host = os.getenv("SMTP_HOST")
     if not host:
         raise EnvironmentError("SMTP not configured")
@@ -291,6 +304,7 @@ def send_email(to: str, subject: str, body: str) -> dict[str, object]:
 
 
 def trigger_webhook(url: str, payload: Mapping[str, object]) -> dict[str, object]:
+    _authorize_effect()
     patterns_obj = WHITELIST.get("http", [])
     patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
     if not _match_patterns(url, patterns):
@@ -334,6 +348,7 @@ def _worker() -> None:
 def start_async(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None) -> str:
     """Queue an action for background execution and return its id."""
     global _worker_started
+    _authorize_effect()
     action_id = f"a{int(time.time()*1000)}"
     ACTION_STATUS[action_id] = {"status": "queued"}
     TASK_QUEUE.put((action_id, intent, explanation, user))
@@ -442,9 +457,11 @@ def act(
     intent: mapping describing the action. Keys depend on the ``type`` field.
     explanation: optional reason for choosing the action.
     """
+    _authorize_effect()
     if dry_run is None:
         dry_run = intent.pop("dry_run", False)
     try:
+        from memory_manager import save_reflection, write_mem
         _rate_limit(intent, user)
         if dry_run:
             result = {"dry_run": True, "intent": intent}
@@ -476,6 +493,7 @@ def act(
             result["explanation"] = explanation
         return result
     except Exception as e:  # pragma: no cover - defensive
+        from memory_manager import save_reflection, write_mem
         reflection_text = f"Action {intent.get('type')} failed: {e}"
         step = critique_step if critique_step is not None else intent.pop("_critique_step", 0)
         critique, next_step = _auto_critique(intent, e, step)
@@ -516,6 +534,7 @@ def auto_call(
 ) -> Dict[str, Any]:
     """Execute an intent and log it to the autonomous call history."""
     result = act(intent, explanation=explanation, user="auto")
+    import autonomous_audit as aa
     aa.log_entry(
         action=json.dumps(intent),
         rationale=explanation or "auto_call",
@@ -533,6 +552,7 @@ def auto_call(
         "result": result,
         "trace": trace,
     }
+    AUTONOMOUS_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(AUTONOMOUS_LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
     return result

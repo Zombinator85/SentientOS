@@ -1,0 +1,70 @@
+name: Required Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: Required / Quality Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install SentientOS test harness
+        run: python -m pip install -e ".[dev,test]"
+      - name: Prove imports are inert
+        run: python -c "import sentientos, scripts.lock, api.actuator"
+      - name: Execute required call phases
+        run: |
+          python -m scripts.run_tests -q \
+            tests/test_import_privilege_boundaries.py::test_scripts_lock_import_is_inert \
+            tests/test_import_privilege_boundaries.py::test_scripts_lock_check_is_unprivileged \
+            tests/test_import_privilege_boundaries.py::test_scripts_lock_effects_authorize_before_mutation \
+            tests/test_import_privilege_boundaries.py::test_actuator_import_has_no_privilege_or_runtime_effects \
+            tests/test_import_privilege_boundaries.py::test_actuator_protected_effects_authorize_before_execution \
+            tests/test_import_privilege_boundaries.py::test_external_plugins_require_explicit_initialization \
+            tests/test_ci_acceptance_fail_closed.py::test_bootstrap_failure_is_insufficient_evidence \
+            tests/test_ci_acceptance_fail_closed.py::test_collection_failure_is_insufficient_evidence \
+            tests/test_ci_acceptance_fail_closed.py::test_zero_collected_tests_is_insufficient_evidence \
+            tests/test_ci_acceptance_fail_closed.py::test_missing_metrics_is_insufficient_evidence \
+            tests/test_ci_acceptance_fail_closed.py::test_zero_call_phase_outcomes_is_insufficient_evidence \
+            tests/test_ci_acceptance_fail_closed.py::test_complete_execution_is_validation_complete \
+            tests/test_ci_acceptance_fail_closed.py::test_trend_analysis_rejects_zero_run_window \
+            tests/test_ci_acceptance_fail_closed.py::test_integrity_ok_does_not_override_insufficient_validation \
+            tests/test_github_hosted_acceptance_workflows.py::test_devcontainer_uses_private_virtualenv \
+            tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup \
+            tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing \
+            tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests \
+            tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique
+      - name: Bind and verify exact acceptance
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          p=json.load(open('glow/test_runs/test_run_provenance.json'))
+          nodes=p['selected_node_ids']
+          manifest={'schema_version':'sentientos.task_acceptance:v1','task_classification':'behavior_adding','repository_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'test_provenance_path':'glow/test_runs/test_run_provenance.json','required_nodes':[{'node_id':n} for n in nodes],'successful_path_nodes':nodes}
+          open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
+          assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
+          assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==19
+          PY
+          PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
+          python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
+      - name: Upload quality-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: required-quality-gate-evidence
+          path: |
+            glow/test_runs/test_run_provenance.json
+            glow/test_runs/quality_gate_acceptance_result.json
+            glow/test_runs/test_trend_report.json

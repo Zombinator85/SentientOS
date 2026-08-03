@@ -1,81 +1,57 @@
 name: Release
 on:
   push:
-    tags:
-      - 'v4.*'
+    tags: ['v4.*']
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Verify release provenance
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Install project and packaging tools
+        run: python -m pip install -e ".[test]" build twine cyclonedx-bom
+      - name: Validate candidate release without publication
         run: |
-          ./scripts/verify_provenance.sh
-      - run: pip install build twine cyclonedx-bom
-      - name: Release
+          python -c "import sentientos"
+          python scripts/publish_release.py --noop --tag "${{ github.ref_name }}"
+          python -m build
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v4.')
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install project and release tooling
+        run: python -m pip install -e ".[test]" build twine cyclonedx-bom
+      - name: Verify release provenance
+        run: ./scripts/verify_provenance.sh
+      - name: Build and publish release
         env:
           TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_ACTOR: ${{ github.actor }}
-        run: |
-          args=""
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            args="--noop"
-          fi
-          python scripts/publish_release.py $args --tag "${{ github.ref_name }}"
+        run: python scripts/publish_release.py --tag "${{ github.ref_name }}"
       - name: Generate SBOM
-        if: github.event_name != 'pull_request'
         run: cyclonedx-py requirements requirements.txt --output-format JSON -o sbom.json
-      - name: Capture Docker digest
-        if: github.event_name != 'pull_request'
-        run: |
-          image="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
-          docker inspect --format='{{index .RepoDigests 0}}' "$image" > docker_digests.txt
-      - name: Upload wheel
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel
-          path: dist/*.whl
-      - name: Upload notes
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release_notes
-          path: release_notes.txt
-      - name: Upload SBOM
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.json
-      - name: Upload docker digests
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker_digests
-          path: docker_digests.txt
-      - name: Create Draft GitHub Release
-        if: github.event_name == 'pull_request'
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          body_path: release_notes.txt
-          files: |
-            dist/*.whl
       - name: Create GitHub Release
-        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.txt
           files: |
             dist/*.whl
             sbom.json
-            docker_digests.txt
