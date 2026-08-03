@@ -8,6 +8,10 @@ require_lumos_approval()
 
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def test_lock_files_exist() -> None:
     root = Path(__file__).resolve().parents[1]
@@ -18,3 +22,10 @@ def test_lock_files_exist() -> None:
         assert lines[0].startswith('#')
         assert any("--hash=" in l for l in lines)
 
+
+def test_default_lock_install_uses_one_lock_and_no_deps_project_install() -> None:
+    source = (Path(__file__).resolve().parents[1] / "scripts/lock.py").read_text()
+    install_body = source.split("def install()", 1)[1].split("def check()", 1)[0]
+    assert '"-r", LOCKS[0]' in install_body
+    assert '"--no-deps", "."' in install_body
+    assert "for lock in LOCKS" not in install_body

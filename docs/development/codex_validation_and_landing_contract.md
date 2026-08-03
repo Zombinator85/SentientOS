@@ -248,3 +248,10 @@ The standard landing sequence binds evidence to one exact revision and exact PR 
 ## Hosted validation sufficiency
 
 Hosted evidence is authoritative only when its canonical validation status is `validation_complete`, provenance is bound to the candidate SHA, and every exact required node was selected, reached the pytest call phase, and passed. Artifact-chain integrity is an independent dimension and cannot convert absent, collection-only, zero-test, zero-call, malformed-metrics, bootstrap-failed, collection-failed, or failed-test evidence into successful validation. See [GitHub-hosted acceptance](github_hosted_acceptance.md).
+
+## Minimal dependency bootstrap
+
+Ordinary Codex validation uses the canonical minimal bootstrap in
+[`dependency_bootstrap_contract.md`](dependency_bootstrap_contract.md). A selected
+task may install an explicit capability extra only when exact scope requires it;
+minimal bootstrap failure is never authority to install the full graph.

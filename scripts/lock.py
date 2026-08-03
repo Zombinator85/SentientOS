@@ -33,7 +33,7 @@ def _pip_compile(lock: str, pip_args: str = "") -> None:
         "pip-compile",
         "--generate-hashes",
         "--no-annotate",
-        "requirements.txt",
+        "requirements-codex.txt",
         "-o",
         lock,
     ]
@@ -55,9 +55,8 @@ def freeze() -> None:
 def install() -> None:
     require_admin_banner()
     require_lumos_approval()
-    for lock in LOCKS:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", lock])
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "."])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", LOCKS[0]])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-deps", "."])
 
 
 def check() -> None:

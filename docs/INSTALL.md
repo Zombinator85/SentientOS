@@ -27,8 +27,14 @@ sudo apt update && sudo apt install -y cuda-toolkit-12-1
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel
-pip install -r requirements.txt
+pip install -r requirements-full.txt
+pip install --no-deps -e .
 ```
+
+Root `requirements.txt` is the intentionally minimal automation bootstrap. The full
+file above is an explicit capability opt-in; platform and Python support varies by
+hardware-specific group. See
+[`development/dependency_bootstrap_contract.md`](development/dependency_bootstrap_contract.md).
 
 ## 3. Model Placement
 
@@ -106,4 +112,3 @@ chat template with a 32,768-token context window. GPU offload is auto-detected
 If any subsystem fails readiness, consult
 `tools/autonomy_readiness.py` remediation hints or review the
 per-subsystem documentation in `docs/`.
-

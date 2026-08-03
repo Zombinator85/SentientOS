@@ -50,23 +50,11 @@ def _write_report(
 
 def test_minimal_airlock_pytest_constraint_matches_project_declaration() -> None:
     pyproject = tomllib.loads((run_tests.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    project_pytest_specs = {
-        dep
-        for dep in pyproject["project"]["dependencies"]
-        if dep.startswith("pytest") and not dep.startswith("pytest-")
-    }
-    test_extra_pytest_specs = {
-        dep
-        for dep in pyproject["project"]["optional-dependencies"]["test"]
-        if dep.startswith("pytest") and not dep.startswith("pytest-")
-    }
+    requirements = [line.strip() for line in (run_tests.REPO_ROOT / run_tests.CANONICAL_REQUIREMENTS_PATH).read_text().splitlines() if line.strip() and not line.startswith("#")]
+    from packaging.requirements import Requirement
+    assert sorted(map(lambda value: str(Requirement(value)), requirements)) == sorted(map(lambda value: str(Requirement(value)), pyproject["project"]["optional-dependencies"]["codex"]))
 
-    assert project_pytest_specs == {"pytest>=7,<8"}
-    assert test_extra_pytest_specs == project_pytest_specs
-    assert set(run_tests.MINIMAL_TEST_AIRLOCK_DEPS) >= project_pytest_specs
-
-
-def test_targeted_missing_editable_uses_minimal_airlock_without_broad_deps(monkeypatch, tmp_path):
+def test_targeted_bootstrap_uses_canonical_minimal_requirements(monkeypatch, tmp_path):
     pip_commands: list[list[str]] = []
     editable_statuses = iter(
         [
@@ -98,18 +86,11 @@ def test_targeted_missing_editable_uses_minimal_airlock_without_broad_deps(monke
     assert code == 0
     assert pip_commands == [
         [run_tests.sys.executable, "-m", "pip", "install", "--no-deps", "-e", "."],
-        [run_tests.sys.executable, "-m", "pip", "install", *run_tests.MINIMAL_TEST_AIRLOCK_DEPS],
+        [run_tests.sys.executable, "-m", "pip", "install", "--only-binary=:all:", "-r", run_tests.CANONICAL_REQUIREMENTS_PATH],
     ]
     assert pip_commands[0][-3:] == ["--no-deps", "-e", "."]
-    assert set(pip_commands[1][4:]) == set(run_tests.MINIMAL_TEST_AIRLOCK_DEPS)
-    assert {
-        "pytest>=7,<8",
-        "pytest-cov",
-        "fastapi>=0.110,<1",
-        "starlette>=0.37,<1",
-        "httpx>=0.27,<1",
-    } <= set(pip_commands[1])
-    assert all(f".{run_tests.INSTALL_EXTRAS}" not in part for command in pip_commands for part in command)
+    assert pip_commands[1][-2:] == ["-r", run_tests.CANONICAL_REQUIREMENTS_PATH]
+    assert all(".[full]" not in part for command in pip_commands for part in command)
     payload = json.loads(
         (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
     )
@@ -119,60 +100,15 @@ def test_targeted_missing_editable_uses_minimal_airlock_without_broad_deps(monke
     assert payload["run_intent"] == "targeted"
 
 
-def test_default_full_install_failure_falls_back_to_minimal_airlock(monkeypatch, tmp_path):
-    pip_commands: list[list[str]] = []
-    editable_statuses = iter(
-        [
-            EditableInstallStatus(False, "distribution-not-found"),
-            EditableInstallStatus(True, "direct-url"),
-        ]
-    )
-
-    def fake_run(cmd, cwd=None, env=None, capture_output=False, text=False, check=False):
-        if cmd[:3] == [run_tests.sys.executable, "-m", "pip"]:
-            pip_commands.append(cmd)
-            if cmd[-1] == f".{run_tests.INSTALL_EXTRAS}":
-                return _Completed(1)
-            return _Completed(0)
-        if cmd[:3] == [run_tests.sys.executable, "-m", "pytest"]:
-            _write_report(env)
-            return _Completed(0)
-        if cmd[:3] == ["git", "rev-parse", "HEAD"]:
-            return _Completed(0, "def456\n")
-        raise AssertionError(f"unexpected command: {cmd}")
-
-    monkeypatch.setattr(run_tests, "REPO_ROOT", tmp_path)
-    monkeypatch.setattr(
-        run_tests, "get_editable_install_status", lambda _root: next(editable_statuses)
-    )
-    monkeypatch.setattr(run_tests, "_imports_ok", lambda: (True, None))
-    monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
-
-    code = run_tests.main(["-q"])
-
-    assert code == 0
-    assert pip_commands[0] == [
-        run_tests.sys.executable,
-        "-m",
-        "pip",
-        "install",
-        "-e",
-        f".{run_tests.INSTALL_EXTRAS}",
-    ]
-    assert pip_commands[1:] == [
-        [run_tests.sys.executable, "-m", "pip", "install", "--no-deps", "-e", "."],
-        [run_tests.sys.executable, "-m", "pip", "install", *run_tests.MINIMAL_TEST_AIRLOCK_DEPS],
-    ]
-    payload = json.loads(
-        (tmp_path / "glow" / "test_runs" / "test_run_provenance.json").read_text(encoding="utf-8")
-    )
-    assert payload["install_mode"] == run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL
-    assert payload["install_fallback_reason"] == "full-install-failed"
-    assert payload["install_attempted_modes"] == [
-        run_tests.INSTALL_MODE_FULL,
-        run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL,
-    ]
-
+def test_default_bootstrap_does_not_fallback_to_full_capabilities(monkeypatch) -> None:
+    commands: list[list[str]] = []
+    monkeypatch.delenv(run_tests.FULL_INSTALL_ENV, raising=False)
+    monkeypatch.setattr(run_tests, "_run_pip_install", lambda args: commands.append(args) or False)
+    result = run_tests._bootstrap_missing_editable("default")
+    assert not result.ok
+    assert result.attempted_modes == (run_tests.INSTALL_MODE_TEST_AIRLOCK_MINIMAL,)
+    assert commands == [["--no-deps", "-e", "."]]
+    assert all(".[full]" not in part for command in commands for part in command)
 
 def test_airlock_imports_are_checked_after_minimal_bootstrap(monkeypatch, tmp_path):
     editable_statuses = iter(
