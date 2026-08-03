@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `398a0f9`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `f418c14`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -44,6 +44,16 @@ Developer-workflow proof now supports bounded behavioral witnesses bound to the 
 
 The active lifecycle-closure work carries root-descriptor authority through normal packet and pointer publication. Staging identity and pointer files retain exact prepared-source descriptors, while staging-identity, packet, and pointer commits use kernel-enforced atomic no-clobber renames and verify installed destination identity. Post-hook cleanup rebinds regular files and directories before removal. Injected source substitutions and destination conflicts remain preserved as evidence; publication or cleanup blocks rather than overwriting them.
 
-### GitHub-hosted acceptance at `398a0f9`
+### Minimal dependency bootstrap at `f418c14`
+
+Root automatic setup and ordinary run-tests now use the canonical minimal harness;
+Python 3.14 no longer selects pandas 1.5 or another optional source build. Project
+core is separated from capability extras, default lock installation uses one lock,
+and the required quality gate installs minimal requirements plus a no-dependency
+editable project. Full capabilities remain explicitly installable. Follow-ups remain
+the residual non-root hosted-gate import failure, import-time log-path creation,
+actuator command/path/plugin security hardening, and remote branch protection.
+
+### GitHub-hosted acceptance at `f418c14`
 
 Hosted validation now reaches import-inert lock and actuator modules: privilege checks occur at protected effect boundaries, external actuator plugins require explicit initialization, and imports create neither sandbox/log directories nor plugin effects. Bootstrap, collection, zero-test, zero-call, missing-metrics, and failed-test runs are non-green; provenance integrity is reported independently from validation sufficiency. Ubuntu 24.04 uses `/opt/venv`, disabled accelerator entries perform no setup, and pull-request release validation installs the project without publication authority. The uniquely named `Required / Quality Gate` proves real call-phase execution and exact acceptance. Requiring that check through remote branch protection remains an explicit operator action.

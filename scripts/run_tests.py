@@ -19,7 +19,8 @@ from scripts.validation_completion import classify_validation
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRECHECK_MESSAGE = (
     "Not running against a test-capable editable install of this repo. "
-    "Run pip install -e .[dev,test] or python -m scripts.run_tests."
+    "Run pip install --no-deps -e . and pip install -r requirements-codex.txt, "
+    "or use python -m scripts.run_tests."
 )
 
 TEST_INFRA_IMPORTS = (
@@ -28,14 +29,8 @@ TEST_INFRA_IMPORTS = (
     ("httpx", None),
     ("sentientos", None),
 )
-INSTALL_EXTRAS = "[dev,test]"
-MINIMAL_TEST_AIRLOCK_DEPS = (
-    "pytest>=7,<8",
-    "pytest-cov",
-    "fastapi>=0.110,<1",
-    "starlette>=0.37,<1",
-    "httpx>=0.27,<1",
-)
+CANONICAL_REQUIREMENTS_PATH = "requirements-codex.txt"
+FULL_INSTALL_ENV = "SENTIENTOS_TEST_DEPENDENCY_MODE"
 INSTALL_MODE_FULL = "full"
 INSTALL_MODE_TEST_AIRLOCK_MINIMAL = "test_airlock_minimal"
 BYPASS_ENV_VARS = (
@@ -163,17 +158,17 @@ def _run_pip_install(args: list[str]) -> bool:
 
 
 def _install_full_deps() -> bool:
-    return _run_pip_install(["-e", f".{INSTALL_EXTRAS}"])
+    return _run_pip_install(["-e", ".[full]"])
 
 
 def _install_minimal_test_airlock_deps() -> bool:
     if not _run_pip_install(["--no-deps", "-e", "."]):
         return False
-    return _run_pip_install(list(MINIMAL_TEST_AIRLOCK_DEPS))
+    return _run_pip_install(["--only-binary=:all:", "-r", CANONICAL_REQUIREMENTS_PATH])
 
 
 def _bootstrap_missing_editable(run_intent: str) -> BootstrapResult:
-    if run_intent == "targeted":
+    if os.environ.get(FULL_INSTALL_ENV) != "full":
         ok = _install_minimal_test_airlock_deps()
         return BootstrapResult(
             ok=ok,
@@ -191,23 +186,12 @@ def _bootstrap_missing_editable(run_intent: str) -> BootstrapResult:
             attempted_modes=(INSTALL_MODE_FULL,),
         )
 
-    fallback_reason = "full-install-failed"
-    if _install_minimal_test_airlock_deps():
-        return BootstrapResult(
-            ok=True,
-            install_performed=True,
-            install_mode=INSTALL_MODE_TEST_AIRLOCK_MINIMAL,
-            attempted_modes=(INSTALL_MODE_FULL, INSTALL_MODE_TEST_AIRLOCK_MINIMAL),
-            fallback_reason=fallback_reason,
-        )
-
     return BootstrapResult(
         ok=False,
         install_performed=True,
         install_mode=None,
-        attempted_modes=(INSTALL_MODE_FULL, INSTALL_MODE_TEST_AIRLOCK_MINIMAL),
-        fallback_reason=fallback_reason,
-        failure_reason="full-and-minimal-test-airlock-install-failed",
+        attempted_modes=(INSTALL_MODE_FULL,),
+        failure_reason="explicit-full-install-failed",
     )
 
 
@@ -227,6 +211,8 @@ def _emit_run_context(
         f"install_performed={install_performed}",
         f"editable_ok={str(editable_ok).lower()}",
         f"install_mode={install_mode or 'none'}",
+        f"canonical_requirements_path={CANONICAL_REQUIREMENTS_PATH}",
+        f"full_capability_dependencies_requested={str(os.environ.get(FULL_INSTALL_ENV) == 'full').lower()}",
         f"repo_root={repo_root}",
         f"pytest_args={joined_args}",
     ]
@@ -527,6 +513,8 @@ def _write_provenance(
         "allow_nonexecution": allow_nonexecution,
         "install_performed": install_performed,
         "install_mode": install_mode or "none",
+        "canonical_requirements_path": CANONICAL_REQUIREMENTS_PATH,
+        "full_capability_dependencies_requested": os.environ.get(FULL_INSTALL_ENV) == "full",
         "install_attempted_modes": list(install_attempted_modes or ()),
         "install_fallback_reason": install_fallback_reason,
         "pytest_args": list(pytest_args),

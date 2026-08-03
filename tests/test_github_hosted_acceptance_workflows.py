@@ -29,3 +29,9 @@ def test_required_quality_gate_name_is_unique():
     for path in (ROOT/".github/workflows").glob("*.y*ml"):
         if "Required / Quality Gate" in path.read_text(): matches.append(path)
     assert matches == [ROOT/".github/workflows/required-quality-gate.yml"]
+def test_required_quality_gate_uses_minimal_dependency_bootstrap() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    assert "--only-binary=:all: -r requirements-codex.txt" in workflow
+    assert "--no-deps -e ." in workflow
+    assert "python -m pip check" in workflow
+    assert '.[dev,test]' not in workflow
