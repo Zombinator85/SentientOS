@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `9294784`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `cc5ef81`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -52,11 +52,11 @@ core is separated from capability extras, default lock installation uses one loc
 and the required quality gate installs minimal requirements plus a no-dependency
 editable project. Full capabilities remain explicitly installable. Follow-ups remain
 the residual non-root hosted-gate import failure, import-time log-path creation,
-actuator command/path/plugin security hardening, and remote branch protection.
+actuator command/path/plugin security hardening, .
 
 ### GitHub-hosted acceptance at `9294784`
 
-Hosted validation now reaches import-inert lock and actuator modules: privilege checks occur at protected effect boundaries, external actuator plugins require explicit initialization, and imports create neither sandbox/log directories nor plugin effects. Bootstrap, collection, zero-test, zero-call, missing-metrics, and failed-test runs are non-green; provenance integrity is reported independently from validation sufficiency. Ubuntu 24.04 uses `/opt/venv`, disabled accelerator entries perform no setup, and pull-request release validation installs the project without publication authority. The uniquely named `Required / Quality Gate` proves real call-phase execution and exact acceptance. Requiring that check through remote branch protection remains an explicit operator action.
+Hosted validation now reaches import-inert lock and actuator modules: privilege checks occur at protected effect boundaries, external actuator plugins require explicit initialization, and imports create neither sandbox/log directories nor plugin effects. Bootstrap, collection, zero-test, zero-call, missing-metrics, and failed-test runs are non-green; provenance integrity is reported independently from validation sufficiency. Ubuntu 24.04 uses `/opt/venv`, disabled accelerator entries perform no setup, and pull-request release validation installs the project without publication authority. The uniquely named `Required / Quality Gate` proves real call-phase execution and exact acceptance. Remote branch protection is an optional future operator choice, not active required work.
 
 The `api` package initializer no longer authorizes at import, and actuator autonomous-log
 path resolution no longer creates directories. Isolated child interpreters verify
@@ -64,9 +64,13 @@ privilege and filesystem inertness plus external-plugin non-execution. The requi
 quality gate now emits deterministic pre-pytest import-smoke evidence, allowing a ready
 smoke to proceed to its unchanged nineteen exact call-phase nodes. Separate follow-ups
 remain for repository-wide mypy baseline/tool-version compatibility, actuator shell
-strings and `shell=True`, filesystem ancestry, URL and SMTP policy, plugin isolation,
-and branch-protection configuration.
+strings and `shell=True`, filesystem ancestry, URL and SMTP policy, plugin isolation.
 
 ### Pytest bootstrap and resumable matrix custody at `9294784`
 
-Pytest initialization is privilege-inert and the required gate can reach all nineteen exact call phases after separate import and pytest-bootstrap proofs. The authoritative matrix uses v2 semantic workspace and command-manifest bindings, atomically checkpoints every lane, reports progress, and preserves completed evidence across bounded timeouts and interruption. Unchanged pre-commit retries reuse a completed exact checkpoint or resume its first incomplete lane; semantic source or command changes reject reuse and require fresh execution. Repository-wide mypy/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, plugin isolation, and remote branch protection remain separate follow-ups.
+Pytest initialization is privilege-inert and the required gate can reach all nineteen exact call phases after separate import and pytest-bootstrap proofs. The authoritative matrix uses v2 semantic workspace and command-manifest bindings, atomically checkpoints every lane, reports progress, and preserves completed evidence across bounded timeouts and interruption. Unchanged pre-commit retries reuse a completed exact checkpoint or resume its first incomplete lane; semantic source or command changes reject reuse and require fresh execution. Repository-wide mypy/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, plugin isolation remain separate follow-ups.
+
+
+### Bounded solo landing at `cc5ef81`
+
+Default landing uses bounded solo validation and starts zero matrix processes. The 131-lane exhaustive matrix remains an explicit, resumable maintenance/release profile. Child stdout/stderr and 30-second quiet heartbeats are visible; timeout and cancellation terminate descendant process groups. Local commit and publication never wait for remote checks. Independent follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation.

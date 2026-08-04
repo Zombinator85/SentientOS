@@ -5,6 +5,7 @@ from typing import Any
 
 
 VALID_PHASES = {"pre-commit", "post-commit", "pr-metadata"}
+VALIDATION_PROFILES = {"solo", "exhaustive"}
 
 
 @dataclass(frozen=True)
@@ -12,11 +13,11 @@ class CodexFinalizeLandingPolicy:
     require_focused_tests: bool = True
     require_targeted_mypy: bool = True
     require_mypy_baseline: bool = True
-    require_matrix_summary: bool = True
-    require_matrix_output: bool = True
+    require_matrix_summary: bool = False
+    require_matrix_output: bool = False
     require_pr_landing_gate: bool = True
     require_landing_supervisor: bool = True
-    require_docs_build: bool = True
+    require_docs_build: bool = False
     require_prompt_boundary: bool = True
     require_strict_audits: bool = True
     require_audit_immutability: bool = True

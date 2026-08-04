@@ -261,7 +261,7 @@ def _run_fake_finalizer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, manifes
         object.__setattr__(runtime, "effective_timeout_seconds", timeout)
         return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), runtime
     monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake)
-    args = ["finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit", "--focused-test-command", "python -c 'pass'", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(out)]
+    args = ["finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit", "--validation-profile", "exhaustive", "--focused-test-command", "python -c 'pass'", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(out)]
     args.extend(extra or [])
     main(args)
     return json.loads(out.read_text())
@@ -351,7 +351,7 @@ def test_stale_refresh_matrix_uses_independent_matrix_timeout(monkeypatch: pytes
         return CodexFinalizeLandingCommandResult(stage, command, exit_code, required=required), _successful_runtime(stage, command, required)
     monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake); monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
     out = tmp_path / "out.json"
-    main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--focused-test-command", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--allow-stale-evidence-refresh", "--stage-timeout-seconds", "7", "--matrix-timeout-seconds", "23", "--output", str(out)])
+    main(["finalize", "--phase", "pre-commit", "--validation-profile", "exhaustive", "--title", "x", "--intended-commit-title", "x", "--focused-test-command", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(tmp_path / "runtime"), "--allow-stale-evidence-refresh", "--stage-timeout-seconds", "7", "--matrix-timeout-seconds", "23", "--output", str(out)])
     assert ("matrix_summary", 23) in seen and ("stale_evidence_matrix_summary", 23) in seen and ("focused_tests", 7) in seen
 
 
@@ -608,6 +608,8 @@ def test_generated_cleanup_allowed_refresh_terminal_ready(monkeypatch: pytest.Mo
         "x",
         "--phase",
         "pre-commit",
+        "--validation-profile",
+        "exhaustive",
         "--focused-test-command",
         "python -c 'pass'",
         "--allow-generated-artifact-cleanup",
@@ -656,6 +658,8 @@ def test_stale_refresh_required_only_when_not_allowed(monkeypatch: pytest.Monkey
         "x",
         "--phase",
         "pre-commit",
+        "--validation-profile",
+        "exhaustive",
         "--focused-test-command",
         "python -c 'pass'",
         "--allow-generated-artifact-cleanup",
@@ -694,6 +698,8 @@ def test_refresh_failure_is_terminal_without_rerun_suggestion(monkeypatch: pytes
         "x",
         "--phase",
         "pre-commit",
+        "--validation-profile",
+        "exhaustive",
         "--focused-test-command",
         "python -c 'pass'",
         "--allow-generated-artifact-cleanup",
@@ -737,6 +743,8 @@ def test_dirty_source_blocks_after_cleanup_and_refresh(monkeypatch: pytest.Monke
         "x",
         "--phase",
         "pre-commit",
+        "--validation-profile",
+        "exhaustive",
         "--focused-test-command",
         "python -c 'pass'",
         "--allow-generated-artifact-cleanup",
@@ -772,6 +780,8 @@ def test_pre_commit_uses_single_matrix_stage_with_summary_and_output(monkeypatch
         "x",
         "--phase",
         "pre-commit",
+        "--validation-profile",
+        "exhaustive",
         "--focused-test-command",
         "python -c 'pass'",
         "--matrix-json-path",

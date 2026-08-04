@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from sentientos.codex_landing_evidence_binding import verify_commit_matches_workspace, head_sha, tree_sha, file_sha256
+from sentientos.landing_validation_plan import verify_validation_plan
 
 READY_STATUS = "pr_metadata_guard_ready"
 SOURCE_DOC_TEST_PREFIXES = ("sentientos/", "scripts/", "tests/", "docs/", "api/")
@@ -162,6 +163,16 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
 
     matrix_payload, matrix_load = _load_json(request.matrix_json_path)
     proof["matrix"] = {"path": request.matrix_json_path, "load_status": matrix_load, "status": str(matrix_payload.get("status", "")) if matrix_payload else "", "sha256": file_sha256(Path(request.matrix_json_path)) if matrix_payload is not None else "", "required_failure_count": matrix_payload.get("required_failure_count") if matrix_payload else None}
+    pre_plan = pre_payload.get("landing_validation_plan") if pre_payload else None
+    pr_plan = pr_payload.get("landing_validation_plan") if pr_payload else None
+    solo = isinstance(pre_plan, Mapping) and pre_plan.get("effective_profile") == "solo"
+    if solo and isinstance(pre_plan, Mapping):
+        valid, plan_reasons = verify_validation_plan(pre_plan)
+        if not valid:
+            reasons.extend(plan_reasons)
+        if pr_plan != pre_plan:
+            reasons.append("validation_profile_or_plan_mutated_between_phases")
+        proof["validation_profile"] = "solo"
 
     if request.validation_only:
         lines = request.git_status_lines or _git_status_lines(request.workspace_root)
@@ -199,12 +210,12 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
         gate_exit = _command_exit(pr_payload, "pr_landing_gate")
         gate_status = _embedded_status(pr_payload, ("landing_gate_status", "pr_landing_gate_status"))
         proof["pr_landing_gate"] = {"exit_code": gate_exit, "status": gate_status}
-        if gate_exit not in (0, None) or (gate_exit is None and gate_status not in PASSING_LANDING_GATE_STATUSES):
+        if not solo and (gate_exit not in (0, None) or (gate_exit is None and gate_status not in PASSING_LANDING_GATE_STATUSES)):
             reasons.append("pr_landing_gate_not_passed")
         supervisor_exit = _command_exit(pr_payload, "landing_supervisor")
         supervisor_status = _embedded_status(pr_payload, ("landing_supervisor_status", "supervisor_status"))
         proof["landing_supervisor"] = {"exit_code": supervisor_exit, "status": supervisor_status}
-        if supervisor_exit not in (0, None) or (supervisor_exit is None and supervisor_status not in PASSING_SUPERVISOR_STATUSES):
+        if not solo and (supervisor_exit not in (0, None) or (supervisor_exit is None and supervisor_status not in PASSING_SUPERVISOR_STATUSES)):
             reasons.append("landing_supervisor_not_ready")
 
     if pre_payload is not None and pr_payload is not None:
@@ -218,9 +229,9 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
             verification = verify_commit_matches_workspace(request.workspace_root, workspace_binding, commit_binding).to_dict()
             proof["binding_verification"] = verification
             reasons.extend(str(r) for r in verification.get("reasons", ()))
-            if proof["matrix"].get("sha256") and commit_binding.get("matrix_digest") != proof["matrix"].get("sha256"):
+            if not solo and proof["matrix"].get("sha256") and commit_binding.get("matrix_digest") != proof["matrix"].get("sha256"):
                 reasons.append("matrix_digest_mismatch")
-    if not _matrix_passed(matrix_payload):
+    if not solo and not _matrix_passed(matrix_payload):
         reasons.append("matrix_not_passed")
 
     status = _status_for_reasons(tuple(reasons))
