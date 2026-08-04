@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
 import sys
+import os
 import time
 from datetime import datetime, timezone
 from typing import Callable, TypedDict
@@ -45,6 +47,7 @@ class MatrixResult(TypedDict, total=False):
 
 
 class MatrixReport(TypedDict, total=False):
+    schema_version: str
     generated_at: str
     status: str
     command_count: int
@@ -55,6 +58,71 @@ class MatrixReport(TypedDict, total=False):
     results: list[MatrixResult]
     strict_audit_repair_command: str
     strict_audit_auto_repair_exit_code: int
+    next_lane_index: int
+    completed_labels: list[str]
+    checkpoint_digest: str
+    completion_status: str
+    matrix_contract: dict[str, object]
+    matrix_contract_digest: object
+    workspace_binding: dict[str, object]
+    resume_block_reasons: list[str]
+
+
+MATRIX_SCHEMA = "sentientos.work_item_review_packet_matrix:v2"
+GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")
+
+
+def _digest(value: object) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def matrix_contract(commands: list[MatrixCommand]) -> dict[str, object]:
+    manifest = [{"label": c.label, "command": list(c.command), "required": c.required,
+                 "proof_required": c.proof_required, "execution_required": c.execution_required,
+                 "diagnostic_only": c.diagnostic_only} for c in commands]
+    return {"schema_version": MATRIX_SCHEMA, "command_count": len(commands), "lanes": manifest,
+            "manifest_digest": _digest(manifest)}
+
+
+def workspace_binding(commands: list[MatrixCommand], repo: Path = Path(".")) -> dict[str, object]:
+    root = repo.resolve()
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], cwd=root, text=True).strip()
+    status = subprocess.check_output(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root, text=True)
+    files: list[dict[str, str]] = []
+    for line in status.splitlines():
+        path = line[3:].split(" -> ")[-1]
+        if path.startswith(GENERATED_PREFIXES):
+            continue
+        target = root / path
+        content = target.read_bytes() if target.is_file() and not target.is_symlink() else b"<deleted-or-nonregular>"
+        files.append({"path": path, "status": line[:2], "sha256": hashlib.sha256(content).hexdigest()})
+    locks = []
+    for name in ("pyproject.toml", "requirements-codex.txt", "requirements.txt", "uv.lock", "poetry.lock"):
+        p = root / name
+        if p.is_file():
+            locks.append({"path": name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()})
+    contract_digest = str(matrix_contract(commands)["manifest_digest"])
+    payload: dict[str, object] = {"head_sha": head, "tracked_tree_sha": tree, "changed_files": sorted(files, key=lambda x: x["path"]),
+        "dependency_digests": locks, "python_executable": str(Path(sys.executable).resolve()), "python_version": sys.version,
+        "matrix_contract_digest": contract_digest}
+    payload["binding_digest"] = _digest(payload)
+    return payload
+
+
+def _atomic_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n"); stream.flush(); os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    try:
+        directory = os.open(path.parent, os.O_RDONLY)
+        try: os.fsync(directory)
+        finally: os.close(directory)
+    except OSError:
+        pass
 
 
 NONEXECUTION_DIAGNOSTIC_LANES = {
@@ -381,14 +449,102 @@ def _default_runner(command: tuple[str, ...]) -> subprocess.CompletedProcess[str
     return subprocess.run(command, check=False, capture_output=True, text=True)
 
 
+def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
+                         resume_from: Path | None = None, command_timeout_seconds: int = 900,
+                         progress: bool = False, repo: Path = Path(".")) -> MatrixReport:
+    """Run lanes sequentially while preserving exact, content-bound custody."""
+    contract = matrix_contract(commands)
+    binding = workspace_binding(commands, repo)
+    results: list[MatrixResult] = []
+    if resume_from is not None:
+        try:
+            prior = json.loads(resume_from.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            prior = {}
+        reason = None
+        if prior.get("schema_version") != MATRIX_SCHEMA: reason = "resume_schema_invalid"
+        elif prior.get("matrix_contract_digest") != contract["manifest_digest"]: reason = "matrix_contract_changed"
+        elif prior.get("workspace_binding", {}).get("binding_digest") != binding["binding_digest"]: reason = "workspace_binding_changed"
+        elif prior.get("checkpoint_digest") != _digest({k: v for k, v in prior.items() if k != "checkpoint_digest"}): reason = "checkpoint_digest_mismatch"
+        else:
+            candidate = prior.get("results", [])
+            if prior.get("status") in {"matrix_timed_out", "matrix_interrupted"} and candidate and candidate[-1].get("proof_status") in {"timed-out", "interrupted"}:
+                candidate = candidate[:-1]
+            labels = prior.get("completed_labels", [])
+            expected = [c.label for c in commands[:len(candidate)]]
+            if labels != expected or [r.get("label") for r in candidate] != expected or len(set(labels)) != len(labels):
+                reason = "completed_lane_order_invalid"
+            elif any(r.get("command") != list(commands[i].command) for i, r in enumerate(candidate)):
+                reason = "matrix_contract_changed"
+            elif any(_is_required_failure(r) for r in candidate):
+                reason = "failed_lane_requires_rerun"
+            else: results = candidate
+        if reason:
+            report: MatrixReport = {"schema_version": MATRIX_SCHEMA, "status": "matrix_resume_blocked", "resume_block_reasons": [reason],
+                "matrix_contract": contract, "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": binding,
+                "results": [], "completed_labels": [], "next_lane_index": 0, "command_count": len(commands)}
+            base = dict(report); report["checkpoint_digest"] = _digest(base)
+            _atomic_json(checkpoint, report); return report
+        if prior.get("status") == "matrix_passed" and len(results) == len(commands):
+            if checkpoint != resume_from: _atomic_json(checkpoint, prior)
+            return prior  # type: ignore[no-any-return]
+
+    def emit(status: str) -> MatrixReport:
+        failures = [str(r["label"]) for r in results if _is_required_failure(r)]
+        payload: MatrixReport = {"schema_version": MATRIX_SCHEMA, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "status": status, "command_count": len(commands), "required_failure_count": len(failures), "required_failures": failures,
+            "diagnostic_failure_count": len([r for r in results if r.get("diagnostic_only") and r.get("exit_code") != 0]),
+            "nonproof_count": len([r for r in results if not r.get("proof_required", True)]), "results": results,
+            "matrix_contract": contract, "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": binding,
+            "completed_labels": [str(r["label"]) for r in results], "next_lane_index": len(results), "completion_status": status}
+        payload["checkpoint_digest"] = _digest(dict(payload))
+        _atomic_json(checkpoint, payload); return payload
+
+    emit("matrix_in_progress")
+    for index, command in enumerate(commands[len(results):], start=len(results)):
+        if progress: print(f"[matrix] start {index + 1}/{len(commands)} {command.label}", flush=True)
+        started = time.perf_counter()
+        try:
+            completed = subprocess.run(command.command, check=False, capture_output=True, text=True, timeout=command_timeout_seconds, cwd=repo)
+            result = run_one(command, lambda _: completed)
+            result["duration_seconds"] = round(time.perf_counter() - started, 3)
+            results.append(result)
+            state = "matrix_failed" if _is_required_failure(result) else "matrix_in_progress"
+        except subprocess.TimeoutExpired as exc:
+            output = ((exc.stdout or "") + "\n" + (exc.stderr or "")) if isinstance(exc.stdout, str) else ""
+            results.append({"label": command.label, "command": list(command.command), "required": command.required,
+                "proof_required": command.proof_required, "execution_required": command.execution_required, "diagnostic_only": command.diagnostic_only,
+                "exit_code": 124, "duration_seconds": round(time.perf_counter() - started, 3), "output_tail": _tail(output), "proof_status": "timed-out"})
+            if progress: print(f"[matrix] end {index + 1}/{len(commands)} {command.label} status=timed_out", flush=True)
+            report = emit("matrix_timed_out")
+            report["next_lane_index"] = index
+            report["completed_labels"] = [str(r["label"]) for r in results[:-1]]
+            report["checkpoint_digest"] = _digest({k: v for k, v in report.items() if k != "checkpoint_digest"})
+            _atomic_json(checkpoint, report)
+            return report
+        if progress: print(f"[matrix] end {index + 1}/{len(commands)} {command.label} exit={results[-1]['exit_code']}", flush=True)
+        emit(state)
+    return emit("matrix_failed" if any(_is_required_failure(r) for r in results) else "matrix_passed")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run full work-item review packet proof matrix with continue-on-failure behavior.")
     parser.add_argument("--summary", action="store_true", help="print compact human summary after JSON")
     parser.add_argument("--output", type=Path, help="optional JSON output path")
     parser.add_argument("--auto-repair-audits", action="store_true")
+    parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--resume-from", type=Path)
+    parser.add_argument("--command-timeout-seconds", type=int, default=900)
+    parser.add_argument("--progress", action="store_true")
     args = parser.parse_args(argv)
 
-    report = run_matrix(commands=default_matrix_commands(), runner=_default_runner)
+    if args.command_timeout_seconds <= 0:
+        parser.error("--command-timeout-seconds must be positive")
+    commands = default_matrix_commands()
+    checkpoint = args.checkpoint
+    report = (run_resumable_matrix(commands=commands, checkpoint=checkpoint, resume_from=args.resume_from,
+                                   command_timeout_seconds=args.command_timeout_seconds, progress=args.progress)
+              if checkpoint is not None else run_matrix(commands=commands, runner=_default_runner))
     if any(r["label"]=="strict_audits" and r["exit_code"]!=0 for r in report["results"]):
         report["strict_audit_repair_command"]="python scripts/codex_strict_audit_repair.py diagnose --summary"
         if args.auto_repair_audits:
@@ -404,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text + "\n", encoding="utf-8")
-    return 1 if report["status"] == "failed" else 0
+    return 0 if report["status"] in {"passed", "matrix_passed"} else 1
 
 
 if __name__ == "__main__":

@@ -60,3 +60,12 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     )[0]
     assert selection.count("tests/") == 19
     assert "len(nodes)==19" in workflow
+def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
+    text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
+    assert text.index("verify_import_inertness.py") < text.index("verify_pytest_bootstrap.py") < text.index("Execute required call phases")
+    assert text.count("tests/test_") == 19
+
+
+def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
+    text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
+    assert text.count("quality_gate_pytest_bootstrap.json") == 2

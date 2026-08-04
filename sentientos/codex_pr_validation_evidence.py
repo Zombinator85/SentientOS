@@ -55,7 +55,7 @@ def verify_pr_validation_evidence(*, pr_title: str, pr_body: str, intended_commi
         findings.append("local_only_validation_claim_detected")
 
     if evidence_present:
-        if str(matrix.get("status")) != "passed":
+        if str(matrix.get("status")) not in {"passed", "matrix_passed"}:
             findings.append("matrix_status_not_passed")
         if int(matrix.get("required_failure_count", -1)) != 0:
             findings.append("required_failure_count_nonzero")

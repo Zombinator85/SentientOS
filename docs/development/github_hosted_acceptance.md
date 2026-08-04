@@ -45,3 +45,22 @@ Repository code does not prove remote settings are configured. After this change
 5. Enable automatic deletion of merged branches.
 
 Do not claim branch protection, hosted success, or publication from local workflow contracts alone.
+
+## Privilege-inert pytest bootstrap
+
+Pytest initialization is test infrastructure, not a privilege boundary. `tests/conftest.py`
+must remain inert: import and collection do not authorize, align covenant state, prompt,
+terminate, or write privilege-ledger/runtime policy state. Protected-operation tests invoke
+or monkeypatch their own authorization boundary locally.
+
+Import smoke proves ordinary package imports are effect-inert; the separate
+`sentientos.pytest_bootstrap:v1` subprocess proof proves real pytest collection and one
+harmless call phase with sentinels installed on the actual `sentientos.privilege`
+functions. Its bounded artifact records repository SHA, Python version, exact node and
+child command, return code/output tails, reporter and collection completion, collected
+and call-phase counts, sentinel state, and a status (`pytest_bootstrap_ready`,
+`privilege_invoked`, `bootstrap_failed`, `collection_failed`, `zero_tests_collected`,
+`zero_call_phase_outcomes`, `metrics_missing`, or `verifier_error`). The required gate
+orders minimal installation, `pip check`, import smoke, pytest-bootstrap proof, nineteen
+exact call phases, acceptance binding, strict provenance analysis, then always-on evidence
+upload.

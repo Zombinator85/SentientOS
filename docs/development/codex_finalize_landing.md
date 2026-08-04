@@ -305,3 +305,28 @@ Each validation pass that executes the landing matrix runs one canonical matrix 
 Post-commit and PR-metadata phases can still reuse the exact pre-commit matrix binding through `--pre-commit-finalizer-json`; that reuse path performs no new matrix process when the pre-commit finalizer artifact is supplied.
 
 Generated-artifact cleanup distinguishes tracked and untracked paths. Tracked generated artifacts under `glow/`, `pulse/`, `artifacts/codex/`, cache directories, and the runtime privileged audit artifact are restored with `git restore -- <path>`. Untracked generated artifacts are removed with `git clean -fd -- <path>`. Cleanup commands operate on exact argv path arguments, never through shell interpolation, and cleanup never restores or deletes intended task files, undeclared source changes, unknown dirty files, or versioned audit evidence that is not explicitly classified as a safe generated runtime artifact.
+
+## Matrix v2 checkpoint and retry custody
+
+The authoritative matrix writes `sentientos.work_item_review_packet_matrix:v2` custody
+atomically after every sequential lane and flushes start/end progress. The contract binds
+ordered labels, exact commands and proof classifications; the semantic workspace binding
+includes HEAD/tree, intended dirty-file bytes, dependency inputs, interpreter identity,
+and the matrix digest while excluding only canonical generated runtime custody. Each child
+has a bounded `--command-timeout-seconds`; timeout terminates that child, records the timed
+lane, preserves earlier completed lanes, and leaves the timed lane as the resume point.
+
+`--resume-from` validates schema, checkpoint digest, command manifest, semantic workspace,
+and contiguous completed results. A passing exact checkpoint returns without execution;
+incomplete valid custody resumes its first incomplete lane. Failed required lanes and
+stale, reordered, mutated, or differently bound evidence fail closed and cannot be forced.
+A pre-commit retry may name its prior finalizer artifact. Exact complete custody records
+`exact_precommit_retry_reuse`; incomplete custody is passed to the runner for resume.
+Post-commit reuse remains subject to the existing commit transition and metadata/body
+bindings.
+
+After a hygiene-only interruption, preserve the checkpoint, remove only the specifically
+classified generated path, and retry with the prior finalizer artifact. Never broadly
+delete `sentientos_data/`. Generated cleanup does not alter semantic identity, while any
+source, command, acceptance, focused-test, mypy, title, lock, or interpreter change rejects
+reuse and requires a fresh matrix.

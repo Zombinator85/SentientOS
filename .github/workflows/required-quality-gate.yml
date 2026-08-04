@@ -26,6 +26,8 @@ jobs:
           python -m pip check
       - name: Prove imports are inert
         run: python scripts/verify_import_inertness.py --output glow/test_runs/quality_gate_import_smoke.json
+      - name: Prove pytest bootstrap is privilege-inert
+        run: python scripts/verify_pytest_bootstrap.py --output glow/test_runs/quality_gate_pytest_bootstrap.json
       - name: Execute required call phases
         run: |
           python -m scripts.run_tests -q \
@@ -69,6 +71,7 @@ jobs:
           name: required-quality-gate-evidence
           path: |
             glow/test_runs/quality_gate_import_smoke.json
+            glow/test_runs/quality_gate_pytest_bootstrap.json
             glow/test_runs/test_run_provenance.json
             glow/test_runs/quality_gate_acceptance_result.json
             glow/test_runs/test_trend_report.json

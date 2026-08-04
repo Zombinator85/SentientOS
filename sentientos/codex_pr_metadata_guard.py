@@ -108,7 +108,7 @@ def _embedded_status(payload: Mapping[str, Any] | None, keys: tuple[str, ...]) -
 
 
 def _matrix_passed(payload: Mapping[str, Any] | None) -> bool:
-    return bool(payload and str(payload.get("status", "")) == "passed" and int(payload.get("required_failure_count", 1)) == 0)
+    return bool(payload and str(payload.get("status", "")) in {"passed", "matrix_passed"} and int(payload.get("required_failure_count", 1)) == 0)
 
 
 def _has_source_doc_test_changes(lines: tuple[str, ...]) -> bool:
