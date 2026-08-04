@@ -1,12 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 # noqa: D100 - all tests share this setup module
 from __future__ import annotations
-import builtins
 import importlib.machinery
 import importlib.util
 import json
 import os
 import sys
+import shutil
 from pathlib import Path
 
 import types
@@ -15,10 +15,6 @@ import types
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.editable_install import editable_install_from_repo_root
-
-# Stub privilege checks before importing modules that may call them on import
-builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
-builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
 
 import pytest
 
@@ -43,7 +39,8 @@ def _ensure_provisioned_environment() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     if not editable_install_from_repo_root(repo_root):
         pytest.exit(
-            "Not running against an editable install of this repo. Run pip install -e .[dev,test] or "
+            "Not running against the canonical minimal test install. Run python -m pip install "
+            "--only-binary=:all: -r requirements-codex.txt followed by python -m pip install --no-deps -e . or "
             "python -m scripts.run_tests."
         )
     try:
@@ -53,7 +50,8 @@ def _ensure_provisioned_environment() -> None:
         import httpx  # noqa: F401
     except Exception:
         pytest.exit(
-            "Not running against an editable install of this repo. Run pip install -e .[dev,test] or "
+            "Not running against the canonical minimal test install. Run python -m pip install "
+            "--only-binary=:all: -r requirements-codex.txt followed by python -m pip install --no-deps -e . or "
             "python -m scripts.run_tests."
         )
 
@@ -88,21 +86,14 @@ pdfrw_stub.PdfWriter = type(
 )
 sys.modules.setdefault("pdfrw", pdfrw_stub)
 
-from sentientos.privilege import require_admin_banner, require_covenant_alignment
-
-require_admin_banner()
-require_covenant_alignment()
-# The admin banner checks can exit the process during module import if not
-# stubbed ahead of time. Stub them here so test discovery doesn't trip the
-# privilege checks.
-
 from tests.legacy_policy import LEGACY_SKIP_REASON, is_legacy_candidate, legacy_marker_enabled
 from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
 
 from sentientos.codex_startup_guard import codex_startup_phase
-from sentientos.federation import enablement as federation_enablement
+FEDERATION_ENABLEMENT_ENV = "SENTIENTOS_FEDERATION_ENABLED"
 
-from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
+NODE_PATH, GO_PATH, DMYPY_PATH = (shutil.which(name) for name in ("node", "go", "dmypy"))
+HAS_NODE, HAS_GO, HAS_DMYPY = (value is not None for value in (NODE_PATH, GO_PATH, DMYPY_PATH))
 from nacl.signing import SigningKey
 
 
@@ -318,7 +309,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_control_plane_kernel",
     }
     legacy_enabled = legacy_marker_enabled(config.option.markexpr)
-    federation_enabled = federation_enablement.is_enabled()
+    federation_enabled = os.getenv(FEDERATION_ENABLEMENT_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
     for item in items:
         module_name = item.module.__name__
         path_str = str(getattr(item, "fspath", ""))
@@ -326,7 +317,7 @@ def pytest_collection_modifyitems(config, items):
         if intent is not None and not federation_enabled:
             reason = (
                 f"{intent.reason} Federation enablement is disabled "
-                f"({federation_enablement.ENABLEMENT_ENV}=false)."
+                f"({FEDERATION_ENABLEMENT_ENV}=false)."
             )
             item.add_marker(
                 pytest.mark.federation_skip(category=intent.category.value, reason=reason)
@@ -346,10 +337,10 @@ def pytest_collection_modifyitems(config, items):
             if not legacy_enabled:
                 item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
         if 'requires_node' in item.keywords and not HAS_NODE:
-            item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
+            item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE_PATH}'))
         if 'requires_go' in item.keywords and not HAS_GO:
-            item.add_marker(pytest.mark.skip(reason=f'go missing: {GO.info}'))
+            item.add_marker(pytest.mark.skip(reason=f'go missing: {GO_PATH}'))
         if 'requires_dmypy' in item.keywords and not HAS_DMYPY:
-            item.add_marker(pytest.mark.skip(reason=f'dmypy missing: {DMYPY.info}'))
+            item.add_marker(pytest.mark.skip(reason=f'dmypy missing: {DMYPY_PATH}'))
         if 'network' in item.keywords and not config.getoption('--run-network'):
             item.add_marker(pytest.mark.skip(reason='network test skipped: add --run-network to run'))

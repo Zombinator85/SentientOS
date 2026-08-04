@@ -411,7 +411,7 @@ def _capture_task_acceptance(manifest_arg: str, workspace_root: str, context: In
         return custody
 
 
-def _landing_matrix_command(matrix_json_path: str) -> str:
+def _landing_matrix_command(matrix_json_path: str, *, resume: bool = False, command_timeout_seconds: int = 900) -> str:
     return " ".join(
         [
             "python",
@@ -419,6 +419,10 @@ def _landing_matrix_command(matrix_json_path: str) -> str:
             "--summary",
             "--output",
             shlex.quote(matrix_json_path),
+            "--checkpoint", shlex.quote(matrix_json_path),
+            "--command-timeout-seconds", str(command_timeout_seconds),
+            *(["--resume-from", shlex.quote(matrix_json_path)] if resume and Path(matrix_json_path).is_file() else []),
+            "--progress",
         ]
     )
 
@@ -671,6 +675,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--no-progress", action="store_false", dest="progress")
         s.add_argument("--summary", action="store_true")
         s.add_argument("--pre-commit-finalizer-json")
+        s.add_argument("--pre-commit-retry-finalizer-json")
         s.add_argument("--runtime-sandbox-root")
         s.add_argument("--task-acceptance-manifest")
     return p
@@ -743,7 +748,26 @@ def main(argv: list[str] | None = None) -> int:
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
     exact_matrix_reuse = a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
-    matrix_stages: list[tuple[str, str, bool]] = [] if exact_matrix_reuse else [("matrix_summary", _landing_matrix_command(a.matrix_json_path), True)]
+    precommit_retry_reuse = False
+    precommit_retry_reasons: list[str] = []
+    if a.phase.replace("_", "-") == "pre-commit" and a.pre_commit_retry_finalizer_json:
+        try:
+            prior = json.loads(Path(a.pre_commit_retry_finalizer_json).read_text(encoding="utf-8"))
+            matrix = json.loads(Path(a.matrix_json_path).read_text(encoding="utf-8"))
+            prior_request = prior.get("request", {})
+            if prior.get("decision", {}).get("status") != "ready_to_commit": precommit_retry_reasons.append("prior_finalizer_not_ready")
+            if matrix.get("schema_version") != "sentientos.work_item_review_packet_matrix:v2" or matrix.get("status") != "matrix_passed": precommit_retry_reasons.append("checkpoint_incomplete")
+            if prior_request.get("title") != a.title or prior_request.get("intended_commit_title") != a.intended_commit_title: precommit_retry_reasons.append("title_contract_changed")
+            if prior_request.get("focused_test_commands", []) != a.focused_test_command: precommit_retry_reasons.append("focused_test_contract_changed")
+            if prior_request.get("targeted_mypy_commands", []) != a.targeted_mypy_command: precommit_retry_reasons.append("targeted_mypy_contract_changed")
+            wb = matrix.get("workspace_binding", {})
+            from scripts.run_work_item_review_packet_matrix import default_matrix_commands, workspace_binding as matrix_workspace_binding
+            if wb.get("binding_digest") != matrix_workspace_binding(default_matrix_commands(), Path(a.workspace_root)).get("binding_digest"):
+                precommit_retry_reasons.append("workspace_binding_changed")
+            precommit_retry_reuse = not precommit_retry_reasons
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            precommit_retry_reasons.append(f"invalid_precommit_retry_artifact:{type(exc).__name__}")
+    matrix_stages: list[tuple[str, str, bool]] = [] if (exact_matrix_reuse or precommit_retry_reuse) else [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
     stage_specs.extend(
         [
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
@@ -948,6 +972,8 @@ def main(argv: list[str] | None = None) -> int:
         "phase": req.phase,
         "matrix_json_path": req.matrix_json_path,
         "task_acceptance_manifest": a.task_acceptance_manifest,
+        "focused_test_commands": list(a.focused_test_command),
+        "targeted_mypy_commands": list(a.targeted_mypy_command),
     }
     if acceptance_result is not None:
         payload["task_acceptance"] = acceptance_result
@@ -1004,7 +1030,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     payload["evidence_freshness"] = {
         "stale_evidence_reasons": stale_reasons,
-        "matrix_execution_mode": "exact_binding_reuse" if exact_matrix_reuse else "executed",
+        "matrix_execution_mode": "exact_binding_reuse" if exact_matrix_reuse else "exact_precommit_retry_reuse" if precommit_retry_reuse else "resumed_or_executed" if a.pre_commit_retry_finalizer_json else "executed",
+        "matrix_reuse_status": "exact_precommit_retry_reuse" if precommit_retry_reuse else "not_reused",
+        "matrix_reuse_reasons": precommit_retry_reasons,
         "reused_matrix_digest": payload.get("workspace_binding", {}).get("matrix_digest") if exact_matrix_reuse else None,
         "reuse_justification": "post-commit exact binding reuse requested with pre-commit finalizer artifact" if exact_matrix_reuse else "matrix executed",
         "stale_evidence_refresh_attempted": refresh_attempted,
