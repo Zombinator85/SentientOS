@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `cc5ef81`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `5c601d3`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -71,6 +71,12 @@ strings and `shell=True`, filesystem ancestry, URL and SMTP policy, plugin isola
 Pytest initialization is privilege-inert and the required gate can reach all nineteen exact call phases after separate import and pytest-bootstrap proofs. The authoritative matrix uses v2 semantic workspace and command-manifest bindings, atomically checkpoints every lane, reports progress, and preserves completed evidence across bounded timeouts and interruption. Unchanged pre-commit retries reuse a completed exact checkpoint or resume its first incomplete lane; semantic source or command changes reject reuse and require fresh execution. Repository-wide mypy/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, plugin isolation remain separate follow-ups.
 
 
-### Bounded solo landing at `cc5ef81`
+### Bounded solo landing at `5c601d3`
 
 Default landing uses bounded solo validation and starts zero matrix processes. The 131-lane exhaustive matrix remains an explicit, resumable maintenance/release profile. Child stdout/stderr and 30-second quiet heartbeats are visible; timeout and cancellation terminate descendant process groups. Local commit and publication never wait for remote checks. Independent follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation.
+
+### Canonical maintenance task journal at `5c601d3`
+
+Canonical maintenance-task identity now exists. Append-only task events are tamper-evident, deterministic replay produces one task snapshot, one active lease and one active attempt are enforced, restart and truncated-tail behavior are explicit, and state remains outside the mutable worktree. No agent, provider, mutation, Git, publication, or candidate-selection authority was added.
+
+Next independent maintenance-loop tasks remain, in order: canonical candidate adapter and deterministic next-candidate selector; immutable task authority lease consolidation; pluggable implementation-agent adapter with fake driver; external local-Codex foreman; proportionate validation and corrective continuation controller; exact commit and asynchronous publication custody; recovery watchdog and automatic continuation. Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation. Remote branch protection is not required work.
