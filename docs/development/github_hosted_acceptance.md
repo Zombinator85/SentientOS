@@ -10,7 +10,25 @@ Importing `scripts.lock` or `api.actuator` is inspection, not authority. Imports
 
 Canonical completion statuses are `bootstrap_failed`, `collection_failed`, `zero_tests_collected`, `zero_call_phase_outcomes`, `metrics_missing`, `validation_failed`, and `validation_complete`. Only `validation_complete` is hosted acceptance evidence; collection-only diagnostics are never complete. Provenance chain integrity answers whether artifacts are intact, while validation sufficiency answers whether tests ran. The overall analyzer states are `OK`, `ALERT`, `INSUFFICIENT_EVIDENCE`, and `INTEGRITY_BROKEN`; an intact empty or incomplete chain is insufficient, never OK.
 
-The **Required Quality Gate** workflow exposes the unique check **Required / Quality Gate** on Ubuntu 24.04 with Python 3.11 and read-only contents permission. It installs SentientOS, verifies inert imports, executes the exact acceptance nodes through `scripts.run_tests`, verifies a runtime v1 acceptance manifest, validates completion counts and SHA binding, runs strict trend analysis, and always uploads provenance, acceptance result, and trend report. Missing, malformed, incomplete, zero-count, stale, or failed evidence fails the job.
+The **Required Quality Gate** workflow exposes the unique check **Required / Quality Gate** on Ubuntu 24.04 with Python 3.11 and read-only contents permission. It installs SentientOS, runs `pip check`, verifies inert imports, executes the nineteen exact acceptance nodes through `scripts.run_tests`, verifies a runtime v1 acceptance manifest, validates completion counts and SHA binding, runs strict trend analysis, and always uploads provenance, acceptance result, trend report, and the pre-pytest import-smoke result. Missing, malformed, incomplete, zero-count, stale, or failed evidence fails the job.
+
+Python package initializers are never authorization boundaries: importing a protected
+subsystem is not itself a protected effect. Accordingly, `api/__init__.py` is
+intentionally limited to inert package definition. Protected actuator effects retain
+authorization immediately before execution. Log path resolution similarly only
+selects a `Path`; the compatible creating helpers and actuator write boundaries create
+parents when a runtime write actually requires them.
+
+`scripts/verify_import_inertness.py` runs after minimal installation and `pip check`,
+and before `scripts.run_tests`. It writes
+`glow/test_runs/quality_gate_import_smoke.json` using
+`sentientos.import_inertness:v1`, even on failure. Its bounded child-process evidence
+classifies readiness, import failure, privilege invocation, filesystem mutation,
+plugin execution, or verifier error. Every module receives a fresh interpreter and
+fresh configured log, sandbox, plugin, and autonomous-log paths. The `api` imports
+replace both privilege helpers with failing sentinels first, because root execution
+could otherwise conceal an unauthorized import-time call. A harmless external plugin
+provides an execution marker without granting plugin initialization authority.
 
 ## Hosted platform posture
 

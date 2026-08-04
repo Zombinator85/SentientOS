@@ -1,6 +1,6 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+"""Public API package.
 
-require_admin_banner()
-require_lumos_approval()
+Package import is intentionally inert.  Authorization belongs at protected
+runtime effects, never at Python's package-initialization boundary.
+"""
+from __future__ import annotations

@@ -35,3 +35,28 @@ def test_required_quality_gate_uses_minimal_dependency_bootstrap() -> None:
     assert "--no-deps -e ." in workflow
     assert "python -m pip check" in workflow
     assert '.[dev,test]' not in workflow
+
+
+def test_required_quality_gate_runs_diagnostic_import_smoke() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    smoke = "python scripts/verify_import_inertness.py --output glow/test_runs/quality_gate_import_smoke.json"
+    assert workflow.index("python -m pip check") < workflow.index(smoke)
+    assert workflow.index(smoke) < workflow.index("python -m scripts.run_tests")
+    assert "python -c \"import sentientos" not in workflow
+    assert "continue-on-error" not in workflow and "|| true" not in workflow
+
+
+def test_required_quality_gate_uploads_import_smoke_evidence() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    upload = workflow.split("- name: Upload quality-gate evidence", 1)[1]
+    assert "if: always()" in upload
+    assert "glow/test_runs/quality_gate_import_smoke.json" in upload
+
+
+def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text()
+    selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
+        "- name: Bind and verify exact acceptance", 1
+    )[0]
+    assert selection.count("tests/") == 19
+    assert "len(nodes)==19" in workflow
