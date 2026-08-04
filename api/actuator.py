@@ -16,7 +16,7 @@ from pathlib import Path
 import ast
 from typing import Any, Dict, Callable, Mapping
 
-from logging_config import get_log_path
+from logging_config import resolve_log_path
 from sentientos.optional_deps import optional_import
 
 # --- Pluggable actuator registry -------------------------------------------
@@ -32,7 +32,7 @@ ACTUATORS: dict[str, BaseActuator] = {}
 PLUGINS_INFO: dict[str, str] = {}
 _LOADED_PLUGIN_FILES: list[Path] = []
 
-AUTONOMOUS_LOG = get_log_path("autonomous_calls.jsonl", "AUTONOMOUS_CALLS_LOG")
+AUTONOMOUS_LOG = resolve_log_path("autonomous_calls.jsonl", "AUTONOMOUS_CALLS_LOG")
 
 
 def _authorize_effect() -> None:

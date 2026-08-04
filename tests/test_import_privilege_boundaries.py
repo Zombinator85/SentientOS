@@ -1,12 +1,49 @@
 from __future__ import annotations
 
 import importlib
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def _isolated_import(module: str, tmp_path: Path) -> dict[str, object]:
+    code = dedent(
+        """
+        import importlib, json, os, pathlib, sys
+        calls = []
+        privilege = importlib.import_module("sentientos.privilege")
+        privilege.require_admin_banner = lambda: calls.append("admin")
+        privilege.require_lumos_approval = lambda: calls.append("lumos")
+        sys.modules.pop("api.actuator", None)
+        sys.modules.pop("api", None)
+        module = importlib.import_module(sys.argv[1])
+        paths = [os.environ["SENTIENTOS_LOG_DIR"], os.environ["ACT_SANDBOX"]]
+        print(json.dumps({
+            "calls": calls,
+            "created": [path for path in paths if pathlib.Path(path).exists()],
+            "plugins": getattr(module, "PLUGINS_INFO", {}),
+            "worker": getattr(module, "_worker_started", False),
+        }))
+        """
+    )
+    env = os.environ.copy()
+    env.update(
+        SENTIENTOS_LOG_DIR=str(tmp_path / "logs"),
+        ACT_SANDBOX=str(tmp_path / "sandbox"),
+        ACT_PLUGINS_DIR=str(tmp_path / "plugins"),
+        AUTONOMOUS_CALLS_LOG=str(tmp_path / "autonomous.jsonl"),
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", code, module], env=env, text=True, capture_output=True, check=True
+    )
+    return json.loads(completed.stdout)
 
 
 def test_scripts_lock_import_is_inert(monkeypatch):
@@ -39,14 +76,33 @@ def test_scripts_lock_effects_authorize_before_mutation(monkeypatch):
     assert events[:3] == ["admin", "lumos", "effect"]
 
 
-def test_actuator_import_has_no_privilege_or_runtime_effects(monkeypatch, tmp_path):
-    monkeypatch.setenv("ACT_SANDBOX", str(tmp_path / "sandbox"))
-    monkeypatch.setenv("ACT_PLUGINS_DIR", str(tmp_path / "plugins"))
-    sys.modules.pop("api.actuator", None)
-    module = importlib.import_module("api.actuator")
-    assert not module.SANDBOX_DIR.exists()
-    assert module.list_plugins() == {}
-    assert module._worker_started is False
+def test_api_package_import_is_inert(tmp_path):
+    result = _isolated_import("api", tmp_path)
+    assert result == {"calls": [], "created": [], "plugins": {}, "worker": False}
+
+
+def test_actuator_import_has_no_privilege_or_runtime_effects(tmp_path):
+    result = _isolated_import("api.actuator", tmp_path)
+    assert result == {"calls": [], "created": [], "plugins": {}, "worker": False}
+
+
+def test_actuator_import_does_not_create_log_directory(tmp_path):
+    _isolated_import("api.actuator", tmp_path)
+    assert not (tmp_path / "logs").exists()
+    assert not (tmp_path / "autonomous.jsonl").exists()
+
+
+def test_actuator_autonomous_log_directory_is_created_only_at_write_boundary(monkeypatch, tmp_path):
+    import api.actuator as actuator
+
+    autonomous_log = tmp_path / "nested" / "autonomous.jsonl"
+    monkeypatch.setattr(actuator, "AUTONOMOUS_LOG", autonomous_log)
+    monkeypatch.setattr(actuator, "act", lambda *_a, **_k: {})
+    audit = type("Audit", (), {"log_entry": staticmethod(lambda **_kwargs: None)})
+    monkeypatch.setitem(sys.modules, "autonomous_audit", audit)
+    assert not autonomous_log.parent.exists()
+    actuator.auto_call({"type": "proof"})
+    assert autonomous_log.exists()
 
 
 def test_actuator_protected_effects_authorize_before_execution(monkeypatch, tmp_path):
