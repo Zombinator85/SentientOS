@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
+import pytest
 from pathlib import Path
 
 from sentientos.codex_pr_metadata_guard import CodexPrMetadataGuardRequest, evaluate_pr_metadata_guard, result_json
+from sentientos.landing_validation_plan import seal_validation_plan, verify_validation_plan
+
+
+@pytest.mark.no_legacy_skip
+def test_solo_profile_metadata_preserves_validation_profile() -> None:
+    plan = seal_validation_plan({"requested_profile": "solo", "effective_profile": "solo", "repository_sha": "a" * 40, "phase": "pre-commit", "title": "x", "intended_commit_title": "x", "changed_file_identity": [], "task_acceptance_manifest_digest": None, "task_acceptance_provenance_digest": None, "focused_test_command_contract": [], "targeted_mypy_command_contract": [], "required_stage_ids": [], "conditionally_required_stage_ids": [], "skipped_or_deferred_stage_ids": ["matrix_summary"], "stage_results": {}, "total_validation_duration_seconds": 1, "configured_total_budget_seconds": 1200, "remaining_budget_seconds": 1199, "exhaustive_matrix_status": "not_requested_for_solo_profile", "exhaustive_matrix_digest": None, "overall_status": "ready_to_commit"})
+    assert verify_validation_plan(plan)[0]
+    assert plan["requested_profile"] == plan["effective_profile"] == "solo"
 
 TITLE = "[codex:developer] harden blocked bootstrap and PR metadata gates"
 

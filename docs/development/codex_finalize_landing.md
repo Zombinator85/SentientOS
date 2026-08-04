@@ -330,3 +330,17 @@ classified generated path, and retry with the prior finalizer artifact. Never br
 delete `sentientos_data/`. Generated cleanup does not alter semantic identity, while any
 source, command, acceptance, focused-test, mypy, title, lock, or interpreter change rejects
 reuse and requires a fresh matrix.
+
+## Solo and exhaustive validation profiles
+
+`--validation-profile solo` is the default. It runs every operator-supplied focused-test and targeted-mypy command, mypy-baseline protection, prompt-boundary verification, strict audits, immutability verification, and workspace/commit binding. Task acceptance is mandatory whenever a manifest is supplied. Documentation dependency and build stages run when documentation, documentation tooling, generated-document inputs, or documentation contracts change; `--force-docs-validation` makes them unconditional. An unchanged documentation surface is recorded as `not_required_for_unchanged_surface`.
+
+`--validation-profile exhaustive` is explicit opt-in for maintenance and release evidence. It preserves matrix-v2, all 131 lanes, checkpoint/resume, semantic workspace binding, lane timeouts, completed-checkpoint reuse, and post-commit custody. Filenames and planner recommendations never escalate `solo`, and solo starts no matrix process.
+
+Each invocation emits a digest-bound `sentientos.landing_validation_plan:v1` artifact containing the requested/effective profile, SHA and phase, title contract, changed-file identity, task-acceptance digests, focused and typing command contracts, required/conditional/skipped stages, results and durations, budgets, matrix status, and overall status. Solo truthfully records `not_requested_for_solo_profile`; it never fabricates matrix success.
+
+Solo pre-commit has a 1,200-second total budget and post-commit/PR metadata has 300 seconds, with a 60-second terminal reserve. Positive explicit overrides are allowed. Invalid budgets fail as `landing_budget_invalid`; a stage that would consume the reserve is refused with `stage_budget_exhausted` / `landing_reserve_protected`, without starting a child.
+
+Stages stream prefixed stdout and stderr, retain at most 40 nonblank lines per stream, emit a quiet heartbeat every 30 seconds, and print flushed start/end records. POSIX children run in dedicated sessions; timeout, SIGINT, SIGTERM, and controller exceptions terminate the process group, wait two seconds, then force termination. Windows uses a new process group and the closest available tree termination, but descendant enumeration remains a documented platform limitation. After cancellation or timeout, retain the finalizer artifact and rerun from fresh evidence; do not adopt a still-running child.
+
+Local proportionate proof, commit, and publication never wait for GitHub Actions or another remote status. GitHub provides storage, history, and asynchronous diagnostics rather than landing authority.

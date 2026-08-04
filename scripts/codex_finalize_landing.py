@@ -22,6 +22,8 @@ from sentientos.codex_finalize_landing import (
     evaluate_finalize_landing,
 )
 from sentientos.task_acceptance import verify as verify_task_acceptance
+from sentientos.bounded_subprocess import DEFAULT_HEARTBEAT_SECONDS, DEFAULT_TAIL_LINES, run_supervised
+from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, seal_validation_plan, verify_validation_plan
 
 GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
@@ -29,6 +31,9 @@ MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wa
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
 DEFAULT_MATRIX_TIMEOUT_SECONDS = 2400
 DEFAULT_OVERALL_TIMEOUT_SECONDS = 5400
+DEFAULT_SOLO_PRECOMMIT_BUDGET_SECONDS = 1200
+DEFAULT_SOLO_POSTCOMMIT_BUDGET_SECONDS = 300
+DEFAULT_TERMINAL_RESERVE_SECONDS = 60
 MAX_OUTPUT_LINES = 40
 
 
@@ -240,41 +245,23 @@ def _run_stage(
     timeout_seconds = min(stage_timeout_seconds, remaining)
     timeout_class = "matrix" if stage_id in {"matrix_summary", "stale_evidence_matrix_summary"} else "generic"
     deadline_reduced = timeout_seconds < stage_timeout_seconds
-    try:
-        env = os.environ.copy()
-        env.update(child_environment)
-        p = subprocess.run(cmd, shell=True, text=True, capture_output=True, timeout=timeout_seconds, env=env)
-        timed_out = False
-        status = "passed" if p.returncode == 0 else "failed"
-    except subprocess.TimeoutExpired as exc:
-        stdout_part = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-        stderr_part = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-        combined = stdout_part + "\n" + stderr_part
-        runtime = StageRuntime(
-            stage_id=stage_id,
-            command=cmd,
-            started_at=started,
-            completed=False,
-            exit_code=124,
-            duration_seconds=time.monotonic() - started,
-            stdout_tail=_tail(combined),
-            stderr_tail="",
-            decision_impact="required_stage_timeout" if required else "optional_stage_timeout",
-            status="timed_out",
-            timed_out=True,
-            configured_timeout_class=timeout_class,
-            configured_timeout_seconds=stage_timeout_seconds,
-            effective_timeout_seconds=timeout_seconds,
-            overall_deadline_reduced_timeout=deadline_reduced,
-        )
-        _progress(progress, f"[finalizer] stage end: {stage_id} status=timed_out exit_code=124")
-        raise FinalizerTimeoutError(stage_id, "stage") from exc
+    env = os.environ.copy()
+    env.update(child_environment)
+    supervised = run_supervised(
+        cmd, stage_id=stage_id, shell=True, timeout_seconds=timeout_seconds, env=env,
+        heartbeat_seconds=DEFAULT_HEARTBEAT_SECONDS, tail_lines=DEFAULT_TAIL_LINES,
+        emit=(lambda line: _progress(progress, line)),
+    )
+    timed_out = supervised.status == "timed_out"
+    status = supervised.status
+    if timed_out:
+        raise FinalizerTimeoutError(stage_id, "stage")
     duration = time.monotonic() - started
     result = CodexFinalizeLandingCommandResult(
         stage=stage_id,
         command=cmd,
-        exit_code=p.returncode,
-        output_tail=_tail((p.stdout or "") + "\n" + (p.stderr or "")),
+        exit_code=supervised.return_code,
+        output_tail=_tail(supervised.stdout_tail + "\n" + supervised.stderr_tail),
         required=required,
     )
     runtime = StageRuntime(
@@ -282,10 +269,10 @@ def _run_stage(
         command=cmd,
         started_at=started,
         completed=True,
-        exit_code=p.returncode,
+        exit_code=supervised.return_code,
         duration_seconds=duration,
-        stdout_tail=_tail(p.stdout or ""),
-        stderr_tail=_tail(p.stderr or ""),
+        stdout_tail=supervised.stdout_tail,
+        stderr_tail=supervised.stderr_tail,
         decision_impact="required" if required else "optional",
         status=status,
         timed_out=timed_out,
@@ -294,7 +281,7 @@ def _run_stage(
         effective_timeout_seconds=timeout_seconds,
         overall_deadline_reduced_timeout=deadline_reduced,
     )
-    _progress(progress, f"[finalizer] stage end: {stage_id} status={status} exit_code={p.returncode}")
+    _progress(progress, f"[finalizer] supervision: {stage_id} pid={supervised.child_pid} pgid={supervised.process_group_id} status={supervised.supervision_status}")
     return result, runtime
 
 
@@ -653,6 +640,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--title", required=False)
         s.add_argument("--intended-commit-title", required=False)
         s.add_argument("--phase", default="pr-metadata")
+        s.add_argument("--validation-profile", choices=("solo", "exhaustive"), default="solo")
         s.add_argument("--matrix-json-path", default="/tmp/work_item_review_packet_matrix.json")
         s.add_argument("--workspace-root", default=".")
         s.add_argument("--focused-test-command", action="append", default=[])
@@ -670,7 +658,9 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--output")
         s.add_argument("--stage-timeout-seconds", type=int, default=DEFAULT_STAGE_TIMEOUT_SECONDS)
         s.add_argument("--matrix-timeout-seconds", type=int, default=DEFAULT_MATRIX_TIMEOUT_SECONDS)
-        s.add_argument("--overall-timeout-seconds", type=int, default=DEFAULT_OVERALL_TIMEOUT_SECONDS)
+        s.add_argument("--overall-timeout-seconds", type=int)
+        s.add_argument("--terminal-reserve-seconds", type=int, default=DEFAULT_TERMINAL_RESERVE_SECONDS)
+        s.add_argument("--force-docs-validation", action="store_true")
         s.add_argument("--progress", action="store_true", default=True)
         s.add_argument("--no-progress", action="store_false", dest="progress")
         s.add_argument("--summary", action="store_true")
@@ -683,8 +673,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
-    if a.stage_timeout_seconds <= 0 or a.matrix_timeout_seconds <= 0 or a.overall_timeout_seconds <= 0:
-        print(json.dumps({"status": "error", "reason": "timeout_arguments_must_be_positive"}, indent=2))
+    normalized_phase = a.phase.replace("_", "-")
+    if a.overall_timeout_seconds is None:
+        a.overall_timeout_seconds = (DEFAULT_SOLO_PRECOMMIT_BUDGET_SECONDS if normalized_phase == "pre-commit" else DEFAULT_SOLO_POSTCOMMIT_BUDGET_SECONDS) if a.validation_profile == "solo" else DEFAULT_OVERALL_TIMEOUT_SECONDS
+    if a.stage_timeout_seconds <= 0 or a.matrix_timeout_seconds <= 0 or a.overall_timeout_seconds <= 0 or a.terminal_reserve_seconds <= 0 or a.terminal_reserve_seconds >= a.overall_timeout_seconds:
+        print(json.dumps({"status": "landing_budget_invalid", "reason": "timeout_and_reserve_arguments_must_be_positive_and_consistent"}, indent=2))
         return 2
     if a.cmd in {"plan", "summarize", "validate-evidence"}:
         print(json.dumps({"status": "ok", "command": a.cmd}, indent=2))
@@ -723,6 +716,20 @@ def main(argv: list[str] | None = None) -> int:
         runtime_env = invocation_context.child_environment
     except ValueError as exc:
         runtime_error = str(exc)
+    prior_solo_plan: dict[str, Any] | None = None
+    if a.pre_commit_finalizer_json and a.validation_profile == "solo" and normalized_phase in {"post-commit", "pr-metadata"}:
+        try:
+            prior_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))
+            candidate = prior_payload.get("landing_validation_plan", {})
+            valid, plan_reasons = verify_validation_plan(candidate)
+            if not valid or candidate.get("effective_profile") != "solo":
+                runtime_error = "prior_validation_plan_invalid:" + ",".join(plan_reasons)
+            elif candidate.get("title") != (a.title or "") or candidate.get("intended_commit_title") != (a.intended_commit_title or ""):
+                runtime_error = "prior_validation_plan_command_or_title_contract_mismatch"
+            else:
+                prior_solo_plan = dict(candidate)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            runtime_error = f"prior_validation_plan_unreadable:{type(exc).__name__}"
 
     req = CodexFinalizeLandingRequest(
         title=a.title or "",
@@ -747,7 +754,7 @@ def main(argv: list[str] | None = None) -> int:
     stage_specs: list[tuple[str, str, bool]] = [("preflight_hygiene", "git status --short", True)]
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
-    exact_matrix_reuse = a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
+    exact_matrix_reuse = a.validation_profile == "exhaustive" and a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
     precommit_retry_reuse = False
     precommit_retry_reasons: list[str] = []
     if a.phase.replace("_", "-") == "pre-commit" and a.pre_commit_retry_finalizer_json:
@@ -767,15 +774,17 @@ def main(argv: list[str] | None = None) -> int:
             precommit_retry_reuse = not precommit_retry_reasons
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             precommit_retry_reasons.append(f"invalid_precommit_retry_artifact:{type(exc).__name__}")
-    matrix_stages: list[tuple[str, str, bool]] = [] if (exact_matrix_reuse or precommit_retry_reuse) else [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
+    matrix_stages: list[tuple[str, str, bool]] = []
+    if a.validation_profile == "exhaustive" and not (exact_matrix_reuse or precommit_retry_reuse):
+        matrix_stages = [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
+    changed_surface = set(a.changed_file) | set(inferred_changed_files) | set(inferred_untracked_task_files)
+    docs_required = a.force_docs_validation or any(path.startswith("docs/") or path in {"mkdocs.yml", "scripts/build_docs.py"} for path in changed_surface)
     stage_specs.extend(
         [
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
             *matrix_stages,
-            ("pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
-            ("landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True),
-            ("docs_check_deps", "python scripts/build_docs.py --check-deps", True),
-            ("docs_build", "python scripts/build_docs.py", True),
+            *(([("pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True), ("landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True)]) if a.validation_profile == "exhaustive" else []),
+            *(([("docs_check_deps", "python scripts/build_docs.py --check-deps", True), ("docs_build", "python scripts/build_docs.py", True)]) if docs_required else []),
             ("prompt_boundary", "python scripts/verify_context_hygiene_prompt_boundaries.py", True),
             ("strict_audits", "python verify_audits.py --strict", True),
             ("audit_immutability", "python scripts/audit_immutability_verifier.py", True),
@@ -810,6 +819,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             for stage_id, cmd, required in stage_specs:
                 timeout = a.matrix_timeout_seconds if stage_id == "matrix_summary" else a.stage_timeout_seconds
+                remaining = deadline - time.monotonic()
+                if remaining <= a.terminal_reserve_seconds:
+                    decision_status = "landing_reserve_protected"
+                    decision_reasons = [f"stage_budget_exhausted:{stage_id}"]
+                    break
+                timeout = min(timeout, max(1, int(remaining - a.terminal_reserve_seconds)))
                 result, stage_runtime = _run_stage(stage_id, cmd, required, a.progress, timeout, deadline, runtime_env)
                 commands.append(result)
                 runtime.append(stage_runtime)
@@ -893,6 +908,9 @@ def main(argv: list[str] | None = None) -> int:
         tuple(commands),
         findings_after_refresh,
         policy=CodexFinalizeLandingPolicy(
+            require_matrix_summary=a.validation_profile == "exhaustive",
+            require_matrix_output=a.validation_profile == "exhaustive",
+            require_docs_build=docs_required,
             allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup,
             allow_stale_evidence_refresh=a.allow_stale_evidence_refresh,
         ),
@@ -974,6 +992,7 @@ def main(argv: list[str] | None = None) -> int:
         "task_acceptance_manifest": a.task_acceptance_manifest,
         "focused_test_commands": list(a.focused_test_command),
         "targeted_mypy_commands": list(a.targeted_mypy_command),
+        "validation_profile": a.validation_profile,
     }
     if acceptance_result is not None:
         payload["task_acceptance"] = acceptance_result
@@ -986,8 +1005,39 @@ def main(argv: list[str] | None = None) -> int:
         "stage_timeout_seconds": a.stage_timeout_seconds,
         "matrix_timeout_seconds": a.matrix_timeout_seconds,
         "overall_timeout_seconds": a.overall_timeout_seconds,
+        "terminal_reserve_seconds": a.terminal_reserve_seconds,
+        "heartbeat_seconds": DEFAULT_HEARTBEAT_SECONDS,
+        "maximum_retained_output_tail_lines": DEFAULT_TAIL_LINES,
         "stages": [asdict(item) for item in runtime],
         "final_decision": {"status": decision_status, "reasons": decision_reasons},
+    }
+    stage_results: dict[str, dict[str, object]] = {}
+    for item in runtime:
+        prior = stage_results.get(item.stage_id)
+        passed = item.status == "passed" and (not prior or prior.get("status") == "passed")
+        prior_duration = prior.get("duration_seconds", 0.0) if prior else 0.0
+        stage_results[item.stage_id] = {"status": "passed" if passed else item.status, "duration_seconds": item.duration_seconds + (float(prior_duration) if isinstance(prior_duration, (int, float, str)) else 0.0)}
+    required_stage_ids = list(dict.fromkeys(stage for stage, _cmd, required in stage_specs if required))
+    validation_plan = seal_validation_plan({
+        "requested_profile": a.validation_profile, "effective_profile": a.validation_profile,
+        "repository_sha": subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip(),
+        "phase": normalized_phase, "title": a.title or "", "intended_commit_title": a.intended_commit_title or "",
+        "changed_file_identity": sorted(changed_surface),
+        "task_acceptance_manifest_digest": acceptance_custody.get("captured_manifest_digest") if acceptance_custody else None,
+        "task_acceptance_provenance_digest": acceptance_custody.get("captured_provenance_digest") if acceptance_custody else None,
+        "focused_test_command_contract": list(a.focused_test_command), "targeted_mypy_command_contract": list(a.targeted_mypy_command),
+        "required_stage_ids": required_stage_ids, "conditionally_required_stage_ids": ["docs_check_deps", "docs_build"],
+        "skipped_or_deferred_stage_ids": ([] if docs_required else ["docs_check_deps", "docs_build"]) + ([] if a.validation_profile == "exhaustive" else ["matrix_summary"]),
+        "stage_results": stage_results, "total_validation_duration_seconds": time.monotonic() - started,
+        "configured_total_budget_seconds": a.overall_timeout_seconds, "remaining_budget_seconds": max(0.0, deadline - time.monotonic()),
+        "exhaustive_matrix_status": SOLO_MATRIX_STATUS if a.validation_profile == "solo" else ("matrix_reused" if exact_matrix_reuse else "matrix_passed" if stage_results.get("matrix_summary", {}).get("status") == "passed" else "matrix_failed"),
+        "exhaustive_matrix_digest": None if a.validation_profile == "solo" else payload.get("workspace_binding", {}).get("matrix_digest"),
+        "overall_status": decision_status,
+    })
+    payload["landing_validation_plan"] = prior_solo_plan or validation_plan
+    payload["landing_validation_plan_reuse"] = {
+        "status": "exact_precommit_plan_reused" if prior_solo_plan else "not_applicable",
+        "artifact_digest": prior_solo_plan.get("artifact_digest") if prior_solo_plan else None,
     }
     # Exact content bindings are semantic evidence; runtime roots are custody metadata only.
     binding_errors = []
@@ -998,12 +1048,12 @@ def main(argv: list[str] | None = None) -> int:
         if not semantic_status_paths and not a.changed_file:
             task_paths = ()
         if a.phase.replace("_", "-") == "pre-commit" and task_paths:
-            binding_obj = create_workspace_binding(a.workspace_root, intended_paths=task_paths, intended_commit_title=a.intended_commit_title or a.title or "", focused_test_commands=tuple(a.focused_test_command), targeted_mypy_commands=tuple(a.targeted_mypy_command), matrix_json_path=a.matrix_json_path).to_dict()
+            binding_obj = create_workspace_binding(a.workspace_root, intended_paths=task_paths, intended_commit_title=a.intended_commit_title or a.title or "", focused_test_commands=tuple(a.focused_test_command), targeted_mypy_commands=tuple(a.targeted_mypy_command), matrix_json_path=a.matrix_json_path if a.validation_profile == "exhaustive" else None).to_dict()
             payload["workspace_binding"] = binding_obj
         elif a.pre_commit_finalizer_json:
             pre_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))
             workspace_binding = pre_payload.get("workspace_binding", {})
-            commit_binding = create_commit_binding(a.workspace_root, workspace_binding=workspace_binding, matrix_json_path=a.matrix_json_path).to_dict()
+            commit_binding = create_commit_binding(a.workspace_root, workspace_binding=workspace_binding, matrix_json_path=a.matrix_json_path if a.validation_profile == "exhaustive" else None).to_dict()
             verification = verify_commit_matches_workspace(a.workspace_root, workspace_binding, commit_binding).to_dict()
             payload["commit_binding"] = commit_binding
             payload["binding_verification"] = verification
@@ -1060,10 +1110,10 @@ def main(argv: list[str] | None = None) -> int:
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
     if a.summary:
-        for item in diagnostics_after_refresh[:20]:
+        for diagnostic in diagnostics_after_refresh[:20]:
             print(
-                f"[finalizer] dirty path: {item.git_status} {item.path} "
-                f"classification={item.classification} cleanup={item.cleanup_result}"
+                f"[finalizer] dirty path: {diagnostic.git_status} {diagnostic.path} "
+                f"classification={diagnostic.classification} cleanup={diagnostic.cleanup_result}"
             )
 
     _progress(a.progress, f"[finalizer] decision: {decision_status}")
