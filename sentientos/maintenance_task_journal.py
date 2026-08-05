@@ -96,6 +96,9 @@ REJECTION_REASONS = frozenset({
     "commit_before_ready",
     "publication_before_commit",
     "publication_not_started",
+    "publication_attempt_active",
+    "publication_attempt_mismatch",
+    "publication_already_succeeded",
     "close_with_active_attempt",
     "duplicate_event_conflict",
     "journal_not_ready",
@@ -268,6 +271,8 @@ class _State:
     commit_reference: dict[str, Any] | None = None
     publication_state: str = "not_started"
     publication_reference: dict[str, Any] | None = None
+    active_publication_attempt: dict[str, Any] | None = None
+    publication_history: list[dict[str, Any]] = field(default_factory=list)
     recovery_state: str = "not_started"
     blockers: list[dict[str, Any]] = field(default_factory=list)
 
@@ -433,18 +438,35 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
     if event.event_type == "commit_recorded":
         if state.commit_readiness is None:
             return "commit_before_ready"
+        if state.commit_reference is not None:
+            if state.commit_reference.get("payload") == p:
+                return None
+            return "duplicate_event_conflict"
         state.commit_reference = {"payload": p, "recorded_at": event.recorded_at}
         state.lifecycle_state = "commit_recorded"
         return None
     if event.event_type == "publication_started":
         if state.commit_reference is None:
             return "publication_before_commit"
+        if state.publication_state == "succeeded":
+            return "publication_already_succeeded"
+        if state.active_publication_attempt is not None:
+            return "publication_attempt_active"
+        expected = len(state.publication_history) + 1
+        if int(p.get("attempt_ordinal", expected)) != expected:
+            return "publication_attempt_mismatch"
         state.publication_state = "started"
+        state.active_publication_attempt = {"payload": p, "recorded_at": event.recorded_at}
         state.publication_reference = {"payload": p, "recorded_at": event.recorded_at}
         return None
     if event.event_type == "publication_failed":
-        if state.publication_state == "not_started":
+        if state.active_publication_attempt is None:
             return "publication_not_started"
+        if p.get("publication_id") != state.active_publication_attempt["payload"].get("publication_id") or int(p.get("attempt_ordinal",0) or 0) != int(state.active_publication_attempt["payload"].get("attempt_ordinal",0) or 0):
+            return "publication_attempt_mismatch"
+        rec={"started": state.active_publication_attempt, "terminal": {"payload": p, "recorded_at": event.recorded_at}}
+        state.publication_history.append(rec)
+        state.active_publication_attempt = None
         state.publication_state = "failed"
         state.publication_reference = {"payload": p, "recorded_at": event.recorded_at}
         state.lifecycle_state = "publication_failed"
@@ -452,6 +474,15 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
     if event.event_type == "publication_succeeded":
         if state.commit_reference is None:
             return "publication_before_commit"
+        if state.publication_state == "succeeded":
+            if state.publication_reference and state.publication_reference.get("payload") == p:
+                return None
+            return "publication_already_succeeded"
+        if state.active_publication_attempt is not None:
+            if p.get("publication_id") != state.active_publication_attempt["payload"].get("publication_id") or int(p.get("attempt_ordinal",0) or 0) != int(state.active_publication_attempt["payload"].get("attempt_ordinal",0) or 0):
+                return "publication_attempt_mismatch"
+            state.publication_history.append({"started": state.active_publication_attempt, "terminal": {"payload": p, "recorded_at": event.recorded_at}})
+            state.active_publication_attempt = None
         state.publication_state = "succeeded"
         state.publication_reference = {"payload": p, "recorded_at": event.recorded_at}
         state.lifecycle_state = "publication_succeeded"
@@ -538,6 +569,8 @@ def reduce_events(events: Sequence[MaintenanceTaskEvent], *, evaluation_time: st
         "commit_reference": state.commit_reference,
         "publication_state": state.publication_state,
         "publication_reference": state.publication_reference,
+        "active_publication_attempt": state.active_publication_attempt,
+        "publication_history": state.publication_history,
         "recovery_state": state.recovery_state,
         "blockers": state.blockers,
         "last_valid_sequence": last_valid_sequence if last_valid_sequence is not None else applied,

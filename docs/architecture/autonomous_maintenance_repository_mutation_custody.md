@@ -59,3 +59,9 @@ files, create commits, mutate branches, push, create pull requests, mark
 proposals committed, adopt proposals, invoke providers, assemble prompts, or
 expand runtime authority. External Codex/operator landing controls, including
 finalizer, matrix, supervisor, and PR metadata guard, remain required.
+
+## External maintenance landing controller
+
+The legacy daemon repository-mutation handoff remains metadata-only review evidence. It is not effectful, does not stage, commit, branch, push, create pull requests, or adopt runtime capabilities, and review packets do not become authority.
+
+`sentientos/maintenance_commit_publication.py` is a separate external developer-workflow topology. It receives explicit `repository_commit`, `remote_repository_read`, `remote_ref_publish`, and, for PR mode, `pull_request_publish` authority only through the operator grant and immutable maintenance-task lease. It is not a `sentientosd` default authority path and does not leak repository authority into runtime capability adoption.
