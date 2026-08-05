@@ -80,6 +80,18 @@ REJECTION_REASONS = frozenset({
     "attempt_id_reused",
     "attempt_terminal",
     "validation_before_successful_implementation",
+    "validation_cycle_already_active",
+    "validation_reference_reused",
+    "validation_reference_mismatch",
+    "validation_attempt_mismatch",
+    "validation_cycle_not_active",
+    "validation_cycle_already_terminal",
+    "attempt_after_validation_passed",
+    "corrective_parent_validation_required",
+    "corrective_retry_ordinal_invalid",
+    "corrective_retry_limit_exceeded",
+    "commit_readiness_validation_mismatch",
+    "commit_readiness_attempt_mismatch",
     "commit_ready_before_validation_passed",
     "commit_before_ready",
     "publication_before_commit",
@@ -249,6 +261,9 @@ class _State:
     implementation_result: dict[str, Any] | None = None
     validation_state: str = "not_started"
     validation_result: dict[str, Any] | None = None
+    validation_cycles: list[dict[str, Any]] = field(default_factory=list)
+    active_validation_cycle: dict[str, Any] | None = None
+    used_validation_refs: set[str] = field(default_factory=set)
     commit_readiness: dict[str, Any] | None = None
     commit_reference: dict[str, Any] | None = None
     publication_state: str = "not_started"
@@ -315,6 +330,20 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
         state.lifecycle_state = "lease_revoked"
         return None
     if event.event_type == "attempt_started":
+        if state.validation_state == "passed":
+            return "attempt_after_validation_passed"
+        parent_ref = p.get("parent_validation_ref_id")
+        retry_ord = int(p.get("corrective_retry_ordinal", 0) or 0)
+        if state.validation_state == "failed" or retry_ord:
+            if not parent_ref or not state.validation_result or parent_ref != state.validation_result["payload"].get("validation_ref_id"):
+                return "corrective_parent_validation_required"
+            expected_retry = max([int(a.get("payload", {}).get("corrective_retry_ordinal", 0) or 0) for a in state.completed_attempts] + [0]) + 1
+            if retry_ord != expected_retry:
+                return "corrective_retry_ordinal_invalid"
+            if state.maximum_corrective_retries is not None and retry_ord > state.maximum_corrective_retries:
+                return "corrective_retry_limit_exceeded"
+            if _scope(p) and _scope(p) != state.admitted_scope_digest:
+                return "authority_lease_scope_expanded"
         if state.active_authority_lease is None:
             return "missing_authority_lease"
         attempt_id = str(p.get("attempt_id", ""))
@@ -330,6 +359,7 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
             return "attempt_id_reused"
         state.used_attempt_ids.add(attempt_id)
         state.active_attempt = {"attempt_id": attempt_id, "status": "active", "started_at": event.recorded_at, "payload": p}
+        state.commit_readiness = None
         state.lifecycle_state = "attempt_active"
         return None
     if event.event_type == "attempt_heartbeat":
@@ -358,23 +388,45 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
     if event.event_type == "validation_started":
         if not state.implementation_result or state.implementation_result["status"] != "completed":
             return "validation_before_successful_implementation"
+        ref = str(p.get("validation_ref_id") or "")
+        if state.active_validation_cycle is not None:
+            return "validation_cycle_already_active"
+        if ref in state.used_validation_refs:
+            return "validation_reference_reused"
+        latest_attempt = state.completed_attempts[-1]["attempt_id"] if state.completed_attempts else None
+        if p.get("attempt_id") and p.get("attempt_id") != latest_attempt:
+            return "validation_attempt_mismatch"
+        cycle = {"validation_ref_id": ref, "attempt_id": latest_attempt, "session_id": p.get("session_id"), "plan_digest": p.get("plan_digest"), "change_manifest_digest": p.get("change_manifest_digest"), "worktree_descriptor_digest": p.get("worktree_descriptor_digest"), "status": "started", "started_at": event.recorded_at, "payload": p}
+        state.used_validation_refs.add(ref)
+        state.active_validation_cycle = cycle
+        state.validation_cycles.append(cycle)
         state.validation_state = "started"
         return None
-    if event.event_type == "validation_passed":
+    if event.event_type in {"validation_passed", "validation_failed"}:
         if not state.implementation_result or state.implementation_result["status"] != "completed":
             return "validation_before_successful_implementation"
-        state.validation_state = "passed"
-        state.validation_result = {"status": "passed", "payload": p, "recorded_at": event.recorded_at}
-        state.lifecycle_state = "validation_passed"
-        return None
-    if event.event_type == "validation_failed":
-        state.validation_state = "failed"
-        state.validation_result = {"status": "failed", "payload": p, "recorded_at": event.recorded_at}
-        state.lifecycle_state = "validation_failed"
+        if state.active_validation_cycle is None:
+            return "validation_cycle_not_active"
+        ref = str(p.get("validation_ref_id") or "")
+        if ref != state.active_validation_cycle.get("validation_ref_id"):
+            return "validation_reference_mismatch"
+        if p.get("attempt_id") and p.get("attempt_id") != state.active_validation_cycle.get("attempt_id"):
+            return "validation_attempt_mismatch"
+        status = "passed" if event.event_type == "validation_passed" else "failed"
+        state.active_validation_cycle.update({"status": status, "completed_at": event.recorded_at, "result_digest": p.get("result_digest"), "terminal_payload": p})
+        state.active_validation_cycle = None
+        state.validation_state = status
+        state.validation_result = {"status": status, "payload": p, "recorded_at": event.recorded_at}
+        state.lifecycle_state = "validation_" + status
         return None
     if event.event_type == "ready_to_commit_recorded":
-        if state.validation_state != "passed":
+        if state.validation_state != "passed" or not state.validation_result:
             return "commit_ready_before_validation_passed"
+        if p.get("validation_ref_id") and p.get("validation_ref_id") != state.validation_result["payload"].get("validation_ref_id"):
+            return "commit_readiness_validation_mismatch"
+        latest_attempt = state.completed_attempts[-1]["attempt_id"] if state.completed_attempts else None
+        if p.get("attempt_id") and p.get("attempt_id") != latest_attempt:
+            return "commit_readiness_attempt_mismatch"
         state.commit_readiness = {"payload": p, "recorded_at": event.recorded_at}
         state.lifecycle_state = "ready_to_commit"
         return None
@@ -479,6 +531,8 @@ def reduce_events(events: Sequence[MaintenanceTaskEvent], *, evaluation_time: st
         "latest_heartbeat": state.latest_heartbeat,
         "implementation_result": state.implementation_result,
         "validation_result": state.validation_result,
+        "validation_cycles": state.validation_cycles,
+        "active_validation_cycle": state.active_validation_cycle,
         "validation_state": state.validation_state,
         "commit_readiness": state.commit_readiness,
         "commit_reference": state.commit_reference,
