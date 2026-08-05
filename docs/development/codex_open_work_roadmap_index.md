@@ -1,6 +1,6 @@
 # Codex Open-Work Roadmap Index
 
-This is the active, compact selection map through mainline `5c601d3`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `9c348f7`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 
 ## Implemented posture
 
@@ -79,4 +79,6 @@ Default landing uses bounded solo validation and starts zero matrix processes. T
 
 Canonical maintenance-task identity now exists. Append-only task events are tamper-evident, deterministic replay produces one task snapshot, one active lease and one active attempt are enforced, restart and truncated-tail behavior are explicit, and state remains outside the mutable worktree. No agent, provider, mutation, Git, publication, or candidate-selection authority was added.
 
-Next independent maintenance-loop tasks remain, in order: canonical candidate adapter and deterministic next-candidate selector; immutable task authority lease consolidation; pluggable implementation-agent adapter with fake driver; external local-Codex foreman; proportionate validation and corrective continuation controller; exact commit and asynchronous publication custody; recovery watchdog and automatic continuation. Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation. Remote branch protection is not required work.
+Canonical maintenance candidates now span current proposal sources. Candidate identity is semantic and deterministic; duplicate and contradictory records are handled explicitly; journal state prevents active or resolved work from being selected; eligibility respects caller-supplied scope, authority, and budgets; next selection is deterministic; no viable candidate produces bounded idle state. No task admission, lease, agent, mutation, validation, Git, publication, or runtime authority was added.
+
+Next independent maintenance-loop tasks remain, in order: immutable task authority lease consolidation; pluggable implementation-agent adapter with fake driver; external local-Codex foreman; proportionate validation and corrective continuation controller; exact commit and asynchronous publication custody; recovery watchdog and automatic continuation. Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation. Remote branch protection is not required work.
