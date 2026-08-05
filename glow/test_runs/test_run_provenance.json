@@ -1,0 +1,288 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked": 0,
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity": 0,
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags": 0,
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths": 0,
+    "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild": 0,
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero": 0,
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip": 0,
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications": 0,
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes": 0,
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn": 0,
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream": 0,
+    "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success": 0,
+    "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt": 0,
+    "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman": 0,
+    "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease": 0,
+    "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed": 0,
+    "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent": 0,
+    "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected": 0,
+    "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit": 0,
+    "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base": 0,
+    "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 29,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "d1c45cb04f7b6a8b2ef47dc4fe18b68936b9bdae",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_a95ff08611694a4ca37504389cf25476.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": null,
+  "provenance_hash": "eb97600f510ff47a207342a459b255cd5d25cd585250fdaf76903fda806fa51f",
+  "pytest_args": [
+    "tests/test_maintenance_local_codex_capability_probe.py",
+    "tests/test_maintenance_local_codex_worktree.py",
+    "tests/test_maintenance_local_codex_jsonl.py",
+    "tests/test_maintenance_local_codex_foreman.py",
+    "tests/test_maintenance_local_codex_recovery.py",
+    "tests/test_maintenance_local_codex_foreman_cli.py",
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/root/.pyenv/versions/3.14.4/bin/python",
+  "repo_root": "/workspace/SentientOS",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "39fd4fbfb0944dbda20fbb41ef64335d",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity",
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability",
+    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags",
+    "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base",
+    "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree",
+    "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected",
+    "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit",
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn",
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream",
+    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes",
+    "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success",
+    "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities",
+    "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths",
+    "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected",
+    "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved",
+    "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed",
+    "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending",
+    "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login",
+    "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild",
+    "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild",
+    "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt",
+    "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed",
+    "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease",
+    "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent",
+    "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman",
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip",
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications",
+    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero",
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked"
+  ],
+  "selection_flags": [
+    "tests/test_maintenance_local_codex_capability_probe.py",
+    "tests/test_maintenance_local_codex_worktree.py",
+    "tests/test_maintenance_local_codex_jsonl.py",
+    "tests/test_maintenance_local_codex_foreman.py",
+    "tests/test_maintenance_local_codex_recovery.py",
+    "tests/test_maintenance_local_codex_foreman_cli.py",
+    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 29,
+  "tests_executed": 29,
+  "tests_failed": 0,
+  "tests_passed": 29,
+  "tests_selected": 29,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-08-05T05:56:34.552997+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
