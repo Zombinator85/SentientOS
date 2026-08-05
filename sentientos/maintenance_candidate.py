@@ -17,7 +17,7 @@ SEVERITIES=("low","medium","high","critical")
 CONFIDENCES=("low","medium","high","confirmed")
 DISPOSITIONS=frozenset({"candidate_ready","candidate_duplicate","candidate_contradicted","candidate_blocked","candidate_insufficient_metadata"})
 REASON_CODES=frozenset({"candidate_scope_unknown","candidate_path_not_allowed","candidate_path_forbidden","candidate_authority_unavailable","candidate_kind_not_allowed","candidate_base_sha_mismatch","candidate_file_budget_exceeded","candidate_diff_budget_exceeded","candidate_implementation_budget_exceeded","candidate_validation_budget_exceeded","candidate_contradicted","candidate_source_blocked","candidate_evidence_insufficient","candidate_already_active","candidate_already_resolved","candidate_reconsideration_required","candidate_journal_unhealthy","unknown_source_kind","unknown_field","missing_semantic_field","false_authority_claim","intake_blocked","genesis_metadata_only"})
-AUTHORITY_CLASSES=frozenset({"proposal_selection_only","filesystem_read","filesystem_write","documentation_edit","test_edit","code_edit","governance_edit","journal_read"})
+AUTHORITY_CLASSES=frozenset({"proposal_selection_only","filesystem_read","filesystem_write","documentation_edit","test_edit","code_edit","governance_edit","journal_read","validation_execute","implementation_agent_session"})
 
 
 def canonical_json_bytes(value: Any) -> bytes:

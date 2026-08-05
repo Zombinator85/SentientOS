@@ -44,15 +44,20 @@ def candidate_from_dict(d: Mapping[str,Any])->MaintenanceCandidate:
 
 def _journal_snapshot(root: str|Path|None, c: MaintenanceCandidate)->tuple[str,dict[str,Any]]:
     if not root: return "pending", {"candidate_id":c.candidate_id,"state":"pending"}
-    task_id="mtask_"+hashlib.sha256(canonical_json_bytes({"candidate_id":c.candidate_id})).hexdigest()[:32]
-    snap=journal.materialize_snapshot(root, task_id, repo_root=Path.cwd())
-    if snap.get("journal_integrity_status")!="journal_ready": return "journal_unhealthy", snap
-    st=snap.get("lifecycle_state")
-    if st=="not_created": return "pending", snap
+    snaps=journal.discover_maintenance_task_snapshots(root, candidate_ref=c.candidate_id, repo_root=Path.cwd())
+    unhealthy=[x for x in snaps if x.get("integrity_status")!="journal_ready"]
+    if unhealthy: return "journal_unhealthy", unhealthy[0].get("snapshot", unhealthy[0])
+    matches=[x.get("snapshot",{}) for x in snaps if x.get("candidate_ref")==c.candidate_id]
+    if not matches: return "pending", {"candidate_id":c.candidate_id,"state":"pending"}
+    # active beats terminal for exclusion.
+    for snap in matches:
+        st=snap.get("lifecycle_state")
+        if st not in {"closed","cancelled","blocked","not_created"}: return "active", snap
+    snap=matches[-1]; st=snap.get("lifecycle_state")
     if st=="closed": return "resolved", snap
     if st=="cancelled": return "cancelled", snap
     if st=="blocked": return "blocked", snap
-    return "active", snap
+    return "pending", snap
 
 def task_id_for_candidate(candidate_id: str)->str:
     return "mtask_"+hashlib.sha256(canonical_json_bytes({"candidate_id":candidate_id})).hexdigest()[:32]
@@ -87,6 +92,10 @@ def select_candidate(candidate_set: Mapping[str,Any], policy: SelectorPolicy|Map
     if candidate_set.get("schema_version")!=CANDIDATE_SET_SCHEMA: return {"schema_version":SELECTION_SCHEMA,"result_status":"candidate_set_invalid"}
     candidates=[candidate_from_dict(d) for d in candidate_set.get("canonical_candidates",())]
     eligible=[]; ineligible={}; journal_refs=[]; journal_bad=False
+    if journal_state_root:
+        allsnaps=journal.discover_maintenance_task_snapshots(journal_state_root, repo_root=Path.cwd())
+        if any(s.get("integrity_status")!="journal_ready" and not s.get("candidate_ref") for s in allsnaps):
+            return {"schema_version":SELECTION_SCHEMA,"result_status":"journal_state_invalid","reason_codes":["candidate_journal_unhealthy"]}
     for c in sorted(candidates,key=lambda x:x.candidate_id):
         life,snap=_journal_snapshot(journal_state_root,c); journal_refs.append({"candidate_id":c.candidate_id,"lifecycle":life,"snapshot_digest":snap.get("snapshot_digest")})
         reasons=_eligible(c,p,life,snap)

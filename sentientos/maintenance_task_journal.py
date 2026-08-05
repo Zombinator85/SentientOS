@@ -229,6 +229,15 @@ class _State:
     task_id: str | None = None
     candidate_ref: str | None = None
     base_sha: str | None = None
+    candidate_revision_digest: str | None = None
+    canonical_candidate_digest: str | None = None
+    selection_digest: str | None = None
+    selector_policy_digest: str | None = None
+    admitted_scope_digest: str | None = None
+    operator_grant_id: str | None = None
+    operator_grant_digest: str | None = None
+    maximum_attempts: int | None = None
+    maximum_corrective_retries: int | None = None
     lifecycle_state: str = "not_created"
     active_authority_lease: dict[str, Any] | None = None
     authority_leases: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -264,6 +273,15 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
         state.task_id = event.task_id
         state.candidate_ref = str(p.get("candidate_ref") or p.get("candidate_id") or "")
         state.base_sha = str(p.get("base_sha") or event.repository_sha or "")
+        state.candidate_revision_digest = p.get("candidate_revision_digest")
+        state.canonical_candidate_digest = p.get("canonical_candidate_digest")
+        state.selection_digest = p.get("selection_digest")
+        state.selector_policy_digest = p.get("selector_policy_digest")
+        state.admitted_scope_digest = p.get("admitted_scope_digest")
+        state.operator_grant_id = p.get("operator_grant_id")
+        state.operator_grant_digest = p.get("operator_grant_digest")
+        state.maximum_attempts = int(p["maximum_attempts"]) if p.get("maximum_attempts") is not None else None
+        state.maximum_corrective_retries = int(p["maximum_corrective_retries"]) if p.get("maximum_corrective_retries") is not None else None
         state.lifecycle_state = "created"
         return None
     if state.task_id is None:
@@ -276,7 +294,15 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
             first_scope = next(iter(state.authority_leases.values())).get("scope_digest")
             if first_scope and _scope(p) and _scope(p) != first_scope:
                 return "authority_lease_scope_expanded"
-        lease = {"lease_id": lease_id, "scope_digest": _scope(p), "expires_at": p.get("expires_at"), "revoked": False, "payload": p}
+        bind = {"candidate_revision_digest": p.get("candidate_revision_digest"), "canonical_candidate_digest": p.get("canonical_candidate_digest"), "selection_digest": p.get("selection_digest"), "selector_policy_digest": p.get("selector_policy_digest"), "admitted_scope_digest": _scope(p), "operator_grant_id": p.get("operator_grant_id"), "operator_grant_digest": p.get("operator_grant_digest")}
+        for k, v in bind.items():
+            if v is not None and getattr(state, k if k != "admitted_scope_digest" else "admitted_scope_digest") not in {None, v}:
+                return "authority_lease_scope_expanded"
+            if v is not None and hasattr(state, k):
+                setattr(state, k, v)
+        state.maximum_attempts = int(p["maximum_attempts"]) if p.get("maximum_attempts") is not None else state.maximum_attempts
+        state.maximum_corrective_retries = int(p["maximum_corrective_retries"]) if p.get("maximum_corrective_retries") is not None else state.maximum_corrective_retries
+        lease = {"lease_id": lease_id, "lease_digest": p.get("lease_digest"), "scope_digest": _scope(p), "expires_at": p.get("expires_at"), "revoked": False, "payload": p}
         state.authority_leases[lease_id] = lease
         state.active_authority_lease = lease
         state.lifecycle_state = "lease_bound"
@@ -296,8 +322,12 @@ def apply_event(state: _State, event: MaintenanceTaskEvent, *, evaluation_time: 
             return "attempt_already_active"
         if attempt_id in state.used_attempt_ids:
             return "attempt_id_reused"
+        if state.active_authority_lease.get("lease_digest") and str(p.get("lease_id") or "") != state.active_authority_lease.get("lease_id"):
+            return "authority_lease_not_active"
         if _scope(p) and _scope(p) != state.active_authority_lease.get("scope_digest"):
             return "authority_lease_scope_expanded"
+        if state.maximum_attempts is not None and len(state.used_attempt_ids) >= state.maximum_attempts:
+            return "attempt_id_reused"
         state.used_attempt_ids.add(attempt_id)
         state.active_attempt = {"attempt_id": attempt_id, "status": "active", "started_at": event.recorded_at, "payload": p}
         state.lifecycle_state = "attempt_active"
@@ -426,6 +456,18 @@ def reduce_events(events: Sequence[MaintenanceTaskEvent], *, evaluation_time: st
         "task_id": state.task_id,
         "candidate_ref": state.candidate_ref,
         "base_sha": state.base_sha,
+        "candidate_revision_digest": state.candidate_revision_digest,
+        "canonical_candidate_digest": state.canonical_candidate_digest,
+        "selection_digest": state.selection_digest,
+        "selector_policy_digest": state.selector_policy_digest,
+        "admitted_scope_digest": state.admitted_scope_digest,
+        "operator_grant_id": state.operator_grant_id,
+        "operator_grant_digest": state.operator_grant_digest,
+        "active_lease_id": state.active_authority_lease.get("lease_id") if state.active_authority_lease else None,
+        "active_lease_digest": state.active_authority_lease.get("lease_digest") if state.active_authority_lease else None,
+        "lease_expiry": state.active_authority_lease.get("expires_at") if state.active_authority_lease else None,
+        "maximum_attempts": state.maximum_attempts,
+        "maximum_corrective_retries": state.maximum_corrective_retries,
         "lifecycle_state": state.lifecycle_state,
         "terminal": state.lifecycle_state in TERMINAL_TASK_STATES,
         "active_authority_lease": state.active_authority_lease,
@@ -572,6 +614,23 @@ def append_event(state_root: str | Path, event_type: str, *, task_id: str, paylo
         return AppendResult("event_appended", None, new_event, trial_snapshot)
 
 
+
+def discover_maintenance_task_snapshots(state_root: str | Path, candidate_ref: str | None = None, *, repo_root: str | Path | None = None, evaluation_time: str | None = None) -> tuple[dict[str, Any], ...]:
+    root = resolve_state_root(state_root, repo_root=repo_root)
+    task_dir = root / "maintenance_tasks"
+    if not task_dir.exists():
+        return ()
+    snapshots: list[dict[str, Any]] = []
+    for path in sorted(task_dir.glob("*.jsonl"), key=lambda x: x.name):
+        if path.is_symlink():
+            snapshots.append({"task_id": path.stem, "candidate_ref": None, "lifecycle_state": "unknown", "lease_state": "unknown", "integrity_status": "journal_symlink_rejected"})
+            continue
+        replay = replay_journal(path)
+        snap = reduce_events(replay.events, evaluation_time=evaluation_time, integrity_status=replay.integrity_status, reason_code=replay.reason_code, last_valid_sequence=replay.last_valid_sequence, last_event_digest=replay.last_event_digest)
+        if candidate_ref is None or snap.get("candidate_ref") == candidate_ref or (snap.get("candidate_ref") is None and snap.get("journal_integrity_status") != "journal_ready"):
+            snapshots.append({"task_id": path.stem, "candidate_ref": snap.get("candidate_ref"), "candidate_revision_digest": snap.get("candidate_revision_digest"), "lifecycle_state": snap.get("lifecycle_state"), "lease_state": snap.get("lease_status"), "integrity_status": snap.get("journal_integrity_status"), "snapshot": snap})
+    return tuple(snapshots)
+
 def materialize_snapshot(state_root: str | Path, task_id: str, output_path: str | Path | None = None, *, repo_root: str | Path | None = None, evaluation_time: str | None = None) -> dict[str, Any]:
     path = journal_path_for(state_root, task_id, repo_root=repo_root)
     replay = replay_journal(path)
@@ -642,5 +701,5 @@ def cli(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
-    "APPEND_STATUSES", "EVENT_SCHEMA", "EVENT_TYPES", "INTEGRITY_STATUSES", "REJECTION_REASONS", "SNAPSHOT_SCHEMA", "AppendResult", "MaintenanceTaskEvent", "ReplayResult", "append_event", "build_event", "canonical_json_bytes", "derive_agent_session_ref_id", "derive_attempt_id", "derive_authority_lease_id", "derive_commit_ref_id", "derive_publication_ref_id", "derive_task_id", "derive_validation_ref_id", "journal_path_for", "materialize_snapshot", "reduce_events", "replay_journal", "resolve_state_root", "sha256_digest", "cli",
+    "APPEND_STATUSES", "EVENT_SCHEMA", "EVENT_TYPES", "INTEGRITY_STATUSES", "REJECTION_REASONS", "SNAPSHOT_SCHEMA", "AppendResult", "MaintenanceTaskEvent", "ReplayResult", "append_event", "build_event", "canonical_json_bytes", "derive_agent_session_ref_id", "derive_attempt_id", "derive_authority_lease_id", "derive_commit_ref_id", "derive_publication_ref_id", "derive_task_id", "derive_validation_ref_id", "discover_maintenance_task_snapshots", "journal_path_for", "materialize_snapshot", "reduce_events", "replay_journal", "resolve_state_root", "sha256_digest", "cli",
 ]
