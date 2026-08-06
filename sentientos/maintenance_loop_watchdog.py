@@ -1,9 +1,8 @@
 """Bounded external coordinator for the repository maintenance loop.
 
 The watchdog deliberately owns no implementation, validation, Git, or publication
-logic.  A tick selects one transition from durable observations and dispatches it
-to a caller supplied canonical component.  This makes the policy testable without
-turning SentientOS into a scheduler or granting the runtime new authority.
+logic.  A tick selects one transition from durable canonical observations and
+dispatches it through a closed table of the repository's maintenance components.
 """
 from __future__ import annotations
 
@@ -12,9 +11,17 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 import time
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
+
+from sentientos import maintenance_candidate_selector as selector
+from sentientos import maintenance_candidate
+from sentientos import maintenance_commit_publication as landing
+from sentientos import maintenance_task_authority_lease as authority
+from sentientos import maintenance_task_journal as task_journal
+from sentientos import maintenance_validation_controller as validation
 
 CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v1"
 SCAN_SCHEMA = "sentientos.maintenance_watchdog_scan:v1"
@@ -56,7 +63,7 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
                 "maximum_wall_clock_seconds", "publication_retry_backoff_seconds",
                 "base_sha", "tracked_base_ref"}
     allowed = required | {"stop_marker", "control_journal", "base_cursor_journal",
-                          "component_commands", "config_digest"}
+                          "config_digest"}
     _closed(value, allowed, required)
     if value["schema_version"] != CONFIG_SCHEMA or int(value["maximum_active_tasks"]) != 1:
         raise ValueError("invalid_watchdog_config")
@@ -106,16 +113,70 @@ def _json_files(root: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _artifact(path: Path) -> dict[str, Any]:
+    """Read an immutable JSON artifact and bind its byte identity."""
+    raw = path.read_bytes()
+    record: dict[str, Any] = {"path": str(path), "digest": "sha256:" + hashlib.sha256(raw).hexdigest()}
+    try:
+        record.update(status="ready", payload=json.loads(raw))
+    except (ValueError, UnicodeDecodeError):
+        record["status"] = "integrity_failure"
+    return record
+
+
+def _canonical_artifacts(state: Path) -> list[dict[str, Any]]:
+    # These are the custody locations owned by the existing components.  Do not
+    # broaden this to arbitrary state-root JSON: in particular, legacy summary
+    # files are deliberately invisible to the production decision loop.
+    names = (
+        "maintenance_candidate_sets", "maintenance_selections", "maintenance_leases",
+        "maintenance_agent_sessions", "maintenance_agent_results", "maintenance_worktrees",
+        "maintenance_local_codex_invocations", "maintenance_local_codex_results",
+        "maintenance_change_manifests", "maintenance_validation_plans",
+        "maintenance_validation_cycles", "maintenance_validation_command_results",
+        "maintenance_validation_results", "maintenance_commit_plans",
+        "maintenance_commit_results", "maintenance_publication_requests",
+        "maintenance_publication_attempts", "maintenance_publication_results",
+    )
+    records: list[dict[str, Any]] = []
+    for name in names:
+        root = state / name
+        if root.is_symlink():
+            records.append({"path": str(root), "status": "integrity_failure"})
+        elif root.exists():
+            records.extend(_artifact(p) for p in sorted(root.glob("*.json")) if p.is_file() and not p.is_symlink())
+    return records
+
+
+def _by_schema(records: Sequence[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
+    result: dict[str, list[Mapping[str, Any]]] = {}
+    for record in records:
+        schema = str(record.get("payload", {}).get("schema_version", ""))
+        result.setdefault(schema, []).append(record)
+    return result
+
+
 def scan(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
     cfg = validate_config(config)
     state = Path(cfg["state_root"])
     candidates = [r for root in cfg["candidate_inbox_roots"] for r in _json_files(Path(root))]
-    observations: dict[str, Any] = {}
-    for name in ("active_tasks", "interrupted_operations", "live_processes", "closures",
-                 "publication_queue", "commit_ready", "validation_ready", "implementation_ready",
-                 "admission_ready", "selection_ready"):
-        p = state / (name + ".json")
-        observations[name] = json.loads(p.read_text()) if p.exists() and not p.is_symlink() else []
+    discovered = task_journal.discover_maintenance_task_snapshots(
+        state, repo_root=cfg["repository_root"], evaluation_time=evaluation_time)
+    snapshots = [dict(item.get("snapshot", item)) for item in discovered]
+    artifacts = _canonical_artifacts(state)
+    active = [s for s in snapshots if not s.get("terminal")]
+    integrity = [s for s in snapshots if s.get("journal_integrity_status") != "journal_ready"]
+    integrity.extend(r for r in artifacts if r.get("status") != "ready")
+    # Bind journal claims to the corresponding immutable artifact.  A claimed
+    # digest that cannot be found is not interpreted as merely "not ready".
+    artifact_digests = {str(r.get("payload", {}).get(k)) for r in artifacts for k in r.get("payload", {}) if k.endswith("_digest")}
+    for snapshot in snapshots:
+        for key in ("active_lease_digest",):
+            claimed = snapshot.get(key)
+            if claimed and claimed not in artifact_digests:
+                integrity.append({"task_id": snapshot.get("task_id"), "reason": "artifact_journal_disagreement", "field": key})
+    observations = {"task_snapshots": snapshots, "active_tasks": active,
+                    "canonical_artifacts": artifacts, "integrity_failures": integrity}
     control = inspect_control(cfg)
     stop = Path(cfg.get("stop_marker") or state / "STOP")
     result = {"schema_version": SCAN_SCHEMA, "config_digest": cfg["config_digest"],
@@ -134,13 +195,17 @@ def decide(config: Mapping[str, Any], scan_result: Mapping[str, Any]) -> dict[st
     candidate_bad = any(x.get("status") == "integrity_failure" for x in scan_result.get("candidates", []))
     checks = {
         "paused": bool(scan_result.get("stop_marker_present") or scan_result.get("control", {}).get("paused")),
-        "integrity_failure": candidate_bad or bool(obs.get("integrity_failure")),
+        "integrity_failure": candidate_bad or bool(obs.get("integrity_failures")),
         "ambiguous_active_tasks": len(active) > 1,
-        "recover": bool(obs.get("interrupted_operations")), "observe_process": bool(obs.get("live_processes")),
-        "close_task": bool(obs.get("closures")), "publish": bool(obs.get("publication_queue")),
-        "commit_enqueue": bool(obs.get("commit_ready")), "validate": bool(obs.get("validation_ready")),
-        "prepare_implementation": bool(obs.get("implementation_ready")), "admit_candidate": bool(obs.get("admission_ready")),
-        "select_candidate": bool(obs.get("selection_ready") or (not active and scan_result.get("candidates"))), "idle": True,
+        "recover": any(s.get("recovery_state") == "started" or s.get("active_validation_cycle") or s.get("active_publication_attempt") for s in active),
+        "observe_process": any(s.get("active_attempt") for s in active),
+        "close_task": any(s.get("lifecycle_state") == "publication_succeeded" for s in active),
+        "publish": any(s.get("lifecycle_state") in {"commit_recorded", "publication_failed"} for s in active),
+        "commit_enqueue": any(s.get("lifecycle_state") == "ready_to_commit" for s in active),
+        "validate": any(s.get("lifecycle_state") == "implementation_completed" for s in active),
+        "prepare_implementation": any(s.get("lifecycle_state") == "authority_lease_bound" for s in active),
+        "admit_candidate": not active and bool(_by_schema(obs.get("canonical_artifacts", [])).get(selector.SELECTION_SCHEMA)),
+        "select_candidate": not active and bool(scan_result.get("candidates")), "idle": True,
     }
     transition = next(item for item in PRIORITY if checks[item])
     status = "paused" if transition == "paused" else ("blocked" if transition in {"integrity_failure", "ambiguous_active_tasks"} else ("idle" if transition == "idle" else "action_ready"))
@@ -190,8 +255,111 @@ def inspect_control(config: Mapping[str, Any]) -> dict[str, Any]:
     return {"status": "ready", "paused": bool(events and events[-1]["event_type"] == "pause"), "events": events}
 
 
-def tick(config: Mapping[str, Any], *, evaluation_time: str,
-         handlers: Mapping[str, Callable[[Mapping[str, Any], Mapping[str, Any]], Any]] | None = None) -> dict[str, Any]:
+def _configured(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return {str(k): v for k, v in value.items()}
+    loaded = json.loads(Path(str(value)).read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError("configured_artifact_not_object")
+    return {str(k): v for k, v in loaded.items()}
+
+
+def _write_once(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = canonical_json_bytes(value) + b"\n"
+    if path.exists():
+        if path.read_bytes() != data:
+            raise ValueError("immutable_artifact_conflict")
+        return
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data); handle.flush(); os.fsync(handle.fileno())
+
+
+def _select(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    payloads = [r["payload"] for r in scanned["candidates"] if r.get("status") == "ready"]
+    sets = [p for p in payloads if p.get("schema_version") == maintenance_candidate.CANDIDATE_SET_SCHEMA]
+    candidate_set = sets[0] if sets else maintenance_candidate.normalize_candidate_set(
+        [selector.candidate_from_dict(p) for p in payloads])
+    policy = selector.build_policy(_configured(cfg["selector_policy"]))
+    selected = selector.select_candidate(candidate_set, policy, journal_state_root=cfg["state_root"])
+    root = Path(cfg["state_root"])
+    _write_once(root / "maintenance_candidate_sets" / f"{candidate_set['candidate_set_digest'].split(':')[-1]}.json", candidate_set)
+    _write_once(root / "maintenance_selections" / f"{selected['selection_digest'].split(':')[-1]}.json", selected)
+    return {"status": selected.get("status", "selection_completed"), "selection": selected}
+
+
+def _admit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    schemas = _by_schema(scanned["observations"]["canonical_artifacts"])
+    selected = schemas[selector.SELECTION_SCHEMA][-1]["payload"]
+    candidate_sets = schemas[maintenance_candidate.CANDIDATE_SET_SCHEMA]
+    wanted = selected.get("candidate_set_digest")
+    candidate_set = next(r["payload"] for r in candidate_sets if r["payload"].get("candidate_set_digest") == wanted)
+    return authority.admit_selected_candidate(
+        state_root=cfg["state_root"], candidate_set=candidate_set, selection=selected,
+        operator_grant=_configured(cfg["standing_grant"]), evaluation_time=evaluation_time,
+        repo_root=cfg["repository_root"])
+
+
+def _lease_for(snapshot: Mapping[str, Any], cfg: Mapping[str, Any]) -> dict[str, Any]:
+    return authority.load_lease(cfg["state_root"], str(snapshot["active_lease_id"]), repo_root=cfg["repository_root"])
+
+
+def _commit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; lease = _lease_for(snapshot, cfg)
+    state = Path(cfg["state_root"])
+    validation_results = sorted((state / "maintenance_validation_results").glob("*.json"))
+    worktrees = sorted((state / "maintenance_worktrees").glob("*.json"))
+    if not validation_results or not worktrees: raise ValueError("canonical_commit_inputs_missing")
+    return landing.create_commit_and_enqueue(
+        state_root=state, repository_root=cfg["repository_root"],
+        worktree_root=json.loads(worktrees[-1].read_text())["worktree_root"], lease=lease,
+        validation_result=json.loads(validation_results[-1].read_text()),
+        landing_policy=_configured(cfg["landing_policy"]), evaluation_time=evaluation_time)
+
+
+def _publish(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; lease = _lease_for(snapshot, cfg)
+    queued = landing.list_queued_requests(cfg["state_root"], repo_root=cfg["repository_root"])
+    if not queued: raise ValueError("canonical_publication_request_missing")
+    return landing.publish_one_maintenance_request(
+        state_root=cfg["state_root"], repository_root=cfg["repository_root"], lease=lease,
+        landing_policy=_configured(cfg["landing_policy"]), publication_id=queued[0]["publication_id"],
+        evaluation_time=evaluation_time)
+
+
+def _close(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]
+    commit = str(snapshot.get("commit_reference", {}).get("payload", {}).get("commit_sha") or "")
+    if not commit:
+        return {"status": "blocked", "reason": "publication_commit_binding_missing"}
+    observed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, str(cfg["tracked_base_ref"])],
+        cwd=cfg["repository_root"], capture_output=True, check=False).returncode == 0
+    if not observed:
+        return {"status": "waiting", "reason": "verified_base_advancement_required"}
+    event = _append_chain(
+        Path(cfg.get("base_cursor_journal") or Path(cfg["state_root"]) / "maintenance_base_cursor.jsonl"),
+        BASE_CURSOR_SCHEMA, "base_advanced", evaluation_time,
+        {"task_id": snapshot["task_id"], "commit_sha": commit,
+         "tracked_base_ref": cfg["tracked_base_ref"]})
+    closed = task_journal.append_event(
+        cfg["state_root"], "task_closed", task_id=snapshot["task_id"],
+        payload={"commit_sha": commit, "base_cursor_event_digest": event["event_digest"]},
+        recorded_at=evaluation_time, repo_root=cfg["repository_root"], evaluation_time=evaluation_time)
+    return {"status": "completed", "base_cursor": event, "closure": closed.snapshot}
+
+
+def _dispatch(transition: str, cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    table = {"select_candidate": _select, "admit_candidate": _admit,
+             "commit_enqueue": _commit, "publish": _publish, "close_task": _close}
+    operation = table.get(transition)
+    if operation is None:
+        return {"status": "waiting", "reason": "canonical_component_state_not_ready"}
+    return operation(cfg, scanned, evaluation_time)
+
+
+def tick(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
     cfg = validate_config(config); state = Path(cfg["state_root"]); lock_path = state / "watchdog.lock"
     lock_path.touch(exist_ok=True)
     with lock_path.open("r+") as lock:
@@ -205,8 +373,7 @@ def tick(config: Mapping[str, Any], *, evaluation_time: str,
             stop = Path(cfg.get("stop_marker") or state / "STOP")
             if stop.exists(): transition, effect = "paused", {"status": "paused"}
             else:
-                handler = (handlers or {}).get(transition)
-                effect = handler(cfg, scanned) if handler else {"status": "waiting", "reason": "canonical_component_not_configured"}
+                effect = _dispatch(transition, cfg, scanned, evaluation_time)
         result = {"schema_version": TICK_SCHEMA, "config_digest": cfg["config_digest"], "scan_digest": scanned["scan_digest"],
                   "decision_digest": decision["decision_digest"], "transition": transition, "effect_result": effect,
                   "status": effect.get("status", "completed") if isinstance(effect, Mapping) else "completed"}
@@ -215,11 +382,11 @@ def tick(config: Mapping[str, Any], *, evaluation_time: str,
         return result
 
 
-def run_bounded(config: Mapping[str, Any], *, evaluation_time: str, handlers: Mapping[str, Callable[[Mapping[str, Any], Mapping[str, Any]], Any]] | None = None) -> dict[str, Any]:
+def run_bounded(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
     cfg = validate_config(config); start = time.monotonic(); results = []
     for _ in range(int(cfg["maximum_actions"])):
         if time.monotonic() - start >= int(cfg["maximum_wall_clock_seconds"]): break
-        result = tick(cfg, evaluation_time=evaluation_time, handlers=handlers); results.append(result)
+        result = tick(cfg, evaluation_time=evaluation_time); results.append(result)
         if result["status"] in TERMINAL or result["transition"] in {"idle", "paused"}: break
     return {"status": results[-1]["status"] if results else "time_limit", "ticks": results, "action_count": len(results)}
 
