@@ -129,6 +129,10 @@ class NormalizedWorkItemPacket:
     workspace_change_set_admission_may_be_attempted: bool
     agent_execution_is_requested: bool
     agent_execution_is_permitted_by_this_packet: bool
+    estimated_file_count: int = 1
+    estimated_changed_line_count: int = 1
+    estimated_implementation_seconds: int = 60
+    estimated_validation_seconds: int = 60
     explicit_non_authority_boundaries: tuple[str, ...] = EXPLICIT_NON_AUTHORITY_BOUNDARIES
     workspace_change_set_proposal_metadata: Mapping[str, Any] | None = None
 
@@ -268,6 +272,10 @@ def normalize_work_item_intake(
         workspace_change_set_admission_may_be_attempted=can_attempt_admission,
         agent_execution_is_requested=agent_execution_requested,
         agent_execution_is_permitted_by_this_packet=False,
+        estimated_file_count=int(payload.get("estimated_file_count", 1)),
+        estimated_changed_line_count=int(payload.get("estimated_changed_line_count", 1)),
+        estimated_implementation_seconds=int(payload.get("estimated_implementation_seconds", 60)),
+        estimated_validation_seconds=int(payload.get("estimated_validation_seconds", 60)),
         workspace_change_set_proposal_metadata=proposal,
     )
     decision = WorkItemIntakeDecision(
