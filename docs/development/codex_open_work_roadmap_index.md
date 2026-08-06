@@ -1,4 +1,8 @@
 # Codex Open-Work Roadmap Index
+The maintenance-loop operator activation bundle is activation tooling over the
+completed bounded loop, not a new maintenance-loop subsystem. See
+[`maintenance_loop_activation.md`](maintenance_loop_activation.md) for its local,
+non-installing preflight and scheduler-argv workflow.
 This is the active, compact selection map through mainline `1a6b228`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 ## Implemented posture
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
