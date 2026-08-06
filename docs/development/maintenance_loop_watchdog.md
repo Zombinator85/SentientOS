@@ -8,11 +8,19 @@ until a configured action/time bound or a terminal idle, waiting, paused, or blo
 result. It never installs or supplies a scheduler and is not integrated into
 `sentientosd`.
 
-Commit `83cca3e` introduced the deterministic watchdog scaffold.  The production
-coordinator now discovers the canonical task journals and immutable component
+Commit `83cca3e` introduced the deterministic watchdog scaffold, and `cc7a9da`
+added canonical scanning and selection, admission, and landing dispatch. The
+production coordinator now discovers the canonical task journals and immutable component
 artifacts directly and uses a closed internal dispatch table; legacy synthetic
 state summaries and caller-supplied transition handlers have no execution
 authority.
+
+The watchdog now connects admitted work to process-real local-Codex implementation:
+it seals deterministic instruction and request custody, starts the existing
+implementation-agent session, and delegates execution and same-thread recovery to
+the local-Codex foreman until `implementation_ready_for_validation`. Validation
+continuation and process-real whole-loop proof remain unfinished, so the core
+maintenance loop is not yet complete.
 
 ## Safety and recovery contract
 

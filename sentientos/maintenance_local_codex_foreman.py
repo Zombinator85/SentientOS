@@ -101,9 +101,14 @@ def sanitize_environment(config:LocalCodexForemanConfig)->tuple[dict[str,str],di
     meta={"allowed_environment_names":sorted(env),"required_present":{"PATH":"PATH" in env,"HOME":"HOME" in env,"CODEX_HOME":True},"environment_name_set_digest":dig(sorted(env))}
     return env,meta
 
-def prepare_worktree(config:LocalCodexForemanConfig, lease:Mapping[str,Any], session_id:str)->dict[str,Any]:
+def prepare_worktree(config:LocalCodexForemanConfig, lease:Mapping[str,Any], session_id:str, *, recovery:bool=False)->dict[str,Any]:
     root=resolve(config.external_workspace_root)/str(lease["task_id"])/session_id
     if config.repository_root in root.parents or config.external_state_root in root.parents or root.is_symlink(): raise ValueError("foreman_workspace_invalid")
+    descriptor=config.external_state_root/"maintenance_worktrees"/(session_id+".json")
+    if recovery and root.exists() and descriptor.exists():
+        prior=read_json(descriptor); head=run([str(config.git_executable),"rev-parse","HEAD"],cwd=root).stdout.strip()
+        if prior.get("worktree_root")!=str(root) or prior.get("base_sha")!=lease["base_sha"] or head!=lease["base_sha"]: raise ValueError("foreman_workspace_invalid")
+        return prior
     argv=[str(config.git_executable),"worktree","add","--detach",str(root),str(lease["base_sha"])]
     if root.exists():
         if root.is_symlink(): raise ValueError("foreman_workspace_invalid")
@@ -212,7 +217,7 @@ def run_local_codex_session(config:LocalCodexForemanConfig, lease:Mapping[str,An
         probe=probe_local_codex_cli(config)
         if probe["status"]!="capability_probe_ready": return {"schema_version":RESULT_SCHEMA,"status":"foreman_cli_incompatible","probe_digest":probe["probe_digest"]}
         if not config.codex_home.exists(): return {"schema_version":RESULT_SCHEMA,"status":"foreman_authentication_unavailable"}
-        wt=prepare_worktree(config, lease, str(session["session_id"])); env,envm=sanitize_environment(config); env["SENTIENTOS_FOREMAN_STATE_ROOT"]=str(config.external_state_root)
+        wt=prepare_worktree(config, lease, str(session["session_id"]), recovery=bool(recovery_ordinal)); env,envm=sanitize_environment(config); env["SENTIENTOS_FOREMAN_STATE_ROOT"]=str(config.external_state_root)
         env["SENTIENTOS_FOREMAN_ALLOWED_PATHS"]="\n".join(lease["admitted_subject_paths"])
         envelope, stdin=build_instruction_envelope(config, lease, request, session, artifact_root, recovery_ordinal)
         sid=str(session["session_id"]); base=config.external_state_root; trans=base/"maintenance_codex_transcripts"/(sid+f".{recovery_ordinal}.jsonl"); stderrp=base/"maintenance_codex_stderr"/(sid+f".{recovery_ordinal}.stderr"); final=base/"maintenance_codex_final_messages"/(sid+f".{recovery_ordinal}.json"); schema=base/"maintenance_codex_final_schemas"/(sid+".schema.json")

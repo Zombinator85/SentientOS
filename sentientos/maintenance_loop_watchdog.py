@@ -22,6 +22,8 @@ from sentientos import maintenance_commit_publication as landing
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_task_journal as task_journal
 from sentientos import maintenance_validation_controller as validation
+from sentientos import maintenance_implementation_agent as implementation_agent
+from sentientos import maintenance_local_codex_foreman as foreman
 
 CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v1"
 SCAN_SCHEMA = "sentientos.maintenance_watchdog_scan:v1"
@@ -34,8 +36,9 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 
 PRIORITY = (
     "paused", "integrity_failure", "ambiguous_active_tasks", "recover",
-    "observe_process", "close_task", "publish", "commit_enqueue", "validate",
-    "prepare_implementation", "admit_candidate", "select_candidate", "idle",
+    "recover_implementation", "start_implementation", "observe_process", "close_task",
+    "publish", "commit_enqueue", "validate", "prepare_implementation",
+    "admit_candidate", "select_candidate", "idle",
 )
 TERMINAL = frozenset({"idle", "waiting", "paused", "blocked"})
 
@@ -130,8 +133,10 @@ def _canonical_artifacts(state: Path) -> list[dict[str, Any]]:
     # files are deliberately invisible to the production decision loop.
     names = (
         "maintenance_candidate_sets", "maintenance_selections", "maintenance_leases",
+        "maintenance_implementation_briefs", "maintenance_implementation_requests",
         "maintenance_agent_sessions", "maintenance_agent_results", "maintenance_worktrees",
         "maintenance_local_codex_invocations", "maintenance_local_codex_results",
+        "maintenance_codex_invocations", "maintenance_codex_results",
         "maintenance_change_manifests", "maintenance_validation_plans",
         "maintenance_validation_cycles", "maintenance_validation_command_results",
         "maintenance_validation_results", "maintenance_commit_plans",
@@ -193,17 +198,29 @@ def decide(config: Mapping[str, Any], scan_result: Mapping[str, Any]) -> dict[st
     obs = scan_result.get("observations", {})
     active = obs.get("active_tasks") or []
     candidate_bad = any(x.get("status") == "integrity_failure" for x in scan_result.get("candidates", []))
+    schemas = _by_schema(obs.get("canonical_artifacts", []))
+    task_id = str(active[0].get("task_id", "")) if len(active) == 1 else ""
+    def owned(schema: str) -> list[Mapping[str, Any]]:
+        return [r for r in schemas.get(schema, []) if r.get("payload", {}).get("task_id") == task_id]
+    requests = owned(implementation_agent.REQUEST_SCHEMA)
+    sessions = owned(implementation_agent.SESSION_SCHEMA)
+    foreman_results = owned(foreman.RESULT_SCHEMA)
+    ready = any(r.get("payload", {}).get("status") == "implementation_ready_for_validation" for r in foreman_results)
+    interrupted = bool(foreman_results) and not ready
+    incomplete_session = bool(sessions) and bool(active) and not active[0].get("active_attempt") and not ready
     checks = {
         "paused": bool(scan_result.get("stop_marker_present") or scan_result.get("control", {}).get("paused")),
         "integrity_failure": candidate_bad or bool(obs.get("integrity_failures")),
         "ambiguous_active_tasks": len(active) > 1,
         "recover": any(s.get("recovery_state") == "started" or s.get("active_validation_cycle") or s.get("active_publication_attempt") for s in active),
-        "observe_process": any(s.get("active_attempt") for s in active),
+        "recover_implementation": interrupted or incomplete_session,
+        "start_implementation": bool(requests) and not sessions,
+        "observe_process": bool(sessions) and not foreman_results and any(s.get("active_attempt") for s in active),
         "close_task": any(s.get("lifecycle_state") == "publication_succeeded" for s in active),
         "publish": any(s.get("lifecycle_state") in {"commit_recorded", "publication_failed"} for s in active),
         "commit_enqueue": any(s.get("lifecycle_state") == "ready_to_commit" for s in active),
-        "validate": any(s.get("lifecycle_state") == "implementation_completed" for s in active),
-        "prepare_implementation": any(s.get("lifecycle_state") == "authority_lease_bound" for s in active),
+        "validate": ready,
+        "prepare_implementation": any(s.get("lifecycle_state") == "lease_bound" for s in active) and not requests,
         "admit_candidate": not active and bool(_by_schema(obs.get("canonical_artifacts", [])).get(selector.SELECTION_SCHEMA)),
         "select_candidate": not active and bool(scan_result.get("candidates")), "idle": True,
     }
@@ -276,6 +293,16 @@ def _write_once(path: Path, value: Mapping[str, Any]) -> None:
         handle.write(data); handle.flush(); os.fsync(handle.fileno())
 
 
+def _write_bytes_once(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.is_symlink() or path.read_bytes() != data: raise ValueError("immutable_artifact_conflict")
+        return
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data); handle.flush(); os.fsync(handle.fileno())
+
+
 def _select(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     payloads = [r["payload"] for r in scanned["candidates"] if r.get("status") == "ready"]
     sets = [p for p in payloads if p.get("schema_version") == maintenance_candidate.CANDIDATE_SET_SCHEMA]
@@ -284,17 +311,19 @@ def _select(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time:
     policy = selector.build_policy(_configured(cfg["selector_policy"]))
     selected = selector.select_candidate(candidate_set, policy, journal_state_root=cfg["state_root"])
     root = Path(cfg["state_root"])
-    _write_once(root / "maintenance_candidate_sets" / f"{candidate_set['candidate_set_digest'].split(':')[-1]}.json", candidate_set)
+    _write_once(root / "maintenance_candidate_sets" / f"{candidate_set['aggregate_digest'].split(':')[-1]}.json", candidate_set)
     _write_once(root / "maintenance_selections" / f"{selected['selection_digest'].split(':')[-1]}.json", selected)
     return {"status": selected.get("status", "selection_completed"), "selection": selected}
 
 
 def _admit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     schemas = _by_schema(scanned["observations"]["canonical_artifacts"])
-    selected = schemas[selector.SELECTION_SCHEMA][-1]["payload"]
+    selections = [r["payload"] for r in schemas[selector.SELECTION_SCHEMA] if r["payload"].get("result_status") == "ready_for_scope_admission"]
+    if len(selections) != 1: raise ValueError("canonical_selection_ambiguous")
+    selected = selections[0]
     candidate_sets = schemas[maintenance_candidate.CANDIDATE_SET_SCHEMA]
     wanted = selected.get("candidate_set_digest")
-    candidate_set = next(r["payload"] for r in candidate_sets if r["payload"].get("candidate_set_digest") == wanted)
+    candidate_set = next(r["payload"] for r in candidate_sets if r["payload"].get("aggregate_digest") == wanted)
     return authority.admit_selected_candidate(
         state_root=cfg["state_root"], candidate_set=candidate_set, selection=selected,
         operator_grant=_configured(cfg["standing_grant"]), evaluation_time=evaluation_time,
@@ -303,6 +332,98 @@ def _admit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: 
 
 def _lease_for(snapshot: Mapping[str, Any], cfg: Mapping[str, Any]) -> dict[str, Any]:
     return authority.load_lease(cfg["state_root"], str(snapshot["active_lease_id"]), repo_root=cfg["repository_root"])
+
+
+def _owned(scanned: Mapping[str, Any], schema: str, task_id: str) -> list[dict[str, Any]]:
+    return [dict(r["payload"]) for r in scanned["observations"]["canonical_artifacts"]
+            if r.get("payload", {}).get("schema_version") == schema
+            and r.get("payload", {}).get("task_id") == task_id]
+
+
+def _prepare_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; lease = _lease_for(snapshot, cfg)
+    schemas = _by_schema(scanned["observations"]["canonical_artifacts"])
+    selection = next(dict(r["payload"]) for r in schemas[selector.SELECTION_SCHEMA]
+                     if r["payload"].get("selection_digest") == lease["selection_digest"])
+    candidate_set = next(dict(r["payload"]) for r in schemas[maintenance_candidate.CANDIDATE_SET_SCHEMA]
+                         if r["payload"].get("aggregate_digest") == lease["candidate_set_digest"])
+    candidate = next(dict(c) for c in candidate_set.get("canonical_candidates", ())
+                     if c.get("candidate_id") == lease["candidate_id"]
+                     and c.get("candidate_revision_digest") == lease["candidate_revision_digest"])
+    brief = build_implementation_brief(candidate, {"admission_digest": lease["lease_digest"]}, cfg)
+    brief.update(task_id=lease["task_id"], lease_id=lease["lease_id"], lease_digest=lease["lease_digest"],
+                 selection_digest=selection["selection_digest"], admitted_scope_digest=lease["admitted_scope_digest"],
+                 constraints=list(candidate.get("declared_constraints", ())), authority_classes=list(lease["authority_classes"]),
+                 attempt_ordinal=1, corrective_retry_ordinal=0,
+                 budgets={"maximum_file_count": lease["maximum_file_count"], "maximum_changed_line_count": lease["maximum_changed_line_count"],
+                          "maximum_implementation_seconds": lease["maximum_implementation_seconds"], "maximum_validation_seconds": lease["maximum_validation_seconds"]})
+    brief["brief_digest"] = digest({k: v for k, v in brief.items() if k != "brief_digest"})
+    instruction = ("Objective:\n" + str(candidate["objective"]) + "\n\nAdmitted paths:\n" +
+                   "".join(f"- {p}\n" for p in lease["admitted_subject_paths"]) + "\nValidation expectations:\n" +
+                   "".join(f"- {v}\n" for v in lease["validation_expectations"]) + "\nConstraints:\n" +
+                   "".join(f"- {v}\n" for v in candidate.get("declared_constraints", ())) +
+                   "\nDo not commit, push, publish, access credentials, expand scope, or wait for hosted checks.\n").encode("utf-8")
+    root = Path(cfg["state_root"]); task = str(lease["task_id"])
+    _write_once(root / "maintenance_implementation_briefs" / (task + ".json"), brief)
+    instruction_ref = "maintenance_implementation_instructions/" + task + ".txt"
+    _write_bytes_once(root / instruction_ref, instruction)
+    request = implementation_agent.seal_request({
+        "task_id": task, "lease_id": lease["lease_id"], "lease_digest": lease["lease_digest"], "candidate_id": lease["candidate_id"],
+        "candidate_revision_digest": lease["candidate_revision_digest"], "canonical_candidate_digest": lease["canonical_candidate_digest"],
+        "admitted_scope_digest": lease["admitted_scope_digest"], "repository_identity": lease["repository_identity"], "base_sha": lease["base_sha"],
+        "driver_id": foreman.LocalCodexDriver.driver_id, "driver_kind": "local_codex", "attempt_ordinal": 1, "corrective_retry_ordinal": 0,
+        "implementation_contract_digest": brief["brief_digest"], "bounded_objective": candidate["objective"],
+        "subject_paths": list(lease["admitted_subject_paths"]), "validation_expectations": list(lease["validation_expectations"]),
+        "requested_authority_classes": list(lease["authority_classes"]), "implementation_time_ceiling_seconds": lease["maximum_implementation_seconds"],
+        "wall_clock_deadline": lease["expires_at"], "external_instruction_artifact_reference": instruction_ref,
+        "explicit_constraints": list(candidate.get("declared_constraints", ())) + ["brief_digest=" + brief["brief_digest"]],
+    }, instruction_artifact_root=root)
+    _write_once(root / "maintenance_implementation_requests" / (task + ".json"), request)
+    return {"status": "implementation_prepared", "brief_digest": brief["brief_digest"], "request_digest": request["request_digest"]}
+
+
+def _foreman_config(cfg: Mapping[str, Any]) -> foreman.LocalCodexForemanConfig:
+    result = foreman.LocalCodexForemanConfig.from_mapping(_configured(cfg["foreman_policy"]))
+    if result.repository_root != Path(cfg["repository_root"]) or result.external_state_root != Path(cfg["state_root"]) or result.external_workspace_root != Path(cfg["workspace_root"]):
+        raise ValueError("foreman_configuration_custody_mismatch")
+    return result
+
+
+def _start_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; task = str(snapshot["task_id"]); request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
+    return implementation_agent.start_implementation_agent_session(state_root=cfg["state_root"], lease_id=str(snapshot["active_lease_id"]),
+            request=request, driver=foreman.LocalCodexDriver(), evaluation_time=evaluation_time, repo_root=cfg["repository_root"])
+
+
+def _observe_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; task = str(snapshot["task_id"])
+    session = _owned(scanned, implementation_agent.SESSION_SCHEMA, task)[0]
+    request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
+    result = foreman.run_local_codex_session(_foreman_config(cfg), _lease_for(snapshot, cfg), request, session, Path(cfg["state_root"]))
+    if result.get("status") == "implementation_ready_for_validation":
+        current = task_journal.materialize_snapshot(cfg["state_root"], task, repo_root=cfg["repository_root"], evaluation_time=evaluation_time)
+        if current.get("implementation_result", {}).get("status") == "completed": return result
+        payload = {k: result.get(k) for k in ("session_id", "result_digest", "worktree_descriptor_digest", "invocation_digest", "transcript_digest", "final_message_digest", "change_manifest_digest", "patch_digest", "codex_thread_id", "measured_effect_flags", "validation_pending")}
+        payload.update(repository_mutation_performed=True, validation_performed=False)
+        event_id = "mevent_" + hashlib.sha256(canonical_json_bytes(payload)).hexdigest()[:32]
+        appended = task_journal.append_event(cfg["state_root"], "implementation_completed", task_id=task, payload=payload,
+                    event_id=event_id, recorded_at=evaluation_time, repository_sha=str(snapshot["base_sha"]),
+                    repo_root=cfg["repository_root"], evaluation_time=evaluation_time)
+        if appended.status not in {"event_appended", "event_already_recorded"}:
+            return {"status": "blocked", "reason": appended.reason_code or "implementation_terminal_journal_failed"}
+    return result
+
+
+def _recover_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    snapshot = scanned["observations"]["active_tasks"][0]; task = str(snapshot["task_id"])
+    request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
+    sessions = _owned(scanned, implementation_agent.SESSION_SCHEMA, task)
+    if not sessions or not snapshot.get("active_attempt"):
+        return _start_implementation(cfg, scanned, evaluation_time)
+    result = foreman.resume_local_codex_session(_foreman_config(cfg), _lease_for(snapshot, cfg), request, sessions[0], Path(cfg["state_root"]), evaluation_time)
+    if result.get("status") == "foreman_recovery_unavailable" and not result.get("codex_thread_id"):
+        return {"status": "blocked", "reason": "missing_codex_thread_id"}
+    return result
 
 
 def _commit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
@@ -352,6 +473,10 @@ def _close(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: 
 
 def _dispatch(transition: str, cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     table = {"select_candidate": _select, "admit_candidate": _admit,
+             "prepare_implementation": _prepare_implementation,
+             "start_implementation": _start_implementation,
+             "observe_process": _observe_implementation,
+             "recover_implementation": _recover_implementation,
              "commit_enqueue": _commit, "publish": _publish, "close_task": _close}
     operation = table.get(transition)
     if operation is None:
