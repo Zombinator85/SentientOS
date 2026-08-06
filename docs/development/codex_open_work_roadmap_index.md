@@ -1,5 +1,5 @@
 # Codex Open-Work Roadmap Index
-This is the active, compact selection map through mainline `9b69d98`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map through mainline `1a6b228`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 ## Implemented posture
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
 - Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls. The observed finalizer gap around mutable exact-acceptance provenance and a shared marginal matrix timeout is closed by external byte custody, fail-fast verification, terminal digest checks, and an independent matrix budget.
@@ -26,8 +26,10 @@ A future task needs a fresh operator-named target, newly demonstrated test/doc c
 Future prompts should provide only title, selected candidate/deviation, fresh-current gate, bootstrap invocation, objective/current gap, task-specific boundaries and surfaces, exact acceptance proof, task-specific validation, and unique blockers. Use [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md) for policy, [`codex_finalize_landing.md`](codex_finalize_landing.md) for commands, and [`codex_landing_evidence_recovery_rail.md`](codex_landing_evidence_recovery_rail.md) for recovery.
 ### Exact maintenance commit and asynchronous publication custody at `9b69d98`
 Passing `validation_ready_for_commit` can now produce one exact commit through external-index Git plumbing. Commit trees are independently matched to validated detached-worktree bytes, commit creation moves no branch and leaves detached worktree HEAD unchanged, and the canonical checkout is not updated by the commit-object creation path. Local commit success durably enqueues a publication request and enqueue performs no remote operation. Explicit fast-forward base-ref and pull-request publication modes exist; neither force-push, merge, nor hosted-check waiting is permitted. Publication is independently remote-verified, journal-bound, and idempotently recoverable across local commit, remote push, and PR creation boundaries.
-Remaining maintenance-loop task:
-1. recovery watchdog and automatic continuation.
+The core maintenance-loop implementation sequence is complete. Live unattended
+operation still requires operator-supplied external configuration and standing
+grant, authenticated Codex and publication clients, a candidate inbox, and an
+external scheduler invocation. SentientOS installs none of those prerequisites.
 Independent security follow-ups remain repository-wide mypy baseline/tool-version compatibility, actuator shell-string hardening, path ancestry, URL and SMTP policy, and plugin isolation.
 ### Provenance-bound behavioral witnesses at `398a0f9`
 Developer-workflow proof now supports bounded behavioral witnesses bound to the exact pytest node, run, repository SHA, call phase, contract, kind, and provenance hash chain. Legacy `sentientos.task_acceptance:v1` manifests remain valid; v2 witness contracts add evidence without authority expansion.
