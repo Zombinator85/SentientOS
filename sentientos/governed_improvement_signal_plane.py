@@ -60,6 +60,13 @@ class ImprovementSignal:
     source_artifact: str | None = None
     source_digest: str | None = None
     evidence_refs: tuple[str, ...] = ()
+    declared_validation_expectations: tuple[str, ...] = ()
+    requested_authority_classes: tuple[str, ...] = ()
+    declared_constraints: tuple[str, ...] = ()
+    estimated_file_count: int = 1
+    estimated_changed_line_count: int = 1
+    estimated_implementation_seconds: int = 60
+    estimated_validation_seconds: int = 60
     observed_at: str | None = None
     routing_eligible: bool = True
     reason_codes: tuple[str, ...] = ()
@@ -130,7 +137,7 @@ def normalize_record(record: Mapping[str, Any], *, repo_root: Path | str = Path.
         if bool(record.get(f)): reasons.append(f"false_authority_claim:{f}")
     path = canonical_repo_path(record.get("subject_path") or record.get("path"), repo_root)
     artifact = canonical_repo_path(record.get("source_artifact") or record.get("artifact"), repo_root, allow_external=True)
-    payload: dict[str, Any] = {"source_kind":src,"finding_kind":kind,"severity":str(record.get("severity","medium")),"description":str(record.get("description") or record.get("message") or kind or src),"subject_path":path,"spec_id":record.get("spec_id"),"capability_id":record.get("capability_id"),"telemetry_stream":record.get("telemetry_stream"),"source_artifact":artifact,"source_digest":record.get("source_digest"),"evidence_refs":tuple(sorted(str(x) for x in record.get("evidence_refs", ()) or ())),"routing_eligible":not reasons,"reason_codes":tuple(sorted(reasons)),"adoption_performed":False,"repository_mutation_performed":False,"provider_or_network_or_git_operation_performed":False,"trial_performed":False}
+    payload: dict[str, Any] = {"source_kind":src,"finding_kind":kind,"severity":str(record.get("severity","medium")),"description":str(record.get("description") or record.get("message") or kind or src),"subject_path":path,"spec_id":record.get("spec_id"),"capability_id":record.get("capability_id"),"telemetry_stream":record.get("telemetry_stream"),"source_artifact":artifact,"source_digest":record.get("source_digest"),"evidence_refs":tuple(sorted(str(x) for x in record.get("evidence_refs", ()) or ())),"declared_validation_expectations":tuple(sorted(str(x) for x in record.get("declared_validation_expectations", ()) or ())),"requested_authority_classes":tuple(sorted(str(x) for x in record.get("requested_authority_classes", ()) or ())),"declared_constraints":tuple(sorted(str(x) for x in record.get("declared_constraints", ()) or ())),"estimated_file_count":int(record.get("estimated_file_count",1)),"estimated_changed_line_count":int(record.get("estimated_changed_line_count",1)),"estimated_implementation_seconds":int(record.get("estimated_implementation_seconds",60)),"estimated_validation_seconds":int(record.get("estimated_validation_seconds",60)),"routing_eligible":not reasons,"reason_codes":tuple(sorted(reasons)),"adoption_performed":False,"repository_mutation_performed":False,"provider_or_network_or_git_operation_performed":False,"trial_performed":False}
     semantic = dict(payload); semantic.pop("source_artifact", None)
     return ImprovementSignal(signal_id=_sid(semantic), observed_at=record.get("observed_at"), **payload)
 
@@ -391,7 +398,7 @@ def validate_evaluation(payload: Mapping[str, Any]) -> tuple[bool, tuple[str,...
         if tuple(batch_payload.get("contradiction_ids", ())) != rebuilt.contradiction_ids:
             reasons.append("contradiction_set_mismatch")
         expected_receipts = [r.to_dict() for r in route_batch(rebuilt)]
-        if expected_receipts != payload.get("receipts"):
+        if _stable_json(expected_receipts) != _stable_json(payload.get("receipts")):
             reasons.append("routing_receipt_mismatch")
         expected_evaluation = evaluate_signal_plane(signals)
         expected_summary = expected_evaluation.summary
