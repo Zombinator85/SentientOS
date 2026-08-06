@@ -32,7 +32,7 @@ if mode=='many_files':
     Path('allowed.txt').write_text('ok\n'); Path('extra.txt').write_text('x\n')
 if mode=='many_lines': Path('allowed.txt').write_text('\n'.join(str(i) for i in range(50)))
 if mode not in ('nochange','blocked','failed','out_of_scope','many_files','many_lines'):
-    Path('allowed.txt').write_text('implemented\n')
+    Path('allowed.txt').write_text(('corrected' if mode=='corrective' and 'resume' in sys.argv else 'implemented')+'\n')
 status='implemented'
 if mode=='blocked': status='blocked'
 if mode=='failed': status='failed'

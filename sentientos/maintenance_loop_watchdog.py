@@ -35,7 +35,7 @@ CONTROL_SCHEMA = "sentientos.maintenance_watchdog_control_event:v1"
 ZERO_DIGEST = "sha256:" + "0" * 64
 
 PRIORITY = (
-    "paused", "integrity_failure", "ambiguous_active_tasks", "recover",
+    "paused", "integrity_failure", "ambiguous_active_tasks", "recover_validation", "recover",
     "recover_implementation", "start_implementation", "observe_process", "close_task",
     "publish", "commit_enqueue", "validate", "prepare_implementation",
     "admit_candidate", "select_candidate", "idle",
@@ -208,11 +208,18 @@ def decide(config: Mapping[str, Any], scan_result: Mapping[str, Any]) -> dict[st
     ready = any(r.get("payload", {}).get("status") == "implementation_ready_for_validation" for r in foreman_results)
     interrupted = bool(foreman_results) and not ready
     incomplete_session = bool(sessions) and bool(active) and not active[0].get("active_attempt") and not ready
+    consumed_revisions = {str(s.get("candidate_revision_digest")) for s in obs.get("task_snapshots", [])}
+    admissible_selections = [r for r in schemas.get(selector.SELECTION_SCHEMA, [])
+        if r.get("payload", {}).get("result_status") == "ready_for_scope_admission"
+        and str(r.get("payload", {}).get("selected_candidate_revision_digest")) not in consumed_revisions]
+    inbox_revisions = {str(c.get("payload", {}).get("candidate_revision_digest"))
+        for c in scan_result.get("candidates", []) if c.get("status") == "ready"}
     checks = {
         "paused": bool(scan_result.get("stop_marker_present") or scan_result.get("control", {}).get("paused")),
         "integrity_failure": candidate_bad or bool(obs.get("integrity_failures")),
         "ambiguous_active_tasks": len(active) > 1,
-        "recover": any(s.get("recovery_state") == "started" or s.get("active_validation_cycle") or s.get("active_publication_attempt") for s in active),
+        "recover_validation": any(s.get("active_validation_cycle") for s in active),
+        "recover": any(s.get("recovery_state") == "started" or s.get("active_publication_attempt") for s in active),
         "recover_implementation": interrupted or incomplete_session,
         "start_implementation": bool(requests) and not sessions,
         "observe_process": bool(sessions) and not foreman_results and any(s.get("active_attempt") for s in active),
@@ -221,8 +228,8 @@ def decide(config: Mapping[str, Any], scan_result: Mapping[str, Any]) -> dict[st
         "commit_enqueue": any(s.get("lifecycle_state") == "ready_to_commit" for s in active),
         "validate": ready,
         "prepare_implementation": any(s.get("lifecycle_state") == "lease_bound" for s in active) and not requests,
-        "admit_candidate": not active and bool(_by_schema(obs.get("canonical_artifacts", [])).get(selector.SELECTION_SCHEMA)),
-        "select_candidate": not active and bool(scan_result.get("candidates")), "idle": True,
+        "admit_candidate": not active and bool(admissible_selections),
+        "select_candidate": not active and bool(inbox_revisions - consumed_revisions), "idle": True,
     }
     transition = next(item for item in PRIORITY if checks[item])
     status = "paused" if transition == "paused" else ("blocked" if transition in {"integrity_failure", "ambiguous_active_tasks"} else ("idle" if transition == "idle" else "action_ready"))
@@ -426,16 +433,76 @@ def _recover_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], 
     return result
 
 
+def _one_bound(items: Sequence[Mapping[str, Any]], reason: str, **bindings: Any) -> dict[str, Any]:
+    matches = [dict(item) for item in items if all(item.get(key) == value for key, value in bindings.items())]
+    if len(matches) != 1:
+        raise ValueError(reason)
+    return matches[0]
+
+
+def _validate(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
+    try:
+        policy = validation.ValidationPolicy.from_mapping(_configured(cfg["validation_policy"]))
+    except (ValueError, OSError, json.JSONDecodeError):
+        return {"status": "waiting", "reason": "canonical_component_state_not_ready"}
+    snapshot = scanned["observations"]["active_tasks"][0]
+    task = str(snapshot["task_id"]); lease = _lease_for(snapshot, cfg)
+    results = [r for r in _owned(scanned, foreman.RESULT_SCHEMA, task)
+               if r.get("status") == "implementation_ready_for_validation"]
+    if len(results) != 1: raise ValueError("canonical_foreman_result_ambiguous")
+    impl = results[0]
+    session = _one_bound(_owned(scanned, implementation_agent.SESSION_SCHEMA, task),
+                         "canonical_session_ambiguous", session_id=impl.get("session_id"),
+                         lease_id=lease["lease_id"], lease_digest=lease["lease_digest"])
+    impl.update(attempt_id=session["attempt_id"], attempt_ordinal=session["attempt_ordinal"],
+                corrective_retry_ordinal=session["corrective_retry_ordinal"])
+    worktree = _one_bound(_owned(scanned, foreman.WORKTREE_SCHEMA, task),
+                          "canonical_worktree_ambiguous", session_id=session["session_id"],
+                          lease_id=lease["lease_id"], lease_digest=lease["lease_digest"],
+                          worktree_digest=impl["worktree_descriptor_digest"])
+    manifest = _one_bound(_owned(scanned, foreman.CHANGE_SCHEMA, task),
+                          "canonical_change_manifest_ambiguous", session_id=session["session_id"],
+                          manifest_digest=impl["change_manifest_digest"])
+    request = _one_bound(_owned(scanned, implementation_agent.REQUEST_SCHEMA, task),
+                         "canonical_request_ambiguous", lease_id=lease["lease_id"],
+                         lease_digest=lease["lease_digest"])
+    recovery_plan = None
+    if snapshot.get("active_validation_cycle"):
+        cycle = snapshot["active_validation_cycle"]
+        recovery_plan = _one_bound(_owned(scanned, validation.PLAN_SCHEMA, task),
+            "canonical_validation_recovery_plan_ambiguous",
+            validation_ref_id=cycle.get("validation_ref_id"), plan_digest=cycle.get("plan_digest"),
+            attempt_id=cycle.get("attempt_id"), implementation_session_id=cycle.get("session_id"),
+            worktree_descriptor_digest=cycle.get("worktree_descriptor_digest"),
+            change_manifest_digest=cycle.get("change_manifest_digest"))
+    return validation.advance_validation_controller(state_root=Path(cfg["state_root"]),
+        repository_root=Path(cfg["repository_root"]), policy=policy,
+        lease=lease, implementation_result=impl, worktree=worktree, change_manifest=manifest,
+        request=request, session=session, foreman_config=_foreman_config(cfg), evaluation_time=evaluation_time,
+        recovery_plan=recovery_plan)
+
+
 def _commit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     snapshot = scanned["observations"]["active_tasks"][0]; lease = _lease_for(snapshot, cfg)
     state = Path(cfg["state_root"])
-    validation_results = sorted((state / "maintenance_validation_results").glob("*.json"))
-    worktrees = sorted((state / "maintenance_worktrees").glob("*.json"))
-    if not validation_results or not worktrees: raise ValueError("canonical_commit_inputs_missing")
+    readiness = snapshot.get("commit_readiness", {}).get("payload", {})
+    plans = _owned(scanned, validation.PLAN_SCHEMA, str(snapshot["task_id"]))
+    plan = _one_bound(plans, "canonical_commit_plan_binding_missing",
+        validation_ref_id=readiness.get("validation_ref_id"), plan_digest=readiness.get("plan_digest"),
+        attempt_id=readiness.get("attempt_id"), worktree_descriptor_digest=readiness.get("worktree_descriptor_digest"),
+        change_manifest_digest=readiness.get("change_manifest_digest"))
+    validation_result = _one_bound(_owned(scanned, validation.RESULT_SCHEMA, str(snapshot["task_id"])),
+        "canonical_commit_validation_result_missing", validation_ref_id=plan["validation_ref_id"],
+        plan_digest=plan["plan_digest"], result_digest=readiness.get("result_digest"),
+        terminal_status="validation_ready_for_commit")
+    worktree = _one_bound(_owned(scanned, foreman.WORKTREE_SCHEMA, str(snapshot["task_id"])),
+        "canonical_commit_worktree_missing", session_id=plan["implementation_session_id"],
+        lease_id=lease["lease_id"], lease_digest=lease["lease_digest"],
+        worktree_digest=plan["worktree_descriptor_digest"])
     return landing.create_commit_and_enqueue(
         state_root=state, repository_root=cfg["repository_root"],
-        worktree_root=json.loads(worktrees[-1].read_text())["worktree_root"], lease=lease,
-        validation_result=json.loads(validation_results[-1].read_text()),
+        worktree_root=worktree["worktree_root"], lease=lease,
+        validation_result=validation_result,
         landing_policy=_configured(cfg["landing_policy"]), evaluation_time=evaluation_time)
 
 
@@ -477,6 +544,7 @@ def _dispatch(transition: str, cfg: Mapping[str, Any], scanned: Mapping[str, Any
              "start_implementation": _start_implementation,
              "observe_process": _observe_implementation,
              "recover_implementation": _recover_implementation,
+             "validate": _validate, "recover_validation": _validate,
              "commit_enqueue": _commit, "publish": _publish, "close_task": _close}
     operation = table.get(transition)
     if operation is None:

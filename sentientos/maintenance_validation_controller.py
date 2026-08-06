@@ -176,7 +176,8 @@ def run_validation_plan(*, state_root:Path, repository_root:Path, worktree_root:
             terminal='validation_failed_correctable' if is_corr else 'validation_failed_terminal'; failure_class=fc; correctable=is_corr; break
       after=worktree_manifest(policy.git_executable, worktree_root)
       if terminal=='validation_ready_for_commit' and (after['head']!=before['head'] or after['branch']!=before['branch'] or after['manifest_digest']!=before['manifest_digest']): terminal='validation_workspace_changed_during_proof'; failure_class='source_drift'
-      aggregate={'schema_version':RESULT_SCHEMA,'validation_ref_id':ref,'plan_digest':plan['plan_digest'],'command_result_digests':[r['result_digest'] for r in results],'required_stage_outcomes':[{ 'stage_id':r['stage_id'],'exit_code':r['exit_code'],'failure_class':r['failure_class']} for r in results],'skipped_stages':[],'total_duration_seconds':time.time()-start,'total_budget_consumed_seconds':sum(float(r['duration_seconds']) for r in results),'cumulative_task_validation_seconds':sum(float(r['duration_seconds']) for r in results),'source_drift_proof':{'before':before,'after':after,'source_drift_detected':failure_class=='source_drift'},'exhaustive_matrix_status':plan['exhaustive_matrix_status'],'matrix_invocation_count':0,'terminal_status':terminal,'failure_classification':failure_class,'correctable':correctable,'result_digest':'','journal_terminal_event_id':None}
+      validated_manifest=[{'path':p,'exists':(worktree_root/p).exists(),'mode':oct((worktree_root/p).stat().st_mode & 0o777) if (worktree_root/p).exists() else None,'digest':sha_bytes((worktree_root/p).read_bytes()) if (worktree_root/p).exists() and (worktree_root/p).is_file() else 'missing'} for p in plan['changed_paths']]
+      aggregate={'schema_version':RESULT_SCHEMA,'task_id':plan['task_id'],'attempt_id':plan['attempt_id'],'session_id':plan.get('implementation_session_id'),'implementation_session_id':plan.get('implementation_session_id'),'codex_thread_id':plan.get('codex_thread_id'),'implementation_result_digest':plan.get('implementation_result_digest'),'worktree_descriptor_digest':plan.get('worktree_descriptor_digest'),'change_manifest_digest':plan.get('change_manifest_digest'),'patch_digest':plan.get('patch_digest'),'base_sha':plan.get('terminal_worktree_head'),'changed_paths':plan.get('changed_paths',[]),'worktree_manifest':validated_manifest,'validation_ref_id':ref,'plan_digest':plan['plan_digest'],'command_result_digests':[r['result_digest'] for r in results],'required_stage_outcomes':[{ 'stage_id':r['stage_id'],'exit_code':r['exit_code'],'failure_class':r['failure_class']} for r in results],'skipped_stages':[],'total_duration_seconds':time.time()-start,'total_budget_consumed_seconds':sum(float(r['duration_seconds']) for r in results),'cumulative_task_validation_seconds':sum(float(r['duration_seconds']) for r in results),'source_drift_proof':{'before':before,'after':after,'source_drift_detected':failure_class=='source_drift'},'exhaustive_matrix_status':plan['exhaustive_matrix_status'],'matrix_invocation_count':0,'terminal_status':terminal,'failure_classification':failure_class,'correctable':correctable,'result_digest':'','journal_terminal_event_id':None}
       aggregate['result_digest']=seal(aggregate,'result_digest'); _write_immutable(state_root/'maintenance_validation_results'/(ref+'.json'),aggregate)
       if append_journal:
         etype='validation_passed' if terminal=='validation_ready_for_commit' else 'validation_failed'; payload={'validation_ref_id':ref,'attempt_id':plan['attempt_id'],'session_id':plan.get('implementation_session_id'),'plan_digest':plan['plan_digest'],'result_digest':aggregate['result_digest'],'change_manifest_digest':plan.get('change_manifest_digest'),'worktree_descriptor_digest':plan.get('worktree_descriptor_digest'),'terminal_status':terminal,'correctable':correctable}
@@ -195,7 +196,63 @@ def build_correction_envelope(*, state_root:Path, plan:Mapping[str,Any], result:
 def start_corrective_local_codex_session(config:foreman.LocalCodexForemanConfig, lease:Mapping[str,Any], request:Mapping[str,Any], session:Mapping[str,Any], artifact_root:Path, correction_envelope:Mapping[str,Any], evaluation_time:str)->dict[str,Any]:
     if not correction_envelope.get('prior_codex_thread_id'): return {'schema_version':foreman.RESULT_SCHEMA,'status':'foreman_recovery_unavailable','reason_codes':['missing_codex_thread_id']}
     if evaluation_time>=str(lease.get('expires_at','9999')): return {'schema_version':foreman.RESULT_SCHEMA,'status':'foreman_recovery_unavailable','reason_codes':['lease_expired']}
-    return foreman.run_local_codex_session(config, lease, request, session, artifact_root, recovery_ordinal=0, resume_thread_id=str(correction_envelope['prior_codex_thread_id']))
+    return foreman.run_local_codex_session(config, lease, request, session, artifact_root, recovery_ordinal=1, resume_thread_id=str(correction_envelope['prior_codex_thread_id']))
+
+def advance_validation_controller(*, state_root:Path, repository_root:Path,
+    policy:ValidationPolicy, lease:Mapping[str,Any], implementation_result:Mapping[str,Any],
+    worktree:Mapping[str,Any], change_manifest:Mapping[str,Any], request:Mapping[str,Any],
+    session:Mapping[str,Any], foreman_config:foreman.LocalCodexForemanConfig,
+    evaluation_time:str, recovery_plan:Mapping[str,Any]|None=None)->dict[str,Any]:
+    """Own one bounded validation/correction operation over exact caller bindings.
+
+    The watchdog is intentionally only an identity-binding adapter.  Planning,
+    execution, same-thread correction, remeasurement and immutable validation
+    custody remain here beside the controller's existing primitives.
+    """
+    plan=dict(recovery_plan) if recovery_plan is not None else build_validation_plan(
+        policy=policy, lease=lease, implementation_result=implementation_result,
+        worktree=worktree, change_manifest=change_manifest)
+    _write_immutable(state_root/'maintenance_validation_plans'/(plan['validation_ref_id']+'.json'),plan)
+    result=run_validation_plan(state_root=state_root,repository_root=repository_root,
+        worktree_root=Path(str(worktree['worktree_root'])),policy=policy,plan=plan,
+        evaluation_time=evaluation_time)
+    if result.get('terminal_status')=='validation_failed_correctable':
+        try:
+            envelope=build_correction_envelope(state_root=state_root,plan=plan,result=result,
+                lease=lease,previous_result=implementation_result)
+        except ValueError as exc:
+            return {'status':str(exc),'validation_result':result,'validation_plan':plan}
+        corrected=start_corrective_local_codex_session(foreman_config,lease,request,session,
+            state_root,envelope,evaluation_time)
+        if corrected.get('status')!='implementation_ready_for_validation':
+            return {'status':'corrective_continuation_blocked','reason_code':corrected.get('status'),
+                    'validation_result':result,'correction_result':corrected}
+        corrected=dict(corrected)
+        corrected.update(attempt_id=session.get('attempt_id'),
+            attempt_ordinal=envelope['new_attempt_ordinal'],
+            corrective_retry_ordinal=envelope['new_corrective_retry_ordinal'])
+        measured=read_json(state_root/'maintenance_change_manifests'/(str(session['session_id'])+'.json'))
+        if measured.get('manifest_digest')!=corrected.get('change_manifest_digest'):
+            return {'status':'controller_integrity_failed','reason_code':'corrected_manifest_digest_mismatch'}
+        plan=build_validation_plan(policy=policy,lease=lease,implementation_result=corrected,
+            worktree=worktree,change_manifest=measured,
+            remaining_validation_seconds=plan.get('remaining_lease_budget_seconds'),cycle_ordinal=2)
+        _write_immutable(state_root/'maintenance_validation_plans'/(plan['validation_ref_id']+'.json'),plan)
+        result=run_validation_plan(state_root=state_root,repository_root=repository_root,
+            worktree_root=Path(str(worktree['worktree_root'])),policy=policy,plan=plan,
+            evaluation_time=evaluation_time)
+    if result.get('terminal_status')=='validation_ready_for_commit':
+        payload={'validation_ref_id':plan['validation_ref_id'],'attempt_id':plan['attempt_id'],
+                 'result_digest':result['result_digest'],'plan_digest':plan['plan_digest'],
+                 'worktree_descriptor_digest':plan.get('worktree_descriptor_digest'),
+                 'change_manifest_digest':plan.get('change_manifest_digest')}
+        appended=journal.append_event(state_root,'ready_to_commit_recorded',task_id=plan['task_id'],
+            payload=payload,event_id='mevent_'+hashlib.sha256(cj(payload)).hexdigest()[:32],
+            repo_root=repository_root,recorded_at=evaluation_time)
+        if appended.status not in {'event_appended','event_already_recorded'}:
+            return {'status':'controller_integrity_failed','reason_code':appended.reason_code}
+    return {'status':result.get('terminal_status','controller_integrity_failed'),
+            'validation_result':result,'validation_plan':plan}
 
 def inspect(state_root:Path, task_id:str)->dict[str,Any]:
     vals=sorted((state_root/'maintenance_validation_results').glob('*.json')) if (state_root/'maintenance_validation_results').exists() else []

@@ -219,7 +219,7 @@ def _publish_pr(pol: Mapping[str,Any], req: Mapping[str,Any], root: Path)->tuple
     return 'publication_succeeded',json.loads(cr.stdout.decode())
 
 def _publication_result(root: Path, req: Mapping[str,Any], cls: str, obs: Mapping[str,Any], at: str, repo_root: str|Path, ordinal:int|None=None)->dict[str,Any]:
-    res={'schema_version':PUBLICATION_RESULT_SCHEMA,'publication_id':req['publication_id'],'task_id':req['task_id'],'attempt_ordinal':ordinal,'request_digest':req['publication_request_digest'],'commit_sha':req['commit_sha'],'mode':req['publication_mode'],'remote_observations':dict(obs),'terminal_classification':cls,'terminal_status':cls,'recorded_at':at,'hosted_checks_waited':False,'force_push_used':False,'merge_performed':False}
+    res={'schema_version':PUBLICATION_RESULT_SCHEMA,'publication_id':req['publication_id'],'task_id':req['task_id'],'attempt_ordinal':ordinal,'request_digest':req['publication_request_digest'],'commit_sha':req['commit_sha'],'mode':req['publication_mode'],'remote_observations':dict(obs),'terminal_classification':cls,'terminal_status':cls,'recorded_at':at,'hosted_checks_waited':False,'force_push_used':False,'merge_performed':False,'credential_bytes_inspected':False,'operator_message_relayed':False}
     res['publication_result_digest']=_seal({**res,'publication_result_digest':''},'publication_result_digest')
     if cls=='publication_succeeded': _write_immutable(root/'maintenance_publication_results'/(req['publication_id']+'.json'), res)
     else: _write_immutable(root/'maintenance_publication_attempts'/(req['publication_id']+'-'+str(ordinal or 0)+'.json'), res)

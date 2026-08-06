@@ -8,8 +8,11 @@ until a configured action/time bound or a terminal idle, waiting, paused, or blo
 result. It never installs or supplies a scheduler and is not integrated into
 `sentientosd`.
 
-Commit `83cca3e` introduced the deterministic watchdog scaffold, and `cc7a9da`
-added canonical scanning and selection, admission, and landing dispatch. The
+Commit `83cca3e` introduced the deterministic watchdog scaffold, `cc7a9da`
+added canonical scanning and selection, admission, and landing dispatch, and
+`5e16605` added process-real implementation continuation. This continuation adds
+validation/correction continuation and the first genuine production-CLI closed-loop
+proof. The
 production coordinator now discovers the canonical task journals and immutable component
 artifacts directly and uses a closed internal dispatch table; legacy synthetic
 state summaries and caller-supplied transition handlers have no execution
@@ -18,9 +21,14 @@ authority.
 The watchdog now connects admitted work to process-real local-Codex implementation:
 it seals deterministic instruction and request custody, starts the existing
 implementation-agent session, and delegates execution and same-thread recovery to
-the local-Codex foreman until `implementation_ready_for_validation`. Validation
-continuation and process-real whole-loop proof remain unfinished, so the core
-maintenance loop is not yet complete.
+the local-Codex foreman until `implementation_ready_for_validation`. It now binds
+that exact result, lease, attempt, session, thread, worktree, change manifest, and
+validation policy to the existing validation controller. The controller retains
+planning, execution, same-thread correction, remeasurement, revalidation, recovery,
+and immutable custody. Exact passing evidence then reaches the existing commit,
+one-shot fast-forward publication, verified base cursor, closure, and idle path.
+The production-CLI fake closed-loop proof passes, so the bounded core maintenance
+loop is complete.
 
 ## Safety and recovery contract
 
@@ -49,9 +57,10 @@ The coordinator never duplicates implementation, validation, Git, or publication
 logic, merges, force-pushes, waits for hosted checks, reads credential contents, or
 relays operator messages between stages. Those effects remain with the established
 candidate, journal, lease, foreman, validation, commit, and publication components.
-Live operation still requires an explicit standing grant, usable local Codex and
-validator executables, external custody roots, Git remote authority, and configured
-publication credentials.
+Live unattended deployment still requires external configuration, an explicit
+standing grant, authenticated local Codex/validator/publication tools, a candidate
+inbox, external state/workspace/scratch custody roots, Git remote authority, and a
+scheduler invocation.
 
 ## CLI
 
