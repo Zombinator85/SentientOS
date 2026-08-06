@@ -8,6 +8,12 @@ until a configured action/time bound or a terminal idle, waiting, paused, or blo
 result. It never installs or supplies a scheduler and is not integrated into
 `sentientosd`.
 
+Commit `83cca3e` introduced the deterministic watchdog scaffold.  The production
+coordinator now discovers the canonical task journals and immutable component
+artifacts directly and uses a closed internal dispatch table; legacy synthetic
+state summaries and caller-supplied transition handlers have no execution
+authority.
+
 ## Safety and recovery contract
 
 Decision order is pause/STOP, integrity failure, active-task ambiguity, exact
@@ -31,10 +37,13 @@ is an ancestor of the tracked base. Only explicitly retryable publication failur
 may be retried after configured deterministic backoff. Authentication, integrity,
 and remote-conflict failures block without a hot loop.
 
-The coordinator never implements changes, validates them, performs Git plumbing,
-merges, force-pushes, waits for hosted checks, reads credential contents, or relays
-operator messages between stages. Those effects remain with the established
+The coordinator never duplicates implementation, validation, Git, or publication
+logic, merges, force-pushes, waits for hosted checks, reads credential contents, or
+relays operator messages between stages. Those effects remain with the established
 candidate, journal, lease, foreman, validation, commit, and publication components.
+Live operation still requires an explicit standing grant, usable local Codex and
+validator executables, external custody roots, Git remote authority, and configured
+publication credentials.
 
 ## CLI
 
