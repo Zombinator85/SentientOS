@@ -307,6 +307,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_operating_doctrine_docs",
         "tests.test_task_acceptance_verifier",
         "tests.test_control_plane_kernel",
+        "tests.test_maintenance_autonomy_cycle",
+        "tests.test_maintenance_autonomy_cycle_closed_loop",
     }
     legacy_enabled = legacy_marker_enabled(config.option.markexpr)
     federation_enabled = os.getenv(FEDERATION_ENABLEMENT_ENV, "").strip().lower() in {"1", "true", "yes", "on"}

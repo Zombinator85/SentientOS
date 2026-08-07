@@ -75,7 +75,9 @@ Manual canonical candidate authoring remains available. Canonical governed evide
 and normalized work items can also reach the candidate inbox through the bounded
 external collector without operator message relay. The watchdog and every
 downstream authority boundary remain unchanged. A combined externally scheduled
-intake-plus-watchdog cycle remains separate work.
+The externally invokable intake-plus-watchdog autonomy cycle is implemented by
+the bounded production coordinator and its top-level CLI proof. SentientOS still
+installs no scheduler; live scheduling remains operator-controlled external work.
 ## a1dee88 maintenance implementation-agent adapter
 One active lease can now start one deterministic implementation attempt, and one attempt binds one implementation-agent session. Session starts are idempotent and recoverable; explicit polling records heartbeats and terminal outcomes. Immutable session and result artifacts are journal-bound. Timeout and cancellation are explicit. Fake-driver completion is synthetic and non-effectful. Concurrent start has one canonical session. No real implementation, remote invocation, repository mutation, validation, Git, publication, host, or runtime effect occurred.
 The maintenance-loop foreman, proportionate validation/correction controller, exact commit and asynchronous publication custody, and recovery watchdog are delivered historical milestones. Independent security follow-ups remain retained.
