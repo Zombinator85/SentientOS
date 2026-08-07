@@ -12,10 +12,13 @@ NOW='2026-08-06T00:00:00Z'
 def setup(tmp_path:Path, mode:str='success', validation_expectations=None, closed_loop=False):
     repo=tmp_path/'repo'; repo.mkdir(); subprocess.run(['git','init'],cwd=repo,check=True,capture_output=True)
     subprocess.run(['git','config','user.email','a@b.c'],cwd=repo,check=True); subprocess.run(['git','config','user.name','T'],cwd=repo,check=True)
-    (repo/'allowed.txt').write_text('base\n'); subprocess.run(['git','add','allowed.txt'],cwd=repo,check=True); subprocess.run(['git','commit','-m','base'],cwd=repo,check=True,capture_output=True)
+    (repo/'allowed.txt').write_text('base\n')
+    scripts = repo/'scripts'; scripts.mkdir()
+    (scripts/'maintenance_loop_watchdog.py').write_bytes(Path('scripts/maintenance_loop_watchdog.py').read_bytes())
+    subprocess.run(['git','add','allowed.txt','scripts/maintenance_loop_watchdog.py'],cwd=repo,check=True); subprocess.run(['git','commit','-m','base'],cwd=repo,check=True,capture_output=True)
     sha=subprocess.run(['git','rev-parse','HEAD'],cwd=repo,text=True,capture_output=True,check=True).stdout.strip()
     roots={n:tmp_path/n for n in ('state','workspace','scratch','inbox','codex_home')}
-    for root in roots.values(): root.mkdir()
+    for root in roots.values(): root.mkdir(mode=0o700)
     fake=make_fake_cli(tmp_path,mode)
     auth=['implementation_agent_session',*sorted(EFFECT_AUTHORITIES)]
     if closed_loop: auth += ['repository_commit','remote_repository_read','remote_ref_publish']

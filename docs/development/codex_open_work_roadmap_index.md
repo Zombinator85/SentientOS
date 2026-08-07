@@ -7,7 +7,7 @@ The operator handoff now also includes one explicit candidate-authoring and iner
 enqueue path plus argv-only first-pilot guidance. See
 [`maintenance_candidate_authoring.md`](maintenance_candidate_authoring.md). This
 handoff grants no consent, admission, execution, scheduler, or authority expansion.
-This is the active, compact selection map through mainline `1a6b228`. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
+This is the active, compact selection map for the current mainline. Consumed history is archived in [`codex_open_work_roadmap_archive_2026-07.md`](codex_open_work_roadmap_archive_2026-07.md).
 ## Implemented posture
 - Operator-confirmed diagnostic runtime exists behind its established admission and authority boundaries. It does not authorize provider, network, external-disclosure, host-effect, federation-adoption, or live-memory escalation.
 - Codex bootstrap, matrix, landing gate, supervisor, two-phase finalizer, metadata guard, body binding, and recovery rails are implemented developer-workflow controls. The observed finalizer gap around mutable exact-acceptance provenance and a shared marginal matrix timeout is closed by external byte custody, fail-fast verification, terminal digest checks, and an independent matrix budget.

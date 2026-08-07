@@ -101,10 +101,10 @@ def load_config(path: str | Path) -> dict[str, Any]:
     return validate_config(value)
 
 
-def _component_configs(cfg: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def _component_configs(cfg: Mapping[str, Any], *, evaluation_time: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     cc = collector.load_config(cfg["collector_configuration_path"])
     wc = watchdog.load_config(cfg["watchdog_configuration_path"])
-    inspected = profiles.inspect_profile_bundle(cfg["activation_profile_bundle_manifest_path"], "9999-12-31T23:59:59Z")
+    inspected = profiles.inspect_profile_bundle(cfg["activation_profile_bundle_manifest_path"], evaluation_time)
     manifest = inspected["manifest"]
     agreements = [
         cfg["repository_identity"] == cc["repository_identity"] == manifest["repository_identity"],
@@ -117,7 +117,10 @@ def _component_configs(cfg: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str
         Path(cc["maintenance_candidate_inbox"]) in [Path(x) for x in wc["candidate_inbox_roots"]],
         Path(wc["state_root"]) == Path(manifest["state_root"]),
         wc["tracked_base_ref"] == manifest["tracked_base_ref"],
-        Path(cfg["stop_marker"]) == Path(cc.get("stop_marker", "")) == Path(wc.get("stop_marker", "")),
+        # Each component retains custody of its own STOP marker beneath its
+        # private state root.  The coordinator's marker is an additional outer
+        # boundary, not a path shared across those mutually external roots.
+        bool(cc.get("stop_marker")) and bool(wc.get("stop_marker")),
     ]
     if not all(agreements):
         raise ValueError("component_configuration_disagreement")
@@ -127,7 +130,7 @@ def _component_configs(cfg: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str
 def doctor(config: Mapping[str, Any], *, evaluation_time: str, _lock_already_owned: bool = False) -> dict[str, Any]:
     reasons: list[str] = []
     try:
-        cfg = validate_config(config); cc, wc, _ = _component_configs(cfg)
+        cfg = validate_config(config); cc, wc, _ = _component_configs(cfg, evaluation_time=evaluation_time)
         cd = collector.doctor(cc, evaluation_time=evaluation_time)
         if cd.get("status") != "collector_ready": reasons.append("collector_not_ready")
         ad = activation.doctor_live(cfg["watchdog_configuration_path"], evaluation_time=evaluation_time,
@@ -191,6 +194,62 @@ def _map_watchdog(result: Mapping[str, Any], *, had_candidate: bool) -> str:
     return "autonomy_cycle_continuing" if status == "completed" else "autonomy_cycle_blocked"
 
 
+def _one_json(root: Path, directory: str) -> dict[str, Any] | None:
+    paths = sorted((root / directory).glob("*.json"))
+    if len(paths) != 1:
+        return None
+    value = json.loads(paths[0].read_text(encoding="utf-8"))
+    return dict(value) if isinstance(value, Mapping) else None
+
+
+def _terminal_custody(wc: Mapping[str, Any], status: str) -> dict[str, Any] | None:
+    """Bind terminal identities from watchdog-owned canonical artifacts."""
+    if status != "autonomy_cycle_completed":
+        return None
+    root = Path(str(wc["state_root"]))
+    lease = _one_json(root, "maintenance_leases")
+    session = _one_json(root, "maintenance_agent_sessions")
+    commit = _one_json(root, "maintenance_commit_results")
+    publication = _one_json(root, "maintenance_publication_results")
+    validations = []
+    for path in sorted((root / "maintenance_validation_results").glob("*.json")):
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(value, Mapping):
+            validations.append({key: value.get(key) for key in (
+                "validation_ref_id", "plan_digest", "result_digest", "terminal_status")})
+    required = (lease, session, commit, publication)
+    task_paths = sorted((root / "maintenance_tasks").glob("*.jsonl"))
+    cursor_path = Path(str(wc.get("base_cursor_journal") or root / "maintenance_base_cursor.jsonl"))
+    if any(item is None for item in required) or len(task_paths) != 1 or len(validations) < 1 or not cursor_path.is_file():
+        raise ValueError("terminal_canonical_custody_incomplete")
+    task_events = [json.loads(line) for line in task_paths[0].read_text(encoding="utf-8").splitlines()]
+    closures = [event for event in task_events if event.get("event_type") == "task_closed"]
+    cursor_events = [json.loads(line) for line in cursor_path.read_text(encoding="utf-8").splitlines()]
+    if len(closures) != 1 or len(cursor_events) != 1:
+        raise ValueError("terminal_closure_custody_ambiguous")
+    assert lease is not None and session is not None and commit is not None and publication is not None
+    return {
+        "task_id": lease.get("task_id"),
+        "lease_id": lease.get("lease_id"),
+        "lease_digest": lease.get("lease_digest"),
+        "attempt_id": session.get("attempt_id"),
+        "attempt_ordinal": session.get("attempt_ordinal"),
+        "implementation_session_id": session.get("session_id"),
+        "implementation_thread_id": next((event.get("payload", {}).get("codex_thread_id") for event in task_events if event.get("event_type") == "implementation_completed"), None),
+        "validation_results": validations,
+        "commit_result_id": commit.get("commit_result_id"),
+        "commit_result_digest": commit.get("commit_result_digest"),
+        "commit_sha": commit.get("commit_sha"),
+        "publication_id": publication.get("publication_id"),
+        "publication_result_digest": publication.get("publication_result_digest"),
+        "base_cursor_before": wc.get("base_sha"),
+        "base_cursor_after": cursor_events[0].get("payload", {}).get("commit_sha"),
+        "base_cursor_event_digest": cursor_events[0].get("event_digest"),
+        "closure_event_id": closures[0].get("event_id"),
+        "closure_event_digest": closures[0].get("event_digest"),
+    }
+
+
 def cycle_once(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
     cfg = validate_config(config); order: list[str] = []; stops: list[dict[str, Any]] = []
     status = ""
@@ -202,7 +261,7 @@ def cycle_once(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, 
         readiness = doctor(cfg, evaluation_time=evaluation_time, _lock_already_owned=True)
         if readiness["status"] != "autonomy_cycle_ready": status, reason = "autonomy_cycle_blocked", readiness["reason_codes"]
         else:
-            cc, wc, _ = _component_configs(cfg); reason = []
+            cc, wc, _ = _component_configs(cfg, evaluation_time=evaluation_time); reason = []
             if _stop(cfg, "integrity_and_stop", stops, order): status = "autonomy_cycle_paused"
             else:
                 scanned = watchdog.scan(wc, evaluation_time=evaluation_time); decision = watchdog.decide(wc, scanned); transition = decision["transition"]
@@ -235,13 +294,15 @@ def cycle_once(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, 
                     "status": "autonomy_cycle_blocked", "reason_codes": chain_reasons,
                     "effect_counts": effects, "collector_result": collection,
                     "watchdog_result": wd_result, "receipt": None}
+        collected = (collection or {}).get("scan", {}).get("candidate_set", {}).get("canonical_candidates", [])
         body = {"schema_version": RECEIPT_SCHEMA, "sequence": len(rows) + 1, "predecessor_receipt_digest": rows[-1]["receipt_digest"] if rows else ZERO_DIGEST,
             "cycle_config_digest": cfg["config_digest"], "evaluation_time": evaluation_time, "repository_identity": cfg["repository_identity"], "base_sha_before": cfg["base_sha"],
             "collector_config_digest": collector.load_config(cfg["collector_configuration_path"])["config_digest"], "collector_result_digest": digest(collection) if collection is not None else None,
             "collection_skipped": effects["collector_invocations"] == 0, "collection_skip_reason": "prior_custody" if effects["collector_invocations"] == 0 else None,
-            "collected_candidates": [{"candidate_id": x.get("canonical_candidate_id"), "revision": x.get("canonical_candidate_revision_digest")} for x in (collection or {}).get("scan", {}).get("candidate_bindings", [])],
+            "collected_candidates": [{"candidate_id": x.get("candidate_id"), "revision": x.get("candidate_revision_digest")} for x in collected],
             "watchdog_config_digest": watchdog.load_config(cfg["watchdog_configuration_path"])["config_digest"], "watchdog_result_digest": digest(wd_result) if wd_result is not None else None,
-            "terminal_status": status, "stop_observations": stops, "stage_order": order, "effect_counts": effects}
+            "terminal_status": status, "terminal_custody": _terminal_custody(wc, status) if wd_result is not None else None,
+            "stop_observations": stops, "stage_order": order, "effect_counts": effects}
         receipt = dict(body); receipt["receipt_digest"] = digest(body)
         path = Path(cfg["cycle_receipt_journal_path"]); fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(fd, "ab") as handle: handle.write(canonical_json_bytes(receipt) + b"\n"); handle.flush(); os.fsync(handle.fileno())
@@ -249,7 +310,7 @@ def cycle_once(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, 
 
 
 def inspect(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
-    cfg = validate_config(config); cc, wc, _ = _component_configs(cfg); scanned = watchdog.scan(wc, evaluation_time=evaluation_time); decision = watchdog.decide(wc, scanned); receipts = inspect_receipts(cfg)
+    cfg = validate_config(config); cc, wc, _ = _component_configs(cfg, evaluation_time=evaluation_time); scanned = watchdog.scan(wc, evaluation_time=evaluation_time); decision = watchdog.decide(wc, scanned); receipts = inspect_receipts(cfg)
     transition = decision["transition"]
     next_action = "block" if transition in {"integrity_failure", "ambiguous_active_tasks"} else "pause" if transition == "paused" else "collect" if transition == "idle" else "process_existing_candidate" if transition == "select_candidate" else "continue_existing_work"
     active = scanned["observations"]["active_tasks"]
