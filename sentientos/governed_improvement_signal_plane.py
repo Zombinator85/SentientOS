@@ -196,11 +196,12 @@ def _resolve_linked_artifact(value: object, *, provenance_path: Path, repo_root:
     return resolved
 
 
-def _failure_group_records(groups: Sequence[Mapping[str, Any]], *, artifact: str, artifact_digest: str, provenance_digest: str) -> list[dict[str, Any]]:
+def _failure_group_records(groups: Sequence[Mapping[str, Any]], *, artifact: str, artifact_digest: str, provenance_digest: str, selected_node_ids: Sequence[str] = ()) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for idx, group in enumerate(groups):
-        nodeid = str(group.get("nodeid") or group.get("node_id") or group.get("test_id") or group.get("name") or f"failure_group_{idx}")
-        file_value = group.get("file") or group.get("path") or (nodeid.split("::", 1)[0] if "::" in nodeid else "tests")
+        selected_node = selected_node_ids[idx] if idx < len(selected_node_ids) else None
+        nodeid = str(group.get("nodeid") or group.get("node_id") or group.get("test_id") or group.get("example_nodeid") or group.get("name") or selected_node or f"failure_group_{idx}")
+        file_value = group.get("file") or group.get("path") or (selected_node.split("::", 1)[0] if selected_node else (nodeid.split("::", 1)[0] if "::" in nodeid else "tests"))
         message = str(group.get("message") or group.get("exception_message") or group.get("summary") or nodeid)
         meta = {
             "failure_group_index": idx,
@@ -261,7 +262,9 @@ def records_from_run_tests_provenance(payload: Mapping[str, Any], *, provenance_
         raise ValueError("run_tests_failure_evidence_missing")
     if not groups:
         raise ValueError("run_tests_failure_groups_empty")
-    return _failure_group_records(groups, artifact=artifact, artifact_digest=artifact_digest, provenance_digest=provenance_digest or _sha(_stable_json(payload).encode()))
+    selected = payload.get("selected_node_ids")
+    selected_node_ids = selected if isinstance(selected, list) and all(isinstance(x, str) for x in selected) else []
+    return _failure_group_records(groups, artifact=artifact, artifact_digest=artifact_digest, provenance_digest=provenance_digest or _sha(_stable_json(payload).encode()), selected_node_ids=selected_node_ids)
 
 def collect_repository_evidence(*, repo_root: Path | str = Path.cwd(), artifacts: Sequence[Mapping[str, Any]] = (), direct_records: Sequence[Mapping[str, Any]] = (), scan_repo: bool = False) -> list[ImprovementSignal]:
     records: list[Mapping[str, Any]] = []
