@@ -409,7 +409,10 @@ def validate_evaluation(payload: Mapping[str, Any]) -> tuple[bool, tuple[str,...
                 reasons.append(f"summary_mismatch:{key}")
         if payload.get("genesis_inputs") != expected_evaluation.genesis_inputs:
             reasons.append("genesis_inputs_mismatch")
-        if payload.get("amendment_inputs") != [dict(x) for x in expected_evaluation.amendment_inputs]:
+        # JSON-loaded evaluations contain lists where the in-memory routing
+        # receipt dataclass projects tuples. Compare their canonical JSON
+        # domains so a persisted canonical evaluation remains valid.
+        if _stable_json(payload.get("amendment_inputs")) != _stable_json([dict(x) for x in expected_evaluation.amendment_inputs]):
             reasons.append("amendment_inputs_mismatch")
         for row in signal_rows:
             if isinstance(row, Mapping) and row.get("source_digest") and not str(row.get("source_digest")).startswith("sha256:"):
