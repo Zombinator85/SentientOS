@@ -174,7 +174,10 @@ def _validated_provenance(cfg: Mapping[str, Any]) -> tuple[Path, dict[str, Any],
         raise ValueError("run_tests_provenance_hash_mismatch")
     if payload.get("git_sha") != cfg["base_sha"] or payload.get("repo_root") != cfg["repository_root"]:
         raise ValueError("run_tests_provenance_repository_binding_mismatch")
-    if payload.get("pytest_args") != ["-q", *cfg["pytest_node_ids"]] or payload.get("selected_node_ids") != cfg["pytest_node_ids"]:
+    pytest_args = payload.get("pytest_args")
+    if (not isinstance(pytest_args, list)
+            or sorted(pytest_args) != sorted(["-q", *cfg["pytest_node_ids"]])
+            or payload.get("selected_node_ids") != cfg["pytest_node_ids"]):
         raise ValueError("run_tests_provenance_selection_mismatch")
     if payload.get("metrics_status") != "ok" or payload.get("reporter_ok") is not True:
         raise ValueError("run_tests_provenance_incomplete")
