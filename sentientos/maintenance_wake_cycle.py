@@ -7,6 +7,7 @@ import json
 import os
 import stat
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -30,6 +31,23 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 def digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def canonical_evaluation_time(value: str) -> str:
+    """Validate an invocation timestamp and return the canonical UTC wire form."""
+    if not isinstance(value, str) or not value:
+        raise ValueError("invalid_evaluation_time")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("invalid_evaluation_time") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("invalid_evaluation_time")
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "0Z"
+
+
+def _effective_time(cfg: Mapping[str, Any], evaluation_time: str | None) -> str:
+    return canonical_evaluation_time(evaluation_time) if evaluation_time is not None else str(cfg["evaluation_time"])
 
 
 def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -77,7 +95,6 @@ def _components(cfg: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any],
     agreements = (cfg["repository_identity"] == hc["repository_identity"] == ac["repository_identity"] == cc["repository_identity"],
         Path(cfg["repository_root"]) == Path(hc["repository_root"]) == Path(ac["repository_root"]) == Path(cc["repository_root"]),
         cfg["base_sha"] == hc["base_sha"] == ac["base_sha"] == cc["base_sha"],
-        cfg["evaluation_time"] == hc["evaluation_time"],
         Path(hc["governed_signal_output_root"]) in [Path(x) for x in cc["governed_improvement_signal_source_roots"]],
         Path(ac["activation_profile_bundle_manifest_path"]) == Path(cc["activation_profile_bundle_manifest_path"]),
         bool(cc.get("stop_marker")) and bool(ac.get("stop_marker")))
@@ -105,16 +122,16 @@ def _receipts(cfg: Mapping[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
     return rows, []
 
 
-def doctor(config: Mapping[str, Any]) -> dict[str, Any]:
+def doctor(config: Mapping[str, Any], *, evaluation_time: str | None = None) -> dict[str, Any]:
     reasons: list[str] = []
     try:
-        cfg = validate_config(config); hc, ac, _ = _components(cfg)
+        cfg = validate_config(config); effective_time = _effective_time(cfg, evaluation_time); hc, ac, _ = _components(cfg)
         if health.doctor(hc)["status"] != "health_probe_ready": reasons.append("health_probe_not_ready")
-        if autonomy.doctor(ac, evaluation_time=cfg["evaluation_time"])["status"] != "autonomy_cycle_ready": reasons.append("autonomy_cycle_not_ready")
+        if autonomy.doctor(ac, evaluation_time=effective_time)["status"] != "autonomy_cycle_ready": reasons.append("autonomy_cycle_not_ready")
         if _receipts(cfg)[1]: reasons.append("wake_receipt_chain_invalid")
         lock = _lock(cfg); lock.close()
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc: reasons.append(str(exc)); cfg = dict(config)
-    return {"schema_version":"sentientos.maintenance_wake_cycle_doctor:v1", "status":"maintenance_wake_ready" if not reasons else "maintenance_wake_blocked", "config_digest":cfg.get("config_digest"), "reason_codes":sorted(set(reasons))}
+    return {"schema_version":"sentientos.maintenance_wake_cycle_doctor:v1", "status":"maintenance_wake_ready" if not reasons else "maintenance_wake_blocked", "config_digest":cfg.get("config_digest"), "evaluation_time":locals().get("effective_time"), "reason_codes":sorted(set(reasons))}
 
 
 def inspect_receipts(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -127,33 +144,33 @@ def _stop(cfg: Mapping[str, Any], stage: str, observations: list[dict[str, Any]]
     present=Path(str(cfg["stop_marker"])).exists(); observations.append({"stage":stage,"present":present}); return present
 
 
-def wake_once(config: Mapping[str, Any]) -> dict[str, Any]:
-    cfg=validate_config(config); effects={"health_probe_invocations":0,"autonomy_cycle_invocations":0}; stops: list[dict[str,Any]]=[]
+def wake_once(config: Mapping[str, Any], *, evaluation_time: str | None = None) -> dict[str, Any]:
+    cfg=validate_config(config); effective_time=_effective_time(cfg,evaluation_time); effects={"health_probe_invocations":0,"autonomy_cycle_invocations":0}; stops: list[dict[str,Any]]=[]
     try: lock=_lock(cfg)
     except ValueError as exc: return {"status":"maintenance_wake_blocked","reason_codes":[str(exc)],"effect_counts":effects}
     with lock:
         try:
             hc,ac,cc=_components(cfg); rows,reasons=_receipts(cfg)
             if reasons: raise ValueError(reasons[0])
-            pre=autonomy.inspect(ac,evaluation_time=cfg["evaluation_time"])
+            pre=autonomy.inspect(ac,evaluation_time=effective_time)
             probe_result=None; autonomy_result=None; skip_reason=None
             if _stop(cfg,"integrity_and_stop",stops): status="maintenance_wake_paused"
             elif pre["status"] != "inspection_ready": raise ValueError("autonomy_inspection_blocked")
             elif pre["next_action"] in {"continue_existing_work","process_existing_candidate"}:
-                skip_reason="existing_autonomy_custody"; autonomy_result=autonomy.cycle_once(ac,evaluation_time=cfg["evaluation_time"]); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
+                skip_reason="existing_autonomy_custody"; autonomy_result=autonomy.cycle_once(ac,evaluation_time=effective_time); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
             else:
-                scanned=collector.scan(cc,evaluation_time=cfg["evaluation_time"])
+                scanned=collector.scan(cc,evaluation_time=effective_time)
                 if scanned["status"] != "scan_ready": raise ValueError("collector_scan_blocked")
                 if int(scanned["source_count"]) > 0:
-                    skip_reason="existing_governed_source"; autonomy_result=autonomy.cycle_once(ac,evaluation_time=cfg["evaluation_time"]); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
+                    skip_reason="existing_governed_source"; autonomy_result=autonomy.cycle_once(ac,evaluation_time=effective_time); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
                 else:
-                    probe_result=health.probe_once(hc); effects["health_probe_invocations"]=1
+                    probe_result=health.probe_once(hc,evaluation_time=effective_time); effects["health_probe_invocations"]=1
                     if probe_result["status"] == "health_probe_healthy": status="maintenance_wake_idle"
                     elif probe_result["status"] != "health_probe_findings": status="maintenance_wake_blocked"
                     elif _stop(cfg,"after_health_probe",stops): status="maintenance_wake_paused"
-                    else: autonomy_result=autonomy.cycle_once(ac,evaluation_time=cfg["evaluation_time"]); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
+                    else: autonomy_result=autonomy.cycle_once(ac,evaluation_time=effective_time); effects["autonomy_cycle_invocations"]=1; status=str(autonomy_result["status"])
             component_receipt = (autonomy_result or {}).get("receipt") or {}
-            body={"schema_version":RECEIPT_SCHEMA,"sequence":len(rows)+1,"predecessor_receipt_digest":rows[-1]["receipt_digest"] if rows else ZERO_DIGEST,"wake_config_digest":cfg["config_digest"],"evaluation_time":cfg["evaluation_time"],"stop_observations":stops,"pre_wake_autonomy_state":pre,"probe_ran":probe_result is not None,"probe_skip_reason":skip_reason,"health_probe_result":probe_result,"autonomy_cycle_result":autonomy_result,"terminal_custody":component_receipt.get("terminal_custody"),"terminal_status":status,"effect_counts":effects}
+            body={"schema_version":RECEIPT_SCHEMA,"sequence":len(rows)+1,"predecessor_receipt_digest":rows[-1]["receipt_digest"] if rows else ZERO_DIGEST,"wake_config_digest":cfg["config_digest"],"evaluation_time":effective_time,"stop_observations":stops,"pre_wake_autonomy_state":pre,"probe_ran":probe_result is not None,"probe_skip_reason":skip_reason,"health_probe_result":probe_result,"autonomy_cycle_result":autonomy_result,"terminal_custody":component_receipt.get("terminal_custody"),"terminal_status":status,"effect_counts":effects}
             receipt=dict(body); receipt["receipt_digest"]=digest(body)
             fd=os.open(cfg["wake_receipt_journal_path"],os.O_WRONLY|os.O_APPEND|os.O_CREAT|getattr(os,"O_NOFOLLOW",0),0o600)
             with os.fdopen(fd,"ab") as handle: handle.write(canonical_json_bytes(receipt)+b"\n"); handle.flush(); os.fsync(handle.fileno())
@@ -162,12 +179,13 @@ def wake_once(config: Mapping[str, Any]) -> dict[str, Any]:
             return {"status":"maintenance_wake_blocked","reason_codes":[str(exc)],"effect_counts":effects}
 
 
-def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
+def inspect(config: Mapping[str, Any], *, evaluation_time: str | None = None) -> dict[str, Any]:
     cfg=validate_config(config); _,ac,cc=_components(cfg)
-    return {"status":"inspection_ready","config_digest":cfg["config_digest"],"autonomy":autonomy.inspect(ac,evaluation_time=cfg["evaluation_time"]),"collector":collector.inspect(cc,evaluation_time=cfg["evaluation_time"]),"receipts":inspect_receipts(cfg)}
+    effective_time=_effective_time(cfg,evaluation_time)
+    return {"status":"inspection_ready","config_digest":cfg["config_digest"],"evaluation_time":effective_time,"autonomy":autonomy.inspect(ac,evaluation_time=effective_time),"collector":collector.inspect(cc,evaluation_time=effective_time),"receipts":inspect_receipts(cfg)}
 
 
 def print_run_command(config_path: str|Path, *, python_executable: str=sys.executable) -> dict[str,Any]:
     return {"status":"run_command_ready","argv":[python_executable,str(Path(__file__).parents[1]/"scripts"/"maintenance_wake_cycle.py"),"--config",str(Path(config_path).resolve()),"wake-once"],"shell":False,"scheduler_installation":False}
 
-__all__=["CONFIG_SCHEMA","RECEIPT_SCHEMA","ZERO_DIGEST","validate_config","load_config","doctor","wake_once","inspect","inspect_receipts","print_run_command","canonical_json_bytes","digest"]
+__all__=["CONFIG_SCHEMA","RECEIPT_SCHEMA","ZERO_DIGEST","validate_config","load_config","doctor","wake_once","inspect","inspect_receipts","print_run_command","canonical_json_bytes","canonical_evaluation_time","digest"]

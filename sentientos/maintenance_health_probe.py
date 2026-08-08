@@ -8,6 +8,7 @@ import os
 import signal
 import stat
 import subprocess
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -197,18 +198,30 @@ def _receipts(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _append_receipt(cfg: Mapping[str, Any], *, status: str, provenance_hash: str, output_name: str | None, output_digest: str | None) -> None:
+def _effective_time(cfg: Mapping[str, Any], evaluation_time: str | None) -> str:
+    if evaluation_time is None:
+        return str(cfg["evaluation_time"])
+    try:
+        parsed = datetime.fromisoformat(evaluation_time.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise ValueError("invalid_evaluation_time") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("invalid_evaluation_time")
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "0Z"
+
+
+def _append_receipt(cfg: Mapping[str, Any], *, evaluation_time: str, status: str, provenance_hash: str, output_name: str | None, output_digest: str | None) -> None:
     path = Path(cfg["receipt_journal_path"]); rows = _receipts(path)
-    if any(x["provenance_hash"] == provenance_hash and x["status"] == status for x in rows): return
-    row = {"schema_version": RECEIPT_SCHEMA, "sequence": len(rows)+1, "predecessor_receipt_digest": rows[-1]["receipt_digest"] if rows else ZERO_DIGEST, "config_digest": cfg["config_digest"], "provenance_hash": provenance_hash, "status": status, "output_filename": output_name, "output_byte_digest": output_digest, "evaluation_time": cfg["evaluation_time"]}
+    if any(x["provenance_hash"] == provenance_hash and x["status"] == status and x["evaluation_time"] == evaluation_time for x in rows): return
+    row = {"schema_version": RECEIPT_SCHEMA, "sequence": len(rows)+1, "predecessor_receipt_digest": rows[-1]["receipt_digest"] if rows else ZERO_DIGEST, "config_digest": cfg["config_digest"], "provenance_hash": provenance_hash, "status": status, "output_filename": output_name, "output_byte_digest": output_digest, "evaluation_time": evaluation_time}
     row["receipt_digest"] = digest(row)
     fd = os.open(path, os.O_WRONLY|os.O_APPEND|os.O_CREAT|getattr(os,"O_NOFOLLOW",0), 0o600)
     with os.fdopen(fd,"ab") as handle: handle.write(canonical_json_bytes(row)+b"\n"); handle.flush(); os.fsync(handle.fileno())
 
 
-def probe_once(config: Mapping[str, Any]) -> dict[str, Any]:
-    cfg = validate_config(config); readiness = doctor(cfg)
-    if readiness["status"] != "health_probe_ready": return readiness
+def probe_once(config: Mapping[str, Any], *, evaluation_time: str | None = None) -> dict[str, Any]:
+    cfg = validate_config(config); effective_time = _effective_time(cfg, evaluation_time); readiness = doctor(cfg)
+    if readiness["status"] != "health_probe_ready": return {**readiness, "evaluation_time": effective_time}
     lock_path = Path(cfg["probe_state_root"]) / "probe.lock"
     lock = open(lock_path, "a+b"); fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:
@@ -218,27 +231,27 @@ def probe_once(config: Mapping[str, Any]) -> dict[str, Any]:
         failed = int(provenance.get("tests_failed") or 0)
         if failed == 0:
             if int(provenance.get("pytest_exit_code", 1)) != 0: raise ValueError("run_tests_non_failure_error")
-            _append_receipt(cfg, status="health_probe_healthy", provenance_hash=str(provenance["provenance_hash"]), output_name=None, output_digest=None)
-            return {"status":"health_probe_healthy", "config_digest":cfg["config_digest"], "provenance_digest":provenance_digest, "governed_signal_written":False}
+            _append_receipt(cfg, evaluation_time=effective_time, status="health_probe_healthy", provenance_hash=str(provenance["provenance_hash"]), output_name=None, output_digest=None)
+            return {"status":"health_probe_healthy", "config_digest":cfg["config_digest"], "evaluation_time":effective_time, "provenance_digest":provenance_digest, "governed_signal_written":False}
         records = signal_plane.records_from_run_tests_provenance(provenance, provenance_path=provenance_path, repo_root=cfg["repository_root"], provenance_digest=provenance_digest)
         if len(records) > cfg["maximum_failing_records"]: raise ValueError("maximum_failing_records_exceeded")
-        metadata = {"declared_validation_expectations":cfg["declared_validation_expectations"], "requested_authority_classes":cfg["requested_maintenance_authority_classes"], "declared_constraints":cfg["declared_constraints"], "estimated_file_count":cfg["estimated_file_count"], "estimated_changed_line_count":cfg["estimated_changed_line_count"], "estimated_implementation_seconds":cfg["estimated_implementation_seconds"], "estimated_validation_seconds":cfg["estimated_validation_seconds"], "observed_at":cfg["evaluation_time"]}
+        metadata = {"declared_validation_expectations":cfg["declared_validation_expectations"], "requested_authority_classes":cfg["requested_maintenance_authority_classes"], "declared_constraints":cfg["declared_constraints"], "estimated_file_count":cfg["estimated_file_count"], "estimated_changed_line_count":cfg["estimated_changed_line_count"], "estimated_implementation_seconds":cfg["estimated_implementation_seconds"], "estimated_validation_seconds":cfg["estimated_validation_seconds"], "observed_at":effective_time}
         evaluation = signal_plane.evaluate_signal_plane(({**record, **metadata} for record in records), repo_root=cfg["repository_root"])
         # Validate the exact JSON-domain value the collector will load, rather
         # than an in-memory tuple-bearing dataclass projection.
         payload = json.loads(canonical_json_bytes(evaluation.to_dict()))
         valid, why = signal_plane.validate_evaluation(payload)
         if not valid: raise ValueError("governed_signal_invalid:" + ",".join(why))
-        raw = canonical_json_bytes(payload) + b"\n"; name = "health-probe-" + str(provenance["provenance_hash"]) + ".json"; target = Path(cfg["governed_signal_output_root"])/name
+        raw = canonical_json_bytes(payload) + b"\n"; invocation_digest = hashlib.sha256(effective_time.encode()).hexdigest()[:16]; name = "health-probe-" + str(provenance["provenance_hash"]) + "-" + invocation_digest + ".json"; target = Path(cfg["governed_signal_output_root"])/name
         if target.exists():
             if target.is_symlink() or target.read_bytes() != raw: raise ValueError("governed_signal_output_conflict")
         else:
             fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,"O_NOFOLLOW",0),0o600)
             with os.fdopen(fd,"wb") as handle: handle.write(raw); handle.flush(); os.fsync(handle.fileno())
-        output_digest=digest_bytes(raw); _append_receipt(cfg,status="health_probe_findings",provenance_hash=str(provenance["provenance_hash"]),output_name=name,output_digest=output_digest)
-        return {"status":"health_probe_findings", "config_digest":cfg["config_digest"], "provenance_digest":provenance_digest, "governed_signal_path":str(target), "governed_signal_byte_digest":output_digest}
+        output_digest=digest_bytes(raw); _append_receipt(cfg,evaluation_time=effective_time,status="health_probe_findings",provenance_hash=str(provenance["provenance_hash"]),output_name=name,output_digest=output_digest)
+        return {"status":"health_probe_findings", "config_digest":cfg["config_digest"], "evaluation_time":effective_time, "provenance_digest":provenance_digest, "governed_signal_path":str(target), "governed_signal_byte_digest":output_digest}
     except (OSError, ValueError, KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
-        return {"status":"health_probe_blocked", "config_digest":cfg["config_digest"], "reason_codes":[str(exc)]}
+        return {"status":"health_probe_blocked", "config_digest":cfg["config_digest"], "evaluation_time":effective_time, "reason_codes":[str(exc)]}
     finally:
         lock.close()
 

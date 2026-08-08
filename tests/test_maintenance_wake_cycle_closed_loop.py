@@ -183,7 +183,7 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
                FAKE_CODEX_CORRECTIVE_CONTENT="def test_allowed_text():\n    assert True\n",
                PYTHONPATH=str(Path.cwd()))
     process = subprocess.run(
-        [sys.executable, "scripts/maintenance_wake_cycle.py", "--config", str(wake_path), "wake-once"],
+        [sys.executable, "scripts/maintenance_wake_cycle.py", "--config", str(wake_path), "--evaluation-time", "2026-08-08T12:34:56.0000000Z", "wake-once"],
         cwd=Path.cwd(), env=env, text=True, capture_output=True, timeout=90, check=False,
     )
     assert process.returncode == 0, process.stderr + process.stdout
