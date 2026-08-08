@@ -28,7 +28,7 @@ _REQUIRED = {
     "estimated_implementation_seconds", "estimated_validation_seconds",
     "evaluation_time", "receipt_journal_path",
 }
-_ALLOWED = _REQUIRED | {"config_digest"}
+_ALLOWED = _REQUIRED | {"config_digest", "declared_subject_path"}
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -82,6 +82,10 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
         relative = node.split("::", 1)[0]
         if ".." in Path(relative).parts:
             raise ValueError("pytest_node_id_invalid")
+    subject = cfg.get("declared_subject_path")
+    if subject is not None and (not isinstance(subject, str) or subject.startswith("-")
+            or Path(subject).is_absolute() or ".." in Path(subject).parts):
+        raise ValueError("declared_subject_path_invalid")
     for key in ("probe_timeout_seconds", "maximum_failing_records", "estimated_file_count", "estimated_changed_line_count", "estimated_implementation_seconds", "estimated_validation_seconds"):
         if type(cfg[key]) is not int or cfg[key] < 1:
             raise ValueError(key + "_invalid")
@@ -236,6 +240,8 @@ def probe_once(config: Mapping[str, Any], *, evaluation_time: str | None = None)
         records = signal_plane.records_from_run_tests_provenance(provenance, provenance_path=provenance_path, repo_root=cfg["repository_root"], provenance_digest=provenance_digest)
         if len(records) > cfg["maximum_failing_records"]: raise ValueError("maximum_failing_records_exceeded")
         metadata = {"declared_validation_expectations":cfg["declared_validation_expectations"], "requested_authority_classes":cfg["requested_maintenance_authority_classes"], "declared_constraints":cfg["declared_constraints"], "estimated_file_count":cfg["estimated_file_count"], "estimated_changed_line_count":cfg["estimated_changed_line_count"], "estimated_implementation_seconds":cfg["estimated_implementation_seconds"], "estimated_validation_seconds":cfg["estimated_validation_seconds"], "observed_at":effective_time}
+        if cfg.get("declared_subject_path") is not None:
+            metadata["subject_path"] = cfg["declared_subject_path"]
         evaluation = signal_plane.evaluate_signal_plane(({**record, **metadata} for record in records), repo_root=cfg["repository_root"])
         # Validate the exact JSON-domain value the collector will load, rather
         # than an in-memory tuple-bearing dataclass projection.

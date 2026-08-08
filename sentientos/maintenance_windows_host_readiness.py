@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -126,6 +127,8 @@ def doctor_live(value: Mapping[str, Any]) -> dict[str, Any]:
     except (ValueError, TypeError, KeyError) as exc:
         return {"status": "windows_host_blocked", "reason_codes": [str(exc)], "facts": {}, "scheduler_mutation_performed": False}
     reasons: list[str] = []; facts: dict[str, Any] = {}
+    evaluation_time = wake.canonical_evaluation_time(datetime.now(timezone.utc).isoformat())
+    facts["readiness_evaluation_time"] = evaluation_time
     repo = Path(cfg["repository_root"]).resolve()
     for name in ("python_executable", "git_executable", "codex_executable"):
         exe = cfg[name]; probe = _run([exe, "--version"]); facts[name + "_probe"] = probe
@@ -149,9 +152,9 @@ def doctor_live(value: Mapping[str, Any]) -> dict[str, Any]:
     try:
         wc = wake.load_config(cfg["wake_configuration_path"])
         if Path(str(wc["stop_marker"])).exists(): reasons.append("stop_marker_present")
-        wd = wake.doctor(wc); facts["wake_doctor"] = wd
+        wd = wake.doctor(wc, evaluation_time=evaluation_time); facts["wake_doctor"] = wd
         if wd["status"] != "maintenance_wake_ready": reasons.append("wake_doctor_not_ready")
-        wi = wake.inspect(wc); facts["wake_inspection"] = wi
+        wi = wake.inspect(wc, evaluation_time=evaluation_time); facts["wake_inspection"] = wi
         autonomy = wi.get("autonomy", {})
         if autonomy.get("next_action") not in {None, "idle", "scan_for_work"}: reasons.append("maintenance_custody_active_or_ambiguous")
         collector = wi.get("collector", {})
@@ -195,20 +198,36 @@ def inspect_canary(value: Mapping[str, Any]) -> dict[str, Any]:
         wi = wake.inspect(wake.load_config(cfg["wake_configuration_path"])); receipts = wi.get("receipts", {}).get("receipts", [])
         latest = receipts[-1] if receipts else None; autonomy = wi.get("autonomy", {})
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError): wi={}; receipts=[]; latest=None; autonomy={}
-    active = autonomy.get("next_action") not in {None, "idle", "scan_for_work"}
-    published = bool(latest and latest.get("terminal_status") in {"autonomy_cycle_completed", "maintenance_wake_idle"})
+    custody = (latest or {}).get("terminal_custody") or {}
+    terminally_idle = (
+        autonomy.get("watchdog_transition") == "idle" and autonomy.get("next_action") == "collect"
+    ) or autonomy.get("next_action") in {None, "idle", "scan_for_work"}
+    required_custody = (
+        "task_id", "lease_id", "implementation_session_id", "implementation_thread_id",
+        "validation_results", "commit_sha", "publication_id", "closure_event_id",
+    )
+    completed_custody = bool(
+        latest and latest.get("terminal_status") == "autonomy_cycle_completed"
+        and all(custody.get(key) for key in required_custody)
+        and custody.get("base_cursor_after") == custody.get("commit_sha")
+    )
+    active = not terminally_idle
     if data != canonical: status = "canary_maintenance_active" if active else "canary_defect_present"
     elif not receipts: status = "canary_not_started"
     elif active: status = "canary_maintenance_active"
-    elif published and validation.get("returncode") == 0: status = "canary_completed"
+    elif completed_custody and terminally_idle and validation.get("returncode") == 0: status = "canary_completed"
     else: status = "canary_repaired_unpublished"
     return {"status": status, "canary_digest": "sha256:" + hashlib.sha256(data).hexdigest(),
-            "content_state": content_state, "validation": validation, "latest_health_receipt": latest,
-            "governed_signal_identity": (latest or {}).get("receipt_digest"), "candidate_identity": autonomy.get("candidate_id"),
-            "task_lease_session_identity": autonomy.get("active_task"), "validation_identities": autonomy.get("validation"),
-            "commit_identity": autonomy.get("commit_sha"), "publication_identity": autonomy.get("publication"),
-            "base_cursor": autonomy.get("base_cursor"), "closure_identity": autonomy.get("closure"),
-            "wake_receipt": latest, "terminally_idle": not active, "scheduler_mutation_performed": False}
+            "content_state": content_state, "validation": validation,
+            "governed_signal_identity": ((latest or {}).get("health_probe_result") or {}).get("governed_signal_path"),
+            "candidate_identity": (((latest or {}).get("autonomy_cycle_result") or {}).get("receipt") or {}).get("collected_candidates"),
+            "task_identity": custody.get("task_id"), "lease_identity": custody.get("lease_id"),
+            "implementation_session_identity": custody.get("implementation_session_id"),
+            "implementation_thread_identity": custody.get("implementation_thread_id"),
+            "validation_identities": custody.get("validation_results"),
+            "commit_identity": custody.get("commit_sha"), "publication_identity": custody.get("publication_id"),
+            "base_cursor": custody.get("base_cursor_after"), "closure_identity": custody.get("closure_event_id"),
+            "wake_receipt": latest, "terminally_idle": terminally_idle, "scheduler_mutation_performed": False}
 
 
 __all__ = ["SCHEMA", "CANARY_CONTENT", "FIELDS", "inspect_host", "validate_manifest", "load_manifest",

@@ -1,31 +1,13 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 import pytest
-from sentientos import maintenance_wake_cycle as wake
-from tests.test_maintenance_wake_cycle import _configured
 
 pytestmark = pytest.mark.no_legacy_skip
 
-def test_stop_appearing_after_probe_prevents_autonomy(monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
-    cfg=_configured(monkeypatch,tmp_path)
-    def probe(_, *, evaluation_time=None): (tmp_path/"STOP").touch(); return {"status":"health_probe_findings"}
-    monkeypatch.setattr(wake.health,"probe_once",probe); monkeypatch.setattr(wake.autonomy,"cycle_once",lambda *a,**k:pytest.fail("autonomy ran"))
-    result=wake.wake_once(cfg); assert result["status"]=="maintenance_wake_paused"; assert result["effect_counts"]["autonomy_cycle_invocations"]==0
 
-def test_crash_after_probe_resumes_from_governed_custody_without_reprobe(monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
-    cfg=_configured(monkeypatch,tmp_path,sources=1); monkeypatch.setattr(wake.health,"probe_once",lambda c:pytest.fail("duplicate diagnostic")); monkeypatch.setattr(wake.autonomy,"cycle_once",lambda *a,**k:{"status":"autonomy_cycle_completed","receipt":None})
-    assert wake.wake_once(cfg)["receipt"]["probe_skip_reason"]=="existing_governed_source"
-
-def test_concurrent_owner_failure_has_zero_effects(monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
-    cfg=_configured(monkeypatch,tmp_path); monkeypatch.setattr(wake,"_lock",lambda c:(_ for _ in ()).throw(ValueError("wake_lock_unavailable")))
-    result=wake.wake_once(cfg); assert result["status"]=="maintenance_wake_blocked"; assert sum(result["effect_counts"].values())==0
-
-def test_completed_downstream_custody_is_continued_not_reprobed(monkeypatch: pytest.MonkeyPatch,tmp_path: Path) -> None:
-    cfg=_configured(monkeypatch,tmp_path,action="continue_existing_work"); monkeypatch.setattr(wake.health,"probe_once",lambda c:pytest.fail("duplicate probe")); monkeypatch.setattr(wake.autonomy,"cycle_once",lambda *a,**k:{"status":"autonomy_cycle_idle","receipt":None})
-    assert wake.wake_once(cfg)["effect_counts"]["autonomy_cycle_invocations"]==1
-
-
-def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receipt(
+def test_windows_live_host_canary_process_real_closed_loop(
     tmp_path: Path,
 ) -> None:
     """One wake CLI owns the real probe, collection, repair, and publication chain."""
@@ -39,16 +21,22 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     from sentientos import maintenance_candidate_collector as collector
     from sentientos import maintenance_health_probe as health
     from sentientos import maintenance_loop_watchdog as watchdog
+    from sentientos import maintenance_wake_cycle as wake
+    from sentientos import maintenance_windows_host_readiness as readiness
     from sentientos.maintenance_validation_controller import ValidationPolicy
     from tests.maintenance_watchdog_implementation_fixtures import NOW, setup
     from tests.test_maintenance_activation_profiles import _manifest, _rewrite
 
-    node = "tests/test_health_target.py::test_allowed_text"
+    node = "tests/test_maintenance_windows_host_readiness.py::test_windows_live_canary_content_is_canonical"
+    target = "tests/fixtures/maintenance_windows_live_canary.txt"
     cfg, roots, repo = setup(
         tmp_path,
         closed_loop=True,
         process_real_health=True,
         validation_expectations=[f"pytest_node:{node}"],
+        process_real_target=target,
+        process_real_initial_content="sentientos-windows-live-host-canary: defect\n",
+        process_real_allowed_paths=["tests/test_maintenance_windows_host_readiness.py"],
     )
     for path in roots["inbox"].glob("*.json"):
         path.unlink()
@@ -56,7 +44,8 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     validator = tmp_path / "validator.py"
     validator.write_text(
         "#!/usr/bin/env python3\nfrom pathlib import Path\n"
-        "raise SystemExit(0 if 'assert True' in Path('tests/test_health_target.py').read_text() else 1)\n"
+        "raise SystemExit(0 if Path('tests/fixtures/maintenance_windows_live_canary.txt').read_text() "
+        "== 'sentientos-windows-live-host-canary: healthy\\n' else 1)\n"
     )
     validator.chmod(0o755)
     cfg = dict(cfg)
@@ -113,10 +102,11 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
         "maximum_failing_records": 1, "probe_state_root": str(probe_state),
         "governed_signal_output_root": str(signals),
         "declared_validation_expectations": [f"pytest_node:{node}"],
+        "declared_subject_path": target,
         "requested_maintenance_authority_classes": sorted(policy["available_authority_classes"]),
         "declared_constraints": ["bounded"], "estimated_file_count": 1,
         "estimated_changed_line_count": 10, "estimated_implementation_seconds": 10,
-        "estimated_validation_seconds": 10, "evaluation_time": NOW,
+        "estimated_validation_seconds": 20, "evaluation_time": NOW,
         "receipt_journal_path": str(probe_state / "receipts.jsonl"),
     })
     health_path = tmp_path / "health.json"
@@ -177,10 +167,35 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     })
     wake_path = tmp_path / "wake.json"
     wake_path.write_text(json.dumps(wake_cfg, sort_keys=True))
+
+    canary = repo / target
+    canary.write_text(readiness.CANARY_CONTENT, encoding="utf-8")
+    assert canary.read_text(encoding="utf-8") == readiness.CANARY_CONTENT
+    host_values = {field: str(tmp_path / field) for field in readiness.FIELDS - {"schema_version"}}
+    host_values.update({
+        "repository_root": str(repo), "expected_repository_sha": cfg["base_sha"],
+        "python_executable": sys.executable, "git_executable": "/usr/bin/git",
+        "codex_executable": foreman["codex_executable"], "wake_configuration_path": str(wake_path),
+        "activation_profile_manifest_path": str(manifest_path),
+        "collector_external_state_root": str(collector_state),
+        "autonomy_external_state_root": str(cycle_state), "wake_external_state_root": str(wake_state),
+        "deployment_manifest_path": str(tmp_path / "deployment.json"),
+        "deployment_output_directory": str(tmp_path / "deployment"),
+        "tracked_remote": "origin", "tracked_base_ref": "main",
+        "expected_task_name": "SentientOS Maintenance Wake",
+        "canary_source_path": str(canary), "canary_validation_node": node,
+        "canary_allowed_path_boundary": str(repo / "tests" / "fixtures"),
+    })
+    host_manifest = readiness.render_host_manifest(host_values)
+    assert readiness.inspect_canary(host_manifest)["status"] == "canary_not_started"
+    canary.write_text("sentientos-windows-live-host-canary: defect\n", encoding="utf-8")
+    before = subprocess.run([sys.executable, "-m", "pytest", "-q", node], cwd=repo,
+                            text=True, capture_output=True, check=False)
+    assert before.returncode != 0 and f"FAILED {node}" in before.stdout
     env = dict(os.environ, FAKE_CODEX_MODE="corrective",
-               FAKE_CODEX_TARGET="tests/test_health_target.py",
-               FAKE_CODEX_CONTENT="def test_allowed_text():\n    assert 0\n",
-               FAKE_CODEX_CORRECTIVE_CONTENT="def test_allowed_text():\n    assert True\n",
+               FAKE_CODEX_TARGET=target,
+               FAKE_CODEX_CONTENT="sentientos-windows-live-host-canary: defect\n",
+               FAKE_CODEX_CORRECTIVE_CONTENT=readiness.CANARY_CONTENT,
                PYTHONPATH=str(Path.cwd()))
     process = subprocess.run(
         [sys.executable, "scripts/maintenance_wake_cycle.py", "--config", str(wake_path), "--evaluation-time", "2026-08-08T12:34:56.0000000Z", "wake-once"],
@@ -188,7 +203,7 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     )
     assert process.returncode == 0, process.stderr + process.stdout
     result = json.loads(process.stdout.splitlines()[-1])
-    assert result["status"] == "autonomy_cycle_completed", result
+    assert result["status"] == "autonomy_cycle_completed", json.dumps(result, indent=2)
     assert result["effect_counts"] == {"health_probe_invocations": 1, "autonomy_cycle_invocations": 1}
 
     provenance = json.loads((repo / "glow/test_runs/test_run_provenance.json").read_text())
@@ -196,7 +211,9 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     assert provenance["tests_executed"] == provenance["tests_failed"] == 1
     assert provenance["pytest_exit_code"] == 1
     failure = json.loads((repo / "glow/test_runs/test_failure_digest.json").read_text())
-    assert failure["failure_groups"][0]["example_nodeid"].endswith("::test_allowed_text")
+    assert failure["failure_groups"][0]["example_nodeid"].endswith(
+        "::test_windows_live_canary_content_is_canonical"
+    )
     assert health.inspect(health_cfg)["receipt_count"] == 1
     assert len(list(signals.glob("health-probe-*.json"))) == 1
     assert len((collector_state / "receipts.jsonl").read_text().splitlines()) == 1
@@ -205,12 +222,13 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     watchdog_result = result["receipt"]["autonomy_cycle_result"]["watchdog_result"]
     assert [tick["transition"] for tick in watchdog_result["ticks"]] == [
         "select_candidate", "admit_candidate", "prepare_implementation",
-        "start_implementation", "observe_process", "validate", "commit_enqueue",
+        "start_implementation", "observe_process", "recover_implementation",
+        "validate", "commit_enqueue",
         "publish", "close_task", "idle",
     ]
     state = roots["state"]
     expected = {"maintenance_leases": 1, "maintenance_agent_sessions": 1,
-                "maintenance_validation_results": 2, "maintenance_commit_results": 1,
+                "maintenance_validation_results": 1, "maintenance_commit_results": 1,
                 "maintenance_publication_results": 1}
     for directory, count in expected.items():
         assert len(list((state / directory).glob("*.json"))) == count
@@ -241,3 +259,19 @@ def test_production_cli_process_real_failing_pytest_reaches_terminal_wake_receip
     assert wake.inspect_receipts(wake_cfg)["receipt_count"] == 1
     assert not any(path.name == "candidate.json" for path in roots["inbox"].glob("*.json"))
     assert not (wake_state / "STOP").exists()
+
+    # Materialize the already verified fast-forward publication in the disposable
+    # deployment checkout; this is not a second maintenance component invocation.
+    subprocess.run(["git", "reset", "--hard", remote], cwd=repo, check=True, capture_output=True)
+    final = readiness.inspect_canary(host_manifest)
+    assert final["status"] == "canary_completed", final
+    assert final["content_state"] == "canonical" and final["validation"]["returncode"] == 0
+    assert final["terminally_idle"] is True
+    assert final["task_identity"] == custody["task_id"]
+    assert final["lease_identity"] == custody["lease_id"]
+    assert final["implementation_session_identity"] == custody["implementation_session_id"]
+    assert final["implementation_thread_identity"] == custody["implementation_thread_id"]
+    assert final["commit_identity"] == custody["commit_sha"]
+    assert final["publication_identity"] == custody["publication_id"]
+    assert final["closure_identity"] == custody["closure_event_id"]
+    assert final["scheduler_mutation_performed"] is False

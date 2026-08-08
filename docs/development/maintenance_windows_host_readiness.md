@@ -15,7 +15,11 @@ paths as facts, but the operator must explicitly accept them when rendering a ma
 ## Live bring-up
 
 1. Pull the exact expected `main` commit.
-2. Run `inspect-host` and review its read-only JSON facts.
+2. From the intended repository root (for example, `C:\SentientOS`), run
+   `inspect-host --repository-root C:\SentientOS` and review its read-only JSON
+   facts. `inspect-host` discovers Python, Git, Codex, and PowerShell paths and
+   reports them for explicit host-manifest acceptance; the operator does not need
+   to discover those executable paths manually before running it.
 3. Explicitly render and approve the closed host manifest with
    `render-host-manifest`; then run `verify-host-manifest`.
 4. Run `doctor-live`. Warnings never produce `windows_host_ready`.
