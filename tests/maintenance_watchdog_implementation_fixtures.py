@@ -9,7 +9,7 @@ from tests.local_codex_foreman_fixtures import make_fake_cli
 
 NOW='2026-08-06T00:00:00Z'
 
-def setup(tmp_path:Path, mode:str='success', validation_expectations=None, closed_loop=False, process_real_health=False):
+def setup(tmp_path:Path, mode:str='success', validation_expectations=None, closed_loop=False, process_real_health=False, process_real_target='tests/test_health_target.py', process_real_initial_content=None, process_real_allowed_paths=None):
     repo=tmp_path/'repo'; repo.mkdir(); subprocess.run(['git','init'],cwd=repo,check=True,capture_output=True)
     subprocess.run(['git','config','user.email','a@b.c'],cwd=repo,check=True); subprocess.run(['git','config','user.name','T'],cwd=repo,check=True)
     if process_real_health:
@@ -22,9 +22,12 @@ def setup(tmp_path:Path, mode:str='success', validation_expectations=None, close
         subprocess.run(['rm', '-rf', str(repo/'glow'/'test_runs')], check=True)
         subprocess.run(['rm', '-rf', str(repo/'escrow')], check=True)
         (repo/'.git'/'info'/'exclude').write_text('glow/test_runs/\n')
-        (repo/'tests'/'test_health_target.py').write_text(
-            'def test_allowed_text():\n    assert False, "repair test_health_target.py"\n'
-        )
+        if process_real_target == 'tests/test_health_target.py':
+            (repo/process_real_target).write_text(
+                'def test_allowed_text():\n    assert False, "repair test_health_target.py"\n'
+            )
+        elif process_real_initial_content is not None:
+            (repo/process_real_target).write_text(process_real_initial_content)
         dist_info = repo/'sentientos-1.2.0.dist-info'
         dist_info.mkdir()
         (dist_info/'METADATA').write_text('Metadata-Version: 2.1\nName: sentientos\nVersion: 1.2.0\n')
@@ -44,12 +47,13 @@ def setup(tmp_path:Path, mode:str='success', validation_expectations=None, close
     fake=make_fake_cli(tmp_path,mode)
     auth=['implementation_agent_session',*sorted(EFFECT_AUTHORITIES)]
     if closed_loop: auth += ['repository_commit','remote_repository_read','remote_ref_publish']
-    target_path = 'tests/test_health_target.py' if process_real_health else 'allowed.txt'
+    target_path = process_real_target if process_real_health else 'allowed.txt'
+    allowed_paths = [target_path, *(process_real_allowed_paths or [])]
     allowed_kinds = ['code', 'test_failure'] if process_real_health else ['code']
     candidate=candidates.adapt_explicit_candidate({'source_reference':'watchdog-test','base_repository_sha':sha,'objective':'Change allowed.txt deterministically','bounded_description':'Change only allowed.txt','candidate_kind':'code','declared_subject_paths':[target_path],'declared_validation_expectations':validation_expectations or ['git_diff_check'],'evidence_references':['operator:test'],'requested_authority_classes':auth,'declared_constraints':['bounded'],'estimated_file_count':1,'estimated_changed_line_count':10,'estimated_implementation_seconds':10,'estimated_validation_seconds':10},base_repository_sha=sha).to_dict()
     (roots['inbox']/'candidate.json').write_text(json.dumps(candidate,sort_keys=True))
-    selector={'repository_base_sha':sha,'allowed_path_prefixes':[target_path],'forbidden_path_patterns':['.git/**'],'available_authority_classes':auth,'maximum_file_count':2,'maximum_estimated_changed_lines':20,'maximum_implementation_seconds':30,'maximum_validation_seconds':30,'allowed_candidate_kinds':allowed_kinds}
-    grant=authority.seal_grant({'grant_id':'grant','operator_reference':'operator:test','approval_reference':'approval:test','repository_identity':'repo','allowed_base_sha':sha,'allowed_base_sha_rule':'exact','allowed_candidate_kinds':allowed_kinds,'allowed_path_prefixes':[target_path],'forbidden_path_patterns':['.git/**'],'allowed_authority_classes':auth,'maximum_file_count':2,'maximum_changed_line_count':20,'maximum_implementation_seconds':30,'maximum_validation_seconds':30,'maximum_wall_clock_seconds':3600,'maximum_attempts':2,'maximum_corrective_retries':1,'not_before':'2026-01-01T00:00:00Z','expires_at':'2027-01-01T00:00:00Z','grant_generation':'g1','explicit_constraints':['bounded'],'landing_terms':({'publication_mode':'fast_forward_base_ref','remote_name':'origin','base_ref':'refs/heads/main','head_ref_prefix':'sentientos/maintenance','commit_title':'[codex:sentientos] test closed loop','commit_identity_reference':'codex'} if closed_loop else {})})
+    selector={'repository_base_sha':sha,'allowed_path_prefixes':allowed_paths,'forbidden_path_patterns':['.git/**'],'available_authority_classes':auth,'maximum_file_count':2,'maximum_estimated_changed_lines':20,'maximum_implementation_seconds':30,'maximum_validation_seconds':30,'allowed_candidate_kinds':allowed_kinds}
+    grant=authority.seal_grant({'grant_id':'grant','operator_reference':'operator:test','approval_reference':'approval:test','repository_identity':'repo','allowed_base_sha':sha,'allowed_base_sha_rule':'exact','allowed_candidate_kinds':allowed_kinds,'allowed_path_prefixes':allowed_paths,'forbidden_path_patterns':['.git/**'],'allowed_authority_classes':auth,'maximum_file_count':2,'maximum_changed_line_count':20,'maximum_implementation_seconds':30,'maximum_validation_seconds':30,'maximum_wall_clock_seconds':3600,'maximum_attempts':2,'maximum_corrective_retries':1,'not_before':'2026-01-01T00:00:00Z','expires_at':'2027-01-01T00:00:00Z','grant_generation':'g1','explicit_constraints':['bounded'],'landing_terms':({'publication_mode':'fast_forward_base_ref','remote_name':'origin','base_ref':'refs/heads/main','head_ref_prefix':'sentientos/maintenance','commit_title':'[codex:sentientos] test closed loop','commit_identity_reference':'codex'} if closed_loop else {})})
     remote = None
     if closed_loop:
         remote=tmp_path/'remote.git'; subprocess.run(['git','init','--bare',str(remote)],check=True,capture_output=True)
