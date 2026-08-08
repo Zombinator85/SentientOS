@@ -1,0 +1,14 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "84a17c5dd5959c76a58e16bffee3b17c02894628",
+  "test_provenance_path": "/tmp/discernment_run_tests_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_discernment_synthesis.py::test_real_epistemic_and_delegated_surfaces_preserve_unresolved_disagreement", "rationale": "Real canonical APIs preserve unsupported disagreement."},
+    {"node_id": "tests/test_discernment_synthesis.py::test_compare_uses_stance_logic_for_unsupported_and_evidence_backed_revisions", "rationale": "Existing stance logic distinguishes evidence-backed revision."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_discernment_synthesis.py::test_real_epistemic_and_delegated_surfaces_preserve_unresolved_disagreement",
+    "tests/test_discernment_synthesis.py::test_compare_uses_stance_logic_for_unsupported_and_evidence_backed_revisions"
+  ]
+}
