@@ -69,6 +69,18 @@ def test_failure_produces_valid_collector_compatible_evaluation(tmp_path: Path, 
     assert candidate.source_kind=="governed_improvement_signal"
 
 
+def test_invocation_time_overrides_static_time_without_changing_config_digest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg=_config(tmp_path); _ready(monkeypatch,cfg,failed=True); before=probe.validate_config(cfg)["config_digest"]
+    result=probe.probe_once(cfg,evaluation_time="2031-02-03T04:05:06Z")
+    expected="2031-02-03T04:05:06.0000000Z"
+    payload=json.loads(Path(result["governed_signal_path"]).read_text())
+    assert result["evaluation_time"] == expected
+    assert payload["batch"]["signals"][0]["observed_at"] == expected
+    assert probe.inspect(cfg)["receipts"][0]["evaluation_time"] == expected
+    assert probe.validate_config(cfg)["config_digest"] == before
+    assert cfg["evaluation_time"] == "2026-08-07T00:00:00Z"
+
+
 def test_tampered_provenance_blocks_without_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg=_config(tmp_path); _ready(monkeypatch,cfg,failed=True,tampered=True)
     assert probe.probe_once(cfg)["status"]=="health_probe_blocked"

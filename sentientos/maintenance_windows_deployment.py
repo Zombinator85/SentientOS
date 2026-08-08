@@ -155,7 +155,7 @@ def render_launcher(cfg: Mapping[str, Any]) -> bytes:
         f"$stdoutPath = {_ps_quote(str(cfg['launcher_stdout_path']))}",
         f"$stderrPath = {_ps_quote(str(cfg['launcher_stderr_path']))}",
         "Set-Location -LiteralPath $repositoryRoot",
-        "$arguments = @($wakeScript, '--config', $wakeConfiguration, 'wake-once')",
+        "$arguments = @($wakeScript, '--config', $wakeConfiguration, '--evaluation-time', $evaluationTime, 'wake-once')",
         "$process = Start-Process -FilePath $pythonExecutable -ArgumentList $arguments -WorkingDirectory $repositoryRoot -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -Wait -PassThru -NoNewWindow",
         "exit $process.ExitCode", "",
     ]
@@ -240,6 +240,7 @@ def verify(manifest: Mapping[str, Any], output_directory: str | Path) -> dict[st
         launcher = expected[ARTIFACT_NAMES[0]].decode(); xml = expected[ARTIFACT_NAMES[1]].decode()
         if "$arguments = @(" not in launcher or "Invoke-Expression" in launcher or "cmd.exe" in launcher: reasons.append("unsafe_python_invocation")
         if "[DateTimeOffset]::UtcNow" not in launcher: reasons.append("fresh_evaluation_time_missing")
+        if launcher.count("$evaluationTime") != 2 or "'--evaluation-time', $evaluationTime" not in launcher: reasons.append("evaluation_time_not_consumed_by_wake")
         tree = ET.fromstring(expected[ARTIFACT_NAMES[1]])
         ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
         if tree.findtext(".//t:MultipleInstancesPolicy", namespaces=ns) != "IgnoreNew": reasons.append("task_concurrency_not_serialized")
@@ -277,11 +278,16 @@ def print_preflight_command(manifest: Mapping[str, Any]) -> dict[str, Any]:
     commands = [
         ["git.exe", "-C", str(repo), "rev-parse", "HEAD"],
         [py, str(repo / "scripts" / "maintenance_loop_activation.py"), "doctor-live", "--config", wake, "--evaluation-time", "<fresh-utc-evaluation-time>"],
-        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "doctor"],
-        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "wake-once"],
-        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "inspect-receipts"],
+        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "--evaluation-time", "$([DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ'))", "doctor"],
+        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "--evaluation-time", "$([DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ'))", "wake-once"],
+        [py, str(repo / "scripts" / "maintenance_wake_cycle.py"), "--config", wake, "--evaluation-time", "$([DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ'))", "inspect-receipts"],
     ]
-    return {"status": "windows_deployment_ready", "expected_repository_sha": cfg["expected_repository_sha"], "commands": [{"argv": x, "powershell": "& " + _ps_command(x)} for x in commands], "executed": False, "scheduler_mutation_performed": False}
+    rendered = [{"argv": x, "powershell": "& " + _ps_command(x)} for x in commands]
+    for item in rendered[2:]:
+        fixed = [str(x) for x in item["argv"]]
+        marker = fixed.index("$([DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ'))")
+        item["powershell"] = "$evaluationTime = [DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffffffZ'); & " + _ps_command(fixed[:marker]) + " $evaluationTime " + _ps_command(fixed[marker+1:])
+    return {"status": "windows_deployment_ready", "expected_repository_sha": cfg["expected_repository_sha"], "commands": rendered, "executed": False, "scheduler_mutation_performed": False}
 
 
 __all__ = ["MANIFEST_SCHEMA", "INDEX_SCHEMA", "ARTIFACT_NAMES", "INDEX_NAME", "canonical_json_bytes", "validate_manifest", "load_manifest", "template", "render_launcher", "render_xml", "render", "verify", "inspect", "print_install_command", "print_uninstall_command", "print_preflight_command"]

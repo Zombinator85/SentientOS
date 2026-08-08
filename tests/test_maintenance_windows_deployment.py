@@ -41,7 +41,8 @@ def test_render_retry_verify_and_artifact_semantics(tmp_path: Path, behavioral_w
     assert deployment.verify(cfg, output)["status"] == "windows_deployment_ready"
     launcher = before["maintenance-wake.ps1"].decode()
     assert "[DateTimeOffset]::UtcNow" in launcher
-    assert "$arguments = @($wakeScript, '--config', $wakeConfiguration, 'wake-once')" in launcher
+    assert "$arguments = @($wakeScript, '--config', $wakeConfiguration, '--evaluation-time', $evaluationTime, 'wake-once')" in launcher
+    assert launcher.count("$evaluationTime") == 2
     assert "Invoke-Expression" not in launcher and "git " not in launcher.lower()
     tree = ET.fromstring(before["maintenance-wake-task.xml"])
     ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
@@ -101,3 +102,14 @@ def test_manifest_digest_and_rendered_digest_tampering_block(tmp_path: Path) -> 
     index["manifest_digest"] = "sha256:" + "0" * 64
     (tmp_path / deployment.INDEX_NAME).write_text(json.dumps(index))
     assert deployment.verify(cfg, tmp_path)["status"] == "windows_deployment_blocked"
+
+
+def test_verify_rejects_generated_but_unconsumed_evaluation_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    original = deployment.render_launcher
+    def unconsumed(cfg: object) -> bytes:
+        return original(cfg).replace(b", '--evaluation-time', $evaluationTime", b"")  # type: ignore[arg-type]
+    monkeypatch.setattr(deployment, "render_launcher", unconsumed)
+    cfg=manifest(); deployment.render(cfg,tmp_path)
+    result=deployment.verify(cfg,tmp_path)
+    assert result["status"] == "windows_deployment_blocked"
+    assert "evaluation_time_not_consumed_by_wake" in result["reason_codes"]
