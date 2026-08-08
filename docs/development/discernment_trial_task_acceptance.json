@@ -1,0 +1,12 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d4bc00e19b53e521e50c8691a83cd4bafae2c6c8",
+  "test_provenance_path": "/var/tmp/discernment_trial_run_tests_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_discernment_trial.py::test_three_participant_blind_trial_derives_hits_then_reveals", "rationale": "The complete three-participant success path proves phase custody, derived observation matching, blind comparison, and immutable post-comparison reveal."},
+    {"node_id": "tests/test_discernment_trial.py::test_early_custody_redacts_peers_and_enforces_phase_order", "rationale": "Pre-freeze reads and later-phase operations fail closed without leaking peer judgment content."},
+    {"node_id": "tests/test_discernment_trial.py::test_source_identity_cannot_change_classification_and_manual_hit_labels_are_rejected", "rationale": "Equivalent opaque judgments classify equivalently and the trial API has no evaluator-supplied witness-label input."}
+  ],
+  "successful_path_nodes": ["tests/test_discernment_trial.py::test_three_participant_blind_trial_derives_hits_then_reveals"]
+}
