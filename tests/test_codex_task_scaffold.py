@@ -33,12 +33,14 @@ def test_deterministic_digest() -> None:
     assert a.scaffold.expected_files == ("a", "b")
 
 
+@pytest.mark.no_legacy_skip
 def test_generated_prompt_includes_two_phase_finalizer_rules() -> None:
     result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="z"))
     prompt = result.scaffold.generated_prompt
     assert "ready_to_commit" in prompt
     assert "ready_for_pr_metadata" in prompt
-    assert "do not commit or make_pr" in prompt
+    assert "PR publication is external to this workspace" in prompt
+    assert "make_pr" not in prompt
 
 
 def test_preset_final_report_contract_includes_finalizer_results() -> None:
@@ -49,6 +51,7 @@ def test_preset_final_report_contract_includes_finalizer_results() -> None:
     assert "pr_metadata_result" in contract
 
 
+@pytest.mark.no_legacy_skip
 def test_blocked_scaffold_prompt_is_diagnostic_hard_stop() -> None:
     result = build_codex_task_scaffold(CodexTaskScaffoldRequest())
     assert result.status == "codex_task_scaffold_insufficient_metadata"
@@ -56,13 +59,17 @@ def test_blocked_scaffold_prompt_is_diagnostic_hard_stop() -> None:
     assert "diagnostic only" in result.scaffold.generated_prompt
     assert "Only then make_pr" not in result.scaffold.generated_prompt
     assert "commit with" not in result.scaffold.generated_prompt.lower()
+    assert "make_pr" not in result.scaffold.generated_prompt
 
 
+@pytest.mark.no_legacy_skip
 def test_ready_scaffold_includes_pr_metadata_guard_sequence() -> None:
     result = build_codex_task_scaffold(CodexTaskScaffoldRequest(task_name="x", task_goal="y", subsystem_kind="z"))
     assert "Run bootstrapper" in result.scaffold.generated_prompt
     assert "pr_metadata_guard_ready" in result.scaffold.generated_prompt
-    assert "Only then make_pr" in result.scaffold.generated_prompt
+    assert "bind the exact pr body" in result.scaffold.generated_prompt.lower()
+    assert "PR publication is external to this workspace" in result.scaffold.generated_prompt
+    assert "make_pr" not in result.scaffold.generated_prompt
 
 
 @pytest.mark.no_legacy_skip

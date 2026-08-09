@@ -148,7 +148,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "BLOCKED_DO_NOT_IMPLEMENT\n"
             "This scaffold is diagnostic only and is not an implementation contract.\n"
             "Stop now: repair the bootstrap blocker or ask the operator for a new task.\n"
-            "Do not implement, do not commit, and do not make_pr from this blocked prompt artifact.\n"
+            "Do not implement or commit from this blocked prompt artifact.\n"
             f"Diagnostic goal: {request.task_goal}\nDiagnostic target: {request.task_name} ({request.subsystem_kind}).\n"
             f"Blockers: {', '.join(sorted(blockers))}."
         )
@@ -159,12 +159,12 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. "
             "5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. "
             "7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. "
-            "8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Only then make_pr.\n"
+            "8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\n"
             "Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\n"
             "Pre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\n"
             "Before PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\n"
             "Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\n"
-            "Do not create PR metadata before green final validation and a ready PR metadata guard; do not commit or make_pr if either finalizer phase or guard is blocked.\n"
+            "Do not create PR metadata before green final validation and a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\n"
             f"Goal: {request.task_goal}\nSubsystem: {request.task_name} ({request.subsystem_kind})."
             + (f"\nExpected task-owned fixture roots: {', '.join(expected_fixture_roots)}." if expected_fixture_roots else "")
         )
@@ -175,7 +175,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "No whole-system expansion unless task-caused fallout requires it.\n"
             "Run minimal relevant validation and regression checks.\n"
             "If no changes are required, do not fabricate commit/PR metadata.\n"
-            "Before any make_pr, run python scripts/codex_pr_metadata_guard.py verify and require pr_metadata_guard_ready.\n"
+            "Run python scripts/codex_pr_metadata_guard.py verify and require pr_metadata_guard_ready, bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\n"
             f"Goal: {request.task_goal}\nRepair target: {request.task_name} ({request.subsystem_kind})."
         )
     final_report_contract = _norm(preset.default_final_report_items) if preset else ("exact files changed", "full command matrix results", "unresolved risks")
