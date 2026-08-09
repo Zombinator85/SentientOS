@@ -226,6 +226,7 @@ class _TransformersBackend(_ModelBackend):
         history: Sequence[str],
         generation: Dict[str, Any],
     ) -> str:
+        generation.pop("structured_output_schema", None)
         params = self._generation.as_kwargs(**generation)
         tokenizer_inputs = self._tokenizer(
             prompt,
@@ -349,14 +350,23 @@ class _LlamaCppBackend(_ModelBackend):
         history: Sequence[str],
         generation: Dict[str, Any],
     ) -> str:
+        structured_output_schema = generation.pop("structured_output_schema", None)
         params = self._generation.as_kwargs(**generation)
+        completion_params: dict[str, Any] = {
+            "max_tokens": params.get("max_new_tokens"),
+            "temperature": params.get("temperature"),
+            "top_p": params.get("top_p"),
+        }
+        if params.get("top_k") is not None:
+            completion_params["top_k"] = params["top_k"]
+        if params.get("repetition_penalty") is not None:
+            completion_params["repeat_penalty"] = params["repetition_penalty"]
+        if structured_output_schema is not None:
+            completion_params["response_format"] = {
+                "type": "json_object", "schema": structured_output_schema,
+            }
         response = self._llama.create_chat_completion(
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=params.get("max_new_tokens"),
-            temperature=params.get("temperature"),
-            top_p=params.get("top_p"),
-            top_k=params.get("top_k"),
-            repeat_penalty=params.get("repetition_penalty"),
+            messages=[{"role": "user", "content": prompt}], **completion_params,
         )
         output = response.get("choices", [{}])[0].get("message", {}).get("content", "")
         return str(output).strip()

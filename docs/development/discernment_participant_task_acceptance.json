@@ -1,12 +1,16 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "755c83d69b1c05fdaa8b23fc66e8e4ab09f8c2b9",
+  "repository_sha": "0ac7b9a3bea8d3ff180409c3fd38b435f7a53878",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {
       "node_id": "tests/test_discernment_participant.py::test_process_real_participant_is_accepted_and_frozen_by_blind_custody",
-      "rationale": "Proves the real governed invocation, deterministic organs, structured InnerWorld context, packet sealing, and BlindTrialCustody frozen-set path."
+      "rationale": "Proves the governed invocation receives the canonical proposition-bound, namespace-bound schema at temperature zero, then seals the validated result through the deterministic organs and packet path."
+    },
+    {
+      "node_id": "tests/test_local_model.py::test_local_model_gguf_mistral_backend",
+      "rationale": "Proves llama.cpp receives JSON Schema response_format only for explicitly structured governed generation while ordinary chat remains unconstrained."
     },
     {
       "node_id": "tests/test_discernment_participant.py::test_final_fields_are_not_api_overrides_and_failures_suspend_truthfully",

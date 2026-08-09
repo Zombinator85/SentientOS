@@ -138,11 +138,14 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
     mistral_path.parent.mkdir(parents=True, exist_ok=True)
     mistral_path.write_bytes(b"gguf")
 
+    calls: list[dict[str, object]] = []
+
     class DummyLlama:
         def __init__(self, **kwargs: object) -> None:
             self.kwargs = kwargs
 
-        def create_chat_completion(self, *, messages: list[dict[str, str]], **_: object) -> dict:
+        def create_chat_completion(self, *, messages: list[dict[str, str]], **kwargs: object) -> dict:
+            calls.append(kwargs)
             return {"choices": [{"message": {"content": f"Mistral echoes: {messages[0]['content']}"}}]}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
@@ -152,6 +155,12 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert "Mistral" in model.metadata.get("name", "")
     response = model.generate("Hello cathedral")
     assert "Mistral echoes" in response
+    assert "response_format" not in calls[-1]
+
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}},
+              "required": ["answer"], "additionalProperties": False}
+    model.generate_governed("structured", structured_output_schema=schema)
+    assert calls[-1]["response_format"] == {"type": "json_object", "schema": schema}
 
 
 def test_transformers_backend_defaults_trust_remote_code_false(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

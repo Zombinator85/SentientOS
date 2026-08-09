@@ -41,9 +41,10 @@ class LocalModelInvocationRequest:
     upstream_evidence: Mapping[str, Any] = field(default_factory=dict)
     linkage: Mapping[str, Any] = field(default_factory=dict)
     active_model_identity: Mapping[str, Any] = field(default_factory=dict)
+    structured_output_schema: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
-        return {"purpose": self.purpose, "prompt_digest": digest_payload({"prompt": self.prompt}), "prompt_size": len(self.prompt.encode("utf-8")), "model_id": self.model_id, "authority_map_digest": self.authority_map_digest, "model_artifact_digest": self.model_artifact_digest, "active_model_identity": dict(self.active_model_identity), "caller": self.caller, "lifecycle_phase": self.lifecycle_phase, "correlation_id": self.correlation_id, "expected_output_format": self.expected_output_format, "budget": self.budget.to_dict(), "upstream_evidence": dict(self.upstream_evidence), "linkage": dict(self.linkage), "allowed_effects": {"local_model_inference": True}, "forbidden_effects": dict(FORBIDDEN_EFFECTS)}
+        return {"purpose": self.purpose, "prompt_digest": digest_payload({"prompt": self.prompt}), "prompt_size": len(self.prompt.encode("utf-8")), "model_id": self.model_id, "authority_map_digest": self.authority_map_digest, "model_artifact_digest": self.model_artifact_digest, "active_model_identity": dict(self.active_model_identity), "caller": self.caller, "lifecycle_phase": self.lifecycle_phase, "correlation_id": self.correlation_id, "expected_output_format": self.expected_output_format, "structured_output_schema": dict(self.structured_output_schema) if self.structured_output_schema is not None else None, "budget": self.budget.to_dict(), "upstream_evidence": dict(self.upstream_evidence), "linkage": dict(self.linkage), "allowed_effects": {"local_model_inference": True}, "forbidden_effects": dict(FORBIDDEN_EFFECTS)}
 
     @property
     def request_digest(self) -> str: return _digest_text(self.semantic_payload())
@@ -110,13 +111,15 @@ class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
         self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}
 
-    def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
+    def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None, structured_output_schema: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
         identity = getattr(self.model, "active_identity", None)
         record = self.authority_map.record_for_active_identity(identity, purpose) if identity is not None else self.authority_map.eligible_record(purpose)
         if record is None and self.authority_map.records:
             record = self.authority_map.records[0]
         if record is None: raise ValueError("authority_map_has_no_records")
-        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {})
+        if structured_output_schema is not None and (purpose != "discernment_judgment" or expected_output_format != "json"):
+            raise ValueError("structured output is restricted to discernment JSON")
+        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=dict(structured_output_schema) if structured_output_schema is not None else None)
 
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False
@@ -131,6 +134,21 @@ class GovernedLocalModelInvoker:
             else: reasons.append("model_not_eligible_for_purpose")
         if len(request.prompt) > request.budget.max_input_chars: reasons.append("input_oversized")
         if request.expected_output_format not in {"text", "json"}: reasons.append("expected_output_format_invalid")
+        if request.structured_output_schema is not None:
+            schema = request.structured_output_schema
+            if (request.purpose != "discernment_judgment" or request.expected_output_format != "json"
+                    or not isinstance(schema.get("oneOf"), list)):
+                reasons.append("structured_output_schema_invalid")
+            else:
+                from .discernment_participant import judgment_output_schema
+                canonical_schema = judgment_output_schema(
+                    proposition=str(request.linkage.get("proposition") or ""),
+                    allowed_observation_namespace=str(
+                        request.linkage.get("allowed_observation_namespace") or ""
+                    ),
+                )
+                if dict(schema) != canonical_schema:
+                    reasons.append("structured_output_schema_not_canonical")
         if request.purpose == "genesis_proposal_advice":
             ev = dict(request.upstream_evidence.get("genesis_review") or {}) if isinstance(request.upstream_evidence, Mapping) else {}
             link = dict(request.linkage or {})
@@ -159,7 +177,7 @@ class GovernedLocalModelInvoker:
             else:
                 try:
                     self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose == "genesis_proposal_advice" else None}
+                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment"} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
                     gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                     def _call_model() -> str:
                         governed_generate = getattr(self.model, "generate_governed", None)
