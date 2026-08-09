@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .config import ModelCandidate, ModelConfig, load_model_config
-from .local_model import LocalModel
+from .local_model import ActiveModelIdentity, LocalModel, candidate_artifact_identity, candidate_configuration_digest
 from .storage import get_data_root
 
 SUPPORTED_ENGINES = {"llama_cpp", "transformers", "echo", "null", "auto"}
@@ -127,6 +127,29 @@ class LocalModelAuthorityMap:
                 return rec
         return None
 
+    def record_for_active_identity(self, identity: ActiveModelIdentity, purpose: str) -> LocalModelAuthorityRecord | None:
+        """Return only the eligible record which exactly describes the loaded backend."""
+        for record in self.records:
+            observed_index = record.observed_metadata.get("candidate_index")
+            observed_path = record.observed_metadata.get("resolved_artifact_path")
+            if (
+                record.runtime_eligibility_status == "eligible"
+                and purpose in record.allowed_invocation_purposes
+                and record.engine == identity.engine
+                and record.semantic_artifact_identity == identity.semantic_artifact_identity
+                and record.model_content_sha256 == identity.model_content_sha256
+                and record.artifact_size_bytes == identity.artifact_size_bytes
+                and record.sidecar_metadata_digest == identity.sidecar_metadata_digest
+                and record.configuration_digest == identity.configuration_digest
+                and observed_index == identity.candidate_index
+                and observed_path == identity.resolved_artifact_path
+                and record.disposition == "production_candidate"
+                and identity.posture == "production"
+                and not identity.fallback
+            ):
+                return record
+        return None
+
 
 def _safe_under(path: Path, roots: Sequence[Path]) -> tuple[bool, Path | None]:
     try: resolved = path.resolve(strict=False)
@@ -157,7 +180,8 @@ def _metadata(candidate: ModelCandidate) -> tuple[dict[str, Any], str | None, li
 
 def build_local_model_authority_map(config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None) -> LocalModelAuthorityMap:
     config = config or load_model_config()
-    roots = tuple(Path(r) for r in (allowed_roots or [get_data_root(), *(c.path.parent for c in config.candidates if c.path is not None and c.path.is_absolute())]))
+    configured_roots = [get_data_root(), *(c.path.parent for c in config.candidates if c.path is not None and c.path.is_absolute())]
+    roots = tuple(dict.fromkeys(Path(r) for r in [*(allowed_roots or ()), *configured_roots]))
     records: list[LocalModelAuthorityRecord] = []
     seen: dict[str, str] = {}
     if len(config.candidates) > MAX_CANDIDATES:
@@ -174,30 +198,28 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         metadata, sidecar_digest, meta_reasons = _metadata(candidate); reasons.extend(meta_reasons)
         if engine_l in PROVIDER_ENGINES: reasons.append("provider_engine_blocked")
         if engine_l not in SUPPORTED_ENGINES: reasons.append("unsupported_engine")
-        content_digest = None; artifact_size = None; semantic_artifact = "pathless_model"
+        content_digest = None; artifact_size = None; semantic_artifact = "pathless_model"; resolved_path = None
         if candidate.path is None:
             if engine_l not in {"null", "echo", "transformers"}: reasons.append("artifact_path_missing")
         else:
             if ".." in candidate.path.parts: reasons.append("path_traversal_blocked")
             ok, resolved = _safe_under(candidate.path, roots)
             if not ok: reasons.append("artifact_root_escape")
-            if resolved is not None and resolved.is_symlink(): reasons.append("symlink_escape_blocked")
             if not candidate.path.exists(): reasons.append("artifact_missing")
-            elif candidate.path.is_file():
+            elif ok:
                 try:
-                    content_digest, artifact_size = stream_sha256(candidate.path)
+                    resolved_path, semantic_artifact, content_digest, artifact_size, computed_sidecar = candidate_artifact_identity(candidate, metadata)
+                    if computed_sidecar is not None:
+                        sidecar_digest = computed_sidecar
                     expected = candidate.options.get("sha256") or metadata.get("sha256")
                     if expected and str(expected).lower() != content_digest: reasons.append("content_digest_mismatch")
                 except OSError:
                     reasons.append("artifact_unreadable")
-            elif candidate.path.is_dir():
-                # Directory transformers models use metadata/config digest, not recursive heavy hashing.
-                artifact_size = 0
-                content_digest = digest_payload({"directory_model": metadata, "name": candidate.display_name()})
+            if resolved_path is None and resolved is not None:
+                resolved_path = str(resolved)
             semantic_artifact = f"sha256:{content_digest}" if content_digest else f"unverified:{candidate.display_name()}"
         custom = bool(candidate.options.get("allow_model_code_execution") or metadata.get("allow_model_code_execution"))
-        cfg_payload = {"engine": engine_l, "options": {k: v for k, v in sorted(candidate.options.items()) if k != "path"}, "max_context_tokens": config.max_context_tokens, "generation": config.generation.as_kwargs()}
-        cfg_digest = digest_payload(cfg_payload)
+        cfg_digest = candidate_configuration_digest(candidate, config, engine_l)
         if excess: reasons.append("candidate_count_exceeded")
         disposition = "simulation" if engine_l in SIMULATION_ENGINES else "production_candidate"
         eligible = not reasons and engine_l in PRODUCTION_ENGINES
@@ -211,7 +233,7 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         if semantic_artifact in seen and seen[semantic_artifact] != cfg_digest: reasons.append("conflicting_duplicate_semantic_model")
         seen[semantic_artifact] = cfg_digest
         status = "eligible" if eligible else "blocked" if any(r for r in reasons if r not in {"simulation_backend_not_production_intelligence"}) else "degraded"
-        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "observed_at": datetime.now(timezone.utc).isoformat()})
+        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "resolved_artifact_path": resolved_path, "observed_at": datetime.now(timezone.utc).isoformat()})
         records.append(rec)
     semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION, "records": [r.to_dict() for r in records]}
     md = digest_payload(semantic); mid = "lmam-" + md[:24]

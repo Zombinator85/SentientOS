@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig, load_model_config
 from .optional_deps import dependency_available, optional_import
@@ -17,7 +18,67 @@ _MODEL_META_NAME = "model.json"
 _ALLOW_MODEL_CODE_EXEC_ENV = "SENTIENTOS_ALLOW_MODEL_CODE_EXECUTION"
 
 
-__all__ = ["LocalModel"]
+__all__ = ["ActiveModelIdentity", "LocalModel"]
+
+
+def _canonical_digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def _stream_sha256(path: Path) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            size += len(chunk)
+            digest.update(chunk)
+    return digest.hexdigest(), size
+
+
+@dataclass(frozen=True)
+class ActiveModelIdentity:
+    """Read-only identity of the backend which was actually instantiated."""
+
+    engine: str
+    resolved_artifact_path: str | None
+    semantic_artifact_identity: str
+    model_content_sha256: str | None
+    artifact_size_bytes: int | None
+    sidecar_metadata_digest: str | None
+    configuration_digest: str
+    candidate_index: int | None
+    posture: str
+    fallback: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self.__dict__)
+
+
+def candidate_configuration_digest(candidate: ModelCandidate, config: ModelConfig, engine: str) -> str:
+    payload = {
+        "engine": engine.lower(),
+        "options": {key: value for key, value in sorted(candidate.options.items()) if key != "path"},
+        "max_context_tokens": config.max_context_tokens,
+        "generation": config.generation.as_kwargs(),
+    }
+    return _canonical_digest(payload)
+
+
+def candidate_artifact_identity(candidate: ModelCandidate, metadata: Dict[str, Any]) -> tuple[str | None, str, str | None, int | None, str | None]:
+    if candidate.path is None:
+        return None, "pathless_model", None, None, None
+    resolved = candidate.path.resolve(strict=False)
+    content_digest: str | None = None
+    size: int | None = None
+    if candidate.path.is_file():
+        content_digest, size = _stream_sha256(candidate.path)
+    elif candidate.path.is_dir():
+        size = 0
+        content_digest = _canonical_digest({"directory_model": metadata, "name": candidate.display_name()})
+    meta_path = LocalModel._candidate_meta_path(candidate.path)
+    sidecar_digest = hashlib.sha256(meta_path.read_bytes()).hexdigest() if meta_path.is_file() else None
+    semantic = f"sha256:{content_digest}" if content_digest else f"unverified:{candidate.display_name()}"
+    return str(resolved), semantic, content_digest, size, sidecar_digest
 
 
 class ModelLoadError(RuntimeError):
@@ -127,7 +188,7 @@ class _TransformersBackend(_ModelBackend):
                 phase="tokenizer",
             ) from exc
         device_map: Optional[str]
-        torch_dtype: Optional[torch.dtype]
+        torch_dtype: Any
         if torch.cuda.is_available():
             device_map = "auto"
             torch_dtype = torch.float16
@@ -314,6 +375,7 @@ class LocalModel:
     metadata: Dict[str, Any]
     config: ModelConfig
     _fallback_backend: _ModelBackend
+    active_identity: ActiveModelIdentity
 
     @classmethod
     def autoload(cls) -> "LocalModel":
@@ -327,13 +389,14 @@ class LocalModel:
             }
             placeholder_dir = get_data_root() / "models"
             placeholder_dir.mkdir(parents=True, exist_ok=True)
-            backend = _NullBackend(ModelCandidate(path=placeholder_dir, engine="null"), placeholder_metadata)
+            backend: _ModelBackend = _NullBackend(ModelCandidate(path=placeholder_dir, engine="null"), placeholder_metadata)
             LOGGER.info("Node-only mode active; skipped heavy local model load.")
-            return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=backend)
+            identity = cls._fallback_identity(backend, config, posture="node_only")
+            return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=backend, active_identity=identity)
         ensure_mounts()
         config = load_model_config()
         errors: List[str] = []
-        for candidate in config.candidates:
+        for candidate_index, candidate in enumerate(config.candidates):
             try:
                 backend, metadata = cls._initialise_backend(candidate, config)
             except ModelLoadError as exc:
@@ -346,9 +409,10 @@ class LocalModel:
                 backend.describe(),
             )
             safe_backend = _NullBackend(candidate, metadata)
-            return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=safe_backend)
+            identity = cls._identity_for(candidate, config, backend, metadata, candidate_index)
+            return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=safe_backend, active_identity=identity)
 
-        placeholder_metadata = {
+        fallback_metadata: Dict[str, Any] = {
             "name": "SentientOS Placeholder Model",
             "engine": "null",
             "errors": errors,
@@ -361,9 +425,44 @@ class LocalModel:
                 meta_path.write_text("{\"name\": \"placeholder\"}", encoding="utf-8")
             except OSError:
                 LOGGER.debug("Unable to write placeholder metadata", exc_info=True)
-        backend = _NullBackend(ModelCandidate(path=placeholder_dir, engine="null"), placeholder_metadata)
+        backend = _NullBackend(ModelCandidate(path=placeholder_dir, engine="null"), fallback_metadata)
         LOGGER.warning("Using placeholder language model backend")
-        return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=backend)
+        identity = cls._fallback_identity(backend, config, posture="null_fallback")
+        return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=backend, active_identity=identity)
+
+    @classmethod
+    def _identity_for(cls, candidate: ModelCandidate, config: ModelConfig, backend: _ModelBackend,
+                      metadata: Dict[str, Any], candidate_index: int) -> ActiveModelIdentity:
+        engine = backend.engine.lower()
+        resolved, semantic, content, size, sidecar = candidate_artifact_identity(candidate, metadata)
+        return ActiveModelIdentity(
+            engine=engine, resolved_artifact_path=resolved, semantic_artifact_identity=semantic,
+            model_content_sha256=content, artifact_size_bytes=size, sidecar_metadata_digest=sidecar,
+            configuration_digest=candidate_configuration_digest(candidate, config, engine),
+            candidate_index=candidate_index,
+            posture="production" if engine in {"llama_cpp", "transformers"} else "simulation",
+            fallback=engine in {"null", "echo"},
+        )
+
+    @classmethod
+    def _fallback_identity(cls, backend: _ModelBackend, config: ModelConfig, *, posture: str) -> ActiveModelIdentity:
+        candidate = backend._candidate
+        resolved, semantic, content, size, sidecar = candidate_artifact_identity(candidate, backend.metadata)
+        return ActiveModelIdentity(
+            engine=backend.engine, resolved_artifact_path=resolved, semantic_artifact_identity=semantic,
+            model_content_sha256=content, artifact_size_bytes=size, sidecar_metadata_digest=sidecar,
+            configuration_digest=candidate_configuration_digest(candidate, config, backend.engine),
+            candidate_index=None, posture=posture, fallback=True,
+        )
+
+    def generate_governed(self, prompt: str, **overrides: Any) -> str:
+        """Generate without the conversational fallback used by ``generate``."""
+        if self.active_identity.fallback:
+            raise ModelLoadError("active backend is a simulation or fallback")
+        response = self.backend.generate(str(prompt).strip(), (), dict(overrides))
+        if not isinstance(response, str) or not response.strip():
+            raise ModelLoadError("active backend returned an empty response")
+        return response
 
     @classmethod
     def _initialise_backend(
@@ -398,9 +497,7 @@ class LocalModel:
         if not meta_path.exists():
             return {}
         try:
-            import json
-
-            return json.loads(meta_path.read_text(encoding="utf-8"))
+            return cast(Dict[str, Any], json.loads(meta_path.read_text(encoding="utf-8")))
         except (OSError, ValueError):
             LOGGER.warning("Failed to read metadata for %s", candidate.display_name(), exc_info=True)
             return {}
