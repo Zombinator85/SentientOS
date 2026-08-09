@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "755c83d69b1c05fdaa8b23fc66e8e4ab09f8c2b9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_discernment_participant.py::test_process_real_participant_is_accepted_and_frozen_by_blind_custody",
+      "rationale": "Proves the real governed invocation, deterministic organs, structured InnerWorld context, packet sealing, and BlindTrialCustody frozen-set path."
+    },
+    {
+      "node_id": "tests/test_discernment_participant.py::test_final_fields_are_not_api_overrides_and_failures_suspend_truthfully",
+      "rationale": "Proves caller overrides are absent and invalid governed output suspends without fabricated interpretation."
+    },
+    {
+      "node_id": "tests/test_discernment_participant.py::test_digest_mismatch_and_observation_namespace_escape_fail_closed",
+      "rationale": "Proves immutable-input digest and observation-namespace boundaries fail closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_discernment_participant.py::test_process_real_participant_is_accepted_and_frozen_by_blind_custody"
+  ]
+}

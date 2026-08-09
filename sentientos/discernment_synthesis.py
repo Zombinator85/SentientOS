@@ -123,6 +123,27 @@ def contribution_from_inner_world(output: Any, *, surface_id: str = "inner-world
     )
 
 
+def context_from_inner_world(output: Any) -> dict[str, Any]:
+    """Preserve a live report as context without inventing a proposition or confidence."""
+    data = _plain(output)
+    if not isinstance(data, Mapping):
+        raise ValueError("inner-world output must be structured")
+    context_keys = (
+        "ethics", "metacog", "meta", "innerworld_reflection", "cognitive_report",
+        "workspace_spotlight", "inner_dialogue", "value_drift", "identity",
+        "autobiography", "simulation", "qualia",
+    )
+    context = {key: data[key] for key in context_keys if key in data}
+    return {
+        "schema_version": "sentientos.inner_world_discernment_context.v1",
+        "component": "sentientos.innerworld.orchestrator.InnerWorldOrchestrator",
+        "canonical_output_digest": _digest(data),
+        "cycle_id": data.get("cycle_id"),
+        "structured_context": context,
+        "asserts_final_position": False,
+    }
+
+
 def local_model_contribution(source: LocalModelJudgmentSource | None, request: Mapping[str, Any]) -> tuple[SurfaceContribution | None, Mapping[str, Any]]:
     if source is None:
         return None, {"status": "unavailable", "reason": "governed_local_model_source_not_configured", "fabricated": False}
