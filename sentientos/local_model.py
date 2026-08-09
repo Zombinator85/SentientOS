@@ -331,11 +331,15 @@ class _LlamaCppBackend(_ModelBackend):
         if gpu_layers is None:
             gpu_layers = -1 if _cuda_available() else 0
 
+        runtime_options: dict[str, Any] = {}
+        if candidate.options.get("n_threads") is not None:
+            runtime_options["n_threads"] = int(candidate.options["n_threads"])
         self._llama = Llama(
             model_path=str(model_path),
             n_ctx=max_context_tokens,
             n_gpu_layers=gpu_layers,
             logits_all=False,
+            **runtime_options,
         )
         self._generation = generation
 
@@ -346,15 +350,15 @@ class _LlamaCppBackend(_ModelBackend):
         generation: Dict[str, Any],
     ) -> str:
         params = self._generation.as_kwargs(**generation)
-        response = self._llama(
-            prompt,
+        response = self._llama.create_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=params.get("max_new_tokens"),
             temperature=params.get("temperature"),
             top_p=params.get("top_p"),
             top_k=params.get("top_k"),
             repeat_penalty=params.get("repetition_penalty"),
         )
-        output = response.get("choices", [{}])[0].get("text", "")
+        output = response.get("choices", [{}])[0].get("message", {}).get("content", "")
         return str(output).strip()
 
 

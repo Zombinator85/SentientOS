@@ -142,8 +142,8 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
         def __init__(self, **kwargs: object) -> None:
             self.kwargs = kwargs
 
-        def __call__(self, prompt: str, **_: object) -> dict:
-            return {"choices": [{"text": f"Mistral echoes: {prompt}"}]}
+        def create_chat_completion(self, *, messages: list[dict[str, str]], **_: object) -> dict:
+            return {"choices": [{"message": {"content": f"Mistral echoes: {messages[0]['content']}"}}]}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
 
