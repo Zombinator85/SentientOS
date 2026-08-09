@@ -11,6 +11,15 @@ NONZERO = {"insufficient", "blocked", "failed"}
 _COMMIT_TITLE_RE = re.compile(r"^\[codex:[a-z0-9-]+\]\s+.+$")
 _SNAKE_RE = re.compile(r"[^a-z0-9]+")
 _FORBIDDEN_RE = re.compile(r"(provider|openai|github|network|subprocess|shell|action\s*wing)", re.IGNORECASE)
+_NEGATION_PREFIX_RE = re.compile(r"\b(do\s+not|don't|must\s+not|shall\s+not|never|no|without)\b", re.IGNORECASE)
+_AFFIRMATIVE_BETWEEN_RE = re.compile(r"\b(use|call|access|invoke|spawn|execute|run|enable|allow)\b", re.IGNORECASE)
+_DIRECT_NEGATED_ACTION_RE = re.compile(r"^\s*(?:(?:use|call|access|invoke|spawn|execute|run|enable|allow)\s+)?(?:the\s+)?$", re.IGNORECASE)
+_PROHIBITION_SUFFIX_RE = re.compile(
+    r"^\s*(?:apis?\b|calls?\b|access\b|execution\b|inference\b)?\s*"
+    r"(?:is|are|must\s+remain|shall\s+remain)?\s*"
+    r"(?:forbidden|prohibited|disabled|disallowed|not\s+allowed|must\s+not\s+be\s+used)\b",
+    re.IGNORECASE,
+)
 
 @dataclass(frozen=True)
 class PlannerRequest:
@@ -70,6 +79,32 @@ def _choose(first: tuple[str, ...], default: str) -> str:
     return first[0] if first else default
 
 
+def _forbidden_authority_requested(text: str) -> bool:
+    """Return true unless every named authority surface is explicitly prohibited."""
+    for match in _FORBIDDEN_RE.finditer(text):
+        clause_start = max(
+            text.rfind(".", 0, match.start()),
+            text.rfind(";", 0, match.start()),
+            text.rfind("\n", 0, match.start()),
+        ) + 1
+        prefix = text[clause_start:match.start()]
+        negations = tuple(_NEGATION_PREFIX_RE.finditer(prefix))
+        prohibited = False
+        if negations:
+            negation = negations[-1]
+            between = prefix[negation.end():]
+            if negation.group(1).lower() in {"no", "without"}:
+                prohibited = not _AFFIRMATIVE_BETWEEN_RE.search(between)
+            else:
+                prohibited = bool(_DIRECT_NEGATED_ACTION_RE.match(between))
+        suffix = text[match.end():match.end() + 64]
+        if _PROHIBITION_SUFFIX_RE.match(suffix):
+            prohibited = True
+        if not prohibited:
+            return True
+    return False
+
+
 def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     warnings: list[str] = []
     blockers: list[str] = []
@@ -96,7 +131,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     commit_title = request.commit_title or commit_default
 
     for text in (request.task_name, request.task_goal, request.preset_id, request.subsystem_kind):
-        if _FORBIDDEN_RE.search(text):
+        if _forbidden_authority_requested(text):
             blockers.append("forbidden_authority_surface_requested")
             break
 

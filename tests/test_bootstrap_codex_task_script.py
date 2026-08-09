@@ -44,7 +44,48 @@ def test_script_blocked_prompt_output_is_hard_stop(tmp_path: Path) -> None:
     payload = json.loads(summary.read_text(encoding="utf-8"))
     assert "BLOCKED_DO_NOT_IMPLEMENT" in text
     assert "Only then make_pr" not in text
+    assert "make_pr" not in text
     assert payload["artifact_classification"] == "diagnostic"
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    ("goal", "blocked"),
+    [
+        ("without provider inference", False),
+        ("provider inference is forbidden", False),
+        ("do not call OpenAI", False),
+        ("do not call GitHub APIs", False),
+        ("subprocess execution must remain disabled", False),
+        ("shell execution is prohibited", False),
+        ("do not invoke the action wing", False),
+        ("use provider inference", True),
+        ("call OpenAI for inference", True),
+        ("use GitHub API to publish", True),
+        ("spawn a subprocess", True),
+        ("execute shell commands from the library", True),
+        ("invoke the action wing", True),
+    ],
+)
+def test_bootstrap_classifies_authority_surface_semantics(tmp_path: Path, goal: str, blocked: bool) -> None:
+    summary = tmp_path / "summary.json"
+    prompt = tmp_path / "prompt.txt"
+    code = main([
+        "--task-name", "Authority classification repair",
+        "--task-goal", goal,
+        "--subsystem-kind", "developer_workflow_metadata",
+        "--summary-output", str(summary),
+        "--prompt-output", str(prompt),
+    ])
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    if blocked:
+        assert code == 1
+        assert payload["status"] == "blocked"
+        assert "forbidden_authority_surface_requested" in payload["blocker_codes"]
+    else:
+        assert code == 0
+        assert payload["status"] in {"ready", "ready_with_warnings"}
+        assert "forbidden_authority_surface_requested" not in payload["blocker_codes"]
 
 
 @pytest.mark.no_legacy_skip
