@@ -3,8 +3,10 @@ from __future__ import annotations
 """Process-real, non-authoritative SentientOS blind-trial participant."""
 
 from dataclasses import dataclass, field
+from copy import deepcopy
 import json
 from pathlib import Path
+import re
 from typing import Any, Mapping, Sequence, cast
 
 from .delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
@@ -35,6 +37,61 @@ FORBIDDEN_CONTENT = (
 MAX_JUDGMENT_BYTES = 32_768
 MAX_TEXT_CHARS = 4_000
 MAX_LIST_ITEMS = 64
+STRUCTURED_TEXT_CHARS = 80
+STRUCTURED_LIST_TEXT_CHARS = 60
+STRUCTURED_LIST_ITEMS = 1
+
+
+def judgment_output_schema(*, proposition: str,
+                           allowed_observation_namespace: str) -> dict[str, Any]:
+    """Return the constrained-generation form of the authoritative contract."""
+    if not proposition or not allowed_observation_namespace:
+        raise ValueError("proposition and allowed observation namespace are required")
+    if re.fullmatch(r"[A-Za-z0-9_.-]+", allowed_observation_namespace) is None:
+        raise ValueError("allowed observation namespace contains unsupported characters")
+    text_properties: dict[str, Any] = {
+        key: {"type": "string", "maxLength": STRUCTURED_TEXT_CHARS}
+        for key in TEXT_FIELDS
+    }
+    list_properties: dict[str, Any] = {
+        key: {
+            "type": "array", "maxItems": STRUCTURED_LIST_ITEMS,
+            "items": {"type": "string", "maxLength": STRUCTURED_LIST_TEXT_CHARS},
+        }
+        for key in LIST_FIELDS
+    }
+    namespace_pattern = "^" + allowed_observation_namespace.replace(".", "[.]") + "[.][A-Za-z0-9_.-]+$"
+    for key in ("expected_observation_keys", "disconfirming_observation_keys"):
+        list_properties[key]["items"]["pattern"] = namespace_pattern
+    properties: dict[str, Any] = {
+        **text_properties, **list_properties,
+        "schema_version": {"const": JUDGMENT_SCHEMA},
+        "proposition": {"const": proposition},
+        "stance": {"enum": sorted(STANCES)},
+        # llama.cpp's grammar compiler does not encode numeric ranges, so the
+        # finite enum makes the same validator range enforceable while decoding.
+        "confidence": {
+            "type": ["number", "null"],
+            "enum": [None, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+            "minimum": 0, "maximum": 1,
+        },
+    }
+    required = ["schema_version", "proposition", "interpretation", "stance", "confidence",
+                "strongest_objection", *LIST_FIELDS, "preferred_next_move"]
+    base_schema: dict[str, Any] = {
+        "type": "object", "properties": properties, "required": required,
+        "additionalProperties": False,
+    }
+    decided: dict[str, Any] = deepcopy(base_schema)
+    decided["properties"]["stance"] = {"enum": ["support", "oppose"]}
+    decided["properties"]["confidence"] = {
+        "type": "number", "enum": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+        "minimum": 0, "maximum": 1,
+    }
+    suspended: dict[str, Any] = deepcopy(base_schema)
+    suspended["properties"]["stance"] = {"enum": ["suspend"]}
+    suspended["properties"]["confidence"] = {"type": "null"}
+    return {"oneOf": [decided, suspended]}
 
 
 def live_discernment_readiness(model: LocalModel, authority_map: LocalModelAuthorityMap) -> dict[str, Any]:
@@ -214,7 +271,7 @@ def generate_participant_judgment(request: DiscernmentParticipantRequest, *,
             "schema_version": JUDGMENT_SCHEMA,
             "proposition": request.question,
             "stance": {"enum": sorted(STANCES)},
-            "confidence": "number from 0 through 1, or null only when stance is suspend",
+            "confidence": "MUST be null when stance is suspend; otherwise MUST be a number from 0 through 1",
             "text_fields": list(TEXT_FIELDS),
             "list_of_string_fields": list(LIST_FIELDS),
             "observation_key_prefix": request.allowed_observation_namespace + ".",
@@ -223,10 +280,17 @@ def generate_participant_judgment(request: DiscernmentParticipantRequest, *,
         "instruction": "Return only the exact sentientos.discernment_judgment.v1 JSON object. Judgment is non-authoritative and must not request actions or tools.",
     }
     prompt = json.dumps(semantic_request, sort_keys=True, ensure_ascii=False)
+    output_schema = judgment_output_schema(
+        proposition=request.question,
+        allowed_observation_namespace=request.allowed_observation_namespace,
+    )
     lm_request = invoker.build_request(
         purpose="discernment_judgment", prompt=prompt, caller="sentientos.discernment_participant",
         correlation_id=f"discernment:{question_digest}:{evidence_digest}", expected_output_format="json",
-        budget=LocalModelInvocationBudget(max_input_chars=max(8000, len(prompt) + 1), max_output_chars=MAX_JUDGMENT_BYTES),
+        budget=LocalModelInvocationBudget(max_input_chars=max(8000, len(prompt) + 1),
+                                          max_output_chars=MAX_JUDGMENT_BYTES,
+                                          max_new_tokens=384),
+        structured_output_schema=output_schema,
         upstream_evidence={"question_digest": question_digest, "evidence_snapshot_digest": evidence_digest,
                            "deterministic_component_digests": deterministic_digests},
         linkage={"proposition": request.question, "allowed_observation_namespace": request.allowed_observation_namespace},

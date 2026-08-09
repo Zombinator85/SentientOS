@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
-from sentientos.discernment_participant import DiscernmentParticipantRequest, generate_participant_judgment
+from sentientos.discernment_participant import (
+    DiscernmentParticipantRequest, generate_participant_judgment, judgment_output_schema,
+)
 from sentientos.discernment_trial import BlindTrialCustody
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.innerworld.orchestrator import InnerWorldOrchestrator
@@ -42,6 +44,7 @@ class DeterministicLocalModel:
     def __init__(self, output: str = "") -> None:
         self.output = output or _judgment()
         self.prompts: list[str] = []
+        self.generation_calls: list[dict[str, object]] = []
         self.active_identity = ActiveModelIdentity(
             engine="llama_cpp", resolved_artifact_path="/fixture/model.gguf",
             semantic_artifact_identity="sha256:model", model_content_sha256="model",
@@ -51,6 +54,7 @@ class DeterministicLocalModel:
 
     def generate(self, prompt: str, **kwargs: object) -> str:
         self.prompts.append(prompt)
+        self.generation_calls.append(kwargs)
         return self.output
 
 
@@ -112,6 +116,19 @@ def test_process_real_participant_is_accepted_and_frozen_by_blind_custody(tmp_pa
         "disconfirming_observation_keys", "predicted_consequences", "preferred_next_move",
         "rejected_next_moves", "unresolved_contradictions",
     }
+    schema = model.generation_calls[0]["structured_output_schema"]
+    assert isinstance(schema, dict)
+    assert schema == judgment_output_schema(proposition=QUESTION,
+                                            allowed_observation_namespace="trial")
+    decided, suspended = schema["oneOf"]
+    assert decided["properties"]["proposition"] == {"const": QUESTION}
+    assert decided["properties"]["stance"] == {"enum": ["support", "oppose"]}
+    assert suspended["properties"]["stance"] == {"enum": ["suspend"]}
+    assert suspended["properties"]["confidence"] == {"type": "null"}
+    observation = decided["properties"]["expected_observation_keys"]["items"]
+    assert observation["pattern"].startswith("^trial[.]")
+    assert model.generation_calls[0]["temperature"] == 0
+    assert model.generation_calls[0]["max_new_tokens"] == 384
 
     custody = BlindTrialCustody(tmp_path / "trial")
     custody.create_trial({"trial_id": "t1", "question": QUESTION, "subject_id": "bounded-change",
