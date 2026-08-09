@@ -11,6 +11,7 @@ from sentientos.discernment_trial import BlindTrialCustody
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.innerworld.orchestrator import InnerWorldOrchestrator
 from sentientos.local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, digest_payload
+from sentientos.local_model import ActiveModelIdentity
 from sentientos.truth.epistemic_orientation import EpistemicOrientation
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -41,6 +42,12 @@ class DeterministicLocalModel:
     def __init__(self, output: str = "") -> None:
         self.output = output or _judgment()
         self.prompts: list[str] = []
+        self.active_identity = ActiveModelIdentity(
+            engine="llama_cpp", resolved_artifact_path="/fixture/model.gguf",
+            semantic_artifact_identity="sha256:model", model_content_sha256="model",
+            artifact_size_bytes=5, sidecar_metadata_digest=None, configuration_digest="config",
+            candidate_index=0, posture="production", fallback=False,
+        )
 
     def generate(self, prompt: str, **kwargs: object) -> str:
         self.prompts.append(prompt)
@@ -60,6 +67,7 @@ def _authority() -> LocalModelAuthorityMap:
         provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked",
         action_posture="blocked", runtime_eligibility_status="eligible", reason_codes=("eligible_local_model",),
         disposition="production_candidate", proof_references=("fixture:model",),
+        observed_metadata={"candidate_index": 0, "resolved_artifact_path": "/fixture/model.gguf"},
     )
     semantic = {"schema_version": "local_model_authority_map.v1", "records": [record.to_dict()]}
     digest = digest_payload(semantic)

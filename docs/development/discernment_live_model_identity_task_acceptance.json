@@ -1,0 +1,33 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "265193cdbaba2dd401367c5b1f9f46b8ba9e65fd",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_discernment_live_model_identity.py::test_second_loaded_candidate_is_bound_instead_of_first_eligible_candidate",
+      "rationale": "Proves the authority selection follows the actually loaded later candidate rather than the first eligible configured candidate."
+    },
+    {
+      "node_id": "tests/test_discernment_live_model_identity.py::test_fallback_and_tampered_identity_fail_before_generation",
+      "rationale": "Proves fallback and identity mismatch fail closed without semantic generation."
+    },
+    {
+      "node_id": "tests/test_discernment_live_model_identity.py::test_configured_external_parent_is_safe_but_symlink_escape_is_rejected",
+      "rationale": "Proves configured external local artifacts work while unrelated symlink escapes remain blocked."
+    },
+    {
+      "node_id": "tests/test_discernment_live_model_identity.py::test_doctor_is_read_only_and_never_generates",
+      "rationale": "Proves live readiness reports exact binding without generation or forbidden effects."
+    },
+    {
+      "node_id": "tests/test_discernment_participant.py::test_process_real_participant_is_accepted_and_frozen_by_blind_custody",
+      "rationale": "Preserves the process-real participant and blind-trial custody successful path."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_discernment_live_model_identity.py::test_second_loaded_candidate_is_bound_instead_of_first_eligible_candidate",
+    "tests/test_discernment_live_model_identity.py::test_doctor_is_read_only_and_never_generates",
+    "tests/test_discernment_participant.py::test_process_real_participant_is_accepted_and_frozen_by_blind_custody"
+  ]
+}

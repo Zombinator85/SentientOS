@@ -15,6 +15,8 @@ from .discernment_synthesis import (
 from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
 from .innerworld.orchestrator import InnerWorldOrchestrator
 from .local_model_authority import digest_payload
+from .local_model_authority import LocalModelAuthorityMap
+from .local_model import LocalModel
 from .truth.epistemic_orientation import EpistemicOrientation
 
 JUDGMENT_SCHEMA = "sentientos.discernment_judgment.v1"
@@ -33,6 +35,43 @@ FORBIDDEN_CONTENT = (
 MAX_JUDGMENT_BYTES = 32_768
 MAX_TEXT_CHARS = 4_000
 MAX_LIST_ITEMS = 64
+
+
+def live_discernment_readiness(model: LocalModel, authority_map: LocalModelAuthorityMap) -> dict[str, Any]:
+    """Inspect live-model binding without admission or semantic generation."""
+    identity = model.active_identity
+    record = authority_map.record_for_active_identity(identity, "discernment_judgment")
+    blockers: list[str] = []
+    if identity.fallback or identity.posture != "production":
+        blockers.append("simulation_or_fallback_backend_loaded")
+    if record is None:
+        blockers.append("active_model_authority_record_not_exactly_bound")
+    if model.metadata.get("errors"):
+        blockers.append("configured_model_load_failures")
+    digest_ok = bool(record and record.model_content_sha256 == identity.model_content_sha256)
+    if not digest_ok:
+        blockers.append("artifact_digest_not_bound")
+    dependency_ready = not identity.fallback
+    control_plane_ready = True  # Structural readiness only; doctor never calls admit().
+    advertised = record is not None and not blockers
+    return {
+        "schema_version": "sentientos.discernment_participant_doctor.v1",
+        "model_load_status": "loaded" if not identity.fallback else "fallback",
+        "actual_loaded_engine": identity.engine,
+        "actual_loaded_model_identity": identity.to_dict(),
+        "matching_authority_record": record.to_dict() if record else None,
+        "matching_model_id": record.model_id if record else None,
+        "artifact_digest_status": "matched" if digest_ok else "unmatched",
+        "discernment_judgment_advertised": advertised,
+        "control_plane_local_model_inference_readiness": control_plane_ready,
+        "dependency_backend_readiness": dependency_ready,
+        "simulation_fallback_detected": identity.fallback or identity.posture != "production",
+        "ready_for_live_discernment": advertised and control_plane_ready and dependency_ready,
+        "blockers": blockers,
+        "semantic_model_generations": 0,
+        "effects": {"execution": False, "memory": False, "goal": False, "git": False,
+                    "provider_network": False},
+    }
 
 
 def _plain(value: Any) -> Any:
@@ -184,6 +223,7 @@ def generate_participant_judgment(request: DiscernmentParticipantRequest, *,
     model_status: dict[str, Any] = {
         "status": receipt.status, "reason_codes": list(receipt.reason_codes), "fabricated": False,
         "model_id": lm_request.model_id, "model_artifact_digest": lm_request.model_artifact_digest,
+        "active_model_identity": dict(lm_request.active_model_identity),
         "authority_map_digest": lm_request.authority_map_digest, "invocation_request_digest": lm_request.request_digest,
         "invocation_receipt_digest": receipt.receipt_digest, "admission_decision_ref": receipt.admission_decision_ref,
     }
