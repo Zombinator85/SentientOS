@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import subprocess
+import importlib
 from datetime import datetime
 import json
 
@@ -38,7 +39,8 @@ def install_requirements() -> None:
     run("pip install Cython || echo 'Cython install skipped'")
 
 def ensure_env_keys() -> None:
-    from scripts.env_sync_autofill import autofill_env as sync_env
+    module_name = f"{__package__}.env_sync_autofill" if __package__ else "env_sync_autofill"
+    sync_env = importlib.import_module(module_name).autofill_env
     sync_env()
     log_event("env", "Environment keys synchronized.")
 

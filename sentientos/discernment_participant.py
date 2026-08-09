@@ -208,6 +208,18 @@ def generate_participant_judgment(request: DiscernmentParticipantRequest, *,
         "evaluation_context": _plain(request.evaluation_context),
         "allowed_observation_namespace": request.allowed_observation_namespace,
         "deterministic_context": deterministic,
+        "required_output_contract": {
+            "exact_keys": ["schema_version", "proposition", "interpretation", "stance", "confidence",
+                           "strongest_objection", *LIST_FIELDS, "preferred_next_move"],
+            "schema_version": JUDGMENT_SCHEMA,
+            "proposition": request.question,
+            "stance": {"enum": sorted(STANCES)},
+            "confidence": "number from 0 through 1, or null only when stance is suspend",
+            "text_fields": list(TEXT_FIELDS),
+            "list_of_string_fields": list(LIST_FIELDS),
+            "observation_key_prefix": request.allowed_observation_namespace + ".",
+            "brevity": "Use one concise sentence per text field and no more than two concise items per list.",
+        },
         "instruction": "Return only the exact sentientos.discernment_judgment.v1 JSON object. Judgment is non-authoritative and must not request actions or tools.",
     }
     prompt = json.dumps(semantic_request, sort_keys=True, ensure_ascii=False)

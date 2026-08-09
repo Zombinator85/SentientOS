@@ -104,6 +104,14 @@ def test_process_real_participant_is_accepted_and_frozen_by_blind_custody(tmp_pa
     assert "unresolved" not in inner
     assert all(value is False for value in result["authority_posture"].values())
     assert "opaque_participant" not in model.prompts[0]
+    prompt = json.loads(model.prompts[0])
+    assert set(prompt["required_output_contract"]["exact_keys"]) == {
+        "schema_version", "proposition", "interpretation", "stance", "confidence",
+        "strongest_objection", "alternate_interpretations", "missing_evidence",
+        "what_would_change_judgment", "expected_observation_keys",
+        "disconfirming_observation_keys", "predicted_consequences", "preferred_next_move",
+        "rejected_next_moves", "unresolved_contradictions",
+    }
 
     custody = BlindTrialCustody(tmp_path / "trial")
     custody.create_trial({"trial_id": "t1", "question": QUESTION, "subject_id": "bounded-change",
