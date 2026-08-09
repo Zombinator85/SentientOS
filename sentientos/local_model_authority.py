@@ -203,7 +203,9 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         eligible = not reasons and engine_l in PRODUCTION_ENGINES
         if engine_l in SIMULATION_ENGINES and not reasons:
             reasons.append("simulation_backend_not_production_intelligence")
-        purposes = ("local_user_chat",) if engine_l in SIMULATION_ENGINES else ("local_user_chat", "genesis_proposal_advice")
+        purposes = ("local_user_chat",) if engine_l in SIMULATION_ENGINES else (
+            "local_user_chat", "genesis_proposal_advice", "discernment_judgment",
+        )
         record_seed = {"engine": engine_l, "semantic_artifact_identity": semantic_artifact, "configuration_digest": cfg_digest, "sidecar_metadata_digest": sidecar_digest}
         model_id = "lma-" + digest_payload(record_seed)[:24]
         if semantic_artifact in seen and seen[semantic_artifact] != cfg_digest: reasons.append("conflicting_duplicate_semantic_model")

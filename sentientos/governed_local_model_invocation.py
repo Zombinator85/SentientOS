@@ -9,7 +9,7 @@ from typing import Any, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "genesis_proposal_advice"}
+SUPPORTED_PURPOSES = {"local_user_chat", "genesis_proposal_advice", "discernment_judgment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:
@@ -165,6 +165,7 @@ class GovernedLocalModelInvoker:
                         output = output.encode("utf-8")[:request.budget.max_output_chars].decode("utf-8", "ignore"); truncated = True; reasons.append("output_oversized")
                     if not output.strip(): reasons.append("empty_output"); status = "degraded_fallback"; fallback = True
                     elif request.purpose == "genesis_proposal_advice" and not self._valid_genesis_advice(output): reasons.append("output_malformed"); status = "output_malformed"
+                    elif request.purpose == "discernment_judgment" and not self._valid_discernment_judgment(output, request): reasons.append("output_malformed"); status = "output_malformed"
                     else: status = "admitted_simulation" if record and record.engine in {"null", "echo"} else "admitted_completed"
                 except TimeoutError: status = "timeout"; reasons.append("timeout")
                 except Exception as exc: status = "backend_failure"; reasons.append(f"backend_failure:{exc.__class__.__name__}")
@@ -197,3 +198,16 @@ class GovernedLocalModelInvoker:
             return payload is not None and not reasons
         except Exception:
             return not any(item in blob for item in forbidden)
+
+    @staticmethod
+    def _valid_discernment_judgment(text: str, request: LocalModelInvocationRequest) -> bool:
+        try:
+            from .discernment_participant import validate_judgment_output
+            validate_judgment_output(
+                json.loads(text),
+                allowed_observation_namespace=str(request.linkage.get("allowed_observation_namespace") or ""),
+                expected_proposition=str(request.linkage.get("proposition") or ""),
+            )
+            return True
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
