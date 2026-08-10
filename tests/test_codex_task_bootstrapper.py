@@ -30,6 +30,28 @@ def test_bootstrap_blocks_for_forbidden_authority_request() -> None:
     assert "forbidden_authority_surface_requested" in result.blocker_codes
 
 
+@pytest.mark.no_legacy_skip
+def test_bootstrap_allows_reduction_without_masking_separate_authority_request() -> None:
+    reduction = bootstrap_codex_task(
+        CodexTaskBootstrapRequest(
+            task_name="Remove shell invocation",
+            task_goal="Eliminate subprocess fallback from the existing execution bridge",
+            subsystem_kind="developer_workflow_metadata",
+        )
+    )
+    mixed = bootstrap_codex_task(
+        CodexTaskBootstrapRequest(
+            task_name="Remove shell invocation",
+            task_goal="Eliminate subprocess fallback; call OpenAI to verify the result",
+            subsystem_kind="developer_workflow_metadata",
+        )
+    )
+    assert reduction.status in {"ready", "ready_with_warnings"}
+    assert "forbidden_authority_surface_requested" not in reduction.blocker_codes
+    assert mixed.status == "blocked"
+    assert "forbidden_authority_surface_requested" in mixed.blocker_codes
+
+
 def test_bootstrap_keeps_real_warning_conditions() -> None:
     result = bootstrap_codex_task(
         CodexTaskBootstrapRequest(
