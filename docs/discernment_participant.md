@@ -13,11 +13,16 @@ escaping, executable, or authority-seeking output yields a truthful suspension.
 The intended experiment sequence is:
 
 1. Create and freeze an identical question and evidence snapshot.
-2. Let the SentientOS participant generate and seal its own structured judgment.
-3. Let Allen independently submit his judgment.
-4. Let an external GPT independently submit its judgment.
-5. Freeze the judgment set through `BlindTrialCustody`.
-6. Later record canonical evidence, review, compare, and reveal identities.
+2. Run [bounded live calibration](discernment_calibration.md) as a pre-trial readiness
+   check for the exact production-local model/configuration. Component tests or simulated
+   calibration do not establish live readiness.
+3. Let an operator consider the non-authoritative calibration handoff; it does not enroll
+   the model automatically.
+4. Let the SentientOS participant generate and seal its own structured judgment.
+5. Let Allen independently submit his judgment.
+6. Let an external GPT independently submit its judgment.
+7. Freeze the judgment set through `BlindTrialCustody`.
+8. Later record canonical evidence, review, compare, and reveal identities.
 
 No peer identity or judgment is shown to SentientOS before its judgment is sealed. The
 participant does not invoke custody, execute work, mutate goals or memory, schedule,

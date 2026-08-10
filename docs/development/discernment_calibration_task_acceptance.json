@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2d98ba3a3d89e54cdffb328328b345b99f3d5daf",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_discernment_calibration.py::test_canonical_participant_and_governed_invoker_are_in_real_call_path", "rationale": "Canonical participant and governed invoker successful path."},
+    {"node_id": "tests/test_discernment_calibration.py::test_simulated_evidence_cannot_be_labeled_live_ready", "rationale": "Test/live distinction."},
+    {"node_id": "tests/test_discernment_calibration.py::test_fallback_and_missing_live_model_report_unavailable_without_generation", "rationale": "Missing/fallback fail closed."},
+    {"node_id": "tests/test_discernment_calibration.py::test_identity_change_mid_run_is_retained_and_blocks", "rationale": "Exact identity custody."},
+    {"node_id": "tests/test_discernment_calibration.py::test_malformed_timeout_and_semantic_mismatch_are_reported", "rationale": "Truthful failures and repeat semantics."},
+    {"node_id": "tests/test_discernment_calibration.py::test_saved_artifacts_reconstruct_and_nested_mutation_fails", "rationale": "Artifact reconstruction and no authority expansion."},
+    {"node_id": "tests/test_discernment_calibration.py::test_doctor_is_zero_generation_and_zero_write", "rationale": "Read-only zero-generation doctor."},
+    {"node_id": "tests/test_discernment_calibration.py::test_handoff_never_enrolls_or_submits_to_trial", "rationale": "No automatic trial authority."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_discernment_calibration.py::test_canonical_participant_and_governed_invoker_are_in_real_call_path",
+    "tests/test_discernment_calibration.py::test_saved_artifacts_reconstruct_and_nested_mutation_fails",
+    "tests/test_discernment_calibration.py::test_doctor_is_zero_generation_and_zero_write"
+  ]
+}
