@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "57ee20440903da88c1e0cad9e98fa8cbaa7376a9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_discernment_experiment_session.py::test_deterministic_session_identity_and_commissioning_binding_without_reentry", "rationale": "Deterministic commissioning binding successful path."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_process_real_load_proof_uses_local_model_and_exact_authority", "rationale": "Canonical LocalModel identity proof and zero-generation doctor."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_explicit_calibration_uses_canonical_runner_and_reconstructs_artifacts", "rationale": "Explicit canonical calibration and artifact reconstruction."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_crash_resume_validates_without_automatic_generation", "rationale": "Crash-safe non-rerun custody."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_only_live_ready_can_emit_non_authoritative_trial_handoff", "rationale": "Ready-only non-authoritative trial handoff."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_mutated_commissioning_manifest_and_model_substitution_fail_closed", "rationale": "Artifact substitution blocking path."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_config_authority_candidate_and_path_tampering_are_rejected", "rationale": "Configuration and authority substitution blocking path."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_missing_llama_cpp_is_external_prerequisite_and_doctor_runs_zero_cases", "rationale": "Missing production prerequisite remains unavailable."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_nonready_calibration_never_produces_trial_handoff[calibration_degraded]", "rationale": "Degraded calibration cannot advance."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_nonready_calibration_never_produces_trial_handoff[calibration_blocked]", "rationale": "Blocked calibration cannot advance."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_nonready_calibration_never_produces_trial_handoff[calibration_unavailable]", "rationale": "Unavailable calibration cannot advance."},
+    {"node_id": "tests/test_discernment_experiment_session.py::test_partial_or_corrupt_calibration_custody_fails_closed", "rationale": "Partial custody blocks without rerun."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_discernment_experiment_session.py::test_deterministic_session_identity_and_commissioning_binding_without_reentry",
+    "tests/test_discernment_experiment_session.py::test_process_real_load_proof_uses_local_model_and_exact_authority",
+    "tests/test_discernment_experiment_session.py::test_explicit_calibration_uses_canonical_runner_and_reconstructs_artifacts",
+    "tests/test_discernment_experiment_session.py::test_crash_resume_validates_without_automatic_generation",
+    "tests/test_discernment_experiment_session.py::test_only_live_ready_can_emit_non_authoritative_trial_handoff"
+  ]
+}
