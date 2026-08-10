@@ -155,7 +155,10 @@ class DiscernmentCalibrationRunner:
                     question=case["question"], initial_evidence_snapshot=case["initial_evidence_snapshot"],
                     evaluation_context=case.get("evaluation_context", {}),
                     allowed_observation_namespace=case["allowed_observation_namespace"], observed_at=run_time,
-                    correlation_suffix=str(case["case_id"]),
+                    # Admission deduplication is process-local. Namespace correlations by
+                    # the explicit external custody root so independent runs cannot defer
+                    # one another while a same-root accidental rerun remains detectable.
+                    correlation_suffix=_digest({"runtime_root": str(self.runtime_root)})[:16] + ":" + str(case["case_id"]),
                 )
                 try:
                     output = self.participant(request, invoker=self.invoker)
@@ -175,6 +178,14 @@ class DiscernmentCalibrationRunner:
                 if result.get("semantic_judgment") is not None:
                     semantic[str(case["case_id"])] = result["semantic_judgment"]
                 results.append(result)
+            # Corpus identity is order independent and canonical storage sorts case IDs.
+            # Resolve repeat references after all cases so lexical ordering cannot turn a
+            # valid repeat into a false mismatch merely because its source sorts later.
+            for case, result in zip(canonical["cases"], results):
+                if case.get("repeat_of") and result.get("semantic_judgment") is not None:
+                    result["repeat_comparison"] = self._compare(
+                        semantic.get(str(case["repeat_of"])), result.get("semantic_judgment")
+                    )
         summary = self._summary(canonical, results, readiness, live, preflight_blocked)
         summary["duration_ms"] = int((time.monotonic() - started) * 1000)
         manifest = {
