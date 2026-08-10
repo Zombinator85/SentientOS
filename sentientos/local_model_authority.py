@@ -178,10 +178,12 @@ def _metadata(candidate: ModelCandidate) -> tuple[dict[str, Any], str | None, li
         return {}, None, ["metadata_malformed"]
 
 
-def build_local_model_authority_map(config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None) -> LocalModelAuthorityMap:
+def build_local_model_authority_map(config: ModelConfig | None = None, *, allowed_roots: Sequence[Path] | None = None,
+                                    observed_at: str | None = None) -> LocalModelAuthorityMap:
     config = config or load_model_config()
     configured_roots = [get_data_root(), *(c.path.parent for c in config.candidates if c.path is not None and c.path.is_absolute())]
     roots = tuple(dict.fromkeys(Path(r) for r in [*(allowed_roots or ()), *configured_roots]))
+    observation_time = observed_at or datetime.now(timezone.utc).isoformat()
     records: list[LocalModelAuthorityRecord] = []
     seen: dict[str, str] = {}
     if len(config.candidates) > MAX_CANDIDATES:
@@ -233,12 +235,12 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         if semantic_artifact in seen and seen[semantic_artifact] != cfg_digest: reasons.append("conflicting_duplicate_semantic_model")
         seen[semantic_artifact] = cfg_digest
         status = "eligible" if eligible else "blocked" if any(r for r in reasons if r not in {"simulation_backend_not_production_intelligence"}) else "degraded"
-        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "resolved_artifact_path": resolved_path, "observed_at": datetime.now(timezone.utc).isoformat()})
+        rec = LocalModelAuthorityRecord(model_id=model_id, engine=engine_l, name=str(candidate.name or metadata.get("name") or candidate.display_name()), semantic_artifact_identity=semantic_artifact, model_content_sha256=content_digest, artifact_size_bytes=artifact_size, sidecar_metadata_digest=sidecar_digest, configuration_digest=cfg_digest, max_context_tokens=config.max_context_tokens, generation_ceilings=config.generation.as_kwargs(), local_files_only=True, custom_model_code_posture="explicit_opt_in" if custom else "disabled", custom_model_code_opt_in=custom, allowed_invocation_purposes=purposes, provider_network_posture="blocked_local_files_only", tool_posture="blocked", memory_posture="blocked", action_posture="blocked", runtime_eligibility_status=status, reason_codes=tuple(reasons or ["eligible_local_model"]), disposition=disposition, proof_references=("sentientos/local_model.py", "sentientos/local_model_authority.py"), observed_metadata={"candidate_index": idx, "path_observed": str(candidate.path) if candidate.path else None, "resolved_artifact_path": resolved_path, "observed_at": observation_time})
         records.append(rec)
     semantic = {"schema_version": AUTHORITY_SCHEMA_VERSION, "records": [r.to_dict() for r in records]}
     md = digest_payload(semantic); mid = "lmam-" + md[:24]
     summary = {"eligible_count": sum(r.runtime_eligibility_status == "eligible" for r in records), "blocked_count": sum(r.runtime_eligibility_status == "blocked" for r in records), "degraded_count": sum(r.runtime_eligibility_status == "degraded" for r in records), "provider_network_posture": "blocked"}
-    return LocalModelAuthorityMap(records=tuple(records), map_id=mid, map_digest=md, generated_at=datetime.now(timezone.utc).isoformat(), summary=summary)
+    return LocalModelAuthorityMap(records=tuple(records), map_id=mid, map_digest=md, generated_at=observation_time, summary=summary)
 
 
 def validate_authority_map(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:

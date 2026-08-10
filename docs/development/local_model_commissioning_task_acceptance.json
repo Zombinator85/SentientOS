@@ -1,0 +1,18 @@
+{
+  "repository_sha": "c872aa3d2ed75a8841a10dfee10a41716863f316",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_commissioning.py::test_deterministic_commissioning_uses_existing_config_and_authority", "rationale": "deterministic existing config and authority path"},
+    {"node_id": "tests/test_local_model_commissioning.py::test_provider_simulation_missing_and_symlink_are_rejected", "rationale": "local-only and production boundary"},
+    {"node_id": "tests/test_local_model_commissioning.py::test_artifact_substitution_and_config_mutation_fail_closed", "rationale": "substitution rejection"},
+    {"node_id": "tests/test_local_model_commissioning.py::test_controlled_loader_identity_exact_map_call_path", "rationale": "existing loader identity and exact map match"},
+    {"node_id": "tests/test_local_model_commissioning.py::test_doctor_is_zero_generation_and_handoff_never_runs_calibration", "rationale": "zero-generation doctor and bounded handoff"},
+    {"node_id": "tests/test_local_model_commissioning.py::test_real_verification_never_labels_unavailable_dependency_as_production", "rationale": "truthful production prerequisite posture"}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_local_model_commissioning.py::test_deterministic_commissioning_uses_existing_config_and_authority",
+    "tests/test_local_model_commissioning.py::test_controlled_loader_identity_exact_map_call_path"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
