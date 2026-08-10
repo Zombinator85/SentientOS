@@ -89,6 +89,42 @@ def test_bootstrap_classifies_authority_surface_semantics(tmp_path: Path, goal: 
 
 
 @pytest.mark.no_legacy_skip
+def test_bootstrap_reduction_is_usable_but_authority_exercise_is_hard_stopped(tmp_path: Path) -> None:
+    reduction_summary = tmp_path / "reduction-summary.json"
+    reduction_prompt = tmp_path / "reduction-prompt.txt"
+    reduction_code = main([
+        "--task-name", "Actuator execution bridge removal",
+        "--task-goal",
+        (
+            "Replace existing shell-string execution with one argv-authorized, argv-executed contract; "
+            "shell interpretation and subprocess shell bridging must not be used."
+        ),
+        "--subsystem-kind", "developer_workflow_metadata",
+        "--summary-output", str(reduction_summary),
+        "--prompt-output", str(reduction_prompt),
+    ])
+    reduction = json.loads(reduction_summary.read_text(encoding="utf-8"))
+    assert reduction_code == 0
+    assert reduction["status"] in {"ready", "ready_with_warnings"}
+    assert "forbidden_authority_surface_requested" not in reduction["blocker_codes"]
+    assert "BLOCKED_DO_NOT_IMPLEMENT" not in reduction_prompt.read_text(encoding="utf-8")
+
+    exercise_summary = tmp_path / "exercise-summary.json"
+    exercise_prompt = tmp_path / "exercise-prompt.txt"
+    exercise_code = main([
+        "--task-name", "Actuator change",
+        "--task-goal", "Enable shell execution and spawn a subprocess for actuator commands.",
+        "--subsystem-kind", "developer_workflow_metadata",
+        "--summary-output", str(exercise_summary),
+        "--prompt-output", str(exercise_prompt),
+    ])
+    exercise = json.loads(exercise_summary.read_text(encoding="utf-8"))
+    assert exercise_code == 1
+    assert "forbidden_authority_surface_requested" in exercise["blocker_codes"]
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in exercise_prompt.read_text(encoding="utf-8")
+
+
+@pytest.mark.no_legacy_skip
 def test_script_plan_output_includes_metadata_fixture_root(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     code = main([

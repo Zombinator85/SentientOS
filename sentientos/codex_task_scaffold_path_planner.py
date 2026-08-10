@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -20,6 +21,36 @@ _PROHIBITION_SUFFIX_RE = re.compile(
     r"(?:forbidden|prohibited|disabled|disallowed|not\s+allowed|must\s+not\s+be\s+used)\b",
     re.IGNORECASE,
 )
+_CLAUSE_BOUNDARY_RE = re.compile(r"[.;\n]+")
+_REDUCTION_BEFORE_RE = re.compile(
+    r"\b(remove|eliminate|disable|prohibit|restrict)\b[^.;\n]{0,80}$", re.IGNORECASE
+)
+_ANTI_REDUCTION_RE = re.compile(
+    r"\b(?:remove|eliminate|disable)\s+(?:the\s+)?(?:restrictions?|prohibitions?|blocking|denials?)\s+(?:on|of|for)?\s*$",
+    re.IGNORECASE,
+)
+_REDUCTION_AFTER_RE = re.compile(
+    r"^.{0,80}\b(?:by\s+)?(?:removing|eliminating|disabling|deleting|prohibiting|restricting)\b",
+    re.IGNORECASE,
+)
+_REPLACEMENT_RE = re.compile(r"\breplace\b(?P<source>.+?)\bwith\b(?P<target>.+)", re.IGNORECASE)
+_LEXICAL_PROHIBITION_RE = re.compile(r"(?:\bnon[-\s]?$|\bno[-\s]?$)", re.IGNORECASE)
+_LATER_AFFIRMATIVE_RE = re.compile(
+    r"\b(?:then|but|and)\s+(?:\w+\s+){0,3}(?:use|call|access|invoke|spawn|execute|run|enable|allow)\b",
+    re.IGNORECASE,
+)
+_COORDINATED_PROHIBITION_RE = re.compile(
+    r"(?:\b(?:is|are)\s+(?:forbidden|prohibited|disabled|disallowed)\b|"
+    r"\bmust\s+(?:remain\s+disabled|not\s+be\s+used)\b)\s*$",
+    re.IGNORECASE,
+)
+
+
+class _AuthorityIntent(str, Enum):
+    PROHIBITED = "prohibited"
+    REDUCTION = "reduction"
+    AFFIRMATIVE = "affirmative"
+    AMBIGUOUS = "ambiguous"
 
 @dataclass(frozen=True)
 class PlannerRequest:
@@ -79,17 +110,36 @@ def _choose(first: tuple[str, ...], default: str) -> str:
     return first[0] if first else default
 
 
-def _forbidden_authority_requested(text: str) -> bool:
-    """Return true unless every named authority surface is explicitly prohibited."""
-    for match in _FORBIDDEN_RE.finditer(text):
-        clause_start = max(
-            text.rfind(".", 0, match.start()),
-            text.rfind(";", 0, match.start()),
-            text.rfind("\n", 0, match.start()),
-        ) + 1
-        prefix = text[clause_start:match.start()]
+def _authority_intent(text: str, match: re.Match[str]) -> _AuthorityIntent:
+    """Classify one authority-surface occurrence using only its local clause."""
+    boundaries_before = tuple(_CLAUSE_BOUNDARY_RE.finditer(text, 0, match.start()))
+    clause_start = boundaries_before[-1].end() if boundaries_before else 0
+    boundary_after = _CLAUSE_BOUNDARY_RE.search(text, match.end())
+    clause_end = boundary_after.start() if boundary_after else len(text)
+    prefix = text[clause_start:match.start()]
+    suffix = text[match.end():clause_end]
+
+    if _ANTI_REDUCTION_RE.search(prefix):
+        return _AuthorityIntent.AFFIRMATIVE
+
+    replacement = _REPLACEMENT_RE.search(text[clause_start:clause_end])
+    if replacement:
+        occurrence = match.start() - clause_start
+        with_offset = replacement.start("target")
+        if occurrence >= with_offset:
+            if _LEXICAL_PROHIBITION_RE.search(prefix):
+                return _AuthorityIntent.PROHIBITED
+            return _AuthorityIntent.AFFIRMATIVE
+        if _LATER_AFFIRMATIVE_RE.search(suffix):
+            return _AuthorityIntent.AFFIRMATIVE
+        return _AuthorityIntent.REDUCTION
+
+    if _LATER_AFFIRMATIVE_RE.search(suffix):
+        return _AuthorityIntent.AFFIRMATIVE
+
+    prohibited = bool(_LEXICAL_PROHIBITION_RE.search(prefix))
+    if not prohibited:
         negations = tuple(_NEGATION_PREFIX_RE.finditer(prefix))
-        prohibited = False
         if negations:
             negation = negations[-1]
             between = prefix[negation.end():]
@@ -97,10 +147,25 @@ def _forbidden_authority_requested(text: str) -> bool:
                 prohibited = not _AFFIRMATIVE_BETWEEN_RE.search(between)
             else:
                 prohibited = bool(_DIRECT_NEGATED_ACTION_RE.match(between))
-        suffix = text[match.end():match.end() + 64]
-        if _PROHIBITION_SUFFIX_RE.match(suffix):
-            prohibited = True
-        if not prohibited:
+    if _PROHIBITION_SUFFIX_RE.match(suffix[:64]) or (
+        _COORDINATED_PROHIBITION_RE.search(suffix) and not _AFFIRMATIVE_BETWEEN_RE.search(suffix)
+    ):
+        prohibited = True
+    if prohibited:
+        return _AuthorityIntent.PROHIBITED
+    if _REDUCTION_BEFORE_RE.search(prefix) or _REDUCTION_AFTER_RE.match(suffix):
+        return _AuthorityIntent.REDUCTION
+    if _AFFIRMATIVE_BETWEEN_RE.search(prefix) or re.search(
+        r"^.{0,48}\b(?:use|call|access|invoke|spawn|execute|run|enable|allow)\b", suffix, re.IGNORECASE
+    ):
+        return _AuthorityIntent.AFFIRMATIVE
+    return _AuthorityIntent.AMBIGUOUS
+
+
+def _forbidden_authority_requested(text: str) -> bool:
+    """Return true unless every authority occurrence is prohibited or reduced."""
+    for match in _FORBIDDEN_RE.finditer(text):
+        if _authority_intent(text, match) not in {_AuthorityIntent.PROHIBITED, _AuthorityIntent.REDUCTION}:
             return True
     return False
 

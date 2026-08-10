@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "12d3371618e766f5287f815b326e725ed14faca6",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_distinguishes_prohibitions_from_authority_requests", "rationale": "Existing prohibitions remain allowed and affirmative authority exercise remains blocked."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_is_clause_local_across_all_request_text_fields", "rationale": "Reduction applies consistently to planner inputs without masking another field's authority request."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise", "rationale": "The actuator regression is non-blocked while affirmative shell execution is blocked."},
+    {"node_id": "tests/test_bootstrap_codex_task_script.py::test_bootstrap_reduction_is_usable_but_authority_exercise_is_hard_stopped", "rationale": "End-to-end bootstrap emits a usable reduction contract and a hard-stop diagnostic for exercise."},
+    {"node_id": "tests/test_codex_task_bootstrapper.py::test_bootstrap_allows_reduction_without_masking_separate_authority_request", "rationale": "Bootstrap permits reduction and blocks mixed-clause authority exercise."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise",
+    "tests/test_bootstrap_codex_task_script.py::test_bootstrap_reduction_is_usable_but_authority_exercise_is_hard_stopped"
+  ]
+}
