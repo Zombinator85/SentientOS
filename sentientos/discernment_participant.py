@@ -191,6 +191,7 @@ class DiscernmentParticipantRequest:
     epistemic_observations: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     epistemic_suspensions: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     inner_world_cycle_input: Mapping[str, Any] | None = None
+    correlation_suffix: str | None = None
 
 
 def _repository_identity(root: Path) -> dict[str, Any]:
@@ -286,7 +287,8 @@ def generate_participant_judgment(request: DiscernmentParticipantRequest, *,
     )
     lm_request = invoker.build_request(
         purpose="discernment_judgment", prompt=prompt, caller="sentientos.discernment_participant",
-        correlation_id=f"discernment:{question_digest}:{evidence_digest}", expected_output_format="json",
+        correlation_id=f"discernment:{question_digest}:{evidence_digest}"
+        + (f":{request.correlation_suffix}" if request.correlation_suffix else ""), expected_output_format="json",
         budget=LocalModelInvocationBudget(max_input_chars=max(8000, len(prompt) + 1),
                                           max_output_chars=MAX_JUDGMENT_BYTES,
                                           max_new_tokens=384),
