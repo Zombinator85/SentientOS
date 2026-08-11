@@ -45,6 +45,13 @@ _COORDINATED_PROHIBITION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Production roots mirror the package declarations in pyproject.toml.  The
+# workflow/evidence roots are intentionally separate: path admission is not a
+# general permission to target any repository path.
+PACKAGED_SOURCE_ROOTS = frozenset({"sentientos", "api", "gui", "apps"})
+WORKFLOW_ROOTS = frozenset({"scripts", "tests", "docs", "artifacts"})
+ALLOWED_PATH_ROOTS = PACKAGED_SOURCE_ROOTS | WORKFLOW_ROOTS
+
 
 class _AuthorityIntent(str, Enum):
     PROHIBITED = "prohibited"
@@ -103,7 +110,8 @@ def _bad_path(path: str) -> bool:
 
 
 def _ensure_root(path: str) -> bool:
-    return path.startswith(("sentientos/", "scripts/", "tests/", "docs/", "artifacts/"))
+    parts = PurePosixPath(path).parts
+    return len(parts) > 1 and parts[0] in ALLOWED_PATH_ROOTS
 
 
 def _choose(first: tuple[str, ...], default: str) -> str:

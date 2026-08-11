@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b160d4f748e3df1d50360d8d0b488e53505065dd",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[sentientos/example.py]", "rationale": "Canonical sentientos package root is admitted."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[api/example.py]", "rationale": "Canonical api package root is admitted."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[gui/example.py]", "rationale": "Canonical gui package root is admitted."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[apps/example.py]", "rationale": "Canonical apps package root is admitted."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target", "rationale": "The exact previously blocked api/actuator.py implementation target is admitted."},
+    {"node_id": "tests/test_bootstrap_codex_task_script.py::test_actuator_reduction_bootstrap_accepts_canonical_api_target", "rationale": "The end-to-end actuator reduction request produces a usable implementation contract."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata", "rationale": "Planner packaged roots match both pyproject package declarations."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[../api/actuator.py]", "rationale": "Traversal remains rejected."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[/api/actuator.py]", "rationale": "Absolute paths remain rejected."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[api_evil/actuator.py]", "rationale": "Prefix-confusion roots remain rejected."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[unknown_root/file.py]", "rationale": "Unknown roots remain rejected."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_unsafe_or_noncanonical_roots[.github/workflows/change.yml]", "rationale": "Hidden and sensitive roots remain rejected."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_actuator_hardening_regression_is_reduction_not_exercise", "rationale": "The clause-local authority-reduction classifier remains intact."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_each_canonical_path_root[api/example.py]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target",
+    "tests/test_bootstrap_codex_task_script.py::test_actuator_reduction_bootstrap_accepts_canonical_api_target",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_packaged_roots_match_canonical_packaging_metadata"
+  ]
+}

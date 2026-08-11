@@ -125,6 +125,37 @@ def test_bootstrap_reduction_is_usable_but_authority_exercise_is_hard_stopped(tm
 
 
 @pytest.mark.no_legacy_skip
+def test_actuator_reduction_bootstrap_accepts_canonical_api_target(tmp_path: Path) -> None:
+    summary = tmp_path / "summary.json"
+    prompt = tmp_path / "prompt.txt"
+    code = main([
+        "--task-name", "actuator execution bridge reduction",
+        "--task-goal",
+        (
+            "Replace existing shell-string execution with one argv-authorized, argv-executed contract; "
+            "shell interpretation and subprocess shell bridging must not be used."
+        ),
+        "--preset-id", "stabilization",
+        "--subsystem-kind", "stabilization",
+        "--commit-scope", "security",
+        "--new-module", "api/actuator.py",
+        "--test-path", "tests/test_actuator.py",
+        "--doc-path", "docs/ACTUATOR.md",
+        "--commit-title", "[codex:security] make actuator shell execution argv-only and fail-closed",
+        "--summary-output", str(summary),
+        "--prompt-output", str(prompt),
+    ])
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert code == 0
+    assert payload["status"] in {"ready", "ready_with_warnings"}
+    assert "forbidden_authority_surface_requested" not in payload["blocker_codes"]
+    assert "path_outside_allowed_roots" not in payload["blocker_codes"]
+    assert payload["planned_paths"]["module_path"] == "api/actuator.py"
+    assert payload["artifact_classification"] == "implementation_contract"
+    assert "BLOCKED_DO_NOT_IMPLEMENT" not in prompt.read_text(encoding="utf-8")
+
+
+@pytest.mark.no_legacy_skip
 def test_script_plan_output_includes_metadata_fixture_root(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     code = main([

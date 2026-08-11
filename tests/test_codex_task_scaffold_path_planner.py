@@ -1,6 +1,16 @@
+import re
+from pathlib import Path
+
 import pytest
 
-from sentientos.codex_task_scaffold_path_planner import PlannerRequest, build_scaffold_request_payload, plan_codex_task_scaffold_paths
+from sentientos.codex_task_scaffold_path_planner import (
+    ALLOWED_PATH_ROOTS,
+    PACKAGED_SOURCE_ROOTS,
+    WORKFLOW_ROOTS,
+    PlannerRequest,
+    build_scaffold_request_payload,
+    plan_codex_task_scaffold_paths,
+)
 
 
 def test_planner_defaults() -> None:
@@ -14,6 +24,68 @@ def test_planner_defaults() -> None:
 def test_planner_blocks_bad_paths() -> None:
     out = plan_codex_task_scaffold_paths(PlannerRequest(task_name="x", new_module=("../oops.py",)))
     assert out.status == "blocked"
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("module_path", (
+    "sentientos/example.py",
+    "api/example.py",
+    "gui/example.py",
+    "apps/example.py",
+    "scripts/example.py",
+    "tests/test_example.py",
+    "docs/example.md",
+    "artifacts/example.json",
+))
+def test_planner_accepts_each_canonical_path_root(module_path: str) -> None:
+    out = plan_codex_task_scaffold_paths(PlannerRequest(task_name="root classification", new_module=(module_path,)))
+    assert out.status in {"ready", "ready_with_warnings"}
+    assert "path_outside_allowed_roots" not in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+def test_planner_accepts_existing_api_actuator_as_implementation_target() -> None:
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(task_name="actuator path classification", new_module=("api/actuator.py",))
+    )
+    assert out.module_path == "api/actuator.py"
+    assert "path_outside_allowed_roots" not in out.blocker_codes
+    assert out.status in {"ready", "ready_with_warnings"}
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("module_path", (
+    "../api/actuator.py",
+    "/api/actuator.py",
+    "api_evil/actuator.py",
+    "apix/actuator.py",
+    "sentientos_backup/example.py",
+    "unknown_root/file.py",
+    ".github/workflows/change.yml",
+    ".env",
+    "api/bad;name.py",
+))
+def test_planner_rejects_unsafe_or_noncanonical_roots(module_path: str) -> None:
+    out = plan_codex_task_scaffold_paths(PlannerRequest(task_name="root classification", new_module=(module_path,)))
+    assert out.status == "blocked"
+    assert set(out.blocker_codes) & {"path_traversal_or_metacharacters", "path_outside_allowed_roots"}
+
+
+def _pyproject_packaged_roots(text: str) -> tuple[set[str], set[str]]:
+    poetry_block = text.split("packages = [", 1)[1].split("]", 1)[0]
+    poetry = set(re.findall(r'include\s*=\s*"([a-zA-Z0-9_]+)"', poetry_block))
+    section = re.search(r"(?ms)^\[tool\.setuptools\.packages\.find\]\n(.*?)(?=^\[|\Z)", text)
+    assert section is not None
+    setuptools_block = section.group(1)
+    setuptools = set(re.findall(r'"([a-zA-Z0-9_]+)"', setuptools_block.split("include =", 1)[1]))
+    return poetry, setuptools
+
+
+@pytest.mark.no_legacy_skip
+def test_planner_packaged_roots_match_canonical_packaging_metadata() -> None:
+    poetry, setuptools = _pyproject_packaged_roots(Path("pyproject.toml").read_text(encoding="utf-8"))
+    assert poetry == setuptools == set(PACKAGED_SOURCE_ROOTS)
+    assert ALLOWED_PATH_ROOTS == PACKAGED_SOURCE_ROOTS | WORKFLOW_ROOTS
 
 
 def test_scaffold_request_payload() -> None:

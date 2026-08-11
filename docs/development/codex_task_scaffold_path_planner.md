@@ -18,6 +18,19 @@ The planner rejects/warns on:
   wing/shell/subprocess),
 - nonconforming commit titles.
 
+Implementation targets may be existing files despite the historical `new_module` and
+`new_cli` field names. Packaged source targets are admitted only beneath the canonical
+package roots declared by `pyproject.toml`: `sentientos/`, `api/`, `gui/`, and `apps/`.
+The additional workflow/evidence roots are `scripts/`, `tests/`, `docs/`, and
+`artifacts/`. A regression check binds the packaged-root constant to both current
+packaging declarations so metadata drift fails visibly.
+
+Root matching is path-component aware: admitting `api/` does not admit `apix/` or
+`api_evil/`. Absolute paths, traversal, forbidden metacharacters, hidden/sensitive
+roots, arbitrary root-level files, and unknown top-level directories remain rejected.
+Path validity only classifies a scaffold target; it grants no runtime or effect
+authority.
+
 Authority terms are classified occurrence-by-occurrence within their local clause. An
 explicit prohibition is permitted. An explicit reduction is permitted only when the
 named capability is unambiguously being removed, eliminated, disabled, prohibited,
