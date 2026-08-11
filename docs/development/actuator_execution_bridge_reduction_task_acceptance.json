@@ -1,0 +1,28 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "943a7e3e9c958a7c2d633c81b71424ea01c377c1",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false", "rationale": "Directly witnesses exact authorized argv and shell=False at process creation."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_process_real_metacharacters_are_inert", "rationale": "Real child process receives shell-looking values as inert arguments."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_template_metacharacters_remain_one_argument", "rationale": "Template parameters remain isolated argument slots."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_dry_run_reports_structured_argv_and_launches_nothing", "rationale": "Dry-run launches no process and reports canonical argv."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_logging_and_reflection_record_structured_argv", "rationale": "Logs and reflection preserve structured argv and legacy provenance."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_executable_whitelist_is_exact_not_prefix", "rationale": "Executable-prefix confusion is denied."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_blocked_executable_never_executes", "rationale": "Denied executables never reach subprocess."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_legacy_shell_grammar_is_rejected", "rationale": "Chaining, pipelines, redirects, substitution, backgrounding, and newlines fail closed."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_malformed_or_over_budget_argv_fails_closed", "rationale": "Malformed and over-budget argv fail before execution."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_async_queues_copied_structured_argv", "rationale": "Async custody preserves copied structured argv."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_cwd_restriction_and_authorization_remain_at_effect", "rationale": "Cwd restriction and immediate privilege boundary remain active."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_rate_limit_remains_intact", "rationale": "Existing rate limiting remains enforced."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_static_process_surface_verifier", "rationale": "Mechanical verifier excludes interpreter bridges and requires shell=False."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false",
+    "tests/test_actuator_argv_security.py::test_process_real_metacharacters_are_inert",
+    "tests/test_actuator_argv_security.py::test_template_metacharacters_remain_one_argument",
+    "tests/test_actuator_argv_security.py::test_dry_run_reports_structured_argv_and_launches_nothing",
+    "tests/test_actuator_argv_security.py::test_logging_and_reflection_record_structured_argv"
+  ]
+}

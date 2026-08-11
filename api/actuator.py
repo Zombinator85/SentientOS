@@ -11,10 +11,11 @@ import smtplib
 import threading
 import time
 import queue
+import shlex
 from email.message import EmailMessage
 from pathlib import Path
 import ast
-from typing import Any, Dict, Callable, Mapping
+from typing import Any, Dict, Callable, Mapping, Sequence, cast
 
 from logging_config import resolve_log_path
 from sentientos.optional_deps import optional_import
@@ -121,7 +122,12 @@ SANDBOX_DIR = Path(os.getenv("ACT_SANDBOX", "sandbox"))
 
 class ShellActuator(BaseActuator):
     def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
-        return run_shell(intent.get("cmd", ""), cwd=intent.get("cwd", "."))
+        argv, legacy_cmd = _canonical_shell_argv(intent)
+        result = run_shell(argv, cwd=intent.get("cwd", "."))
+        result["argv"] = list(argv)
+        if legacy_cmd is not None:
+            result["legacy_cmd"] = legacy_cmd
+        return result
 
 
 class HttpActuator(BaseActuator):
@@ -213,11 +219,70 @@ def _match_patterns(value: str, patterns: list[str]) -> bool:
                     return True
     return False
 
-def _allowed_shell(cmd: str) -> bool:
-    first = cmd.strip().split()[0] if cmd.strip() else ""
+MAX_ARGV_COUNT = 128
+MAX_ARGUMENT_BYTES = 4096
+MAX_ARGV_BYTES = 32768
+_LEGACY_SHELL_GRAMMAR = re.compile(r"(?:\r|\n|;|&&|\|\||\||[<>]|`|\$\(|[<>]\(|&)")
+
+
+def _validate_argv(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)) or isinstance(value, (str, bytes)):
+        raise ValueError("malformed command: argv must be a sequence of strings")
+    if not value:
+        raise ValueError("missing command: argv must be nonempty")
+    if len(value) > MAX_ARGV_COUNT:
+        raise ValueError("argument budget exceeded: too many arguments")
+    argv: list[str] = []
+    total = 0
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("invalid argument: argv entries must be strings")
+        if "\x00" in item:
+            raise ValueError("invalid argument: NUL is forbidden")
+        size = len(item.encode("utf-8"))
+        if size > MAX_ARGUMENT_BYTES:
+            raise ValueError("argument budget exceeded: argument too long")
+        total += size
+        argv.append(item)
+    if not argv[0]:
+        raise ValueError("missing command: argv[0] must be nonempty")
+    if total > MAX_ARGV_BYTES:
+        raise ValueError("argument budget exceeded: argv too large")
+    return tuple(argv)
+
+
+def _legacy_cmd_argv(cmd: object) -> tuple[str, ...]:
+    if not isinstance(cmd, str) or not cmd.strip():
+        raise ValueError("missing command: provide argv")
+    if _LEGACY_SHELL_GRAMMAR.search(cmd):
+        raise ValueError("rejected shell grammar: provide explicit argv")
+    try:
+        # Compatibility is parsing only.  The supplied text is never executed.
+        parsed = shlex.split(cmd, posix=True)
+    except ValueError as exc:
+        raise ValueError("malformed command: ambiguous legacy cmd") from exc
+    return _validate_argv(parsed)
+
+
+def _canonical_shell_argv(intent: Mapping[str, object]) -> tuple[tuple[str, ...], str | None]:
+    if "argv" in intent:
+        return _validate_argv(intent["argv"]), None
+    cmd = intent.get("cmd")
+    return _legacy_cmd_argv(cmd), cmd if isinstance(cmd, str) else None
+
+
+def _allowed_shell(argv: Sequence[str]) -> bool:
+    executable = argv[0]
     patterns_obj = WHITELIST.get("shell", [])
     patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
-    return _match_patterns(first, patterns)
+    import fnmatch
+    for pattern in patterns:
+        if pattern.startswith("^"):
+            if re.fullmatch(pattern, executable):
+                return True
+        elif fnmatch.fnmatchcase(executable, pattern):
+            return True
+    return False
 
 
 def _timeout_seconds() -> float:
@@ -229,19 +294,26 @@ def _timeout_seconds() -> float:
     except (TypeError, ValueError):
         return 30.0
 
-def run_shell(cmd: str, cwd: str = ".") -> dict[str, object]:
+def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
+    canonical_argv = _validate_argv(argv)
     _authorize_effect()
-    if not _allowed_shell(cmd):
-        raise PermissionError("Command not allowed")
+    if not _allowed_shell(canonical_argv):
+        raise PermissionError("executable not allowed")
+    SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
     cwd_path = _safe_path(cwd if cwd != "." else "")
-    res = subprocess.run(
-        cmd,
-        shell=True,
-        capture_output=True,
-        text=True,
-        cwd=str(cwd_path),
-        timeout=_timeout_seconds(),
-    )
+    try:
+        res = subprocess.run(
+            canonical_argv,
+            shell=False,
+            capture_output=True,
+            text=True,
+            cwd=str(cwd_path),
+            timeout=_timeout_seconds(),
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("execution timeout") from exc
+    except OSError as exc:
+        raise RuntimeError("execution failed") from exc
     return {
         "code": res.returncode,
         "stdout": res.stdout,
@@ -351,7 +423,8 @@ def start_async(intent: Dict[str, Any], explanation: str | None = None, user: st
     _authorize_effect()
     action_id = f"a{int(time.time()*1000)}"
     ACTION_STATUS[action_id] = {"status": "queued"}
-    TASK_QUEUE.put((action_id, intent, explanation, user))
+    queued_intent = _normalize_intent(intent)
+    TASK_QUEUE.put((action_id, queued_intent, explanation, user))
     if not _worker_started:
         threading.Thread(target=_worker, daemon=True).start()
         _worker_started = True
@@ -372,10 +445,17 @@ def expand_template(name: str, params: Mapping[str, object]) -> dict[str, object
         return loaded if isinstance(loaded, dict) else {}
     out_obj = json.loads(json.dumps(tpl))  # deep copy
     out: dict[str, object] = out_obj if isinstance(out_obj, dict) else {}
-    for k, v in out.items():
-        if isinstance(v, str):
-            out[k] = v.format(**params)
-    return out
+    def expand(obj: object) -> object:
+        if isinstance(obj, str):
+            return obj.format(**params)
+        if isinstance(obj, list):
+            return [expand(item) for item in obj]
+        if isinstance(obj, dict):
+            return {key: expand(value) for key, value in obj.items()}
+        return obj
+
+    expanded = expand(out)
+    return expanded if isinstance(expanded, dict) else {}
 
 
 def template_placeholders(name: str) -> set[str]:
@@ -393,6 +473,9 @@ def template_placeholders(name: str) -> set[str]:
                     keys.add(field)
         elif isinstance(obj, dict):
             for v in obj.values():
+                keys.update(collect(v))
+        elif isinstance(obj, list):
+            for v in obj:
                 keys.update(collect(v))
         return keys
 
@@ -415,6 +498,19 @@ def dispatch(intent: dict[str, Any]) -> dict[str, object]:
 
 LAST_EXECUTION: dict[tuple[str, str], float] = {}
 RATE_LIMIT_SECONDS = int(os.getenv("ACT_RATE_LIMIT", "5"))
+
+
+def _normalize_intent(intent: Mapping[str, Any]) -> Dict[str, Any]:
+    normalized = cast(Dict[str, Any], json.loads(json.dumps(intent)))
+    if normalized.get("type") == "shell":
+        argv, legacy_cmd = _canonical_shell_argv(normalized)
+        normalized["argv"] = list(argv)
+        if legacy_cmd is None:
+            normalized.pop("cmd", None)
+        else:
+            normalized["legacy_cmd"] = legacy_cmd
+            normalized.pop("cmd", None)
+    return normalized
 
 
 def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
@@ -459,8 +555,10 @@ def act(
     """
     _authorize_effect()
     if dry_run is None:
-        dry_run = intent.pop("dry_run", False)
+        dry_run = bool(intent.get("dry_run", False))
     try:
+        intent = _normalize_intent(intent)
+        intent.pop("dry_run", None)
         from memory_manager import save_reflection, write_mem
         _rate_limit(intent, user)
         if dry_run:
@@ -614,7 +712,7 @@ def main(argv: list[str] | None = None) -> None:
         ],
         help="Action type",
     )
-    parser.add_argument("cmd", nargs="?", help="Shell command when subcommand=shell")
+    parser.add_argument("cmd", nargs="?", help="Legacy simple command when subcommand=shell")
     parser.add_argument("--url", dest="url", help="URL for http")
     parser.add_argument("--method", dest="method", default="GET")
     parser.add_argument("--data", dest="data")

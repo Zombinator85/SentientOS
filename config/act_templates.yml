@@ -3,7 +3,7 @@
 # e.g., restart service
 restart_service:
   type: shell
-  cmd: "systemctl restart {service}"
+  argv: ["systemctl", "restart", "{service}"]
 list_files:
   type: shell
-  cmd: "ls {path}"
+  argv: ["ls", "{path}"]
