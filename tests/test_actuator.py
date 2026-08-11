@@ -30,7 +30,7 @@ def test_run_shell_allowed(tmp_path, monkeypatch):
     actuator.SANDBOX_DIR = tmp_path / "sb"
     actuator.SANDBOX_DIR.mkdir()
     actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
-    res = actuator.run_shell("echo hello")
+    res = actuator.run_shell(["echo", "hello"])
     assert res["code"] == 0
     assert "hello" in res["stdout"]
 
@@ -50,7 +50,7 @@ def test_run_shell_blocked():
     actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
     import pytest
     with pytest.raises(Exception):
-        actuator.run_shell("rm -rf /")
+        actuator.run_shell(["rm", "-rf", "/"])
 
 
 def test_act_logging(tmp_path, monkeypatch):
@@ -125,15 +125,15 @@ def test_sandbox_escape(tmp_path, monkeypatch):
 def test_whitelist_pattern(monkeypatch):
     reload(actuator)
     actuator.WHITELIST = {"shell": ["ls*"], "http": [], "timeout": 5}
-    res = actuator.run_shell("ls", cwd=".")
+    res = actuator.run_shell(["ls"], cwd=".")
     assert res["code"] == 0
     with pytest.raises(Exception):
-        actuator.run_shell("rm")
+        actuator.run_shell(["rm"])
 
 
 def test_template_expansion(monkeypatch):
     reload(actuator)
-    actuator.TEMPLATES = {"greet": {"type": "shell", "cmd": "echo {name}"}}
+    actuator.TEMPLATES = {"greet": {"type": "shell", "argv": ["echo", "{name}"]}}
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
     out = actuator.dispatch({"type": "template", "name": "greet", "params": {"name": "Bob"}})
     assert "stdout" in out and "Bob" in out["stdout"]
@@ -160,7 +160,7 @@ def test_template_prompting(tmp_path, monkeypatch, capsys):
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
-    actuator.TEMPLATES = {"note": {"type": "shell", "cmd": "echo {text}"}}
+    actuator.TEMPLATES = {"note": {"type": "shell", "argv": ["echo", "{text}"]}}
 
     monkeypatch.setattr(sys, "argv", ["ac", "template", "--name", "note"])
     monkeypatch.setattr("builtins.input", lambda prompt: "test note")
@@ -210,7 +210,7 @@ def test_template_help_cli(tmp_path, monkeypatch, capsys):
     import memory_manager as mm
     importlib.reload(mm)
     importlib.reload(actuator)
-    actuator.TEMPLATES = {"greet": {"type": "shell", "cmd": "echo {name}"}}
+    actuator.TEMPLATES = {"greet": {"type": "shell", "argv": ["echo", "{name}"]}}
     monkeypatch.setattr(sys, "argv", ["ac", "template_help", "--name", "greet"])
     actuator.main()
     out = capsys.readouterr().out
@@ -227,7 +227,8 @@ def test_structured_reflection(tmp_path, monkeypatch):
     res = actuator.act({"type": "shell", "cmd": "echo hi"}, explanation="test", user="bob")
     assert res.get("reflection_id")
     refls = mm.recent_reflections(limit=1)
-    assert refls and refls[0]["intent"]["cmd"] == "echo hi"
+    assert refls and refls[0]["intent"]["argv"] == ["echo", "hi"]
+    assert refls[0]["intent"]["legacy_cmd"] == "echo hi"
     assert refls[0]["reason"] == "test"
 
 
