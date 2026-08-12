@@ -36,8 +36,35 @@ resolved by the operating system using the process `PATH`, so replacement or rac
 that externally controlled search path remain a bounded risk; this change does not
 claim binary identity, signing, or package custody.
 
-The existing cwd sandbox check remains in force. This repair does not change or claim
-to close independent filesystem-ancestry, URL/SMTP, or plugin-isolation concerns.
+## Filesystem sandbox boundary
+
+File-write destinations and shell working directories share one containment rule.
+For each decision, the sandbox root is resolved and that resolved root is the custody
+boundary. The caller's relative path is then resolved, including existing parent
+symlinks, and is admitted only when `Path.relative_to()` proves that the result is the
+root itself or a descendant by native path components. Textual prefix similarity has
+no authority: a sibling such as `sbox_evil` is outside `sbox`.
+
+Caller-supplied absolute paths are rejected, including absolute paths that point back
+inside the sandbox. `.` and the shell cwd default select the sandbox root; ordinary
+relative nesting and `./child` are accepted, while `..` normalization is accepted
+only when its resolved result remains within the boundary. File intents require a
+nonempty path. Non-string and NUL-containing path values fail closed.
+
+An existing symlink is governed by its resolved destination. A symlink that resolves
+outside the sandbox is rejected before a write or process launch; one whose resolved
+destination remains inside is allowed. A final file need not exist, so safe missing
+parents and leaves can still be created after validation. The actuator does not apply
+shell, environment-variable, or tilde expansion to paths; those characters are
+literal path data. Native `pathlib` component, drive, and case semantics apply, and
+ambiguous cross-drive or otherwise non-relative results fail closed.
+
+This resolved-path check closes textual-prefix and already-present symlink escapes,
+but it is not descriptor-relative custody. A party able to mutate directories or
+symlinks between validation and the later mkdir, write, or process operation may
+still create a check-to-effect race. Descriptor-relative/no-follow hardening remains
+a separate filesystem-custody problem. This repair does not change or claim to close
+independent URL/SMTP or plugin-isolation concerns.
 
 ## Templates, async, dry-run, and records
 

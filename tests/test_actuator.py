@@ -9,13 +9,13 @@ require_lumos_approval()
 import os
 import sys
 from importlib import reload
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import relay_app
 from api import actuator
 import pytest
-
 
 def setup(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
@@ -120,6 +120,173 @@ def test_sandbox_escape(tmp_path, monkeypatch):
     actuator.SANDBOX_DIR.mkdir()
     with pytest.raises(Exception):
         actuator.file_write("../bad.txt", "oops")
+
+
+def _sandbox(tmp_path):
+    reload(actuator)
+    actuator.SANDBOX_DIR = tmp_path / "sbox"
+    actuator.SANDBOX_DIR.mkdir()
+    actuator.WHITELIST = {"shell": [sys.executable], "http": [], "timeout": 5}
+    return actuator.SANDBOX_DIR
+
+
+def test_sandbox_normal_nested_file_write_and_nonexistent_leaf(tmp_path):
+    sandbox = _sandbox(tmp_path)
+
+    result = actuator.file_write("new/nested/out.txt", "data")
+
+    target = sandbox / "new" / "nested" / "out.txt"
+    assert target.read_text() == "data"
+    assert result == {"written": str(target.resolve())}
+
+
+def test_sandbox_normal_shell_cwd_descendant(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    child = sandbox / "existing" / "child"
+    child.mkdir(parents=True)
+
+    result = actuator.run_shell(
+        [sys.executable, "-c", "import os; print(os.getcwd())"], cwd="existing/child"
+    )
+
+    assert result["code"] == 0
+    assert result["stdout"].strip() == str(child.resolve())
+
+
+def test_sandbox_textual_sibling_prefix_exploit_is_rejected_process_real(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    sibling = tmp_path / "sbox_evil"
+    sibling.mkdir()
+    escaped = sibling / "escaped.txt"
+    candidate = (sandbox / "../sbox_evil/escaped.txt").resolve()
+    assert str(candidate).startswith(str(sandbox.resolve()))  # proves the old flaw
+
+    with pytest.raises(PermissionError, match="escapes sandbox"):
+        actuator.file_write("../sbox_evil/escaped.txt", "escaped")
+
+    assert not escaped.exists()
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["../outside.txt", "sub/../../outside.txt", "../sbox2/out.txt", "../sbox-old/out.txt"],
+)
+def test_sandbox_traversal_and_similar_siblings_are_rejected(tmp_path, path):
+    _sandbox(tmp_path)
+    with pytest.raises(PermissionError, match="escapes sandbox"):
+        actuator.file_write(path, "escaped")
+
+
+def test_sandbox_absolute_inputs_are_rejected_even_when_inside(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    for path in (tmp_path / "outside.txt", sandbox / "inside.txt"):
+        with pytest.raises(PermissionError, match="Absolute sandbox paths"):
+            actuator.file_write(str(path.resolve()), "data")
+        assert not path.exists()
+
+
+def test_sandbox_symlink_outside_write_is_rejected(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (sandbox / "link").symlink_to(outside, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+
+    with pytest.raises(PermissionError, match="escapes sandbox"):
+        actuator.file_write("link/escaped.txt", "escaped")
+
+    assert not (outside / "escaped.txt").exists()
+
+
+def test_sandbox_symlink_inside_is_allowed(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    destination = sandbox / "destination"
+    destination.mkdir()
+    try:
+        (sandbox / "link").symlink_to(destination, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+
+    result = actuator.file_write("link/safe.txt", "safe")
+
+    assert destination.joinpath("safe.txt").read_text() == "safe"
+    assert result == {"written": str((destination / "safe.txt").resolve())}
+
+
+@pytest.mark.parametrize("cwd", ["../outside", "../sbox_evil"])
+def test_sandbox_rejected_shell_cwd_launches_zero_processes(tmp_path, monkeypatch, cwd):
+    _sandbox(tmp_path)
+    (tmp_path / cwd.removeprefix("../")).mkdir(exist_ok=True)
+    calls = []
+    monkeypatch.setattr(actuator.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    with pytest.raises(PermissionError, match="escapes sandbox"):
+        actuator.run_shell([sys.executable, "-c", "pass"], cwd=cwd)
+
+    assert calls == []
+
+
+def test_sandbox_symlink_outside_cwd_launches_zero_processes(tmp_path, monkeypatch):
+    sandbox = _sandbox(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (sandbox / "link").symlink_to(outside, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+    calls = []
+    monkeypatch.setattr(actuator.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    with pytest.raises(PermissionError, match="escapes sandbox"):
+        actuator.run_shell([sys.executable, "-c", "pass"], cwd="link")
+
+    assert calls == []
+
+
+def test_sandbox_root_dot_repeated_separators_and_literal_names(tmp_path):
+    sandbox = _sandbox(tmp_path)
+    assert actuator._safe_path("") == sandbox.resolve()
+    assert actuator._safe_path(".") == sandbox.resolve()
+    assert actuator._safe_path("./child") == (sandbox / "child").resolve()
+    assert actuator._safe_path("nested//child") == (sandbox / "nested" / "child").resolve()
+
+    actuator.file_write("~/literal-$HOME.txt", "literal")
+    assert (sandbox / "~" / "literal-$HOME.txt").read_text() == "literal"
+
+
+@pytest.mark.parametrize("path", [None, 3, {}, [], b"bytes", "", "bad\x00name"])
+def test_sandbox_malformed_file_paths_fail_closed(tmp_path, path):
+    sandbox = _sandbox(tmp_path)
+    with pytest.raises((ValueError, PermissionError)):
+        actuator.file_write(path, "data")
+    assert list(sandbox.rglob("*")) == []
+
+
+def test_sandbox_ancestry_static_verifier_uses_components_not_text_prefixes():
+    source = Path(actuator.__file__).read_text(encoding="utf-8")
+    helper = source[source.index("def _safe_path"):source.index("\ndef file_write", source.index("def _safe_path"))]
+    assert ".relative_to(sandbox_root)" in helper
+    assert ".startswith(" not in helper
+    assert "os.fspath" not in helper
+
+
+for _sandbox_test_name in (
+    "test_sandbox_normal_nested_file_write_and_nonexistent_leaf",
+    "test_sandbox_normal_shell_cwd_descendant",
+    "test_sandbox_textual_sibling_prefix_exploit_is_rejected_process_real",
+    "test_sandbox_traversal_and_similar_siblings_are_rejected",
+    "test_sandbox_absolute_inputs_are_rejected_even_when_inside",
+    "test_sandbox_symlink_outside_write_is_rejected",
+    "test_sandbox_symlink_inside_is_allowed",
+    "test_sandbox_rejected_shell_cwd_launches_zero_processes",
+    "test_sandbox_symlink_outside_cwd_launches_zero_processes",
+    "test_sandbox_root_dot_repeated_separators_and_literal_names",
+    "test_sandbox_malformed_file_paths_fail_closed",
+    "test_sandbox_ancestry_static_verifier_uses_components_not_text_prefixes",
+):
+    globals()[_sandbox_test_name] = pytest.mark.no_legacy_skip(globals()[_sandbox_test_name])
 
 
 def test_whitelist_pattern(monkeypatch):
