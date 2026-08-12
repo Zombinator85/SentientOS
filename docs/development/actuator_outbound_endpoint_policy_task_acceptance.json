@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "39ba66f552d3f1338485a8580e6d82b217ac1256",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_exact_http_origin_authorization_and_normalization", "rationale": "Exact canonical origin reaches only the normalized endpoint."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_webhook_uses_shared_policy_and_disables_redirects", "rationale": "Webhook shares canonical policy and redirect denial."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_allowed_smtp_endpoint_and_recipient", "rationale": "Exact SMTP endpoint and recipient reach the client."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_hostname_prefix_denial_witnesses_zero_client_construction", "rationale": "Textual host confusion constructs no HTTP request."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_url_userinfo_confusion_is_rejected", "rationale": "URL userinfo confusion fails closed."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_scheme_only_universal_policy_is_invalid_and_path_scope_is_component_exact", "rationale": "Scheme-only policy and sibling path prefixes grant nothing."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_redirects_are_not_followed_by_either_backend", "rationale": "Authorized requests cannot transfer authority through redirects."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_denied_smtp_host_witnesses_zero_connection", "rationale": "A denied SMTP host constructs no client."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_denied_recipient_witnesses_zero_connection", "rationale": "A denied recipient constructs no client."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_subject_header_injection_witnesses_zero_connection", "rationale": "CR/LF subject injection fails before connection."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_environment_server_without_policy_has_zero_effect", "rationale": "Environment selection alone creates no SMTP authority."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_dry_run_has_zero_outbound_effect", "rationale": "Dry-run dispatch creates no outbound client effect."},
+    {"node_id": "tests/test_actuator_outbound_policy.py::test_static_outbound_authorization_order_and_shared_validator", "rationale": "Mechanical inspection binds both HTTP effects to the shared validator and SMTP checks before construction."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_outbound_policy.py::test_exact_http_origin_authorization_and_normalization",
+    "tests/test_actuator_outbound_policy.py::test_webhook_uses_shared_policy_and_disables_redirects",
+    "tests/test_actuator_outbound_policy.py::test_allowed_smtp_endpoint_and_recipient",
+    "tests/test_actuator_outbound_policy.py::test_dry_run_has_zero_outbound_effect"
+  ]
+}

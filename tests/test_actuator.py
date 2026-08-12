@@ -68,7 +68,7 @@ def test_act_logging(tmp_path, monkeypatch):
 
 def test_http_fetch(monkeypatch):
     reload(actuator)
-    actuator.WHITELIST = {"shell": [], "http": ["http://"], "timeout": 5}
+    actuator.WHITELIST = {"shell": [], "http": ["http://example.com"], "timeout": 5}
 
     class FakeResp:
         status_code = 200
@@ -78,11 +78,8 @@ def test_http_fetch(monkeypatch):
         fake_request.called = (method, url)
         return FakeResp()
 
-    if actuator.requests is None:
-        from types import SimpleNamespace
-        actuator.requests = SimpleNamespace(request=fake_request)
-    else:
-        monkeypatch.setattr(actuator.requests, "request", fake_request)
+    from types import SimpleNamespace
+    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: SimpleNamespace(request=fake_request))
     res = actuator.http_fetch("http://example.com")
     assert res == {"status": 200, "text": "ok"}
     import pytest
