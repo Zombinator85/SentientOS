@@ -1,3 +1,5 @@
 shell: ["ls", "df", "curl", "ping", "python"]
-http: ["http://", "https://"]
+http: []
+smtp: []
+email: []
 timeout: 30

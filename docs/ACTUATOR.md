@@ -80,3 +80,80 @@ from normalized and executed `argv`.
 
 This repair closes the prior shell-string authorization/execution mismatch: the argv
 that is authorized is the argv that is executed.
+
+## Outbound endpoint policy
+
+HTTP fetches and webhooks share one structural URL policy. The `http` list in
+`config/act_whitelist.yml` contains canonical origins, optionally followed by a path
+scope. An origin-only entry such as `https://api.example.com` authorizes only that
+scheme, hostname, and effective port, for every path on that origin. An entry such as
+`https://hooks.example.com/events` authorizes exactly `/events` and descendants such
+as `/events/new`; it does not authorize `/eventside`. Queries remain request data and
+cannot change the parsed host. Policy entries containing a query or fragment are
+invalid and ignored. Generic globs, regular expressions, `*`, and hostname wildcards
+are not supported.
+
+URLs are parsed with the standard-library URL parser before authorization. Only HTTP
+and HTTPS are supported. Hostnames are lower-cased and IDNA-canonicalized, a trailing
+DNS dot is normalized away, IPv4 and IPv6 literals use their canonical address form,
+and default ports normalize to HTTP 80 and HTTPS 443. IPv6 is rendered with brackets.
+Missing hosts, malformed ports, control characters, and embedded username/password
+userinfo are rejected. Fragments are removed because they are not network request
+data; the canonicalized URL that passed policy is the URL given to the client.
+
+Both the Requests and urllib backends disable automatic redirects. A redirect
+response is therefore never authority to contact its target, and no second request is
+made. Requests receives `allow_redirects=False`; urllib uses a no-redirect handler.
+Webhook POSTs use exactly the same canonical validator and redirect posture as HTTP
+fetches.
+
+The shipped `http` list is empty and therefore fails closed. Local, private,
+loopback, link-local, multicast, unspecified, and other special IP literals receive
+no implicit authority: an exact canonical literal origin and port must be configured,
+just like any other destination. This lexical endpoint policy does not resolve a DNS
+hostname before authorization and does not claim to prevent DNS rebinding or a DNS
+answer that maps an explicitly authorized hostname to a special address. Resolver
+custody and rebinding defenses remain a separate follow-up.
+
+### Mail policy
+
+The `smtp` list authorizes exact `hostname:port` pairs, for example
+`smtp.example.com:587` (or `[::1]:2525` for IPv6). `SMTP_HOST` and `SMTP_PORT` propose
+the connection endpoint but do not authorize it. Hostnames compare using canonical,
+case-insensitive DNS spelling and ports must be in 1-65535. The endpoint and recipient
+are both authorized before `smtplib.SMTP` is constructed, so denial opens no SMTP
+connection.
+
+The `email` list supports exact single mailboxes and an optional exact-domain form,
+`*@example.com`. Domain scopes match only that canonical domain, never suffixes such
+as `example.com.evil`; exact mailbox local parts remain case-sensitive. The bounded
+mailbox grammar accepts one `@` and a conservative dot-atom-like local part rather
+than attempting complete RFC parsing. Recipient, configured sender, and subject
+control characters (including CR/LF header injection) are rejected before connection.
+The single-recipient interface remains single-recipient.
+
+SMTP transport behavior is otherwise unchanged: the actuator uses `smtplib.SMTP` and
+optional authentication, but does not enable STARTTLS or implicit TLS. Endpoint
+authorization does not imply transport confidentiality, and TLS modernization is a
+separate task. Credentials are never included in policy errors or return values.
+
+Example fail-closed configuration with explicit authority:
+
+```yaml
+http: ["https://api.example.com", "https://hooks.example.com/events"]
+smtp: ["smtp.example.com:587"]
+email: ["operator@example.com", "*@alerts.example.com"]
+```
+
+Notification subscriptions continue to store their webhook or email targets without
+being rewritten or treated as policy. At send time they call the protected actuator,
+where the current endpoint and recipient policy is authoritative; a formerly stored
+but unauthorized target fails closed. Async work retains the copied target and is
+authorized when executed. General actuator dry-run dispatch performs no HTTP,
+webhook, or SMTP effect and records the unexecuted intent; normal logs preserve target
+data and never add SMTP credentials.
+
+This repair only narrows destinations reachable through existing outbound effects; it
+grants no new networking authority. Plugin isolation, executable `PATH` identity,
+descriptor-relative filesystem TOCTOU custody, and repository-wide mypy/tool
+compatibility remain separate follow-ups.

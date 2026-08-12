@@ -15,7 +15,10 @@ import shlex
 from email.message import EmailMessage
 from pathlib import Path
 import ast
+import ipaddress
+import urllib.request
 from typing import Any, Dict, Callable, Mapping, Sequence, cast
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from logging_config import resolve_log_path
 from sentientos.optional_deps import optional_import
@@ -219,6 +222,162 @@ def _match_patterns(value: str, patterns: list[str]) -> bool:
                     return True
     return False
 
+
+_HTTP_DEFAULT_PORTS = {"http": 80, "https": 443}
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _canonical_hostname(hostname: str) -> str:
+    """Return an exact, comparison-safe IP literal or DNS hostname."""
+    candidate = hostname.rstrip(".")
+    if not candidate:
+        raise ValueError("missing URL host")
+    try:
+        return ipaddress.ip_address(candidate).compressed.lower()
+    except ValueError:
+        try:
+            canonical = candidate.encode("idna").decode("ascii").lower()
+        except UnicodeError as exc:
+            raise ValueError("malformed URL host") from exc
+        labels = canonical.split(".")
+        if any(not label or len(label) > 63 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label) for label in labels):
+            raise ValueError("malformed URL host")
+        return canonical
+
+
+def _canonical_http_url(value: object, *, policy_entry: bool = False) -> tuple[str, str, int, str]:
+    """Validate an HTTP URL and return URL, scheme, effective port, and path."""
+    if not isinstance(value, str):
+        raise ValueError("malformed URL: string required")
+    if _CONTROL_CHARACTERS.search(value):
+        raise ValueError("malformed URL: control character rejected")
+    try:
+        parsed = urlsplit(value)
+    except ValueError as exc:
+        raise ValueError("malformed URL") from exc
+    scheme = parsed.scheme.lower()
+    if scheme not in _HTTP_DEFAULT_PORTS:
+        raise ValueError("unsupported URL scheme")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("URL userinfo rejected")
+    if parsed.hostname is None:
+        raise ValueError("missing URL host")
+    try:
+        port = parsed.port or _HTTP_DEFAULT_PORTS[scheme]
+    except ValueError as exc:
+        raise ValueError("malformed URL port") from exc
+    host = _canonical_hostname(parsed.hostname)
+    path = parsed.path or "/"
+    if policy_entry and (parsed.query or parsed.fragment):
+        raise ValueError("malformed URL policy entry")
+    if policy_entry and path != "/" and path.endswith("/"):
+        path = path.rstrip("/")
+    bracketed_host = f"[{host}]" if ":" in host else host
+    default_port = _HTTP_DEFAULT_PORTS[scheme]
+    netloc = bracketed_host if port == default_port else f"{bracketed_host}:{port}"
+    canonical = urlunsplit(SplitResult(scheme, netloc, path, parsed.query, ""))
+    return canonical, host, port, path
+
+
+def _authorized_http_url(value: object) -> str:
+    """Authorize a canonical URL against exact origins and path-component scopes."""
+    canonical, host, port, path = _canonical_http_url(value)
+    entries = WHITELIST.get("http", [])
+    if not isinstance(entries, list):
+        raise PermissionError("HTTP destination policy is malformed")
+    for entry in entries:
+        try:
+            _policy_url, policy_host, policy_port, policy_path = _canonical_http_url(entry, policy_entry=True)
+            policy_scheme = urlsplit(_policy_url).scheme
+        except ValueError:
+            continue
+        if policy_scheme != urlsplit(canonical).scheme or policy_host != host or policy_port != port:
+            continue
+        if policy_path == "/" or path == policy_path or path.startswith(policy_path + "/"):
+            return canonical
+    raise PermissionError("HTTP destination not allowed")
+
+
+def _canonical_smtp_endpoint(host: object, port: object) -> tuple[str, int]:
+    if not isinstance(host, str) or _CONTROL_CHARACTERS.search(host):
+        raise ValueError("malformed SMTP endpoint")
+    if not isinstance(port, (str, int)) or isinstance(port, bool):
+        raise ValueError("malformed SMTP endpoint")
+    try:
+        port_number = int(port)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("malformed SMTP endpoint") from exc
+    if not 1 <= port_number <= 65535:
+        raise ValueError("malformed SMTP endpoint")
+    raw_host = host[1:-1] if host.startswith("[") and host.endswith("]") else host
+    return _canonical_hostname(raw_host), port_number
+
+
+def _authorized_smtp_endpoint(host: object, port: object) -> tuple[str, int]:
+    endpoint = _canonical_smtp_endpoint(host, port)
+    entries = WHITELIST.get("smtp", [])
+    if not isinstance(entries, list):
+        raise PermissionError("SMTP endpoint policy is malformed")
+    for entry in entries:
+        if not isinstance(entry, str):
+            continue
+        try:
+            if entry.startswith("["):
+                end = entry.find("]")
+                if end < 0 or entry[end + 1 : end + 2] != ":":
+                    continue
+                candidate = _canonical_smtp_endpoint(entry[: end + 1], entry[end + 2 :])
+            else:
+                candidate_host, separator, candidate_port = entry.rpartition(":")
+                if not separator:
+                    continue
+                candidate = _canonical_smtp_endpoint(candidate_host, candidate_port)
+        except ValueError:
+            continue
+        if candidate == endpoint:
+            return endpoint
+    raise PermissionError("SMTP endpoint not allowed")
+
+
+def _canonical_mailbox(value: object, *, field: str = "recipient") -> tuple[str, str]:
+    if not isinstance(value, str) or _CONTROL_CHARACTERS.search(value):
+        raise ValueError(f"malformed {field}")
+    if value.count("@") != 1:
+        raise ValueError(f"malformed {field}")
+    local, domain = value.split("@")
+    if not local or len(value) > 254 or not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+", local):
+        raise ValueError(f"malformed {field}")
+    return local, _canonical_hostname(domain)
+
+
+def _authorized_recipient(value: object) -> str:
+    local, domain = _canonical_mailbox(value)
+    entries = WHITELIST.get("email", [])
+    if not isinstance(entries, list):
+        raise PermissionError("email recipient policy is malformed")
+    for entry in entries:
+        if not isinstance(entry, str):
+            continue
+        if entry.startswith("*@"):
+            try:
+                if _canonical_hostname(entry[2:]) == domain:
+                    return f"{local}@{domain}"
+            except ValueError:
+                continue
+        else:
+            try:
+                allowed_local, allowed_domain = _canonical_mailbox(entry)
+            except ValueError:
+                continue
+            if allowed_local == local and allowed_domain == domain:
+                return f"{local}@{domain}"
+    raise PermissionError("email recipient not allowed")
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: object, fp: object, code: int, msg: str, headers: object, newurl: str) -> None:
+        return None
+
 MAX_ARGV_COUNT = 128
 MAX_ARGUMENT_BYTES = 4096
 MAX_ARGV_BYTES = 32768
@@ -322,18 +481,16 @@ def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
 
 def http_fetch(url: str, method: str = "GET", **kwargs: object) -> dict[str, object]:
     _authorize_effect()
-    patterns_obj = WHITELIST.get("http", [])
-    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
-    if not _match_patterns(url, patterns):
-        raise PermissionError("URL not allowed")
+    canonical_url = _authorized_http_url(url)
     timeout = _timeout_seconds()
     requests = optional_import("requests", feature="http_requests_client")
     if requests:
-        resp = requests.request(method, url, timeout=timeout, **kwargs)
+        request_kwargs = dict(kwargs)
+        request_kwargs["allow_redirects"] = False
+        resp = requests.request(method, canonical_url, timeout=timeout, **request_kwargs)
         return {"status": resp.status_code, "text": resp.text}
-    import urllib.request
-    req = urllib.request.Request(url, method=method)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    req = urllib.request.Request(canonical_url, method=method)
+    with urllib.request.build_opener(_NoRedirectHandler()).open(req, timeout=timeout) as r:
         text = r.read().decode()
         status = r.getcode()
     return {"status": status, "text": text}
@@ -374,37 +531,37 @@ def send_email(to: str, subject: str, body: str) -> dict[str, object]:
     host = os.getenv("SMTP_HOST")
     if not host:
         raise EnvironmentError("SMTP not configured")
-    port = int(os.getenv("SMTP_PORT", "25"))
+    canonical_host, port = _authorized_smtp_endpoint(host, os.getenv("SMTP_PORT", "25"))
+    canonical_to = _authorized_recipient(to)
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASS")
     from_addr = os.getenv("SMTP_FROM", user or "noreply@example.com")
+    canonical_from = "@".join(_canonical_mailbox(from_addr, field="sender"))
+    if not isinstance(subject, str) or _CONTROL_CHARACTERS.search(subject):
+        raise ValueError("email subject header injection rejected")
     msg = EmailMessage()
-    msg["From"] = from_addr
-    msg["To"] = to
+    msg["From"] = canonical_from
+    msg["To"] = canonical_to
     msg["Subject"] = subject
     msg.set_content(body)
-    with smtplib.SMTP(host, port) as smtp:
+    with smtplib.SMTP(canonical_host, port) as smtp:
         if user and password:
             smtp.login(user, password)
         smtp.send_message(msg)
-    return {"sent": to}
+    return {"sent": canonical_to}
 
 
 def trigger_webhook(url: str, payload: Mapping[str, object]) -> dict[str, object]:
     _authorize_effect()
-    patterns_obj = WHITELIST.get("http", [])
-    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
-    if not _match_patterns(url, patterns):
-        raise PermissionError("URL not allowed")
+    canonical_url = _authorized_http_url(url)
     requests = optional_import("requests", feature="http_requests_client")
     if requests:
-        resp = requests.post(url, json=payload, timeout=_timeout_seconds())
+        resp = requests.post(canonical_url, json=payload, timeout=_timeout_seconds(), allow_redirects=False)
         return {"status": resp.status_code}
-    import urllib.request
     import json as _json
     data = _json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=_timeout_seconds()) as r:
+    req = urllib.request.Request(canonical_url, data=data, method="POST", headers={"Content-Type": "application/json"})
+    with urllib.request.build_opener(_NoRedirectHandler()).open(req, timeout=_timeout_seconds()) as r:
         status = r.getcode()
     return {"status": status}
 
