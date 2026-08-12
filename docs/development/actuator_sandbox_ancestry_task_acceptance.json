@@ -1,0 +1,26 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f9f4b1b5149c378458b1f59ef0d7fe69890c0e7d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator.py::test_sandbox_normal_nested_file_write_and_nonexistent_leaf", "rationale": "A normal nested write creates safe missing parents and leaf."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_normal_shell_cwd_descendant", "rationale": "A real process starts in an ordinary sandbox descendant."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_textual_sibling_prefix_exploit_is_rejected_process_real", "rationale": "The process-real filesystem regression proves textual-prefix similarity creates no outside file."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_traversal_and_similar_siblings_are_rejected[../outside.txt]", "rationale": "Traversal and similar sibling names fail component ancestry."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_absolute_inputs_are_rejected_even_when_inside", "rationale": "The absolute-input policy fails closed inside and outside."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_symlink_outside_write_is_rejected", "rationale": "An existing symlink cannot redirect a write outside."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_symlink_inside_is_allowed", "rationale": "The selected resolved-destination policy allows an inside symlink."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_rejected_shell_cwd_launches_zero_processes[../outside]", "rationale": "Traversal and sibling-prefix cwd rejection make zero subprocess calls."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_symlink_outside_cwd_launches_zero_processes", "rationale": "Outside-symlink cwd rejection makes zero subprocess calls."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_malformed_file_paths_fail_closed[None]", "rationale": "Non-string, empty, and NUL-bearing file paths fail closed."},
+    {"node_id": "tests/test_actuator.py::test_sandbox_ancestry_static_verifier_uses_components_not_text_prefixes", "rationale": "The protected helper mechanically requires relative_to and excludes prefix containment."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false", "rationale": "The PR #2021 exact argv and shell=False boundary remains intact."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator.py::test_sandbox_normal_nested_file_write_and_nonexistent_leaf",
+    "tests/test_actuator.py::test_sandbox_normal_shell_cwd_descendant",
+    "tests/test_actuator.py::test_sandbox_symlink_inside_is_allowed",
+    "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false"
+  ]
+}

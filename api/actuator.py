@@ -338,17 +338,32 @@ def http_fetch(url: str, method: str = "GET", **kwargs: object) -> dict[str, obj
         status = r.getcode()
     return {"status": status, "text": text}
 
-def _safe_path(rel: str) -> Path:
-    target = (SANDBOX_DIR / rel).resolve()
-    if not str(target).startswith(str(SANDBOX_DIR.resolve())):
-        raise PermissionError("Path escapes sandbox")
+def _safe_path(rel: object, *, allow_empty: bool = True) -> Path:
+    """Resolve a caller-relative path beneath the sandbox custody boundary."""
+    if not isinstance(rel, str):
+        raise ValueError("sandbox path must be a string")
+    if "\x00" in rel:
+        raise ValueError("sandbox path must not contain NUL")
+    if not rel and not allow_empty:
+        raise ValueError("sandbox path must be nonempty")
+
+    supplied = Path(rel)
+    if supplied.is_absolute():
+        raise PermissionError("Absolute sandbox paths are forbidden")
+
+    sandbox_root = SANDBOX_DIR.resolve()
+    target = (sandbox_root / supplied).resolve()
+    try:
+        target.relative_to(sandbox_root)
+    except ValueError as exc:
+        raise PermissionError("Path escapes sandbox") from exc
     return target
 
 
 def file_write(path: str, content: str) -> dict[str, object]:
     _authorize_effect()
     SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
-    target = _safe_path(path)
+    target = _safe_path(path, allow_empty=False)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content)
     return {"written": str(target)}
