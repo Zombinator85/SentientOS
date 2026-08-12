@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "51d2024a6d2b05bed3295062b002ae78304e3746",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_all_builtins_registered_and_initialization_is_idempotent", "rationale": "Every canonical built-in remains registered and repeated initialization preserves its instance."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_builtin_file_actuator_functionality_is_unchanged", "rationale": "Ordinary built-in actuator dispatch continues to perform its authorized operation."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_external_request_fails_before_registration_or_source_read", "rationale": "The compatibility request fails closed before reading or registering external source."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_configured_mixed_directory_has_zero_process_real_execution", "rationale": "A real subprocess proves mixed configured Python files produce no top-level effect or registration."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_plugin_reload_surface_is_absent_and_cannot_delete_builtins", "rationale": "The retired reload path cannot remove workflow or talkback."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_cli_exposes_no_external_plugin_operation[argv0]", "rationale": "The actuator CLI rejects the former plugins command."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_cli_exposes_no_external_plugin_operation[argv1]", "rationale": "The actuator CLI rejects the former reload option."},
+    {"node_id": "tests/test_actuator_plugin_boundary.py::test_static_verifier_proves_loader_and_reload_removal", "rationale": "Mechanical inspection proves loader, dynamic execution, filesystem authority, and reload CLI surfaces are absent."},
+    {"node_id": "tests/test_import_privilege_boundaries.py::test_actuator_import_has_no_privilege_or_runtime_effects", "rationale": "Importing api.actuator remains privilege- and effect-inert."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_plugin_boundary.py::test_all_builtins_registered_and_initialization_is_idempotent",
+    "tests/test_actuator_plugin_boundary.py::test_builtin_file_actuator_functionality_is_unchanged"
+  ]
+}

@@ -4,7 +4,7 @@ This developer-workflow boundary applies the repository's canonical validation a
 
 ## Effect and authorization boundaries
 
-Importing `scripts.lock` or `api.actuator` is inspection, not authority. Imports must not authorize, prompt, create runtime directories, execute plugins, start threads, invoke processes, or perform external effects. Lock `freeze` and `install`, actuator shell/HTTP/file/email/webhook/workflow/talkback operations, asynchronous execution, memory-backed action execution, and deliberate external-plugin loading authorize immediately before their protected effects. Read-only lock checking and builtin actuator metadata inspection remain unprivileged.
+Importing `scripts.lock` or `api.actuator` is inspection, not authority. Imports must not authorize, prompt, create runtime directories, execute plugins, start threads, invoke processes, or perform external effects. Lock `freeze` and `install`, actuator shell/HTTP/file/email/webhook/workflow/talkback operations, asynchronous execution, and memory-backed action execution authorize immediately before their protected effects. External actuator plugin loading is unsupported. Read-only lock checking and builtin actuator metadata inspection remain unprivileged.
 
 ## Validation and integrity
 
@@ -15,7 +15,8 @@ The **Required Quality Gate** workflow exposes the unique check **Required / Qua
 Python package initializers are never authorization boundaries: importing a protected
 subsystem is not itself a protected effect. Accordingly, `api/__init__.py` is
 intentionally limited to inert package definition. Protected actuator effects retain
-authorization immediately before execution. Log path resolution similarly only
+authorization immediately before execution. External actuator plugin loading is not
+supported; configured Python files have no actuator execution authority. Log path resolution similarly only
 selects a `Path`; the compatible creating helpers and actuator write boundaries create
 parents when a runtime write actually requires them.
 

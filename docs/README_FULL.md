@@ -418,7 +418,6 @@ Drop plugins in plugins/; reload live via CLI:
 bash
 Copy
 Edit
-python api/actuator.py plugins --reload
 
 Gesture/persona plug-ins can be enabled or disabled at runtime. Use the CLI or web dashboard:
 
