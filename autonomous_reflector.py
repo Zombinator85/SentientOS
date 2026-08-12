@@ -150,7 +150,7 @@ def _metacognitive_checkpoint(history: Deque[Dict[str, dict]]) -> None:
 
 def run_loop(interval: float = INTERVAL, iterations: int | None = None) -> None:
     """Run the autonomous cycle for ``iterations`` steps."""
-    actuator.reload_plugins()
+    actuator.initialize_actuators()
     count = 0
     history: Deque[Dict[str, dict]] = deque(maxlen=METACOG_INTERVAL)
     while iterations is None or count < iterations:

@@ -357,17 +357,6 @@ def test_dry_run(tmp_path, monkeypatch):
     assert out.get("dry_run")
 
 
-def test_plugin_hello(tmp_path, monkeypatch):
-    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
-    from importlib import reload as _reload
-    import memory_manager as mm
-    _reload(mm)
-    _reload(actuator)
-    out = actuator.dispatch({"type": "hello", "name": "Ada"})
-    assert out == {"hello": "Ada"}
-
-
 def test_template_help_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     import importlib
@@ -396,9 +385,8 @@ def test_structured_reflection(tmp_path, monkeypatch):
     assert refls[0]["reason"] == "test"
 
 
-def test_auto_critique_and_plugin_list(tmp_path, monkeypatch, capsys):
+def test_auto_critique(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
     from importlib import reload as _reload
     import memory_manager as mm
     _reload(mm)
@@ -406,7 +394,3 @@ def test_auto_critique_and_plugin_list(tmp_path, monkeypatch, capsys):
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
     res = actuator.act({"type": "shell", "cmd": "rm"})
     assert res["status"] == "failed" and "critique" in res
-    monkeypatch.setattr(sys, "argv", ["ac", "plugins"]) 
-    actuator.main()
-    out = capsys.readouterr().out
-    assert "hello" in out

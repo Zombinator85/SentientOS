@@ -33,8 +33,6 @@ class BaseActuator:
 
 
 ACTUATORS: dict[str, BaseActuator] = {}
-PLUGINS_INFO: dict[str, str] = {}
-_LOADED_PLUGIN_FILES: list[Path] = []
 
 AUTONOMOUS_LOG = resolve_log_path("autonomous_calls.jsonl", "AUTONOMOUS_CALLS_LOG")
 
@@ -47,45 +45,6 @@ def _authorize_effect() -> None:
 
 def register_actuator(name: str, actuator: BaseActuator) -> None:
     ACTUATORS[name] = actuator
-
-
-def load_plugins() -> None:
-    """Load actuator plugins from the plugins directory."""
-    _authorize_effect()
-    global PLUGINS_INFO, _LOADED_PLUGIN_FILES
-    PLUGINS_INFO = {}
-    plugins_dir = Path(os.getenv("ACT_PLUGINS_DIR", "plugins"))
-    if not plugins_dir.exists():
-        return
-    _LOADED_PLUGIN_FILES = list(plugins_dir.glob("*.py"))
-    for fp in _LOADED_PLUGIN_FILES:
-        spec: dict[str, Any] = {}
-        with open(fp, "r", encoding="utf-8") as f:
-            code = f.read()
-        try:
-            exec(compile(code, str(fp), "exec"), spec)
-        except Exception:
-            continue
-        reg = spec.get("register")
-        if callable(reg):
-            try:
-                reg(register_actuator)
-            except Exception:
-                pass
-        PLUGINS_INFO[fp.stem] = (spec.get("__doc__") or "").strip()
-
-
-def list_plugins() -> dict[str, str]:
-    """Return mapping of plugin name to docstring."""
-    return dict(PLUGINS_INFO)
-
-
-def reload_plugins() -> None:
-    """Reload actuator plugins from disk."""
-    for name in list(ACTUATORS.keys()):
-        if name not in {"shell", "http", "file", "email", "webhook"}:
-            ACTUATORS.pop(name, None)
-    load_plugins()
 
 
 # Load whitelist
@@ -187,21 +146,28 @@ class TalkbackActuator(BaseActuator):
         return {"ok": True, "target": talkback.rtsp_url, "audio_path": str(audio_path)}
 
 
+BUILTIN_ACTUATOR_TYPES: Mapping[str, type[BaseActuator]] = {
+    "shell": ShellActuator,
+    "http": HttpActuator,
+    "file": FileActuator,
+    "email": EmailActuator,
+    "webhook": WebhookActuator,
+    "workflow": WorkflowActuator,
+    "talkback": TalkbackActuator,
+}
+
+
 def register_builtin_actuators() -> None:
-    register_actuator("shell", ShellActuator())
-    register_actuator("http", HttpActuator())
-    register_actuator("file", FileActuator())
-    register_actuator("email", EmailActuator())
-    register_actuator("webhook", WebhookActuator())
-    register_actuator("workflow", WorkflowActuator())
-    register_actuator("talkback", TalkbackActuator())
+    for name, actuator_type in BUILTIN_ACTUATOR_TYPES.items():
+        if name not in ACTUATORS:
+            register_actuator(name, actuator_type())
 
 
 def initialize_actuators(*, load_external_plugins: bool = False) -> None:
-    """Idempotently register builtins and optionally load authorized plugins."""
-    register_builtin_actuators()
+    """Idempotently register built-ins; reject retired filesystem plugins."""
     if load_external_plugins:
-        load_plugins()
+        raise RuntimeError("external actuator plugins are disabled")
+    register_builtin_actuators()
 
 
 initialize_actuators()
@@ -880,7 +846,6 @@ def main(argv: list[str] | None = None) -> None:
             "template_help",
             "logs",
             "templates",
-            "plugins",
         ],
         help="Action type",
     )
@@ -901,7 +866,6 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--dry", action="store_true", help="Dry run")
     parser.add_argument("--reflect", action="store_true", help="Include reflections in logs")
     parser.add_argument("--last", dest="last", type=int, default=10)
-    parser.add_argument("--reload", action="store_true", help="Reload plugins")
 
     args = parser.parse_args(argv)
 
@@ -911,12 +875,6 @@ def main(argv: list[str] | None = None) -> None:
             term = args.cmd.lower()
             names = [n for n in names if term in n.lower()]
         print(json.dumps({"templates": names}, indent=2))
-        return
-
-    if args.subcommand == "plugins":
-        if args.reload:
-            reload_plugins()
-        print(json.dumps(list_plugins(), indent=2))
         return
 
     intent: Dict[str, Any] = {"type": args.subcommand if args.subcommand not in {"write", "logs"} else ("file" if args.subcommand == "write" else "logs")}

@@ -1,5 +1,26 @@
 # Actuator process execution
 
+## Built-ins and the external-code boundary
+
+The actuator runtime provides the canonical built-in types `shell`, `http`, `file`,
+`email`, `webhook`, `workflow`, and `talkback`. Initialization registers only these
+built-ins and is idempotent. The temporary `load_external_plugins` keyword remains
+for compatibility, but requesting it fails deterministically with `external actuator
+plugins are disabled` before registering or inspecting anything.
+
+Legacy filesystem-loaded external actuator Python execution has been removed.
+`ACT_PLUGINS_DIR` no longer grants actuator code-loading authority: the actuator
+subsystem does not scan, read, import, compile, or execute arbitrary `.py` files from
+that directory. Its former `plugins` CLI command and reload option have also been
+removed, so actuator administration cannot turn directory contents into executable
+code or remove built-in registrations.
+
+The repository's `plugin_framework` is a separate plugin system and is not implicitly
+bridged into actuators. This boundary does not claim that all repository plugin
+systems are isolated. Any future external actuator extensibility requires a separately
+designed and authorized identity, authority, and isolation contract; directory
+presence and filename extensions alone confer no authority.
+
 The canonical shell-actuator intent is structured data:
 
 ```json

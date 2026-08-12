@@ -97,7 +97,6 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NEOS_BRIDGE_DIR` | Path to NeosVR bridge directory | `C:/SentientOS/neos` |
 | `BACKCHANNEL_GAP` | Seconds between backchannel polls | `6` |
 | `LEDGER_BACKUP_DIR` | Directory for ledger backups | `backup` |
-| `ACT_PLUGINS_DIR` | Directory containing actuator plugin files | `plugins` |
 | `ACT_RATE_LIMIT` | Seconds between actuator invocations | `5` |
 | `ACT_SANDBOX` | Working directory for sandboxed actions | `sandbox` |
 | `ACT_TEMPLATES` | YAML file describing actuator templates | `config/act_templates.yml` |

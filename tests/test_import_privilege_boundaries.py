@@ -115,12 +115,17 @@ def test_actuator_protected_effects_authorize_before_execution(monkeypatch, tmp_
     assert (tmp_path / "proof.txt").read_text() == "ok"
 
 
-def test_external_plugins_require_explicit_initialization(monkeypatch, tmp_path):
+def test_external_plugins_are_rejected_without_execution(monkeypatch, tmp_path):
     plugin_dir = tmp_path / "plugins"; plugin_dir.mkdir()
-    (plugin_dir / "sample.py").write_text('"""sample"""\ndef register(register):\n register("sample", object())\n')
+    marker = tmp_path / "marker"
+    (plugin_dir / "sample.py").write_text(
+        f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\n'
+        'def register(register):\n register("sample", object())\n'
+    )
     import api.actuator as actuator
     monkeypatch.setenv("ACT_PLUGINS_DIR", str(plugin_dir))
-    monkeypatch.setattr(actuator, "_authorize_effect", lambda: None)
     assert "sample" not in actuator.ACTUATORS
-    actuator.initialize_actuators(load_external_plugins=True)
-    assert "sample" in actuator.ACTUATORS
+    with pytest.raises(RuntimeError, match="external actuator plugins are disabled"):
+        actuator.initialize_actuators(load_external_plugins=True)
+    assert "sample" not in actuator.ACTUATORS
+    assert not marker.exists()
