@@ -396,18 +396,82 @@ def _canonical_shell_argv(intent: Mapping[str, object]) -> tuple[tuple[str, ...]
     return _legacy_cmd_argv(cmd), cmd if isinstance(cmd, str) else None
 
 
-def _allowed_shell(argv: Sequence[str]) -> bool:
-    executable = argv[0]
-    patterns_obj = WHITELIST.get("shell", [])
-    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
-    import fnmatch
-    for pattern in patterns:
-        if pattern.startswith("^"):
-            if re.fullmatch(pattern, executable):
-                return True
-        elif fnmatch.fnmatchcase(executable, pattern):
-            return True
-    return False
+def _canonical_policy_executable(value: object) -> str:
+    """Return the process-real executable named by a structured shell rule."""
+    if not isinstance(value, str) or not value or "\x00" in value:
+        raise PermissionError("shell command policy is malformed: invalid executable")
+    supplied = Path(value)
+    if not supplied.is_absolute():
+        raise PermissionError("shell command policy is malformed: executable must be an explicit path")
+    try:
+        executable = supplied.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise PermissionError("shell command policy is malformed: executable does not exist") from exc
+    if not executable.is_file():
+        raise PermissionError("shell command policy is malformed: executable is not a regular file")
+    if os.name == "posix" and not os.access(executable, os.X_OK):
+        raise PermissionError("shell command policy is malformed: executable is not executable")
+    return str(executable)
+
+
+def _authorized_shell_argv(argv: Sequence[str]) -> tuple[str, ...]:
+    """Bind an exact alias/executable and the complete argv to one command rule."""
+    rules = WHITELIST.get("shell", [])
+    if not isinstance(rules, list):
+        raise PermissionError("shell command policy is malformed: shell must be a list")
+    requested = argv[0]
+    matches: list[tuple[str, Sequence[object]]] = []
+    for rule in rules:
+        if not isinstance(rule, dict) or set(rule) != {"alias", "executable", "arguments"}:
+            raise PermissionError("shell command policy is malformed: structured rule required")
+        alias = rule["alias"]
+        arguments = rule["arguments"]
+        if (
+            not isinstance(alias, str)
+            or not alias
+            or "\x00" in alias
+            or not isinstance(arguments, list)
+        ):
+            raise PermissionError("shell command policy is malformed: invalid rule")
+        executable = _canonical_policy_executable(rule["executable"])
+        if requested == alias or requested == executable:
+            matches.append((executable, arguments))
+    if len(matches) != 1:
+        raise PermissionError("shell command not allowed")
+
+    executable, slots = matches[0]
+    supplied_arguments = argv[1:]
+    if len(supplied_arguments) != len(slots):
+        raise PermissionError("shell command arguments not allowed: arity mismatch")
+    admitted: list[str] = []
+    for supplied, slot in zip(supplied_arguments, slots):
+        if not isinstance(slot, dict) or not isinstance(slot.get("type"), str):
+            raise PermissionError("shell command policy is malformed: invalid argument slot")
+        slot_type = slot["type"]
+        if slot_type == "literal" and set(slot) == {"type", "value"}:
+            value = slot["value"]
+            if not isinstance(value, str):
+                raise PermissionError("shell command policy is malformed: invalid literal")
+            if supplied != value:
+                raise PermissionError("shell command arguments not allowed")
+            admitted.append(supplied)
+        elif slot_type == "one_of" and set(slot) == {"type", "values"}:
+            values = slot["values"]
+            if (
+                not isinstance(values, list)
+                or not values
+                or any(not isinstance(value, str) for value in values)
+                or len(set(values)) != len(values)
+            ):
+                raise PermissionError("shell command policy is malformed: invalid one_of")
+            if supplied not in values:
+                raise PermissionError("shell command arguments not allowed")
+            admitted.append(supplied)
+        elif slot_type == "sandbox_path" and set(slot) == {"type"}:
+            admitted.append(str(_safe_path(supplied, allow_empty=False)))
+        else:
+            raise PermissionError("shell command policy is malformed: unsupported argument slot")
+    return (executable, *admitted)
 
 
 def _timeout_seconds() -> float:
@@ -421,14 +485,13 @@ def _timeout_seconds() -> float:
 
 def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
     canonical_argv = _validate_argv(argv)
-    _authorize_effect()
-    if not _allowed_shell(canonical_argv):
-        raise PermissionError("executable not allowed")
+    authorized_argv = _authorized_shell_argv(canonical_argv)
     SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
     cwd_path = _safe_path(cwd if cwd != "." else "")
+    _authorize_effect()
     try:
         res = subprocess.run(
-            canonical_argv,
+            authorized_argv,
             shell=False,
             capture_output=True,
             text=True,

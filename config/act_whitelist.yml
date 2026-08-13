@@ -1,4 +1,5 @@
-shell: ["ls", "df", "curl", "ping", "python"]
+# Machine-specific structured command rules must be admitted by the operator.
+shell: []
 http: []
 smtp: []
 email: []
