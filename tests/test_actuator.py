@@ -7,6 +7,7 @@ require_lumos_approval()
 
 
 import os
+import shutil
 import sys
 from importlib import reload
 from pathlib import Path
@@ -16,6 +17,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import relay_app
 from api import actuator
 import pytest
+
+
+def _shell_rule(alias, executable, *arguments):
+    return {"alias": alias, "executable": executable,
+            "arguments": [{"type": "literal", "value": value} for value in arguments]}
+
+
+def _echo_rule(*arguments):
+    executable = shutil.which("echo")
+    assert executable is not None
+    return _shell_rule("echo", executable, *arguments)
 
 def setup(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
@@ -29,7 +41,7 @@ def test_run_shell_allowed(tmp_path, monkeypatch):
     reload(actuator)
     actuator.SANDBOX_DIR = tmp_path / "sb"
     actuator.SANDBOX_DIR.mkdir()
-    actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hello")], "http": ["http://"], "timeout": 5}
     res = actuator.run_shell(["echo", "hello"])
     assert res["code"] == 0
     assert "hello" in res["stdout"]
@@ -47,7 +59,7 @@ def test_file_write(tmp_path, monkeypatch):
 
 def test_run_shell_blocked():
     reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule()], "http": ["http://"], "timeout": 5}
     import pytest
     with pytest.raises(Exception):
         actuator.run_shell(["rm", "-rf", "/"])
@@ -59,7 +71,7 @@ def test_act_logging(tmp_path, monkeypatch):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("log")], "http": [], "timeout": 5}
     result = actuator.act({"type": "shell", "cmd": "echo log"})
     assert "log_id" in result
     log_path = tmp_path / "raw" / f"{result['log_id']}.json"
@@ -89,7 +101,7 @@ def test_http_fetch(monkeypatch):
 
 def test_act_route_respects_whitelist(tmp_path, monkeypatch):
     client = setup(tmp_path, monkeypatch)
-    actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": ["http://"], "timeout": 5}
 
     resp = client.post(
         "/act",
@@ -123,7 +135,14 @@ def _sandbox(tmp_path):
     reload(actuator)
     actuator.SANDBOX_DIR = tmp_path / "sbox"
     actuator.SANDBOX_DIR.mkdir()
-    actuator.WHITELIST = {"shell": [sys.executable], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [{
+        "alias": sys.executable,
+        "executable": sys.executable,
+        "arguments": [
+            {"type": "literal", "value": "-c"},
+            {"type": "one_of", "values": ["import os; print(os.getcwd())", "pass"]},
+        ],
+    }], "http": [], "timeout": 5}
     return actuator.SANDBOX_DIR
 
 
@@ -288,8 +307,8 @@ for _sandbox_test_name in (
 
 def test_whitelist_pattern(monkeypatch):
     reload(actuator)
-    actuator.WHITELIST = {"shell": ["ls*"], "http": [], "timeout": 5}
-    res = actuator.run_shell(["ls"], cwd=".")
+    actuator.WHITELIST = {"shell": [_echo_rule()], "http": [], "timeout": 5}
+    res = actuator.run_shell(["echo"], cwd=".")
     assert res["code"] == 0
     with pytest.raises(Exception):
         actuator.run_shell(["rm"])
@@ -298,7 +317,7 @@ def test_whitelist_pattern(monkeypatch):
 def test_template_expansion(monkeypatch):
     reload(actuator)
     actuator.TEMPLATES = {"greet": {"type": "shell", "argv": ["echo", "{name}"]}}
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("Bob")], "http": [], "timeout": 5}
     out = actuator.dispatch({"type": "template", "name": "greet", "params": {"name": "Bob"}})
     assert "stdout" in out and "Bob" in out["stdout"]
 
@@ -309,7 +328,7 @@ def test_recent_logs_cli(tmp_path, monkeypatch, capsys):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": [], "timeout": 5}
     actuator.act({"type": "shell", "cmd": "echo hi"})
     monkeypatch.setattr(sys, "argv", ["ac", "logs", "--last", "1"])
     actuator.main()
@@ -323,7 +342,7 @@ def test_template_prompting(tmp_path, monkeypatch, capsys):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("test note")], "http": [], "timeout": 5}
     actuator.TEMPLATES = {"note": {"type": "shell", "argv": ["echo", "{text}"]}}
 
     monkeypatch.setattr(sys, "argv", ["ac", "template", "--name", "note"])
@@ -339,7 +358,7 @@ def test_reflection_and_rate_limit(tmp_path, monkeypatch):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": [], "timeout": 5}
     res1 = actuator.act({"type": "shell", "cmd": "echo hi"})
     assert "reflection" in res1
     res2 = actuator.act({"type": "shell", "cmd": "echo hi"})
@@ -352,7 +371,7 @@ def test_dry_run(tmp_path, monkeypatch):
     import memory_manager as mm
     importlib.reload(mm)
     importlib.reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": [], "timeout": 5}
     out = actuator.act({"type": "shell", "cmd": "echo hi", "dry_run": True})
     assert out.get("dry_run")
 
@@ -376,7 +395,7 @@ def test_structured_reflection(tmp_path, monkeypatch):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": [], "timeout": 5}
     res = actuator.act({"type": "shell", "cmd": "echo hi"}, explanation="test", user="bob")
     assert res.get("reflection_id")
     refls = mm.recent_reflections(limit=1)
@@ -391,6 +410,6 @@ def test_auto_critique(tmp_path, monkeypatch):
     import memory_manager as mm
     _reload(mm)
     _reload(actuator)
-    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.WHITELIST = {"shell": [_echo_rule("hi")], "http": [], "timeout": 5}
     res = actuator.act({"type": "shell", "cmd": "rm"})
     assert res["status"] == "failed" and "critique" in res

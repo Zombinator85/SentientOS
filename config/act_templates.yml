@@ -1,4 +1,5 @@
-# Example templates
+# Inactive intent-expansion examples. A matching machine-specific structured
+# shell rule is still required; templates and placeholders grant no authority.
 # name: action mapping
 # e.g., restart service
 restart_service:

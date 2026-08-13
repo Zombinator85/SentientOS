@@ -27,8 +27,8 @@ The canonical shell-actuator intent is structured data:
 {"type": "shell", "argv": ["program", "arg1", "arg2"]}
 ```
 
-The actuator validates and copies `argv`, authorizes that same immutable sequence at
-the protected effect boundary, and passes it once to `subprocess.run` with
+The actuator validates and copies `argv`, admits it through structured command policy,
+and passes the resulting immutable sequence once to `subprocess.run` with
 `shell=False`. It never joins arguments into executable text. Consequently `;`, `|`,
 `&&`, `>`, `$HOME`, and `*.txt` inside an explicit argument are ordinary data. The
 actuator performs no globbing, environment expansion, redirection, substitution,
@@ -47,15 +47,53 @@ substitution, backticks, background markers, and command-separating newlines are
 rejected. Ambiguous input must migrate to explicit `argv`; the original text is kept
 only as `legacy_cmd` audit data.
 
-## Authorization and resolution
+## Command authorization and executable custody
 
-Shell whitelist patterns match the complete, case-sensitive `argv[0]`. Plain entries
-are exact; glob entries use full-name glob matching; anchored regular expressions use
-full matching. An entry such as `python` therefore does not authorize `python-evil`.
-Execution uses exactly that authorized `argv[0]`. A bare executable name is still
-resolved by the operating system using the process `PATH`, so replacement or races in
-that externally controlled search path remain a bounded risk; this change does not
-claim binary identity, signing, or package custody.
+The shipped `shell` policy is empty and therefore grants no process authority. An
+operator-provided rule has exactly three fields: a case-sensitive logical `alias`, an
+absolute `executable` path, and an `arguments` list describing every argument slot.
+Legacy string entries, additional rule fields, bare executable names, glob patterns,
+and regular expressions are malformed policy and fail closed. A caller may identify a
+rule by its exact alias or its configured canonical executable path. The alias is a
+lookup key only and is never passed to the operating system.
+
+```yaml
+shell:
+  - alias: inspect-release
+    executable: /operator/admitted/path/to/tool
+    arguments:
+      - {type: literal, value: "inspect"}
+      - {type: one_of, values: ["brief", "full"]}
+      - {type: sandbox_path}
+```
+
+Executable configuration rejects NUL, non-absolute and nonexistent paths, directories,
+and, on POSIX, regular files without executable permission. Symlinks are deliberately
+resolved and the canonical target path that passed policy is installed as `argv[0]`.
+The actuator never calls `which` and never consults ambient `PATH` to select the
+executable. Generic interpreters, network clients such as curl/wget/ping, package
+managers, and service managers receive no implicit authority.
+
+Argument policy is complete and exact: supplied arity must equal configured arity.
+`literal` admits one exact string; `one_of` admits one member of an explicit finite
+list; and `sandbox_path` admits a nonempty caller-relative path through the same
+resolved sandbox-ancestry boundary described below, passing its canonical path to the
+program. There is no arbitrary-string, regex, glob, script, or interpreter shortcut.
+For example, configuring Python does not authorize `-c` code or a `.py` path unless
+each exact argument is explicitly represented by the rule.
+
+The final order is: validate caller argv; parse and canonicalize the matching command
+rule and every argument; establish and validate the sandbox cwd; invoke
+`_authorize_effect()` immediately before the single `subprocess.run` boundary; then
+execute the authorized canonical argv with `shell=False`. Denied command policy,
+arguments, or paths construct no process. Legacy `cmd` differs only in its parsing
+step and passes through this identical sequence.
+
+This establishes path identity at authorization time, not immutable binary-content
+identity. Replacement of the executable after validation and before process creation
+remains a binary-content/TOCTOU concern. The child also inherits the existing process
+environment, whose broader custody is unchanged and separate. No descriptor-relative
+filesystem TOCTOU claim is made.
 
 ## Filesystem sandbox boundary
 
@@ -98,6 +136,13 @@ structured argv and never command text. Dry-run normalizes and reports the canon
 `argv` while starting no process. Action logs and reflections likewise retain
 structured argv. When legacy `cmd` was supplied, records distinguish `legacy_cmd`
 from normalized and executed `argv`.
+
+Templates express and expand intent only. Declaration and placeholder substitution do
+not authorize a command or argument: expanded argv traverses the same structured rule
+validator as a direct shell intent. Thus the shipped `systemctl restart {service}` and
+`ls {path}` examples remain inactive with the empty policy; a future service rule must
+use finite `one_of` values, and a path placeholder must use `sandbox_path` rather than
+granting arbitrary host-path access.
 
 This repair closes the prior shell-string authorization/execution mismatch: the argv
 that is authorized is the argv that is executed.
@@ -175,6 +220,6 @@ webhook, or SMTP effect and records the unexecuted intent; normal logs preserve 
 data and never add SMTP credentials.
 
 This repair only narrows destinations reachable through existing outbound effects; it
-grants no new networking authority. Plugin isolation, executable `PATH` identity,
-descriptor-relative filesystem TOCTOU custody, and repository-wide mypy/tool
+grants no new networking authority. Plugin-framework isolation, inherited-environment custody, executable-content
+replacement, descriptor-relative filesystem TOCTOU custody, and repository-wide mypy/tool
 compatibility remain separate follow-ups.
