@@ -1,0 +1,45 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2478699ebee71cedb0db6336f8ad06be1697c0ca",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_plugin_source_boundary.py::test_explicit_builtin_initialization_is_idempotent",
+      "rationale": "The explicit wave_hand built-in initializes once."
+    },
+    {
+      "node_id": "tests/test_plugin_framework.py::test_wave_hand_headless",
+      "rationale": "The built-in retains headless success."
+    },
+    {
+      "node_id": "tests/test_plugin_framework.py::test_wave_hand_real",
+      "rationale": "The built-in retains governed real success."
+    },
+    {
+      "node_id": "tests/test_plugin_framework.py::test_enable_disable_reload",
+      "rationale": "Enable state and built-in-only reload semantics remain governed."
+    },
+    {
+      "node_id": "tests/test_plugin_source_boundary.py::test_internal_registration_survives_builtin_reload",
+      "rationale": "Deliberate internal registration remains available."
+    },
+    {
+      "node_id": "tests/test_plugin_source_boundary.py::test_configured_external_directory_has_zero_process_real_execution",
+      "rationale": "A real subprocess proves directory and CLI surfaces execute no source."
+    },
+    {
+      "node_id": "tests/test_plugin_source_boundary.py::test_proposal_activation_has_zero_effect",
+      "rationale": "Proposal activation fails before source read, copy, import, or registry mutation."
+    },
+    {
+      "node_id": "tests/test_plugin_source_boundary.py::test_static_verifier_passes",
+      "rationale": "Mechanical verification proves the retired loader is absent."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_plugin_source_boundary.py::test_explicit_builtin_initialization_is_idempotent",
+    "tests/test_plugin_framework.py::test_wave_hand_headless",
+    "tests/test_plugin_framework.py::test_wave_hand_real"
+  ]
+}
