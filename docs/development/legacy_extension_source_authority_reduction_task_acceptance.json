@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "9733f370e6c8cd17b79329623407ec37ffe2c099",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_legacy_extension_source_boundary.py::test_process_real_hostile_directory_has_zero_execution", "rationale": "Process-real proof covers malformed, TRUSTED true/false, marker-writing, callback, raising, and pycall-style sources through both legacy loaders."},
+    {"node_id": "tests/test_legacy_extension_source_boundary.py::test_filesystem_create_modify_events_have_zero_effect", "rationale": "Creation and modification event compatibility surfaces have zero executable effect."},
+    {"node_id": "tests/test_legacy_extension_source_boundary.py::test_installed_entry_point_load_has_zero_execution", "rationale": "Installed distribution metadata is neither enumerated nor loaded."},
+    {"node_id": "tests/test_legacy_extension_source_boundary.py::test_packaged_internal_registration_and_status_cli", "rationale": "Deliberate in-memory registration remains and the CLI reports deterministic retirement."},
+    {"node_id": "tests/test_legacy_extension_source_boundary.py::test_static_legacy_extension_source_boundary", "rationale": "Narrow verifier rejects retired primitives and packaging metadata."},
+    {"node_id": "tests/test_plugin_bus.py::test_configured_directory_source_and_changes_have_zero_execution", "rationale": "Root bus directory source and changes have zero execution."},
+    {"node_id": "tests/test_plugin_bus.py::test_deliberate_internal_registration_refreshes_gui", "rationale": "Root bus supports only explicit already-admitted objects."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_legacy_extension_source_boundary.py::test_packaged_internal_registration_and_status_cli",
+    "tests/test_plugin_bus.py::test_deliberate_internal_registration_refreshes_gui"
+  ]
+}

@@ -1,49 +1,45 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Regression coverage for the retired root filesystem plugin bus."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 
 import asyncio
-import pytest
+
 import plugin_bus
 
 
 class DummyGUI:
     def __init__(self) -> None:
-        self.panels = []
-
-    def add_panel(self, panel) -> None:
-        self.panels.append(panel)
+        self.panels: list[object] = []
+        self.refresh_count = 0
 
     def refresh_plugins(self) -> None:
-        pass
+        self.refresh_count += 1
 
 
-def test_placeholder(tmp_path):
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    (plugins / '__init__.py').write_text("", encoding='utf-8')
-    plugin = plugins / "demo.py"
-    plugin.write_text("VALUE='v1'\n\ndef register(gui): gui.add_panel(VALUE)\n", encoding="utf-8")
+def test_configured_directory_source_and_changes_have_zero_execution(tmp_path) -> None:
+    directory = tmp_path / "plugins"
+    marker = tmp_path / "marker"
+    directory.mkdir()
+    source = directory / "demo.py"
+    source.write_text(f"from pathlib import Path\nPath({str(marker)!r}).write_text('ran')\n", encoding="utf-8")
 
     gui = DummyGUI()
-    bus = plugin_bus.PluginBus(gui, str(plugins))
+    bus = plugin_bus.PluginBus(gui, str(directory))
+    bus.load("demo")
+    bus.load_all()
+    asyncio.run(bus.watch_plugins())
+    source.write_text("this is malformed Python !!!", encoding="utf-8")
+    bus.load("demo")
 
-    async def runner() -> None:
-        task = asyncio.create_task(bus.watch_plugins())
-        await asyncio.sleep(0.3)
-        assert 'demo' in bus.modules
-        assert gui.panels[-1] == 'v1'
-        import time
-        time.sleep(1.1)
-        plugin.write_text("VALUE='v2'\n\ndef register(gui): gui.add_panel(VALUE)\n", encoding='utf-8')
-        bus.load('demo')
-        await asyncio.sleep(0.1)
-        assert gui.panels[-1] == 'v2'
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
+    assert not marker.exists()
+    assert bus.modules == {}
 
-    asyncio.run(runner())
+
+def test_deliberate_internal_registration_refreshes_gui() -> None:
+    gui = DummyGUI()
+    bus = plugin_bus.PluginBus(gui)
+    admitted = object()
+
+    bus.register("internal", admitted)
+
+    assert bus.modules == {"internal": admitted}
+    assert gui.refresh_count == 1

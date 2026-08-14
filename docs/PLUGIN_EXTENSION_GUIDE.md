@@ -23,14 +23,30 @@ identity, packaging, custody, and isolation contract.
 
 Use `python plugins_cli.py status` to inspect admitted built-ins.
 
-GUI panels can be dropped in the `plugins/` directory. `plugin_bus.watch_plugins()`
-automatically imports any `.py` file and calls its `register(gui)` function.
-Hot edits are detected via the `watchdog` observer so panels reload live without
-restarting the GUI.
+The older mixed-directory executable loader is retired. `plugin_bus.PluginBus`
+retains only deliberate registration of already-admitted in-memory objects;
+its `load`, `load_all`, and `watch_plugins` compatibility methods do not inspect
+or execute files. The packaged `sentientos.plugin_loader.PluginLoader` is also
+inert: it does not create or scan a plugin directory and does not start a
+watcher. Live `.py` hot reload is retired.
 
-That older mixed `plugins/` architecture is separate and is not migrated or
-repaired by the `plugin_framework` boundary. In particular,
-`plugins/pycall.py` retains its historical module/function mechanism as a
-separate follow-up surface.
+The legacy `TRUSTED` marker was checked only after Python had executed, so it
+was never an execution-security boundary and is retired. The installed
+distribution `sentientos.plugins` entry-point group and its automatic loading
+are retired too. Directory placement and package metadata confer no executable
+extension authority.
+
+Historical files under the root `plugins/` directory, including
+`plugins/pycall.py`, remain inert archaeology and separate cleanup candidates;
+the retired loaders no longer provide an execution path from their presence to
+their source. This does not claim those files themselves were made safe or that
+all dynamic imports in the repository were removed. The independently used
+telegram, webhook-status-monitor, and bridge-watchdog modules remain ordinary
+modules, not implicit plugins.
+
+Externally supplied executable extensions remain a future, separately designed
+identity, package, custody, and isolation problem. They are not absorbed into
+the repository-built-in-only `plugin_framework` registry established by PR
+#2026.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
