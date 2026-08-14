@@ -132,11 +132,6 @@ audit_immutability_verifier = "sentientos.vow_artifacts:run_immutability_verifie
 reconcile_audits = "scripts.reconcile_audits:main"
 sentientos-reviewer-proof-bundle = "scripts.build_reviewer_proof_bundle:main"
 
-[project.entry-points."sentientos.plugins"]
-telegram-bot = "telegram_bot"
-webhook-status-monitor = "webhook_status_monitor"
-bridge-watchdog = "bridge_watchdog"
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["sentientos", "api", "gui", "apps"]
