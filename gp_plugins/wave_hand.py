@@ -6,7 +6,9 @@ require_admin_banner()
 require_lumos_approval()
 """Simple wave hand gesture plug-in."""
 
-from plugin_framework import BasePlugin
+from typing import Any, Callable
+
+from plugin_framework import BasePlugin, PluginContext
 
 class WaveHandPlugin(BasePlugin):
     plugin_type = "gesture"
@@ -15,7 +17,7 @@ class WaveHandPlugin(BasePlugin):
     requires_epoch = True
     capabilities = ["gesture"]
 
-    def execute(self, event, context=None):
+    def execute(self, event: dict[str, Any], context: PluginContext | None = None) -> dict[str, Any]:
         speed = event.get("speed", 1.0)
         return {
             "gesture": "wave",
@@ -23,7 +25,7 @@ class WaveHandPlugin(BasePlugin):
             "explanation": f"Waving hand at speed {speed}"
         }
 
-    def simulate(self, event, context=None):
+    def simulate(self, event: dict[str, Any], context: PluginContext | None = None) -> dict[str, Any]:
         speed = event.get("speed", 1.0)
         return {
             "gesture": "wave",
@@ -31,5 +33,5 @@ class WaveHandPlugin(BasePlugin):
             "explanation": f"Simulated wave at speed {speed}"
         }
 
-def register(reg):
+def register(reg: Callable[[str, BasePlugin], None]) -> None:
     reg("wave_hand", WaveHandPlugin())

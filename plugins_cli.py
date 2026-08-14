@@ -8,7 +8,6 @@ import json
 import plugin_framework as pf
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 def main() -> None:
-    pf.load_plugins()
     ap = argparse.ArgumentParser(prog="plugins", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
@@ -25,6 +24,7 @@ def main() -> None:
     di.add_argument("plugin_id")
 
     args = ap.parse_args()
+    pf.initialize_plugins()
     print_banner()
 
     if args.cmd == "list":

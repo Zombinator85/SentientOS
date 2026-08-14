@@ -8,12 +8,10 @@ require_lumos_approval()
 
 import builtins
 import contextlib
-import importlib.util
 import inspect
 import os
 import socket
 from dataclasses import dataclass
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, Iterable, Iterator, Sequence
 
@@ -21,6 +19,7 @@ import reflection_stream as rs
 import trust_engine as te
 from resident_kernel import ResidentKernel
 from sentientos.embodiment import embodiment_digest
+from sentientos.plugin_builtin_registry import BUILTIN_PLUGIN_NAMES, register_repository_builtins
 from utils import is_headless
 
 
@@ -115,7 +114,6 @@ PLUGIN_STATE: dict[str, bool] = {}
 PLUGIN_HEALTH: dict[str, Dict[str, Any]] = {}
 PLUGIN_DECLARATIONS: dict[str, Dict[str, Any]] = {}
 PROPOSALS: dict[str, Dict[str, Any]] = {}
-_LOADED_FILES: list[Path] = []
 _KERNEL: ResidentKernel | None = ResidentKernel()
 
 
@@ -313,57 +311,25 @@ def register_plugin(name: str, plugin: BasePlugin) -> None:
     PLUGIN_DECLARATIONS[name] = declaration
 
 
-def load_plugins() -> None:
-    """Load plug-ins from disk using importlib."""
-    global PLUGINS, PLUGINS_INFO, PLUGIN_STATE, PLUGIN_DECLARATIONS, _LOADED_FILES
-    PLUGINS = {}
-    PLUGINS_INFO = {}
-    PLUGIN_DECLARATIONS = {}
-    plugins_dir = Path(os.getenv("GP_PLUGINS_DIR", "gp_plugins"))
-    if not plugins_dir.exists():
+def initialize_plugins() -> None:
+    """Idempotently register only the source-explicit repository built-ins."""
+    missing = set(BUILTIN_PLUGIN_NAMES).difference(PLUGINS)
+    if not missing:
         return
-    _LOADED_FILES = list(plugins_dir.glob("*.py"))
-    for fp in _LOADED_FILES:
-        try:
-            source_text = fp.read_text(encoding="utf-8")
-        except Exception as e:  # pragma: no cover - read failures
-            te.log_event("plugin_load_error", "load", str(e), fp.stem)
-            continue
-        if "sentientos.core" in source_text:
-            te.log_event("plugin_invalid", "load", "forbidden sentientos.core import", fp.stem)
-            continue
-        try:
-            spec = importlib.util.spec_from_file_location(fp.stem, fp)
-            if not spec or not spec.loader:
-                continue
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-        except Exception as e:  # pragma: no cover - load errors
-            te.log_event("plugin_load_error", "load", str(e), fp.stem)
-            continue
-        reg = getattr(module, "register", None)
-        if callable(reg):
-            try:
-                reg(register_plugin)
-            except PluginDeclarationError as e:
-                te.log_event("plugin_invalid", "register", str(e), fp.stem)
-                continue
-            except Exception as e:  # pragma: no cover - plugin init issues
-                te.log_event("plugin_register_error", "load", str(e), fp.stem)
-                continue
-        else:
-            te.log_event("plugin_invalid", "load", "missing register", fp.stem)
-            continue
-        PLUGINS_INFO[fp.stem] = (getattr(module, "__doc__", "") or "").strip()
-        PLUGIN_STATE.setdefault(fp.stem, True)
-        PLUGIN_HEALTH.setdefault(fp.stem, {"status": "ok"})
 
-    # Remove state entries for missing plugins
-    for name in list(PLUGIN_STATE.keys()):
-        if name not in PLUGINS_INFO:
-            PLUGIN_STATE.pop(name, None)
-            PLUGIN_HEALTH.pop(name, None)
-            PLUGIN_DECLARATIONS.pop(name, None)
+    def register_missing(name: str, plugin: BasePlugin) -> None:
+        if name not in PLUGINS:
+            register_plugin(name, plugin)
+            PLUGINS_INFO[name] = (plugin.__class__.__module__.split(".")[-1].replace("_", " ")).strip()
+            PLUGIN_STATE.setdefault(name, True)
+            PLUGIN_HEALTH.setdefault(name, {"status": "ok"})
+
+    register_repository_builtins(register_missing)
+
+
+def load_plugins() -> None:
+    """Compatibility wrapper for built-in-only initialization."""
+    initialize_plugins()
 
 
 def list_plugins() -> dict[str, str]:
@@ -388,42 +354,18 @@ def propose_plugin(name: str, url: str, *, user: str = "model") -> None:
 
 
 def approve_proposal(name: str, *, user: str = "user") -> bool:
+    """Fail closed: proposal metadata never grants source activation authority."""
     prop = PROPOSALS.get(name)
     if not prop or prop.get("status") != "pending":
         return False
-    dest = None
-    temp_path = None
-    try:
-        src = Path(prop["url"])
-        dest_dir = Path(os.getenv("GP_PLUGINS_DIR", "gp_plugins"))
-        dest_dir.mkdir(exist_ok=True)
-        dest = dest_dir / f"{name}.py"
-        temp_path = dest_dir / f".{name}.installing"
-        temp_path.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        temp_path.replace(dest)
-        load_plugins()
-        if name not in PLUGINS_INFO:
-            raise RuntimeError(f"plugin '{name}' did not register after install")
-        prop["status"] = "installed"
-        PLUGIN_STATE[name] = True
-        PLUGIN_HEALTH[name] = {"status": "ok"}
-        te.log_event("plugin_installed", "approval", f"Installed {name}", user)
-        return True
-    except Exception as e:  # pragma: no cover - install failures
-        prop["status"] = "failed"
-        for path in (temp_path, dest):
-            if path is None:
-                continue
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
-        try:
-            load_plugins()
-        except Exception:
-            pass
-        te.log_event("plugin_install_failed", "approval", str(e), user)
-        return False
+    prop["status"] = "external_activation_unsupported"
+    te.log_event(
+        "plugin_activation_unsupported",
+        "approval",
+        f"External plugin activation is unsupported: {name}",
+        user,
+    )
+    return False
 
 
 def deny_proposal(name: str, *, user: str = "user") -> bool:
@@ -465,7 +407,8 @@ def disable_plugin(name: str, *, user: str = "system", reason: str = "disable") 
 
 
 def reload_plugins(*, user: str = "system", reason: str = "reload") -> None:
-    load_plugins()
+    """Reassert missing built-ins while preserving state and internal registrations."""
+    initialize_plugins()
     te.log_event("plugin_reload", reason, "Plugins reloaded", user, {"plugins": list(PLUGINS_INFO)})
 
 
@@ -660,7 +603,7 @@ def run_plugin(
         )
         rs.log_event(name, "failure", "run_exception", "error", err)
         try:
-            load_plugins()
+            initialize_plugins()
             PLUGIN_HEALTH[name] = {"status": "reloaded"}
             te.log_event("plugin_auto_reload", "auto", f"Reloaded {name}", name)
             rs.log_event(name, "recovery", "auto_reload", "reloaded", "auto reload")
@@ -695,6 +638,3 @@ def model_trigger(
 ) -> Dict[str, Any]:
     """Trigger a plug-in from a model with trust logging."""
     return run_plugin(name, event or {}, cause=reason, user=user, kernel=kernel, dry_run=dry_run)
-
-
-load_plugins()

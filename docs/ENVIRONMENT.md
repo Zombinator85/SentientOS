@@ -140,7 +140,6 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `CI` | Set to `1` when running in Continuous Integration; enables auto-approvals | *(unset)* |
 | `FEDERATION_TRUST_LOG` | Ledger of federation trust actions | `logs/federation_trust.jsonl` |
 | `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
-| `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
 | `HEARTBEAT_PORT` | UDP port for avatar heartbeat keepalive messages | `9001` |
 | `MASTER_CHECK_IMMUTABLE` | Enforce immutability checks on procedures | `1` |
 | `MASTER_CONFIG` | Path to master file configuration | `config/master_files.json` |

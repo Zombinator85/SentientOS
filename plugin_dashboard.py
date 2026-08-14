@@ -12,6 +12,7 @@ from resident_kernel import ResidentKernel
 
 _KERNEL = ResidentKernel()
 pf.set_kernel(_KERNEL)
+pf.initialize_plugins()
 
 
 app = Flask(__name__)
@@ -48,7 +49,7 @@ async function load(){
   const pd=await pr.json();
   let ph='<tr><th>Name</th><th>Status</th><th>Action</th></tr>';
   for(const p of pd){
-    const a=p.status==='pending'?`<button onclick="approve('${p.name}')">Approve</button><button onclick="deny('${p.name}')">Deny</button>`:'';
+    const a=p.status==='pending'?`<button onclick="deny('${p.name}')">Deny</button>`:'';
     ph+=`<tr><td>${p.name}</td><td>${p.status}</td><td>${a}</td></tr>`;
   }
   document.getElementById('props').innerHTML=ph;
@@ -60,11 +61,6 @@ async function toggle(id,en){
 }
 async function testPlugin(id){
   await fetch('/api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plugin:id})});
-  await loadLogs();
-}
-async function approve(name){
-  await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-  await load();
   await loadLogs();
 }
 async function deny(name){
@@ -134,7 +130,7 @@ def approve_api() -> Response | tuple[Response, int]:
     if not name:
         return jsonify({"error": "name is required"}), 400
     pf.approve_proposal(name, user='dashboard')
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'external_activation_unsupported'}), 409
 
 
 @app.route('/api/deny', methods=['POST'])

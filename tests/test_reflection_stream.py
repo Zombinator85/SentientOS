@@ -4,7 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+
 
 
 import os
@@ -36,20 +36,19 @@ def setup_env(tmp_path, monkeypatch):
 
 
 def test_plugin_failure_logged(tmp_path, monkeypatch):
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    failing = plugins / "bad.py"
-    failing.write_text(
-        """from plugin_framework import BasePlugin\nclass B(BasePlugin):\n    allowed_postures = [\"normal\"]\n    requires_epoch = True\n    capabilities = []\n    def execute(self,e, context=None): raise RuntimeError('x')\n    def simulate(self,e, context=None): raise RuntimeError('x')\n\ndef register(r): r('bad', B())\n""",
-        encoding="utf-8",
-    )
     kernel = setup_env(tmp_path, monkeypatch)
+    class Bad(pf.BasePlugin):
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = []
+        def simulate(self, event, context=None):
+            raise RuntimeError("x")
+    pf.register_plugin("bad", Bad())
+    pf.PLUGINS_INFO["bad"] = "internal test"
     with kernel.begin_epoch("test"):
         pf.run_plugin("bad", kernel=kernel)
-    logs = rs.recent(2)
-    events = [l['event'] for l in logs]
-    assert {'failure', 'escalation'} & set(events)
-
+    events = [entry["event"] for entry in rs.recent(3)]
+    assert {"failure", "escalation"} & set(events)
 
 def test_health_escalation(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)

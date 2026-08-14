@@ -4,7 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+
 
 
 import os
@@ -33,20 +33,19 @@ def test_dashboard_toggle(tmp_path, monkeypatch):
     body = res.data if isinstance(res.data, str) else res.data.decode()
     data = json.loads(body)
     assert any(p['id']=='wave_hand' for p in data)
-    client.post('/api/disable', json={'plugin':'wave_hand'})
+    client.post('/api/disable', json_body={'plugin':'wave_hand'})
     body = client.post('/api/plugins').data
     body = body if isinstance(body, str) else body.decode()
     data = json.loads(body)
     status = {p['id']:p['enabled'] for p in data}
     assert not status['wave_hand']
-    client.post('/api/enable', json={'plugin':'wave_hand'})
+    client.post('/api/enable', json_body={'plugin':'wave_hand'})
     body = client.post('/api/plugins').data
     body = body if isinstance(body, str) else body.decode()
     data = json.loads(body)
     status = {p['id']:p['enabled'] for p in data}
     assert status['wave_hand']
-    with pd._KERNEL.begin_epoch("test_dashboard"):
-        client.post('/api/test', json={'plugin':'wave_hand'})
+    client.post('/api/test', json_body={'plugin':'wave_hand'})
     body = client.post('/api/logs').data
     body = body if isinstance(body, str) else body.decode()
     logs = json.loads(body)
@@ -54,29 +53,24 @@ def test_dashboard_toggle(tmp_path, monkeypatch):
 
 
 def test_dashboard_health_and_proposals(tmp_path, monkeypatch):
-    plugins = tmp_path / 'gp_plugins'
-    plugins.mkdir()
-    failing = plugins / 'bad.py'
-    failing.write_text(
-        """from plugin_framework import BasePlugin\nclass B(BasePlugin):\n    allowed_postures = [\"normal\"]\n    requires_epoch = True\n    capabilities = []\n    def execute(self,e, context=None): raise RuntimeError('x')\n    def simulate(self,e, context=None): raise RuntimeError('x')\n\ndef register(r): r('bad', B())\n""",
-        encoding="utf-8",
-    )
-    pd = setup(tmp_path, monkeypatch, plugins)
+    pd = setup(tmp_path, monkeypatch)
+    pf = importlib.import_module("plugin_framework")
+    class Bad(pf.BasePlugin):
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = []
+        def simulate(self, event, context=None):
+            raise RuntimeError("x")
+    pf.register_plugin("bad", Bad())
+    pf.PLUGINS_INFO["bad"] = "internal test"
     client = pd.app.test_client()
-    client.post('/api/plugins')
-    with pd._KERNEL.begin_epoch("test_dashboard"):
-        client.post('/api/test', json={'plugin':'bad'})
-    res = client.post('/api/health')
-    data = json.loads(res.data if isinstance(res.data, str) else res.data.decode())
-    assert 'bad' in data
-    pd_cli = pd.app.test_client()
-    sample = tmp_path / 'samp.py'
-    sample.write_text(
-        """from plugin_framework import BasePlugin\nclass S(BasePlugin):\n    allowed_postures = [\"normal\"]\n    requires_epoch = True\n    capabilities = []\n    def execute(self,e, context=None): return {'ok':True}\n    def simulate(self,e, context=None): return {'ok':True}\n\ndef register(r): r('samp', S())\n""",
-        encoding="utf-8",
-    )
-    pf = importlib.import_module('plugin_framework')
-    pf.propose_plugin('samp', str(sample), user='model')
-    res = pd_cli.post('/api/proposals')
-    props = json.loads(res.data if isinstance(res.data, str) else res.data.decode())
-    assert any(p['name']=='samp' for p in props)
+    client.post("/api/test", json_body={"plugin": "bad"})
+    assert "bad" in client.post("/api/health").get_json()
+    sample = tmp_path / "samp.py"
+    sample.write_text("raise AssertionError('must not execute')", encoding="utf-8")
+    pf.propose_plugin("samp", str(sample), user="model")
+    props = client.post("/api/proposals").get_json()
+    assert any(item["name"] == "samp" for item in props)
+    response = client.post("/api/approve", json_body={"name": "samp"})
+    assert response.status_code == 409
+    assert pf.list_proposals()["samp"]["status"] == "external_activation_unsupported"
