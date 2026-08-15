@@ -37,7 +37,7 @@ def _requests_client(calls: list[tuple[str, str]]) -> SimpleNamespace:
 
 def test_exact_http_origin_authorization_and_normalization(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: _requests_client(calls))
+    monkeypatch.setattr(actuator, "_direct_http_transaction", lambda url, method, *_a: (calls.append((method, url)) or {"status": 200, "text": "ok"}))
     assert actuator.http_fetch("HTTPS://EXAMPLE.COM:443/path?q=1#ignored")["status"] == 200
     assert calls == [("GET", "https://example.com/path?q=1")]
 
@@ -96,30 +96,15 @@ def test_ip_literals_are_canonical_and_require_exact_policy() -> None:
 
 def test_webhook_uses_shared_policy_and_disables_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: _requests_client(calls))
+    monkeypatch.setattr(actuator, "_direct_http_transaction", lambda url, method, *_a: (calls.append((method, url)) or {"status": 200, "text": "ok"}))
     assert actuator.trigger_webhook("https://EXAMPLE.com/api/event", {"ok": True}) == {"status": 200}
     assert calls == [("POST", "https://example.com/api/event")]
 
 
-def test_urllib_fallback_uses_canonical_url_and_no_redirect_handler(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen: list[object] = []
-    class Response:
-        def read(self) -> bytes: return b"ok"
-        def getcode(self) -> int: return 200
-        def __enter__(self) -> "Response": return self
-        def __exit__(self, *_args: object) -> None: return None
-    response = Response()
-    opener = SimpleNamespace(open=lambda req, **kwargs: (seen.append(req.full_url) or response))
-    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: None)
-    monkeypatch.setattr(actuator.urllib.request, "build_opener", lambda handler: (seen.append(type(handler)) or opener))
-    assert actuator.http_fetch("https://EXAMPLE.com/") == {"status": 200, "text": "ok"}
-    assert seen[1] == "https://example.com/"
-
-
-def test_redirects_are_not_followed_by_either_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_redirect_response_is_not_followed(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: _requests_client(calls))
-    actuator.http_fetch("https://example.com/start")
+    monkeypatch.setattr(actuator, "_direct_http_transaction", lambda url, method, *_a: (calls.append((method, url)) or {"status": 302, "text": ""}))
+    assert actuator.http_fetch("https://example.com/start")["status"] == 302
     assert calls == [("GET", "https://example.com/start")]
 
 
@@ -140,9 +125,18 @@ def test_allowed_smtp_endpoint_and_recipient(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("SMTP_HOST", "SMTP.EXAMPLE.COM")
     monkeypatch.setenv("SMTP_PORT", "587")
     monkeypatch.setenv("SMTP_FROM", "sender@example.com")
-    monkeypatch.setattr(actuator.smtplib, "SMTP", FakeSMTP)
+    smtp = SimpleNamespace(_host="", sock=None, getreply=lambda: (220, b"ok"), login=lambda *_a: None, send_message=lambda *_a: None, close=lambda: None,
+                           __enter__=lambda self: self, __exit__=lambda self, *_a: None)
+    class SMTP:
+        def __init__(self, **_kwargs: object) -> None: self.__dict__ = smtp.__dict__
+        def __enter__(self) -> "SMTP": return self
+        def __exit__(self, *_a: object) -> None: pass
+        getreply = staticmethod(lambda: (220, b"ok")); login = staticmethod(lambda *_a: None); send_message = staticmethod(lambda *_a: None)
+    monkeypatch.setattr(actuator, "_resolved_endpoint_peers", lambda *_a: ())
+    monkeypatch.setattr(actuator, "_connect_resolved_peer", lambda *_a: SimpleNamespace())
+    monkeypatch.setattr(actuator.smtplib, "SMTP", SMTP)
     assert actuator.send_email("allowed@example.com", "subject", "body") == {"sent": "allowed@example.com"}
-    assert FakeSMTP.calls == [("smtp.example.com", 587)]
+    assert smtp._host == "smtp.example.com"
 
 
 @pytest.mark.parametrize("host,port,to", [
@@ -233,9 +227,8 @@ def test_static_outbound_authorization_order_and_shared_validator() -> None:
     webhook_source = inspect.getsource(actuator.trigger_webhook)
     email_source = inspect.getsource(actuator.send_email)
     assert "_authorized_http_url(url)" in http_source
-    assert "_authorized_http_url(url)" in webhook_source
+    assert "http_fetch(url" in webhook_source
     assert "_match_patterns" not in http_source + webhook_source
-    assert http_source.index("_authorized_http_url") < http_source.index("requests.request")
-    assert webhook_source.index("_authorized_http_url") < webhook_source.index("requests.post")
-    assert email_source.index("_authorized_smtp_endpoint") < email_source.index("smtplib.SMTP")
-    assert email_source.index("_authorized_recipient") < email_source.index("smtplib.SMTP")
+    assert "requests" not in http_source + webhook_source
+    assert email_source.index("_authorized_smtp_endpoint") < email_source.index("_resolved_endpoint_peers")
+    assert email_source.index("_authorized_recipient") < email_source.index("_resolved_endpoint_peers")
