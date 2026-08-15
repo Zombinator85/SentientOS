@@ -1,0 +1,26 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f40deda9bcee61aeb6f8580eb7669550f5584b32",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_actuator_transport_custody.py::test_exact_ip_literal_http_is_direct_and_zero_dns"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_ambient_proxy_has_zero_authority"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_retired_transport_field_fails_before_resolution[proxies-value0]"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_host_header_rejected_before_resolution"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_dns_special_answers_fail_before_socket[127.0.0.1]"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_dns_special_answers_fail_before_socket[10.1.2.3]"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_one_dns_snapshot_pins_peer"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_multi_candidate_failover_uses_snapshot"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_https_sni_uses_logical_host"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_webhook_uses_shared_transport"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_smtp_uses_one_pinned_resolution"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_smtp_dns_special_answer_has_zero_connection"},
+    {"node_id":"tests/test_actuator_transport_custody.py::test_static_transport_custody_verifier_passes"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_transport_custody.py::test_exact_ip_literal_http_is_direct_and_zero_dns",
+    "tests/test_actuator_transport_custody.py::test_webhook_uses_shared_transport",
+    "tests/test_actuator_transport_custody.py::test_smtp_uses_one_pinned_resolution"
+  ]
+}

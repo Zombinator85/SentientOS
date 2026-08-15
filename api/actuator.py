@@ -9,6 +9,9 @@ import re
 import stat
 import subprocess
 import smtplib
+import socket
+import ssl
+import http.client
 import threading
 import time
 import queue
@@ -17,7 +20,7 @@ from email.message import EmailMessage
 from pathlib import Path
 import ast
 import ipaddress
-import urllib.request
+from dataclasses import dataclass
 from typing import Any, Dict, Callable, Mapping, Sequence, cast
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
@@ -95,10 +98,13 @@ class ShellActuator(BaseActuator):
 
 class HttpActuator(BaseActuator):
     def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
-        url = intent.get("url", "")
-        method = intent.get("method", "GET")
-        extras = {k: v for k, v in intent.items() if k not in {"type", "url", "method"}}
-        return http_fetch(url, method=method, **extras)
+        unknown = set(intent) - {"type", "url", "method", "headers", "body", "json"}
+        if unknown:
+            raise ValueError(f"unsupported HTTP intent fields: {', '.join(sorted(unknown))}")
+        return http_fetch(
+            intent.get("url", ""), method=intent.get("method", "GET"),
+            headers=intent.get("headers"), body=intent.get("body"), json_data=intent.get("json"),
+        )
 
 
 class FileActuator(BaseActuator):
@@ -341,10 +347,6 @@ def _authorized_recipient(value: object) -> str:
     raise PermissionError("email recipient not allowed")
 
 
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req: object, fp: object, code: int, msg: str, headers: object, newurl: str) -> None:
-        return None
-
 MAX_ARGV_COUNT = 128
 MAX_ARGUMENT_BYTES = 4096
 MAX_ARGV_BYTES = 32768
@@ -509,21 +511,161 @@ def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
         "stderr": res.stderr,
     }
 
-def http_fetch(url: str, method: str = "GET", **kwargs: object) -> dict[str, object]:
-    _authorize_effect()
+MAX_RESOLVED_PEERS = 16
+MAX_HTTP_BODY_BYTES = 1_048_576
+MAX_HTTP_RESPONSE_BYTES = 1_048_576
+_HTTP_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
+_RESERVED_HEADERS = frozenset({
+    "host", "connection", "proxy-connection", "proxy-authorization",
+    "transfer-encoding", "content-length", "upgrade", "te", "trailer",
+})
+
+
+@dataclass(frozen=True)
+class _ResolvedPeer:
+    family: int
+    socktype: int
+    proto: int
+    sockaddr: tuple[object, ...]
+
+
+def _resolved_endpoint_peers(host: str, port: int) -> tuple[_ResolvedPeer, ...]:
+    """Take one bounded, validated resolution snapshot for an authorized endpoint."""
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        family = socket.AF_INET6 if literal.version == 6 else socket.AF_INET
+        sockaddr: tuple[object, ...] = (literal.compressed, port, 0, 0) if literal.version == 6 else (literal.compressed, port)
+        return (_ResolvedPeer(family, socket.SOCK_STREAM, socket.IPPROTO_TCP, sockaddr),)
+
+    try:
+        answers = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP)
+    except OSError as exc:
+        raise ConnectionError("endpoint resolution failed") from exc
+    peers: list[_ResolvedPeer] = []
+    seen: set[tuple[int, str, int, int]] = set()
+    for answer in answers:
+        if not isinstance(answer, tuple) or len(answer) != 5:
+            raise ConnectionError("malformed endpoint resolution")
+        family, socktype, proto, _canonname, sockaddr = answer
+        if family not in (socket.AF_INET, socket.AF_INET6) or socktype != socket.SOCK_STREAM or proto not in (0, socket.IPPROTO_TCP):
+            raise ConnectionError("malformed endpoint resolution")
+        try:
+            parts = tuple(sockaddr)
+            if not isinstance(parts[0], (str, bytes, int, ipaddress.IPv4Address, ipaddress.IPv6Address)):
+                raise ValueError
+            address = ipaddress.ip_address(parts[0])
+            if not isinstance(parts[1], int) or (family == socket.AF_INET6 and (len(parts) < 4 or not isinstance(parts[2], int) or not isinstance(parts[3], int))):
+                raise ValueError
+            answer_port = parts[1]
+            flowinfo = cast(int, parts[2]) if family == socket.AF_INET6 else 0
+            scope = cast(int, parts[3]) if family == socket.AF_INET6 else 0
+        except (IndexError, TypeError, ValueError) as exc:
+            raise ConnectionError("malformed endpoint resolution") from exc
+        if address.version != (6 if family == socket.AF_INET6 else 4) or answer_port != port:
+            raise ConnectionError("malformed endpoint resolution")
+        if not address.is_global:
+            raise PermissionError("DNS hostname resolved to a non-global address")
+        key = (family, address.compressed, answer_port, scope)
+        if key in seen:
+            continue
+        seen.add(key)
+        canonical_sockaddr = ((address.compressed, port, flowinfo, scope) if family == socket.AF_INET6 else (address.compressed, port))
+        peers.append(_ResolvedPeer(family, socket.SOCK_STREAM, socket.IPPROTO_TCP, canonical_sockaddr))
+        if len(peers) > MAX_RESOLVED_PEERS:
+            raise ConnectionError("endpoint resolution candidate budget exceeded")
+    if not peers:
+        raise ConnectionError("endpoint resolution returned no peers")
+    return tuple(peers)
+
+
+def _connect_resolved_peer(peers: Sequence[_ResolvedPeer], timeout: float) -> socket.socket:
+    last_error: OSError | None = None
+    for peer in peers:
+        sock = socket.socket(peer.family, peer.socktype, peer.proto)
+        try:
+            sock.settimeout(timeout)
+            sock.connect(peer.sockaddr)
+            return sock
+        except OSError as exc:
+            last_error = exc
+            sock.close()
+    raise ConnectionError("connection to resolved endpoint failed") from last_error
+
+
+def _http_request_data(method: object, headers: object, body: object, json_data: object) -> tuple[str, dict[str, str], bytes | None]:
+    if not isinstance(method, str) or not re.fullmatch(r"[A-Za-z]+", method):
+        raise ValueError("malformed HTTP method")
+    canonical_method = method.upper()
+    if canonical_method not in _HTTP_METHODS:
+        raise ValueError("unsupported HTTP method")
+    if headers is None:
+        admitted_headers: dict[str, str] = {}
+    elif isinstance(headers, Mapping):
+        admitted_headers = {}
+        for name, value in headers.items():
+            if not isinstance(name, str) or not isinstance(value, str) or not name or _CONTROL_CHARACTERS.search(name + value):
+                raise ValueError("malformed HTTP header")
+            if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name) or name.lower() in _RESERVED_HEADERS:
+                raise ValueError("reserved HTTP header rejected")
+            admitted_headers[name] = value
+    else:
+        raise ValueError("HTTP headers must be a mapping")
+    if body is not None and json_data is not None:
+        raise ValueError("multiple HTTP body representations rejected")
+    payload: bytes | None = None
+    if body is not None:
+        if isinstance(body, str):
+            payload = body.encode("utf-8")
+        elif isinstance(body, bytes):
+            payload = body
+        else:
+            raise ValueError("HTTP body must be str or bytes")
+    elif json_data is not None:
+        try:
+            payload = json.dumps(json_data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("HTTP json body is not serializable") from exc
+        if not any(name.lower() == "content-type" for name in admitted_headers):
+            admitted_headers["Content-Type"] = "application/json"
+    if payload is not None and len(payload) > MAX_HTTP_BODY_BYTES:
+        raise ValueError("HTTP request body budget exceeded")
+    return canonical_method, admitted_headers, payload
+
+
+def _direct_http_transaction(canonical_url: str, method: str, headers: Mapping[str, str], body: bytes | None) -> dict[str, object]:
+    parsed = urlsplit(canonical_url)
+    assert parsed.hostname is not None
+    host = _canonical_hostname(parsed.hostname)
+    port = parsed.port or _HTTP_DEFAULT_PORTS[parsed.scheme]
+    peers = _resolved_endpoint_peers(host, port)
+    sock = _connect_resolved_peer(peers, _timeout_seconds())
+    connection = http.client.HTTPConnection(host, port, timeout=_timeout_seconds())
+    try:
+        if parsed.scheme == "https":
+            context = ssl.create_default_context()
+            sock = context.wrap_socket(sock, server_hostname=host)
+        connection.sock = sock
+        request_headers = dict(headers)
+        request_headers["Host"] = parsed.netloc
+        connection.request(method, urlunsplit(("", "", parsed.path or "/", parsed.query, "")), body=body, headers=request_headers)
+        response = connection.getresponse()
+        payload = response.read(MAX_HTTP_RESPONSE_BYTES + 1)
+        if len(payload) > MAX_HTTP_RESPONSE_BYTES:
+            raise RuntimeError("HTTP response body budget exceeded")
+        charset = response.headers.get_content_charset() or "utf-8"
+        return {"status": response.status, "text": payload.decode(charset, errors="replace")}
+    finally:
+        connection.close()
+
+
+def http_fetch(url: object, method: object = "GET", *, headers: object = None, body: object = None, json_data: object = None) -> dict[str, object]:
     canonical_url = _authorized_http_url(url)
-    timeout = _timeout_seconds()
-    requests = optional_import("requests", feature="http_requests_client")
-    if requests:
-        request_kwargs = dict(kwargs)
-        request_kwargs["allow_redirects"] = False
-        resp = requests.request(method, canonical_url, timeout=timeout, **request_kwargs)
-        return {"status": resp.status_code, "text": resp.text}
-    req = urllib.request.Request(canonical_url, method=method)
-    with urllib.request.build_opener(_NoRedirectHandler()).open(req, timeout=timeout) as r:
-        text = r.read().decode()
-        status = r.getcode()
-    return {"status": status, "text": text}
+    canonical_method, canonical_headers, payload = _http_request_data(method, headers, body, json_data)
+    _authorize_effect()
+    return _direct_http_transaction(canonical_url, canonical_method, canonical_headers, payload)
 
 def _safe_path(rel: object, *, allow_empty: bool = True) -> Path:
     """Resolve a caller-relative path beneath the sandbox custody boundary."""
@@ -671,7 +813,6 @@ def file_write(path: str, content: str) -> dict[str, object]:
 
 
 def send_email(to: str, subject: str, body: str) -> dict[str, object]:
-    _authorize_effect()
     host = os.getenv("SMTP_HOST")
     if not host:
         raise EnvironmentError("SMTP not configured")
@@ -688,7 +829,16 @@ def send_email(to: str, subject: str, body: str) -> dict[str, object]:
     msg["To"] = canonical_to
     msg["Subject"] = subject
     msg.set_content(body)
-    with smtplib.SMTP(canonical_host, port) as smtp:
+    _authorize_effect()
+    peers = _resolved_endpoint_peers(canonical_host, port)
+    smtp = smtplib.SMTP(timeout=_timeout_seconds())
+    setattr(smtp, "_host", canonical_host)
+    smtp.sock = _connect_resolved_peer(peers, _timeout_seconds())
+    code, message = smtp.getreply()
+    if code != 220:
+        smtp.close()
+        raise smtplib.SMTPConnectError(code, message)
+    with smtp:
         if user and password:
             smtp.login(user, password)
         smtp.send_message(msg)
@@ -696,18 +846,8 @@ def send_email(to: str, subject: str, body: str) -> dict[str, object]:
 
 
 def trigger_webhook(url: str, payload: Mapping[str, object]) -> dict[str, object]:
-    _authorize_effect()
-    canonical_url = _authorized_http_url(url)
-    requests = optional_import("requests", feature="http_requests_client")
-    if requests:
-        resp = requests.post(canonical_url, json=payload, timeout=_timeout_seconds(), allow_redirects=False)
-        return {"status": resp.status_code}
-    import json as _json
-    data = _json.dumps(payload).encode()
-    req = urllib.request.Request(canonical_url, data=data, method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.build_opener(_NoRedirectHandler()).open(req, timeout=_timeout_seconds()) as r:
-        status = r.getcode()
-    return {"status": status}
+    response = http_fetch(url, method="POST", json_data=payload)
+    return {"status": response["status"]}
 
 
 TEMPLATES: dict[str, object] = {}

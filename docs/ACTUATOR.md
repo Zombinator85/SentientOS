@@ -169,19 +169,11 @@ Missing hosts, malformed ports, control characters, and embedded username/passwo
 userinfo are rejected. Fragments are removed because they are not network request
 data; the canonicalized URL that passed policy is the URL given to the client.
 
-Both the Requests and urllib backends disable automatic redirects. A redirect
-response is therefore never authority to contact its target, and no second request is
-made. Requests receives `allow_redirects=False`; urllib uses a no-redirect handler.
-Webhook POSTs use exactly the same canonical validator and redirect posture as HTTP
-fetches.
+HTTP intents admit only `url`, `method`, `headers`, `body`, and `json` request data. Methods are canonicalized to GET, POST, PUT, PATCH, DELETE, HEAD, or OPTIONS. Raw bodies and deterministic JSON bodies are mutually exclusive and limited to 1 MiB. Header names and values reject controls, while Host, Connection, Proxy-Connection, Proxy-Authorization, Transfer-Encoding, Content-Length, Upgrade, TE, and Trailer are reserved to the transport. The canonical URL supplies Host, including a non-default port. Unknown fields fail closed rather than becoming client-library options.
 
-The shipped `http` list is empty and therefore fails closed. Local, private,
-loopback, link-local, multicast, unspecified, and other special IP literals receive
-no implicit authority: an exact canonical literal origin and port must be configured,
-just like any other destination. This lexical endpoint policy does not resolve a DNS
-hostname before authorization and does not claim to prevent DNS rebinding or a DNS
-answer that maps an explicitly authorized hostname to a special address. Resolver
-custody and rebinding defenses remain a separate follow-up.
+After lexical policy and privilege approval, a DNS hostname is resolved exactly once with a maximum of 16 unique TCP candidates. The complete answer fails closed if any candidate is malformed or non-global, so ordinary hostname authority cannot silently acquire loopback, private, link-local, multicast, unspecified, or reserved authority. An exact configured IP literal deliberately remains usable, including a special literal, and performs no DNS lookup. Candidate failover uses only that snapshot. The standard-library transport connects directly to its exact sockaddr; HTTP(S) proxy environment variables and caller proxy options have no role.
+
+HTTPS wraps the pinned socket with the system default verifying TLS context and uses the canonical logical hostname for SNI and certificate hostname verification. System CA trust and resolver authenticity/DNSSEC are not strengthened or claimed here. Exactly one HTTP transaction is performed: redirect Location remains response data and is never followed. Response bodies are limited to 1 MiB and decoded using the declared charset or UTF-8 with deterministic replacement. Webhook POST uses this same transport and custody chain with deterministic JSON. The shipped policy remains empty and fail closed; no wildcard or destination was added.
 
 ### Mail policy
 
@@ -222,6 +214,4 @@ webhook, or SMTP effect and records the unexecuted intent; normal logs preserve 
 data and never add SMTP credentials.
 
 This repair only narrows destinations reachable through existing outbound effects; it
-grants no new networking authority. Plugin-framework isolation, inherited-environment custody, executable-content
-replacement, shell-path descriptor custody, outbound DNS/transport custody, and
-repository-wide mypy/tool compatibility remain separate follow-ups.
+grants no new networking authority. Plugin-framework isolation, shell `cwd`/`sandbox_path` descriptor custody, inherited shell environment, executable-content replacement, and repository-wide mypy/tool compatibility remain separate follow-ups.

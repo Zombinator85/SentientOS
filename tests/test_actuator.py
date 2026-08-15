@@ -82,16 +82,11 @@ def test_http_fetch(monkeypatch):
     reload(actuator)
     actuator.WHITELIST = {"shell": [], "http": ["http://example.com"], "timeout": 5}
 
-    class FakeResp:
-        status_code = 200
-        text = "ok"
-
-    def fake_request(method, url, **kwargs):
+    def fake_request(url, method, *_args):
         fake_request.called = (method, url)
-        return FakeResp()
+        return {"status": 200, "text": "ok"}
 
-    from types import SimpleNamespace
-    monkeypatch.setattr(actuator, "optional_import", lambda *_a, **_k: SimpleNamespace(request=fake_request))
+    monkeypatch.setattr(actuator, "_direct_http_transaction", fake_request)
     res = actuator.http_fetch("http://example.com")
     assert res == {"status": 200, "text": "ok"}
     import pytest
