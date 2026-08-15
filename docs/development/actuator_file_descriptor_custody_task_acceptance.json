@@ -1,0 +1,84 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f041fbf781e38bd3900f59f875dd9538181ba113",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_nested_descriptor_relative_create_and_write",
+      "rationale": "Nested parents and the leaf are created and written through descriptor-relative custody."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_regular_file_overwrite",
+      "rationale": "A regular single-link file retains safe overwrite behavior."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_deterministic_old_parent_swap_witness_is_bound_after_repair",
+      "rationale": "The deterministic old check-to-effect swap cannot redirect the descriptor-bound write."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_process_real_parent_replacement_cannot_escape",
+      "rationale": "An isolated real process proves directory replacement cannot escape."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_directory_symlinks_are_denied_with_zero_target_effect[False]",
+      "rationale": "The outward directory symlink is denied with zero target effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_directory_symlinks_are_denied_with_zero_target_effect[True]",
+      "rationale": "The inward directory symlink is denied with zero target effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_final_symlink_is_denied_without_modifying_target",
+      "rationale": "A final symlink is rejected and its outside target remains unchanged."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_final_leaf_swap_after_open_mutates_only_bound_object",
+      "rationale": "Replacement after final open cannot redirect descriptor I/O."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_hardlink_alias_is_denied_before_truncation",
+      "rationale": "A multiple-link inode is denied before its external alias can be changed."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[None]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[3]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[bad\\x00name]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[/absolute]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[../escape]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_malformed_and_escape_paths_have_zero_effect[a/../../escape]",
+      "rationale": "The exact malformed or escaping path causes zero filesystem effect."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_unsupported_platform_fails_closed_without_pathname_fallback",
+      "rationale": "Missing descriptor primitives fail closed without creating the sandbox."
+    },
+    {
+      "node_id": "tests/test_actuator_file_descriptor_custody.py::test_static_descriptor_custody_verifier_passes",
+      "rationale": "The narrow static verifier enforces descriptor traversal and final descriptor I/O."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_file_descriptor_custody.py::test_nested_descriptor_relative_create_and_write",
+    "tests/test_actuator_file_descriptor_custody.py::test_regular_file_overwrite"
+  ]
+}

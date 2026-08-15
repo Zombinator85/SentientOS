@@ -6,6 +6,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 import os
 import json
 import re
+import stat
 import subprocess
 import smtplib
 import threading
@@ -546,13 +547,127 @@ def _safe_path(rel: object, *, allow_empty: bool = True) -> Path:
     return target
 
 
+def _file_write_components(path: object) -> tuple[str, ...]:
+    """Return a bounded lexical file path without consulting the filesystem."""
+    if not isinstance(path, str):
+        raise ValueError("sandbox path must be a string")
+    if "\x00" in path:
+        raise ValueError("sandbox path must not contain NUL")
+    if not path:
+        raise ValueError("sandbox path must be nonempty")
+    supplied = Path(path)
+    if supplied.is_absolute():
+        raise PermissionError("Absolute sandbox paths are forbidden")
+    components = tuple(component for component in supplied.parts if component not in ("", "."))
+    if not components:
+        raise ValueError("sandbox path must be nonempty")
+    if ".." in components:
+        raise PermissionError("Path escapes sandbox: parent traversal is forbidden")
+    return components
+
+
+def _descriptor_file_write_supported() -> bool:
+    """Report whether the runtime can enforce the POSIX descriptor custody contract."""
+    return (
+        os.name == "posix"
+        and os.open in os.supports_dir_fd
+        and os.mkdir in os.supports_dir_fd
+        and all(hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW", "O_CLOEXEC"))
+    )
+
+
+def _file_custody_checkpoint(event: str, directory_fd: int, component: str) -> None:
+    """Test observation point; production traversal deliberately performs no action."""
+
+
+def _open_directory_component(parent_fd: int, component: str, *, create: bool) -> int:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        return os.open(component, flags, dir_fd=parent_fd)
+    except FileNotFoundError:
+        if not create:
+            raise
+        try:
+            os.mkdir(component, mode=0o755, dir_fd=parent_fd)
+        except FileExistsError:
+            pass
+        try:
+            return os.open(component, flags, dir_fd=parent_fd)
+        except OSError as exc:
+            raise PermissionError(f"sandbox directory component rejected: {component}") from exc
+    except OSError as exc:
+        raise PermissionError(f"sandbox directory component rejected: {component}") from exc
+
+
+def _open_sandbox_root() -> int:
+    """Create and bind the configured sandbox root one no-follow component at a time."""
+    configured = os.fspath(SANDBOX_DIR)
+    root_path = Path(configured)
+    components = tuple(part for part in root_path.parts if part not in (root_path.anchor, "", "."))
+    if ".." in components:
+        raise PermissionError("configured sandbox root parent traversal is forbidden")
+    anchor = root_path.anchor or "."
+    current_fd = os.open(
+        anchor,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+    )
+    try:
+        for component in components:
+            next_fd = _open_directory_component(current_fd, component, create=True)
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
+
+
 def file_write(path: str, content: str) -> dict[str, object]:
+    components = _file_write_components(path)
+    if not isinstance(content, str):
+        raise ValueError("file content must be a string")
     _authorize_effect()
-    SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
-    target = _safe_path(path, allow_empty=False)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content)
-    return {"written": str(target)}
+    if not _descriptor_file_write_supported():
+        raise RuntimeError("descriptor-relative no-follow file custody is unsupported on this platform")
+
+    directory_fd = _open_sandbox_root()
+    file_fd: int | None = None
+    try:
+        for component in components[:-1]:
+            next_fd = _open_directory_component(directory_fd, component, create=True)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        leaf = components[-1]
+        _file_custody_checkpoint("parent_bound", directory_fd, leaf)
+        try:
+            file_fd = os.open(
+                leaf,
+                os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+                0o666,
+                dir_fd=directory_fd,
+            )
+        except OSError as exc:
+            raise PermissionError("sandbox file leaf rejected") from exc
+        info = os.fstat(file_fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise PermissionError("sandbox file leaf must be a regular file")
+        if info.st_nlink > 1:
+            raise PermissionError("sandbox file hardlink alias rejected")
+        _file_custody_checkpoint("leaf_bound", directory_fd, leaf)
+        os.ftruncate(file_fd, 0)
+        payload = content.encode("utf-8")
+        offset = 0
+        while offset < len(payload):
+            written = os.write(file_fd, payload[offset:])
+            if written <= 0:
+                raise OSError("descriptor write made no progress")
+            offset += written
+    finally:
+        if file_fd is not None:
+            os.close(file_fd)
+        os.close(directory_fd)
+    reporting_path = os.path.abspath(os.path.join(os.fspath(SANDBOX_DIR), *components))
+    return {"written": reporting_path}
 
 
 def send_email(to: str, subject: str, body: str) -> dict[str, object]:

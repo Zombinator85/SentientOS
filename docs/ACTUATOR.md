@@ -97,33 +97,35 @@ filesystem TOCTOU claim is made.
 
 ## Filesystem sandbox boundary
 
-File-write destinations and shell working directories share one containment rule.
-For each decision, the sandbox root is resolved and that resolved root is the custody
-boundary. The caller's relative path is then resolved, including existing parent
-symlinks, and is admitted only when `Path.relative_to()` proves that the result is the
-root itself or a descendant by native path components. Textual prefix similarity has
-no authority: a sibling such as `sbox_evil` is outside `sbox`.
+File writes use descriptor-relative, no-follow custody. The configured sandbox root
+is created and opened one component at a time from an opened filesystem-root or
+current-directory descriptor. Each caller-controlled parent is opened relative to
+the already-bound parent descriptor; a missing parent is created with `mkdir(dir_fd=)`
+and then opened the same way. Existing symlinks are never traversed, whether they
+point inward or outward. This is intentionally stricter than the shell path policy.
 
 Caller-supplied absolute paths are rejected, including absolute paths that point back
-inside the sandbox. `.` and the shell cwd default select the sandbox root; ordinary
-relative nesting and `./child` are accepted, while `..` normalization is accepted
-only when its resolved result remains within the boundary. File intents require a
-nonempty path. Non-string and NUL-containing path values fail closed.
+inside the sandbox. For file writes, `.` components normalize away and every `..`
+component is rejected as an authority reduction; ordinary relative nesting remains
+accepted. File intents require a nonempty path. Non-string and NUL-containing path
+values fail closed.
 
-An existing symlink is governed by its resolved destination. A symlink that resolves
-outside the sandbox is rejected before a write or process launch; one whose resolved
-destination remains inside is allowed. A final file need not exist, so safe missing
-parents and leaves can still be created after validation. The actuator does not apply
-shell, environment-variable, or tilde expansion to paths; those characters are
-literal path data. Native `pathlib` component, drive, and case semantics apply, and
-ambiguous cross-drive or otherwise non-relative results fail closed.
+The final leaf is opened with `O_NOFOLLOW` relative to the bound parent. `fstat`
+requires a regular file and rejects a multiple-link inode before truncation, closing
+the practical external hardlink-alias case. Descriptor I/O truncates and writes that
+opened object; no caller pathname is re-resolved after custody. A final file need not
+exist, so safe missing parents and leaves can still be created. The actuator does not
+apply shell, environment-variable, or tilde expansion to paths; those characters are
+literal path data. The returned `{"written": ...}` pathname is reporting metadata,
+not write authority, and may no longer name the descriptor-bound object if another
+party renames it concurrently.
 
-This resolved-path check closes textual-prefix and already-present symlink escapes,
-but it is not descriptor-relative custody. A party able to mutate directories or
-symlinks between validation and the later mkdir, write, or process operation may
-still create a check-to-effect race. Descriptor-relative/no-follow hardening remains
-a separate filesystem-custody problem. This repair does not change or claim to close
-independent URL/SMTP or plugin-isolation concerns.
+Platforms without POSIX `dir_fd`, `O_DIRECTORY`, and `O_NOFOLLOW` support fail closed;
+there is no pathname fallback. Windows therefore requires a future handle-native
+implementation. Shell cwd and structured `sandbox_path` arguments deliberately retain
+resolved-path admission through `_safe_path()` and their separate check-to-effect
+concern. Executable replacement between authorization and process creation, and
+outbound DNS/transport custody, also remain separate unresolved boundaries.
 
 ## Templates, async, dry-run, and records
 
@@ -221,5 +223,5 @@ data and never add SMTP credentials.
 
 This repair only narrows destinations reachable through existing outbound effects; it
 grants no new networking authority. Plugin-framework isolation, inherited-environment custody, executable-content
-replacement, descriptor-relative filesystem TOCTOU custody, and repository-wide mypy/tool
-compatibility remain separate follow-ups.
+replacement, shell-path descriptor custody, outbound DNS/transport custody, and
+repository-wide mypy/tool compatibility remain separate follow-ups.
