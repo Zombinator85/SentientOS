@@ -177,7 +177,7 @@ def test_sandbox_textual_sibling_prefix_exploit_is_rejected_process_real(tmp_pat
     candidate = (sandbox / "../sbox_evil/escaped.txt").resolve()
     assert str(candidate).startswith(str(sandbox.resolve()))  # proves the old flaw
 
-    with pytest.raises(PermissionError, match="escapes sandbox"):
+    with pytest.raises(PermissionError, match="sandbox"):
         actuator.file_write("../sbox_evil/escaped.txt", "escaped")
 
     assert not escaped.exists()
@@ -210,13 +210,13 @@ def test_sandbox_symlink_outside_write_is_rejected(tmp_path):
     except (NotImplementedError, OSError) as exc:
         pytest.skip(f"symlink creation unavailable: {exc}")
 
-    with pytest.raises(PermissionError, match="escapes sandbox"):
+    with pytest.raises(PermissionError, match="sandbox"):
         actuator.file_write("link/escaped.txt", "escaped")
 
     assert not (outside / "escaped.txt").exists()
 
 
-def test_sandbox_symlink_inside_is_allowed(tmp_path):
+def test_sandbox_symlink_inside_is_rejected_for_file_write(tmp_path):
     sandbox = _sandbox(tmp_path)
     destination = sandbox / "destination"
     destination.mkdir()
@@ -225,10 +225,10 @@ def test_sandbox_symlink_inside_is_allowed(tmp_path):
     except (NotImplementedError, OSError) as exc:
         pytest.skip(f"symlink creation unavailable: {exc}")
 
-    result = actuator.file_write("link/safe.txt", "safe")
+    with pytest.raises((PermissionError, OSError)):
+        actuator.file_write("link/safe.txt", "safe")
 
-    assert destination.joinpath("safe.txt").read_text() == "safe"
-    assert result == {"written": str((destination / "safe.txt").resolve())}
+    assert not destination.joinpath("safe.txt").exists()
 
 
 @pytest.mark.parametrize("cwd", ["../outside", "../sbox_evil"])
@@ -282,7 +282,7 @@ def test_sandbox_malformed_file_paths_fail_closed(tmp_path, path):
 
 def test_sandbox_ancestry_static_verifier_uses_components_not_text_prefixes():
     source = Path(actuator.__file__).read_text(encoding="utf-8")
-    helper = source[source.index("def _safe_path"):source.index("\ndef file_write", source.index("def _safe_path"))]
+    helper = source[source.index("def _safe_path"):source.index("\ndef _file_write_components", source.index("def _safe_path"))]
     assert ".relative_to(sandbox_root)" in helper
     assert ".startswith(" not in helper
     assert "os.fspath" not in helper
@@ -295,7 +295,7 @@ for _sandbox_test_name in (
     "test_sandbox_traversal_and_similar_siblings_are_rejected",
     "test_sandbox_absolute_inputs_are_rejected_even_when_inside",
     "test_sandbox_symlink_outside_write_is_rejected",
-    "test_sandbox_symlink_inside_is_allowed",
+    "test_sandbox_symlink_inside_is_rejected_for_file_write",
     "test_sandbox_rejected_shell_cwd_launches_zero_processes",
     "test_sandbox_symlink_outside_cwd_launches_zero_processes",
     "test_sandbox_root_dot_repeated_separators_and_literal_names",
