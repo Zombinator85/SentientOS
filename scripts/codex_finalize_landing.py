@@ -77,6 +77,8 @@ class InvocationContext:
     resolved_invocation_root: str
     child_data_root: str
     child_state_root: str
+    child_log_root: str
+    child_trust_root: str
     acceptance_custody_root: str
     child_environment: dict[str, str]
     collision_attempt_count: int
@@ -174,14 +176,23 @@ def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_i
         raise ValueError("reserved_invocation_root_outside_requested_sandbox")
     data = invocation_root / "data"
     state = invocation_root / "state"
+    logs = invocation_root / "logs"
     acceptance = invocation_root / "task_acceptance"
-    for name, directory in (("data", data), ("state", state), ("task_acceptance", acceptance)):
+    for name, directory in (("data", data), ("state", state), ("logs", logs), ("task_acceptance", acceptance)):
         directory_custody[name] = _private_mkdir(directory)
         _assert_no_symlink_components(directory)
-    child = {"SENTIENTOS_DATA_DIR": str(data), "SENTIENTOS_RUNTIME_STATE_ROOT": str(state)}
+    trust = logs / "trust"
+    child = {
+        "SENTIENTOS_DATA_DIR": str(data),
+        "SENTIENTOS_RUNTIME_STATE_ROOT": str(state),
+        # Validation is evidence-generation machinery.  Its private custody
+        # deliberately overrides ambient product-runtime logging destinations.
+        "SENTIENTOS_LOG_DIR": str(logs),
+        "TRUST_DIR": str(trust),
+    }
     return InvocationContext(
         "sentientos.finalizer_invocation_context:v1", invocation_id, str(requested),
-        str(resolved_invocation), str(data), str(state), str(acceptance), child,
+        str(resolved_invocation), str(data), str(state), str(logs), str(trust), str(acceptance), child,
         collisions, "exclusive_directory_reserved", "all_existing_components_not_symlinks",
         requested_record, directory_custody,
     )
@@ -192,6 +203,7 @@ def _terminal_directory_custody(context: InvocationContext) -> tuple[dict[str, d
         "invocations_parent": Path(context.requested_sandbox_root) / "invocations",
         "invocation_root": Path(context.resolved_invocation_root),
         "data": Path(context.child_data_root), "state": Path(context.child_state_root),
+        "logs": Path(context.child_log_root),
         "task_acceptance": Path(context.acceptance_custody_root),
     }
     terminal: dict[str, dict[str, Any]] = {}
