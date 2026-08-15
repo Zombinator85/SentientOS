@@ -300,6 +300,30 @@ The standard landing sequence binds evidence to one exact revision and exact PR 
 
 ## Single-pass matrix execution and generated cleanup
 
+### Per-invocation runtime log custody
+
+Every finalizer invocation reserves a unique external custody root containing private
+`data/`, `state/`, `logs/`, and `task_acceptance/` directories. Finalizer child stages
+receive `SENTIENTOS_DATA_DIR`, `SENTIENTOS_RUNTIME_STATE_ROOT`, and
+`SENTIENTOS_LOG_DIR` pointing at those directories, plus `TRUST_DIR` pointing at
+`logs/trust` beneath the same reserved root. The finalizer-owned values override ambient
+values in the child environment without changing the parent process environment. Thus
+callers do not need to export `TRUST_DIR` (or a general log directory) for landing
+evidence to remain clean.
+
+The logs directory has the same private-mode, no-symlink, device/inode identity, external
+location, and terminal re-verification custody as the invocation's data and state
+directories. `TRUST_DIR` is recorded as a child of that logs root and may be created
+lazily by `trust_engine`. `SENTIENTOS_LOG_DIR` also covers the many validation imports
+that use `logging_config.get_log_path`; direct feature-specific log environment variables
+are not blindly overridden because they can be deliberate application configuration.
+
+This is evidence hygiene for finalizer-owned validation processes, not SentientOS product
+runtime logging policy. Repository `logs/` paths are intentionally **not** added to the
+generated-artifact exclusions: a repository-local log created outside finalizer custody
+remains visible to dirty-tree checks and workspace binding, and therefore blocks landing
+unless it is an intended task path.
+
 Each validation pass that executes the landing matrix runs one canonical matrix process with both `--summary` and `--output <matrix-json-path>`. Summary output is presentation layered onto that same matrix execution; it is not a separate full matrix run. Bounded stale-evidence refresh uses the same one-process matrix command before running the PR landing gate and landing supervisor.
 
 Post-commit and PR-metadata phases can still reuse the exact pre-commit matrix binding through `--pre-commit-finalizer-json`; that reuse path performs no new matrix process when the pre-commit finalizer artifact is supplied.

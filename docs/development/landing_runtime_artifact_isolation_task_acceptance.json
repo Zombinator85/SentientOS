@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "98b187e2b9e95353df4b70ec6af2f2e136038ea6",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_process_real_trust_output_stays_outside_repository", "rationale": "Process-real child proves trust output and hostile ambient destinations remain outside the repository."},
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_hostile_ambient_log_destinations_are_overridden", "rationale": "Both ambient logging variables are deterministically overridden beneath invocation custody."},
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_log_custody_identity_is_verified_terminally", "rationale": "Logs participate in terminal device/inode verification."},
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_precommit_commit_postcommit_pairing_excludes_generated_logs", "rationale": "Workspace and commit evidence pair while generated trust logs remain absent from the commit."},
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_unexpected_repository_log_path_remains_blocking", "rationale": "An unexpected non-finalizer repository log remains a blocking dirty path."},
+    {"node_id": "tests/test_codex_finalize_landing_log_custody.py::test_workspace_generated_prefixes_do_not_hide_repository_logs", "rationale": "Static structure binds both logging variables without broadening evidence exclusions."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_finalize_landing_log_custody.py::test_process_real_trust_output_stays_outside_repository",
+    "tests/test_codex_finalize_landing_log_custody.py::test_precommit_commit_postcommit_pairing_excludes_generated_logs"
+  ]
+}

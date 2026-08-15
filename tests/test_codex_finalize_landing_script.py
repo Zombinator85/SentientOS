@@ -539,7 +539,7 @@ def test_finalizer_artifact_records_initial_and_terminal_directory_mode_custody(
     custody = payload["runtime_custody"]
     assert custody["requested_root"]["ownership"] == "caller_owned_requested_root"
     assert custody["invocations_parent_path"].endswith("/runtime/invocations")
-    assert set(custody["directory_custody_initial"]) == {"invocations_parent", "invocation_root", "data", "state", "task_acceptance"}
+    assert set(custody["directory_custody_initial"]) == {"invocations_parent", "invocation_root", "data", "state", "logs", "task_acceptance"}
     assert set(custody["directory_custody_terminal"]) == set(custody["directory_custody_initial"])
     assert custody["terminal_directory_identity_status"] == "unchanged"
     for name, initial in custody["directory_custody_initial"].items():
