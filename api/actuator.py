@@ -88,7 +88,15 @@ SANDBOX_DIR = Path(os.getenv("ACT_SANDBOX", "sandbox"))
 
 class ShellActuator(BaseActuator):
     def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        allowed = {"type", "argv", "cmd", "cwd"}
+        if "legacy_cmd" in intent and "argv" in intent and "cmd" not in intent:
+            allowed.add("legacy_cmd")
+        unknown = set(intent) - allowed
+        if unknown:
+            raise ValueError(f"unsupported shell intent fields: {', '.join(sorted(unknown))}")
         argv, legacy_cmd = _canonical_shell_argv(intent)
+        if legacy_cmd is None and isinstance(intent.get("legacy_cmd"), str):
+            legacy_cmd = intent["legacy_cmd"]
         result = run_shell(argv, cwd=intent.get("cwd", "."))
         result["argv"] = list(argv)
         if legacy_cmd is not None:
@@ -496,6 +504,9 @@ def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
         res = subprocess.run(
             authorized_argv,
             shell=False,
+            env={},
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
             capture_output=True,
             text=True,
             cwd=str(cwd_path),

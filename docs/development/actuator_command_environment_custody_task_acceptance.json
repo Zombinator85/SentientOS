@@ -1,0 +1,80 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "63917c1eda3a9aca9a4ca1a39d3f276cc8f827dc",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_exact_command_gets_empty_environment_and_reports_output",
+      "rationale": "Process-real success proves secret, PATH, proxy, loader, and interpreter variables are absent while stdout, stderr, and exit status remain observable."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_parent_pythonpath_cannot_execute_attacker_module",
+      "rationale": "Process-real Python-path injection cannot expose or execute the attacker module."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_inheritable_parent_descriptor_is_closed",
+      "rationale": "A process-real POSIX inheritable descriptor witness cannot cross the boundary."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_child_stdin_is_deterministic_eof",
+      "rationale": "A process-real child observes deterministic EOF from DEVNULL."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_parent_path_cannot_select_attacker_helper",
+      "rationale": "A parent PATH helper cannot be selected by the admitted child."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[env]",
+      "rationale": "Caller-selected env fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[environment]",
+      "rationale": "Caller-selected environment fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[stdin]",
+      "rationale": "Caller-selected stdin fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[pass_fds]",
+      "rationale": "Caller-selected pass_fds fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[close_fds]",
+      "rationale": "Caller-selected close_fds fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[shell]",
+      "rationale": "Caller-selected shell fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[executable]",
+      "rationale": "Caller-selected executable fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[creationflags]",
+      "rationale": "Caller-selected creationflags fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[startupinfo]",
+      "rationale": "Caller-selected startupinfo fails before authorization and process construction."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_legacy_template_and_normalized_async_intents_share_custody",
+      "rationale": "Legacy, template, and queued-normalized routes converge on the same empty environment."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_timeout_remains_bounded",
+      "rationale": "Timeout behavior remains bounded under deterministic process state."
+    },
+    {
+      "node_id": "tests/test_actuator_command_environment_custody.py::test_static_environment_custody_verifier",
+      "rationale": "The narrow AST verifier requires empty env, DEVNULL, descriptor closure, and shell=False."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_command_environment_custody.py::test_exact_command_gets_empty_environment_and_reports_output",
+    "tests/test_actuator_command_environment_custody.py::test_legacy_template_and_normalized_async_intents_share_custody"
+  ]
+}
