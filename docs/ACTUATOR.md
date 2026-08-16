@@ -89,11 +89,32 @@ execute the authorized canonical argv with `shell=False`. Denied command policy,
 arguments, or paths construct no process. Legacy `cmd` differs only in its parsing
 step and passes through this identical sequence.
 
-This establishes path identity at authorization time, not immutable binary-content
-identity. Replacement of the executable after validation and before process creation
-remains a binary-content/TOCTOU concern. The child also inherits the existing process
-environment, whose broader custody is unchanged and separate. No descriptor-relative
-filesystem TOCTOU claim is made.
+## Child process-state custody
+
+Authorization of an executable and its complete argument vector does not authorize
+the actuator host's ambient process environment. The protected child receives a
+fresh, deliberately empty environment. In particular, `PATH`, parent secrets and
+tokens, proxy variables, and dynamic-loader or language-interpreter injection values
+are absent by construction; the implementation does not copy and then filter the
+parent environment. Standard input is explicitly `DEVNULL`, while stdout and stderr
+remain captured. `close_fds=True` explicitly closes unrelated inherited descriptors
+rather than relying on interpreter or platform defaults.
+
+There is no command-environment policy and callers cannot supply environment or
+generic process-control options. Unknown shell-intent fields fail closed. A future
+executable that demonstrably needs environment state requires a separate,
+executable-specific authority design. Until that exists, an executable that cannot
+operate with an empty environment is unsuitable for actuator admission; ambient
+inheritance is not a compatibility fallback.
+
+This custody is process-state isolation, not an operating-system sandbox. OS
+credentials and user identity are unchanged. Filesystem visibility and the network
+capability of an explicitly admitted executable are unchanged. Shell cwd remains a
+pathname admitted by `_safe_path()`, and structured `sandbox_path` arguments remain
+pathname identities handed to the child; descriptor custody for both is unresolved.
+Replacement or content change of the executable between validation and process
+creation also remains an executable-content/TOCTOU concern. None of those residual
+object-identity boundaries is closed by the empty child environment.
 
 ## Filesystem sandbox boundary
 
