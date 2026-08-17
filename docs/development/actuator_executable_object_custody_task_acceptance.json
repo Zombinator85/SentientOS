@@ -1,0 +1,29 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0dd299b4febe000a71c8ccaec4fe14066fe55f00",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_normal_native_snapshot_preserves_stdout_stderr_and_exit", "rationale": "Process-real success preserves output and exit behavior through immutable execution."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_authorization_time_native_path_replacement_executes_original_snapshot", "rationale": "A deterministic native replacement during approval cannot replace selected code."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_authorization_time_same_inode_mutation_executes_original_snapshot", "rationale": "A deterministic same-inode overwrite during approval cannot alter selected bytes."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_source_unlink_permission_change_and_replacement_do_not_substitute", "rationale": "Execution no longer depends on source pathname presence or permissions after snapshot."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_configured_symlink_is_canonicalized_and_retarget_cannot_change_invocation", "rationale": "Canonical configured-symlink semantics remain snapshot-bound."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_sealed_snapshot_rejects_write_truncate_and_grow", "rationale": "Kernel operations directly prove immutable sealing."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_shebang_script_is_denied_before_authorization_and_process", "rationale": "Unbound interpreter substitution is denied before approval."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_malformed_executable_objects_are_denied_without_process[directory]", "rationale": "Directory executables fail before process construction."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_malformed_executable_objects_are_denied_without_process[non_executable]", "rationale": "Descriptor-bound executable permissions fail closed."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_malformed_executable_objects_are_denied_without_process[oversized]", "rationale": "The finite snapshot budget is enforced before execution."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_static_executable_object_custody_verifier", "rationale": "Static verification binds ordering, copying, sealing, and process identity."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_exact_command_gets_empty_environment_and_reports_output", "rationale": "The empty child environment remains intact."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_inheritable_parent_descriptor_is_closed", "rationale": "Unrelated inheritable descriptors remain closed."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[pass_fds]", "rationale": "Caller descriptor passing remains forbidden."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_unknown_process_control_fields_are_rejected_before_effect[executable]", "rationale": "Caller executable selection remains forbidden."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_static_environment_custody_verifier", "rationale": "Static custody permits only the internal snapshot descriptor exception."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_executable_object_custody.py::test_normal_native_snapshot_preserves_stdout_stderr_and_exit",
+    "tests/test_actuator_executable_object_custody.py::test_authorization_time_native_path_replacement_executes_original_snapshot",
+    "tests/test_actuator_executable_object_custody.py::test_authorization_time_same_inode_mutation_executes_original_snapshot"
+  ]
+}
