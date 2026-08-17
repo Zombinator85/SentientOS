@@ -758,117 +758,15 @@ Each controller action records an `undo_id` and stores an in-memory lambda so th
 
 When a `policy_engine.PolicyEngine` instance is supplied to a controller, every action is checked against the active policy file. Policies can deny actions based on persona, tags, or time of day. Denied actions are logged with `status="failed"` and are surfaced by the reflection manager which proposes an `undo` step.
 
-### Workflow Controller
+### Workflow Controller (archived)
 
-`workflow_controller.py` lets you define named workflows composed of multiple system actions. Each step supplies an `action` callable and an `undo` lambda. Before executing, steps are checked against the active `policy_engine`. Denied or failing steps trigger an automatic rollback of previous steps.
-
-Run a workflow from the CLI:
-
-```bash
-python workflow_controller.py --run demo_report
-```
-
-Undo the last executed steps:
-
-```bash
-python workflow_controller.py --undo 2
-```
-
-The `review_workflow_logs()` helper inspects recent workflow events. If the same
-step fails repeatedly a reflection entry is stored suggesting a new fallback.
-Policy denials also create a reflection recommending edits to the workflow.
-
-Workflows can be loaded from YAML/JSON/Python files using the built-in DSL:
-
-```yaml
-name: Send Report
-steps:
-  - name: open_app
-    action: tools.open_excel
-    on_fail: [notify_admin]
-  - name: type
-    action: utils.type_text
-    params:
-      text: "Quarterly Report"
-    undo: utils.delete_line
-  - name: save_file
-    action: utils.save_file
-    params:
-      path: "C:\\Reports\\Q2.xlsx"
-  - name: email_file
-    action: utils.email_file
-    params:
-      to: "boss@example.com"
-    on_fail: [utils.log_and_abort]
-```
-
-Use `--load` to read scripts, `--list-workflows` to see them, `--run-workflow <name>` to execute, and `--edit-workflow <name>` to open the file in `$EDITOR`.
-
-Workflows integrate with policy and reflection just like individual controller actions.
-Workflow steps may trigger reflex trials using `action: run:reflex` with a `rule` parameter. Each run records a trial in the reflex manager and updates the step's `reflex_status` field.
-
-```bash
-python workflow_controller.py --run-workflow demo_reflex
-python reflex_dashboard.py --history wtest
-```
-
-### Workflow Library & Auto-Healing
-
-`workflow_library.py` manages a folder of reusable workflow templates. Use the CLI to explore and load templates:
-
-```bash
-python workflow_library.py list
-python workflow_library.py preview greet_user
-python workflow_library.py load greet_user --params '{"username":"Ada","file":"/tmp/out.txt"}'
-```
-
-Templates can include placeholders like `{username}` that are filled when loading. The optional `workflow_editor.py` provides a simple menu-driven editor with validation for modifying templates in place.
-
-The `SelfHealingManager` now monitors workflow failures. If a step fails three times in a row an auto-heal patch marks the step as `skip: true` and a reflection entry is saved. You can review these suggestions in the memory CLI or dashboard.
-
-### Workflow Dashboard & Suggestions
-
-`workflow_dashboard.py` offers a visual overview of all workflow templates. Launch
-the full UI with Streamlit or fall back to the CLI mode:
-
-```bash
-streamlit run workflow_dashboard.py
-# or without Streamlit
-python workflow_dashboard.py --list
-```
-
-You can browse and filter templates, view step diagrams, and inspect execution
-metrics. Auto-healed templates appear in a pending review list where you can
-accept or revert the changes after comparing the diff.
-
-The helper `workflow_library.suggest_workflow(goal)` generates a starting
-template for common goals like *reset workspace* or *archive logs*. Edit the
-suggested steps in the dashboard or with `workflow_editor.py` before saving.
-
-### Workflow Analytics & Recommendations
-
-`workflow_analytics.py` parses the workflow event log to compute run counts,
-average durations, failure rates, and policy denials. View the data via the
-dashboard or from the CLI:
-
-```bash
-python workflow_dashboard.py --analytics
-```
-
-The recommendation engine (`workflow_recommendation.py`) surfaces neglected or
-failing workflows and proposes optimizations:
-
-```bash
-python workflow_dashboard.py --recommend
-```
-
-When Streamlit is installed these features appear as extra tabs within the
-workflow dashboard, showing JSON statistics and a list of suggestions.
-Reflex manager hooks can trigger retry or healing workflows based on these
-analytics. Feedback events are logged with the tag `recommend:optimize` so the
-dashboard and replay system visualize the improvement cycle.
-
-![analytics screenshot](docs/workflow_analytics.png)
+The former generic executable workflow controller and its library CLI are retired.
+The examples previously in this section were historical operating instructions and
+are no longer supported: workflow files cannot execute Python source, action strings
+cannot resolve or register callables, and workflow-to-reflex execution is unavailable.
+The remaining `workflow_controller.py` name is an inert compatibility boundary.
+Future declarative orchestration requires typed operation identities and bounded
+parameters composed over existing explicit effect contracts.
 
 ### AI-Assisted Editing
 
@@ -885,12 +783,7 @@ python workflow_editor.py workflows/demo.json
 
 Reflex manager can now log improvement proposals and test alternative reflexes.
 Logs are stored in `logs/reflections/reflex_learn.jsonl` and visualized in the
-dashboard. Workflows accept `--agent` and `--persona` so runs can be attributed
-to specific bots or personas.
-
-```bash
-python workflow_controller.py --run-workflow demo --agent diagnostic_bot
-```
+dashboard. The retired workflow controller no longer accepts execution attribution options.
 
 Review proposals with `workflow_review.comment_review()` and vote on them from
 the CLI or dashboard. Use analytics to route a failing workflow from one persona
@@ -913,7 +806,7 @@ to promote, reject, or revert a rule. Every action records an audit trail so
 changes can be rolled back at any time.
 `emotion_dashboard.py` also displays rule status and lets administrators promote,
 demote or comment on any rule while viewing live feedback triggers.
-Workflow-triggered trials appear here automatically when a step uses `run:reflex`.
+The historical workflow-to-reflex bridge is retired; reflex management remains independent.
 
 CLI examples:
 
@@ -955,7 +848,6 @@ denied the change.
 ```bash
 python reflex_dashboard.py --promote retry_step --agent bob --persona Lumos --policy escalation_rule
 python reflex_dashboard.py --audit retry_step --filter-agent bob
-python workflow_controller.py --run-workflow demo --agent helper_bot --persona Observer
 ```
 
 Use `--filter-agent`, `--filter-persona`, `--filter-policy`, or `--filter-action`

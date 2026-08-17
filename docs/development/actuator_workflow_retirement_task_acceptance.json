@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "39bec17cbb7c41fd9f27a8ca0bd7f6f497385e13",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_workflow_absent_from_builtin_registry", "rationale": "Workflow has no built-in actuator authority."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_workflow_intent_has_zero_authorization_or_effect", "rationale": "Unsupported workflow intent fails before authorization or controller import."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_hostile_python_workflow_source_cannot_execute", "rationale": "Attacker-controlled Python workflow source remains inert."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_hostile_dotted_action_module_cannot_import_or_execute", "rationale": "Dotted action data cannot import attacker code."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_callable_registry_is_unavailable_and_callable_is_inert", "rationale": "Arbitrary callable registration is absent."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_controller_import_has_zero_privilege_or_filesystem_effect", "rationale": "Compatibility import has no privilege or filesystem effect."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_controller_cli_and_reflex_bridge_are_retired", "rationale": "CLI execution and workflow-to-reflex bridging are unavailable."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_static_workflow_retirement_verifier", "rationale": "Narrow mechanical retirement verifier passes."},
+    {"node_id": "tests/test_actuator_workflow_retirement.py::test_unaffected_file_actuator_still_dispatches", "rationale": "A non-workflow built-in remains operational."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false", "rationale": "The hardened shell literal path remains operational."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_workflow_retirement.py::test_unaffected_file_actuator_still_dispatches",
+    "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false"
+  ]
+}
