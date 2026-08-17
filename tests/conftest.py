@@ -252,7 +252,6 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_export_import",
         "tests.test_camera_daemon",
         "tests.test_reporter",
-        "tests.test_talkback_actuator",
         "tests.test_redaction",
         "tests.test_secrets_scan",
         "tests.test_embeddings_migration",
