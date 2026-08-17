@@ -133,30 +133,12 @@ class WebhookActuator(BaseActuator):
         return trigger_webhook(intent.get("url", ""), intent.get("payload", {}))
 
 
-class TalkbackActuator(BaseActuator):
-    """Send synthesized speech through a configured camera audio channel."""
-
-    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
-        _authorize_effect()
-        message = intent.get("message") or intent.get("text")
-        if not message or not isinstance(message, str):
-            raise ValueError("talkback requires a 'message' string")
-        url = intent.get("url") or intent.get("rtsp") or None
-        ffmpeg_path = intent.get("ffmpeg")
-        voice = intent.get("voice")
-        from talkback_bridge import CameraTalkback
-        talkback = CameraTalkback(rtsp_url=url, ffmpeg_path=ffmpeg_path)
-        audio_path = talkback.speak(message, voice=voice)
-        return {"ok": True, "target": talkback.rtsp_url, "audio_path": str(audio_path)}
-
-
 BUILTIN_ACTUATOR_TYPES: Mapping[str, type[BaseActuator]] = {
     "shell": ShellActuator,
     "http": HttpActuator,
     "file": FileActuator,
     "email": EmailActuator,
     "webhook": WebhookActuator,
-    "talkback": TalkbackActuator,
 }
 
 

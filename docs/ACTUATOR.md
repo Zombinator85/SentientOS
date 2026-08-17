@@ -3,7 +3,7 @@
 ## Built-ins and the external-code boundary
 
 The actuator runtime provides the canonical built-in types `shell`, `http`, `file`,
-`email`, `webhook`, and `talkback`. Initialization registers only these
+`email`, and `webhook`. Initialization registers only these
 built-ins and is idempotent. The temporary `load_external_plugins` keyword remains
 for compatibility, but requesting it fails deterministically with `external actuator
 plugins are disabled` before registering or inspecting anything.
@@ -42,8 +42,30 @@ ledger evidence`.
 Such an orchestrator may coordinate bounded file, admitted outbound, explicitly
 modeled process, or internal reasoning operations, but it must never translate an
 arbitrary string into a Python callable or manufacture authority by importing code.
-The independent reflex subsystem is unchanged. `talkback` remains a separate actuator
-authority seam for a future audit.
+The independent reflex subsystem is unchanged.
+
+## Camera-talkback retirement
+
+The generic `talkback` actuator is retired. A talkback intent is unsupported and
+fails before authorization, speech rendering, temporary-file creation, process
+construction, or media transport. Caller-provided RTSP URLs and ffmpeg paths confer
+no authority. `CAMERA_TALKBACK_URL` is no longer an active endpoint authority source,
+and neither `FFMPEG_BINARY` nor `PATH` discovery is an active executable authority
+source. The former compound speech-render-and-media-send operation is unavailable.
+
+`talkback_bridge.py` remains solely as an inert import-compatibility boundary. Its
+legacy `CameraTalkback` name raises a deterministic retirement error without reading
+arguments or ambient configuration and without importing the independent TTS system.
+Existing speech/TTS capabilities are otherwise unchanged.
+
+Future camera/audio embodiment requires explicit typed contracts in this order:
+speech request → selected renderer operation → bounded audio artifact or stream
+identity → provisioned media device or endpoint identity → dedicated media transport
+authority → effect-specific runtime/process custody → durable result evidence. A
+future media runtime must use a commissioned tool identity rather than caller paths
+or executable discovery. An orchestrator may compose these bounded pieces, but it
+must not manufacture authority from arbitrary text, URL, executable, or environment
+strings.
 
 The canonical shell-actuator intent is structured data:
 

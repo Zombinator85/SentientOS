@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "1abc9b4f7d34708173ae66e3d371e8f3b0773a39",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_talkback_absent_from_builtin_registry", "rationale": "Talkback has no built-in actuator authority."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_talkback_intent_has_zero_authorization_or_effect", "rationale": "A hostile unsupported intent fails before authorization, import, or effect."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_hostile_path_ffmpeg_has_zero_effect", "rationale": "PATH executable discovery and invocation are absent."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_hostile_explicit_ffmpeg_path_has_zero_effect", "rationale": "An explicit attacker executable remains inert."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_ambient_camera_endpoint_has_zero_effect", "rationale": "Ambient camera endpoint configuration cannot construct transport."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_caller_rtsp_endpoint_has_zero_effect", "rationale": "Caller endpoint text cannot construct transport."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_speech_synthesis_has_zero_effect", "rationale": "The retired boundary cannot render speech or create audio."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_direct_legacy_bridge_is_inert", "rationale": "The compatibility constructor deterministically rejects execution."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_talkback_bridge_import_has_zero_effect", "rationale": "Compatibility import has no privilege, process, or transport effect."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_static_talkback_retirement_verifier", "rationale": "The narrow structural verifier passes."},
+    {"node_id": "tests/test_actuator_talkback_retirement.py::test_unaffected_file_actuator_still_dispatches", "rationale": "A bounded unaffected file actuator remains operational."},
+    {"node_id": "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false", "rationale": "The hardened exact command path remains operational."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_talkback_retirement.py::test_unaffected_file_actuator_still_dispatches",
+    "tests/test_actuator_argv_security.py::test_explicit_argv_is_exact_and_shell_false"
+  ]
+}
