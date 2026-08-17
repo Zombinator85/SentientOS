@@ -489,8 +489,6 @@ def _authorized_shell_argv(argv: Sequence[str]) -> tuple[str, ...]:
             if supplied not in values:
                 raise PermissionError("shell command arguments not allowed")
             admitted.append(supplied)
-        elif slot_type == "sandbox_path" and set(slot) == {"type"}:
-            admitted.append(str(_safe_path(supplied, allow_empty=False)))
         else:
             raise PermissionError("shell command policy is malformed: unsupported argument slot")
     return (executable, *admitted)
@@ -850,28 +848,6 @@ def http_fetch(url: object, method: object = "GET", *, headers: object = None, b
     canonical_method, canonical_headers, payload = _http_request_data(method, headers, body, json_data)
     _authorize_effect()
     return _direct_http_transaction(canonical_url, canonical_method, canonical_headers, payload)
-
-def _safe_path(rel: object, *, allow_empty: bool = True) -> Path:
-    """Resolve a caller-relative path beneath the sandbox custody boundary."""
-    if not isinstance(rel, str):
-        raise ValueError("sandbox path must be a string")
-    if "\x00" in rel:
-        raise ValueError("sandbox path must not contain NUL")
-    if not rel and not allow_empty:
-        raise ValueError("sandbox path must be nonempty")
-
-    supplied = Path(rel)
-    if supplied.is_absolute():
-        raise PermissionError("Absolute sandbox paths are forbidden")
-
-    sandbox_root = SANDBOX_DIR.resolve()
-    target = (sandbox_root / supplied).resolve()
-    try:
-        target.relative_to(sandbox_root)
-    except ValueError as exc:
-        raise PermissionError("Path escapes sandbox") from exc
-    return target
-
 
 def _file_write_components(path: object) -> tuple[str, ...]:
     """Return a bounded lexical file path without consulting the filesystem."""

@@ -6,11 +6,11 @@
   "required_nodes": [
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_exact_executable_alias_and_complete_arguments_are_executed", "rationale": "Process-real success binds an alias, exact executable, and complete literal argv."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_exact_configured_executable_may_be_the_lookup_key", "rationale": "Exact configured executable identity is accepted without PATH selection."},
-    {"node_id": "tests/test_actuator_shell_command_custody.py::test_one_of_and_sandbox_path_are_complete_and_canonical", "rationale": "Finite choice and canonical sandbox-relative path succeed."},
+    {"node_id": "tests/test_actuator_shell_command_custody.py::test_one_of_is_complete_and_exact", "rationale": "Finite choice remains exact."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_legacy_cmd_is_parsing_only_and_uses_the_same_rule", "rationale": "Legacy text is parsing-only and receives identical command admission."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_process_real_path_hijack_has_zero_effect", "rationale": "A real attacker executable earlier in PATH has zero effect."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_denied_argument_variants_construct_zero_processes", "rationale": "Missing, extra, wrong literal, interpreter code, and script variants construct no process."},
-    {"node_id": "tests/test_actuator_shell_command_custody.py::test_one_of_and_sandbox_path_denials_have_zero_effect", "rationale": "Unauthorized finite choice, traversal, and absolute paths construct no process."},
+    {"node_id": "tests/test_actuator_shell_command_custody.py::test_one_of_denial_has_zero_effect", "rationale": "Unauthorized finite choice constructs no process."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_legacy_bare_name_policy_is_malformed_and_zero_effect", "rationale": "Legacy python/curl/ping string policy fails closed."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_shipped_policy_has_no_generic_process_authority", "rationale": "Shipped shell policy grants no generic network or interpreter authority."},
     {"node_id": "tests/test_actuator_shell_command_custody.py::test_template_expansion_is_not_authority", "rationale": "Expanded URL utility intent remains unauthorized and process-free."},
@@ -20,7 +20,7 @@
   "successful_path_nodes": [
     "tests/test_actuator_shell_command_custody.py::test_exact_executable_alias_and_complete_arguments_are_executed",
     "tests/test_actuator_shell_command_custody.py::test_exact_configured_executable_may_be_the_lookup_key",
-    "tests/test_actuator_shell_command_custody.py::test_one_of_and_sandbox_path_are_complete_and_canonical",
+    "tests/test_actuator_shell_command_custody.py::test_one_of_is_complete_and_exact",
     "tests/test_actuator_shell_command_custody.py::test_legacy_cmd_is_parsing_only_and_uses_the_same_rule"
   ]
 }

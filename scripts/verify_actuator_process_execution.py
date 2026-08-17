@@ -22,7 +22,7 @@ def verify() -> list[str]:
         errors.append("structured shell custody function missing")
     else:
         custody_text = ast.get_source_segment(text, custody) or ""
-        for required in ('WHITELIST.get("shell", [])', '"alias"', '"executable"', '"arguments"', '_safe_path'):
+        for required in ('WHITELIST.get("shell", [])', '"alias"', '"executable"', '"arguments"'):
             if required not in custody_text:
                 errors.append(f"structured shell custody missing: {required}")
         for forbidden in ("fnmatch", "fullmatch", "shutil.which", "PATH"):

@@ -3,35 +3,153 @@
   "allow_nonexecution": false,
   "behavioral_witness_count": 0,
   "behavioral_witness_counts_by_node": {
-    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked": 0,
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity": 0,
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags": 0,
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths": 0,
-    "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild": 0,
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero": 0,
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip": 0,
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications": 0,
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes": 0,
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn": 0,
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream": 0,
-    "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success": 0,
-    "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt": 0,
-    "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman": 0,
-    "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease": 0,
-    "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed": 0,
-    "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent": 0,
-    "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected": 0,
-    "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit": 0,
-    "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base": 0,
-    "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree": 0
+    "tests/test_build_real_executor_runtime_gate_script.py::test_build_default_and_validate_policy": 0,
+    "tests/test_build_real_executor_runtime_gate_script.py::test_evaluate_emits_deterministic_json_and_writes_nothing": 0,
+    "tests/test_build_real_executor_runtime_gate_script.py::test_summarize_and_inspect_fixture": 0,
+    "tests/test_build_real_executor_runtime_gate_script.py::test_validate_packet_blocks_nonzero_for_invalid_input": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[action_execution_claimed-action_execution]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[authority_granted-authority_smuggling]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[capsule_persistence_claimed-capsule_persistence_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[consent_granted-consent_smuggling]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_activated-executor_activation_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_enabled-executor_enablement_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_invoked-executor_invocation_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_disclosure_claimed-external_disclosure]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_service_called-external_service_call]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[guarded_executor_path_invoked-guarded_executor_invocation_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_commit_executed-live_execution_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_context_retrieval_claimed-live_context_retrieval]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_index_mutation_claimed-index_mutation_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_delete_claimed-live_delete_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_purge_claimed-live_purge_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_write_claimed-live_write_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[lockfile_creation_claimed-lockfile_creation_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[media_payload_included-raw_payload_leakage]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[merge_application_claimed-merge_application_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[operation_bundle_executed-operation_bundle_execution_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[permission_to_execute_now-executor_permission_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[policy_created-policy_smuggling]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[private_payload_included-raw_payload_leakage]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[prompt_assembly_claimed-prompt_materialization]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[protection_application_claimed-protection_application_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[raw_payload_included-raw_payload_leakage]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_lock_acquisition_claimed-real_lock_acquisition_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_memory_root_access_claimed-real_memory_root_access_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[receipt_envelope_is_live_receipt-live_receipt_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[rollback_readiness_applied-applied_rollback_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_enablement_claimed-runtime_enablement_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flag_target_state_active-runtime_flag_active_state_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flags_flipped-runtime_flag_flipping_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[secret_payload_included-raw_payload_leakage]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[tomb_completion_claimed-tomb_completion_claim]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[truth_asserted-truth_smuggling]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_enablement_packet_blocks": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_gate_candidate_blocks": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[abort_envelope_schema_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_scope_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[atomicity_boundary_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[audit_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_enable_path_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_path_confirmation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_execution_posture_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_posture_confirmation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_to_enabled_transition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[dry_run_to_live_equivalence_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[emergency_stop_confirmation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_abort_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_expectation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_plan_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_path_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_precondition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_plan_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_scope_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_verification_plan_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_abort_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_audit_expectation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_handoff_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_precondition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_rollback_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_verification_expectation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_window_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[executor_api_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_execution_packet_scope_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_preflight_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_execution_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_live_execution_gate_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_real_executor_requirement_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[guarded_executor_path_prerequisite_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[idempotency_key_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_disablement_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_handoff_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_scope_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[lock_lease_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_bundle_digest_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_inventory_digest_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_enablement_acknowledgement_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_execution_acknowledgement_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_identity_role_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_runtime_acknowledgement_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[packet_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[post_execution_audit_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_schema_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_envelope_schema_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_rehearsal_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_abort_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_hold_point_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_precondition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_target_state_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_abort_condition_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_audit_expectation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_hold_point_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_verification_expectation_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[safety_checklist_digest_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[staged_enablement_requirements_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_envelope_schema_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_readiness_metadata]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_mixed_diagnostics_warn_only_when_policy_allows": 0,
+    "tests/test_real_executor_runtime_gate.py::test_noop_behavior_is_deterministic_and_non_mutating": 0,
+    "tests/test_real_executor_runtime_gate.py::test_ready_runtime_gate_packet_is_metadata_only_and_default_deny": 0,
+    "tests/test_real_executor_runtime_gate.py::test_runtime_enablement_packet_not_ready_blocks_by_default": 0,
+    "tests/test_real_executor_runtime_gate.py::test_scope_mismatch_blocks_for_non_mixed_candidate": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]": 0,
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]": 0
   },
   "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "behavioral_witness_reporter_status": "complete",
@@ -44,7 +162,7 @@
   },
   "budget_violations": [],
   "bypass_env": false,
-  "call_phase_outcome_count": 29,
+  "call_phase_outcome_count": 147,
   "canonical_requirements_path": "requirements-codex.txt",
   "collection_completed": true,
   "collection_error": false,
@@ -53,172 +171,757 @@
   "editable_reason": "module-path-fallback",
   "execution_mode": "execute",
   "full_capability_dependencies_requested": false,
-  "git_sha": "d1c45cb04f7b6a8b2ef47dc4fe18b68936b9bdae",
+  "git_sha": "d9cfc5c2dd8700742d505a33b66e2e6c1421c8ab",
   "hash_algo": "sha256",
   "install_attempted_modes": [],
   "install_fallback_reason": null,
   "install_mode": "none",
   "install_performed": false,
-  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_a95ff08611694a4ca37504389cf25476.xml",
+  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_58f13c652dba47f9aa4956622fe12c1c.xml",
   "metrics_status": "ok",
   "node_outcomes": [
     {
-      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_ready_runtime_gate_packet_is_metadata_only_and_default_deny",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_enablement_packet_blocks",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_gate_candidate_blocks",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_runtime_enablement_packet_not_ready_blocks_by_default",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]",
       "outcome": "passed",
       "phase": "call"
     },
     {
-      "node_id": "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_to_enabled_transition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_precondition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_target_state_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_runtime_acknowledgement_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[emergency_stop_confirmation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[audit_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_hold_point_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_abort_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_plan_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_verification_plan_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_plan_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[packet_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_bundle_digest_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_precondition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_execution_acknowledgement_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_execution_packet_scope_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_real_executor_requirement_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_execution_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_path_confirmation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_abort_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_rollback_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_verification_expectation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_audit_expectation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_path_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[staged_enablement_requirements_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_enable_path_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_precondition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_abort_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_expectation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_live_execution_gate_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_posture_confirmation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_enablement_acknowledgement_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_scope_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[executor_api_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_execution_posture_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_schema_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_envelope_schema_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[abort_envelope_schema_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_envelope_schema_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_scope_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_handoff_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_disablement_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_scope_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_handoff_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_preflight_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_inventory_digest_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[safety_checklist_digest_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[lock_lease_readiness_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_identity_role_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_window_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[idempotency_key_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[atomicity_boundary_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[dry_run_to_live_equivalence_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_rehearsal_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[post_execution_audit_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[guarded_executor_path_prerequisite_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_hold_point_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_abort_condition_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_verification_expectation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_audit_expectation_metadata]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_noop_behavior_is_deterministic_and_non_mutating",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_mixed_diagnostics_warn_only_when_policy_allows",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_scope_mismatch_blocks_for_non_mixed_candidate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_enablement_claimed-runtime_enablement_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flags_flipped-runtime_flag_flipping_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flag_target_state_active-runtime_flag_active_state_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[guarded_executor_path_invoked-guarded_executor_invocation_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_enabled-executor_enablement_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_invoked-executor_invocation_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_activated-executor_activation_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_commit_executed-live_execution_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[permission_to_execute_now-executor_permission_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[operation_bundle_executed-operation_bundle_execution_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[receipt_envelope_is_live_receipt-live_receipt_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[rollback_readiness_applied-applied_rollback_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_write_claimed-live_write_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_delete_claimed-live_delete_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_purge_claimed-live_purge_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_index_mutation_claimed-index_mutation_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[capsule_persistence_claimed-capsule_persistence_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[tomb_completion_claimed-tomb_completion_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[protection_application_claimed-protection_application_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[merge_application_claimed-merge_application_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[prompt_assembly_claimed-prompt_materialization]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_context_retrieval_claimed-live_context_retrieval]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[action_execution_claimed-action_execution]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_disclosure_claimed-external_disclosure]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_service_called-external_service_call]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[lockfile_creation_claimed-lockfile_creation_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_lock_acquisition_claimed-real_lock_acquisition_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_memory_root_access_claimed-real_memory_root_access_claim]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[authority_granted-authority_smuggling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[consent_granted-consent_smuggling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[policy_created-policy_smuggling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[truth_asserted-truth_smuggling]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[raw_payload_included-raw_payload_leakage]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[private_payload_included-raw_payload_leakage]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[media_payload_included-raw_payload_leakage]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[secret_payload_included-raw_payload_leakage]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_real_executor_runtime_gate_script.py::test_build_default_and_validate_policy",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_real_executor_runtime_gate_script.py::test_evaluate_emits_deterministic_json_and_writes_nothing",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_real_executor_runtime_gate_script.py::test_summarize_and_inspect_fixture",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_build_real_executor_runtime_gate_script.py::test_validate_packet_blocks_nonzero_for_invalid_input",
       "outcome": "passed",
       "phase": "call"
     }
   ],
   "non_execution_flags": [],
   "prev_provenance_hash": null,
-  "provenance_hash": "eb97600f510ff47a207342a459b255cd5d25cd585250fdaf76903fda806fa51f",
+  "provenance_hash": "4dceeffe036f1e542a67a57af7130c875646bd55e859118e62f2cbe2518c863a",
   "pytest_args": [
-    "tests/test_maintenance_local_codex_capability_probe.py",
-    "tests/test_maintenance_local_codex_worktree.py",
-    "tests/test_maintenance_local_codex_jsonl.py",
-    "tests/test_maintenance_local_codex_foreman.py",
-    "tests/test_maintenance_local_codex_recovery.py",
-    "tests/test_maintenance_local_codex_foreman_cli.py",
-    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked",
+    "tests/test_real_executor_runtime_gate.py",
+    "tests/test_build_real_executor_runtime_gate_script.py",
     "-q"
   ],
   "pytest_exit_code": 0,
@@ -228,60 +931,173 @@
   "reporter_loaded": true,
   "reporter_ok": true,
   "reporter_status": "complete",
-  "run_id": "39fd4fbfb0944dbda20fbb41ef64335d",
+  "run_id": "85ed7f3f3b71499dbc9ca75614f51fdd",
   "run_intent": "targeted",
   "schema_version": 1,
   "selected_node_ids": [
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_binds_version_help_and_executable_identity",
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_missing_required_exec_capability",
-    "tests/test_maintenance_local_codex_capability_probe.py::test_probe_rejects_dangerous_or_obsolete_flags",
-    "tests/test_maintenance_local_codex_worktree.py::test_prepare_creates_detached_clean_worktree_at_exact_base",
-    "tests/test_maintenance_local_codex_worktree.py::test_prepare_exact_retry_reuses_same_clean_worktree",
-    "tests/test_maintenance_local_codex_worktree.py::test_dirty_mismatched_or_symlinked_worktree_is_rejected",
-    "tests/test_maintenance_local_codex_worktree.py::test_foreman_does_not_create_branch_or_commit",
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_captures_one_thread_and_completed_turn",
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_rejects_malformed_or_conflicting_thread_stream",
-    "tests/test_maintenance_local_codex_jsonl.py::test_jsonl_parser_bounds_line_and_total_transcript_bytes",
-    "tests/test_maintenance_local_codex_jsonl.py::test_unknown_events_are_preserved_without_becoming_success",
-    "tests/test_maintenance_local_codex_foreman.py::test_local_codex_driver_requires_all_effect_authorities",
-    "tests/test_maintenance_local_codex_foreman.py::test_successful_run_changes_only_admitted_paths",
-    "tests/test_maintenance_local_codex_foreman.py::test_agent_text_success_without_worktree_change_is_rejected",
-    "tests/test_maintenance_local_codex_foreman.py::test_out_of_scope_change_fails_closed_and_is_preserved",
-    "tests/test_maintenance_local_codex_foreman.py::test_file_and_line_budget_violations_fail_closed",
-    "tests/test_maintenance_local_codex_foreman.py::test_success_records_implementation_completed_with_validation_pending",
-    "tests/test_maintenance_local_codex_foreman.py::test_authentication_failure_is_classified_without_login",
-    "tests/test_maintenance_local_codex_foreman.py::test_timeout_terminates_fake_codex_child_and_grandchild",
-    "tests/test_maintenance_local_codex_foreman.py::test_cancel_terminates_fake_codex_child_and_grandchild",
-    "tests/test_maintenance_local_codex_recovery.py::test_interrupted_run_resumes_same_thread_and_attempt",
-    "tests/test_maintenance_local_codex_recovery.py::test_recovery_without_thread_id_fails_closed",
-    "tests/test_maintenance_local_codex_recovery.py::test_recovery_rejects_changed_worktree_or_expired_lease",
-    "tests/test_maintenance_local_codex_recovery.py::test_terminal_result_retry_is_idempotent",
-    "tests/test_maintenance_local_codex_recovery.py::test_process_concurrent_run_starts_one_foreman",
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_probe_prepare_run_inspect_round_trip",
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_resume_cancel_and_failure_classifications",
-    "tests/test_maintenance_local_codex_foreman_cli.py::test_cli_invalid_authority_or_configuration_returns_nonzero",
-    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked"
+    "tests/test_real_executor_runtime_gate.py::test_ready_runtime_gate_packet_is_metadata_only_and_default_deny",
+    "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_enablement_packet_blocks",
+    "tests/test_real_executor_runtime_gate.py::test_missing_or_invalid_runtime_gate_candidate_blocks",
+    "tests/test_real_executor_runtime_gate.py::test_runtime_enablement_packet_not_ready_blocks_by_default",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_digest_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_enablement_packet-claimed_runtime_enablement_packet_digest-digest-claimed_runtime_enablement_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[live_commit_execution_packet-claimed_live_commit_execution_packet_digest-live_commit_execution_packet_digest-claimed_live_commit_execution_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[future_execution_gate-claimed_future_execution_gate_digest-future_execution_gate_digest-claimed_future_execution_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[constrained_enablement_path-claimed_constrained_enablement_path_packet_digest-constrained_enablement_path_packet_digest-claimed_constrained_enablement_path_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_enablement_gate-claimed_executor_enablement_gate_digest-executor_enablement_gate_digest-claimed_executor_enablement_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_skeleton-claimed_executor_skeleton_digest-executor_skeleton_digest-claimed_executor_skeleton_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[invocation_harness-claimed_invocation_harness_digest-invocation_harness_digest-claimed_invocation_harness_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[activation_record-claimed_activation_record_digest-activation_record_digest-claimed_activation_record_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[preflight_packet-claimed_preflight_packet_digest-preflight_packet_digest-claimed_preflight_packet_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[lock_lease_gate-claimed_lock_lease_gate_digest-lock_lease_gate_digest-claimed_lock_lease_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[executor_plan_packet-claimed_executor_plan_packet_digest-executor_plan_packet_digest-claimed_executor_plan_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[runtime_execution_gate-claimed_runtime_execution_gate_digest-runtime_execution_gate_digest-claimed_runtime_execution_gate_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[readiness_envelope-claimed_readiness_envelope_digest-readiness_envelope_digest-claimed_readiness_envelope_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[final_review-claimed_final_review_digest-final_review_digest-claimed_final_review_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[real_root_admission-claimed_real_root_admission_digest-real_root_admission_digest-claimed_real_root_admission_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_upstream_decision_mismatches_block[sandbox_commit-claimed_sandbox_commit_digest-sandbox_commit_digest-claimed_sandbox_commit_decision]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_to_enabled_transition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_precondition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_flag_target_state_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_runtime_acknowledgement_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[emergency_stop_confirmation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[audit_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_hold_point_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_enable_abort_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_plan_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_verification_plan_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_plan_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[packet_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_bundle_digest_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_precondition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_execution_acknowledgement_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_execution_packet_scope_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_real_executor_requirement_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_execution_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_path_confirmation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_abort_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_rollback_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_verification_expectation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_audit_expectation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_path_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[staged_enablement_requirements_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[constrained_enable_path_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_precondition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_abort_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_rollback_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_audit_expectation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[future_live_execution_gate_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_posture_confirmation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_enablement_acknowledgement_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[enablement_scope_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[executor_api_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[disabled_execution_posture_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[receipt_envelope_schema_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_envelope_schema_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[abort_envelope_schema_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[verification_envelope_schema_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_scope_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_handoff_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[invocation_disablement_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[activation_scope_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_handoff_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[final_preflight_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operation_inventory_digest_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[safety_checklist_digest_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[lock_lease_readiness_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[operator_identity_role_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[execution_window_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[idempotency_key_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[atomicity_boundary_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[dry_run_to_live_equivalence_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[rollback_rehearsal_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[post_execution_audit_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[guarded_executor_path_prerequisite_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_hold_point_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_abort_condition_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_verification_expectation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_missing_required_non_noop_metadata_blocks[runtime_guard_audit_expectation_metadata]",
+    "tests/test_real_executor_runtime_gate.py::test_noop_behavior_is_deterministic_and_non_mutating",
+    "tests/test_real_executor_runtime_gate.py::test_mixed_diagnostics_warn_only_when_policy_allows",
+    "tests/test_real_executor_runtime_gate.py::test_scope_mismatch_blocks_for_non_mixed_candidate",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_enablement_claimed-runtime_enablement_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flags_flipped-runtime_flag_flipping_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[runtime_flag_target_state_active-runtime_flag_active_state_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[guarded_executor_path_invoked-guarded_executor_invocation_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_enabled-executor_enablement_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_invoked-executor_invocation_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[executor_activated-executor_activation_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_commit_executed-live_execution_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[permission_to_execute_now-executor_permission_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[operation_bundle_executed-operation_bundle_execution_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[receipt_envelope_is_live_receipt-live_receipt_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[rollback_readiness_applied-applied_rollback_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_write_claimed-live_write_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_delete_claimed-live_delete_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_memory_purge_claimed-live_purge_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_index_mutation_claimed-index_mutation_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[capsule_persistence_claimed-capsule_persistence_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[tomb_completion_claimed-tomb_completion_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[protection_application_claimed-protection_application_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[merge_application_claimed-merge_application_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[prompt_assembly_claimed-prompt_materialization]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[live_context_retrieval_claimed-live_context_retrieval]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[action_execution_claimed-action_execution]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_disclosure_claimed-external_disclosure]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[external_service_called-external_service_call]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[lockfile_creation_claimed-lockfile_creation_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_lock_acquisition_claimed-real_lock_acquisition_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[real_memory_root_access_claimed-real_memory_root_access_claim]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[authority_granted-authority_smuggling]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[consent_granted-consent_smuggling]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[policy_created-policy_smuggling]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[truth_asserted-truth_smuggling]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[raw_payload_included-raw_payload_leakage]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[private_payload_included-raw_payload_leakage]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[media_payload_included-raw_payload_leakage]",
+    "tests/test_real_executor_runtime_gate.py::test_forbidden_claims_block[secret_payload_included-raw_payload_leakage]",
+    "tests/test_build_real_executor_runtime_gate_script.py::test_build_default_and_validate_policy",
+    "tests/test_build_real_executor_runtime_gate_script.py::test_evaluate_emits_deterministic_json_and_writes_nothing",
+    "tests/test_build_real_executor_runtime_gate_script.py::test_summarize_and_inspect_fixture",
+    "tests/test_build_real_executor_runtime_gate_script.py::test_validate_packet_blocks_nonzero_for_invalid_input"
   ],
   "selection_flags": [
-    "tests/test_maintenance_local_codex_capability_probe.py",
-    "tests/test_maintenance_local_codex_worktree.py",
-    "tests/test_maintenance_local_codex_jsonl.py",
-    "tests/test_maintenance_local_codex_foreman.py",
-    "tests/test_maintenance_local_codex_recovery.py",
-    "tests/test_maintenance_local_codex_foreman_cli.py",
-    "tests/test_codex_operating_doctrine_docs.py::test_active_roadmap_is_current_and_archive_is_linked"
+    "tests/test_real_executor_runtime_gate.py",
+    "tests/test_build_real_executor_runtime_gate_script.py"
   ],
   "session_finish_reached": true,
   "skip_rate": 0.0,
-  "tests_collected": 29,
-  "tests_executed": 29,
+  "tests_collected": 147,
+  "tests_executed": 147,
   "tests_failed": 0,
-  "tests_passed": 29,
-  "tests_selected": 29,
+  "tests_passed": 147,
+  "tests_selected": 147,
   "tests_skipped": 0,
   "tests_xfailed": 0,
   "tests_xpassed": 0,
-  "timestamp": "2026-08-05T05:56:34.552997+00:00",
+  "timestamp": "2026-08-17T18:57:04.307481+00:00",
   "validation_complete": true,
   "validation_status": "validation_complete",
   "xfail_rate": 0.0
