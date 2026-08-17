@@ -3,7 +3,7 @@
 ## Built-ins and the external-code boundary
 
 The actuator runtime provides the canonical built-in types `shell`, `http`, `file`,
-`email`, `webhook`, `workflow`, and `talkback`. Initialization registers only these
+`email`, `webhook`, and `talkback`. Initialization registers only these
 built-ins and is idempotent. The temporary `load_external_plugins` keyword remains
 for compatibility, but requesting it fails deterministically with `external actuator
 plugins are disabled` before registering or inspecting anything.
@@ -20,6 +20,30 @@ bridged into actuators. This boundary does not claim that all repository plugin
 systems are isolated. Any future external actuator extensibility requires a separately
 designed and authorized identity, authority, and isolation contract; directory
 presence and filename extensions alone confer no authority.
+
+## Executable workflow retirement
+
+The generic executable workflow actuator is retired. A `workflow` intent is an
+unsupported actuator type and fails before privilege approval, controller import,
+workflow-file access, callable resolution, or any effect. Workflow names therefore
+confer no Python authority. Python workflow-file execution, dynamic action imports,
+callable registration, executable `undo` and `on_fail` handlers, the `run:reflex`
+bridge, and the workflow execution CLI are all retired. `workflow_controller.py`
+remains only as an inert import-compatibility boundary whose legacy entry points
+raise a deterministic retirement error without inspecting their arguments.
+
+Declarative orchestration may return only as composition over existing explicit
+effect contracts:
+
+`declaration -> typed operation identity -> structurally validated bounded parameters
+-> existing explicit effect boundary -> effect-specific custody -> durable result and
+ledger evidence`.
+
+Such an orchestrator may coordinate bounded file, admitted outbound, explicitly
+modeled process, or internal reasoning operations, but it must never translate an
+arbitrary string into a Python callable or manufacture authority by importing code.
+The independent reflex subsystem is unchanged. `talkback` remains a separate actuator
+authority seam for a future audit.
 
 The canonical shell-actuator intent is structured data:
 

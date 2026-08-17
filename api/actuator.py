@@ -133,20 +133,6 @@ class WebhookActuator(BaseActuator):
         return trigger_webhook(intent.get("url", ""), intent.get("payload", {}))
 
 
-class WorkflowActuator(BaseActuator):
-    """Execute a registered workflow via ``workflow_controller``."""
-
-    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
-        _authorize_effect()
-        name = intent.get("name")
-        if not name:
-            raise ValueError("workflow name required")
-        import workflow_controller as wc
-
-        ok = wc.run_workflow(name)
-        return {"ok": ok}
-
-
 class TalkbackActuator(BaseActuator):
     """Send synthesized speech through a configured camera audio channel."""
 
@@ -170,7 +156,6 @@ BUILTIN_ACTUATOR_TYPES: Mapping[str, type[BaseActuator]] = {
     "file": FileActuator,
     "email": EmailActuator,
     "webhook": WebhookActuator,
-    "workflow": WorkflowActuator,
     "talkback": TalkbackActuator,
 }
 

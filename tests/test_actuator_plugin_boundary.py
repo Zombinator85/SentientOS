@@ -13,7 +13,7 @@ from scripts.verify_actuator_plugin_boundary import verify
 pytestmark = pytest.mark.no_legacy_skip
 
 
-BUILTINS = {"shell", "http", "file", "email", "webhook", "workflow", "talkback"}
+BUILTINS = {"shell", "http", "file", "email", "webhook", "talkback"}
 
 
 def test_all_builtins_registered_and_initialization_is_idempotent() -> None:
@@ -86,7 +86,7 @@ def test_plugin_reload_surface_is_absent_and_cannot_delete_builtins() -> None:
     actuator.initialize_actuators()
     assert not hasattr(actuator, "reload_plugins")
     assert not hasattr(actuator, "load_plugins")
-    assert "workflow" in actuator.ACTUATORS
+    assert "workflow" not in actuator.ACTUATORS
     assert "talkback" in actuator.ACTUATORS
 
 

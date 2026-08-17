@@ -42,14 +42,14 @@ def _apply_params_recursive(obj: Any, params: Dict[str, str]) -> Any:
 
 def list_templates() -> List[str]:
     names: List[str] = []
-    for ext in ("*.yml", "*.yaml", "*.json", "*.py"):
+    for ext in ("*.yml", "*.yaml", "*.json"):
         for fp in LIB_DIR.glob(ext):
             names.append(fp.stem)
     return sorted(names)
 
 
 def get_template_path(name: str) -> Optional[Path]:
-    for ext in (".yml", ".yaml", ".json", ".py"):
+    for ext in (".yml", ".yaml", ".json"):
         fp = LIB_DIR / f"{name}{ext}"
         if fp.exists():
             return fp
@@ -112,40 +112,12 @@ def save_template(src: str, name: Optional[str] = None) -> Path:
 
 
 def load_template(name: str, params: Optional[Dict[str, str]] = None) -> None:
+    """Reject the retired template-to-execution bridge."""
+
     fp = get_template_path(name)
     if not fp:
         raise FileNotFoundError(name)
-    text = fp.read_text(encoding="utf-8")
-    tmp = fp.suffix
-    if tmp in {".yml", ".yaml"}:
-        data = yaml.safe_load(text) if yaml else wc._load_yaml(text)
-    elif tmp == ".json":
-        data = json.loads(text)
-    elif tmp == ".py":
-        spec: Dict[str, Any] = {}
-        exec(compile(text, str(fp), "exec"), spec)
-        data = spec.get("WORKFLOW", spec)
-    else:
-        raise ValueError("Unsupported workflow file")
-    if params:
-        data = _apply_params_recursive(data, params)
-    steps = []
-    for st in data.get("steps", []):
-        step = dict(st)
-        act = step.get("action")
-        if isinstance(act, str):
-            step["action"] = wc._wrap_action(act, step.get("params"))
-        undo = step.get("undo")
-        if isinstance(undo, str):
-            step["undo"] = wc._wrap_action(undo, step.get("undo_params"))
-        of = step.get("on_fail")
-        if isinstance(of, str):
-            step["on_fail"] = [wc._wrap_action(of)]
-        elif isinstance(of, list):
-            step["on_fail"] = [wc._wrap_action(o) if isinstance(o, str) else o for o in of]
-        steps.append(step)
-    wc.register_workflow(data.get("name", name), steps)
-    wc.WORKFLOW_FILES[data.get("name", name)] = fp
+    wc.load_workflow_file(str(fp))
 
 
 def main() -> None:  # pragma: no cover - CLI
