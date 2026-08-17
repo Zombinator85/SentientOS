@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 import os
+import fcntl
+import hashlib
 import json
 import re
 import stat
@@ -11,6 +13,7 @@ import subprocess
 import smtplib
 import socket
 import ssl
+import sys
 import http.client
 import threading
 import time
@@ -358,6 +361,14 @@ def _authorized_recipient(value: object) -> str:
 MAX_ARGV_COUNT = 128
 MAX_ARGUMENT_BYTES = 4096
 MAX_ARGV_BYTES = 32768
+MAX_EXECUTABLE_SNAPSHOT_BYTES = 128 * 1024 * 1024
+_ELF_MAGIC = b"\x7fELF"
+_EXECUTABLE_SEALS = (
+    fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
+    if os.name == "posix" and all(hasattr(fcntl, name) for name in (
+        "F_SEAL_WRITE", "F_SEAL_GROW", "F_SEAL_SHRINK", "F_SEAL_SEAL"
+    )) else 0
+)
 _LEGACY_SHELL_GRAMMAR = re.compile(r"(?:\r|\n|;|&&|\|\||\||[<>]|`|\$\(|[<>]\(|&)")
 
 
@@ -485,6 +496,144 @@ def _authorized_shell_argv(argv: Sequence[str]) -> tuple[str, ...]:
     return (executable, *admitted)
 
 
+@dataclass
+class _ExecutableSnapshot:
+    """One sealed, internally owned executable object for one invocation."""
+
+    fd: int
+    digest: str
+    size: int
+
+    @property
+    def execution_path(self) -> str:
+        return f"/proc/self/fd/{self.fd}"
+
+    def close(self) -> None:
+        os.close(self.fd)
+
+
+def _descriptor_is_executable(metadata: os.stat_result) -> bool:
+    """Apply POSIX execute permission rules to descriptor-bound metadata."""
+    if os.geteuid() == 0:
+        return bool(metadata.st_mode & 0o111)
+    if os.geteuid() == metadata.st_uid:
+        mask = stat.S_IXUSR
+    elif metadata.st_gid == os.getegid() or metadata.st_gid in os.getgroups():
+        mask = stat.S_IXGRP
+    else:
+        mask = stat.S_IXOTH
+    return bool(metadata.st_mode & mask)
+
+
+def _open_canonical_executable(canonical_path: str) -> int:
+    """Open a canonical absolute target by a no-follow descriptor walk."""
+    components = Path(canonical_path).parts[1:]
+    if not components:
+        raise PermissionError("shell executable custody rejected a non-file target")
+    directory_fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        for component in components[:-1]:
+            next_fd = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = next_fd
+        return os.open(
+            components[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=directory_fd,
+        )
+    except OSError as exc:
+        raise PermissionError("shell executable custody could not bind canonical target") from exc
+    finally:
+        os.close(directory_fd)
+
+
+def _source_stability(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def _snapshot_executable(canonical_path: str) -> _ExecutableSnapshot:
+    """Copy a stable native executable into a sealed Linux memfd."""
+    required = (
+        sys.platform.startswith("linux")
+        and hasattr(os, "memfd_create")
+        and hasattr(os, "MFD_ALLOW_SEALING")
+        and hasattr(fcntl, "F_ADD_SEALS")
+        and hasattr(fcntl, "F_GET_SEALS")
+        and _EXECUTABLE_SEALS
+        and os.path.isdir("/proc/self/fd")
+    )
+    if not required:
+        raise PermissionError("immutable executable snapshots are unsupported on this platform")
+
+    source_fd = _open_canonical_executable(canonical_path)
+    construction_fd = -1
+    try:
+        before = os.fstat(source_fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise PermissionError("shell executable custody requires a regular file")
+        if not _descriptor_is_executable(before):
+            raise PermissionError("shell executable custody requires executable permission")
+        if before.st_size > MAX_EXECUTABLE_SNAPSHOT_BYTES:
+            raise PermissionError("shell executable exceeds snapshot size budget")
+
+        construction_fd = os.memfd_create(
+            "sentientos-actuator-executable",
+            os.MFD_ALLOW_SEALING | getattr(os, "MFD_CLOEXEC", 0),
+        )
+        digest = hashlib.sha256()
+        copied = 0
+        prefix = b""
+        while True:
+            chunk = os.read(source_fd, min(1024 * 1024, MAX_EXECUTABLE_SNAPSHOT_BYTES + 1 - copied))
+            if not chunk:
+                break
+            copied += len(chunk)
+            if copied > MAX_EXECUTABLE_SNAPSHOT_BYTES:
+                raise PermissionError("shell executable exceeds snapshot size budget")
+            if len(prefix) < len(_ELF_MAGIC):
+                prefix += chunk[: len(_ELF_MAGIC) - len(prefix)]
+            digest.update(chunk)
+            view = memoryview(chunk)
+            while view:
+                written = os.write(construction_fd, view)
+                if written <= 0:
+                    raise PermissionError("shell executable snapshot write failed")
+                view = view[written:]
+        after = os.fstat(source_fd)
+        if _source_stability(before) != _source_stability(after) or copied != before.st_size:
+            raise PermissionError("shell executable changed while being snapshotted")
+        if prefix != _ELF_MAGIC:
+            raise PermissionError("shell executable format is unsupported; native ELF required")
+
+        os.fchmod(construction_fd, 0o500)
+        fcntl.fcntl(construction_fd, fcntl.F_ADD_SEALS, _EXECUTABLE_SEALS)
+        if fcntl.fcntl(construction_fd, fcntl.F_GET_SEALS) & _EXECUTABLE_SEALS != _EXECUTABLE_SEALS:
+            raise PermissionError("shell executable snapshot sealing failed")
+        snapshot_fd = os.open(
+            f"/proc/self/fd/{construction_fd}", os.O_RDONLY | os.O_CLOEXEC
+        )
+        os.close(construction_fd)
+        construction_fd = -1
+        return _ExecutableSnapshot(snapshot_fd, digest.hexdigest(), copied)
+    except PermissionError:
+        raise
+    except OSError as exc:
+        raise PermissionError("shell executable snapshot construction failed") from exc
+    finally:
+        os.close(source_fd)
+        if construction_fd >= 0:
+            os.close(construction_fd)
+
+
 def _timeout_seconds() -> float:
     timeout_value = WHITELIST.get("timeout", 30)
     if isinstance(timeout_value, (int, float)):
@@ -497,25 +646,31 @@ def _timeout_seconds() -> float:
 def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
     canonical_argv = _validate_argv(argv)
     authorized_argv = _authorized_shell_argv(canonical_argv)
-    SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
-    cwd_path = _safe_path(cwd if cwd != "." else "")
-    _authorize_effect()
+    snapshot = _snapshot_executable(authorized_argv[0])
     try:
-        res = subprocess.run(
-            authorized_argv,
-            shell=False,
-            env={},
-            stdin=subprocess.DEVNULL,
-            close_fds=True,
-            capture_output=True,
-            text=True,
-            cwd=str(cwd_path),
-            timeout=_timeout_seconds(),
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("execution timeout") from exc
-    except OSError as exc:
-        raise RuntimeError("execution failed") from exc
+        SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
+        cwd_path = _safe_path(cwd if cwd != "." else "")
+        _authorize_effect()
+        try:
+            res = subprocess.run(
+                authorized_argv,
+                executable=snapshot.execution_path,
+                pass_fds=(snapshot.fd,),
+                shell=False,
+                env={},
+                stdin=subprocess.DEVNULL,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+                cwd=str(cwd_path),
+                timeout=_timeout_seconds(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("execution timeout") from exc
+        except OSError as exc:
+            raise RuntimeError("execution failed") from exc
+    finally:
+        snapshot.close()
     return {
         "code": res.returncode,
         "stdout": res.stdout,

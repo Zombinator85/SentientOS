@@ -68,10 +68,32 @@ shell:
 ```
 
 Executable configuration rejects NUL, non-absolute and nonexistent paths, directories,
-and, on POSIX, regular files without executable permission. Symlinks are deliberately
-resolved and the canonical target path that passed policy is installed as `argv[0]`.
-The actuator never calls `which` and never consults ambient `PATH` to select the
-executable. Generic interpreters, network clients such as curl/wget/ping, package
+and, on POSIX, regular files without executable permission. Configured symlinks are
+resolved; their canonical target is the logical policy identity installed as `argv[0]`.
+After exact rule and argument admission, Linux opens that target with a descriptor-relative,
+component-by-component no-follow walk. The descriptor-bound source must be a regular,
+executable file no larger than 128 MiB.
+
+Before privilege approval, bounded descriptor I/O copies those bytes into an anonymous
+`memfd` and derives an internal SHA-256 evidence digest. The copy is rejected if source
+device, inode, size, modification time, status-change time, or copied length changed
+across pre-copy and post-copy `fstat()` observations. Only native ELF is accepted.
+Shebang scripts fail closed: a future interpreter workflow would need separately admitted
+and immutably bound interpreter code and input custody.
+
+The snapshot is sealed against writes, growth, shrinkage, and seal changes. Its writable
+construction descriptor is closed; only a reopened read-only descriptor crosses process
+creation. `subprocess.run` retains canonical policy identity as `argv[0]`, while its
+actuator-constructed `executable` is `/proc/self/fd/<snapshot-fd>` and its sole internal
+`pass_fds` entry is that descriptor. Callers cannot provide either field. Replacement,
+unlink, rename, permission changes, symlink retargeting, and in-place source modification
+after snapshot completion cannot substitute current-invocation code. No PATH search or
+post-approval policy-path reopen occurs.
+
+This requires Linux `memfd_create` sealing and `/proc/self/fd`; unsupported platforms
+fail closed rather than returning to pathname execution. The snapshot binds the main ELF
+image, not its dynamic ELF interpreter or shared libraries, which remain separate runtime
+dependencies. Generic interpreters, network clients such as curl/wget/ping, package
 managers, and service managers receive no implicit authority.
 
 Argument policy is complete and exact: supplied arity must equal configured arity.
@@ -83,11 +105,11 @@ For example, configuring Python does not authorize `-c` code or a `.py` path unl
 each exact argument is explicitly represented by the rule.
 
 The final order is: validate caller argv; parse and canonicalize the matching command
-rule and every argument; establish and validate the sandbox cwd; invoke
-`_authorize_effect()` immediately before the single `subprocess.run` boundary; then
-execute the authorized canonical argv with `shell=False`. Denied command policy,
-arguments, or paths construct no process. Legacy `cmd` differs only in its parsing
-step and passes through this identical sequence.
+rule and every argument; bind and seal its executable snapshot; establish and validate
+the sandbox cwd; invoke `_authorize_effect()` immediately before the single
+`subprocess.run` boundary; then execute the already-bound snapshot with `shell=False`.
+Denied command policy, executable objects, arguments, or paths construct no process.
+Legacy `cmd` differs only in parsing and passes through this identical sequence.
 
 ## Child process-state custody
 
@@ -97,8 +119,10 @@ fresh, deliberately empty environment. In particular, `PATH`, parent secrets and
 tokens, proxy variables, and dynamic-loader or language-interpreter injection values
 are absent by construction; the implementation does not copy and then filter the
 parent environment. Standard input is explicitly `DEVNULL`, while stdout and stderr
-remain captured. `close_fds=True` explicitly closes unrelated inherited descriptors
-rather than relying on interpreter or platform defaults.
+remain captured. `close_fds=True` closes unrelated inherited descriptors. The sole
+exception is the internally created, read-only sealed executable-snapshot descriptor
+required through process creation; it is neither caller input nor a generic
+descriptor-passing API.
 
 There is no command-environment policy and callers cannot supply environment or
 generic process-control options. Unknown shell-intent fields fail closed. A future
@@ -112,9 +136,10 @@ credentials and user identity are unchanged. Filesystem visibility and the netwo
 capability of an explicitly admitted executable are unchanged. Shell cwd remains a
 pathname admitted by `_safe_path()`, and structured `sandbox_path` arguments remain
 pathname identities handed to the child; descriptor custody for both is unresolved.
-Replacement or content change of the executable between validation and process
-creation also remains an executable-content/TOCTOU concern. None of those residual
-object-identity boundaries is closed by the empty child environment.
+A child may itself interpret or open data or code named by an authorized argument.
+Dynamic ELF interpreter and shared-library content is not pinned. OS identity,
+filesystem visibility, and network privileges remain unchanged. These residual
+boundaries are not executable-snapshot authority.
 
 ## Filesystem sandbox boundary
 

@@ -44,9 +44,27 @@ def verify(path: Path) -> None:
         value = keywords[name]
         if not isinstance(value, ast.Constant) or value.value is not expected:
             raise ValueError(f"{name} must be {expected!r}")
-    forbidden = {"pass_fds", "executable", "startupinfo", "creationflags"}
+    forbidden = {"startupinfo", "creationflags"}
     if forbidden & keywords.keys():
         raise ValueError("forbidden subprocess authority control present")
+    executable = keywords.get("executable")
+    if not (
+        isinstance(executable, ast.Attribute)
+        and isinstance(executable.value, ast.Name)
+        and executable.value.id == "snapshot"
+        and executable.attr == "execution_path"
+    ):
+        raise ValueError("executable must be the internally owned snapshot path")
+    pass_fds = keywords.get("pass_fds")
+    if not (
+        isinstance(pass_fds, ast.Tuple)
+        and len(pass_fds.elts) == 1
+        and isinstance(pass_fds.elts[0], ast.Attribute)
+        and isinstance(pass_fds.elts[0].value, ast.Name)
+        and pass_fds.elts[0].value.id == "snapshot"
+        and pass_fds.elts[0].attr == "fd"
+    ):
+        raise ValueError("pass_fds must contain only the internally owned snapshot descriptor")
 
 
 def main() -> int:
