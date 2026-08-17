@@ -84,8 +84,9 @@ and immutably bound interpreter code and input custody.
 The snapshot is sealed against writes, growth, shrinkage, and seal changes. Its writable
 construction descriptor is closed; only a reopened read-only descriptor crosses process
 creation. `subprocess.run` retains canonical policy identity as `argv[0]`, while its
-actuator-constructed `executable` is `/proc/self/fd/<snapshot-fd>` and its sole internal
-`pass_fds` entry is that descriptor. Callers cannot provide either field. Replacement,
+actuator-constructed `executable` is `/proc/self/fd/<snapshot-fd>`. The exact internal
+`pass_fds` tuple contains that descriptor and the held command-cwd descriptor described
+below. Callers cannot provide either field or descriptors. Replacement,
 unlink, rename, permission changes, symlink retargeting, and in-place source modification
 after snapshot completion cannot substitute current-invocation code. No PATH search or
 post-approval policy-path reopen occurs.
@@ -105,9 +106,10 @@ For example, configuring Python does not authorize `-c` code or a `.py` path unl
 each exact argument is explicitly represented by the rule.
 
 The final order is: validate caller argv; parse and canonicalize the matching command
-rule and every argument; bind and seal its executable snapshot; establish and validate
-the sandbox cwd; invoke `_authorize_effect()` immediately before the single
-`subprocess.run` boundary; then execute the already-bound snapshot with `shell=False`.
+rule and every argument; bind and seal its executable snapshot; lexically validate the
+cwd and bind its existing directory object; invoke `_authorize_effect()` immediately
+before the single `subprocess.run` boundary; then execute the already-bound snapshot
+with `shell=False`.
 Denied command policy, executable objects, arguments, or paths construct no process.
 Legacy `cmd` differs only in parsing and passes through this identical sequence.
 
@@ -119,9 +121,9 @@ fresh, deliberately empty environment. In particular, `PATH`, parent secrets and
 tokens, proxy variables, and dynamic-loader or language-interpreter injection values
 are absent by construction; the implementation does not copy and then filter the
 parent environment. Standard input is explicitly `DEVNULL`, while stdout and stderr
-remain captured. `close_fds=True` closes unrelated inherited descriptors. The sole
-exception is the internally created, read-only sealed executable-snapshot descriptor
-required through process creation; it is neither caller input nor a generic
+remain captured. `close_fds=True` closes unrelated inherited descriptors. The only
+exceptions are exactly two internally created custody descriptors: the read-only sealed
+executable snapshot and the opened cwd directory. Neither is caller input or a generic
 descriptor-passing API.
 
 There is no command-environment policy and callers cannot supply environment or
@@ -133,9 +135,9 @@ inheritance is not a compatibility fallback.
 
 This custody is process-state isolation, not an operating-system sandbox. OS
 credentials and user identity are unchanged. Filesystem visibility and the network
-capability of an explicitly admitted executable are unchanged. Shell cwd remains a
-pathname admitted by `_safe_path()`, and structured `sandbox_path` arguments remain
-pathname identities handed to the child; descriptor custody for both is unresolved.
+capability of an explicitly admitted executable are unchanged. Structured
+`sandbox_path` arguments remain pathname identities handed to the child and their
+descriptor custody is unresolved.
 A child may itself interpret or open data or code named by an authorized argument.
 Dynamic ELF interpreter and shared-library content is not pinned. OS identity,
 filesystem visibility, and network privileges remain unchanged. These residual
@@ -166,12 +168,30 @@ literal path data. The returned `{"written": ...}` pathname is reporting metadat
 not write authority, and may no longer name the descriptor-bound object if another
 party renames it concurrently.
 
-Platforms without POSIX `dir_fd`, `O_DIRECTORY`, and `O_NOFOLLOW` support fail closed;
-there is no pathname fallback. Windows therefore requires a future handle-native
-implementation. Shell cwd and structured `sandbox_path` arguments deliberately retain
-resolved-path admission through `_safe_path()` and their separate check-to-effect
-concern. Executable replacement between authorization and process creation, and
-outbound DNS/transport custody, also remain separate unresolved boundaries.
+Command cwd uses a separate existing-only descriptor walk. It is a lexical relative
+selection below the configured sandbox root: empty and `.` components normalize away,
+every `..` component and every absolute, non-string, or NUL-containing value is rejected,
+and `.` selects the root. The root and every selected directory must already exist;
+command admission creates nothing. Components are opened with `dir_fd`, `O_DIRECTORY`,
+and `O_NOFOLLOW`, so inward and outward symlinks are both rejected. Tilde, environment,
+and glob expansion do not occur.
+
+The final cwd descriptor is held before privilege approval. The child receives
+`cwd=/proc/self/fd/<held-directory-fd>` and that exact fd in the narrow internal
+descriptor tuple, so rename, symlink substitution, real-directory replacement, or even
+replacement of the configured root namespace entry after admission cannot redirect the
+current invocation. This proc path is actuator-owned object access, not caller path
+authority. No cwd pathname is reopened after approval, the parent never calls `chdir`,
+and any reported pathname is selection metadata rather than immutable namespace identity.
+
+Platforms without POSIX `dir_fd`, `O_DIRECTORY`, `O_NOFOLLOW`, and Linux
+`/proc/self/fd` support fail closed; there is no pathname fallback. Windows therefore
+requires a future handle-native implementation. File write and command cwd now have
+descriptor/object custody. Structured `sandbox_path` command arguments deliberately
+retain resolved-path admission through `_safe_path()` and its separate check-to-effect
+concern. An admitted child can independently open any path allowed by its OS identity;
+dynamic ELF interpreter and shared-library dependencies remain unpinned; OS identity,
+filesystem privileges, and network privileges are unchanged.
 
 ## Templates, async, dry-run, and records
 

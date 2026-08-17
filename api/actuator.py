@@ -512,6 +512,21 @@ class _ExecutableSnapshot:
         os.close(self.fd)
 
 
+@dataclass
+class _CommandCwdHandle:
+    """One internally held existing directory object for one invocation."""
+
+    fd: int
+    reporting_path: str
+
+    @property
+    def execution_path(self) -> str:
+        return f"/proc/self/fd/{self.fd}"
+
+    def close(self) -> None:
+        os.close(self.fd)
+
+
 def _descriptor_is_executable(metadata: os.stat_result) -> bool:
     """Apply POSIX execute permission rules to descriptor-bound metadata."""
     if os.geteuid() == 0:
@@ -643,32 +658,35 @@ def _timeout_seconds() -> float:
     except (TypeError, ValueError):
         return 30.0
 
-def run_shell(argv: Sequence[str], cwd: str = ".") -> dict[str, object]:
+def run_shell(argv: Sequence[str], cwd: object = ".") -> dict[str, object]:
     canonical_argv = _validate_argv(argv)
     authorized_argv = _authorized_shell_argv(canonical_argv)
     snapshot = _snapshot_executable(authorized_argv[0])
     try:
-        SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
-        cwd_path = _safe_path(cwd if cwd != "." else "")
-        _authorize_effect()
+        cwd_components = _command_cwd_components(cwd)
+        cwd_handle = _open_command_cwd(cwd_components)
         try:
-            res = subprocess.run(
-                authorized_argv,
-                executable=snapshot.execution_path,
-                pass_fds=(snapshot.fd,),
-                shell=False,
-                env={},
-                stdin=subprocess.DEVNULL,
-                close_fds=True,
-                capture_output=True,
-                text=True,
-                cwd=str(cwd_path),
-                timeout=_timeout_seconds(),
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError("execution timeout") from exc
-        except OSError as exc:
-            raise RuntimeError("execution failed") from exc
+            _authorize_effect()
+            try:
+                res = subprocess.run(
+                    authorized_argv,
+                    executable=snapshot.execution_path,
+                    pass_fds=(snapshot.fd, cwd_handle.fd),
+                    shell=False,
+                    env={},
+                    stdin=subprocess.DEVNULL,
+                    close_fds=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=cwd_handle.execution_path,
+                    timeout=_timeout_seconds(),
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError("execution timeout") from exc
+            except OSError as exc:
+                raise RuntimeError("execution failed") from exc
+        finally:
+            cwd_handle.close()
     finally:
         snapshot.close()
     return {
@@ -874,6 +892,21 @@ def _file_write_components(path: object) -> tuple[str, ...]:
     return components
 
 
+def _command_cwd_components(cwd: object) -> tuple[str, ...]:
+    """Return lexical cwd selection components without filesystem resolution."""
+    if not isinstance(cwd, str):
+        raise ValueError("command cwd must be a string")
+    if "\x00" in cwd:
+        raise ValueError("command cwd must not contain NUL")
+    supplied = Path(cwd)
+    if supplied.is_absolute():
+        raise PermissionError("Absolute command cwd paths are forbidden")
+    components = tuple(component for component in supplied.parts if component not in ("", "."))
+    if ".." in components:
+        raise PermissionError("Path escapes sandbox: command cwd parent traversal is forbidden")
+    return components
+
+
 def _descriptor_file_write_supported() -> bool:
     """Report whether the runtime can enforce the POSIX descriptor custody contract."""
     return (
@@ -907,8 +940,8 @@ def _open_directory_component(parent_fd: int, component: str, *, create: bool) -
         raise PermissionError(f"sandbox directory component rejected: {component}") from exc
 
 
-def _open_sandbox_root() -> int:
-    """Create and bind the configured sandbox root one no-follow component at a time."""
+def _open_sandbox_root(*, create: bool = True) -> int:
+    """Bind the configured sandbox root one no-follow component at a time."""
     configured = os.fspath(SANDBOX_DIR)
     root_path = Path(configured)
     components = tuple(part for part in root_path.parts if part not in (root_path.anchor, "", "."))
@@ -921,13 +954,36 @@ def _open_sandbox_root() -> int:
     )
     try:
         for component in components:
-            next_fd = _open_directory_component(current_fd, component, create=True)
+            next_fd = _open_directory_component(current_fd, component, create=create)
             os.close(current_fd)
             current_fd = next_fd
         return current_fd
     except BaseException:
         os.close(current_fd)
         raise
+
+
+def _open_command_cwd(components: tuple[str, ...]) -> _CommandCwdHandle:
+    """Bind an existing no-follow cwd beneath an existing sandbox root."""
+    if not _descriptor_file_write_supported() or not os.path.isdir("/proc/self/fd"):
+        raise PermissionError("descriptor-bound command cwd is unsupported on this platform")
+    directory_fd = -1
+    try:
+        directory_fd = _open_sandbox_root(create=False)
+        for component in components:
+            next_fd = _open_directory_component(directory_fd, component, create=False)
+            os.close(directory_fd)
+            directory_fd = next_fd
+    except PermissionError as exc:
+        if directory_fd >= 0:
+            os.close(directory_fd)
+        raise PermissionError("command cwd escapes sandbox or traverses a symlink") from exc
+    except OSError as exc:
+        if directory_fd >= 0:
+            os.close(directory_fd)
+        raise PermissionError("command cwd must be an existing no-follow directory") from exc
+    reporting_path = "." if not components else "/".join(components)
+    return _CommandCwdHandle(directory_fd, reporting_path)
 
 
 def file_write(path: str, content: str) -> dict[str, object]:

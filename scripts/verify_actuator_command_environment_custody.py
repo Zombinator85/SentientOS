@@ -58,13 +58,17 @@ def verify(path: Path) -> None:
     pass_fds = keywords.get("pass_fds")
     if not (
         isinstance(pass_fds, ast.Tuple)
-        and len(pass_fds.elts) == 1
+        and len(pass_fds.elts) == 2
         and isinstance(pass_fds.elts[0], ast.Attribute)
         and isinstance(pass_fds.elts[0].value, ast.Name)
         and pass_fds.elts[0].value.id == "snapshot"
         and pass_fds.elts[0].attr == "fd"
+        and isinstance(pass_fds.elts[1], ast.Attribute)
+        and isinstance(pass_fds.elts[1].value, ast.Name)
+        and pass_fds.elts[1].value.id == "cwd_handle"
+        and pass_fds.elts[1].attr == "fd"
     ):
-        raise ValueError("pass_fds must contain only the internally owned snapshot descriptor")
+        raise ValueError("pass_fds must contain only the internally owned executable and cwd descriptors")
 
 
 def main() -> int:
