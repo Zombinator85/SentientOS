@@ -64,7 +64,6 @@ shell:
     arguments:
       - {type: literal, value: "inspect"}
       - {type: one_of, values: ["brief", "full"]}
-      - {type: sandbox_path}
 ```
 
 Executable configuration rejects NUL, non-absolute and nonexistent paths, directories,
@@ -99,9 +98,10 @@ managers, and service managers receive no implicit authority.
 
 Argument policy is complete and exact: supplied arity must equal configured arity.
 `literal` admits one exact string; `one_of` admits one member of an explicit finite
-list; and `sandbox_path` admits a nonempty caller-relative path through the same
-resolved sandbox-ancestry boundary described below, passing its canonical path to the
-program. There is no arbitrary-string, regex, glob, script, or interpreter shortcut.
+list. These are the only supported slot types. Unknown types are malformed policy.
+Path-looking `literal` and `one_of` values remain exact strings: they are not resolved,
+opened, translated, or rejected merely because they contain separators. There is no
+arbitrary-string, regex, glob, script, interpreter, or generic path shortcut.
 For example, configuring Python does not authorize `-c` code or a `.py` path unless
 each exact argument is explicitly represented by the rule.
 
@@ -135,10 +135,8 @@ inheritance is not a compatibility fallback.
 
 This custody is process-state isolation, not an operating-system sandbox. OS
 credentials and user identity are unchanged. Filesystem visibility and the network
-capability of an explicitly admitted executable are unchanged. Structured
-`sandbox_path` arguments remain pathname identities handed to the child and their
-descriptor custody is unresolved.
-A child may itself interpret or open data or code named by an authorized argument.
+capability of an explicitly admitted executable are unchanged. A child may itself
+interpret or open data or code named by an authorized argument.
 Dynamic ELF interpreter and shared-library content is not pinned. OS identity,
 filesystem visibility, and network privileges remain unchanged. These residual
 boundaries are not executable-snapshot authority.
@@ -186,10 +184,28 @@ and any reported pathname is selection metadata rather than immutable namespace 
 
 Platforms without POSIX `dir_fd`, `O_DIRECTORY`, `O_NOFOLLOW`, and Linux
 `/proc/self/fd` support fail closed; there is no pathname fallback. Windows therefore
-requires a future handle-native implementation. File write and command cwd now have
-descriptor/object custody. Structured `sandbox_path` command arguments deliberately
-retain resolved-path admission through `_safe_path()` and its separate check-to-effect
-concern. An admitted child can independently open any path allowed by its OS identity;
+requires a future handle-native implementation. File write and command cwd have
+descriptor/object custody. The former `sandbox_path`
+slot canonicalized a caller-relative path beneath the sandbox and handed the resulting
+pathname string to an arbitrary external executable. That contract is retired. It did
+not specify whether the argument meant an existing regular file, an existing directory,
+an object to read, an object to mutate, a destination to create, a tree root, or merely
+path-shaped literal data. One generic path type cannot bind all of those semantics safely.
+
+A future command needing filesystem arguments must declare object-specific authority.
+Illustrative possibilities include an existing read-only file object, an existing
+directory object, a create-only destination beneath a held directory, a
+replace-existing-file object, or a fixed literal pathname whose identity is intentionally
+part of the executable's trusted contract. These are directions, not slot types
+standardized or implemented here.
+
+The custody distinction is operational: the actuator consumes `cwd`, so it can retain
+the selected directory descriptor; the actuator performs `file_write`, so it can retain
+the mutation object's descriptor. An arbitrary child consumes a generic command
+argument, and replacing a pathname with an fd-backed proc path cannot be assumed to
+preserve that child's semantics. Retirement therefore reduces authority instead of
+adding a third descriptor. An admitted child can independently open any path allowed
+by its OS identity;
 dynamic ELF interpreter and shared-library dependencies remain unpinned; OS identity,
 filesystem privileges, and network privileges are unchanged.
 
@@ -209,8 +225,10 @@ Templates express and expand intent only. Declaration and placeholder substituti
 not authorize a command or argument: expanded argv traverses the same structured rule
 validator as a direct shell intent. Thus the shipped `systemctl restart {service}` and
 `ls {path}` examples remain inactive with the empty policy; a future service rule must
-use finite `one_of` values, and a path placeholder must use `sandbox_path` rather than
-granting arbitrary host-path access.
+use finite `one_of` values. There is currently no generic structured rule capable of
+authorizing arbitrary `{path}` values. The `list_files` template remains only an
+intent-expansion example; an active file-list operation requires an object-specific
+filesystem authority contract.
 
 This repair closes the prior shell-string authorization/execution mismatch: the argv
 that is authorized is the argv that is executed.
@@ -280,4 +298,5 @@ webhook, or SMTP effect and records the unexecuted intent; normal logs preserve 
 data and never add SMTP credentials.
 
 This repair only narrows destinations reachable through existing outbound effects; it
-grants no new networking authority. Plugin-framework isolation, shell `cwd`/`sandbox_path` descriptor custody, inherited shell environment, executable-content replacement, and repository-wide mypy/tool compatibility remain separate follow-ups.
+grants no new networking authority. Plugin-framework isolation and repository-wide
+mypy/tool compatibility remain separate follow-ups.

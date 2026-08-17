@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d9cfc5c2dd8700742d505a33b66e2e6c1421c8ab",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_shell_command_custody.py::test_exact_executable_alias_and_complete_arguments_are_executed", "rationale": "Literal exact command executes process-real."},
+    {"node_id": "tests/test_actuator_shell_command_custody.py::test_one_of_is_complete_and_exact", "rationale": "one_of exact command executes process-real."},
+    {"node_id": "tests/test_actuator_sandbox_path_retirement.py::test_retired_sandbox_path_rule_has_zero_execution_effect", "rationale": "Retired rule fails before snapshot, cwd, approval, or process."},
+    {"node_id": "tests/test_actuator_sandbox_path_retirement.py::test_path_slot_alias_spellings_fail_closed", "rationale": "Equivalent generic path spellings fail closed."},
+    {"node_id": "tests/test_actuator_sandbox_path_retirement.py::test_retirement_static_verifier", "rationale": "Static verifier proves finite slots, helper removal, and the exact two-fd tuple."},
+    {"node_id": "tests/test_actuator_sandbox_path_retirement.py::test_shipped_policy_remains_empty_and_has_no_migration_slot", "rationale": "Shipped policy grants no command or migration authority."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_authorization_time_directory_replacement_cannot_redirect_cwd", "rationale": "cwd object custody remains process-real."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_authorization_time_native_path_replacement_executes_original_snapshot", "rationale": "Executable snapshot custody remains process-real."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_exact_command_gets_empty_environment_and_reports_output", "rationale": "Child environment remains empty process-real."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_shell_command_custody.py::test_exact_executable_alias_and_complete_arguments_are_executed",
+    "tests/test_actuator_shell_command_custody.py::test_one_of_is_complete_and_exact"
+  ]
+}

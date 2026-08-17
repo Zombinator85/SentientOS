@@ -49,16 +49,13 @@ def test_exact_configured_executable_may_be_the_lookup_key(tmp_path, monkeypatch
     assert result["stdout"].strip() == "exact-path"
 
 
-def test_one_of_and_sandbox_path_are_complete_and_canonical(tmp_path, monkeypatch):
+def test_one_of_is_complete_and_exact(tmp_path, monkeypatch):
     _ready(tmp_path, monkeypatch, [_python_rule(
         _literal("-c"), _literal("import sys; print(sys.argv[1:])"),
-        {"type": "one_of", "values": ["brief", "full"]}, {"type": "sandbox_path"},
+        {"type": "one_of", "values": ["brief", "full"]},
     )])
-    target = actuator.SANDBOX_DIR / "child"
-    target.mkdir()
-    result = actuator.run_shell(["trusted", "-c", "import sys; print(sys.argv[1:])", "brief", "child"])
+    result = actuator.run_shell(["trusted", "-c", "import sys; print(sys.argv[1:])", "brief"])
     assert "brief" in result["stdout"]
-    assert str(target.resolve()) in result["stdout"]
 
 
 def test_legacy_cmd_is_parsing_only_and_uses_the_same_rule(tmp_path, monkeypatch):
@@ -102,15 +99,13 @@ def test_denied_argument_variants_construct_zero_processes(tmp_path, monkeypatch
     assert calls == []
 
 
-def test_one_of_and_sandbox_path_denials_have_zero_effect(tmp_path, monkeypatch):
-    for value in ("other", "../outside", "/tmp/outside"):
-        slot = {"type": "one_of", "values": ["brief", "full"]} if value == "other" else {"type": "sandbox_path"}
-        _ready(tmp_path, monkeypatch, [_python_rule(slot)])
-        calls: list[object] = []
-        monkeypatch.setattr(actuator.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
-        with pytest.raises(PermissionError):
-            actuator.run_shell(["trusted", value])
-        assert calls == []
+def test_one_of_denial_has_zero_effect(tmp_path, monkeypatch):
+    _ready(tmp_path, monkeypatch, [_python_rule({"type": "one_of", "values": ["brief", "full"]})])
+    calls: list[object] = []
+    monkeypatch.setattr(actuator.subprocess, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
+    with pytest.raises(PermissionError):
+        actuator.run_shell(["trusted", "other"])
+    assert calls == []
 
 
 def test_legacy_bare_name_policy_is_malformed_and_zero_effect(tmp_path, monkeypatch):
