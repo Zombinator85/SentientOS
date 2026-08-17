@@ -55,8 +55,8 @@ def verify(path: Path) -> None:
     if executable is None or ast.unparse(executable) != "snapshot.execution_path":
         raise ValueError("process executable is not snapshot-derived")
     pass_fds = keywords.get("pass_fds")
-    if pass_fds is None or ast.unparse(pass_fds) != "(snapshot.fd,)":
-        raise ValueError("only the snapshot descriptor may cross process creation")
+    if pass_fds is None or ast.unparse(pass_fds) != "(snapshot.fd, cwd_handle.fd)":
+        raise ValueError("only executable and cwd custody descriptors may cross process creation")
     if any(name in _call_names(run_shell) for name in ("fork", "execve")):
         raise ValueError("raw fork/exec bridge forbidden")
     if "preexec_fn" in keywords:

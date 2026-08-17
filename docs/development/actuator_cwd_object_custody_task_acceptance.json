@@ -1,0 +1,29 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "3945a342ed63e9132054d326cb062916cbd60060",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_dot_cwd_process_real_success", "rationale": "Process-real root cwd success enters the held sandbox root."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_nested_existing_cwd_process_real_success", "rationale": "Process-real nested cwd success enters an existing descriptor-walked directory."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_authorization_time_symlink_replacement_cannot_redirect_cwd", "rationale": "A deterministic approval-time symlink replacement cannot redirect cwd-relative I/O."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_authorization_time_directory_replacement_cannot_redirect_cwd", "rationale": "A deterministic approval-time real-directory replacement cannot redirect cwd-relative I/O."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_authorization_time_sandbox_root_replacement_cannot_redirect_cwd", "rationale": "Replacing the configured root namespace entry cannot redirect the held child cwd."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_cwd_symlinks_are_denied_before_authorization_and_process[inward]", "rationale": "Inward cwd symlinks fail before approval and process construction."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_cwd_symlinks_are_denied_before_authorization_and_process[outward]", "rationale": "Outward cwd symlinks fail before approval and process construction."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_invalid_cwd_has_zero_authorization_and_process[missing]", "rationale": "Missing cwd is not created and has zero protected effect."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_invalid_cwd_has_zero_authorization_and_process[plain]", "rationale": "A regular file cannot serve as cwd."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_invalid_cwd_has_zero_authorization_and_process[/tmp]", "rationale": "Absolute cwd is denied."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_invalid_cwd_has_zero_authorization_and_process[..]", "rationale": "Parent traversal cwd is denied."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_missing_sandbox_root_is_not_created", "rationale": "Command admission does not create a missing configured root."},
+    {"node_id": "tests/test_actuator_cwd_object_custody.py::test_static_cwd_object_custody_verifier", "rationale": "Static verification binds lexical validation, descriptor walking, ordering, fd cwd, and forbidden fallbacks."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_inheritable_parent_descriptor_is_closed", "rationale": "Unrelated inheritable descriptors remain closed despite the two internal custody fds."},
+    {"node_id": "tests/test_actuator_command_environment_custody.py::test_exact_command_gets_empty_environment_and_reports_output", "rationale": "Empty environment and result reporting remain intact."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_authorization_time_native_path_replacement_executes_original_snapshot", "rationale": "Executable snapshot replacement custody remains intact."},
+    {"node_id": "tests/test_actuator_executable_object_custody.py::test_static_executable_object_custody_verifier", "rationale": "Executable verifier permits exactly the two required internal fds."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_actuator_cwd_object_custody.py::test_dot_cwd_process_real_success",
+    "tests/test_actuator_cwd_object_custody.py::test_nested_existing_cwd_process_real_success"
+  ]
+}
