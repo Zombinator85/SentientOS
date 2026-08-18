@@ -19,7 +19,7 @@ and embodiment surfaces without executing live adapters.
 - `docs/PERCEPTION_BUS.md` + `docs/schemas/perception_bus.schema.json` → perception bus doc/schema contract
 - `sentientos/host_inventory.py` → `usb_device_presence` / local device context inventory
 - `sentientos/embodiment/embodiment_daemon.py` + `sentientos/embodiment/embodiment_digest.py` → embodiment surfaces
-- `talkback_bridge.py` (if present) → speaker-adjacent surface requiring speaker gate and external-authority restraint
+- `talkback_bridge.py` (if present) → `retired_compatibility_surface`; retained so the inventory records that file existence is not capability existence
 
 ## Boundaries
 
@@ -27,7 +27,10 @@ and embodiment surfaces without executing live adapters.
 - no live sensor execution
 - no provider/network/subprocess/shell authority in library implementation
 - affective surfaces remain non-authority
-- speaker/talkback surfaces require explicit policy gate before any runtime output
+- generic camera talkback is retired; its compatibility constructor is inert and is not a live speaker surface
+- the compatibility bridge confers no endpoint, executable, speech-rendering, media-runtime, or output-transport authority
+- future household audio output first requires typed renderer, speaker/device, media-runtime, output-transport, effect-custody, and policy contracts
+- future work must not reactivate or wrap the retired bridge as its speaker implementation; a policy gate alone is not an effect contract
 
 ## Future adapter sequence
 
@@ -40,4 +43,4 @@ and embodiment surfaces without executing live adapters.
 7. add roomfield/Wi-Fi RF stub only after inventory confirms available hardware path
 8. add roomfield fusion
 9. add Quest/operator visor read-only overlay if existing surfaces support it
-10. add speaker policy gate before any talkback/runtime output
+10. define typed speaker renderer, device, media-runtime, and output-transport authority before enabling future household audio output

@@ -9,3 +9,4 @@ def test_cli(tmp_path:Path):
  data=json.loads(o.read_text()); assert 'report' in data
  assert subprocess.run([sys.executable,'scripts/build_household_presence_camera_live_adapter_readiness.py','summarize','--input',str(o)],check=False).returncode in {0,1}
  assert subprocess.run([sys.executable,'scripts/build_household_presence_camera_live_adapter_readiness.py','inspect-fixture','--input','live_runtime_risk_present.json'],check=False).returncode==1
+ assert subprocess.run([sys.executable,'scripts/build_household_presence_camera_live_adapter_readiness.py','inspect-fixture','--input','talkback_boundary_risk.json'],check=False).returncode==1

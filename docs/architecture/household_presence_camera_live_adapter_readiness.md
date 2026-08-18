@@ -15,5 +15,6 @@ Metadata-only readiness checker for future live adapter wrapping.
 3. Add operator-confirmed dry-run.
 4. Add host inventory bridge.
 5. Add local policy-gated live adapter only after explicit operator confirmation.
-6. Keep speaker/talkback separate.
-7. Keep external authority blocked.
+6. Keep the retired generic talkback compatibility bridge inert; it supplies no live speaker evidence.
+7. Define typed renderer, speaker/device, media-runtime, and output-transport authority before any future household audio output.
+8. Keep external authority blocked.
