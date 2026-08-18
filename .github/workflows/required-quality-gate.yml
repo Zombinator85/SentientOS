@@ -36,7 +36,7 @@ jobs:
             tests/test_import_privilege_boundaries.py::test_scripts_lock_effects_authorize_before_mutation \
             tests/test_import_privilege_boundaries.py::test_actuator_import_has_no_privilege_or_runtime_effects \
             tests/test_import_privilege_boundaries.py::test_actuator_protected_effects_authorize_before_execution \
-            tests/test_import_privilege_boundaries.py::test_external_plugins_require_explicit_initialization \
+            tests/test_import_privilege_boundaries.py::test_external_plugins_are_rejected_without_execution \
             tests/test_ci_acceptance_fail_closed.py::test_bootstrap_failure_is_insufficient_evidence \
             tests/test_ci_acceptance_fail_closed.py::test_collection_failure_is_insufficient_evidence \
             tests/test_ci_acceptance_fail_closed.py::test_zero_collected_tests_is_insufficient_evidence \
