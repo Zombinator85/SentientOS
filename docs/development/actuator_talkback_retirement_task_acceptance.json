@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "1abc9b4f7d34708173ae66e3d371e8f3b0773a39",
+  "repository_sha": "a8df997d16dcf19e23c80127bcf4b567eef3bbfe",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {"node_id": "tests/test_actuator_talkback_retirement.py::test_talkback_absent_from_builtin_registry", "rationale": "Talkback has no built-in actuator authority."},
