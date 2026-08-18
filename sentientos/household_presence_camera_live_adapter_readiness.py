@@ -5,7 +5,7 @@ from typing import Any, Literal, Mapping
 import hashlib, json
 
 ReadinessStatus = Literal["ready_for_design","ready_for_stub_only","ready_for_operator_review","blocked_missing_policy_chain","blocked_missing_zone_config","blocked_missing_deadzone_redaction","blocked_missing_event_bridge","blocked_missing_sensor_inventory","blocked_missing_tests","blocked_live_runtime_risk","blocked_speaker_boundary","blocked_external_authority_boundary","failed"]
-SurfaceClass = Literal["existing_live_camera_surface","existing_vision_surface","existing_perception_bus_surface","existing_affect_or_gaze_surface","existing_talkback_surface","existing_host_inventory_surface","policy_chain_surface","zone_config_surface","redaction_surface","fixture_surface","docs_surface","tests_surface","unknown_surface"]
+SurfaceClass = Literal["existing_live_camera_surface","existing_vision_surface","existing_perception_bus_surface","existing_affect_or_gaze_surface","retired_compatibility_surface","existing_host_inventory_surface","policy_chain_surface","zone_config_surface","redaction_surface","fixture_surface","docs_surface","tests_surface","unknown_surface"]
 Severity = Literal["info","warning","error","blocked"]
 
 REQ = {
@@ -38,7 +38,7 @@ def _classify(path:str)->SurfaceClass:
     if "vision_tracker" in path: return "existing_vision_surface"
     if "PERCEPTION_BUS" in path or "perception_bus" in path: return "existing_perception_bus_surface"
     if "face_emotion" in path or "gaze_adapter" in path: return "existing_affect_or_gaze_surface"
-    if "talkback" in path: return "existing_talkback_surface"
+    if path == "talkback_bridge.py": return "retired_compatibility_surface"
     if "host_inventory" in path: return "existing_host_inventory_surface"
     if "policy_chain" in path: return "policy_chain_surface"
     if "zone_config" in path or "zone_resolver" in path: return "zone_config_surface"
@@ -68,7 +68,7 @@ def evaluate_readiness(payload:Mapping[str,Any], policy:HouseholdCameraLiveAdapt
     if pol.require_fixtures and not fixtures_ok: missing.append("offline_fixtures")
     risk=dict(payload.get("risk_flags",{})) if isinstance(payload.get("risk_flags"),Mapping) else {}
     if risk.get("live_runtime_risk_present"): blocked.append("blocked_live_runtime_risk")
-    if risk.get("talkback_boundary_risk"): blocked.append("blocked_speaker_boundary")
+    if risk.get("speaker_output_boundary_risk"): blocked.append("blocked_speaker_boundary")
     if risk.get("external_authority_risk"): blocked.append("blocked_external_authority_boundary")
     for m in missing: findings.append(HouseholdCameraLiveAdapterFinding(f"missing_{m}","blocked",m,f"Missing prerequisite: {m}","add prerequisite surface",True))
     for b in blocked: findings.append(HouseholdCameraLiveAdapterFinding(b,"blocked",b,"Boundary risk present","clear risk before stub",True))

@@ -19,6 +19,7 @@ SurfaceClassification = Literal[
     "existing_doc_surface",
     "existing_test_surface",
     "planned_future_surface",
+    "retired_compatibility_surface",
     "unknown_surface",
 ]
 Recommendation = Literal[
@@ -26,7 +27,6 @@ Recommendation = Literal[
     "wrap_with_policy_gate",
     "document_before_use",
     "needs_deadzone_policy",
-    "needs_speaker_gate",
     "needs_child_safety_review",
     "needs_adult_private_filter",
     "needs_affective_non_authority_check",
@@ -85,7 +85,7 @@ KNOWN = (
     HouseholdPresenceSensorSurface("sentientos/host_inventory.py", "existing_metadata_surface", "metadata_only", "observation", "none", HouseholdPresenceSensorMapping("usb_device_presence", "local", "host device inventory only"), ("tests/test_host_inventory.py",), ("host inventory already implements metadata inventory",), ("reuse_existing_surface", "do_not_duplicate")),
     HouseholdPresenceSensorSurface("sentientos/embodiment/embodiment_daemon.py", "existing_live_surface", "live_runtime", "runtime_observation", "none", HouseholdPresenceSensorMapping("local_device_context", "mixed", "embodiment stream ingress"), (), ("do not invoke daemon from inventory",), ("defer_live_runtime", "do_not_duplicate")),
     HouseholdPresenceSensorSurface("sentientos/embodiment/embodiment_digest.py", "existing_metadata_surface", "metadata_only", "digest", "none", HouseholdPresenceSensorMapping("local_device_context", "mixed", "deterministic embodiment digest"), (), (), ("reuse_existing_surface", "do_not_duplicate")),
-    HouseholdPresenceSensorSurface("talkback_bridge.py", "existing_live_surface", "live_runtime", "gated_host_interaction", "speaker_output", HouseholdPresenceSensorMapping("camera_speaker_exterior", "exterior", "speaker/output bridge"), (), ("speaker output requires strict gating",), ("needs_speaker_gate", "wrap_with_policy_gate", "defer_live_runtime", "do_not_duplicate")),
+    HouseholdPresenceSensorSurface("talkback_bridge.py", "retired_compatibility_surface", "metadata_only", "none_retired", "none", HouseholdPresenceSensorMapping("future_household_audio_output", "none", "inert import/name compatibility only; no capability evidence"), (), ("generic camera talkback is retired", "no endpoint, executable, speech, media, or transport authority"), ("do_not_duplicate",)),
 )
 
 FUTURE_SEQUENCE = (
@@ -98,7 +98,7 @@ FUTURE_SEQUENCE = (
     "add roomfield/Wi-Fi RF stub only after inventory confirms available hardware path",
     "add roomfield fusion",
     "add Quest/operator visor read-only overlay if existing surfaces support it",
-    "add speaker policy gate before any talkback/runtime output",
+    "define typed speaker renderer, device, media-runtime, and output-transport authority before enabling future household audio output",
 )
 
 

@@ -1,4 +1,4 @@
-from pathlib import Path
+import sys
 from sentientos.household_presence_camera_live_adapter_readiness import build_default_policy,validate_policy,evaluate_readiness,dumps_result
 
 def test_default_policy_validates(): assert validate_policy(build_default_policy())["ok"]
@@ -10,10 +10,24 @@ def test_missing_policy_chain_blocks(): assert evaluate_readiness({"workspace_ro
 def test_missing_zone_config_blocks(): assert evaluate_readiness({"workspace_root":".","simulate_missing":["zone_config"]}).report.status=="blocked_missing_zone_config"
 def test_risks_block():
  assert evaluate_readiness({"workspace_root":".","risk_flags":{"live_runtime_risk_present":True}}).report.status=="blocked_live_runtime_risk"
- assert evaluate_readiness({"workspace_root":".","risk_flags":{"talkback_boundary_risk":True}}).report.status=="blocked_speaker_boundary"
+ assert evaluate_readiness({"workspace_root":".","risk_flags":{"speaker_output_boundary_risk":True}}).report.status=="blocked_speaker_boundary"
  assert evaluate_readiness({"workspace_root":".","risk_flags":{"external_authority_risk":True}}).report.status=="blocked_external_authority_boundary"
 def test_deterministic_digest():
  a=evaluate_readiness({"workspace_root":"."}).report.deterministic_digest
  b=evaluate_readiness({"workspace_root":"."}).report.deterministic_digest
  assert a==b and len(a)==64
  assert "open_camera_now" in dumps_result(evaluate_readiness({"workspace_root":"."}))
+
+def test_retired_bridge_is_not_live_surface_or_prerequisite_and_causes_no_imports():
+ before=set(sys.modules)
+ report=evaluate_readiness({"workspace_root":"."}).report
+ bridge=next(surface for surface in report.surfaces if surface.path=="talkback_bridge.py")
+ assert bridge.exists
+ assert bridge.classification=="retired_compatibility_surface"
+ assert all("speaker" not in prerequisite.prerequisite_id for prerequisite in report.prerequisites)
+ assert "talkback_bridge" not in set(sys.modules)-before
+ assert "tts_bridge" not in set(sys.modules)-before
+
+def test_obsolete_talkback_risk_flag_has_no_active_contract_meaning():
+ report=evaluate_readiness({"workspace_root":".","risk_flags":{"talkback_boundary_risk":True}}).report
+ assert report.status!="blocked_speaker_boundary"
