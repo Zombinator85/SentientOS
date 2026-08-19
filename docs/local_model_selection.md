@@ -12,4 +12,42 @@ Candidates are classified `eligible`, `ineligible`, or `unresolved`. Only eligib
 
 The installer dry-run retains its legacy `HardwareProfile` only as an explicit adapter and consumes the planner-selected id rather than `models[0]`. `manifest-v1.json` remains a tiny demo fixture, not production weights. Future composition is: selection plan → acquisition and exact hash verification → explicit GGUF commissioning. Commissioning does not re-select. `gpu_autosetup.py` retains historical NVIDIA/CUDA, AMD/ROCm, Apple/Metal, and CPU-fallback intent, but its probes and package installation are not this boundary.
 
-Live one-click selection still needs explicit collectors for CPU feature booleans, exact RAM, accelerator presence, backend/runtime availability and version, vendor/family, VRAM, and relevant free storage. Those collectors are deliberately out of scope.
+The usable input pipeline is now **bounded read-only hardware observation →
+`HostInventoryManifest` → `LocalInferenceHardwareProfile` → deterministic
+selection plan**.  The disk adapter consumes the collector's established
+`free_bytes`; the existing memory collector's `total_bytes` remains the only RAM
+source.  Unreadable sources omit their fact, so the profile records `unknown`
+rather than manufacturing `false`.
+
+CPU instruction support is observed separately from CPU names and architecture.
+On Linux x86, complete `/proc/cpuinfo` `flags` records explicitly answer AVX,
+AVX2, and AVX512F; all processor records must contain a token for the host fact
+to be true.  On Windows x86, the direct read-only
+`IsProcessorFeaturePresent` API answers those three facts when available.  API
+absence remains unknown.  macOS and non-x86 hosts currently leave x86 AVX facts
+unknown/not applicable; Apple Silicon is not assigned fake negative values.
+
+Linux accelerator observation enumerates `/sys/class/drm/card*` and may record
+PCI vendor/device identifiers plus a driver's explicit
+`mem_info_vram_total`.  Known PCI vendor IDs normalize only hardware identity.
+A complete empty DRM enumeration is explicit absence; missing/unsupported DRM,
+permissions, Windows, and macOS accelerator sources remain unknown.  Windows and
+macOS have no accelerator implementation in this task because no safe
+standard-library/direct-API source was established.  Dedicated VRAM remains
+unknown when the driver does not expose it; shared/unified RAM is never relabeled
+as VRAM.
+
+Every observed accelerator remains in a deterministic device list.  Only one
+device can populate singular v1 vendor/family/VRAM fields.  Multiple devices
+leave those fields unresolved instead of selecting a guessed “best” GPU.
+Hardware presence, runtime/backend availability, and runtime commissioning are
+three separate states: vendor identity never populates `backend_family`, and
+observation grants no download, installation, loading, commissioning,
+inference, provider, network, or host-mutation authority.  Consequently,
+manifest-v1 `gpu: true` remains unresolved even when GPU hardware is observed.
+
+`python -m scripts.local_inference_hardware_observation` renders canonical JSON
+for operator review and can optionally evaluate a supplied local pinned manifest.
+It invokes no shell or subprocess and performs no network or mutation.  Runtime
+backend/version observation and commissioning remain future, separately governed
+work.

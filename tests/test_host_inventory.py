@@ -181,3 +181,22 @@ def test_collector_unavailable_inventory_adds_warning_deferred_labels_and_reject
     assert "sensor_unavailable:fan_pwm" in manifest.warning_risk_codes
     bad = replace(manifest, fan_pwm_controller_summary={**manifest.fan_pwm_controller_summary, "control_available": True})
     assert not validate_host_inventory_manifest(bad).ok
+
+
+def test_cpu_features_and_accelerators_augment_inventory_without_authority() -> None:
+    from sentientos.host_collectors import collect_accelerator_observation, collect_cpu_feature_observation, collect_cpu_observation
+    from sentientos.host_inventory import build_host_inventory_from_collector_results
+
+    files = {"/drm/card0/device/vendor": "0x8086", "/drm/card0/device/device": "0x1234"}
+    results = (
+        collect_cpu_observation(observed_at="fixed"),
+        collect_cpu_feature_observation(system="Linux", architecture="x86_64", text_reader=lambda path: "flags: avx avx2\n", observed_at="fixed"),
+        collect_accelerator_observation(system="Linux", drm_path="/drm", directory_lister=lambda path: ("card0",), text_reader=lambda path: files.get(path), observed_at="fixed"),
+    )
+    manifest = build_host_inventory_from_collector_results(results, manifest_id="m", node_id="n")
+    assert manifest.cpu_summary["avx2"] is True
+    assert manifest.cpu_summary.get("cpu_count") is not None
+    assert manifest.gpu_summary["vendor"] == "intel"
+    assert manifest.gpu_summary.get("vram_bytes") is None
+    assert manifest.metadata_only and manifest.no_host_actuation
+    assert len([device for device in manifest.devices if device.kind == "gpu"]) == 1

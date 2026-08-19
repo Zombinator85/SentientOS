@@ -62,7 +62,7 @@ def hardware_profile_from_inventory(inventory: HostInventoryManifest) -> LocalIn
     """Adapt supplied inventory facts without probing or brand/model inference."""
     cpu, gpu, ram, disk = inventory.cpu_summary, inventory.gpu_summary, inventory.ram_summary, inventory.disk_summary
     total = ram.get("total_bytes") if isinstance(ram.get("total_bytes"), int) and ram["total_bytes"] >= 0 else None
-    storage = disk.get("available_bytes", disk.get("cwd_free_bytes"))
+    storage = disk.get("free_bytes", disk.get("available_bytes", disk.get("cwd_free_bytes")))
     storage = storage if isinstance(storage, int) and storage >= 0 else None
     observed = gpu.get("observed", gpu.get("present"))
     if not isinstance(observed, bool):
