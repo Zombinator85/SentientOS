@@ -8,6 +8,7 @@ controls.
 
 from __future__ import annotations
 
+import ctypes
 import fnmatch
 import os
 import platform
@@ -39,7 +40,8 @@ FORBIDDEN_COLLECTOR_MARKERS = frozenset(
 DiskUsageProvider = Callable[[str], Any]
 MemoryProvider = Callable[[], Mapping[str, Any] | None]
 DirectoryLister = Callable[[str], Sequence[str]]
-TextReader = Callable[[str], str]
+TextReader = Callable[[str], str | None]
+WindowsFeatureProvider = Callable[[int], bool]
 
 
 @dataclass(frozen=True)
@@ -234,6 +236,144 @@ def collect_cpu_observation(*, observed_at: str | None = None) -> HostCollectorR
     return _result("cpu", status, observed_at=observed_at, source="standard_library:os,platform", values=values, findings=findings)
 
 
+def _x86_architecture(value: str) -> bool:
+    return value.strip().lower() in {"amd64", "x86_64", "x64", "i386", "i686", "x86"}
+
+
+def _windows_processor_feature(feature: int) -> bool:
+    """Query a documented, read-only processor-feature API without a shell."""
+
+    return bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(feature))  # type: ignore[attr-defined]
+
+
+def collect_cpu_feature_observation(
+    *,
+    system: str | None = None,
+    architecture: str | None = None,
+    cpuinfo_path: str = "/proc/cpuinfo",
+    text_reader: TextReader | None = None,
+    windows_feature_provider: WindowsFeatureProvider | None = None,
+    observed_at: str | None = None,
+) -> HostCollectorResult:
+    """Observe AVX-family facts from kernel metadata or a direct Windows API.
+
+    Absence is false only after a complete applicable query.  Unsupported or
+    unreadable sources leave the feature keys absent, which inventory adapts as
+    explicit unknown rather than false.
+    """
+
+    os_family = (system or platform.system() or "unknown").lower()
+    machine = architecture or platform.machine() or "unknown"
+    base = {"architecture": machine}
+    if not _x86_architecture(machine):
+        return _result(
+            "cpu_features", "unavailable", observed_at=observed_at,
+            source=f"read_only:{os_family}:cpu_features", values=base,
+            findings=(_finding("x86_features_not_applicable", "info", machine),),
+            warnings=("cpu_features_not_applicable",),
+        )
+    if os_family == "linux":
+        text = _safe_read(cpuinfo_path, text_reader)
+        if text is None:
+            return _result("cpu_features", "unavailable", observed_at=observed_at,
+                           source="read_only:/proc/cpuinfo", values=base,
+                           findings=(_finding("cpu_feature_source_unavailable", "warning", cpuinfo_path),),
+                           warnings=("sensor_unavailable:cpu_features",))
+        records = []
+        for line in text.splitlines():
+            key, separator, raw = line.partition(":")
+            if separator and key.strip().lower() in {"flags", "features"}:
+                records.append(frozenset(raw.strip().lower().split()))
+        if not records:
+            return _result("cpu_features", "unavailable", observed_at=observed_at,
+                           source="read_only:/proc/cpuinfo", values=base,
+                           findings=(_finding("cpu_feature_record_missing", "warning", cpuinfo_path),),
+                           warnings=("sensor_unavailable:cpu_features",))
+        # A feature is usable across the host only when every exposed processor
+        # record reports it.  A successfully parsed record makes absence false.
+        common = set.intersection(*(set(record) for record in records))
+        values = {**base, "avx": "avx" in common, "avx2": "avx2" in common, "avx512": "avx512f" in common}
+        return _result("cpu_features", "available", observed_at=observed_at,
+                       source="read_only:/proc/cpuinfo:flags", values=values)
+    if os_family == "windows":
+        provider = windows_feature_provider or _windows_processor_feature
+        # Windows PROCESSOR_FEATURE_ID values: AVX=18, AVX2=40, AVX512F=41.
+        try:
+            values = {**base, "avx": bool(provider(18)), "avx2": bool(provider(40)), "avx512": bool(provider(41))}
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+            return _result("cpu_features", "unavailable", observed_at=observed_at,
+                           source="windows_api:IsProcessorFeaturePresent", values=base,
+                           findings=(_finding("windows_cpu_feature_api_unavailable", "warning"),),
+                           warnings=("sensor_unavailable:cpu_features",))
+        return _result("cpu_features", "available", observed_at=observed_at,
+                       source="windows_api:IsProcessorFeaturePresent", values=values)
+    return _result("cpu_features", "unavailable", observed_at=observed_at,
+                   source=f"read_only:{os_family}:cpu_features", values=base,
+                   findings=(_finding("cpu_feature_platform_unsupported", "info", os_family),),
+                   warnings=("sensor_unavailable:cpu_features",))
+
+
+_PCI_VENDORS = {"0x10de": "nvidia", "0x1002": "amd", "0x8086": "intel"}
+
+
+def collect_accelerator_observation(
+    *,
+    system: str | None = None,
+    drm_path: str = "/sys/class/drm",
+    directory_lister: DirectoryLister | None = None,
+    text_reader: TextReader | None = None,
+    observed_at: str | None = None,
+) -> HostCollectorResult:
+    """Enumerate display accelerators through read-only Linux DRM sysfs."""
+
+    os_family = (system or platform.system() or "unknown").lower()
+    if os_family != "linux":
+        return _result("accelerator", "unavailable", observed_at=observed_at,
+                       source=f"read_only:{os_family}:accelerator", findings=(_finding("accelerator_platform_source_unavailable", "info", os_family),),
+                       warnings=("sensor_unavailable:accelerator",))
+    if directory_lister is None and not Path(drm_path).is_dir():
+        return _result("accelerator", "unavailable", observed_at=observed_at,
+                       source="read_only:/sys/class/drm", findings=(_finding("drm_enumeration_unavailable", "warning", drm_path),),
+                       warnings=("sensor_unavailable:accelerator",))
+    try:
+        listed = (tuple(str(item) for item in directory_lister(drm_path)) if directory_lister is not None
+                  else tuple(item.name for item in Path(drm_path).iterdir()))
+    except OSError:
+        return _result("accelerator", "unavailable", observed_at=observed_at,
+                       source="read_only:/sys/class/drm", findings=(_finding("drm_enumeration_failed", "warning", drm_path),),
+                       warnings=("sensor_unavailable:accelerator",))
+    entries = sorted(entry for entry in listed if entry.startswith("card") and entry[4:].isdigit())
+    devices: list[dict[str, Any]] = []
+    for entry in entries:
+        base = f"{drm_path}/{entry}/device"
+        vendor_id = (_safe_read(f"{base}/vendor", text_reader) or "").strip().lower() or None
+        device_id = (_safe_read(f"{base}/device", text_reader) or "").strip().lower() or None
+        raw_vram = _safe_read(f"{base}/mem_info_vram_total", text_reader)
+        try:
+            vram = int(raw_vram.strip()) if raw_vram is not None else None
+            if vram is not None and vram < 0:
+                vram = None
+        except ValueError:
+            vram = None
+        devices.append({"device_key": entry, "vendor_id": vendor_id,
+                        "vendor": _PCI_VENDORS.get(vendor_id) if vendor_id else None,
+                        "family": device_id, "vram_bytes": vram})
+    values: dict[str, Any] = {"observed": bool(devices), "devices": devices, "enumeration_complete": True}
+    findings: list[HostCollectorFinding] = []
+    if len(devices) == 1:
+        for key in ("vendor", "family", "vram_bytes"):
+            if devices[0][key] is not None:
+                values[key] = devices[0][key]
+        if devices[0]["vram_bytes"] is None:
+            findings.append(_finding("accelerator_vram_unknown", "info"))
+    elif len(devices) > 1:
+        findings.append(_finding("accelerator_singular_facts_ambiguous", "info"))
+    return _result("accelerator", "available" if not findings else "partial", observed_at=observed_at,
+                   source="read_only:/sys/class/drm", values=values, findings=findings,
+                   warnings=tuple(finding.code for finding in findings),
+                   risks=("hardware_identity_is_not_runtime_availability",) if devices else ())
+
+
 def collect_process_observation(
     *,
     proc_path: str = "/proc",
@@ -374,6 +514,8 @@ def collect_basic_host_observations(*, observed_at: str | None = None) -> tuple[
         collect_disk_observation(observed_at=stamp),
         collect_memory_observation(observed_at=stamp),
         collect_cpu_observation(observed_at=stamp),
+        collect_cpu_feature_observation(observed_at=stamp),
+        collect_accelerator_observation(observed_at=stamp),
         collect_process_observation(observed_at=stamp),
         collect_network_interface_observation(observed_at=stamp),
         collect_service_manager_observation(observed_at=stamp),

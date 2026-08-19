@@ -4,6 +4,17 @@ import copy
 
 import pytest
 
+from types import SimpleNamespace
+
+from sentientos.host_collectors import (
+    HostCollectorResult,
+    collect_accelerator_observation,
+    collect_cpu_feature_observation,
+    collect_disk_observation,
+    collect_memory_observation,
+)
+from sentientos.host_inventory import build_host_inventory_from_collector_results
+
 from sentientos.host_inventory import build_host_inventory_manifest
 from sentientos.local_model_selection import GIB, LocalInferenceHardwareProfile, hardware_profile_from_inventory, plan_local_model_selection
 
@@ -37,6 +48,61 @@ def test_deterministic_host_profile_maps_only_explicit_inventory_facts() -> None
     assert first.digest == second.digest
     assert (first.architecture, first.avx, first.avx2, first.avx512) == ("aarch64", "unknown", True, "unknown")
     assert first.backend_family is None and first.vram_bytes is None
+
+
+def test_exact_ram_and_collector_free_storage_handoff() -> None:
+    ram, free = 17_179_869_184, 9_876_543_210
+    inventory = build_host_inventory_from_collector_results((
+        collect_memory_observation(memory_provider=lambda: {"total_bytes": ram}, observed_at="fixed"),
+        collect_disk_observation(disk_provider=lambda path: SimpleNamespace(total=20_000_000_000, used=10_123_456_790, free=free), observed_at="fixed"),
+    ), manifest_id="facts", node_id="node")
+    observed = hardware_profile_from_inventory(inventory)
+    assert observed.total_ram_bytes == ram
+    assert observed.available_storage_bytes == free
+
+
+def _observed_inventory(*, feature_text: str | None, accelerator: HostCollectorResult | None = None):
+    platform_result = HostCollectorResult(
+        collector_id="platform", status="available", observed_at="fixed", source="injected:platform",
+        values={"os_family": "linux", "os_release": "test", "architecture": "x86_64", "cpu_count": 8},
+    )
+    reader = ((lambda path: feature_text) if feature_text is not None else
+              (lambda path: (_ for _ in ()).throw(OSError())))
+    results = [platform_result,
+               collect_memory_observation(memory_provider=lambda: {"total_bytes": 16 * GIB}, observed_at="fixed"),
+               collect_disk_observation(disk_provider=lambda path: SimpleNamespace(total=40 * GIB, used=8 * GIB, free=32 * GIB), observed_at="fixed"),
+               collect_cpu_feature_observation(system="Linux", architecture="x86_64", text_reader=reader, observed_at="fixed")]
+    if accelerator is not None:
+        results.append(accelerator)
+    return build_host_inventory_from_collector_results(results, manifest_id="observed", node_id="node")
+
+
+def test_read_only_observation_to_selection_end_to_end_succeeds() -> None:
+    inventory = _observed_inventory(feature_text="flags: sse avx avx2\n")
+    observed = hardware_profile_from_inventory(inventory)
+    plan = plan_local_model_selection(observed, manifest(candidate()))
+    assert observed.avx is True and observed.avx2 is True
+    assert plan["status"] == "selected" and plan["selected"]["model_id"] == "cpu"
+
+
+def test_unknown_observed_cpu_feature_fails_closed_end_to_end() -> None:
+    observed = hardware_profile_from_inventory(_observed_inventory(feature_text=None))
+    plan = plan_local_model_selection(observed, manifest(candidate()))
+    assert observed.avx2 == "unknown" and "avx2_unknown" in observed.missing_fact_codes
+    assert plan["status"] == "blocked_missing_hardware_facts"
+
+
+def test_accelerator_observation_does_not_imply_backend_or_change_cpu_eligibility() -> None:
+    files = {"/drm/card0/device/vendor": "0x10de", "/drm/card0/device/device": "0xbeef"}
+    accelerator = collect_accelerator_observation(
+        system="Linux", drm_path="/drm", directory_lister=lambda path: ("card0",), text_reader=lambda path: files.get(path), observed_at="fixed",
+    )
+    observed = hardware_profile_from_inventory(_observed_inventory(feature_text="flags: avx avx2\n", accelerator=accelerator))
+    assert observed.accelerator_observed is True and observed.accelerator_vendor == "nvidia"
+    assert observed.vram_bytes is None and observed.backend_family is None
+    assert plan_local_model_selection(observed, manifest(candidate()))["status"] == "selected"
+    gpu_plan = plan_local_model_selection(observed, manifest(candidate("gpu", gpu=True)))
+    assert gpu_plan["reason_codes"] == ("manifest_accelerator_backend_unspecified",)
 
 
 def test_successful_selection_alias_ram_and_cpu_feature_semantics() -> None:
@@ -103,4 +169,9 @@ def test_planner_is_zero_effect_metadata(monkeypatch) -> None:
 
 def test_static_selection_boundary_verifier() -> None:
     from scripts.verify_local_model_selection_boundary import main
+    assert main() == 0
+
+
+def test_static_hardware_observation_boundary_verifier() -> None:
+    from scripts.verify_local_inference_hardware_observation import main
     assert main() == 0

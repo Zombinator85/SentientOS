@@ -1,0 +1,18 @@
+{
+  "repository_sha": "30e5b480b042af0a87f031259760d841af609e37",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_selection.py::test_exact_ram_and_collector_free_storage_handoff", "rationale": "exact RAM and storage handoff"},
+    {"node_id": "tests/test_host_collectors.py::test_linux_cpu_features_are_explicit_tri_state_facts", "rationale": "positive and negative explicit CPU feature facts"},
+    {"node_id": "tests/test_local_model_selection.py::test_unknown_observed_cpu_feature_fails_closed_end_to_end", "rationale": "unknown CPU fact fails closed"},
+    {"node_id": "tests/test_host_collectors.py::test_linux_accelerator_observation_preserves_explicit_identity_and_vram", "rationale": "accelerator presence and explicit VRAM"},
+    {"node_id": "tests/test_host_collectors.py::test_accelerator_negative_evidence_and_multiple_device_ambiguity", "rationale": "accelerator unknown, absence, and ambiguity semantics"},
+    {"node_id": "tests/test_local_model_selection.py::test_accelerator_observation_does_not_imply_backend_or_change_cpu_eligibility", "rationale": "no vendor-backend inference and gpu-v1 ambiguity"},
+    {"node_id": "tests/test_local_model_selection.py::test_read_only_observation_to_selection_end_to_end_succeeds", "rationale": "successful collector-to-selector composition"},
+    {"node_id": "tests/test_local_model_selection.py::test_planner_is_zero_effect_metadata", "rationale": "zero-effect selection boundary"},
+    {"node_id": "tests/test_local_model_selection.py::test_static_hardware_observation_boundary_verifier", "rationale": "static observation boundary"}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": ["tests/test_local_model_selection.py::test_read_only_observation_to_selection_end_to_end_succeeds"],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}

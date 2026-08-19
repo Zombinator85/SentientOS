@@ -268,6 +268,8 @@ def build_host_inventory_from_collector_results(
 
     platform_values = _collector_values("platform")
     cpu_values = _collector_values("cpu")
+    cpu_feature_values = _collector_values("cpu_features")
+    accelerator_values = _collector_values("accelerator")
     memory_values = _collector_values("memory")
     disk_values = _collector_values("disk")
     network_values = _collector_values("network_interfaces")
@@ -277,9 +279,12 @@ def build_host_inventory_from_collector_results(
 
     if platform_values:
         devices.append(HostInventoryDevice(device_id="host-platform", kind="other", label="Host platform", summary=platform_values, status=_collector_status("platform"), source_label="collector:platform"))
-    if cpu_values or platform_values.get("cpu_count") is not None:
-        merged_cpu = {**({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None else {}), **cpu_values}
+    if cpu_values or cpu_feature_values or platform_values.get("cpu_count") is not None:
+        merged_cpu = {**({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None else {}), **cpu_values, **cpu_feature_values}
         devices.append(HostInventoryDevice(device_id="cpu-summary", kind="cpu", label="CPU summary", summary=merged_cpu, status=_collector_status("cpu"), source_label="collector:cpu"))
+    for index, accelerator in enumerate(accelerator_values.get("devices") or ()):
+        if isinstance(accelerator, Mapping):
+            devices.append(HostInventoryDevice(device_id=f"accelerator-{index}", kind="gpu", label=str(accelerator.get("device_key") or f"accelerator-{index}"), summary=dict(accelerator), status="observed", source_label="collector:accelerator"))
     if memory_values:
         devices.append(HostInventoryDevice(device_id="ram-summary", kind="ram", label="RAM summary", summary=memory_values, status=_collector_status("memory"), source_label="collector:memory"))
     if disk_values:
@@ -322,7 +327,8 @@ def build_host_inventory_from_collector_results(
         os_family=str(platform_values.get("os_family") or "unknown"),
         os_release=str(platform_values.get("os_release") or "unknown"),
         architecture=str(platform_values.get("architecture") or "unknown"),
-        cpu_summary={**cpu_values, **({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None and "cpu_count" not in cpu_values else {})},
+        cpu_summary={**cpu_values, **cpu_feature_values, **({"cpu_count": platform_values.get("cpu_count")} if platform_values.get("cpu_count") is not None and "cpu_count" not in cpu_values else {})},
+        gpu_summary=accelerator_values,
         ram_summary=memory_values,
         disk_summary=disk_values,
         network_interface_summary=network_values,
