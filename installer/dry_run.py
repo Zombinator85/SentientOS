@@ -5,9 +5,9 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Mapping
+from typing import Any, Callable
 
-from hf_intake import manifest as manifest_module
+from sentientos.local_model_selection import GIB, LocalInferenceHardwareProfile, plan_local_model_selection_file
 
 
 class InstallerError(RuntimeError):
@@ -20,25 +20,7 @@ class HardwareProfile:
     avx: bool
     avx2: bool
     avx512: bool
-
-
-def _load_manifest_models(manifest_path: Path) -> List[dict]:
-    manifest_module.validate_manifest(manifest_path)
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    models = data.get("models") or []
-    if not isinstance(models, list) or not models:
-        raise InstallerError("Manifest contains no models")
-    return models
-
-
-def _require_hardware(requirements: Mapping[str, object], hardware: HardwareProfile) -> None:
-    ram_required = int(requirements.get("ram_gb_min", 0))
-    if hardware.ram_gb < ram_required:
-        raise InstallerError(f"Insufficient RAM: requires {ram_required}GB, found {hardware.ram_gb}GB")
-    if bool(requirements.get("avx2")) and not hardware.avx2:
-        raise InstallerError("AVX2 support required")
-    if bool(requirements.get("avx512")) and not hardware.avx512:
-        raise InstallerError("AVX-512 support required")
+    architecture: str = "unknown"
 
 
 def dry_run_install(
@@ -48,7 +30,7 @@ def dry_run_install(
     hardware: HardwareProfile,
     network_available: bool = True,
     available_bytes: int | None = None,
-    fetcher: Callable[[dict], bytes] | None = None,
+    fetcher: Callable[[dict[str, Any]], bytes] | None = None,
 ) -> Path:
     """Simulate an installer run without side effects beyond the target dir.
 
@@ -56,10 +38,25 @@ def dry_run_install(
     checksum mismatch, insufficient hardware or disk space).
     """
 
-    models = _load_manifest_models(manifest_path)
-    selected = models[0]
-    requirements = selected.get("requirements", {})
-    _require_hardware(requirements, hardware)
+    profile = LocalInferenceHardwareProfile(
+        source_inventory_id="installer.dry_run.HardwareProfile",
+        source_inventory_digest=hashlib.sha256(json.dumps(hardware.__dict__, sort_keys=True).encode()).hexdigest(),
+        os_family="unknown", architecture=hardware.architecture, total_ram_bytes=hardware.ram_gb * GIB,
+        avx=hardware.avx, avx2=hardware.avx2, avx512=hardware.avx512,
+    )
+    plan = plan_local_model_selection_file(profile, manifest_path)
+    if plan["status"] != "selected":
+        reasons = plan["reason_codes"]
+        if "insufficient_ram" in reasons:
+            raise InstallerError("Insufficient RAM")
+        if "avx2_missing" in reasons:
+            raise InstallerError("AVX2 support required")
+        if "avx512_missing" in reasons:
+            raise InstallerError("AVX-512 support required")
+        raise InstallerError(f"No eligible model: {plan['status']} ({', '.join(plan['reason_codes'])})")
+    selected_id = plan["selected"]["model_id"]
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    selected = next(entry for entry in data["models"] if entry["id"] == selected_id)
 
     artifact = selected.get("artifact", {})
     escrow_path = Path(artifact.get("escrow_path", ""))
@@ -81,7 +78,7 @@ def dry_run_install(
     if available_bytes is not None and available_bytes < size_bytes:
         raise InstallerError("Insufficient disk space for model download")
 
-    def _default_fetch(entry: dict) -> bytes:
+    def _default_fetch(entry: dict[str, Any]) -> bytes:
         path = Path(entry.get("artifact", {}).get("escrow_path", ""))
         return path.read_bytes()
 
