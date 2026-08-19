@@ -1,0 +1,17 @@
+{
+  "repository_sha": "780c44afd527c6403a3fa7176039c712fc7c861b",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_selection.py::test_deterministic_host_profile_maps_only_explicit_inventory_facts", "rationale": "deterministic explicit-fact profile"},
+    {"node_id": "tests/test_local_model_selection.py::test_successful_selection_alias_ram_and_cpu_feature_semantics", "rationale": "successful deterministic selection"},
+    {"node_id": "tests/test_local_model_selection.py::test_incompatible_architecture_and_ram_are_excluded", "rationale": "incompatible exclusion"},
+    {"node_id": "tests/test_local_model_selection.py::test_unknown_ram_and_features_fail_closed", "rationale": "unknown facts fail closed"},
+    {"node_id": "tests/test_local_model_selection.py::test_priority_falls_through_incompatible_and_unresolved_candidates", "rationale": "priority fallback"},
+    {"node_id": "tests/test_local_model_selection.py::test_gpu_v1_is_unresolved_but_cpu_candidate_is_eligible", "rationale": "GPU backend ambiguity"},
+    {"node_id": "tests/test_local_model_selection.py::test_planner_is_zero_effect_metadata", "rationale": "zero effect posture"},
+    {"node_id": "tests/test_local_model_selection.py::test_static_selection_boundary_verifier", "rationale": "static boundary proof"}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": ["tests/test_local_model_selection.py::test_successful_selection_alias_ram_and_cpu_feature_semantics"],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
