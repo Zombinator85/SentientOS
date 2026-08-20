@@ -8,6 +8,31 @@ RAM minimums use GiB (`ram_gb_min * 1,073,741,824`) despite the historical field
 
 Manifest file planning first calls `hf_intake.manifest.validate_manifest()`, preserving pinned checksum, URL, license, and escrow custody. Mapping planning is pure and intended for already-trusted metadata and tests. CPU-capable (`gpu: false`) entries may qualify. Manifest v1 `gpu: true` cannot describe CUDA, ROCm, or Metal compatibility and therefore remains unresolved as `manifest_accelerator_backend_unspecified`; filenames are never used as evidence.
 
+Manifest schema v2 is identified independently of the curator's content version by
+`schema_version: sentientos.model_manifest:v2`. Every artifact entry has a non-empty,
+canonically ordered `execution_routes` list. Routes require `route_id`, `engine:
+llama_cpp`, one bounded `backend_family` (`cpu`, `cuda`, `rocm`, or `metal`), and an
+integer `route_priority`; optional constraints include explicit accelerator vendor or
+family, minimum VRAM bytes, OS families, and architectures. V2 forbids the ambiguous
+`requirements.gpu` field. These declarations come only from curator-controlled escrow
+`SOURCE.json` metadata in explicitly requested v2 generation. Filenames,
+quantization, classifier GPU heuristics, hardware brands, and prose never create a route.
+
+The planner ranks eligible artifact-route pairs by model priority, route priority,
+model id, then route id. CPU requires no accelerator. CUDA requires observed NVIDIA
+hardware, ROCm observed AMD hardware, and accelerated routes fail closed when presence
+or vendor is unknown. Metal likewise requires explicit observed facts rather than
+platform folklore. A declared VRAM minimum is ineligible below the minimum and
+unresolved when VRAM is unknown. An unresolved accelerated route does not block an
+eligible CPU route or a proven route on a lower-priority model.
+
+Selected v2 entries include stable artifact identity plus route identity,
+`runtime_requirement`, `runtime_availability_status: not_evaluated`, and
+`runtime_provisioning_required: unknown`. Selection never imports or probes llama.cpp,
+CUDA, ROCm, or Metal. The future chain is hardware observation → artifact and route
+selection → runtime provisioning → artifact acquisition/hash verification → exact
+artifact/runtime commissioning. Exact `gpu_layers` planning is deliberately deferred.
+
 Candidates are classified `eligible`, `ineligible`, or `unresolved`. Only eligible candidates rank, by ascending curator priority then stable model id. Canonical JSON-compatible content, sorted semantic candidates, and no timestamps make profile, manifest, and plan SHA-256 digests deterministic and insensitive to input model ordering.
 
 The installer dry-run retains its legacy `HardwareProfile` only as an explicit adapter and consumes the planner-selected id rather than `models[0]`. `manifest-v1.json` remains a tiny demo fixture, not production weights. Future composition is: selection plan → acquisition and exact hash verification → explicit GGUF commissioning. Commissioning does not re-select. `gpu_autosetup.py` retains historical NVIDIA/CUDA, AMD/ROCm, Apple/Metal, and CPU-fallback intent, but its probes and package installation are not this boundary.

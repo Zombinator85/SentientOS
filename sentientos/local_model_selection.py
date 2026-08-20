@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from hf_intake.manifest import ManifestError, validate_manifest
+from hf_intake.manifest import V2_SCHEMA_VERSION, ManifestError, validate_execution_routes, validate_manifest
 from sentientos.host_inventory import HostInventoryManifest
 
 SCHEMA_VERSION = "sentientos.local_model_selection:v1"
@@ -98,7 +98,7 @@ def _architecture(value: object) -> str:
     return {"amd64": "x86_64", "aarch64": "arm64"}.get(normalized, normalized)
 
 
-def _normalize(entry: Mapping[str, Any]) -> dict[str, Any]:
+def _normalize(entry: Mapping[str, Any], *, v2: bool = False) -> dict[str, Any]:
     artifact, requirements = entry["artifact"], entry["requirements"]
     if not isinstance(artifact, Mapping) or not isinstance(requirements, Mapping):
         raise ValueError("invalid sections")
@@ -112,13 +112,22 @@ def _normalize(entry: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("invalid boolean requirement")
     if not isinstance(requirements.get("ram_gb_min"), int) or requirements["ram_gb_min"] < 0:
         raise ValueError("invalid RAM requirement")
-    return {"model_id": model_id, "priority": entry.get("priority", 0), "artifact_sha256": sha,
+    normalized = {"model_id": model_id, "priority": entry.get("priority", 0), "artifact_sha256": sha,
             "artifact_size_bytes": artifact["size_bytes"], "escrow_path": path,
             "urls": tuple(str(url) for url in artifact.get("urls", ())), "license": str(entry.get("license", "")),
             "requirements": {"architecture": str(requirements.get("architecture", UNKNOWN)),
                              "ram_gb_min": requirements["ram_gb_min"], "avx": requirements.get("avx", False),
                              "avx2": requirements.get("avx2", False), "avx512": requirements.get("avx512", False),
                              "gpu": requirements.get("gpu", False), "quantization": str(requirements.get("quantization", ""))}}
+    if v2:
+        if "gpu" in requirements:
+            raise ValueError("ambiguous v2 gpu")
+        normalized["requirements"].pop("gpu")
+        try:
+            normalized["execution_routes"] = validate_execution_routes(entry.get("execution_routes"))
+        except ManifestError as exc:
+            raise ValueError("invalid execution routes") from exc
+    return normalized
 
 
 def _evaluate(candidate: dict[str, Any], host: LocalInferenceHardwareProfile) -> dict[str, Any]:
@@ -144,6 +153,52 @@ def _evaluate(candidate: dict[str, Any], host: LocalInferenceHardwareProfile) ->
     return {**candidate, "state": state, "reason_codes": tuple(sorted(incompatible + unresolved))}
 
 
+def _evaluate_route(candidate: dict[str, Any], route: Mapping[str, Any],
+                    host: LocalInferenceHardwareProfile) -> dict[str, Any]:
+    """Evaluate declared hardware compatibility without inspecting a runtime."""
+    model = _evaluate({**candidate, "requirements": {**candidate["requirements"], "gpu": False}}, host)
+    incompatible = list(model["reason_codes"]) if model["state"] == "ineligible" else []
+    unresolved = list(model["reason_codes"]) if model["state"] == "unresolved" else []
+    backend = str(route["backend_family"])
+    if backend != "cpu":
+        if host.accelerator_observed == UNKNOWN:
+            unresolved.append("accelerator_unknown")
+        elif host.accelerator_observed is False:
+            incompatible.append("accelerator_missing")
+        else:
+            vendor = host.accelerator_vendor.lower() if host.accelerator_vendor else None
+            required_vendor = route.get("accelerator_vendor")
+            if vendor is None:
+                unresolved.append("accelerator_vendor_unknown")
+            elif required_vendor and vendor != str(required_vendor).lower():
+                incompatible.append("accelerator_vendor_mismatch")
+            family = host.accelerator_family.lower() if host.accelerator_family else None
+            if route.get("accelerator_family"):
+                if family is None: unresolved.append("accelerator_family_unknown")
+                elif family != str(route["accelerator_family"]).lower(): incompatible.append("accelerator_family_mismatch")
+            minimum = route.get("min_vram_bytes")
+            if minimum is not None:
+                if host.vram_bytes is None: unresolved.append("vram_unknown")
+                elif host.vram_bytes < minimum: incompatible.append("insufficient_vram")
+    allowed_os = tuple(str(item).lower() for item in route.get("os_families", ()))
+    if allowed_os:
+        if host.os_family == UNKNOWN: unresolved.append("os_family_unknown")
+        elif host.os_family.lower() not in allowed_os: incompatible.append("os_family_mismatch")
+    allowed_arch = tuple(_architecture(item) for item in route.get("architectures", ()))
+    if allowed_arch:
+        if _architecture(host.architecture) == UNKNOWN: unresolved.append("route_architecture_unknown")
+        elif _architecture(host.architecture) not in allowed_arch: incompatible.append("route_architecture_mismatch")
+    state = "ineligible" if incompatible else ("unresolved" if unresolved else "eligible")
+    route_requirements = {key: route[key] for key in ("accelerator_vendor", "accelerator_family", "min_vram_bytes", "os_families", "architectures") if key in route}
+    return {key: value for key, value in candidate.items() if key != "execution_routes"} | {
+        "route_id": route["route_id"], "engine": route["engine"], "backend_family": backend,
+        "route_priority": route["route_priority"], "route_requirements": route_requirements,
+        "runtime_requirement": {"engine": route["engine"], "backend_family": backend},
+        "runtime_availability_status": "not_evaluated", "runtime_provisioning_required": "unknown",
+        "state": state, "reason_codes": tuple(sorted(set(incompatible + unresolved))),
+    }
+
+
 def plan_local_model_selection(host: LocalInferenceHardwareProfile, manifest: Mapping[str, Any], *, manifest_trusted: bool = True) -> dict[str, Any]:
     """Return a deterministic plan. Mapping callers must state trust explicitly."""
     base = {"schema_version": SCHEMA_VERSION, "host_profile_digest": host.digest,
@@ -152,7 +207,9 @@ def plan_local_model_selection(host: LocalInferenceHardwareProfile, manifest: Ma
     try:
         if not manifest_trusted or not isinstance(manifest.get("models"), list) or not manifest.get("manifest_version"):
             raise ValueError("untrusted or malformed manifest")
-        candidates = [_normalize(item) for item in manifest["models"] if isinstance(item, Mapping)]
+        v2 = manifest.get("schema_version") == V2_SCHEMA_VERSION
+        if manifest.get("schema_version") not in (None, V2_SCHEMA_VERSION): raise ValueError("unsupported schema")
+        candidates = [_normalize(item, v2=v2) for item in manifest["models"] if isinstance(item, Mapping)]
         if len(candidates) != len(manifest["models"]): raise ValueError("invalid entry")
     except (KeyError, TypeError, ValueError):
         plan = {**base, "status": "blocked_manifest_invalid", "selected": None, "manifest_digest": _digest(manifest),
@@ -160,13 +217,21 @@ def plan_local_model_selection(host: LocalInferenceHardwareProfile, manifest: Ma
         plan["plan_digest"] = _digest(plan)
         return plan
     normalized = sorted(candidates, key=lambda item: (item["priority"], item["model_id"]))
-    evaluated = [_evaluate(item, host) for item in normalized]
+    if v2:
+        evaluated = [_evaluate_route(item, route, host) for item in normalized for route in item["execution_routes"]]
+        evaluated.sort(key=lambda item: (item["priority"], item["route_priority"], item["model_id"], item["route_id"]))
+    else:
+        evaluated = [_evaluate(item, host) for item in normalized]
     eligible = [item for item in evaluated if item["state"] == "eligible"]
     selected = eligible[0] if eligible else None
     if selected: status, reasons = "selected", ()
     elif any(item["state"] == "unresolved" for item in evaluated): status, reasons = "blocked_missing_hardware_facts", tuple(sorted({r for item in evaluated for r in item["reason_codes"]}))
     else: status, reasons = "blocked_no_eligible_model", tuple(sorted({r for item in evaluated for r in item["reason_codes"]}))
-    plan = {**base, "status": status, "selected": selected, "manifest_digest": _digest({"manifest_version": manifest["manifest_version"], "models": normalized}),
+    if v2:
+        base.update({"manifest_schema_version": V2_SCHEMA_VERSION, "runtime_availability_status": "not_evaluated"})
+    digest_input = {"manifest_version": manifest["manifest_version"], "models": normalized}
+    if v2: digest_input["schema_version"] = V2_SCHEMA_VERSION
+    plan = {**base, "status": status, "selected": selected, "manifest_digest": _digest(digest_input),
             "eligible_candidates": tuple(eligible), "candidate_summaries": tuple(evaluated), "reason_codes": reasons}
     plan["plan_digest"] = _digest(plan)
     return plan

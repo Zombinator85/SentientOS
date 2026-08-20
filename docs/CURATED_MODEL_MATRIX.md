@@ -2,6 +2,12 @@
 
 This matrix lists license-safe model families appropriate for curator-managed deployments. It focuses on families (not individual checkpoints), typical quantization tiers, and license survivability. All entries assume offline execution with no automatic downloads.
 
+This prose is curator guidance, not runtime authority or parser input. Machine-readable
+execution support lives only in explicit `execution_routes` metadata in a
+`sentientos.model_manifest:v2` manifest, held in curator-controlled escrow source
+metadata. No CPU, CUDA, ROCm, Metal, or other execution route may be inferred from this
+matrix.
+
 ## Default Baseline
 - **Mistral-7B-Instruct (Apache-2.0)** — preferred baseline for all platforms. Typical quantization: Q4_K_M for general use; Q5_K_M where memory permits.
 

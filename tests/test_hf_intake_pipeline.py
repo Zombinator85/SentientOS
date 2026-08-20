@@ -79,3 +79,26 @@ def test_classifier_rejects_ambiguous_quantization(tmp_path: Path) -> None:
     artifact.write_bytes(b"noop")
     with pytest.raises(classifier.ClassificationError):
         classifier.classify(artifact, artifact.stat().st_size)
+
+
+def test_v2_generation_requires_curator_routes_and_never_infers_cuda_filename(tmp_path: Path) -> None:
+    root = tmp_path / "escrow" / "sample"
+    root.mkdir(parents=True)
+    payload = b"explicit route fixture"
+    checksum = sha256(payload).hexdigest()
+    name = f"cuda-q4-{checksum}.gguf"
+    (root / name).write_bytes(payload)
+    (root / f"{name}.sha256").write_text(f"{checksum}  {name}\n", encoding="utf-8")
+    (root / "LICENSE.txt").write_text("apache-2.0", encoding="utf-8")
+    (root / "MODEL_CARD.md").write_text("# fixture", encoding="utf-8")
+    source = {"artifact": name, "license": "apache-2.0", "id": "cuda-name",
+              "execution_routes": [{"route_id": "cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 1}]}
+    (root / "SOURCE.json").write_text(json.dumps(source), encoding="utf-8")
+    generated = manifest.generate_manifest(tmp_path / "escrow", tmp_path / "v2.json", schema_version=manifest.V2_SCHEMA_VERSION)
+    assert generated["models"][0]["execution_routes"][0]["backend_family"] == "cpu"
+    assert "gpu" not in generated["models"][0]["requirements"]
+
+    del source["execution_routes"]
+    (root / "SOURCE.json").write_text(json.dumps(source), encoding="utf-8")
+    with pytest.raises(manifest.ManifestError):
+        manifest.generate_manifest(tmp_path / "escrow", tmp_path / "invalid.json", schema_version=manifest.V2_SCHEMA_VERSION)

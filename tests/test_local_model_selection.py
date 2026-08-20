@@ -39,6 +39,17 @@ def manifest(*models: dict) -> dict:
     return {"manifest_version": "v1", "models": list(models)}
 
 
+def v2_candidate(model_id: str = "v2", priority: int = 1, *, routes: list[dict] | None = None) -> dict:
+    item = candidate(model_id, priority)
+    item["requirements"].pop("gpu")
+    item["execution_routes"] = routes or [{"route_id": "llama-cpp-cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 20}]
+    return item
+
+
+def v2_manifest(*models: dict) -> dict:
+    return {"schema_version": "sentientos.model_manifest:v2", "manifest_version": "routes-1", "models": list(models)}
+
+
 def test_deterministic_host_profile_maps_only_explicit_inventory_facts() -> None:
     inventory = build_host_inventory_manifest(manifest_id="i", node_id="n", architecture="aarch64", os_family="linux",
         cpu_summary={"model": "AVX512 words are not evidence", "avx2": True}, ram_summary={"total_bytes": 8 * GIB},
@@ -140,6 +151,51 @@ def test_gpu_v1_is_unresolved_but_cpu_candidate_is_eligible() -> None:
     assert plan["candidate_summaries"][0]["reason_codes"] == ("manifest_accelerator_backend_unspecified",)
 
 
+def test_v2_explicit_cuda_route_selects_without_runtime_inspection() -> None:
+    cuda = {"route_id": "cuda", "engine": "llama_cpp", "backend_family": "cuda",
+            "accelerator_vendor": "nvidia", "min_vram_bytes": 8 * GIB, "route_priority": 10}
+    plan = plan_local_model_selection(profile(accelerator_observed=True, accelerator_vendor="nvidia", vram_bytes=12 * GIB),
+                                      v2_manifest(v2_candidate(routes=[cuda])))
+    assert plan["status"] == "selected"
+    assert plan["selected"]["route_id"] == "cuda"
+    assert plan["selected"]["runtime_requirement"] == {"engine": "llama_cpp", "backend_family": "cuda"}
+    assert plan["selected"]["runtime_availability_status"] == "not_evaluated"
+    assert plan["selected"]["runtime_provisioning_required"] == "unknown"
+
+
+def test_v2_routes_rank_and_unresolved_accelerator_falls_back_to_cpu() -> None:
+    routes = [
+        {"route_id": "cuda", "engine": "llama_cpp", "backend_family": "cuda", "accelerator_vendor": "nvidia", "route_priority": 10},
+        {"route_id": "cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 20},
+    ]
+    unresolved = plan_local_model_selection(profile(), v2_manifest(v2_candidate(routes=routes)))
+    assert unresolved["selected"]["route_id"] == "cpu"
+    accelerated = plan_local_model_selection(profile(accelerator_observed=True, accelerator_vendor="nvidia"), v2_manifest(v2_candidate(routes=routes)))
+    assert accelerated["selected"]["route_id"] == "cuda"
+
+
+def test_v2_rocm_vendor_and_vram_fail_closed() -> None:
+    rocm = {"route_id": "rocm", "engine": "llama_cpp", "backend_family": "rocm", "accelerator_vendor": "amd",
+            "min_vram_bytes": 8 * GIB, "route_priority": 1}
+    unknown = plan_local_model_selection(profile(accelerator_observed=True, accelerator_vendor="amd"), v2_manifest(v2_candidate(routes=[rocm])))
+    assert unknown["reason_codes"] == ("vram_unknown",)
+    small = plan_local_model_selection(profile(accelerator_observed=True, accelerator_vendor="amd", vram_bytes=4 * GIB), v2_manifest(v2_candidate(routes=[rocm])))
+    assert small["reason_codes"] == ("insufficient_vram",)
+    mismatch = plan_local_model_selection(profile(accelerator_observed=True, accelerator_vendor="nvidia", vram_bytes=12 * GIB), v2_manifest(v2_candidate(routes=[rocm])))
+    assert mismatch["reason_codes"] == ("accelerator_vendor_mismatch",)
+
+
+def test_v2_same_artifact_multiple_routes_and_input_order_are_deterministic() -> None:
+    routes = [
+        {"route_id": "cuda", "engine": "llama_cpp", "backend_family": "cuda", "accelerator_vendor": "nvidia", "route_priority": 1},
+        {"route_id": "cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 2},
+    ]
+    one, two = v2_candidate("a", routes=routes), v2_candidate("b", routes=routes)
+    first = plan_local_model_selection(profile(), v2_manifest(one, two))
+    second = plan_local_model_selection(profile(), v2_manifest(two, one))
+    assert first == second and len(first["candidate_summaries"]) == 4
+
+
 def test_priority_falls_through_incompatible_and_unresolved_candidates() -> None:
     plan = plan_local_model_selection(profile(), manifest(candidate("wrong", 1, architecture="arm64"), candidate("gpu", 2, gpu=True), candidate("ok", 3)))
     assert plan["selected"]["model_id"] == "ok"
@@ -174,4 +230,9 @@ def test_static_selection_boundary_verifier() -> None:
 
 def test_static_hardware_observation_boundary_verifier() -> None:
     from scripts.verify_local_inference_hardware_observation import main
+    assert main() == 0
+
+
+def test_static_execution_route_boundary_verifier() -> None:
+    from scripts.verify_local_model_execution_routes import main
     assert main() == 0

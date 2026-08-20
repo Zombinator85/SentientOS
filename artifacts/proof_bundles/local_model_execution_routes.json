@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.capability_proof_bundle:v1",
+  "capability_id": "local_model_execution_routes",
+  "proof_bundle_artifact_kind": "local_model_execution_routes",
+  "acceptance_nodes": [
+    "tests/test_local_model_selection.py::test_successful_selection_alias_ram_and_cpu_feature_semantics",
+    "tests/test_local_model_selection.py::test_gpu_v1_is_unresolved_but_cpu_candidate_is_eligible",
+    "tests/test_local_model_selection.py::test_v2_explicit_cuda_route_selects_without_runtime_inspection",
+    "tests/test_local_model_selection.py::test_v2_routes_rank_and_unresolved_accelerator_falls_back_to_cpu",
+    "tests/test_local_model_selection.py::test_v2_rocm_vendor_and_vram_fail_closed",
+    "tests/test_local_model_selection.py::test_v2_same_artifact_multiple_routes_and_input_order_are_deterministic",
+    "tests/test_local_model_selection.py::test_planner_is_zero_effect_metadata",
+    "tests/test_local_model_selection.py::test_static_execution_route_boundary_verifier",
+    "tests/test_installer_dry_run.py::test_dry_run_consumes_v2_cpu_route_without_provisioning_runtime"
+  ],
+  "successful_path_pytest_node": "tests/test_local_model_selection.py::test_v2_explicit_cuda_route_selects_without_runtime_inspection"
+}
