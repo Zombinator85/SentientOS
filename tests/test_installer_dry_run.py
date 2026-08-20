@@ -151,3 +151,17 @@ def test_dry_run_rejects_hardware_below_minimum(tmp_path: Path) -> None:
             install_dir,
             hardware=HardwareProfile(ram_gb=4, avx=True, avx2=False, avx512=False),
         )
+
+
+def test_dry_run_consumes_v2_cpu_route_without_provisioning_runtime(tmp_path: Path) -> None:
+    manifest_path = _build_manifest(tmp_path, payload=b"route")
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["schema_version"] = "sentientos.model_manifest:v2"
+    data["models"][0]["license"] = "apache-2.0"
+    data["models"][0]["requirements"].pop("gpu", None)
+    data["models"][0]["execution_routes"] = [
+        {"route_id": "cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 1}
+    ]
+    manifest_path.write_text(json.dumps(data), encoding="utf-8")
+    destination = dry_run_install(manifest_path, tmp_path / "install", hardware=_hardware_meeting_minimum())
+    assert destination.read_bytes() == b"route"

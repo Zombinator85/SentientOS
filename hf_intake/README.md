@@ -11,7 +11,7 @@ pinned manifests; it **never** talks to Hugging Face or re-interprets licenses.
   and stores an immutable copy alongside LICENSE, model card, and SOURCE
   metadata.
 - **Hardware classification (`hf_intake.classifier`)** — deterministic rules
-  that mark CPU/GPU requirements, quantization, and AVX flags from the escrowed
+  that preserve legacy v1 CPU/GPU requirements, quantization, and AVX flags from the escrowed
   file name and size.
 - **Manifest (`hf_intake.manifest`)** — turns escrow state into a deterministic
   manifest under `manifests/manifest-YYYY-MM-DD.json` and validates checksums
@@ -26,6 +26,12 @@ pinned manifests; it **never** talks to Hugging Face or re-interprets licenses.
   Face URLs are rejected at validation time.
 - Validation fails closed for missing licenses, checksums, or ambiguous
   hardware requirements.
+
+V2 generation is explicit (`schema_version=sentientos.model_manifest:v2`) and reads
+canonically ordered execution routes only from each curator-controlled `SOURCE.json`.
+It never turns the classifier's historical filename-based `gpu` boolean into a route.
+V2 supports only `llama_cpp` routes with bounded CPU, CUDA, ROCm, or Metal backend
+families and forbids `requirements.gpu`; manifests without `schema_version` remain v1.
 
 ## Quickstart (Curator Only)
 - Discover candidates: `python -m hf_intake.cli discover`

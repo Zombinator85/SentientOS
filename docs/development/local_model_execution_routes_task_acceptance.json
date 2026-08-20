@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "820e02e4b954631340902108c2ecd216dfe12ed2",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_selection.py::test_successful_selection_alias_ram_and_cpu_feature_semantics",
+      "rationale": "Legacy v1 CPU selection remains compatible."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_gpu_v1_is_unresolved_but_cpu_candidate_is_eligible",
+      "rationale": "Legacy GPU ambiguity remains fail-closed."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_v2_explicit_cuda_route_selects_without_runtime_inspection",
+      "rationale": "Successful explicit accelerated route selection emits an unevaluated runtime requirement."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_v2_routes_rank_and_unresolved_accelerator_falls_back_to_cpu",
+      "rationale": "Route priority and proven fallback are deterministic."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_v2_rocm_vendor_and_vram_fail_closed",
+      "rationale": "Vendor and VRAM facts fail closed."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_v2_same_artifact_multiple_routes_and_input_order_are_deterministic",
+      "rationale": "One artifact supports multiple routes with stable plan identity."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_planner_is_zero_effect_metadata",
+      "rationale": "Selection remains effect-free."
+    },
+    {
+      "node_id": "tests/test_local_model_selection.py::test_static_execution_route_boundary_verifier",
+      "rationale": "Static route boundaries are enforced."
+    },
+    {
+      "node_id": "tests/test_installer_dry_run.py::test_dry_run_consumes_v2_cpu_route_without_provisioning_runtime",
+      "rationale": "Dry-run consumes the selected artifact without provisioning its route."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_selection.py::test_v2_explicit_cuda_route_selects_without_runtime_inspection"
+  ]
+}
