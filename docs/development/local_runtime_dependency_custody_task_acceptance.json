@@ -1,0 +1,39 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "9e80b352954cf12f063fcc1a6c0735650fc1608d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_exact_versions_closure_and_unique_artifacts",
+      "rationale": "Exact versions and recursively closed wheel metadata graph."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_all_nine_bundles_are_exact[cpython310-windows-x86_64]",
+      "rationale": "Exact representative environment/tamper behavior."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_all_nine_bundles_are_exact[cpython312-linux-x86_64]",
+      "rationale": "Exact representative environment/tamper behavior."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_unknown_linux_libc_blocks",
+      "rationale": "Unknown libc cannot imply compatibility."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_macos_deployment_floor",
+      "rationale": "Wheel deployment floor is enforced."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_catalog_tampering_rejected[<lambda>-catalog_digest_mismatch1]",
+      "rationale": "Exact representative environment/tamper behavior."
+    },
+    {
+      "node_id": "tests/test_local_runtime_dependencies.py::test_end_to_end_exact_bundle_selected_with_zero_effect",
+      "rationale": "Successful path ends at deterministic selection with no effects."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_runtime_dependencies.py::test_end_to_end_exact_bundle_selected_with_zero_effect"
+  ]
+}
