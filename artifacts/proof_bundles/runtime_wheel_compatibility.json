@@ -1,0 +1,21 @@
+{
+  "artifact_kind": "runtime_wheel_compatibility",
+  "capability_id": "runtime_wheel_compatibility",
+  "status": "implemented",
+  "authority_level": "metadata_verification_only",
+  "production_runtime_catalog_ready": false,
+  "source_paths": [
+    "sentientos/local_runtime_provisioning.py",
+    "scripts/verify_local_runtime_provisioning.py"
+  ],
+  "proof_tests": [
+    "tests/test_local_runtime_provisioning.py"
+  ],
+  "deferred_surfaces": [
+    "production runtime artifact custody",
+    "network or package-index access",
+    "artifact download or installation",
+    "accelerator prerequisite evaluation",
+    "model loading or commissioning"
+  ]
+}
