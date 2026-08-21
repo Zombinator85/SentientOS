@@ -1,0 +1,967 @@
+{
+  "artifacts": [
+    {
+      "abi_tag": "none",
+      "artifact_filename": "diskcache-5.6.3-py3-none-any.whl",
+      "artifact_id": "diskcache-5.6.3-py3-none-any",
+      "artifact_priority": 0,
+      "artifact_sha256": "5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19",
+      "artifact_size_bytes": 45550,
+      "artifact_url": "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "any",
+        "os_family": "any"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19",
+      "expected_size_bytes": 45550,
+      "license_identity": "Apache-2.0",
+      "observed_sha256": "5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19",
+      "observed_size_bytes": 45550,
+      "package_name": "diskcache",
+      "package_version": "5.6.3",
+      "platform_tag": "any",
+      "pypi_project_url": "https://pypi.org/project/diskcache/",
+      "python_tag": "py3",
+      "requires_python": ">=3",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "5.6.3",
+      "source_repository": "https://github.com/grantjenks/python-diskcache",
+      "wheel_tags": [
+        "py3-none-any"
+      ]
+    },
+    {
+      "abi_tag": "none",
+      "artifact_filename": "jinja2-3.1.6-py3-none-any.whl",
+      "artifact_id": "jinja2-3.1.6-py3-none-any",
+      "artifact_priority": 0,
+      "artifact_sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "artifact_size_bytes": 134899,
+      "artifact_url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "any",
+        "os_family": "any"
+      },
+      "dependency_requirement_strings": [
+        "MarkupSafe>=2.0",
+        "Babel>=2.7 ; extra == \"i18n\""
+      ],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "expected_size_bytes": 134899,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "observed_size_bytes": 134899,
+      "package_name": "Jinja2",
+      "package_version": "3.1.6",
+      "platform_tag": "any",
+      "pypi_project_url": "https://pypi.org/project/Jinja2/",
+      "python_tag": "py3",
+      "requires_python": ">=3.7",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.1.6",
+      "source_repository": "https://github.com/pallets/jinja/",
+      "wheel_tags": [
+        "py3-none-any"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "markupsafe-3.0.3-cp310-cp310-macosx_11_0_arm64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp310-cp310-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "e1c1493fb6e50ab01d20a22826e57520f1284df32f2d8601fdd90b6304601419",
+      "artifact_size_bytes": 12057,
+      "artifact_url": "https://files.pythonhosted.org/packages/98/1b/fbd8eed11021cabd9226c37342fa6ca4e8a98d8188a8d9b66740494960e4/markupsafe-3.0.3-cp310-cp310-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "e1c1493fb6e50ab01d20a22826e57520f1284df32f2d8601fdd90b6304601419",
+      "expected_size_bytes": 12057,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "e1c1493fb6e50ab01d20a22826e57520f1284df32f2d8601fdd90b6304601419",
+      "observed_size_bytes": 12057,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp310-cp310-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "f42d0984e947b8adf7dd6dde396e720934d12c506ce84eea8476409563607591",
+      "artifact_size_bytes": 20681,
+      "artifact_url": "https://files.pythonhosted.org/packages/af/cd/ce6e848bbf2c32314c9b237839119c5a564a59725b53157c856e90937b7a/markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux2014_x86_64",
+          "manylinux_2_17_x86_64",
+          "manylinux_2_28_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "f42d0984e947b8adf7dd6dde396e720934d12c506ce84eea8476409563607591",
+      "expected_size_bytes": 20681,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "f42d0984e947b8adf7dd6dde396e720934d12c506ce84eea8476409563607591",
+      "observed_size_bytes": 20681,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp310-cp310-manylinux_2_17_x86_64",
+        "cp310-cp310-manylinux2014_x86_64",
+        "cp310-cp310-manylinux_2_28_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "markupsafe-3.0.3-cp310-cp310-win_amd64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp310-cp310-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "c4ffb7ebf07cfe8931028e3e4c85f0357459a3f9f9490886198848f4fa002ec8",
+      "artifact_size_bytes": 15056,
+      "artifact_url": "https://files.pythonhosted.org/packages/d6/25/55dc3ab959917602c96985cb1253efaa4ff42f71194bddeb61eb7278b8be/markupsafe-3.0.3-cp310-cp310-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "c4ffb7ebf07cfe8931028e3e4c85f0357459a3f9f9490886198848f4fa002ec8",
+      "expected_size_bytes": 15056,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "c4ffb7ebf07cfe8931028e3e4c85f0357459a3f9f9490886198848f4fa002ec8",
+      "observed_size_bytes": 15056,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp310-cp310-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "markupsafe-3.0.3-cp311-cp311-macosx_11_0_arm64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp311-cp311-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "4bd4cd07944443f5a265608cc6aab442e4f74dff8088b0dfc8238647b8f6ae9a",
+      "artifact_size_bytes": 12058,
+      "artifact_url": "https://files.pythonhosted.org/packages/e1/2e/5898933336b61975ce9dc04decbc0a7f2fee78c30353c5efba7f2d6ff27a/markupsafe-3.0.3-cp311-cp311-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "4bd4cd07944443f5a265608cc6aab442e4f74dff8088b0dfc8238647b8f6ae9a",
+      "expected_size_bytes": 12058,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "4bd4cd07944443f5a265608cc6aab442e4f74dff8088b0dfc8238647b8f6ae9a",
+      "observed_size_bytes": 12058,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp311-cp311-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "0bf2a864d67e76e5c9a34dc26ec616a66b9888e25e7b9460e1c76d3293bd9dbf",
+      "artifact_size_bytes": 22940,
+      "artifact_url": "https://files.pythonhosted.org/packages/30/ac/0273f6fcb5f42e314c6d8cd99effae6a5354604d461b8d392b5ec9530a54/markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux2014_x86_64",
+          "manylinux_2_17_x86_64",
+          "manylinux_2_28_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "0bf2a864d67e76e5c9a34dc26ec616a66b9888e25e7b9460e1c76d3293bd9dbf",
+      "expected_size_bytes": 22940,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "0bf2a864d67e76e5c9a34dc26ec616a66b9888e25e7b9460e1c76d3293bd9dbf",
+      "observed_size_bytes": 22940,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp311-cp311-manylinux_2_17_x86_64",
+        "cp311-cp311-manylinux2014_x86_64",
+        "cp311-cp311-manylinux_2_28_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "markupsafe-3.0.3-cp311-cp311-win_amd64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp311-cp311-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "de8a88e63464af587c950061a5e6a67d3632e36df62b986892331d4620a35c01",
+      "artifact_size_bytes": 15077,
+      "artifact_url": "https://files.pythonhosted.org/packages/83/8a/4414c03d3f891739326e1783338e48fb49781cc915b2e0ee052aa490d586/markupsafe-3.0.3-cp311-cp311-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "de8a88e63464af587c950061a5e6a67d3632e36df62b986892331d4620a35c01",
+      "expected_size_bytes": 15077,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "de8a88e63464af587c950061a5e6a67d3632e36df62b986892331d4620a35c01",
+      "observed_size_bytes": 15077,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp311-cp311-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce",
+      "artifact_size_bytes": 12020,
+      "artifact_url": "https://files.pythonhosted.org/packages/9a/81/7e4e08678a1f98521201c3079f77db69fb552acd56067661f8c2f534a718/markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce",
+      "expected_size_bytes": 12020,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce",
+      "observed_size_bytes": 12020,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp312-cp312-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d",
+      "artifact_size_bytes": 22947,
+      "artifact_url": "https://files.pythonhosted.org/packages/3c/2e/8d0c2ab90a8c1d9a24f0399058ab8519a3279d1bd4289511d74e909f060e/markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux2014_x86_64",
+          "manylinux_2_17_x86_64",
+          "manylinux_2_28_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d",
+      "expected_size_bytes": 22947,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d",
+      "observed_size_bytes": 22947,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp312-cp312-manylinux_2_17_x86_64",
+        "cp312-cp312-manylinux2014_x86_64",
+        "cp312-cp312-manylinux_2_28_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "markupsafe-3.0.3-cp312-cp312-win_amd64.whl",
+      "artifact_id": "markupsafe-3.0.3-cp312-cp312-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "26a5784ded40c9e318cfc2bdb30fe164bdb8665ded9cd64d500a34fb42067b1c",
+      "artifact_size_bytes": 15105,
+      "artifact_url": "https://files.pythonhosted.org/packages/aa/5b/bec5aa9bbbb2c946ca2733ef9c4ca91c91b6a24580193e891b5f7dbe8e1e/markupsafe-3.0.3-cp312-cp312-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "transitive",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "26a5784ded40c9e318cfc2bdb30fe164bdb8665ded9cd64d500a34fb42067b1c",
+      "expected_size_bytes": 15105,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "26a5784ded40c9e318cfc2bdb30fe164bdb8665ded9cd64d500a34fb42067b1c",
+      "observed_size_bytes": 15105,
+      "package_name": "MarkupSafe",
+      "package_version": "3.0.3",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/MarkupSafe/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "Jinja2==3.1.6"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "3.0.3",
+      "source_repository": "https://github.com/pallets/markupsafe/",
+      "wheel_tags": [
+        "cp312-cp312-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "numpy-2.2.6-cp310-cp310-macosx_11_0_arm64.whl",
+      "artifact_id": "numpy-2.2.6-cp310-cp310-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "8e41fd67c52b86603a91c1a505ebaef50b3314de0213461c7a6e99c9a3beff90",
+      "artifact_size_bytes": 14360048,
+      "artifact_url": "https://files.pythonhosted.org/packages/22/c2/4b9221495b2a132cc9d2eb862e21d42a009f5a60e45fc44b00118c174bff/numpy-2.2.6-cp310-cp310-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "8e41fd67c52b86603a91c1a505ebaef50b3314de0213461c7a6e99c9a3beff90",
+      "expected_size_bytes": 14360048,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "8e41fd67c52b86603a91c1a505ebaef50b3314de0213461c7a6e99c9a3beff90",
+      "observed_size_bytes": 14360048,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp310-cp310-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "artifact_id": "numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915",
+      "artifact_size_bytes": 16801050,
+      "artifact_url": "https://files.pythonhosted.org/packages/b4/63/3de6a34ad7ad6646ac7d2f55ebc6ad439dbbf9c4370017c50cf403fb19b5/numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux_2_17_x86_64",
+          "manylinux2014_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915",
+      "expected_size_bytes": 16801050,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915",
+      "observed_size_bytes": 16801050,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp310-cp310-manylinux_2_17_x86_64",
+        "cp310-cp310-manylinux2014_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp310",
+      "artifact_filename": "numpy-2.2.6-cp310-cp310-win_amd64.whl",
+      "artifact_id": "numpy-2.2.6-cp310-cp310-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "f0fd6321b839904e15c46e0d257fdd101dd7f530fe03fd6359c1ea63738703f3",
+      "artifact_size_bytes": 12904620,
+      "artifact_url": "https://files.pythonhosted.org/packages/a3/dd/4b822569d6b96c39d1215dbae0582fd99954dcbcf0c1a13c61783feaca3f/numpy-2.2.6-cp310-cp310-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "f0fd6321b839904e15c46e0d257fdd101dd7f530fe03fd6359c1ea63738703f3",
+      "expected_size_bytes": 12904620,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "f0fd6321b839904e15c46e0d257fdd101dd7f530fe03fd6359c1ea63738703f3",
+      "observed_size_bytes": 12904620,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp310",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp310-cp310-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "numpy-2.2.6-cp311-cp311-macosx_11_0_arm64.whl",
+      "artifact_id": "numpy-2.2.6-cp311-cp311-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "c820a93b0255bc360f53eca31a0e676fd1101f673dda8da93454a12e23fc5f7a",
+      "artifact_size_bytes": 14406743,
+      "artifact_url": "https://files.pythonhosted.org/packages/b3/2b/64e1affc7972decb74c9e29e5649fac940514910960ba25cd9af4488b66c/numpy-2.2.6-cp311-cp311-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "c820a93b0255bc360f53eca31a0e676fd1101f673dda8da93454a12e23fc5f7a",
+      "expected_size_bytes": 14406743,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "c820a93b0255bc360f53eca31a0e676fd1101f673dda8da93454a12e23fc5f7a",
+      "observed_size_bytes": 14406743,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp311-cp311-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "artifact_id": "numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf",
+      "artifact_size_bytes": 16821570,
+      "artifact_url": "https://files.pythonhosted.org/packages/b3/dd/2238b898e51bd6d389b7389ffb20d7f4c10066d80351187ec8e303a5a475/numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux_2_17_x86_64",
+          "manylinux2014_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf",
+      "expected_size_bytes": 16821570,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf",
+      "observed_size_bytes": 16821570,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp311-cp311-manylinux_2_17_x86_64",
+        "cp311-cp311-manylinux2014_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp311",
+      "artifact_filename": "numpy-2.2.6-cp311-cp311-win_amd64.whl",
+      "artifact_id": "numpy-2.2.6-cp311-cp311-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "e8213002e427c69c45a52bbd94163084025f533a55a59d6f9c5b820774ef3303",
+      "artifact_size_bytes": 12907455,
+      "artifact_url": "https://files.pythonhosted.org/packages/31/0a/f354fb7176b81747d870f7991dc763e157a934c717b67b58456bc63da3df/numpy-2.2.6-cp311-cp311-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "e8213002e427c69c45a52bbd94163084025f533a55a59d6f9c5b820774ef3303",
+      "expected_size_bytes": 12907455,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "e8213002e427c69c45a52bbd94163084025f533a55a59d6f9c5b820774ef3303",
+      "observed_size_bytes": 12907455,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp311",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp311-cp311-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "numpy-2.2.6-cp312-cp312-macosx_11_0_arm64.whl",
+      "artifact_id": "numpy-2.2.6-cp312-cp312-macosx_11_0_arm64",
+      "artifact_priority": 0,
+      "artifact_sha256": "de749064336d37e340f640b05f24e9e3dd678c57318c7289d222a8a2f543e90c",
+      "artifact_size_bytes": 14119362,
+      "artifact_url": "https://files.pythonhosted.org/packages/66/ee/560deadcdde6c2f90200450d5938f63a34b37e27ebff162810f716f6a230/numpy-2.2.6-cp312-cp312-macosx_11_0_arm64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "arm64",
+        "minimum_version": "11.0",
+        "os_family": "macos"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "de749064336d37e340f640b05f24e9e3dd678c57318c7289d222a8a2f543e90c",
+      "expected_size_bytes": 14119362,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "de749064336d37e340f640b05f24e9e3dd678c57318c7289d222a8a2f543e90c",
+      "observed_size_bytes": 14119362,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "macosx_11_0_arm64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp312-cp312-macosx_11_0_arm64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "artifact_id": "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "artifact_priority": 0,
+      "artifact_sha256": "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
+      "artifact_size_bytes": 16527618,
+      "artifact_url": "https://files.pythonhosted.org/packages/8c/3d/1e1db36cfd41f895d266b103df00ca5b3cbe965184df824dec5c08c6b803/numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "libc_family": "glibc",
+        "minimum_version": "2.17",
+        "os_family": "linux",
+        "upstream_platform_aliases": [
+          "manylinux_2_17_x86_64",
+          "manylinux2014_x86_64"
+        ]
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
+      "expected_size_bytes": 16527618,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249",
+      "observed_size_bytes": 16527618,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "manylinux_2_17_x86_64.manylinux2014_x86_64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp312-cp312-manylinux_2_17_x86_64",
+        "cp312-cp312-manylinux2014_x86_64"
+      ]
+    },
+    {
+      "abi_tag": "cp312",
+      "artifact_filename": "numpy-2.2.6-cp312-cp312-win_amd64.whl",
+      "artifact_id": "numpy-2.2.6-cp312-cp312-win_amd64",
+      "artifact_priority": 0,
+      "artifact_sha256": "c1f9540be57940698ed329904db803cf7a402f3fc200bfe599334c9bd84a40b2",
+      "artifact_size_bytes": 12614190,
+      "artifact_url": "https://files.pythonhosted.org/packages/36/fa/8c9210162ca1b88529ab76b41ba02d433fd54fecaf6feb70ef9f124683f1/numpy-2.2.6-cp312-cp312-win_amd64.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "x86_64",
+        "os_family": "windows"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "c1f9540be57940698ed329904db803cf7a402f3fc200bfe599334c9bd84a40b2",
+      "expected_size_bytes": 12614190,
+      "license_identity": "BSD-3-Clause",
+      "observed_sha256": "c1f9540be57940698ed329904db803cf7a402f3fc200bfe599334c9bd84a40b2",
+      "observed_size_bytes": 12614190,
+      "package_name": "numpy",
+      "package_version": "2.2.6",
+      "platform_tag": "win_amd64",
+      "pypi_project_url": "https://pypi.org/project/numpy/",
+      "python_tag": "cp312",
+      "requires_python": ">=3.10",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "2.2.6",
+      "source_repository": "",
+      "wheel_tags": [
+        "cp312-cp312-win_amd64"
+      ]
+    },
+    {
+      "abi_tag": "none",
+      "artifact_filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "artifact_id": "typing-extensions-4.16.0-py3-none-any",
+      "artifact_priority": 0,
+      "artifact_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "artifact_size_bytes": 45571,
+      "artifact_url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "attestation_available": false,
+      "compatibility_floor": {
+        "architecture": "any",
+        "os_family": "any"
+      },
+      "dependency_requirement_strings": [],
+      "direct_or_transitive": "direct",
+      "distribution_kind": "python_wheel",
+      "expected_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "expected_size_bytes": 45571,
+      "license_identity": "PSF-2.0",
+      "observed_sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "observed_size_bytes": 45571,
+      "package_name": "typing_extensions",
+      "package_version": "4.16.0",
+      "platform_tag": "any",
+      "pypi_project_url": "https://pypi.org/project/typing-extensions/",
+      "python_tag": "py3",
+      "requires_python": ">=3.9",
+      "runtime_requirement_origin": [
+        "llama-cpp-python==0.3.35"
+      ],
+      "source_kind": "pypi_distribution",
+      "source_release": "4.16.0",
+      "source_repository": "",
+      "wheel_tags": [
+        "py3-none-any"
+      ]
+    }
+  ],
+  "catalog_digest": "c9b32ce962c5f9e1fd5684cfa1d255f69c491a4de6ddcf809300cf5a743fe594",
+  "dependency_graph": {
+    "Jinja2==3.1.6": [
+      "MarkupSafe>=2.0"
+    ],
+    "MarkupSafe==3.0.3": [],
+    "diskcache==5.6.3": [],
+    "llama-cpp-python==0.3.35": [
+      "typing-extensions>=4.5.0",
+      "numpy>=1.20.0",
+      "diskcache>=5.6.1",
+      "Jinja2>=2.11.3"
+    ],
+    "numpy==2.2.6": [],
+    "typing-extensions==4.16.0": []
+  },
+  "environment_bundles": [
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp310-cp310-win_amd64",
+        "numpy-2.2.6-cp310-cp310-win_amd64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "86397f4f6a7087406b1bf95df506d2ec4f2f0a62961617145cb4d555825241c2",
+      "environment_id": "cpython310-windows-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp311-cp311-win_amd64",
+        "numpy-2.2.6-cp311-cp311-win_amd64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "68feb3729068be63c0eaa09aea02a051e7dd488578d76e5fe17937bb9f328361",
+      "environment_id": "cpython311-windows-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp312-cp312-win_amd64",
+        "numpy-2.2.6-cp312-cp312-win_amd64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "3c0a2a08d2eaa0218787f62b1450d4d71a067b972a85fe7e3e69f0c9c5795a43",
+      "environment_id": "cpython312-windows-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+        "numpy-2.2.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "d6b7504e691664cbc044a6547b31940347aa0be9be224d8a5e4c837613bfbab4",
+      "environment_id": "cpython310-linux-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+        "numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "78b3b6ac9f2e53b0a89f796f12170c5e88dda24820804f0536de5461946dfd58",
+      "environment_id": "cpython311-linux-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64",
+        "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "49ba2ecc72bcf92f9ff1cdf1ae3e0dc68076ff1d2e8964b6f3322aa596a0764a",
+      "environment_id": "cpython312-linux-x86_64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp310-cp310-macosx_11_0_arm64",
+        "numpy-2.2.6-cp310-cp310-macosx_11_0_arm64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "fded818236d8e573a89694046ba8b7fcb063314dc40db291ef4265a6a962c4cd",
+      "environment_id": "cpython310-macos-arm64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp311-cp311-macosx_11_0_arm64",
+        "numpy-2.2.6-cp311-cp311-macosx_11_0_arm64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "dd8b0185355ec71cb09fb3157a5998fe65a6bbfea449d2bcb154c21c369f6e6c",
+      "environment_id": "cpython311-macos-arm64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    },
+    {
+      "artifact_ids": [
+        "diskcache-5.6.3-py3-none-any",
+        "jinja2-3.1.6-py3-none-any",
+        "markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64",
+        "numpy-2.2.6-cp312-cp312-macosx_11_0_arm64",
+        "typing-extensions-4.16.0-py3-none-any"
+      ],
+      "bundle_digest": "4af5e7353c2b7b963062d2bba609810cbe5474dcb3a39794b5849e02e03fc4ac",
+      "environment_id": "cpython312-macos-arm64",
+      "schema_version": "sentientos.local_runtime_dependency_bundle:v1"
+    }
+  ],
+  "runtime_dependency_custody_ready": true,
+  "schema_version": "sentientos.local_runtime_dependency_catalog_provenance:v1",
+  "verification_method": "PyPI JSON exact release metadata plus downloaded wheel SHA-256/size and passive ZIP METADATA/WHEEL inspection; no installation or imports"
+}

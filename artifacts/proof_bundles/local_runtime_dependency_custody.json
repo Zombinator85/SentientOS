@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.capability_proof_bundle:v1",
+  "capability_id": "local_runtime_dependency_custody",
+  "proof_bundle_artifact_kind": "local_runtime_dependency_custody",
+  "authority_level": "metadata_only_exact_dependency_bundle_selection",
+  "runtime_execution_authority_granted": false,
+  "successful_path_pytest_node": "tests/test_local_runtime_dependencies.py::test_end_to_end_exact_bundle_selected_with_zero_effect",
+  "acceptance_nodes": [
+    "tests/test_local_runtime_dependencies.py::test_exact_versions_closure_and_unique_artifacts",
+    "tests/test_local_runtime_dependencies.py::test_all_nine_bundles_are_exact[cpython310-windows-x86_64]",
+    "tests/test_local_runtime_dependencies.py::test_all_nine_bundles_are_exact[cpython312-linux-x86_64]",
+    "tests/test_local_runtime_dependencies.py::test_unknown_linux_libc_blocks",
+    "tests/test_local_runtime_dependencies.py::test_macos_deployment_floor",
+    "tests/test_local_runtime_dependencies.py::test_catalog_tampering_rejected[<lambda>-catalog_digest_mismatch1]",
+    "tests/test_local_runtime_dependencies.py::test_end_to_end_exact_bundle_selected_with_zero_effect"
+  ]
+}
