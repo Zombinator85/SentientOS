@@ -1,0 +1,225 @@
+{
+  "schema_version": "sentientos.local_runtime_catalog:v2",
+  "runtimes": [
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-cpu-windows-x86_64",
+      "engine": "llama_cpp",
+      "backend_family": "cpu",
+      "backend_variant": "cpu",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
+      "artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
+      "artifact_size_bytes": 7086788,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35/llama_cpp_python-0.3.35-py3-none-win_amd64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "win_amd64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-cpu-macos-arm64",
+      "engine": "llama_cpp",
+      "backend_family": "cpu",
+      "backend_variant": "cpu",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-macosx_11_0_arm64.whl",
+      "artifact_sha256": "f16df6e77c2b9ced0ebe7b50de33a125b4d0463f758edf7b516e2b1296fbbcf5",
+      "artifact_size_bytes": 18164782,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35/llama_cpp_python-0.3.35-py3-none-macosx_11_0_arm64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "macosx_11_0_arm64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-cu124-linux-x86_64",
+      "engine": "llama_cpp",
+      "backend_family": "cuda",
+      "backend_variant": "cu124",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
+      "artifact_sha256": "62fc788a4ecee5a579f40708ccfe0c4d566dd5c9959497bdc0544dbba94d82aa",
+      "artifact_size_bytes": 1679982711,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-cu124/llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "manylinux_2_35_x86_64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [
+        "cuda_12_4_compatible_nvidia_runtime_driver",
+        "nvidia_compute_capability_supported_by_cuda_12"
+      ],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35-cu124",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-cu124-windows-x86_64",
+      "engine": "llama_cpp",
+      "backend_family": "cuda",
+      "backend_variant": "cu124",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
+      "artifact_sha256": "84f7218c1e9cf21014b9770c65064c5a3674dd2f4fbc312c5d6bb40cec0fb269",
+      "artifact_size_bytes": 482736710,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-cu124/llama_cpp_python-0.3.35-py3-none-win_amd64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "win_amd64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [
+        "cuda_12_4_compatible_nvidia_runtime_driver",
+        "nvidia_compute_capability_supported_by_cuda_12"
+      ],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35-cu124",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-rocm72-linux-x86_64",
+      "engine": "llama_cpp",
+      "backend_family": "rocm",
+      "backend_variant": "rocm72",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
+      "artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
+      "artifact_size_bytes": 858340921,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-rocm72/llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "manylinux_2_35_x86_64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [
+        "rocm_7_2_compatible_host_runtime"
+      ],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35-rocm72",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-hip-radeon-windows-x86_64",
+      "engine": "llama_cpp",
+      "backend_family": "rocm",
+      "backend_variant": "hip-radeon",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
+      "artifact_sha256": "35eb2fbacc1113619ef86282f96262302a88d3daa108a3d55e17c91f2de3d850",
+      "artifact_size_bytes": 426305831,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-hip-radeon/llama_cpp_python-0.3.35-py3-none-win_amd64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "win_amd64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [
+        "hip_radeon_compatible_windows_runtime"
+      ],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35-hip-radeon",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-metal-macos-arm64",
+      "engine": "llama_cpp",
+      "backend_family": "metal",
+      "backend_variant": "metal",
+      "distribution_kind": "python_wheel",
+      "package_name": "llama-cpp-python",
+      "package_version": "0.3.35",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-macosx_11_0_arm64.whl",
+      "artifact_sha256": "faf9a2b38df5cbf9427a074f974c00abbb799185753c474672fd461c198b7a0a",
+      "artifact_size_bytes": 18164825,
+      "artifact_urls": [
+        "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-metal/llama_cpp_python-0.3.35-py3-none-macosx_11_0_arm64.whl"
+      ],
+      "runtime_priority": 100,
+      "python_implementation": "cpython",
+      "python_tag": "py3",
+      "abi_tag": "none",
+      "platform_tag": "macosx_11_0_arm64",
+      "supported_python_versions": [
+        "3.10",
+        "3.11",
+        "3.12"
+      ],
+      "external_prerequisite_codes": [],
+      "source_repository": "abetlen/llama-cpp-python",
+      "source_release_tag": "v0.3.35-metal",
+      "source_kind": "github_release_asset",
+      "license_spdx": "MIT"
+    }
+  ]
+}
