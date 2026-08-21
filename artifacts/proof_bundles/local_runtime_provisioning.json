@@ -1,0 +1,13 @@
+{
+  "schema_version":"sentientos.capability_proof_bundle:v1", "capability_id":"local_runtime_provisioning", "proof_bundle_artifact_kind":"local_runtime_provisioning",
+  "acceptance_nodes":[
+    "tests/test_local_runtime_provisioning.py::test_environment_profile_identity_is_deterministic",
+    "tests/test_local_runtime_provisioning.py::test_catalog_rejects_non_custodial_artifacts[changes0-invalid_artifact_sha256]",
+    "tests/test_local_runtime_provisioning.py::test_route_selects_only_exact_backend[cpu]",
+    "tests/test_local_runtime_provisioning.py::test_exact_environment_match_fails_closed[changes0]",
+    "tests/test_local_runtime_provisioning.py::test_prerequisites_preserved_but_not_evaluated_and_plan_stable",
+    "tests/test_local_runtime_provisioning.py::test_end_to_end_selected_route_to_pinned_runtime_witness",
+    "tests/test_local_runtime_provisioning.py::test_successful_plan_is_zero_effect_metadata",
+    "tests/test_local_runtime_provisioning.py::test_static_zero_effect_verifier"],
+  "successful_path_pytest_node":"tests/test_local_runtime_provisioning.py::test_end_to_end_selected_route_to_pinned_runtime_witness"
+}
