@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "runtime_wheel_compatibility",
+  "task_classification": "behavior_adding",
+  "repository_sha": "c9490edafa4e3703a56a370933e783978bc76226",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_v1_exact_soabi_contract_is_preserved", "rationale": "Published v1 exact-SOABI behavior remains intact."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_v2_py3_none_windows_uses_allowlist_not_soabi", "rationale": "V2 py3-none Windows success path separates wheel ABI from SOABI."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_manylinux_glibc_floor[2.35-selected-None]", "rationale": "Manylinux exact floor success."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_manylinux_unknown_and_musl_fail_closed[--libc_unknown-blocked_missing_environment_facts]", "rationale": "Unknown libc fails closed."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_macos_deployment_floor[11.0-arm64-selected-None]", "rationale": "macOS deployment-floor success."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_v2_filename_is_cross_validation_only[changes0-wheel_tag_metadata_mismatch]", "rationale": "Filename disagreement rejects custody."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_end_to_end_v2_route_to_py3_none_runtime_plan", "rationale": "End-to-end synthetic v2 planning success."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_static_zero_effect_verifier", "rationale": "Static zero-effect and schema proof."}
+  ],
+  "successful_path_nodes": ["tests/test_local_runtime_provisioning.py::test_end_to_end_v2_route_to_py3_none_runtime_plan"]
+}
