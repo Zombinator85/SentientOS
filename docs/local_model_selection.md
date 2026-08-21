@@ -76,3 +76,7 @@ for operator review and can optionally evaluate a supplied local pinned manifest
 It invokes no shell or subprocess and performs no network or mutation.  Runtime
 backend/version observation and commissioning remain future, separately governed
 work.
+
+## Runtime provisioning handoff
+
+The metadata-only handoff is specified in [`local_runtime_provisioning.md`](local_runtime_provisioning.md). Route hardware compatibility, exact runtime target selection, and actual runtime installation/commissioning are three separate states; neither selection planner claims installation.
