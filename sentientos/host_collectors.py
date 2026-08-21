@@ -297,9 +297,9 @@ def collect_cpu_feature_observation(
                        source="read_only:/proc/cpuinfo:flags", values=values)
     if os_family == "windows":
         provider = windows_feature_provider or _windows_processor_feature
-        # Windows PROCESSOR_FEATURE_ID values: AVX=18, AVX2=40, AVX512F=41.
+        # Windows PROCESSOR_FEATURE_ID values: AVX=39, AVX2=40, AVX512F=41.
         try:
-            values = {**base, "avx": bool(provider(18)), "avx2": bool(provider(40)), "avx512": bool(provider(41))}
+            values = {**base, "avx": bool(provider(39)), "avx2": bool(provider(40)), "avx512": bool(provider(41))}
         except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
             return _result("cpu_features", "unavailable", observed_at=observed_at,
                            source="windows_api:IsProcessorFeaturePresent", values=base,

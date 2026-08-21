@@ -81,7 +81,7 @@ def test_cpu_feature_unavailable_and_non_x86_do_not_fabricate_false() -> None:
 
 
 def test_windows_cpu_feature_api_is_injectable_and_api_absence_is_unknown() -> None:
-    answers = {18: True, 40: False, 41: True}
+    answers = {39: True, 40: False, 41: True}
     observed = collect_cpu_feature_observation(
         system="Windows", architecture="AMD64", windows_feature_provider=answers.__getitem__, observed_at=STAMP,
     )
@@ -91,6 +91,16 @@ def test_windows_cpu_feature_api_is_injectable_and_api_absence_is_unknown() -> N
     )
     assert (observed.values["avx"], observed.values["avx2"], observed.values["avx512"]) == (True, False, True)
     assert unavailable.status == "unavailable" and "avx" not in unavailable.values
+
+
+def test_windows_cpu_feature_api_requests_documented_ids_in_semantic_order() -> None:
+    requested: list[int] = []
+    collect_cpu_feature_observation(
+        system="Windows", architecture="AMD64",
+        windows_feature_provider=lambda feature: requested.append(feature) or False,
+        observed_at=STAMP,
+    )
+    assert requested == [39, 40, 41]
 
 
 def test_linux_accelerator_observation_preserves_explicit_identity_and_vram() -> None:
