@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.capability_proof_bundle:v1",
+  "capability_id": "production_local_runtime_catalog",
+  "proof_bundle_artifact_kind": "production_local_runtime_catalog",
+  "production_runtime_catalog_ready": true,
+  "backend_coverage": ["cpu", "cuda", "rocm", "metal"],
+  "platform_coverage": {"windows_x86_64": ["cpu", "cuda:cu124", "rocm:hip-radeon"], "linux_x86_64": ["cuda:cu124", "rocm:rocm72"], "macos_arm64": ["cpu", "metal"]},
+  "remaining_gaps": ["cpu:linux_x86_64:unsupported_production_artifact_shape"],
+  "acceptance_nodes": [
+    "tests/test_production_runtime_catalog.py::test_production_catalog_exists_is_v2_and_validates_deterministically",
+    "tests/test_production_runtime_catalog.py::test_exact_upstream_custody_hash_size_tags_license_and_provenance",
+    "tests/test_production_runtime_catalog.py::test_real_catalog_entry_planner_witness_is_exact_and_zero_effect[llama-cpp-python-0.3.35-cu124-linux-x86_64]",
+    "tests/test_production_runtime_catalog.py::test_offline_production_verifier_passes_and_readiness_is_true"
+  ],
+  "successful_path_pytest_node": "tests/test_production_runtime_catalog.py::test_real_catalog_entry_planner_witness_is_exact_and_zero_effect[llama-cpp-python-0.3.35-cu124-linux-x86_64]"
+}

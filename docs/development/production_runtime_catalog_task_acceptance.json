@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "production_local_runtime_catalog",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_runtime_catalog.py::test_production_catalog_exists_is_v2_and_validates_deterministically", "rationale": "Real catalog v2 validation and deterministic digest."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_exact_upstream_custody_hash_size_tags_license_and_provenance", "rationale": "Exact recovered first-party custody and anchor reproduction."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_real_catalog_entry_planner_witness_is_exact_and_zero_effect[llama-cpp-python-0.3.35-cu124-linux-x86_64]", "rationale": "Real CUDA Linux successful zero-effect path."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_real_catalog_entry_planner_witness_is_exact_and_zero_effect[llama-cpp-python-0.3.35-cu124-windows-x86_64]", "rationale": "Real CUDA Windows successful zero-effect path."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_backend_and_platform_coverage_and_readiness_are_derived", "rationale": "Readiness derives from actual coverage."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_offline_production_verifier_passes_and_readiness_is_true", "rationale": "Offline verifier validates readiness."}
+  ],
+  "successful_path_nodes": ["tests/test_production_runtime_catalog.py::test_real_catalog_entry_planner_witness_is_exact_and_zero_effect[llama-cpp-python-0.3.35-cu124-linux-x86_64]"]
+}
