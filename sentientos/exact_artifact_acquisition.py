@@ -85,11 +85,17 @@ def stream_exact(response: StreamResponse, output: BinaryIO, *, expected_size: i
         chunk = response.stream.read(CHUNK_SIZE)
         if not chunk:
             break
-        observed += len(chunk)
-        if observed > expected_size:
-            raise ExactArtifactError(size_error)
-        digest.update(chunk)
-        output.write(chunk)
+        offset = 0
+        while offset < len(chunk):
+            written = output.write(chunk[offset:])
+            if not isinstance(written, int) or isinstance(written, bool) or written <= 0 or written > len(chunk) - offset:
+                raise ExactArtifactError("artifact_write_error")
+            persisted = chunk[offset:offset + written]
+            observed += written
+            if observed > expected_size:
+                raise ExactArtifactError(size_error)
+            digest.update(persisted)
+            offset += written
     if observed != expected_size:
         raise ExactArtifactError(size_error)
     observed_hash = digest.hexdigest()

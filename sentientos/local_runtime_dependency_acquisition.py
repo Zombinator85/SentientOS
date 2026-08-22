@@ -144,7 +144,24 @@ def _read_json_nofollow(path: Path) -> dict[str, Any]:
     return value
 
 
-def _existing_artifact(final: Path, entry: Mapping[str, Any], bindings: Mapping[str, Any]) -> dict[str, Any] | None:
+def _artifact_receipt_static(entry: Mapping[str, Any]) -> dict[str, Any]:
+    digest = entry["artifact_sha256"]
+    return {"schema_version": ARTIFACT_RECEIPT_SCHEMA, "status": "acquired_verified",
+            "artifact_id": entry["artifact_id"], "package_name": entry["package_name"],
+            "package_version": entry["package_version"], "artifact_filename": entry["artifact_filename"],
+            "expected_sha256": digest, "observed_sha256": digest,
+            "expected_size_bytes": entry["artifact_size_bytes"], "observed_size_bytes": entry["artifact_size_bytes"],
+            "content_address": f"sha256:{digest}",
+            "verified_relative_path": str(Path("sha256") / digest / entry["artifact_filename"]),
+            "canonical_source_url": entry["artifact_url"], "artifact_verified": True,
+            "cache_hit": False, "network_performed": True, "download_performed": True,
+            "host_mutation_performed": True, "package_install_performed": False,
+            "subprocess_performed": False, "runtime_import_performed": False,
+            "model_load_performed": False, "commissioning_performed": False,
+            "runtime_execution_authority_granted": False}
+
+
+def _existing_artifact(final: Path, entry: Mapping[str, Any]) -> dict[str, Any] | None:
     if not final.exists(): return None
     _check_components(final, allow_missing=False)
     if {p.name for p in final.iterdir()} != {entry["artifact_filename"], "acquisition-receipt.json"}:
@@ -159,17 +176,57 @@ def _existing_artifact(final: Path, entry: Mapping[str, Any], bindings: Mapping[
         receipt = _read_json_nofollow(receipt_path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise DependencyAcquisitionError("existing_dependency_escrow_conflict") from exc
-    checks = {"schema_version": ARTIFACT_RECEIPT_SCHEMA, "artifact_id": entry["artifact_id"],
-              "artifact_filename": entry["artifact_filename"], "expected_sha256": entry["artifact_sha256"],
-              "observed_sha256": entry["artifact_sha256"], "expected_size_bytes": entry["artifact_size_bytes"],
-              "observed_size_bytes": entry["artifact_size_bytes"], "artifact_verified": True, **bindings}
+    checks = _artifact_receipt_static(entry)
+    hosts = receipt.get("sanitized_network_destination_hosts")
+    redirects = receipt.get("redirect_count")
+    allowed_keys = set(checks) | {"sanitized_network_destination_hosts", "redirect_count", "receipt_semantic_digest"}
     if (artifact.stat().st_size != entry["artifact_size_bytes"] or digest.hexdigest() != entry["artifact_sha256"]
             or receipt.get("receipt_semantic_digest") != receipt_semantic_digest(receipt)
-            or any(receipt.get(k) != v for k, v in checks.items())):
+            or set(receipt) != allowed_keys or any(receipt.get(k) != v for k, v in checks.items())
+            or not isinstance(hosts, list) or not hosts or any(host not in DEPENDENCY_HOSTS for host in hosts)
+            or not isinstance(redirects, int) or isinstance(redirects, bool) or redirects < 0):
         raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
     result = dict(receipt); result.update(status="dependency_artifact_already_present_verified", cache_hit=True,
         network_performed=False, download_performed=False, host_mutation_performed=False)
     return result
+
+
+def _bundle_static(plan: Mapping[str, Any], entries: list[dict[str, Any]], receipts: list[dict[str, Any]],
+                   authorization_digest: str) -> dict[str, Any]:
+    return {"schema_version": BUNDLE_RECEIPT_SCHEMA, "status": "acquired_verified",
+            "dependency_plan_digest": plan["dependency_plan_digest"],
+            "dependency_catalog_digest": plan["dependency_catalog_digest"], "bundle_digest": plan["bundle_digest"],
+            "environment_id": plan["environment_id"], "authorization_digest": authorization_digest,
+            "artifact_ids": list(plan["artifact_ids"]),
+            "artifacts": [{"artifact_id": entry["artifact_id"], "package_name": entry["package_name"],
+                "package_version": entry["package_version"], "artifact_filename": entry["artifact_filename"],
+                "content_address": f"sha256:{entry['artifact_sha256']}",
+                "artifact_receipt_semantic_digest": receipt["receipt_semantic_digest"],
+                "verified_relative_path": str(Path("sha256") / entry["artifact_sha256"] / entry["artifact_filename"])}
+                for entry, receipt in zip(entries, receipts)],
+            "artifact_count": 5, "total_expected_bytes": sum(e["artifact_size_bytes"] for e in entries),
+            "total_observed_bytes": sum(e["artifact_size_bytes"] for e in entries), "bundle_verified": True,
+            "dependency_bundle_availability_status": "acquired_verified", "runtime_dependency_custody_ready": True,
+            "package_install_performed": False, "subprocess_performed": False, "runtime_import_performed": False,
+            "model_load_performed": False, "commissioning_performed": False,
+            "runtime_execution_authority_granted": False}
+
+
+def _verify_bundle_receipt(receipt: Mapping[str, Any], plan: Mapping[str, Any], entries: list[dict[str, Any]],
+                           artifact_receipts: list[dict[str, Any]], authorization_digest: str) -> dict[str, Any]:
+    expected = _bundle_static(plan, entries, artifact_receipts, authorization_digest)
+    operational = {"network_performed", "download_performed", "cache_hit_count", "downloaded_count"}
+    if (set(receipt) != set(expected) | operational | {"receipt_semantic_digest"}
+            or any(receipt.get(key) != value for key, value in expected.items())
+            or receipt.get("receipt_semantic_digest") != receipt_semantic_digest(receipt)):
+        raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
+    cache_hits, downloaded = receipt.get("cache_hit_count"), receipt.get("downloaded_count")
+    if (not isinstance(cache_hits, int) or isinstance(cache_hits, bool) or not isinstance(downloaded, int)
+            or isinstance(downloaded, bool) or cache_hits < 0 or downloaded < 0 or cache_hits + downloaded != 5
+            or receipt.get("network_performed") is not (downloaded > 0)
+            or receipt.get("download_performed") is not (downloaded > 0)):
+        raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
+    return dict(receipt)
 
 
 def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
@@ -193,17 +250,16 @@ def acquire_dependency_bundle(plan: Mapping[str, Any], *, catalog: Mapping[str, 
     bindings["authorization_digest"] = expected_auth["authorization_digest"]
     cached: dict[str, dict[str, Any]] = {}
     for entry in entries:
-        hit = _existing_artifact(root / "sha256" / entry["artifact_sha256"], entry, bindings)
+        hit = _existing_artifact(root / "sha256" / entry["artifact_sha256"], entry)
         if hit: cached[entry["artifact_id"]] = hit
     bundle_dir = root / "bundles" / plan["bundle_digest"]
     if bundle_dir.exists():
         if len(cached) != 5: raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
         try: receipt = _read_json_nofollow(bundle_dir / "dependency-bundle-acquisition-receipt.json")
         except (OSError, ValueError, json.JSONDecodeError) as exc: raise DependencyAcquisitionError("existing_dependency_escrow_conflict") from exc
-        if (receipt.get("schema_version") != BUNDLE_RECEIPT_SCHEMA or receipt.get("receipt_semantic_digest") != receipt_semantic_digest(receipt)
-                or any(receipt.get(k) != v for k, v in bindings.items())):
-            raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
-        result = dict(receipt); result.update(status="dependency_bundle_already_present_verified", network_performed=False,
+        ordered_receipts = [cached[entry["artifact_id"]] for entry in entries]
+        result = _verify_bundle_receipt(receipt, plan, entries, ordered_receipts, expected_auth["authorization_digest"])
+        result.update(status="dependency_bundle_already_present_verified", network_performed=False,
                                                download_performed=False, cache_hit_count=5, downloaded_count=0)
         return result
     missing = [a for a in entries if a["artifact_id"] not in cached]
@@ -236,21 +292,14 @@ def acquire_dependency_bundle(plan: Mapping[str, Any], *, catalog: Mapping[str, 
                 os.fsync(output.fileno())
             response.stream.close()
             relative = str(Path("sha256") / entry["artifact_sha256"] / entry["artifact_filename"])
-            receipt = {"schema_version": ARTIFACT_RECEIPT_SCHEMA, "status": "acquired_verified",
-                "artifact_id": entry["artifact_id"], "package_name": entry["package_name"], "package_version": entry["package_version"],
-                "artifact_filename": entry["artifact_filename"], "expected_sha256": entry["artifact_sha256"], "observed_sha256": observed_hash,
-                "expected_size_bytes": entry["artifact_size_bytes"], "observed_size_bytes": observed,
-                "content_address": f"sha256:{entry['artifact_sha256']}", "verified_relative_path": relative,
-                "canonical_source_url": entry["artifact_url"], "sanitized_network_destination_hosts": list(response.destination_hosts),
-                "redirect_count": response.redirect_count, **bindings, "artifact_verified": True, "cache_hit": False,
-                "network_performed": True, "download_performed": True, "host_mutation_performed": True,
-                "package_install_performed": False, "subprocess_performed": False, "runtime_import_performed": False,
-                "model_load_performed": False, "commissioning_performed": False, "runtime_execution_authority_granted": False}
+            receipt = {**_artifact_receipt_static(entry), "observed_sha256": observed_hash,
+                "observed_size_bytes": observed, "verified_relative_path": relative,
+                "sanitized_network_destination_hosts": list(response.destination_hosts), "redirect_count": response.redirect_count}
             _write_receipt(staging / "acquisition-receipt.json", receipt)
             fd = os.open(staging, os.O_RDONLY); os.fsync(fd); os.close(fd)
             try: staging.rename(final)
             except OSError:
-                winner = _existing_artifact(final, entry, bindings)
+                winner = _existing_artifact(final, entry)
                 if winner is None: raise DependencyAcquisitionError("existing_dependency_escrow_conflict")
                 receipt = winner
             results.append(receipt)
@@ -259,17 +308,10 @@ def acquire_dependency_bundle(plan: Mapping[str, Any], *, catalog: Mapping[str, 
         finally:
             if staging.exists(): shutil.rmtree(staging)
     if len(results) != 5: raise DependencyAcquisitionError("dependency_bundle_incomplete")
-    bundle = {"schema_version": BUNDLE_RECEIPT_SCHEMA, "status": "acquired_verified", **bindings,
-        "artifact_ids": list(plan["artifact_ids"]), "artifacts": [{"artifact_id": e["artifact_id"], "package_name": e["package_name"],
-        "package_version": e["package_version"], "artifact_filename": e["artifact_filename"], "content_address": f"sha256:{e['artifact_sha256']}",
-        "artifact_receipt_semantic_digest": r["receipt_semantic_digest"], "verified_relative_path": str(Path("sha256")/e["artifact_sha256"]/e["artifact_filename"])}
-        for e, r in zip(entries, results)], "artifact_count": 5, "total_expected_bytes": sum(e["artifact_size_bytes"] for e in entries),
-        "total_observed_bytes": sum(e["artifact_size_bytes"] for e in entries), "bundle_verified": True,
-        "dependency_bundle_availability_status": "acquired_verified", "runtime_dependency_custody_ready": True,
+    bundle = {**_bundle_static(plan, entries, results, expected_auth["authorization_digest"]),
         "network_performed": any(not r["cache_hit"] for r in results), "download_performed": any(not r["cache_hit"] for r in results),
         "cache_hit_count": sum(bool(r["cache_hit"]) for r in results), "downloaded_count": sum(not r["cache_hit"] for r in results),
-        "package_install_performed": False, "subprocess_performed": False, "runtime_import_performed": False,
-        "model_load_performed": False, "commissioning_performed": False, "runtime_execution_authority_granted": False}
+    }
     staging = Path(tempfile.mkdtemp(prefix=".bundle-", dir=root))
     try:
         _write_receipt(staging / "dependency-bundle-acquisition-receipt.json", bundle)
