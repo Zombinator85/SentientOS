@@ -15,12 +15,12 @@ import ssl
 import tempfile
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Mapping
+from typing import Any, Callable, Mapping
 from urllib.parse import urljoin, urlsplit
 
 from sentientos.local_runtime_provisioning import semantic_digest, validate_runtime_catalog
+from sentientos.exact_artifact_acquisition import ExactArtifactError, StreamResponse, stream_exact
 
 AUTHORIZATION_SCHEMA = "sentientos.local_runtime_acquisition_authorization:v1"
 RECEIPT_SCHEMA = "sentientos.local_runtime_artifact_acquisition_receipt:v1"
@@ -35,14 +35,6 @@ class AcquisitionError(RuntimeError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
-
-
-@dataclass
-class StreamResponse:
-    stream: BinaryIO
-    headers: Mapping[str, str]
-    destination_hosts: tuple[str, ...]
-    redirect_count: int
 
 
 Transport = Callable[[str], StreamResponse]
@@ -227,24 +219,17 @@ def acquire_runtime_artifact(plan: Mapping[str, Any], *, catalog_path: Path | st
     staging = Path(tempfile.mkdtemp(prefix=".acquire-", dir=root)); artifact = staging / entry["artifact_filename"]
     try:
         response = transport(entry["artifact_urls"][0])
-        length = response.headers.get("Content-Length") or response.headers.get("content-length")
-        if length is not None and (not length.isdigit() or int(length) != entry["artifact_size_bytes"]):
-            raise AcquisitionError("artifact_size_mismatch")
-        observed = 0; hasher = hashlib.sha256()
         with artifact.open("xb", buffering=0) as output:
             os.chmod(artifact, 0o600)
-            while True:
-                chunk = response.stream.read(CHUNK_SIZE)
-                if not chunk: break
-                observed += len(chunk)
-                if observed > entry["artifact_size_bytes"]: raise AcquisitionError("artifact_size_mismatch")
-                hasher.update(chunk); output.write(chunk)
+            try:
+                observed, observed_hash = stream_exact(
+                    response, output, expected_size=entry["artifact_size_bytes"], expected_sha256=digest,
+                    size_error="artifact_size_mismatch", hash_error="artifact_hash_mismatch")
+            except ExactArtifactError as exc:
+                raise AcquisitionError(exc.code) from exc
             os.fsync(output.fileno())
         try: response.stream.close()
         except Exception: pass
-        if observed != entry["artifact_size_bytes"]: raise AcquisitionError("artifact_size_mismatch")
-        observed_hash = hasher.hexdigest()
-        if observed_hash != digest: raise AcquisitionError("artifact_hash_mismatch")
         receipt = {
             "schema_version": RECEIPT_SCHEMA, "status": "acquired_verified", "runtime_id": entry["runtime_id"],
             "engine": entry["engine"], "backend_family": entry["backend_family"], "backend_variant": entry["backend_variant"],

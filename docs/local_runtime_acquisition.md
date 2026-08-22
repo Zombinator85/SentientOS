@@ -1,5 +1,7 @@
 # Local runtime artifact acquisition
 
+The shared exact-byte transport and custody mechanics are also used by the separate [dependency bundle acquisition](local_runtime_dependency_acquisition.md), without broadening this runtime artifact flow's GitHub trust policy.
+
 Runtime acquisition is the first bounded production mutation after the metadata-only provisioning planner. It accepts a `selected` plan, validates the canonical production catalog again, binds every acquisition-relevant field, and requires an immutable `sentientos.local_runtime_acquisition_authorization:v1` confirmation of the exact plan digest, catalog digest, runtime, artifact hash and size, and absolute escrow root. The CLI is inspection-only by default; execution requires both `--execute` and `--confirm-plan-digest <exact digest>`.
 
 The custody layout is `<escrow-root>/sha256/<64-hex-sha256>/<exact-wheel-filename>` plus `acquisition-receipt.json`. The executor rejects symlinked or non-directory path components, traversal filenames, unexpected existing content, and corrupt receipts. It streams bounded chunks through SHA-256 and an exact byte counter in a private staging directory, fsyncs the verified artifact and canonical receipt, and publishes the complete directory with a non-overwriting atomic rename. A concurrent winner is accepted only after complete verification. A verified existing address returns `already_present_verified` without transport; an incomplete or corrupt address is never repaired or overwritten.

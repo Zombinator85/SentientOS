@@ -1,5 +1,7 @@
 # Offline local runtime dependency custody
 
+Acquisition of a selected five-wheel bundle is a separate operator-confirmed custody step documented in [Local runtime dependency bundle acquisition](local_runtime_dependency_acquisition.md). Selection alone performs no network or filesystem mutation and does not imply that one artifact, the complete bundle, or a runtime is installed.
+
 This capability closes, but does not install, the mandatory Python dependency graph of the curated `llama-cpp-python==0.3.35` runtime. Passive wheel `METADATA` inspection proves the graph:
 
 * `llama-cpp-python==0.3.35` → `typing-extensions>=4.5.0`, `numpy>=1.20.0`, `diskcache>=5.6.1`, and `Jinja2>=2.11.3`;

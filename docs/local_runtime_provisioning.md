@@ -1,5 +1,7 @@
 # Local runtime provisioning planning
 
+Provisioning and dependency selection are metadata contracts. Verified runtime and dependency byte custody remain separate from bounded offline installation.
+
 `sentientos.local_runtime_catalog:v1` remains the published exact-environment contract. Its synthetic entries continue to bind OS, normalized architecture, Python implementation, and exact interpreter SOABI through `python_abi`; existing v1 custody is not reinterpreted.
 
 `sentientos.local_runtime_catalog:v2` is the wheel-compatibility custody contract. Every `python_wheel` entry supplies non-empty curator metadata for `python_tag`, `abi_tag`, `platform_tag`, `supported_python_versions`, and `backend_variant`. The exact distribution, version, Python tag, ABI tag, and platform tag parsed from the filename must agree with those explicit fields. Parsing cross-validates custody; it never creates missing metadata. Catalog order and supported-version order are normalized, while all compatibility and variant metadata participates in the catalog digest.
