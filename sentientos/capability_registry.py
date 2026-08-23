@@ -17,6 +17,7 @@ CAPABILITY_CATEGORIES = frozenset(
         "install_bootstrap",
         "first_boot_configuration",
         "local_model_chat",
+        "local_runtime_offline_installation",
         "memory_context_reflection",
         "perception_audio",
         "perception_screen",
@@ -159,6 +160,7 @@ AUTHORITY_LEVELS = frozenset(
         "exact_artifact_rollback_only",
         "exact_artifact_postcondition_only",
         "exact_artifact_rollback_audit_only",
+        "bounded_operator_confirmed_local_environment_mutation",
         "bounded_in_process_runner",
         "builtin_runner_action_only",
         "bounded-orchestrator",
@@ -357,6 +359,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record("install_bootstrap", "install_bootstrap", "implemented", "observation", source_paths=("installer/setup_installer.py", "installer/dry_run.py", "scripts/package_launcher.py"), implemented_surfaces=("offline/dry-run setup metadata",), forbidden_implications=("package installation without operator action",)),
         _record("first_boot_configuration", "first_boot_configuration", "implemented", "observation", source_paths=("sentientos/first_boot.py",), proof_tests=("tests/test_first_boot.py",), implemented_surfaces=("operator approvals and first-boot ledger rows",)),
         _record("local_model_chat", "local_model_chat", "partial", "observation", source_paths=("sentientos/local_model.py", "sentientos/chat_service.py", "model_bridge.py"), proof_tests=("tests/test_local_model.py", "tests/test_chat_service_lazy_loading.py"), implemented_surfaces=("local-file/echo/null model paths",), deferred_surfaces=("provider invocation",), forbidden_implications=("runtime provider authority",)),
+        _record("local_runtime_offline_installation", "local_runtime_offline_installation", "implemented", "bounded_operator_confirmed_local_environment_mutation", source_paths=("sentientos/local_runtime_installation.py", "scripts/local_runtime_installation.py", "docs/local_runtime_installation.md"), proof_tests=("tests/test_local_runtime_installation.py",), proof_commands=("python -m scripts.run_tests -q tests/test_local_runtime_installation.py", "python scripts/verify_local_runtime_installation.py"), implemented_surfaces=("exact six-wheel offline private venv installation", "metadata and RECORD verification", "atomic no-overwrite publication"), deferred_surfaces=("runtime import verification", "backend verification", "model loading", "commissioning", "inference"), forbidden_implications=("installation proves importability", "installation grants runtime execution authority", "installation commissions a model"), requires_operator_approval=True, requires_audit_receipt=True),
         _record("memory_context_reflection", "memory_context_reflection", "implemented", "observation", source_paths=("memory_manager.py", "memory_governor.py", "sentientos/memory/", "sentientos/meta/reflection_loop.py"), implemented_surfaces=("memory/reflection storage and pressure summaries",), forbidden_implications=("host mutation",)),
 
         _record("repository_mutation_handoff", "repository_mutation_handoff", "implemented", "metadata_verification_only", source_paths=("sentientos/repository_mutation_handoff.py", "scripts/build_repository_mutation_handoff.py", "sentientosd.py"), proof_tests=("tests/test_repository_mutation_handoff.py", "tests/test_build_repository_mutation_handoff_script.py", "tests/test_repository_mutation_truth_surface.py", "tests/test_repository_mutation_custody_regression.py"), proof_commands=("python -m scripts.run_tests -q tests/test_repository_mutation_handoff.py tests/test_build_repository_mutation_handoff_script.py tests/test_repository_mutation_truth_surface.py tests/test_capability_registry.py",), implemented_surfaces=("deterministic v2 metadata-only operator/Codex repository mutation handoff evidence with canonical path/digest binding, approval-time digest truth, and revision binding", "sentientosd review handoff emission for approved explicit-path proposals with ledger-or-approval references to an external handoff root"), deferred_surfaces=("autonomous repository staging", "autonomous repository commit", "autonomous branch mutation", "autonomous push", "pull request creation", "runtime authority expansion"), forbidden_implications=("handoff authorizes git add", "handoff authorizes git commit", "handoff authorizes git push", "handoff marks an amendment landed", "v1 artifacts satisfy v2 readiness")),
