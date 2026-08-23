@@ -164,6 +164,21 @@ def _existing(final: Path, entry: Mapping[str, Any]) -> dict[str, Any] | None:
     return result
 
 
+def verify_runtime_custody(plan: Mapping[str, Any], *, catalog_path: Path | str,
+                           escrow_root: Path | str) -> dict[str, Any]:
+    """Revalidate catalog binding, receipt semantics, and escrowed bytes without acquisition authority."""
+    _, entry = validate_binding(plan, catalog_path)
+    final = Path(escrow_root).expanduser().absolute() / "sha256" / entry["artifact_sha256"]
+    result = _existing(final, entry)
+    if result is None:
+        raise AcquisitionError("runtime_custody_not_verified")
+    if (result.get("provisioning_plan_digest") != plan["provisioning_plan_digest"] or
+            result.get("runtime_catalog_digest") != plan["runtime_catalog_digest"]):
+        raise AcquisitionError("runtime_custody_not_verified")
+    return {"receipt": result, "entry": entry,
+            "wheel_path": final / entry["artifact_filename"]}
+
+
 class _RedirectHandler(urllib.request.HTTPRedirectHandler):
     def __init__(self, maximum: int):
         self.maximum = maximum

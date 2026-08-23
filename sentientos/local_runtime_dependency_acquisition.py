@@ -327,3 +327,26 @@ def acquire_dependency_bundle(plan: Mapping[str, Any], *, catalog: Mapping[str, 
     except OSError as exc: raise DependencyAcquisitionError("dependency_acquisition_write_error") from exc
     finally:
         if staging.exists(): shutil.rmtree(staging)
+
+
+def verify_dependency_bundle_custody(plan: Mapping[str, Any], *, catalog: Mapping[str, Any],
+                                     escrow_root: Path | str) -> dict[str, Any]:
+    """Fully revalidate the five local artifacts and bundle receipt, without network or mutation."""
+    _, entries = validate_binding(plan, catalog)
+    root = Path(escrow_root).expanduser().absolute()
+    receipts: list[dict[str, Any]] = []
+    paths: list[Path] = []
+    for entry in entries:
+        final = root / "sha256" / entry["artifact_sha256"]
+        receipt = _existing_artifact(final, entry)
+        if receipt is None:
+            raise DependencyAcquisitionError("dependency_bundle_not_verified")
+        receipts.append(receipt); paths.append(final / entry["artifact_filename"])
+    try:
+        bundle = _read_json_nofollow(root / "bundles" / plan["bundle_digest"] /
+                                     "dependency-bundle-acquisition-receipt.json")
+        verified = _verify_bundle_receipt(bundle, plan, entries, receipts,
+            authorization_for(plan, root, operator_confirmed=True)["authorization_digest"])
+    except (OSError, ValueError, json.JSONDecodeError, DependencyAcquisitionError) as exc:
+        raise DependencyAcquisitionError("dependency_bundle_not_verified") from exc
+    return {"receipt": verified, "entries": entries, "wheel_paths": paths}
