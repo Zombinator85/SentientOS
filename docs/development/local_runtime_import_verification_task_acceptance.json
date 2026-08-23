@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "55c59c391599e4cddd7d05f0e9b88d0cf2f4ac14",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_runtime_import_verification.py::test_synthetic_installed_interpreter_imports_and_receipt_is_immutable",
+      "rationale": "Runs the synthetic six-wheel installation and its exact private interpreter through a fresh import probe, native byte witness, immutable receipt, and environment immutability check."
+    },
+    {
+      "node_id": "tests/test_local_runtime_import_verification.py::test_inspection_authorization_and_source_tamper_fail_closed",
+      "rationale": "Proves explicit authorization and current source custody are mandatory."
+    },
+    {
+      "node_id": "tests/test_local_runtime_import_verification.py::test_timeout_nonzero_and_invalid_sentinel_are_bounded",
+      "rationale": "Proves timeout and duplicate result output fail closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_runtime_import_verification.py::test_synthetic_installed_interpreter_imports_and_receipt_is_immutable"
+  ]
+}
