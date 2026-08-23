@@ -10,7 +10,10 @@ def main() -> int:
     required = ("verify_existing", "verify_installation_sources", '"-I"', '"-B"',
         "LLAMA_CPP_LIB_PATH", "EXPECTED_VERSION", "package_module_path", "low_level_module_path",
         "native_library_path", "timeout=timeout_seconds", "SENTIENTOS_RUNTIME_IMPORT_RESULT=",
-        "verification_receipt_root", "_publish_receipt")
+        "verification_receipt_root", "_publish_receipt", "RECORD", "runtime_import_source_manifest_digest",
+        "package_module_identity", "low_level_module_identity", "native_library_identity",
+        '"python_version", "implementation", "soabi"', "before_environment",
+        "runtime_import_receipt_path_unsafe", 'canonical_receipt["status"] = "installed_verified"')
     missing = [item for item in required if item not in text]
     tree = ast.parse(text)
     forbidden = {"Llama", "llama_backend_init", "llama_supports_gpu_offload",
