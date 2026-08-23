@@ -10,12 +10,25 @@ loader discovery such as `PATH`, `CUDA_PATH`, `HIP_PATH`, `LD_LIBRARY_PATH`, and
 `DYLD_LIBRARY_PATH`.
 
 Before every executed probe, all six plan-bound source wheels and every
-installed distribution `RECORD` are reverified. An existing success receipt
-does not suppress the current probe. The helper imports `llama_cpp` only in the
-installed interpreter, checks both 0.3.35 version witnesses and package origins,
-and byte-witnesses the already-loaded packaged library beneath
-`llama_cpp/lib/`. It checks binding attribute presence but never calls those
-attributes, initializes a backend, loads a model, or performs inference.
+installed distribution `RECORD` are reverified. The llama-cpp-python `RECORD`
+also supplies a deterministic import-source manifest for the exact package
+initializer, low-level Python module, and selected packaged native library.
+An existing success receipt does not suppress the current probe. The helper
+imports `llama_cpp` only in the installed interpreter, checks the interpreter's
+actual executable, Python version, implementation and SOABI, checks both 0.3.35
+version witnesses and exact module paths, and hashes the imported Python and
+loaded native bytes while the child is running. Those observations must equal
+the pre-probe `RECORD` custody, and full installation verification runs again
+before an immutable receipt is published. The complete installed environment
+file manifest must also remain unchanged.
+
+SentientOS does not explicitly call backend initialization, GPU-offload or
+system-information queries, or construct `Llama`. Import is nevertheless Python
+execution: llama-cpp-python 0.3.35 runs its own package initialization and native
+binding code, including its upstream `_lib.llama_max_devices()` call. That
+third-party import behavior does not constitute a SentientOS backend capability
+query, backend selection, model load, commissioning, inference, or execution
+authority.
 
 The custody chain is intentionally non-transitive:
 
