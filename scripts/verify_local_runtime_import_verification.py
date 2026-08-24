@@ -13,7 +13,12 @@ def main() -> int:
         "verification_receipt_root", "_publish_receipt", "RECORD", "runtime_import_source_manifest_digest",
         "package_module_identity", "low_level_module_identity", "native_library_identity",
         '"python_version", "implementation", "soabi"', "before_environment",
-        "runtime_import_receipt_path_unsafe", 'canonical_receipt["status"] = "installed_verified"')
+        "runtime_import_receipt_path_unsafe", 'canonical["status"] = "installed_verified"',
+        "expected_plan = compose_verification_plan", "dict(plan) != expected_plan",
+        "canonical_supplied != canonical_current", "post_expected_plan != expected_plan",
+        '"installation_plan_digest"', '"installation_receipt_semantic_digest"',
+        "runtime_import_source_manifest", '"entry_type": "symlink"', "os.readlink(path)",
+        '"entry_type": "regular_file"')
     missing = [item for item in required if item not in text]
     tree = ast.parse(text)
     forbidden = {"Llama", "llama_backend_init", "llama_supports_gpu_offload",

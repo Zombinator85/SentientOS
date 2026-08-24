@@ -40,6 +40,7 @@ def _wheel(path: Path, name: str, version: str) -> None:
         for relative,data in files.items(): archive.writestr(relative,data)
 
 def _installed(tmp_path: Path):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     artifacts=[]; paths=[]
     for name,version in EXPECTED:
         path=(tmp_path/f"{name.replace('-','_')}-{version}-py3-none-any.whl").resolve(); _wheel(path,name,version)
@@ -152,6 +153,68 @@ def test_verify_existing_operation_status_preserves_canonical_receipt_identity(t
     plan = compose_verification_plan(installation, existing, tmp_path / "r")
     assert plan["installation_receipt_semantic_digest"] == receipt["receipt_semantic_digest"]
 
+def test_crossed_installations_never_execute_the_probe(tmp_path):
+    installation_a, receipt_a, _, _ = _installed(tmp_path / "a")
+    installation_b, receipt_b, _, _ = _installed(tmp_path / "b")
+    plan_a = compose_verification_plan(installation_a, receipt_a, tmp_path / "ra")
+    plan_b = compose_verification_plan(installation_b, receipt_b, tmp_path / "rb")
+    combinations = (
+        (plan_a, installation_b, receipt_b),
+        (plan_a, installation_a, receipt_b),
+        (plan_a, installation_b, receipt_a),
+        (plan_b, installation_a, receipt_a),
+    )
+    for plan, installation, receipt in combinations:
+        invoked = False
+        def runner(*args, **kwargs):
+            nonlocal invoked
+            invoked = True
+            raise AssertionError("crossed custody reached subprocess")
+        with pytest.raises(RuntimeImportVerificationError, match="installation_not_verified"):
+            verify_runtime_import(plan, installation, receipt,
+                authorization=import_authorization(plan, operator_confirmed=True),
+                execute=True, runner=runner)
+        assert invoked is False
+
+@pytest.mark.parametrize("field", [
+    "installation_plan_digest", "installation_receipt_semantic_digest", "runtime_id",
+    "backend_family", "backend_variant", "environment_profile_digest",
+    "installed_environment_path", "venv_interpreter_path", "venv_interpreter_identity",
+    "expected_package_root", "runtime_import_source_manifest",
+    "runtime_import_source_manifest_digest",
+])
+def test_internally_valid_stale_plan_never_executes(tmp_path, field):
+    installation, receipt, _, _ = _installed(tmp_path)
+    plan = compose_verification_plan(installation, receipt, tmp_path / "r")
+    stale = json.loads(json.dumps(plan))
+    if field in {"venv_interpreter_identity", "runtime_import_source_manifest"}:
+        stale[field]["stale_test_marker"] = True
+    elif field == "runtime_import_source_manifest_digest":
+        stale[field] = semantic_digest(stale["runtime_import_source_manifest"])
+        stale["runtime_import_source_manifest"]["stale_test_marker"] = True
+        stale[field] = semantic_digest(stale["runtime_import_source_manifest"])
+    elif field in {"installed_environment_path", "expected_package_root"}:
+        stale[field] = str(Path(stale[field]) / "stale")
+        if field == "installed_environment_path":
+            stale["venv_interpreter_path"] = str(Path(stale[field]) / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    elif field == "venv_interpreter_path":
+        stale["installed_environment_path"] = str(Path(stale["installed_environment_path"]) / "stale")
+        stale[field] = str(Path(stale["installed_environment_path"]) / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    else:
+        stale[field] = "stale-" + str(stale[field])
+    digest_value = stale.pop("runtime_import_verification_plan_digest")
+    del digest_value
+    stale["runtime_import_verification_plan_digest"] = semantic_digest(stale)
+    invoked = False
+    def runner(*args, **kwargs):
+        nonlocal invoked
+        invoked = True
+        raise AssertionError("stale plan reached subprocess")
+    with pytest.raises(RuntimeImportVerificationError):
+        verify_runtime_import(stale, installation, receipt,
+            authorization=import_authorization(stale, operator_confirmed=True), execute=True, runner=runner)
+    assert invoked is False
+
 def test_post_probe_mutation_and_substituted_native_bytes_fail_custody(tmp_path):
     installation, receipt, _, final = _installed(tmp_path)
     plan = compose_verification_plan(installation, receipt, tmp_path / "r")
@@ -176,6 +239,33 @@ def test_post_probe_unrelated_installed_file_mutation_fails(tmp_path):
     target = final / "environment" / "pyvenv.cfg"
     def runner(*args, **kwargs):
         run = subprocess.run(*args, **kwargs); target.write_bytes(target.read_bytes() + b"\n# mutation\n"); return run
+    with pytest.raises(RuntimeImportVerificationError, match="installation_not_verified"):
+        verify_runtime_import(plan, installation, receipt,
+            authorization=import_authorization(plan, operator_confirmed=True), execute=True, runner=runner)
+
+@pytest.mark.parametrize("operation", ["create", "delete", "retarget", "file_to_link", "link_to_file"])
+def test_post_probe_symlink_topology_mutation_fails(tmp_path, operation):
+    installation, receipt, _, final = _installed(tmp_path)
+    plan = compose_verification_plan(installation, receipt, tmp_path / "r")
+    environment = final / "environment"
+    target_a = environment / "symlink-target-a"
+    target_b = environment / "symlink-target-b"
+    link = environment / "synthetic-link"
+    target_a.write_text("a", encoding="utf-8")
+    target_b.write_text("b", encoding="utf-8")
+    try:
+        if operation in {"delete", "retarget", "link_to_file"}:
+            link.symlink_to(target_a.name)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink creation unavailable: {exc}")
+    def runner(*args, **kwargs):
+        run = subprocess.run(*args, **kwargs)
+        if operation == "create": link.symlink_to(target_a.name)
+        elif operation == "delete": link.unlink()
+        elif operation == "retarget": link.unlink(); link.symlink_to(target_b.name)
+        elif operation == "file_to_link": target_a.unlink(); target_a.symlink_to(target_b.name)
+        else: link.unlink(); link.write_text("regular", encoding="utf-8")
+        return run
     with pytest.raises(RuntimeImportVerificationError, match="installation_not_verified"):
         verify_runtime_import(plan, installation, receipt,
             authorization=import_authorization(plan, operator_confirmed=True), execute=True, runner=runner)
