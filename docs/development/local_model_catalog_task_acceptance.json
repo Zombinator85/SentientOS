@@ -1,0 +1,13 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "68419edf388148738107d2ec4ab09bebb283e926",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_catalog.py::test_promote_delete_escrow_then_validate_and_select", "rationale": "Critical byte-independent deployment selection invariant."},
+    {"node_id": "tests/test_local_model_catalog.py::test_promotion_is_independent_of_curator_absolute_path", "rationale": "Curator path is excluded from portable identity."},
+    {"node_id": "tests/test_local_model_catalog.py::test_file_dispatch_uses_catalog_without_artifact_and_binds_accelerated_route", "rationale": "Production schema dispatch and route identity binding."},
+    {"node_id": "tests/test_local_model_catalog.py::test_static_catalog_boundary_verifier", "rationale": "Static zero-effect boundary evidence."}
+  ],
+  "successful_path_nodes": ["tests/test_local_model_catalog.py::test_promote_delete_escrow_then_validate_and_select"]
+}

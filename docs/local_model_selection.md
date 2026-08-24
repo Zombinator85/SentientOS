@@ -1,12 +1,40 @@
 # Deterministic local model selection
 
-`sentientos.local_model_selection:v1` is the canonical metadata planning boundary from a supplied read-only host inventory and a trusted pinned escrow manifest to exactly one eligible artifact. It performs no probing, network access, download, installation, loading, inference, commissioning, host mutation, or authority grant.
+`sentientos.local_model_selection:v1` is the canonical metadata planning boundary from a supplied read-only host inventory and trusted model metadata to exactly one eligible artifact. It performs no probing, network access, download, installation, loading, inference, commissioning, host mutation, or authority grant.
+
+## Curator custody and deployment identity
+
+A **CURATOR MANIFEST** (`sentientos.model_manifest:v2`) references local curator
+escrow. Its full validator opens and hashes the curator-held GGUF and proves the
+associated checksum, `LICENSE.txt`, `MODEL_CARD.md`, and `SOURCE.json`. Curator-only
+promotion then independently hashes those bytes and publishes a **DEPLOYABLE LOCAL
+MODEL CATALOG** (`sentientos.local_model_catalog:v1`). The catalog retains the exact
+immutable source commit, source filename, curator-approved license, content-addressed
+artifact filename, byte size, SHA-256, trusted `models.sentientos.org` HTTPS URLs, and
+explicit execution routes. It deliberately does not retain `artifact.escrow_path`.
+
+Catalog validation is pure metadata validation. It does not need a GGUF on the
+deployment host and does not access the curator tree, network, Hugging Face, hardware,
+llama.cpp, or a model loader. Thus identical verified escrow evidence at different
+curator filesystem roots has identical catalog semantics and digest. The file planner
+dispatches by exact schema: catalogs use the deployment validator; legacy manifest
+schemas retain their curator validator and are never silently reinterpreted as a
+production catalog.
+
+The authority states remain distinct: curator escrow verified ≠ deployment artifact
+acquired; catalog entry selected ≠ artifact acquired; artifact acquired ≠ GGUF
+compatible; GGUF compatible ≠ model loaded; model loaded ≠ commissioned; commissioned
+≠ inference authorized. Catalog promotion is curator-controlled metadata publication.
+Catalog validation and selection grant no network, download, runtime, model,
+commissioning, inference, or other execution authority. A later acquisition stage must
+cross-bind the selected model route, runtime provisioning plan, and sealed backend
+receipt before it may fetch any bytes.
 
 The immutable hardware profile records inventory identity/digest, OS and architecture, exact total RAM bytes, optional available storage, tri-state AVX/AVX2/AVX512 facts, explicit accelerator observations/vendor/family/VRAM/backend, missing facts, and warnings. The adapter uses `HostInventoryManifest` fields directly. It never derives instruction sets from CPU text, VRAM from labels, or runtime backends from hardware brands. Facts not explicitly supplied remain `unknown`.
 
 RAM minimums use GiB (`ram_gb_min * 1,073,741,824`) despite the historical field name; no guessed OS overhead is deducted. Architecture aliases are limited to `amd64`/`x86_64` and `aarch64`/`arm64`. Required CPU features pass only on explicit true, fail as incompatible on false, and remain unresolved on unknown. Historical curator `avx` booleans retain their literal manifest meaning; the planner does not reinterpret classifier history.
 
-Manifest file planning first calls `hf_intake.manifest.validate_manifest()`, preserving pinned checksum, URL, license, and escrow custody. Mapping planning is pure and intended for already-trusted metadata and tests. CPU-capable (`gpu: false`) entries may qualify. Manifest v1 `gpu: true` cannot describe CUDA, ROCm, or Metal compatibility and therefore remains unresolved as `manifest_accelerator_backend_unspecified`; filenames are never used as evidence.
+Legacy manifest file planning calls `hf_intake.manifest.validate_manifest()`, preserving pinned checksum, URL, license, and escrow custody. Production catalog file planning instead calls `validate_local_model_catalog()` and never reads model bytes. Mapping planning for legacy manifests is pure and intended for already-trusted metadata and tests. CPU-capable (`gpu: false`) entries may qualify. Manifest v1 `gpu: true` cannot describe CUDA, ROCm, or Metal compatibility and therefore remains unresolved as `manifest_accelerator_backend_unspecified`; filenames are never used as evidence.
 
 Manifest schema v2 is identified independently of the curator's content version by
 `schema_version: sentientos.model_manifest:v2`. Every artifact entry has a non-empty,
