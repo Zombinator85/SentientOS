@@ -93,10 +93,27 @@ def _import_source_manifest(environment: Path, dist_info: Path) -> dict[str, Any
             "files": files, "selected_native_library_relative_path": native[0]}
 
 
-def _environment_manifest(root: Path) -> dict[str, tuple[int, str]]:
-    return {str(path.relative_to(root)).replace(os.sep, "/"):
-            (path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest())
-            for path in sorted(root.rglob("*")) if path.is_file() and not path.is_symlink()}
+def _environment_manifest(root: Path) -> dict[str, dict[str, Any]]:
+    """Witness environment contents and topology without following symlinks."""
+    manifest: dict[str, dict[str, Any]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = str(path.relative_to(root)).replace(os.sep, "/")
+        if path.is_symlink():
+            manifest[relative] = {"entry_type": "symlink", "relative_path": relative,
+                                  "link_target": os.readlink(path)}
+        elif path.is_file():
+            identity = _file_identity(path, relative)
+            manifest[relative] = {"entry_type": "regular_file", **identity}
+        elif path.is_dir():
+            manifest[relative] = {"entry_type": "directory", "relative_path": relative}
+    return manifest
+
+
+def _canonical_installation_receipt(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    canonical = dict(receipt)
+    if canonical.get("status") == "already_installed_verified":
+        canonical["status"] = "installed_verified"
+    return canonical
 
 
 def compose_verification_plan(installation_plan: Mapping[str, Any],
@@ -106,11 +123,9 @@ def compose_verification_plan(installation_plan: Mapping[str, Any],
         validate_plan(installation_plan)
         required_false = ("runtime_import_performed", "runtime_available_for_import",
             "model_load_performed", "commissioning_performed", "runtime_execution_authority_granted")
-        canonical_receipt = dict(installation_receipt)
+        canonical_receipt = _canonical_installation_receipt(installation_receipt)
         # ``already_installed_verified`` describes the verification operation,
         # not a mutation of the immutable installation receipt.
-        if canonical_receipt.get("status") == "already_installed_verified":
-            canonical_receipt["status"] = "installed_verified"
         if (canonical_receipt.get("status") != "installed_verified" or
                 installation_receipt.get("runtime_installed") is not True or
                 any(installation_receipt.get(k) is not False for k in required_false) or
@@ -303,18 +318,29 @@ def verify_runtime_import(plan: Mapping[str, Any], installation_plan: Mapping[st
     if not execute:
         return {"status": "inspection_ready", "runtime_import_verification_plan_digest":
                 plan["runtime_import_verification_plan_digest"], "runtime_import_performed": False}
-    expected_auth = authorization_for(plan, operator_confirmed=True)
-    if authorization is None or dict(authorization) != expected_auth:
-        raise RuntimeImportVerificationError("runtime_import_authorization_invalid")
     try:
         validate_plan(installation_plan)
         paths = [Path(str(a["verified_source_path"])) for a in installation_plan["artifacts"]]
         verify_installation_sources(installation_plan, paths)
         current = verify_existing(installation_plan, paths)
-        if current.get("receipt_semantic_digest") != installation_receipt.get("receipt_semantic_digest"):
+        canonical_current = _canonical_installation_receipt(current)
+        canonical_supplied = _canonical_installation_receipt(installation_receipt)
+        if (canonical_current.get("receipt_semantic_digest") != receipt_semantic_digest(canonical_current) or
+                canonical_supplied != canonical_current):
+            raise InstallationError("installation_target_conflict")
+        expected_plan = compose_verification_plan(
+            installation_plan, canonical_current,
+            receipt_root=str(plan["verification_receipt_root"]),
+        )
+        if dict(plan) != expected_plan:
             raise InstallationError("installation_target_conflict")
     except InstallationError as exc:
         raise RuntimeImportVerificationError("installation_not_verified") from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeImportVerificationError("installation_not_verified") from exc
+    expected_auth = authorization_for(expected_plan, operator_confirmed=True)
+    if authorization is None or dict(authorization) != expected_auth:
+        raise RuntimeImportVerificationError("runtime_import_authorization_invalid")
     vpy = Path(str(plan["venv_interpreter_path"])); env = Path(str(plan["installed_environment_path"])); cwd = env.parent
     before_environment = _environment_manifest(env)
     try:
@@ -327,7 +353,12 @@ def verify_runtime_import(plan: Mapping[str, Any], installation_plan: Mapping[st
     result = _parse_probe(run.stdout); _validate_probe(plan, result)
     try:
         post = verify_existing(installation_plan, paths)
-        if (post.get("receipt_semantic_digest") != installation_receipt.get("receipt_semantic_digest") or
+        canonical_post = _canonical_installation_receipt(post)
+        post_expected_plan = compose_verification_plan(
+            installation_plan, canonical_post,
+            receipt_root=str(plan["verification_receipt_root"]),
+        )
+        if (canonical_post != canonical_current or post_expected_plan != expected_plan or
                 _environment_manifest(env) != before_environment):
             raise InstallationError("installation_target_conflict")
     except InstallationError as exc:

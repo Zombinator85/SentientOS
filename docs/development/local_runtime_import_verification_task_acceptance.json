@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "55c59c391599e4cddd7d05f0e9b88d0cf2f4ac14",
+  "repository_sha": "e11f3755a29fd926b88fd3eb5d41580390e79809",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {
@@ -15,6 +15,10 @@
     {
       "node_id": "tests/test_local_runtime_import_verification.py::test_timeout_nonzero_and_invalid_sentinel_are_bounded",
       "rationale": "Proves timeout and duplicate result output fail closed."
+    },
+    {
+      "node_id": "tests/test_local_runtime_import_verification.py::test_crossed_installations_never_execute_the_probe",
+      "rationale": "Proves no independently valid installation or receipt can provide execution custody for another installation's authorized import plan, and every crossed combination fails before subprocess execution."
     }
   ],
   "successful_path_nodes": [
