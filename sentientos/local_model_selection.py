@@ -9,6 +9,11 @@ from typing import Any, Mapping
 
 from hf_intake.manifest import V2_SCHEMA_VERSION, ManifestError, validate_execution_routes, validate_manifest
 from sentientos.host_inventory import HostInventoryManifest
+from sentientos.local_model_catalog import (
+    SCHEMA_VERSION as CATALOG_SCHEMA_VERSION,
+    LocalModelCatalogError,
+    validate_local_model_catalog,
+)
 
 SCHEMA_VERSION = "sentientos.local_model_selection:v1"
 PROFILE_SCHEMA_VERSION = "sentientos.local_inference_hardware_profile:v1"
@@ -237,10 +242,61 @@ def plan_local_model_selection(host: LocalInferenceHardwareProfile, manifest: Ma
     return plan
 
 
+def plan_local_model_selection_catalog(host: LocalInferenceHardwareProfile, catalog: Mapping[str, Any]) -> dict[str, Any]:
+    """Select a curator-approved portable identity without reading its GGUF bytes."""
+    base = {"schema_version": SCHEMA_VERSION, "host_profile_digest": host.digest,
+            "catalog_schema_version": CATALOG_SCHEMA_VERSION, "no_network_performed": True,
+            "no_download_performed": True, "no_install_performed": True, "no_model_load_performed": True,
+            "no_commissioning_performed": True, "no_authority_granted": True,
+            "runtime_availability_status": "not_evaluated"}
+    try:
+        validated = validate_local_model_catalog(catalog)
+    except LocalModelCatalogError:
+        plan = {**base, "status": "blocked_catalog_invalid", "selected": None,
+                "local_model_catalog_digest": None, "eligible_candidates": (), "candidate_summaries": (),
+                "reason_codes": ("local_model_catalog_invalid",)}
+        plan["plan_digest"] = _digest(plan)
+        return plan
+    candidates = []
+    for model in validated["models"]:
+        candidates.append({
+            "model_id": model["model_id"], "priority": model["priority"], "license_id": model["license_id"],
+            "source_repository": model["source_repository"], "source_revision": model["source_revision"],
+            "source_artifact_filename": model["source_artifact_filename"],
+            "artifact_filename": model["artifact_filename"], "artifact_sha256": model["artifact_sha256"],
+            "artifact_size_bytes": model["artifact_size_bytes"],
+            "artifact_content_address": model["artifact_content_address"],
+            "artifact_urls": tuple(model["artifact_urls"]), "requirements": dict(model["requirements"]),
+            "execution_routes": model["execution_routes"],
+        })
+    evaluated = [_evaluate_route(item, route, host) for item in candidates for route in item["execution_routes"]]
+    evaluated.sort(key=lambda item: (item["priority"], item["route_priority"], item["model_id"], item["route_id"]))
+    eligible = [item for item in evaluated if item["state"] == "eligible"]
+    selected = eligible[0] if eligible else None
+    if selected:
+        status, reasons = "selected", ()
+    elif any(item["state"] == "unresolved" for item in evaluated):
+        status = "blocked_missing_hardware_facts"
+        reasons = tuple(sorted({reason for item in evaluated for reason in item["reason_codes"]}))
+    else:
+        status = "blocked_no_eligible_model"
+        reasons = tuple(sorted({reason for item in evaluated for reason in item["reason_codes"]}))
+    plan = {**base, "status": status, "selected": selected,
+            "local_model_catalog_digest": validated["local_model_catalog_digest"],
+            "eligible_candidates": tuple(eligible), "candidate_summaries": tuple(evaluated), "reason_codes": reasons}
+    plan["plan_digest"] = _digest(plan)
+    return plan
+
+
 def plan_local_model_selection_file(host: LocalInferenceHardwareProfile, manifest_path: Path) -> dict[str, Any]:
     try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return plan_local_model_selection(host, {}, manifest_trusted=False)
+    if isinstance(raw, Mapping) and raw.get("schema_version") == CATALOG_SCHEMA_VERSION:
+        return plan_local_model_selection_catalog(host, raw)
+    try:
         validate_manifest(manifest_path)
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (ManifestError, OSError, json.JSONDecodeError):
         return plan_local_model_selection(host, {}, manifest_trusted=False)
-    return plan_local_model_selection(host, data)
+    return plan_local_model_selection(host, raw)
