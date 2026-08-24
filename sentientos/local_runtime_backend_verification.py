@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -45,6 +44,10 @@ def _canonical_import_receipt(receipt: Mapping[str, Any]) -> dict[str, Any]:
     value = dict(receipt)
     if value.get("status") == "already_verified_current":
         value["status"] = "runtime_import_verified"
+    claimed = value.pop("receipt_semantic_digest", None)
+    if claimed != semantic_digest(value):
+        raise RuntimeBackendVerificationError("runtime_backend_import_not_verified")
+    value["receipt_semantic_digest"] = claimed
     return value
 
 
@@ -57,9 +60,22 @@ def _native_manifest(import_plan: Mapping[str, Any]) -> dict[str, Any]:
     return {"files": files}
 
 
-def compose_verification_plan(installation_plan: Mapping[str, Any],
+def _validate_provisioning(runtime_plan: Mapping[str, Any], installation_plan: Mapping[str, Any]) -> None:
+    copy = dict(runtime_plan)
+    claimed = copy.pop("provisioning_plan_digest", None)
+    shared = ("runtime_id", "engine", "backend_family", "backend_variant", "package_name", "package_version")
+    if (runtime_plan.get("status") != "selected" or claimed != semantic_digest(copy) or
+            claimed != installation_plan.get("runtime_provisioning_plan_digest") or
+            any(runtime_plan.get(key) != installation_plan.get(key) for key in shared) or
+            runtime_plan.get("environment_profile_digest") != installation_plan.get("environment_profile_digest") or
+            not isinstance(runtime_plan.get("external_prerequisite_codes"), (list, tuple))):
+        raise RuntimeBackendVerificationError("runtime_backend_provisioning_mismatch")
+
+
+def compose_verification_plan(runtime_provisioning_plan: Mapping[str, Any], installation_plan: Mapping[str, Any],
         installation_receipt: Mapping[str, Any], import_plan: Mapping[str, Any],
         import_receipt: Mapping[str, Any], receipt_root: Path | str) -> dict[str, Any]:
+    _validate_provisioning(runtime_provisioning_plan, installation_plan)
     expected_import = compose_import_plan(installation_plan, installation_receipt,
                                           import_plan["verification_receipt_root"])
     canonical = _canonical_import_receipt(import_receipt)
@@ -84,7 +100,8 @@ def compose_verification_plan(installation_plan: Mapping[str, Any],
         "venv_interpreter_identity": import_plan["venv_interpreter_identity"],
         "expected_package_root": import_plan["expected_package_root"],
         "expected_selected_backend_registry": EXPECTED_REGISTRY[key],
-        "external_prerequisite_codes": list(installation_plan.get("external_prerequisite_codes", [])),
+        "runtime_provisioning_plan_digest": runtime_provisioning_plan["provisioning_plan_digest"],
+        "catalog_external_prerequisite_codes": list(runtime_provisioning_plan["external_prerequisite_codes"]),
         "runtime_backend_native_manifest": native,
         "runtime_backend_native_manifest_digest": semantic_digest(native),
         "verification_receipt_root": str(Path(receipt_root).absolute())}
@@ -96,7 +113,8 @@ def authorization_for(plan: Mapping[str, Any], *, operator_confirmed: bool) -> d
     keys = ("runtime_backend_verification_plan_digest", "installation_plan_digest",
             "runtime_import_verification_plan_digest", "runtime_import_verification_receipt_semantic_digest",
             "runtime_backend_native_manifest_digest", "runtime_id", "backend_family", "backend_variant",
-            "expected_selected_backend_registry", "venv_interpreter_path", "installed_environment_path")
+            "expected_selected_backend_registry", "venv_interpreter_path", "installed_environment_path",
+            "runtime_provisioning_plan_digest", "catalog_external_prerequisite_codes")
     value = {"schema_version": AUTHORIZATION_SCHEMA, "action": ACTION,
              **{key: plan[key] for key in keys}, "operator_confirmed": operator_confirmed}
     value["authorization_digest"] = semantic_digest(value)
@@ -151,22 +169,79 @@ def _parse(stdout: str) -> dict[str, Any]:
 
 
 def _registries(info: str) -> list[str]:
-    # Pinned llama.cpp prints registry identifiers in backend feature lines.
+    """Parse pinned llama.cpp ``REGISTRY : key = value | ...`` records only."""
     found: list[str] = []
-    for name in ("CPU",) + ACCELERATORS:
-        if re.search(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])", info, re.I):
-            canonical = next(x for x in ("CPU",) + ACCELERATORS if x.lower() == name.lower())
-            if canonical not in found:
-                found.append(canonical)
+    active = False
+    for feature in info.replace("\r\n", "\n").replace("\n", " | ").split(" | "):
+        if not feature:
+            continue
+        head, separator, tail = feature.partition(" : ")
+        if separator:
+            if (not head or len(head) > 64 or
+                    not head.replace("_", "").replace("-", "").isalnum() or " = " not in tail):
+                raise RuntimeBackendVerificationError("runtime_backend_result_invalid")
+            if head not in found:
+                found.append(head)
+            active = True
+        elif not active or " = " not in feature:
+            raise RuntimeBackendVerificationError("runtime_backend_result_invalid")
     if not found:
         raise RuntimeBackendVerificationError("runtime_backend_result_invalid")
     return found
 
 
-def verify_runtime_backend(plan: Mapping[str, Any], installation_plan: Mapping[str, Any],
+def validate_plan(plan: Mapping[str, Any]) -> None:
+    copy = dict(plan); claimed = copy.pop("runtime_backend_verification_plan_digest", None)
+    root = Path(str(plan.get("verification_receipt_root", "")))
+    native = plan.get("runtime_backend_native_manifest")
+    key = (str(plan.get("backend_family")), str(plan.get("backend_variant")))
+    if (plan.get("schema_version") != PLAN_SCHEMA or plan.get("status") != "runtime_backend_verification_planned" or
+            claimed != semantic_digest(copy) or not root.is_absolute() or key not in EXPECTED_REGISTRY or
+            plan.get("expected_selected_backend_registry") != EXPECTED_REGISTRY.get(key) or
+            semantic_digest(native) != plan.get("runtime_backend_native_manifest_digest") or
+            not isinstance(plan.get("catalog_external_prerequisite_codes"), list) or
+            not all(Path(str(plan.get(k, ""))).is_absolute() for k in ("installed_environment_path", "venv_interpreter_path", "expected_package_root"))):
+        raise RuntimeBackendVerificationError("runtime_backend_plan_invalid")
+
+
+def _publish(plan: Mapping[str, Any], receipt: Mapping[str, Any]) -> bool:
+    root = Path(plan["verification_receipt_root"])
+    destination_dir = root / plan["runtime_backend_verification_plan_digest"]
+    target = destination_dir / "runtime-backend-verification-receipt.json"
+    for path in (*root.parents, root, destination_dir, target):
+        if path.is_symlink(): raise RuntimeBackendVerificationError("runtime_backend_receipt_path_unsafe")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    destination_dir.mkdir(mode=0o700, exist_ok=True)
+    payload = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    if target.exists():
+        if target.is_symlink() or not target.is_file() or target.read_bytes() != payload:
+            raise RuntimeBackendVerificationError("runtime_backend_receipt_conflict")
+        return True
+    fd, temporary = tempfile.mkstemp(prefix=".receipt-", dir=destination_dir)
+    existed = False
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(payload); stream.flush(); os.fsync(stream.fileno())
+        try: os.link(temporary, target)
+        except FileExistsError:
+            if target.is_symlink() or not target.is_file() or target.read_bytes() != payload:
+                raise RuntimeBackendVerificationError("runtime_backend_receipt_conflict")
+            existed = True
+        directory_fd = os.open(destination_dir, os.O_RDONLY)
+        try: os.fsync(directory_fd)
+        finally: os.close(directory_fd)
+    finally:
+        try: os.unlink(temporary)
+        except FileNotFoundError: pass
+    return existed
+
+
+def verify_runtime_backend(plan: Mapping[str, Any], runtime_provisioning_plan: Mapping[str, Any], installation_plan: Mapping[str, Any],
         installation_receipt: Mapping[str, Any], import_plan: Mapping[str, Any],
         import_receipt: Mapping[str, Any], *, authorization: Mapping[str, Any] | None = None,
         execute: bool = False, timeout_seconds: int = TIMEOUT_SECONDS, runner: Any = subprocess.run) -> dict[str, Any]:
+    validate_plan(plan)
+    _validate_provisioning(runtime_provisioning_plan, installation_plan)
     if not execute:
         return {"status": "inspection_ready", "runtime_backend_verification_plan_digest":
                 plan["runtime_backend_verification_plan_digest"], "backend_query_performed": False}
@@ -177,7 +252,7 @@ def verify_runtime_backend(plan: Mapping[str, Any], installation_plan: Mapping[s
         fresh_import_plan = compose_import_plan(installation_plan, current_install, import_plan["verification_receipt_root"])
         fresh_import = verify_runtime_import(fresh_import_plan, installation_plan, current_install,
             authorization=import_authorization_for(fresh_import_plan, operator_confirmed=True), execute=True)
-        expected = compose_verification_plan(installation_plan, current_install, fresh_import_plan,
+        expected = compose_verification_plan(runtime_provisioning_plan, installation_plan, current_install, fresh_import_plan,
                                              fresh_import, plan["verification_receipt_root"])
     except Exception as exc:
         if isinstance(exc, RuntimeBackendVerificationError): raise
@@ -205,7 +280,7 @@ def verify_runtime_backend(plan: Mapping[str, Any], installation_plan: Mapping[s
         raise RuntimeBackendVerificationError("runtime_backend_registry_missing")
     if result.get("rpc_supported") is not False:
         raise RuntimeBackendVerificationError("runtime_backend_rpc_ambiguity")
-    accelerators = [name for name in observed if name in ACCELERATORS]
+    accelerators = [name for name in observed if name != "CPU"]
     if expected_registry != "CPU":
         if result.get("gpu_offload_supported") is not True:
             raise RuntimeBackendVerificationError("runtime_backend_gpu_not_visible")
@@ -223,8 +298,9 @@ def verify_runtime_backend(plan: Mapping[str, Any], installation_plan: Mapping[s
         "authorization_digest": expected_auth["authorization_digest"],
         **{k: plan[k] for k in ("installation_plan_digest", "installation_receipt_semantic_digest",
             "runtime_import_verification_plan_digest", "runtime_import_source_manifest_digest",
-            "runtime_import_verification_receipt_semantic_digest", "runtime_backend_native_manifest_digest",
-            "runtime_id", "engine", "backend_family", "backend_variant", "environment_profile_digest")},
+        "runtime_import_verification_receipt_semantic_digest", "runtime_backend_native_manifest_digest",
+            "runtime_id", "engine", "backend_family", "backend_variant", "environment_profile_digest",
+            "runtime_provisioning_plan_digest", "catalog_external_prerequisite_codes")},
         "expected_selected_backend_registry": expected_registry, "selected_backend": expected_registry,
         "ordered_observed_backend_registries": observed,
         "additional_accelerator_registries": accelerators if expected_registry == "CPU" else [],
@@ -237,4 +313,6 @@ def verify_runtime_backend(plan: Mapping[str, Any], installation_plan: Mapping[s
         "model_load_performed": False, "commissioning_performed": False, "inference_performed": False,
         "runtime_execution_authority_granted": False}
     receipt["receipt_semantic_digest"] = semantic_digest(receipt)
+    if _publish(plan, receipt):
+        receipt = dict(receipt); receipt["status"] = "already_verified_current"
     return receipt

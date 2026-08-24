@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "d7614997c812fe231ba053348fd83ada66fe2163",
+  "repository_sha": "b9ef8b5ec6bd37d4012446b01bd895de853db7e9",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {
@@ -19,6 +19,22 @@
     {
       "node_id": "tests/test_local_runtime_backend_verification.py::test_selected_registry_mismatch_fails",
       "rationale": "Proves the selected accelerator registry must be observed."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_repeat_fresh_probe_observes_identical_immutable_receipt",
+      "rationale": "Proves repeat execution probes current host state before immutable receipt reuse."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_unknown_accelerator_registry_is_observed_and_ambiguous",
+      "rationale": "Proves an unknown competing registry fails accelerator attribution closed."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_crossed_provisioning_plan_fails_before_runner",
+      "rationale": "Proves crossed provisioning custody is rejected before the backend query."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_conflicting_immutable_backend_receipt_fails_closed",
+      "rationale": "Proves conflicting immutable receipt bytes fail closed."
     }
   ],
   "successful_path_nodes": [
