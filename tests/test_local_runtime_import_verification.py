@@ -20,7 +20,7 @@ from sentientos.local_runtime_installation import (EXPECTED, authorization_for,
 
 pytestmark = pytest.mark.no_legacy_skip
 
-def _wheel(path: Path, name: str, version: str) -> None:
+def _wheel(path: Path, name: str, version: str, backend_info: str = "CPU", gpu: bool = False, rpc: bool = False) -> None:
     dist = name.replace("-", "_"); info = f"{dist}-{version}.dist-info"
     init = b"MARKER=True\n"
     files = {f"{dist}/__init__.py": init,
@@ -28,7 +28,7 @@ def _wheel(path: Path, name: str, version: str) -> None:
         f"{info}/WHEEL": b"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n"}
     if name == "llama-cpp-python":
         files = {"llama_cpp/__init__.py": b"from .llama_cpp import *\n__version__='0.3.35'\nclass Llama: pass\n",
-            "llama_cpp/llama_cpp.py": b"from pathlib import Path\nclass FakeLib: pass\n_lib=FakeLib()\n_lib._name=str(Path(__file__).parent/'lib'/'libllama.so')\ndef llama_backend_init(): raise AssertionError('must not call')\ndef llama_supports_gpu_offload(): raise AssertionError('must not call')\n",
+            "llama_cpp/llama_cpp.py": ("from pathlib import Path\nclass FakeLib: pass\n_lib=FakeLib()\n_lib._name=str(Path(__file__).parent/'lib'/'libllama.so')\ndef llama_backend_init(): raise AssertionError('must not call')\ndef llama_supports_gpu_offload(): return %r\ndef llama_supports_rpc(): return %r\ndef llama_print_system_info(): return %r\n" % (gpu, rpc, backend_info)).encode(),
             "llama_cpp/lib/libllama.so": b"opaque-synthetic-native-library", **{k:v for k,v in files.items() if k.startswith(info)}}
     rows=[]
     for relative,data in files.items():
@@ -39,11 +39,12 @@ def _wheel(path: Path, name: str, version: str) -> None:
     with zipfile.ZipFile(path,"w",compression=zipfile.ZIP_STORED) as archive:
         for relative,data in files.items(): archive.writestr(relative,data)
 
-def _installed(tmp_path: Path):
+def _installed(tmp_path: Path, *, backend_family: str = "cpu", backend_variant: str = "cpu",
+               backend_info: str = "CPU", gpu: bool = False, rpc: bool = False):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifacts=[]; paths=[]
     for name,version in EXPECTED:
-        path=(tmp_path/f"{name.replace('-','_')}-{version}-py3-none-any.whl").resolve(); _wheel(path,name,version)
+        path=(tmp_path/f"{name.replace('-','_')}-{version}-py3-none-any.whl").resolve(); _wheel(path,name,version,backend_info,gpu,rpc)
         digest=hashlib.sha256(path.read_bytes()).hexdigest()
         artifacts.append({"artifact_id":name,"package":name,"version":version,"filename":path.name,
             "sha256":digest,"size":path.stat().st_size,"source_content_address":f"sha256:{digest}",
@@ -52,7 +53,7 @@ def _installed(tmp_path: Path):
         "python_minor":sys.version_info.minor,"python_abi":f"cp{sys.version_info.major}{sys.version_info.minor}",
         "os_family":"linux","architecture":"x86_64","libc_family":"glibc","libc_version":"2.17","macos_version":""}
     plan={"schema_version":"sentientos.local_runtime_installation_plan:v1","status":"installation_planned",
-        "runtime_id":"synthetic","engine":"llama.cpp","backend_family":"cpu","backend_variant":"cpu",
+        "runtime_id":"synthetic","engine":"llama.cpp","backend_family":backend_family,"backend_variant":backend_variant,
         "package_name":"llama-cpp-python","package_version":"0.3.35","runtime_provisioning_plan_digest":"a",
         "runtime_catalog_digest":"b","runtime_artifact_acquisition_receipt_semantic_digest":"c",
         "dependency_plan_digest":"d","dependency_catalog_digest":"e","bundle_digest":"f",
