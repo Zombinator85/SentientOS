@@ -1,0 +1,28 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d7614997c812fe231ba053348fd83ada66fe2163",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_selected_cpu_synthetic_exact_interpreter_backend_verification",
+      "rationale": "Runs the selected CPU query through the real synthetic exact-interpreter subprocess."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_selected_cuda_synthetic_exact_interpreter_backend_verification",
+      "rationale": "Runs an unambiguous selected accelerator query through the exact-interpreter subprocess."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_accelerator_rpc_cannot_become_local_backend_verified",
+      "rationale": "Proves generic offload plus RPC cannot become direct-local accelerator evidence."
+    },
+    {
+      "node_id": "tests/test_local_runtime_backend_verification.py::test_selected_registry_mismatch_fails",
+      "rationale": "Proves the selected accelerator registry must be observed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_runtime_backend_verification.py::test_selected_cpu_synthetic_exact_interpreter_backend_verification",
+    "tests/test_local_runtime_backend_verification.py::test_selected_cuda_synthetic_exact_interpreter_backend_verification"
+  ]
+}
