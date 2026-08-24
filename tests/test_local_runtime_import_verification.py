@@ -20,7 +20,7 @@ from sentientos.local_runtime_installation import (EXPECTED, authorization_for,
 
 pytestmark = pytest.mark.no_legacy_skip
 
-def _wheel(path: Path, name: str, version: str, backend_info: str = "CPU", gpu: bool = False, rpc: bool = False) -> None:
+def _wheel(path: Path, name: str, version: str, backend_info: str = "CPU : name = host", gpu: bool = False, rpc: bool = False) -> None:
     dist = name.replace("-", "_"); info = f"{dist}-{version}.dist-info"
     init = b"MARKER=True\n"
     files = {f"{dist}/__init__.py": init,
@@ -40,7 +40,7 @@ def _wheel(path: Path, name: str, version: str, backend_info: str = "CPU", gpu: 
         for relative,data in files.items(): archive.writestr(relative,data)
 
 def _installed(tmp_path: Path, *, backend_family: str = "cpu", backend_variant: str = "cpu",
-               backend_info: str = "CPU", gpu: bool = False, rpc: bool = False):
+               backend_info: str = "CPU : name = host", gpu: bool = False, rpc: bool = False):
     tmp_path.mkdir(parents=True, exist_ok=True)
     artifacts=[]; paths=[]
     for name,version in EXPECTED:

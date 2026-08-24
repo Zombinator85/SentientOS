@@ -24,16 +24,30 @@ accelerator registries. CPU selection instead requires CPU visibility and does
 not require the offload predicate to be false. Thus **CPU-selected does not mean
 accelerator-absent**; CPU plus MTL is representable without selecting Metal.
 
-The bounded system-information witness is UTF-8, at most 64 KiB, and represented
-authoritatively by its digest and ordered recognized registry names. Installed
+The bounded system-information witness is strict UTF-8, at most 64 KiB, and is
+parsed only as pinned `REGISTRY : feature = value | ...` records. Registry-like
+words in values or arbitrary text are never evidence. Every syntactically valid
+registry identifier, including unknown identifiers, is retained in order;
+unknown non-CPU registries make accelerator attribution ambiguous. It is represented
+authoritatively by its digest and ordered registry names. Installed
 native files under `llama_cpp/lib/` are bound from RECORD by relative path,
 size, and SHA-256 before the query and rechecked afterward with the complete
 symlink-aware environment manifest.
 
-`backend_prerequisites_verified` means only that runtime-observable
+The exact provisioning plan is required and digest-linked to installation. Its
+`external_prerequisite_codes` are retained as catalog provenance: they describe
+what the curated route expects and are not claims that individual driver versions
+were measured. `backend_prerequisites_verified` means only that runtime-observable
 prerequisites needed for this exact backend to be visible are currently
 satisfied. It does not certify driver versions, every vendor compatibility
 edge, an arbitrary model, model loading, offload layer selection, or execution.
 GGUF acquisition, model compatibility/loading, execution-route composition,
 inference, commissioning, and first boot remain deferred. General runtime
 execution authority remains false.
+
+Success is atomically published beneath the plan-bound receipt root and plan
+digest as a private, immutable canonical `runtime_backend_verified` receipt.
+Symlinked paths and conflicting existing bytes fail closed. A repeat never skips
+installation, fresh import, or the backend probe; only after reconstructing an
+identical canonical receipt does it return the operational status
+`already_verified_current`, without changing the stored semantic identity.
