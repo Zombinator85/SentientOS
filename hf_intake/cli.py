@@ -40,7 +40,7 @@ def command_discover(args: argparse.Namespace) -> None:
     from huggingface_hub import HfApi
 
     models = discovery.discover_text_models(api=HfApi())
-    print(json.dumps([model.to_source_record(model.gguf_files[0]) for model in models], indent=2))
+    print(json.dumps([model.to_source_record(model.gguf_files[0], model.gguf_files[0]) for model in models], indent=2))
 
 
 def command_escrow(args: argparse.Namespace) -> None:

@@ -11,6 +11,8 @@ def _calls(source: str) -> set[str]:
 
 
 def main() -> int:
+    escrow = Path("hf_intake/escrow.py").read_text(encoding="utf-8")
+    discovery = Path("hf_intake/discovery.py").read_text(encoding="utf-8")
     promotion = Path("hf_intake/production_catalog.py").read_text(encoding="utf-8")
     catalog = Path("sentientos/local_model_catalog.py").read_text(encoding="utf-8")
     selector = Path("sentientos/local_model_selection.py").read_text(encoding="utf-8")
@@ -20,6 +22,17 @@ def main() -> int:
         findings.append("promotion_missing_full_manifest_validation")
     if "_hash" not in promotion_calls:
         findings.append("promotion_missing_independent_hash")
+    if "source_artifact_filename" not in discovery or "artifact_filename" not in discovery:
+        findings.append("escrow_source_identity_not_separate")
+    if "write_source_record(source_path, candidate, escrow_path.name, artifact_filename)" not in escrow:
+        findings.append("escrow_does_not_preserve_upstream_artifact_path")
+    promotion_attributes = {node.attr for node in ast.walk(ast.parse(promotion)) if isinstance(node, ast.Attribute)}
+    if "_read_checksum_sidecar" not in promotion_calls or 'getattr(os, "O_NOFOLLOW", 0)' not in promotion:
+        findings.append("promotion_missing_checksum_or_nofollow_custody")
+    if "os.replace" in promotion or "os.rename" in promotion or "link" not in promotion_attributes:
+        findings.append("publication_not_no_clobber")
+    if "source_filename = artifact_path" in promotion:
+        findings.append("promotion_reconstructs_source_filename")
     if "validate_local_model_catalog" not in _calls(selector):
         findings.append("selector_missing_catalog_validator")
     forbidden_catalog = {"open", "stat", "exists", "is_file", "urlopen", "requests", "socket", "Llama"}

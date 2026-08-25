@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from hf_intake import escrow, manifest as intake_manifest
+from hf_intake.discovery import CandidateModel
 from hf_intake.manifest import ManifestError
 from hf_intake.production_catalog import promote_manifest, write_promoted_catalog
 from sentientos.local_model_catalog import LocalModelCatalogError, validate_local_model_catalog
@@ -36,7 +38,7 @@ def _curator_tree(root: Path, *, model_id: str = "synthetic-q4") -> Path:
     (escrow / "LICENSE.txt").write_text("Apache-2.0 fixture evidence", encoding="utf-8")
     (escrow / "MODEL_CARD.md").write_text("# Synthetic test-only fixture\n", encoding="utf-8")
     source = {"id": model_id, "repo_id": "example/synthetic", "revision": REVISION,
-              "source_artifact_filename": "synthetic-q4.gguf", "artifact": filename,
+              "source_artifact_filename": "quantized/synthetic-q4.gguf", "artifact": filename,
               "license": "apache-2.0", "priority": 1}
     (escrow / "SOURCE.json").write_text(json.dumps(source), encoding="utf-8")
     routes = [
@@ -67,6 +69,7 @@ def test_promote_delete_escrow_then_validate_and_select(tmp_path: Path) -> None:
     assert plan["selected"]["route_id"] == "cpu"
     assert plan["local_model_catalog_digest"] == validated["local_model_catalog_digest"]
     assert plan["selected"]["source_revision"] == REVISION
+    assert plan["selected"]["source_artifact_filename"] == "quantized/synthetic-q4.gguf"
     assert plan["selected"]["artifact_content_address"].startswith("sha256:")
     assert "escrow_path" not in json.dumps(catalog)
     assert all(plan[key] is True for key in ("no_network_performed", "no_download_performed",
@@ -79,7 +82,9 @@ def test_promotion_is_independent_of_curator_absolute_path(tmp_path: Path) -> No
     assert promote_manifest(first_path) == promote_manifest(second_path)
 
 
-@pytest.mark.parametrize("mutation", ["bytes", "size", "checksum_missing", "checksum_bad", "license_missing",
+@pytest.mark.parametrize("mutation", ["bytes", "size", "checksum_missing", "checksum_bad", "sidecar_missing",
+                                      "sidecar_malformed", "sidecar_digest", "sidecar_filename", "sidecar_duplicate", "coordinated_tamper",
+                                      "artifact_symlink", "sidecar_symlink", "license_symlink", "card_symlink", "source_symlink", "license_missing",
                                       "card_missing", "source_missing", "source_artifact", "source_repo",
                                       "floating_revision", "license_mismatch", "invalid_route", "duplicate_route", "unsorted_route"])
 def test_promotion_rejects_unproved_or_tampered_curator_evidence(tmp_path: Path, mutation: str) -> None:
@@ -93,6 +98,23 @@ def test_promotion_rejects_unproved_or_tampered_curator_evidence(tmp_path: Path,
     elif mutation == "size": entry["artifact"]["size_bytes"] += 1
     elif mutation == "checksum_missing": entry["artifact"].pop("sha256")
     elif mutation == "checksum_bad": entry["artifact"]["sha256"] = "f" * 64
+    elif mutation == "sidecar_missing": artifact.with_suffix(".gguf.sha256").unlink()
+    elif mutation == "sidecar_malformed": artifact.with_suffix(".gguf.sha256").write_text("garbage\n")
+    elif mutation == "sidecar_digest": artifact.with_suffix(".gguf.sha256").write_text(f"{'f' * 64}  {artifact.name}\n")
+    elif mutation == "sidecar_filename": artifact.with_suffix(".gguf.sha256").write_text(f"{entry['artifact']['sha256']}  other.gguf\n")
+    elif mutation == "sidecar_duplicate": artifact.with_suffix(".gguf.sha256").write_text(artifact.with_suffix(".gguf.sha256").read_text() * 2)
+    elif mutation == "coordinated_tamper":
+        artifact.write_bytes(b"coordinated tamper")
+        entry["artifact"]["sha256"] = sha256(artifact.read_bytes()).hexdigest()
+        entry["artifact"]["size_bytes"] = artifact.stat().st_size
+    elif mutation.endswith("_symlink"):
+        names = {"artifact_symlink": artifact.name, "sidecar_symlink": artifact.name + ".sha256",
+                 "license_symlink": "LICENSE.txt", "card_symlink": "MODEL_CARD.md", "source_symlink": "SOURCE.json"}
+        victim = artifact.parent / names[mutation]
+        external = tmp_path / f"external-{mutation}"
+        external.write_bytes(victim.read_bytes())
+        victim.unlink()
+        victim.symlink_to(external)
     elif mutation == "license_missing": (artifact.parent / "LICENSE.txt").unlink()
     elif mutation == "card_missing": (artifact.parent / "MODEL_CARD.md").unlink()
     elif mutation == "source_missing": source_path.unlink()
@@ -151,6 +173,84 @@ def test_atomic_publication_is_idempotent_and_rejects_conflict_or_symlink(tmp_pa
     output.unlink()
     output.symlink_to(manifest)
     with pytest.raises(ManifestError): write_promoted_catalog(manifest, output)
+
+
+def test_publication_no_clobber_race(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path)
+    expected = tmp_path / "expected.json"
+    write_promoted_catalog(manifest, expected)
+    payload = expected.read_bytes()
+    output = tmp_path / "race" / "catalog.json"
+    real_link = __import__("os").link
+
+    def race_with(content: bytes):
+        def linked(source: object, target: object) -> None:
+            Path(target).write_bytes(content)
+            real_link(source, target)
+        return linked
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.link", race_with(payload))
+    assert write_promoted_catalog(manifest, output)["schema_version"].endswith(":v1")
+    output.unlink()
+    monkeypatch.setattr("hf_intake.production_catalog.os.link", race_with(b"competitor"))
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, output)
+    assert output.read_bytes() == b"competitor"
+
+
+def test_publication_rejects_symlinked_parent(tmp_path: Path) -> None:
+    manifest = _curator_tree(tmp_path)
+    external = tmp_path / "external"
+    external.mkdir()
+    parent = tmp_path / "linked"
+    parent.symlink_to(external, target_is_directory=True)
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, parent / "catalog.json")
+    assert not (external / "catalog.json").exists()
+
+
+def test_real_escrow_to_production_catalog_preserves_upstream_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    download = tmp_path / "download.gguf"
+    download.write_bytes(b"synthetic real escrow bytes")
+    monkeypatch.setattr(escrow, "hf_hub_download", lambda *args, **kwargs: str(download))
+    candidate = CandidateModel("example/synthetic", REVISION, "apache-2.0", ["quantized/synthetic-Q4_K_M.gguf"],
+                               "Apache-2.0 fixture", "# Synthetic fixture")
+    result = escrow.escrow_artifact(candidate, candidate.gguf_files[0], tmp_path / "escrow", api=object())
+    source_path = result.artifact_path.parent / "SOURCE.json"
+    source = json.loads(source_path.read_text())
+    source["id"] = "synthetic-q4"
+    source["execution_routes"] = [{"route_id": "cpu", "engine": "llama_cpp", "backend_family": "cpu", "route_priority": 1}]
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+    manifest_path = tmp_path / "manifest-v2.json"
+    intake_manifest.generate_manifest(tmp_path / "escrow", manifest_path, "synthetic-v2", schema_version=intake_manifest.V2_SCHEMA_VERSION)
+    catalog = promote_manifest(manifest_path)
+    assert source["source_artifact_filename"] == "quantized/synthetic-Q4_K_M.gguf"
+    assert source["artifact"] == result.artifact_path.name
+    assert catalog["models"][0]["source_artifact_filename"] == "quantized/synthetic-Q4_K_M.gguf"
+
+
+@pytest.mark.parametrize("revision", ["a" * 39, "a" * 41, "a" * 42, "a" * 63, "a" * 65, "main", "A" * 40])
+def test_catalog_rejects_noncanonical_source_revision(tmp_path: Path, revision: str) -> None:
+    catalog = promote_manifest(_curator_tree(tmp_path))
+    catalog["models"][0]["source_revision"] = revision
+    with pytest.raises(LocalModelCatalogError):
+        validate_local_model_catalog(catalog)
+
+
+@pytest.mark.parametrize("revision", ["a" * 40, "b" * 64])
+def test_catalog_accepts_exact_git_object_revision(tmp_path: Path, revision: str) -> None:
+    catalog = promote_manifest(_curator_tree(tmp_path))
+    catalog["models"][0]["source_revision"] = revision
+    catalog.pop("local_model_catalog_digest")
+    assert validate_local_model_catalog(catalog)["models"][0]["source_revision"] == revision
+
+
+@pytest.mark.parametrize("filename", ["../foo.gguf", "/foo.gguf", "C:\\foo.gguf", "foo\\bar.gguf", "./foo.gguf", "a//foo.gguf"])
+def test_catalog_rejects_noncanonical_source_artifact_path(tmp_path: Path, filename: str) -> None:
+    catalog = promote_manifest(_curator_tree(tmp_path))
+    catalog["models"][0]["source_artifact_filename"] = filename
+    with pytest.raises(LocalModelCatalogError):
+        validate_local_model_catalog(catalog)
 
 
 def test_static_catalog_boundary_verifier() -> None:
