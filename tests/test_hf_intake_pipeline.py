@@ -31,12 +31,22 @@ def test_escrow_artifact_hash_anchored(tmp_path: Path, monkeypatch: pytest.Monke
         model_card="# card",
     )
 
-    result = escrow.escrow_artifact(candidate, "model-q4.gguf", tmp_path / "escrow")
+    result = escrow.escrow_artifact(candidate, "quantized/model-q4.gguf", tmp_path / "escrow")
     assert result.artifact_path.name.startswith("model-q4-"), "filename must be hash anchored"
     checksum_path = result.artifact_path.with_suffix(result.artifact_path.suffix + ".sha256")
     assert checksum_path.exists()
     recorded = checksum_path.read_text(encoding="utf-8").split()[0]
     assert recorded == sha256(payload).hexdigest()
+    source = json.loads((result.artifact_path.parent / "SOURCE.json").read_text(encoding="utf-8"))
+    assert source["source_artifact_filename"] == "quantized/model-q4.gguf"
+    assert source["artifact"] == result.artifact_path.name
+
+
+@pytest.mark.parametrize("filename", ["", "/foo.gguf", "../foo.gguf", "./foo.gguf", "foo\\bar.gguf", "a//foo.gguf"])
+def test_escrow_rejects_noncanonical_source_artifact_path(tmp_path: Path, filename: str) -> None:
+    candidate = discovery.CandidateModel("example/model", "a" * 40, "mit", [], "license", "card")
+    with pytest.raises(escrow.EscrowError):
+        escrow.escrow_artifact(candidate, filename, tmp_path)
 
 
 def test_manifest_generation_and_validation(tmp_path: Path) -> None:

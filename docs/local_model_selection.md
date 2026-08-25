@@ -16,9 +16,22 @@ explicit execution routes. It deliberately does not retain `artifact.escrow_path
 Catalog validation is pure metadata validation. It does not need a GGUF on the
 deployment host and does not access the curator tree, network, Hugging Face, hardware,
 llama.cpp, or a model loader. Thus identical verified escrow evidence at different
-curator filesystem roots has identical catalog semantics and digest. The file planner
-dispatches by exact schema: catalogs use the deployment validator; legacy manifest
-schemas retain their curator validator and are never silently reinterpreted as a
+curator filesystem roots has identical catalog semantics and digest.
+
+`source_artifact_filename` is the exact upstream repository-relative POSIX GGUF
+path, such as `quantized/model-Q4_K_M.gguf`. It is intentionally different from
+`artifact_filename`, the content-addressed SentientOS escrow and mirror identity;
+promotion never reconstructs upstream provenance from that local name. Before
+promotion, the manifest hash, streamed GGUF hash, and original escrow `.sha256`
+sidecar must all agree, and the streamed size must equal the manifest size. All
+curator evidence must be non-symlink regular files.
+
+Portable catalog publication uses an atomic no-overwrite link: a concurrent
+identical regular catalog is accepted, while conflicting bytes and symlinked paths
+fail closed without overwriting the competitor. These checks stay curator-side;
+deployment validation and selection remain metadata-only after escrow is removed.
+The file planner dispatches by exact schema: catalogs use the deployment validator;
+legacy manifest schemas retain their curator validator and are never silently reinterpreted as a
 production catalog.
 
 The authority states remain distinct: curator escrow verified ≠ deployment artifact

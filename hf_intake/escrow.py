@@ -3,9 +3,6 @@ from __future__ import annotations
 import hashlib
 import shutil
 from dataclasses import dataclass
-import hashlib
-import shutil
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
@@ -16,6 +13,7 @@ hf_hub_download = None
 HfApi = None
 
 from hf_intake.discovery import CandidateModel, DiscoveryError, write_source_record
+from sentientos.local_model_source_provenance import is_canonical_source_artifact_filename
 
 
 class EscrowError(RuntimeError):
@@ -48,8 +46,8 @@ def _safe_model_dir_name(repo_id: str) -> str:
 def escrow_artifact(
     candidate: CandidateModel, artifact_filename: str, escrow_root: Path, api: Optional["HfApi"] = None
 ) -> EscrowedArtifact:
-    if not artifact_filename.lower().endswith(SAFE_SUFFIX):
-        raise EscrowError(f"Artifact {artifact_filename} is not a GGUF file")
+    if not is_canonical_source_artifact_filename(artifact_filename):
+        raise EscrowError(f"Artifact {artifact_filename} is not a canonical repository-relative GGUF path")
 
     client = api
     if client is None:
@@ -102,7 +100,7 @@ def escrow_artifact(
     source_path = dest_dir / "SOURCE.json"
     if source_path.exists():
         raise EscrowError(f"Source record already exists for {candidate.repo_id}")
-    write_source_record(source_path, candidate, escrow_path.name)
+    write_source_record(source_path, candidate, escrow_path.name, artifact_filename)
 
     return EscrowedArtifact(
         model_id=_safe_model_dir_name(candidate.repo_id),

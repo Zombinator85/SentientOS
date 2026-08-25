@@ -8,11 +8,13 @@ from typing import Any, Mapping
 from urllib.parse import unquote, urlsplit
 
 from hf_intake.manifest import ManifestError, validate_execution_routes
+from sentientos.local_model_source_provenance import (
+    is_canonical_source_artifact_filename, is_canonical_source_repository, is_immutable_source_revision,
+)
 
 SCHEMA_VERSION = "sentientos.local_model_catalog:v1"
 TRUSTED_ARTIFACT_HOSTS = frozenset({"models.sentientos.org"})
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_IMMUTABLE_REVISION = re.compile(r"^[0-9a-fA-F]{40,64}$")
 
 
 class LocalModelCatalogError(ValueError):
@@ -27,11 +29,6 @@ def local_model_catalog_digest(catalog: Mapping[str, Any]) -> str:
     """Digest semantic catalog content; presentation time and a supplied digest are excluded."""
     semantic = {key: value for key, value in catalog.items() if key not in {"generated_at", "local_model_catalog_digest"}}
     return hashlib.sha256(_canonical(semantic)).hexdigest()
-
-
-def is_immutable_source_revision(value: object) -> bool:
-    """Recognize an exact git object identity without performing upstream lookup."""
-    return isinstance(value, str) and _IMMUTABLE_REVISION.fullmatch(value) is not None
 
 
 def _trusted_url(value: object, filename: str, digest: str) -> str:
@@ -77,11 +74,11 @@ def validate_local_model_catalog(catalog: Mapping[str, Any]) -> dict[str, Any]:
             raise LocalModelCatalogError("model priority is invalid")
         if not isinstance(model["license_id"], str) or not model["license_id"].strip():
             raise LocalModelCatalogError("license identity is missing")
-        if not isinstance(model["source_repository"], str) or not model["source_repository"].strip():
-            raise LocalModelCatalogError("source repository is missing")
+        if not is_canonical_source_repository(model["source_repository"]):
+            raise LocalModelCatalogError("source repository is malformed")
         if not is_immutable_source_revision(model["source_revision"]):
             raise LocalModelCatalogError("source revision is not an immutable commit identity")
-        if not isinstance(model["source_artifact_filename"], str) or not model["source_artifact_filename"].lower().endswith(".gguf"):
+        if not is_canonical_source_artifact_filename(model["source_artifact_filename"]):
             raise LocalModelCatalogError("source artifact filename is invalid")
         if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
             raise LocalModelCatalogError("artifact SHA-256 is malformed")

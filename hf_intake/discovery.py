@@ -45,12 +45,13 @@ class CandidateModel:
     license_text: str
     model_card: str
 
-    def to_source_record(self, artifact_filename: str) -> dict:
+    def to_source_record(self, artifact_filename: str, source_artifact_filename: str) -> dict[str, str]:
         return {
             "repo_id": self.repo_id,
             "revision": self.revision,
             "license": self.license_id,
             "artifact": artifact_filename,
+            "source_artifact_filename": source_artifact_filename,
         }
 
 
@@ -128,8 +129,10 @@ def discover_text_models(
     return candidates
 
 
-def write_source_record(target: Path, candidate: CandidateModel, artifact_filename: str) -> None:
+def write_source_record(
+    target: Path, candidate: CandidateModel, artifact_filename: str, source_artifact_filename: str
+) -> None:
     target.write_text(
-        json.dumps(candidate.to_source_record(artifact_filename), indent=2, sort_keys=True),
+        json.dumps(candidate.to_source_record(artifact_filename, source_artifact_filename), indent=2, sort_keys=True),
         encoding="utf-8",
     )
