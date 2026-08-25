@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import shutil
 from hashlib import sha256
 from pathlib import Path
@@ -207,6 +208,80 @@ def test_publication_rejects_symlinked_parent(tmp_path: Path) -> None:
     with pytest.raises(ManifestError):
         write_promoted_catalog(manifest, parent / "catalog.json")
     assert not (external / "catalog.json").exists()
+
+
+def test_publication_rejects_symlinked_ancestor_before_creating_descendants(tmp_path: Path) -> None:
+    manifest = _curator_tree(tmp_path)
+    external = tmp_path / "external"
+    external.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(external, target_is_directory=True)
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, linked / "new" / "deeper" / "catalog.json")
+    assert not (external / "new").exists()
+
+
+def test_symlinked_gguf_target_is_never_opened(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path)
+    data = json.loads(manifest.read_text())
+    artifact = Path(data["models"][0]["artifact"]["escrow_path"])
+    external = tmp_path / "external.gguf"
+    external.write_bytes(artifact.read_bytes())
+    artifact.unlink()
+    artifact.symlink_to(external)
+    real_open = os.open
+    opened: list[Path] = []
+
+    def recording_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        opened.append(Path(path))
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.open", recording_open)
+    with pytest.raises(ManifestError):
+        promote_manifest(manifest)
+    assert external not in opened
+    assert artifact not in opened
+
+
+def test_symlinked_manifest_is_rejected_before_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "curator")
+    linked = tmp_path / "linked-manifest.json"
+    linked.symlink_to(manifest)
+    real_open = os.open
+    opened: list[Path] = []
+
+    def recording_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        opened.append(Path(path))
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.open", recording_open)
+    with pytest.raises(ManifestError):
+        promote_manifest(linked)
+    assert linked not in opened and manifest not in opened
+
+
+def test_source_swap_to_symlink_before_safe_open_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path)
+    data = json.loads(manifest.read_text())
+    artifact = Path(data["models"][0]["artifact"]["escrow_path"])
+    source = artifact.parent / "SOURCE.json"
+    external = tmp_path / "external-source.json"
+    external.write_bytes(source.read_bytes())
+    real_open = os.open
+    swapped = False
+
+    def swapping_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        nonlocal swapped
+        if Path(path) == source and not swapped:
+            swapped = True
+            source.unlink()
+            source.symlink_to(external)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.open", swapping_open)
+    with pytest.raises(ManifestError):
+        promote_manifest(manifest)
+    assert swapped
 
 
 def test_real_escrow_to_production_catalog_preserves_upstream_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

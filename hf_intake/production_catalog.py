@@ -7,9 +7,9 @@ import os
 import tempfile
 from pathlib import Path
 import stat
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
-from hf_intake.manifest import V2_SCHEMA_VERSION, ManifestError, validate_manifest
+from hf_intake.manifest import V2_SCHEMA_VERSION, ManifestError, validate_manifest_data
 from sentientos.local_model_catalog import SCHEMA_VERSION, LocalModelCatalogError, validate_local_model_catalog
 from sentientos.local_model_source_provenance import (
     is_canonical_source_artifact_filename, is_canonical_source_repository, is_immutable_source_revision,
@@ -30,9 +30,37 @@ def _require_regular_file(path: Path, label: str) -> None:
         current = current.parent
 
 
+def _read_regular_file(path: Path, label: str, *, maximum_size: int) -> bytes:
+    """Read one bounded custody input from a single no-follow descriptor."""
+    _require_regular_file(path, label)
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_size > maximum_size:
+            os.close(descriptor)
+            raise ManifestError(f"curator evidence {label} must be a bounded regular file")
+        with os.fdopen(descriptor, "rb") as stream:
+            payload = stream.read(maximum_size + 1)
+    except OSError as exc:
+        raise ManifestError(f"curator evidence {label} is unreadable") from exc
+    if len(payload) > maximum_size:
+        raise ManifestError(f"curator evidence {label} exceeds its size limit")
+    return payload
+
+
+def _read_json_evidence(path: Path, label: str, *, maximum_size: int) -> Any:
+    try:
+        return json.loads(_read_regular_file(path, label, maximum_size=maximum_size).decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ManifestError(f"{label} is invalid") from exc
+
+
 def _read_checksum_sidecar(path: Path, artifact_name: str) -> str:
     try:
         descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            os.close(descriptor)
+            raise ManifestError("escrow checksum sidecar must remain a regular file")
         with os.fdopen(descriptor, "r", encoding="ascii") as stream:
             lines = stream.read().splitlines()
     except (OSError, UnicodeError) as exc:
@@ -63,8 +91,9 @@ def _hash(path: Path) -> tuple[str, int]:
 
 def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     """Prove every curator-held byte record before discarding local path identity."""
-    validate_manifest(manifest_path)
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_data = _read_json_evidence(manifest_path, "curator manifest", maximum_size=4 * 1024 * 1024)
+    validate_manifest_data(manifest_data, verify_artifacts=False)
+    data = cast(dict[str, Any], manifest_data)
     if data.get("schema_version") != V2_SCHEMA_VERSION:
         raise ManifestError("production promotion requires sentientos.model_manifest:v2")
     promoted: list[dict[str, Any]] = []
@@ -83,10 +112,10 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
             raise ManifestError("independent escrow artifact identity verification failed")
         if _read_checksum_sidecar(checksum_path, artifact_path.name) != digest:
             raise ManifestError("escrow checksum sidecar does not match the GGUF and manifest")
-        try:
-            source: Mapping[str, Any] = json.loads(source_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ManifestError("SOURCE.json is invalid") from exc
+        source_data = _read_json_evidence(source_path, "SOURCE.json", maximum_size=256 * 1024)
+        if not isinstance(source_data, Mapping):
+            raise ManifestError("SOURCE.json is invalid")
+        source: Mapping[str, Any] = source_data
         if source.get("artifact") != artifact_path.name:
             raise ManifestError("SOURCE.json artifact does not identify the escrow record")
         if source.get("license") != entry.get("license"):
@@ -111,29 +140,62 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     catalog = {"schema_version": SCHEMA_VERSION,
                "models": sorted(promoted, key=lambda item: (item["priority"], item["model_id"]))}
     try:
-        return validate_local_model_catalog(catalog)
+        return cast(dict[str, Any], validate_local_model_catalog(catalog))
     except LocalModelCatalogError as exc:
         raise ManifestError(f"promoted catalog is invalid: {exc}") from exc
+
+
+def _prepare_publication_parent(output_path: Path) -> tuple[Path, tuple[int, int]]:
+    """Create descendants only after every existing ancestor passes lstat custody."""
+    parent = Path(os.path.abspath(output_path)).parent
+    anchor = Path(parent.anchor)
+    components: list[Path] = []
+    current = anchor
+    for part in parent.parts[1:]:
+        current /= part
+        components.append(current)
+    first_missing = len(components)
+    for index, component in enumerate(components):
+        try:
+            info = component.lstat()
+        except FileNotFoundError:
+            first_missing = index
+            break
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise ManifestError("catalog publication path has a symlink or non-directory ancestor")
+    for child in components[first_missing:]:
+        try:
+            child.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        info = child.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise ManifestError("catalog publication directory custody changed during creation")
+    info = parent.lstat()
+    return parent, (info.st_dev, info.st_ino)
+
+
+def _revalidate_publication_parent(parent: Path, identity: tuple[int, int]) -> None:
+    info = parent.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or (info.st_dev, info.st_ino) != identity:
+        raise ManifestError("catalog publication parent custody changed")
 
 
 def write_promoted_catalog(manifest_path: Path, output_path: Path) -> dict[str, Any]:
     """Atomically publish deterministic JSON, accepting only identical existing bytes."""
     catalog = promote_manifest(manifest_path)
     payload = (json.dumps(catalog, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    output_path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-    current = output_path.parent
-    while current != current.parent:
-        if stat.S_ISLNK(current.lstat().st_mode):
-            raise ManifestError("catalog publication path has a symlinked parent")
-        current = current.parent
+    output_path = Path(os.path.abspath(output_path))
+    parent, parent_identity = _prepare_publication_parent(output_path)
     if output_path.is_symlink():
         raise ManifestError("catalog publication target must not be symlinked")
-    fd, temporary = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=output_path.parent)
+    fd, temporary = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
+        _revalidate_publication_parent(parent, parent_identity)
         try:
             os.link(temporary, output_path)
         except FileExistsError:
