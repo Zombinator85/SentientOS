@@ -10,6 +10,20 @@ def _calls(source: str) -> set[str]:
     return {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
 
 
+def _function(tree: ast.Module, name: str) -> ast.FunctionDef:
+    return next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == name)
+
+
+def _call_names(node: ast.AST) -> list[str]:
+    calls: list[tuple[int, int, str]] = []
+    for item in ast.walk(node):
+        if not isinstance(item, ast.Call):
+            continue
+        name = item.func.id if isinstance(item.func, ast.Name) else item.func.attr if isinstance(item.func, ast.Attribute) else ""
+        calls.append((item.lineno, item.col_offset, name))
+    return [name for _, _, name in sorted(calls)]
+
+
 def main() -> int:
     escrow = Path("hf_intake/escrow.py").read_text(encoding="utf-8")
     discovery = Path("hf_intake/discovery.py").read_text(encoding="utf-8")
@@ -17,20 +31,38 @@ def main() -> int:
     catalog = Path("sentientos/local_model_catalog.py").read_text(encoding="utf-8")
     selector = Path("sentientos/local_model_selection.py").read_text(encoding="utf-8")
     findings: list[str] = []
+    promotion_tree = ast.parse(promotion)
     promotion_calls = _calls(promotion)
-    if "validate_manifest" not in promotion_calls:
-        findings.append("promotion_missing_full_manifest_validation")
+    promote = _function(promotion_tree, "promote_manifest")
+    promote_calls = _call_names(promote)
+    if "validate_manifest" in promote_calls or "validate_manifest_data" not in promote_calls:
+        findings.append("promotion_missing_snapshot_manifest_validation")
+    if promote_calls.index("_read_json_evidence") > promote_calls.index("validate_manifest_data"):
+        findings.append("promotion_validates_before_safe_manifest_snapshot")
+    if sum(name == "_read_json_evidence" for name in promote_calls) != 2:
+        findings.append("promotion_manifest_or_source_snapshot_count_changed")
+    if "read_text" in promote_calls or "read_bytes" in promote_calls:
+        findings.append("promotion_uses_unsafe_path_read")
     if "_hash" not in promotion_calls:
         findings.append("promotion_missing_independent_hash")
     if "source_artifact_filename" not in discovery or "artifact_filename" not in discovery:
         findings.append("escrow_source_identity_not_separate")
     if "write_source_record(source_path, candidate, escrow_path.name, artifact_filename)" not in escrow:
         findings.append("escrow_does_not_preserve_upstream_artifact_path")
-    promotion_attributes = {node.attr for node in ast.walk(ast.parse(promotion)) if isinstance(node, ast.Attribute)}
+    promotion_attributes = {node.attr for node in ast.walk(promotion_tree) if isinstance(node, ast.Attribute)}
     if "_read_checksum_sidecar" not in promotion_calls or 'getattr(os, "O_NOFOLLOW", 0)' not in promotion:
         findings.append("promotion_missing_checksum_or_nofollow_custody")
     if "os.replace" in promotion or "os.rename" in promotion or "link" not in promotion_attributes:
         findings.append("publication_not_no_clobber")
+    writer_calls = _call_names(_function(promotion_tree, "write_promoted_catalog"))
+    if "mkdir" in writer_calls or writer_calls.index("_prepare_publication_parent") > writer_calls.index("mkstemp"):
+        findings.append("publication_parent_not_prepared_before_staging")
+    if writer_calls.index("_revalidate_publication_parent") > writer_calls.index("link"):
+        findings.append("publication_parent_not_revalidated_before_link")
+    prepare = _function(promotion_tree, "_prepare_publication_parent")
+    prepare_calls = _call_names(prepare)
+    if "lstat" not in prepare_calls or "mkdir" not in prepare_calls or prepare_calls.index("lstat") > prepare_calls.index("mkdir"):
+        findings.append("publication_creation_precedes_ancestor_inspection")
     if "source_filename = artifact_path" in promotion:
         findings.append("promotion_reconstructs_source_filename")
     if "validate_local_model_catalog" not in _calls(selector):
@@ -47,10 +79,9 @@ def main() -> int:
     required_catalog = ("TRUSTED_ARTIFACT_HOSTS", "huggingface.co", "is_immutable_source_revision",
                         "validate_execution_routes", "artifact_content_address")
     findings.extend(f"catalog_missing:{token}" for token in required_catalog if token not in catalog)
-    function = next(node for node in ast.parse(selector).body
-                    if isinstance(node, ast.FunctionDef) and node.name == "plan_local_model_selection_catalog")
+    function = _function(ast.parse(selector), "plan_local_model_selection_catalog")
     function_source = ast.get_source_segment(selector, function) or ""
-    if "escrow_path" in function_source or "validate_manifest" in function_source:
+    if "escrow_path" in function_source or "validate_manifest" in function_source or {"open", "read_bytes", "read_text"} & set(_call_names(function)):
         findings.append("production_selector_consumes_curator_identity")
     print("local_model_catalog_boundary_verified" if not findings else "local_model_catalog_boundary_failed: " + ", ".join(findings))
     return 1 if findings else 0

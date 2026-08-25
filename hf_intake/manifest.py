@@ -179,15 +179,12 @@ def generate_manifest(escrow_root: Path, manifest_path: Path, manifest_version: 
     return manifest_dict
 
 
-def validate_manifest(manifest_path: Path) -> None:
-    if not manifest_path.exists():
-        raise ManifestError(f"Manifest not found: {manifest_path}")
+def validate_manifest_data(data: object, *, verify_artifacts: bool = True) -> None:
+    """Validate one already-parsed manifest snapshot.
 
-    try:
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ManifestError(f"Invalid JSON in manifest: {exc}") from exc
-
+    ``verify_artifacts=False`` is for callers which provide their own descriptor-
+    based artifact custody.  Schema, route, URL, and ordering checks are unchanged.
+    """
     if not isinstance(data, dict) or "models" not in data or "manifest_version" not in data:
         raise ManifestError("Manifest schema is invalid")
 
@@ -210,15 +207,15 @@ def validate_manifest(manifest_path: Path) -> None:
         escrow_path = artifact.get("escrow_path")
         if not escrow_path:
             raise ManifestError(f"Missing escrow path for model {entry.get('id')}")
-        path_obj = Path(escrow_path)
-        if not path_obj.exists():
-            raise ManifestError(f"Escrow artifact missing on disk: {escrow_path}")
-        checksum = artifact.get("sha256")
-        if not checksum:
+        if verify_artifacts:
+            path_obj = Path(escrow_path)
+            if not path_obj.exists():
+                raise ManifestError(f"Escrow artifact missing on disk: {escrow_path}")
+            actual = _sha256_file(path_obj)
+            if artifact.get("sha256") != actual:
+                raise ManifestError(f"Checksum mismatch for {entry.get('id')}")
+        elif not artifact.get("sha256"):
             raise ManifestError(f"Missing checksum for model {entry.get('id')}")
-        actual = _sha256_file(path_obj)
-        if checksum != actual:
-            raise ManifestError(f"Checksum mismatch for {entry.get('id')}")
         urls = artifact.get("urls") or []
         if not urls:
             raise ManifestError(f"Missing artifact URLs for {entry.get('id')}")
@@ -227,7 +224,18 @@ def validate_manifest(manifest_path: Path) -> None:
             if "huggingface.co" in lowered or lowered.startswith("hf://"):
                 raise ManifestError(f"Untrusted URL in manifest for {entry.get('id')}: {url}")
 
-    # deterministic ordering guard
     sorted_models = sorted(data["models"], key=lambda m: (m.get("priority", 0), m.get("id")))
     if data["models"] != sorted_models:
         raise ManifestError("Manifest models are not deterministically sorted")
+
+
+def validate_manifest(manifest_path: Path) -> None:
+    if not manifest_path.exists():
+        raise ManifestError(f"Manifest not found: {manifest_path}")
+
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ManifestError(f"Invalid JSON in manifest: {exc}") from exc
+
+    validate_manifest_data(data)
