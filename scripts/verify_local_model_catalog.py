@@ -39,7 +39,7 @@ def main() -> int:
         findings.append("promotion_missing_snapshot_manifest_validation")
     if promote_calls.index("_read_json_evidence") > promote_calls.index("validate_manifest_data"):
         findings.append("promotion_validates_before_safe_manifest_snapshot")
-    if sum(name == "_read_json_evidence" for name in promote_calls) != 2:
+    if sum(name == "_read_json_evidence" for name in promote_calls) != 1 or "_read_at" not in promote_calls:
         findings.append("promotion_manifest_or_source_snapshot_count_changed")
     if "read_text" in promote_calls or "read_bytes" in promote_calls:
         findings.append("promotion_uses_unsafe_path_read")
@@ -54,15 +54,22 @@ def main() -> int:
         findings.append("promotion_missing_checksum_or_nofollow_custody")
     if "os.replace" in promotion or "os.rename" in promotion or "link" not in promotion_attributes:
         findings.append("publication_not_no_clobber")
-    writer_calls = _call_names(_function(promotion_tree, "write_promoted_catalog"))
-    if "mkdir" in writer_calls or writer_calls.index("_prepare_publication_parent") > writer_calls.index("mkstemp"):
+    writer = _function(promotion_tree, "write_promoted_catalog")
+    writer_calls = _call_names(writer)
+    if "mkdir" in writer_calls or "mkstemp" in writer_calls or writer_calls.index("_prepare_publication_parent") > writer_calls.index("open"):
         findings.append("publication_parent_not_prepared_before_staging")
-    if writer_calls.index("_revalidate_publication_parent") > writer_calls.index("link"):
+    if "_revalidate_chain" not in writer_calls or writer_calls.index("_revalidate_chain") > writer_calls.index("link"):
         findings.append("publication_parent_not_revalidated_before_link")
     prepare = _function(promotion_tree, "_prepare_publication_parent")
     prepare_calls = _call_names(prepare)
-    if "lstat" not in prepare_calls or "mkdir" not in prepare_calls or prepare_calls.index("lstat") > prepare_calls.index("mkdir"):
-        findings.append("publication_creation_precedes_ancestor_inspection")
+    if "mkdir" not in prepare_calls or "open" not in prepare_calls or "fstat" not in prepare_calls:
+        findings.append("publication_missing_descriptor_relative_descent")
+    structural_tokens = ("dir_fd=parent_fd", "src_dir_fd=parent_fd", "dst_dir_fd=parent_fd",
+                         "os.fsync(parent_fd)", "os.unlink(temporary, dir_fd=parent_fd)",
+                         "dir_fd=descriptor", "_open_regular_at(parent_fd")
+    findings.extend(f"publication_descriptor_custody_missing:{token}" for token in structural_tokens if token not in promotion)
+    if "os.open(output_path" in promotion or "tempfile.mkstemp" in promotion or "os.unlink(temporary)" in promotion:
+        findings.append("publication_regressed_to_full_path_operation")
     if "source_filename = artifact_path" in promotion:
         findings.append("promotion_reconstructs_source_filename")
     if "validate_local_model_catalog" not in _calls(selector):

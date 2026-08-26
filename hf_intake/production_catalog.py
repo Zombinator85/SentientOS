@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
+import secrets
 from pathlib import Path
 import stat
 from typing import Any, Mapping, cast
@@ -16,33 +16,62 @@ from sentientos.local_model_source_provenance import (
 )
 
 
-def _require_regular_file(path: Path, label: str) -> None:
+_DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+_FILE_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+_SIDECAR_MAXIMUM_SIZE = 1024
+_DIR_FD_CAPABLE = all(fn in os.supports_dir_fd for fn in (os.open, os.mkdir, os.link, os.unlink))
+
+
+def _require_descriptor_custody() -> None:
+    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY") or not _DIR_FD_CAPABLE:
+        raise ManifestError("platform lacks descriptor-anchored production filesystem custody")
+
+
+def _open_directory(path: Path) -> int:
+    """Open an absolute directory chain without trusting a previously checked path."""
+    _require_descriptor_custody()
+    absolute = Path(os.path.abspath(path))
+    descriptor = os.open(absolute.anchor, _DIR_FLAGS)
     try:
-        mode = path.lstat().st_mode
+        for component in absolute.parts[1:]:
+            child = os.open(component, _DIR_FLAGS, dir_fd=descriptor)
+            if not stat.S_ISDIR(os.fstat(child).st_mode):
+                os.close(child)
+                raise ManifestError("curator custody path component is not a directory")
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except (OSError, ManifestError) as exc:
+        os.close(descriptor)
+        if isinstance(exc, ManifestError):
+            raise
+        raise ManifestError("curator custody directory walk failed") from exc
+
+
+def _open_regular_at(parent_fd: int, name: str, label: str) -> int:
+    try:
+        descriptor = os.open(name, _FILE_FLAGS, dir_fd=parent_fd)
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            os.close(descriptor)
+            raise ManifestError(f"curator evidence {label} must be a non-symlink regular file")
+        return descriptor
     except OSError as exc:
-        raise ManifestError(f"curator evidence {label} is missing") from exc
-    if not stat.S_ISREG(mode):
-        raise ManifestError(f"curator evidence {label} must be a non-symlink regular file")
-    current = path.parent
-    while current != current.parent:
-        if stat.S_ISLNK(current.lstat().st_mode):
-            raise ManifestError(f"curator evidence {label} has a symlinked parent")
-        current = current.parent
+        raise ManifestError(f"curator evidence {label} is unreadable") from exc
 
 
 def _read_regular_file(path: Path, label: str, *, maximum_size: int) -> bytes:
-    """Read one bounded custody input from a single no-follow descriptor."""
-    _require_regular_file(path, label)
+    """Read one bounded input relative to its descriptor-pinned parent."""
+    parent_fd = _open_directory(path.parent)
     try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        descriptor = _open_regular_at(parent_fd, path.name, label)
         opened = os.fstat(descriptor)
-        if not stat.S_ISREG(opened.st_mode) or opened.st_size > maximum_size:
+        if opened.st_size > maximum_size:
             os.close(descriptor)
             raise ManifestError(f"curator evidence {label} must be a bounded regular file")
         with os.fdopen(descriptor, "rb") as stream:
             payload = stream.read(maximum_size + 1)
-    except OSError as exc:
-        raise ManifestError(f"curator evidence {label} is unreadable") from exc
+    finally:
+        os.close(parent_fd)
     if len(payload) > maximum_size:
         raise ManifestError(f"curator evidence {label} exceeds its size limit")
     return payload
@@ -55,14 +84,28 @@ def _read_json_evidence(path: Path, label: str, *, maximum_size: int) -> Any:
         raise ManifestError(f"{label} is invalid") from exc
 
 
-def _read_checksum_sidecar(path: Path, artifact_name: str) -> str:
+def _read_at(parent_fd: int, name: str, label: str, maximum_size: int) -> bytes:
+    descriptor = _open_regular_at(parent_fd, name, label)
     try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            os.close(descriptor)
-            raise ManifestError("escrow checksum sidecar must remain a regular file")
-        with os.fdopen(descriptor, "r", encoding="ascii") as stream:
-            lines = stream.read().splitlines()
+        if os.fstat(descriptor).st_size > maximum_size:
+            raise ManifestError(f"curator evidence {label} exceeds its size limit")
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            payload = stream.read(maximum_size + 1)
+    finally:
+        os.close(descriptor)
+    if len(payload) > maximum_size:
+        raise ManifestError(f"curator evidence {label} exceeds its size limit")
+    return payload
+
+
+def _read_checksum_sidecar(parent_fd: int, name: str, artifact_name: str) -> str:
+    try:
+        descriptor = _open_regular_at(parent_fd, name, "checksum sidecar")
+        with os.fdopen(descriptor, "rb") as stream:
+            raw = stream.read(_SIDECAR_MAXIMUM_SIZE + 1)
+        if len(raw) > _SIDECAR_MAXIMUM_SIZE:
+            raise ManifestError("escrow checksum sidecar exceeds its size limit")
+        lines = raw.decode("ascii", errors="strict").splitlines()
     except (OSError, UnicodeError) as exc:
         raise ManifestError("escrow checksum sidecar is unreadable") from exc
     if len(lines) != 1:
@@ -75,13 +118,10 @@ def _read_checksum_sidecar(path: Path, artifact_name: str) -> str:
     return parts[0]
 
 
-def _hash(path: Path) -> tuple[str, int]:
+def _hash(parent_fd: int, name: str) -> tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
-    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-        os.close(descriptor)
-        raise ManifestError("curator GGUF evidence must remain a regular file")
+    descriptor = _open_regular_at(parent_fd, name, "GGUF artifact")
     with os.fdopen(descriptor, "rb") as stream:
         for chunk in iter(lambda: stream.read(65536), b""):
             size += len(chunk)
@@ -100,19 +140,24 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     for entry in data["models"]:
         artifact = entry["artifact"]
         artifact_path = Path(artifact["escrow_path"])
-        checksum_path = artifact_path.with_suffix(artifact_path.suffix + ".sha256")
         root = artifact_path.parent
-        license_path, card_path, source_path = root / "LICENSE.txt", root / "MODEL_CARD.md", root / "SOURCE.json"
-        for evidence_path, label in ((artifact_path, "GGUF artifact"), (checksum_path, "checksum sidecar"),
-                                     (license_path, "LICENSE.txt"), (card_path, "MODEL_CARD.md"),
-                                     (source_path, "SOURCE.json")):
-            _require_regular_file(evidence_path, label)
-        digest, size = _hash(artifact_path)
-        if digest != artifact.get("sha256") or size != artifact.get("size_bytes"):
-            raise ManifestError("independent escrow artifact identity verification failed")
-        if _read_checksum_sidecar(checksum_path, artifact_path.name) != digest:
-            raise ManifestError("escrow checksum sidecar does not match the GGUF and manifest")
-        source_data = _read_json_evidence(source_path, "SOURCE.json", maximum_size=256 * 1024)
+        escrow_fd = _open_directory(root)
+        try:
+            # All evidence is opened from this one pinned escrow directory.
+            for name, label in (("LICENSE.txt", "LICENSE.txt"), ("MODEL_CARD.md", "MODEL_CARD.md")):
+                evidence_fd = _open_regular_at(escrow_fd, name, label)
+                os.close(evidence_fd)
+            digest, size = _hash(escrow_fd, artifact_path.name)
+            if digest != artifact.get("sha256") or size != artifact.get("size_bytes"):
+                raise ManifestError("independent escrow artifact identity verification failed")
+            if _read_checksum_sidecar(escrow_fd, artifact_path.name + ".sha256", artifact_path.name) != digest:
+                raise ManifestError("escrow checksum sidecar does not match the GGUF and manifest")
+            try:
+                source_data = json.loads(_read_at(escrow_fd, "SOURCE.json", "SOURCE.json", 256 * 1024).decode("utf-8", errors="strict"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise ManifestError("SOURCE.json is invalid") from exc
+        finally:
+            os.close(escrow_fd)
         if not isinstance(source_data, Mapping):
             raise ManifestError("SOURCE.json is invalid")
         source: Mapping[str, Any] = source_data
@@ -140,45 +185,56 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     catalog = {"schema_version": SCHEMA_VERSION,
                "models": sorted(promoted, key=lambda item: (item["priority"], item["model_id"]))}
     try:
-        return cast(dict[str, Any], validate_local_model_catalog(catalog))
+        return validate_local_model_catalog(catalog)
     except LocalModelCatalogError as exc:
         raise ManifestError(f"promoted catalog is invalid: {exc}") from exc
 
 
-def _prepare_publication_parent(output_path: Path) -> tuple[Path, tuple[int, int]]:
-    """Create descendants only after every existing ancestor passes lstat custody."""
+def _revalidate_chain(identities: list[tuple[Path, tuple[int, int]]]) -> None:
+    """Check visible names still identify pinned directories; never use them for I/O."""
+    for path, identity in identities:
+        try:
+            info = path.lstat()
+        except OSError as exc:
+            raise ManifestError("catalog publication path custody changed") from exc
+        if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode) or (info.st_dev, info.st_ino) != identity:
+            raise ManifestError("catalog publication path custody changed")
+
+
+def _prepare_publication_parent(output_path: Path) -> tuple[int, list[tuple[Path, tuple[int, int]]]]:
+    """Create and descend solely relative to already-open directory descriptors."""
+    _require_descriptor_custody()
     parent = Path(os.path.abspath(output_path)).parent
     anchor = Path(parent.anchor)
-    components: list[Path] = []
+    descriptor = os.open(anchor, _DIR_FLAGS)
+    identities = [(anchor, (os.fstat(descriptor).st_dev, os.fstat(descriptor).st_ino))]
     current = anchor
-    for part in parent.parts[1:]:
-        current /= part
-        components.append(current)
-    first_missing = len(components)
-    for index, component in enumerate(components):
+    try:
+      for part in parent.parts[1:]:
+        current = current / part
         try:
-            info = component.lstat()
+            child = os.open(part, _DIR_FLAGS, dir_fd=descriptor)
         except FileNotFoundError:
-            first_missing = index
-            break
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            raise ManifestError("catalog publication path has a symlink or non-directory ancestor")
-    for child in components[first_missing:]:
-        try:
-            child.mkdir(mode=0o700)
-        except FileExistsError:
-            pass
-        info = child.lstat()
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            raise ManifestError("catalog publication directory custody changed during creation")
-    info = parent.lstat()
-    return parent, (info.st_dev, info.st_ino)
-
-
-def _revalidate_publication_parent(parent: Path, identity: tuple[int, int]) -> None:
-    info = parent.lstat()
-    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or (info.st_dev, info.st_ino) != identity:
-        raise ManifestError("catalog publication parent custody changed")
+            _revalidate_chain(identities)
+            try:
+                os.mkdir(part, mode=0o700, dir_fd=descriptor)
+            except FileExistsError:
+                pass
+            child = os.open(part, _DIR_FLAGS, dir_fd=descriptor)
+        info = os.fstat(child)
+        if not stat.S_ISDIR(info.st_mode):
+            os.close(child)
+            raise ManifestError("catalog publication ancestor is not a directory")
+        os.close(descriptor)
+        descriptor = child
+        identities.append((current, (info.st_dev, info.st_ino)))
+      _revalidate_chain(identities)
+      return descriptor, identities
+    except (OSError, ManifestError) as exc:
+      os.close(descriptor)
+      if isinstance(exc, ManifestError):
+          raise
+      raise ManifestError("catalog publication directory custody failed") from exc
 
 
 def write_promoted_catalog(manifest_path: Path, output_path: Path) -> dict[str, Any]:
@@ -186,33 +242,38 @@ def write_promoted_catalog(manifest_path: Path, output_path: Path) -> dict[str, 
     catalog = promote_manifest(manifest_path)
     payload = (json.dumps(catalog, indent=2, sort_keys=True) + "\n").encode("utf-8")
     output_path = Path(os.path.abspath(output_path))
-    parent, parent_identity = _prepare_publication_parent(output_path)
-    if output_path.is_symlink():
-        raise ManifestError("catalog publication target must not be symlinked")
-    fd, temporary = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=parent)
+    parent_fd, identities = _prepare_publication_parent(output_path)
+    temporary = f".{output_path.name}.{secrets.token_hex(16)}"
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                 0o600, dir_fd=parent_fd)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        _revalidate_publication_parent(parent, parent_identity)
+        _revalidate_chain(identities)
         try:
-            os.link(temporary, output_path)
+            os.link(temporary, output_path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd, follow_symlinks=False)
+            try:
+                _revalidate_chain(identities)
+            except ManifestError:
+                os.unlink(output_path.name, dir_fd=parent_fd)
+                raise
         except FileExistsError:
             try:
-                target_fd = os.open(output_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                target_fd = _open_regular_at(parent_fd, output_path.name, "published catalog")
                 with os.fdopen(target_fd, "rb") as target_stream:
-                    existing = target_stream.read() if stat.S_ISREG(os.fstat(target_stream.fileno()).st_mode) else None
+                    existing = target_stream.read(len(payload) + 1)
             except OSError as exc:
                 raise ManifestError("unable to inspect concurrently published catalog") from exc
             if existing != payload:
                 raise ManifestError("refusing to overwrite conflicting production catalog")
-        directory_fd = os.open(output_path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+            _revalidate_chain(identities)
+        os.fsync(parent_fd)
     finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+        try:
+            os.unlink(temporary, dir_fd=parent_fd)
+        except FileNotFoundError:
+            pass
+        os.close(parent_fd)
     return catalog
