@@ -185,9 +185,12 @@ def test_publication_no_clobber_race(tmp_path: Path, monkeypatch: pytest.MonkeyP
     real_link = __import__("os").link
 
     def race_with(content: bytes):
-        def linked(source: object, target: object) -> None:
-            Path(target).write_bytes(content)
-            real_link(source, target)
+        def linked(source: object, target: object, **kwargs: object) -> None:
+            parent_fd = int(kwargs["dst_dir_fd"])
+            competitor = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parent_fd)
+            with os.fdopen(competitor, "wb") as stream:
+                stream.write(content)
+            real_link(source, target, **kwargs)
         return linked
 
     monkeypatch.setattr("hf_intake.production_catalog.os.link", race_with(payload))
@@ -272,7 +275,7 @@ def test_source_swap_to_symlink_before_safe_open_fails(tmp_path: Path, monkeypat
 
     def swapping_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
         nonlocal swapped
-        if Path(path) == source and not swapped:
+        if Path(path) == Path("SOURCE.json") and kwargs.get("dir_fd") is not None and not swapped:
             swapped = True
             source.unlink()
             source.symlink_to(external)
@@ -282,6 +285,76 @@ def test_source_swap_to_symlink_before_safe_open_fails(tmp_path: Path, monkeypat
     with pytest.raises(ManifestError):
         promote_manifest(manifest)
     assert swapped
+
+
+def test_curator_parent_swap_cannot_redirect_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "safe")
+    artifact = Path(json.loads(manifest.read_text())["models"][0]["artifact"]["escrow_path"])
+    parent = artifact.parent
+    moved = tmp_path / "original"
+    external = tmp_path / "external"
+    external.mkdir()
+    for name in (artifact.name, artifact.name + ".sha256", "SOURCE.json", "LICENSE.txt", "MODEL_CARD.md"):
+        (external / name).write_bytes(b"attacker")
+    real_open = os.open
+    swapped = False
+    opened_external = False
+
+    def swapping_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        nonlocal swapped, opened_external
+        if Path(path) == Path("LICENSE.txt") and kwargs.get("dir_fd") is not None and not swapped:
+            swapped = True
+            parent.rename(moved)
+            parent.symlink_to(external, target_is_directory=True)
+        if Path(path).is_absolute() and external in Path(path).parents:
+            opened_external = True
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.open", swapping_open)
+    catalog = promote_manifest(manifest)
+    assert catalog["models"][0]["artifact_sha256"] != "attacker"
+    assert swapped and not opened_external
+
+
+def test_publication_swap_before_mkdir_creates_nothing_external(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "curator")
+    existing = tmp_path / "safe" / "existing"
+    existing.mkdir(parents=True)
+    moved, external = tmp_path / "moved", tmp_path / "external"
+    external.mkdir()
+    real_mkdir = os.mkdir
+    swapped = False
+
+    def swapping_mkdir(name: object, *args: object, **kwargs: object) -> None:
+        nonlocal swapped
+        if str(name) == "new" and not swapped:
+            swapped = True
+            existing.rename(moved)
+            existing.symlink_to(external, target_is_directory=True)
+        real_mkdir(name, *args, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.mkdir", swapping_mkdir)
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, existing / "new" / "deeper" / "catalog.json")
+    assert swapped and not (external / "new").exists()
+
+
+def test_publication_swap_before_link_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "curator")
+    parent = tmp_path / "safe" / "publish"
+    external, moved = tmp_path / "external", tmp_path / "moved"
+    external.mkdir()
+    real_link = os.link
+
+    def swapping_link(source: object, target: object, **kwargs: object) -> None:
+        parent.rename(moved)
+        parent.symlink_to(external, target_is_directory=True)
+        real_link(source, target, **kwargs)
+
+    monkeypatch.setattr("hf_intake.production_catalog.os.link", swapping_link)
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, parent / "catalog.json")
+    assert not (external / "catalog.json").exists()
 
 
 def test_real_escrow_to_production_catalog_preserves_upstream_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

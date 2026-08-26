@@ -121,3 +121,16 @@ work.
 ## Runtime provisioning handoff
 
 The metadata-only handoff is specified in [`local_runtime_provisioning.md`](local_runtime_provisioning.md). Route hardware compatibility, exact runtime target selection, and actual runtime installation/commissioning are three separate states; neither selection planner claims installation.
+
+## Production filesystem custody
+
+Curator promotion and catalog publication require Python and an operating system
+that support directory-relative `open`, `mkdir`, `link`, and `unlink`, together
+with no-follow and directory-only open flags. They fail closed when those
+primitives are unavailable. Evidence files are opened relative to pinned escrow
+directory descriptors, and publication descent, staging, destination inspection,
+linking, directory synchronization, and cleanup remain relative to a pinned final
+parent descriptor. The externally requested publication chain is additionally
+revalidated by directory identity before publication; a renamed or substituted
+visible chain is rejected rather than treated as authority. These controls grant
+no acquisition, model loading, inference, commissioning, or network authority.
