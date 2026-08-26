@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "afd50347896cd958053c28e49a9edd2dee4ee18d",
+  "repository_sha": "340a9be250b95caa4b8cd06e21f4ee9b75e3e83d",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {"node_id": "tests/test_local_model_catalog.py::test_promote_delete_escrow_then_validate_and_select", "rationale": "Critical byte-independent deployment selection invariant."},
@@ -9,7 +9,9 @@
     {"node_id": "tests/test_local_model_catalog.py::test_file_dispatch_uses_catalog_without_artifact_and_binds_accelerated_route", "rationale": "Production schema dispatch and route identity binding."},
     {"node_id": "tests/test_local_model_catalog.py::test_static_catalog_boundary_verifier", "rationale": "Static zero-effect boundary evidence."},
     {"node_id": "tests/test_local_model_catalog.py::test_real_escrow_to_production_catalog_preserves_upstream_path", "rationale": "Real escrow preserves exact repository-relative source provenance through promotion."},
-    {"node_id": "tests/test_local_model_catalog.py::test_publication_no_clobber_race", "rationale": "Concurrent publication cannot overwrite conflicting catalog bytes."}
+    {"node_id": "tests/test_local_model_catalog.py::test_publication_no_clobber_race", "rationale": "Concurrent publication cannot overwrite conflicting catalog bytes."},
+    {"node_id": "tests/test_local_model_catalog.py::test_source_staging_substitution_cannot_change_published_inode", "rationale": "A racing named staging source cannot substitute for the descriptor-bound unnamed inode."},
+    {"node_id": "tests/test_local_model_catalog.py::test_rollback_conflict_preserves_competitor_replacement", "rationale": "Fail-closed post-link handling never deletes a competitor replacement."}
   ],
   "successful_path_nodes": ["tests/test_local_model_catalog.py::test_promote_delete_escrow_then_validate_and_select"]
 }

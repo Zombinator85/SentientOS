@@ -182,21 +182,21 @@ def test_publication_no_clobber_race(tmp_path: Path, monkeypatch: pytest.MonkeyP
     write_promoted_catalog(manifest, expected)
     payload = expected.read_bytes()
     output = tmp_path / "race" / "catalog.json"
-    real_link = __import__("os").link
+    from hf_intake import production_catalog
+    real_link = production_catalog._link_staged_inode
 
     def race_with(content: bytes):
-        def linked(source: object, target: object, **kwargs: object) -> None:
-            parent_fd = int(kwargs["dst_dir_fd"])
-            competitor = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parent_fd)
+        def linked(source_fd: int, parent_fd: int, target: str) -> None:
+            competitor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parent_fd)
             with os.fdopen(competitor, "wb") as stream:
                 stream.write(content)
-            real_link(source, target, **kwargs)
+            real_link(source_fd, parent_fd, target)
         return linked
 
-    monkeypatch.setattr("hf_intake.production_catalog.os.link", race_with(payload))
+    monkeypatch.setattr(production_catalog, "_link_staged_inode", race_with(payload))
     assert write_promoted_catalog(manifest, output)["schema_version"].endswith(":v1")
     output.unlink()
-    monkeypatch.setattr("hf_intake.production_catalog.os.link", race_with(b"competitor"))
+    monkeypatch.setattr(production_catalog, "_link_staged_inode", race_with(b"competitor"))
     with pytest.raises(ManifestError):
         write_promoted_catalog(manifest, output)
     assert output.read_bytes() == b"competitor"
@@ -344,17 +344,64 @@ def test_publication_swap_before_link_fails_closed(tmp_path: Path, monkeypatch: 
     parent = tmp_path / "safe" / "publish"
     external, moved = tmp_path / "external", tmp_path / "moved"
     external.mkdir()
-    real_link = os.link
+    from hf_intake import production_catalog
+    real_link = production_catalog._link_staged_inode
 
-    def swapping_link(source: object, target: object, **kwargs: object) -> None:
+    def swapping_link(source_fd: int, parent_fd: int, target: str) -> None:
         parent.rename(moved)
         parent.symlink_to(external, target_is_directory=True)
-        real_link(source, target, **kwargs)
+        real_link(source_fd, parent_fd, target)
 
-    monkeypatch.setattr("hf_intake.production_catalog.os.link", swapping_link)
+    monkeypatch.setattr(production_catalog, "_link_staged_inode", swapping_link)
     with pytest.raises(ManifestError):
         write_promoted_catalog(manifest, parent / "catalog.json")
     assert not (external / "catalog.json").exists()
+
+
+def test_source_staging_substitution_cannot_change_published_inode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "curator")
+    output = tmp_path / "publish" / "catalog.json"
+    from hf_intake import production_catalog
+    real_link = production_catalog._link_staged_inode
+    attacked = False
+
+    def substitute_named_source(source_fd: int, parent_fd: int, target: str) -> None:
+        nonlocal attacked
+        # There is no staged source name to replace: install attacker bytes under
+        # the legacy-shaped name immediately before fd-bound publication instead.
+        attacker_name = f".{target}.attacker-stage"
+        attacker = os.open(attacker_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parent_fd)
+        with os.fdopen(attacker, "wb") as stream:
+            stream.write(b"attacker bytes")
+        attacked = True
+        real_link(source_fd, parent_fd, target)
+
+    monkeypatch.setattr(production_catalog, "_link_staged_inode", substitute_named_source)
+    write_promoted_catalog(manifest, output)
+    assert attacked
+    assert output.read_bytes() != b"attacker bytes"
+    assert json.loads(output.read_text(encoding="utf-8"))["schema_version"].endswith(":v1")
+
+
+def test_rollback_conflict_preserves_competitor_replacement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path / "curator")
+    output = tmp_path / "publish" / "catalog.json"
+    competitor = tmp_path / "competitor"
+    competitor.write_bytes(b"competitor bytes")
+    from hf_intake import production_catalog
+    real_revalidate = production_catalog._revalidate_chain
+    def fail_after_link(identities: object) -> None:
+        if output.exists():
+            output.unlink()
+            os.link(competitor, output)
+            raise ManifestError("forced visible-chain revalidation failure")
+        real_revalidate(identities)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(production_catalog, "_revalidate_chain", fail_after_link)
+    with pytest.raises(ManifestError):
+        write_promoted_catalog(manifest, output)
+    assert output.read_bytes() == b"competitor bytes"
+    assert output.stat().st_ino == competitor.stat().st_ino
 
 
 def test_real_escrow_to_production_catalog_preserves_upstream_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
