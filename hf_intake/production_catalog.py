@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import hashlib
+import ctypes
+import errno
 import json
 import os
-import secrets
 from pathlib import Path
 import stat
 from typing import Any, Mapping, cast
@@ -19,12 +20,43 @@ from sentientos.local_model_source_provenance import (
 _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
 _FILE_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 _SIDECAR_MAXIMUM_SIZE = 1024
-_DIR_FD_CAPABLE = all(fn in os.supports_dir_fd for fn in (os.open, os.mkdir, os.link, os.unlink))
+_DIR_FD_CAPABLE = all(fn in os.supports_dir_fd for fn in (os.open, os.mkdir))
+_AT_EMPTY_PATH = 0x1000
+_O_TMPFILE = getattr(os, "O_TMPFILE", 0)
+_LIBC = ctypes.CDLL(None, use_errno=True)
+_LINKAT = getattr(_LIBC, "linkat", None)
+if _LINKAT is not None:
+    _LINKAT.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int)
+    _LINKAT.restype = ctypes.c_int
 
 
 def _require_descriptor_custody() -> None:
-    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY") or not _DIR_FD_CAPABLE:
+    if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY") or not _DIR_FD_CAPABLE
+            or not _O_TMPFILE or _LINKAT is None):
         raise ManifestError("platform lacks descriptor-anchored production filesystem custody")
+
+
+def _link_staged_inode(staged_fd: int, parent_fd: int, destination: str) -> None:
+    """Publish the descriptor-bound unnamed inode, never a replaceable source name."""
+    assert _LINKAT is not None
+    result = _LINKAT(staged_fd, ctypes.c_char_p(b""), parent_fd,
+                     ctypes.c_char_p(os.fsencode(destination)), _AT_EMPTY_PATH)
+    if result != 0:
+        error = ctypes.get_errno()
+        if error == errno.EEXIST:
+            raise FileExistsError(error, os.strerror(error), destination)
+        raise OSError(error, os.strerror(error), destination)
+
+
+def _read_and_identify_at(parent_fd: int, name: str, maximum_size: int) -> tuple[bytes, tuple[int, int]]:
+    descriptor = _open_regular_at(parent_fd, name, "published catalog")
+    try:
+        info = os.fstat(descriptor)
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            payload = stream.read(maximum_size + 1)
+        return payload, (info.st_dev, info.st_ino)
+    finally:
+        os.close(descriptor)
 
 
 def _open_directory(path: Path) -> int:
@@ -185,7 +217,7 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     catalog = {"schema_version": SCHEMA_VERSION,
                "models": sorted(promoted, key=lambda item: (item["priority"], item["model_id"]))}
     try:
-        return validate_local_model_catalog(catalog)
+        return cast(dict[str, Any], validate_local_model_catalog(catalog))
     except LocalModelCatalogError as exc:
         raise ManifestError(f"promoted catalog is invalid: {exc}") from exc
 
@@ -243,37 +275,43 @@ def write_promoted_catalog(manifest_path: Path, output_path: Path) -> dict[str, 
     payload = (json.dumps(catalog, indent=2, sort_keys=True) + "\n").encode("utf-8")
     output_path = Path(os.path.abspath(output_path))
     parent_fd, identities = _prepare_publication_parent(output_path)
-    temporary = f".{output_path.name}.{secrets.token_hex(16)}"
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-                 0o600, dir_fd=parent_fd)
+    # O_TMPFILE creates no staging directory entry for a writable-directory actor
+    # to substitute.  linkat(AT_EMPTY_PATH) below consumes this opened inode.
     try:
-        with os.fdopen(fd, "wb") as stream:
+        fd = os.open(".", os.O_RDWR | _O_TMPFILE, 0o600, dir_fd=parent_fd)
+    except OSError as exc:
+        os.close(parent_fd)
+        raise ManifestError("platform/filesystem lacks fd-bound catalog publication") from exc
+    try:
+        with os.fdopen(fd, "wb", closefd=False) as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
+        staged = os.fstat(fd)
+        if not stat.S_ISREG(staged.st_mode):
+            raise ManifestError("staged catalog is not a regular inode")
+        staged_identity = (staged.st_dev, staged.st_ino)
         _revalidate_chain(identities)
         try:
-            os.link(temporary, output_path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd, follow_symlinks=False)
-            try:
-                _revalidate_chain(identities)
-            except ManifestError:
-                os.unlink(output_path.name, dir_fd=parent_fd)
-                raise
+            _link_staged_inode(fd, parent_fd, output_path.name)
+            _revalidate_chain(identities)
+            published, published_identity = _read_and_identify_at(parent_fd, output_path.name, len(payload))
+            if published_identity != staged_identity or published != payload:
+                raise ManifestError("published catalog does not identify the approved staged inode and bytes")
         except FileExistsError:
             try:
-                target_fd = _open_regular_at(parent_fd, output_path.name, "published catalog")
-                with os.fdopen(target_fd, "rb") as target_stream:
-                    existing = target_stream.read(len(payload) + 1)
+                existing, _ = _read_and_identify_at(parent_fd, output_path.name, len(payload))
             except OSError as exc:
                 raise ManifestError("unable to inspect concurrently published catalog") from exc
             if existing != payload:
                 raise ManifestError("refusing to overwrite conflicting production catalog")
             _revalidate_chain(identities)
-        os.fsync(parent_fd)
-    finally:
         try:
-            os.unlink(temporary, dir_fd=parent_fd)
-        except FileNotFoundError:
-            pass
+            os.fsync(parent_fd)
+        except OSError as exc:
+            # Never unlink by name here: a competitor may have replaced the entry.
+            raise ManifestError("catalog publication durability failed; residual entry preserved") from exc
+    finally:
+        os.close(fd)
         os.close(parent_fd)
     return catalog

@@ -52,23 +52,26 @@ def main() -> int:
     promotion_attributes = {node.attr for node in ast.walk(promotion_tree) if isinstance(node, ast.Attribute)}
     if "_read_checksum_sidecar" not in promotion_calls or 'getattr(os, "O_NOFOLLOW", 0)' not in promotion:
         findings.append("promotion_missing_checksum_or_nofollow_custody")
-    if "os.replace" in promotion or "os.rename" in promotion or "link" not in promotion_attributes:
+    if "os.replace" in promotion or "os.rename" in promotion or "linkat" not in promotion:
         findings.append("publication_not_no_clobber")
     writer = _function(promotion_tree, "write_promoted_catalog")
     writer_calls = _call_names(writer)
     if "mkdir" in writer_calls or "mkstemp" in writer_calls or writer_calls.index("_prepare_publication_parent") > writer_calls.index("open"):
         findings.append("publication_parent_not_prepared_before_staging")
-    if "_revalidate_chain" not in writer_calls or writer_calls.index("_revalidate_chain") > writer_calls.index("link"):
+    if ("_revalidate_chain" not in writer_calls or "_link_staged_inode" not in writer_calls
+            or writer_calls.index("_revalidate_chain") > writer_calls.index("_link_staged_inode")):
         findings.append("publication_parent_not_revalidated_before_link")
     prepare = _function(promotion_tree, "_prepare_publication_parent")
     prepare_calls = _call_names(prepare)
     if "mkdir" not in prepare_calls or "open" not in prepare_calls or "fstat" not in prepare_calls:
         findings.append("publication_missing_descriptor_relative_descent")
-    structural_tokens = ("dir_fd=parent_fd", "src_dir_fd=parent_fd", "dst_dir_fd=parent_fd",
-                         "os.fsync(parent_fd)", "os.unlink(temporary, dir_fd=parent_fd)",
-                         "dir_fd=descriptor", "_open_regular_at(parent_fd")
+    structural_tokens = ("dir_fd=parent_fd", "_O_TMPFILE", "_AT_EMPTY_PATH", "_link_staged_inode(fd, parent_fd",
+                         "staged_identity", "published_identity != staged_identity", "published != payload",
+                         "os.fsync(parent_fd)", "residual entry preserved", "dir_fd=descriptor",
+                         "_open_regular_at(parent_fd")
     findings.extend(f"publication_descriptor_custody_missing:{token}" for token in structural_tokens if token not in promotion)
-    if "os.open(output_path" in promotion or "tempfile.mkstemp" in promotion or "os.unlink(temporary)" in promotion:
+    if ("os.open(output_path" in promotion or "tempfile.mkstemp" in promotion or "os.unlink(temporary)" in promotion
+            or "os.unlink(output_path.name" in promotion):
         findings.append("publication_regressed_to_full_path_operation")
     if "source_filename = artifact_path" in promotion:
         findings.append("promotion_reconstructs_source_filename")

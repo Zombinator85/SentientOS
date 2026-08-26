@@ -124,13 +124,24 @@ The metadata-only handoff is specified in [`local_runtime_provisioning.md`](loca
 
 ## Production filesystem custody
 
-Curator promotion and catalog publication require Python and an operating system
-that support directory-relative `open`, `mkdir`, `link`, and `unlink`, together
-with no-follow and directory-only open flags. They fail closed when those
-primitives are unavailable. Evidence files are opened relative to pinned escrow
-directory descriptors, and publication descent, staging, destination inspection,
-linking, directory synchronization, and cleanup remain relative to a pinned final
-parent descriptor. The externally requested publication chain is additionally
-revalidated by directory identity before publication; a renamed or substituted
-visible chain is rejected rather than treated as authority. These controls grant
-no acquisition, model loading, inference, commissioning, or network authority.
+Curator promotion and catalog publication require directory-relative `open` and
+`mkdir`, no-follow and directory-only open flags, Linux-style `O_TMPFILE`, and
+`linkat(AT_EMPTY_PATH)`. They fail closed before publication when either the
+platform or the destination filesystem cannot provide fd-bound unnamed-inode
+publication. There is no pathname-based staging fallback.
+
+Evidence files are opened relative to pinned escrow directory descriptors.
+Publication descent and destination inspection remain relative to the pinned
+final-parent descriptor. The deterministic bytes are written and fsynced through
+an unnamed temporary-file descriptor, and the no-overwrite publication primitive
+links that exact inode into the parent. Success additionally requires the opened
+destination to have both the staged inode identity and approved bytes (or, for an
+identical concurrent publication, the exact approved bytes), followed by a
+successful parent-directory fsync. The externally requested publication chain is
+revalidated by directory identity before and after publication.
+
+Failures after linking deliberately do not unlink the destination by name: a
+racing actor may already have replaced it. Such failures preserve any residual
+entry and report a hard publication/durability error rather than risking deletion
+of a competitor inode or returning a successful receipt. These controls grant no
+acquisition, model loading, inference, commissioning, or network authority.
