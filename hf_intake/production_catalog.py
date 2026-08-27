@@ -22,6 +22,8 @@ _FILE_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 _SIDECAR_MAXIMUM_SIZE = 1024
 _DIR_FD_CAPABLE = all(fn in os.supports_dir_fd for fn in (os.open, os.mkdir))
 _AT_EMPTY_PATH = 0x1000
+_AT_SYMLINK_FOLLOW = 0x400
+_AT_FDCWD = -100
 _O_TMPFILE = getattr(os, "O_TMPFILE", 0)
 _LIBC = ctypes.CDLL(None, use_errno=True)
 _LINKAT = getattr(_LIBC, "linkat", None)
@@ -30,22 +32,56 @@ if _LINKAT is not None:
     _LINKAT.restype = ctypes.c_int
 
 
-def _require_descriptor_custody() -> None:
-    if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY") or not _DIR_FD_CAPABLE
-            or not _O_TMPFILE or _LINKAT is None):
-        raise ManifestError("platform lacks descriptor-anchored production filesystem custody")
+def _require_read_custody() -> None:
+    if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
+            or not _DIR_FD_CAPABLE or not hasattr(os, "fstat")):
+        raise ManifestError("platform lacks descriptor-anchored curator read custody")
 
 
-def _link_staged_inode(staged_fd: int, parent_fd: int, destination: str) -> None:
-    """Publish the descriptor-bound unnamed inode, never a replaceable source name."""
+def _require_publication_custody() -> None:
+    _require_read_custody()
+    if not _O_TMPFILE or _LINKAT is None:
+        raise ManifestError("platform lacks fd-bound production publication custody")
+
+
+def _call_linkat(staged_fd: int, parent_fd: int, destination: str, flags: int) -> None:
+    if flags == _AT_EMPTY_PATH:
+        old_fd, old_path = staged_fd, b""
+    elif flags == _AT_SYMLINK_FOLLOW:
+        old_fd = _AT_FDCWD
+        old_path = f"/proc/self/fd/{staged_fd}".encode("ascii")
+    else:
+        raise ManifestError("unauthorized fd-bound publication method")
     assert _LINKAT is not None
-    result = _LINKAT(staged_fd, ctypes.c_char_p(b""), parent_fd,
-                     ctypes.c_char_p(os.fsencode(destination)), _AT_EMPTY_PATH)
+    result = _LINKAT(old_fd, ctypes.c_char_p(old_path), parent_fd,
+                     ctypes.c_char_p(os.fsencode(destination)), flags)
     if result != 0:
         error = ctypes.get_errno()
         if error == errno.EEXIST:
             raise FileExistsError(error, os.strerror(error), destination)
         raise OSError(error, os.strerror(error), destination)
+
+
+def _link_staged_inode(staged_fd: int, parent_fd: int, destination: str) -> None:
+    """Publish one live unnamed inode, using only kernel fd identity exposure."""
+    try:
+        _call_linkat(staged_fd, parent_fd, destination, _AT_EMPTY_PATH)
+        return
+    except OSError as exc:
+        if exc.errno not in {errno.EACCES, errno.EPERM, errno.EINVAL, errno.ENOENT,
+                             errno.ENOSYS, errno.EOPNOTSUPP}:
+            raise
+    # Linux documents this exact route for linking O_TMPFILE inodes without
+    # CAP_DAC_READ_SEARCH.  It is mechanically derived from the still-live fd;
+    # no caller or repository pathname can become source authority.
+    try:
+        _call_linkat(staged_fd, parent_fd, destination, _AT_SYMLINK_FOLLOW)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST:
+            raise
+        raise ManifestError(
+            "fd-bound production publication unavailable: direct AT_EMPTY_PATH and fixed procfs fd routes failed"
+        ) from exc
 
 
 def _read_and_identify_at(parent_fd: int, name: str, maximum_size: int) -> tuple[bytes, tuple[int, int]]:
@@ -61,7 +97,7 @@ def _read_and_identify_at(parent_fd: int, name: str, maximum_size: int) -> tuple
 
 def _open_directory(path: Path) -> int:
     """Open an absolute directory chain without trusting a previously checked path."""
-    _require_descriptor_custody()
+    _require_read_custody()
     absolute = Path(os.path.abspath(path))
     descriptor = os.open(absolute.anchor, _DIR_FLAGS)
     try:
@@ -217,7 +253,8 @@ def promote_manifest(manifest_path: Path) -> dict[str, Any]:
     catalog = {"schema_version": SCHEMA_VERSION,
                "models": sorted(promoted, key=lambda item: (item["priority"], item["model_id"]))}
     try:
-        return cast(dict[str, Any], validate_local_model_catalog(catalog))
+        validated: dict[str, Any] = validate_local_model_catalog(catalog)
+        return validated
     except LocalModelCatalogError as exc:
         raise ManifestError(f"promoted catalog is invalid: {exc}") from exc
 
@@ -235,7 +272,7 @@ def _revalidate_chain(identities: list[tuple[Path, tuple[int, int]]]) -> None:
 
 def _prepare_publication_parent(output_path: Path) -> tuple[int, list[tuple[Path, tuple[int, int]]]]:
     """Create and descend solely relative to already-open directory descriptors."""
-    _require_descriptor_custody()
+    _require_publication_custody()
     parent = Path(os.path.abspath(output_path)).parent
     anchor = Path(parent.anchor)
     descriptor = os.open(anchor, _DIR_FLAGS)
@@ -271,12 +308,13 @@ def _prepare_publication_parent(output_path: Path) -> tuple[int, list[tuple[Path
 
 def write_promoted_catalog(manifest_path: Path, output_path: Path) -> dict[str, Any]:
     """Atomically publish deterministic JSON, accepting only identical existing bytes."""
+    _require_publication_custody()
     catalog = promote_manifest(manifest_path)
     payload = (json.dumps(catalog, indent=2, sort_keys=True) + "\n").encode("utf-8")
     output_path = Path(os.path.abspath(output_path))
     parent_fd, identities = _prepare_publication_parent(output_path)
     # O_TMPFILE creates no staging directory entry for a writable-directory actor
-    # to substitute.  linkat(AT_EMPTY_PATH) below consumes this opened inode.
+    # to substitute.  fd-bound linkat below consumes this opened inode.
     try:
         fd = os.open(".", os.O_RDWR | _O_TMPFILE, 0o600, dir_fd=parent_fd)
     except OSError as exc:

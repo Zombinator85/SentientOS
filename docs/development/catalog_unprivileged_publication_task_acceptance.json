@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "catalog_unprivileged_fd_publication",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e29459075f5ae3e4b75f5675b6fb1e051d40ce27",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_catalog.py::test_real_unprivileged_process_publishes_without_dac_read_search", "rationale": "Real Linux process publication without CAP_DAC_READ_SEARCH."},
+    {"node_id": "tests/test_local_model_catalog.py::test_capability_denied_direct_link_uses_exact_live_proc_fd", "rationale": "Direct-link denial selects only the mechanically derived procfs fd route."},
+    {"node_id": "tests/test_local_model_catalog.py::test_both_fd_link_routes_unavailable_fail_without_destination", "rationale": "Both secure routes unavailable fails closed without named staging."},
+    {"node_id": "tests/test_local_model_catalog.py::test_promotion_read_custody_does_not_require_publication_primitives", "rationale": "Safe evidence reads remain independent of publication capability."},
+    {"node_id": "tests/test_local_model_catalog.py::test_atomic_publication_is_idempotent_and_rejects_conflict_or_symlink", "rationale": "No-clobber identical, conflicting, and symlink destination semantics remain sealed."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_catalog.py::test_real_unprivileged_process_publishes_without_dac_read_search"
+  ]
+}
