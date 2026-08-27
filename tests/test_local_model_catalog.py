@@ -4,6 +4,9 @@ import copy
 import json
 import os
 import shutil
+import subprocess
+import sys
+import tempfile
 from hashlib import sha256
 from pathlib import Path
 
@@ -174,6 +177,118 @@ def test_atomic_publication_is_idempotent_and_rejects_conflict_or_symlink(tmp_pa
     output.unlink()
     output.symlink_to(manifest)
     with pytest.raises(ManifestError): write_promoted_catalog(manifest, output)
+
+
+def test_promotion_read_custody_does_not_require_publication_primitives(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = _curator_tree(tmp_path)
+    monkeypatch.setattr("hf_intake.production_catalog._O_TMPFILE", 0)
+    monkeypatch.setattr("hf_intake.production_catalog._LINKAT", None)
+    assert promote_manifest(manifest)["schema_version"].endswith(":v1")
+    with pytest.raises(ManifestError, match="publication custody"):
+        write_promoted_catalog(manifest, tmp_path / "catalog.json")
+
+
+def test_capability_denied_direct_link_uses_exact_live_proc_fd(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from hf_intake import production_catalog
+    manifest = _curator_tree(tmp_path)
+    output = tmp_path / "publish" / "catalog.json"
+    real_call = production_catalog._call_linkat
+    calls: list[tuple[int, int]] = []
+
+    def deny_direct(old_fd: int, parent_fd: int, destination: str, flags: int) -> None:
+        calls.append((old_fd, flags))
+        if flags == production_catalog._AT_EMPTY_PATH:
+            raise PermissionError(errno.EPERM, os.strerror(errno.EPERM), destination)
+        real_call(old_fd, parent_fd, destination, flags)
+
+    import errno
+    monkeypatch.setattr(production_catalog, "_call_linkat", deny_direct)
+    write_promoted_catalog(manifest, output)
+    staged_fd = calls[0][0]
+    assert calls == [
+        (staged_fd, production_catalog._AT_EMPTY_PATH),
+        (staged_fd, production_catalog._AT_SYMLINK_FOLLOW),
+    ]
+    assert json.loads(output.read_bytes())["schema_version"].endswith(":v1")
+    assert not any(path.name.startswith(".catalog.json") for path in output.parent.iterdir())
+
+
+def test_both_fd_link_routes_unavailable_fail_without_destination(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from hf_intake import production_catalog
+    manifest = _curator_tree(tmp_path)
+    output = tmp_path / "publish" / "catalog.json"
+
+    def unavailable(old_fd: int, parent_fd: int, destination: str, flags: int) -> None:
+        raise PermissionError(errno.EPERM, os.strerror(errno.EPERM), destination)
+
+    import errno
+    monkeypatch.setattr(production_catalog, "_call_linkat", unavailable)
+    with pytest.raises(ManifestError, match="direct AT_EMPTY_PATH and fixed procfs fd routes failed"):
+        write_promoted_catalog(manifest, output)
+    assert not output.exists()
+    assert list(output.parent.iterdir()) == []
+
+
+def test_procfs_linkat_source_is_mechanically_fixed_to_live_staged_fd(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from hf_intake import production_catalog
+    observed: list[tuple[int, bytes, int]] = []
+
+    def linkat(old_fd: int, old_path: object, parent_fd: int, destination: object, flags: int) -> int:
+        observed.append((old_fd, old_path.value, flags))  # type: ignore[attr-defined]
+        return 0
+
+    monkeypatch.setattr(production_catalog, "_LINKAT", linkat)
+    production_catalog._call_linkat(47, 23, "catalog.json", production_catalog._AT_SYMLINK_FOLLOW)
+    assert observed == [(production_catalog._AT_FDCWD, b"/proc/self/fd/47",
+                         production_catalog._AT_SYMLINK_FOLLOW)]
+    with pytest.raises(ManifestError, match="unauthorized"):
+        production_catalog._call_linkat(47, 23, "catalog.json", 0)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux O_TMPFILE/linkat acceptance")
+def test_real_unprivileged_process_publishes_without_dac_read_search(tmp_path: Path) -> None:
+    acceptance_root = Path(tempfile.mkdtemp(prefix="sentientos-unprivileged-publication-", dir="/tmp"))
+    manifest = _curator_tree(acceptance_root)
+    output = acceptance_root / "unprivileged" / "catalog.json"
+    uid = 65534 if os.geteuid() == 0 else os.geteuid()
+    gid = 65534 if os.geteuid() == 0 else os.getegid()
+    if os.geteuid() == 0:
+        for root, directories, files in os.walk(acceptance_root):
+            os.chown(root, uid, gid)
+            for name in directories + files:
+                os.chown(Path(root) / name, uid, gid)
+    code = """
+import json, os, pathlib, sys
+from hf_intake.production_catalog import write_promoted_catalog
+manifest, output = map(pathlib.Path, sys.argv[1:])
+cap_eff = int(next(line.split()[1] for line in pathlib.Path('/proc/self/status').read_text().splitlines() if line.startswith('CapEff:')), 16)
+assert os.geteuid() != 0 or not (cap_eff & (1 << 2))
+parent = output.parent
+parent.mkdir(parents=True, exist_ok=True)
+fd = os.open(parent, os.O_RDWR | os.O_TMPFILE, 0o600)
+os.close(fd)
+catalog = write_promoted_catalog(manifest, output)
+assert output.read_bytes() == (json.dumps(catalog, indent=2, sort_keys=True) + '\\n').encode()
+print(json.dumps({'euid': os.geteuid(), 'cap_dac_read_search': bool(cap_eff & (1 << 2)), 'published': True}))
+"""
+    def demote() -> None:
+        os.setgroups([])
+        os.setgid(gid)
+        os.setuid(uid)
+
+    executable = "/usr/bin/python3" if os.geteuid() == 0 else sys.executable
+    result = subprocess.run(
+        [executable, "-c", code, str(manifest), str(output)], cwd=Path(__file__).parents[1],
+        text=True, capture_output=True, check=False, preexec_fn=demote if os.geteuid() == 0 else None,
+    )
+    assert result.returncode == 0, result.stderr
+    receipt = json.loads(result.stdout)
+    assert receipt["published"] and not receipt["cap_dac_read_search"]
+    shutil.rmtree(acceptance_root)
 
 
 def test_publication_no_clobber_race(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -124,11 +124,17 @@ The metadata-only handoff is specified in [`local_runtime_provisioning.md`](loca
 
 ## Production filesystem custody
 
-Curator promotion and catalog publication require directory-relative `open` and
-`mkdir`, no-follow and directory-only open flags, Linux-style `O_TMPFILE`, and
-`linkat(AT_EMPTY_PATH)`. They fail closed before publication when either the
-platform or the destination filesystem cannot provide fd-bound unnamed-inode
-publication. There is no pathname-based staging fallback.
+Safe curator evidence reads independently require descriptor-relative `open`,
+no-follow and directory-only flags, `fstat`, and descriptor-safe traversal.
+Production publication additionally requires descriptor-relative `mkdir`,
+Linux `O_TMPFILE` support on the pinned destination filesystem, and one usable
+fd-bound `linkat` route. Direct `linkat(AT_EMPTY_PATH)` requires
+`CAP_DAC_READ_SEARCH` on Linux, so ordinary production publication instead uses
+the documented, mechanically fixed `/proc/self/fd/<fd>` source with
+`AT_SYMLINK_FOLLOW` when direct linking is unavailable to the caller. This
+kernel fd exposure grants no general pathname authority. If neither route is
+usable, publication fails closed. There is no named staging fallback, and no
+privilege escalation is requested or granted.
 
 Evidence files are opened relative to pinned escrow directory descriptors.
 Publication descent and destination inspection remain relative to the pinned
