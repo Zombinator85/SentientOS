@@ -24,6 +24,31 @@ def _call_names(node: ast.AST) -> list[str]:
     return [name for _, _, name in sorted(calls)]
 
 
+def _assigned_value(tree: ast.Module, name: str) -> ast.expr | None:
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == name):
+            return node.value
+    return None
+
+
+def _is_dir_fd_capability(value: ast.expr | None, function_name: str) -> bool:
+    return bool(
+        isinstance(value, ast.Compare)
+        and len(value.ops) == 1
+        and isinstance(value.ops[0], ast.In)
+        and len(value.comparators) == 1
+        and isinstance(value.left, ast.Attribute)
+        and isinstance(value.left.value, ast.Name)
+        and value.left.value.id == "os"
+        and value.left.attr == function_name
+        and isinstance(value.comparators[0], ast.Attribute)
+        and isinstance(value.comparators[0].value, ast.Name)
+        and value.comparators[0].value.id == "os"
+        and value.comparators[0].attr == "supports_dir_fd"
+    )
+
+
 def main() -> int:
     escrow = Path("hf_intake/escrow.py").read_text(encoding="utf-8")
     discovery = Path("hf_intake/discovery.py").read_text(encoding="utf-8")
@@ -58,7 +83,19 @@ def main() -> int:
     writer_calls = _call_names(writer)
     read_guard = _function(promotion_tree, "_require_read_custody")
     publication_guard = _function(promotion_tree, "_require_publication_custody")
-    if "_O_TMPFILE" in (ast.get_source_segment(promotion, read_guard) or "") or "_LINKAT" in (ast.get_source_segment(promotion, read_guard) or ""):
+    read_capability = "_READ_DIR_FD_CAPABLE"
+    mkdir_capability = "_PUBLICATION_MKDIR_DIR_FD_CAPABLE"
+    if not _is_dir_fd_capability(_assigned_value(promotion_tree, read_capability), "open"):
+        findings.append("read_dir_fd_capability_not_derived_from_open_only")
+    if not _is_dir_fd_capability(_assigned_value(promotion_tree, mkdir_capability), "mkdir"):
+        findings.append("publication_mkdir_dir_fd_capability_not_separate")
+    read_names = {node.id for node in ast.walk(read_guard) if isinstance(node, ast.Name)}
+    publication_names = {node.id for node in ast.walk(publication_guard) if isinstance(node, ast.Name)}
+    if read_capability not in read_names or mkdir_capability in read_names:
+        findings.append("curator_read_custody_not_isolated_from_mkdir_capability")
+    if mkdir_capability not in publication_names:
+        findings.append("publication_custody_missing_mkdir_capability")
+    if {"_O_TMPFILE", "_LINKAT"} & read_names:
         findings.append("curator_read_custody_requires_publication_primitives")
     if "_require_read_custody" not in _call_names(publication_guard):
         findings.append("publication_custody_does_not_extend_read_custody")

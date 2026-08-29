@@ -20,7 +20,8 @@ from sentientos.local_model_source_provenance import (
 _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
 _FILE_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 _SIDECAR_MAXIMUM_SIZE = 1024
-_DIR_FD_CAPABLE = all(fn in os.supports_dir_fd for fn in (os.open, os.mkdir))
+_READ_DIR_FD_CAPABLE = os.open in os.supports_dir_fd
+_PUBLICATION_MKDIR_DIR_FD_CAPABLE = os.mkdir in os.supports_dir_fd
 _AT_EMPTY_PATH = 0x1000
 _AT_SYMLINK_FOLLOW = 0x400
 _AT_FDCWD = -100
@@ -34,13 +35,13 @@ if _LINKAT is not None:
 
 def _require_read_custody() -> None:
     if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
-            or not _DIR_FD_CAPABLE or not hasattr(os, "fstat")):
+            or not _READ_DIR_FD_CAPABLE or not hasattr(os, "fstat")):
         raise ManifestError("platform lacks descriptor-anchored curator read custody")
 
 
 def _require_publication_custody() -> None:
     _require_read_custody()
-    if not _O_TMPFILE or _LINKAT is None:
+    if not _PUBLICATION_MKDIR_DIR_FD_CAPABLE or not _O_TMPFILE or _LINKAT is None:
         raise ManifestError("platform lacks fd-bound production publication custody")
 
 
