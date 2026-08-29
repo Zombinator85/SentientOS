@@ -20,7 +20,7 @@ GitRunner = Callable[[Path, Sequence[str]], bytes]
 
 def _run_git(cwd: Path, arguments: Sequence[str]) -> bytes:
     completed = subprocess.run(
-        ["git", *arguments],
+        ["git", "--no-optional-locks", *arguments],
         cwd=cwd,
         check=False,
         stdout=subprocess.PIPE,
@@ -41,22 +41,8 @@ def _text(value: bytes, primitive: str) -> str:
 
 def _identity(cwd: Path, run_git: GitRunner) -> tuple[str, str | None, bool]:
     head = _text(run_git(cwd, ("rev-parse", "--verify", "HEAD")), "head")
-    symbolic = subprocess.run(
-        ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
-        cwd=cwd,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    ) if run_git is _run_git else None
-    if symbolic is not None:
-        if symbolic.returncode not in (0, 1):
-            raise OrientationError("git_observation_failed:symbolic-ref")
-        branch = _text(symbolic.stdout, "branch") if symbolic.returncode == 0 else None
-    else:
-        try:
-            branch = _text(run_git(cwd, ("symbolic-ref", "--quiet", "--short", "HEAD")), "branch")
-        except OrientationError:
-            branch = None
+    branch_name = _text(run_git(cwd, ("rev-parse", "--abbrev-ref", "HEAD")), "branch")
+    branch = None if branch_name == "HEAD" else branch_name
     return head, branch, branch is None
 
 
