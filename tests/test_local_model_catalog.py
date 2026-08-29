@@ -189,6 +189,20 @@ def test_promotion_read_custody_does_not_require_publication_primitives(
         write_promoted_catalog(manifest, tmp_path / "catalog.json")
 
 
+def test_read_dir_fd_custody_survives_missing_publication_mkdir_dir_fd(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from hf_intake import production_catalog
+    manifest = _curator_tree(tmp_path)
+    output = tmp_path / "catalog.json"
+    monkeypatch.setattr(production_catalog, "_READ_DIR_FD_CAPABLE", True)
+    monkeypatch.setattr(production_catalog, "_PUBLICATION_MKDIR_DIR_FD_CAPABLE", False)
+
+    assert promote_manifest(manifest)["schema_version"].endswith(":v1")
+    with pytest.raises(ManifestError, match="publication custody"):
+        write_promoted_catalog(manifest, output)
+    assert not output.exists()
+
+
 def test_capability_denied_direct_link_uses_exact_live_proc_fd(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hf_intake import production_catalog
