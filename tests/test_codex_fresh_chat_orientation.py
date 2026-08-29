@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -36,6 +37,44 @@ def test_orientation_snapshot_reports_exact_checkout_identity_without_modifying_
     assert result["repository"]["detached_head"] is False
     assert result["worktree"]["clean"] is True
     assert _git(repo, "status", "--porcelain=v2", "--untracked-files=all") == before
+
+
+def test_orientation_git_invocations_disable_optional_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = _repo(tmp_path)
+    calls: list[list[str]] = []
+    original_run = subprocess.run
+
+    def recording_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        calls.append(command)
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", recording_run)
+    observe_orientation(repo)
+
+    assert calls
+    assert all(command[:2] == ["git", "--no-optional-locks"] for command in calls)
+
+
+def test_orientation_branch_detection_uses_hardened_git_execution_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _repo(tmp_path)
+    calls: list[list[str]] = []
+    original_run = subprocess.run
+
+    def recording_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        calls.append(command)
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", recording_run)
+    result = observe_orientation(repo)
+
+    assert result["repository"]["branch"]
+    branch_calls = [command for command in calls if "--abbrev-ref" in command]
+    assert branch_calls == [
+        ["git", "--no-optional-locks", "rev-parse", "--abbrev-ref", "HEAD"],
+        ["git", "--no-optional-locks", "rev-parse", "--abbrev-ref", "HEAD"],
+    ]
 
 
 def test_orientation_snapshot_preserves_dirty_and_untracked_state(tmp_path: Path) -> None:
