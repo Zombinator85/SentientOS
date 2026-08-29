@@ -1,0 +1,36 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "43b70dfeb3935da87f92fa74b16419295f313db5",
+  "test_provenance_path": "/tmp/codex_fresh_chat_orientation_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_reports_exact_checkout_identity_without_modifying_tree"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_preserves_dirty_and_untracked_state"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_separates_tracked_from_untracked_agents"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_reports_local_observation_without_claiming_hosted_state"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_grants_no_implementation_runtime_commit_or_publication_authority"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_detects_unstable_repository_state"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_fails_closed_outside_git_repository"
+    },
+    {
+      "node_id": "tests/test_codex_fresh_chat_orientation_script.py::test_fresh_chat_orientation_cli_emits_versioned_json"
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_fresh_chat_orientation.py::test_orientation_snapshot_reports_exact_checkout_identity_without_modifying_tree",
+    "tests/test_codex_fresh_chat_orientation_script.py::test_fresh_chat_orientation_cli_emits_versioned_json"
+  ]
+}
