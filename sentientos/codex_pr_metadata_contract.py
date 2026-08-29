@@ -6,7 +6,7 @@ import json
 import re
 
 TITLE_RE = re.compile(r"^\[codex:[a-z0-9_\-]+\] .+")
-REQUIRED_BODY_MARKERS = (
+EXHAUSTIVE_BODY_MARKERS = (
     "full command matrix results",
     "matrix runner --summary result",
     "matrix runner --output result/path",
@@ -18,6 +18,19 @@ REQUIRED_BODY_MARKERS = (
     "immutability verifier result",
     "unresolved risks",
 )
+SOLO_BODY_MARKERS = (
+    "validation profile: solo",
+    "exhaustive matrix disposition: not requested for solo profile",
+    "targeted mypy result",
+    "baseline result",
+    "docs build result",
+    "prompt-boundary result",
+    "strict audit result",
+    "immutability verifier result",
+    "unresolved risks",
+)
+# Backwards-compatible name for callers that render the exhaustive rollup.
+REQUIRED_BODY_MARKERS = EXHAUSTIVE_BODY_MARKERS
 FORBIDDEN_LOCAL_ONLY_MARKERS = (
     "local tests only",
     "touched tests only",
@@ -89,16 +102,34 @@ def parse_rollup_json(payload: dict[str, Any]) -> CodexPRValidationRollup:
     )
 
 
-def verify_pr_metadata(*, pr_title: str, pr_body: str, intended_commit_title: str | None = None) -> CodexPRMetadataVerification:
+def verify_pr_metadata(
+    *,
+    pr_title: str,
+    pr_body: str,
+    validation_profile: str = "exhaustive",
+    intended_commit_title: str | None = None,
+) -> CodexPRMetadataVerification:
     title_ok = bool(TITLE_RE.match(pr_title))
     intended_ok = True if intended_commit_title is None else (pr_title == intended_commit_title)
 
     normalized_body = _norm(pr_body)
-    missing = tuple(marker for marker in REQUIRED_BODY_MARKERS if marker not in normalized_body)
+    if validation_profile == "solo":
+        required_markers: tuple[str, ...] = SOLO_BODY_MARKERS
+        contradiction = "validation profile: exhaustive" in normalized_body or any(
+            marker in normalized_body
+            for marker in ("matrix passed", "matrix runner succeeded", "exhaustive validation passed")
+        )
+    elif validation_profile == "exhaustive":
+        required_markers = EXHAUSTIVE_BODY_MARKERS
+        contradiction = "validation profile: solo" in normalized_body or "not requested for solo profile" in normalized_body
+    else:
+        required_markers = ()
+        contradiction = True
+    missing = tuple(marker for marker in required_markers if marker not in normalized_body)
     local_only = any(marker in normalized_body for marker in FORBIDDEN_LOCAL_ONLY_MARKERS)
 
     status = "codex_pr_metadata_contract_ready"
-    if (not title_ok) or (not intended_ok) or missing or local_only:
+    if (not title_ok) or (not intended_ok) or missing or local_only or contradiction:
         status = "codex_pr_metadata_contract_incomplete"
     return CodexPRMetadataVerification(
         status=status,

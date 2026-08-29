@@ -1,4 +1,8 @@
+import pytest
+
 from sentientos.codex_pr_metadata_contract import CodexPRValidationRollup, build_pr_body_from_rollup, verify_pr_metadata
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _full_body() -> str:
@@ -87,3 +91,40 @@ def test_builder_includes_all_required_sections() -> None:
         "Unresolved risks",
     ):
         assert marker in body
+
+
+def _solo_body() -> str:
+    return """
+## Validation evidence
+Validation profile: solo
+Exhaustive matrix disposition: not_requested_for_solo_profile
+Targeted mypy result: passed
+Baseline result: passed
+Docs build result: passed
+Prompt-boundary result: passed
+Strict audit result: passed
+Immutability verifier result: passed
+Unresolved risks: none
+"""
+
+
+def test_solo_profile_metadata_verification_uses_explicit_profile() -> None:
+    result = verify_pr_metadata(pr_title="[codex:developer] ok", pr_body=_solo_body(), validation_profile="solo")
+    assert result.status == "codex_pr_metadata_contract_ready"
+
+
+def test_solo_profile_omission_and_success_contradiction_fail() -> None:
+    missing = verify_pr_metadata(pr_title="[codex:developer] ok", pr_body=_solo_body().replace("not_requested_for_solo_profile", "not recorded"), validation_profile="solo")
+    contradictory = verify_pr_metadata(pr_title="[codex:developer] ok", pr_body=_solo_body() + "\nMatrix passed.\n", validation_profile="solo")
+    assert missing.status == "codex_pr_metadata_contract_incomplete"
+    assert contradictory.status == "codex_pr_metadata_contract_incomplete"
+
+
+def test_profile_is_not_inferred_from_body_prose() -> None:
+    result = verify_pr_metadata(pr_title="[codex:developer] ok", pr_body=_solo_body(), validation_profile="exhaustive")
+    assert result.status == "codex_pr_metadata_contract_incomplete"
+
+
+def test_exhaustive_markers_remain_required() -> None:
+    result = verify_pr_metadata(pr_title="[codex:developer] ok", pr_body=_solo_body(), validation_profile="exhaustive")
+    assert "full command matrix results" in result.missing_body_markers

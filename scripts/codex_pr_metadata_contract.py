@@ -25,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--body")
     verify.add_argument("--body-file")
     verify.add_argument("--intended-commit-title")
+    verify.add_argument("--validation-profile", choices=("solo", "exhaustive"), default="exhaustive")
     verify.add_argument("--summary", action="store_true")
 
     build = sub.add_parser("build")
@@ -35,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "verify":
         title = _read_inline_or_file(args.title, args.title_file).strip()
         body = _read_inline_or_file(args.body, args.body_file)
-        result = verify_pr_metadata(pr_title=title, pr_body=body, intended_commit_title=args.intended_commit_title)
+        result = verify_pr_metadata(pr_title=title, pr_body=body, validation_profile=args.validation_profile, intended_commit_title=args.intended_commit_title)
         payload = result.to_dict()
         if args.summary:
             print(json.dumps({"status": payload["status"], "title_ok": payload["title_ok"], "missing_body_marker_count": len(payload["missing_body_markers"])}))
