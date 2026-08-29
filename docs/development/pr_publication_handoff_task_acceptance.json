@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "708c6a340619cdad69510ba97f9a01775481bc0d",
+  "test_provenance_path": "/tmp/pr_publication_handoff_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_valid_solo_publication_handoff_exact_identity_determinism_and_no_hosted_claim", "rationale": "successful exact solo handoff"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_repository_and_base_substitution_fails[repository-Other/repo]", "rationale": "repository custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_repository_and_base_substitution_fails[intended_base_ref-release]", "rationale": "base-reference custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_body_head_and_governing_evidence_substitution_fails[body-<lambda>]", "rationale": "body-byte custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_body_head_and_governing_evidence_substitution_fails[post-<lambda>]", "rationale": "head and finalizer custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_body_head_and_governing_evidence_substitution_fails[guard-<lambda>]", "rationale": "metadata-guard custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_title_profile_base_and_digest_substitution_fails[binding-[codex:stabilization] seal exact PR publication handoff-alternate title]", "rationale": "title custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_title_profile_base_and_digest_substitution_fails[pre-\"effective_profile\": \"solo\"-\"effective_profile\": \"exhaustive\"]", "rationale": "profile custody"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_publication_handoff_title_profile_base_and_digest_substitution_fails[post-\"parent_sha\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"-\"parent_sha\": \"9999999999999999999999999999999999999999\"]", "rationale": "base SHA custody"},
+    {"node_id": "tests/test_verify_codex_landing_evidence_binding_script.py::test_cli_seals_and_verifies_publication_handoff_without_publication", "rationale": "CLI success without publication side effects"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_landing_evidence_binding.py::test_valid_solo_publication_handoff_exact_identity_determinism_and_no_hosted_claim",
+    "tests/test_verify_codex_landing_evidence_binding_script.py::test_cli_seals_and_verifies_publication_handoff_without_publication"
+  ]
+}

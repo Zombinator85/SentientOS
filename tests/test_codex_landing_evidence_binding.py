@@ -75,3 +75,43 @@ def test_body_binding_and_publication_classification(tmp_path: Path):
     assert classify_publication_result({'repository':'r','base':'main','head_branch':'b','head_sha':'h'}, {'repository':'r','base':'main','head_branch':'b','head_sha':'h'}).status=='publication_head_binding_observed'
     assert classify_publication_result({'merged':True,'head_sha':'h'}, {'head_sha':'h'}).status=='publication_merge_observed'
     assert classify_publication_result({'head_sha':'bad'}, {'head_sha':'h'}).status=='publication_result_contradicted'
+
+def publication_inputs(tmp_path: Path) -> tuple[dict[str, object], dict[str, Path]]:
+    body=tmp_path/'body.md'; body.write_bytes(('### Motivation\n' + 'sealed evidence '*80).encode())
+    pre=tmp_path/'pre.json'; post=tmp_path/'post.json'; guard=tmp_path/'guard.json'; binding=tmp_path/'binding.json'
+    plan={'effective_profile':'solo','exhaustive_matrix_status':'not_requested_for_solo_profile'}
+    commit={'head_sha':'b'*40,'tree_sha':'c'*40,'parent_sha':'a'*40,'matrix_digest':''}
+    acceptance={'status':'task_acceptance_ready','manifest_digest':'d'*64,'provenance_digest':'e'*64}
+    pre.write_text(json.dumps({'decision':{'status':'ready_to_commit'},'landing_validation_plan':plan}))
+    post.write_text(json.dumps({'decision':{'status':'ready_for_pr_metadata'},'landing_validation_plan':plan,'commit_binding':commit,'task_acceptance':acceptance}))
+    guard.write_text(json.dumps({'status':'pr_metadata_guard_ready','proof':{'head_sha':commit['head_sha']}}))
+    binding.write_text(json.dumps(create_body_binding('[codex:stabilization] seal exact PR publication handoff',body,commit,{'pre':str(pre),'post':str(post),'guard':str(guard)}).to_dict()))
+    inputs={'repository':'SentientOS/SentientOS','intended_base_ref':'main','body_path':body,'body_binding_path':binding,'pre_commit_finalizer_path':pre,'pr_metadata_finalizer_path':post,'pr_metadata_guard_path':guard}
+    return inputs, {'body':body,'pre':pre,'post':post,'guard':guard,'binding':binding}
+
+def test_valid_solo_publication_handoff_exact_identity_determinism_and_no_hosted_claim(tmp_path: Path):
+    inputs, _ = publication_inputs(tmp_path)
+    first=create_pr_publication_handoff(**inputs).to_dict(); second=create_pr_publication_handoff(**inputs).to_dict()
+    assert first == second
+    assert first['status']=='pr_publication_handoff_ready'
+    assert first['schema_version']=='sentientos.pr_publication_handoff:v1'
+    body=Path(inputs['body_path']).read_bytes()
+    assert (first['body_sha256'],first['body_byte_length'])==(sha256_bytes(body),len(body))
+    assert first['validation_profile']=='solo' and first['exhaustive_matrix_status']=='not_requested_for_solo_profile'
+    assert first['boundary']=={'publishes_pr':False,'observes_hosted_pr':False,'grants_network_authority':False}
+    assert not any(word in first['status'] for word in ('published','hosted','github'))
+
+@pytest.mark.parametrize(('field','value'), [('repository','Other/repo'),('intended_base_ref','release')])
+def test_publication_handoff_repository_and_base_substitution_fails(tmp_path: Path, field: str, value: str):
+    inputs, _ = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); altered=dict(inputs); altered[field]=value
+    assert verify_pr_publication_handoff(sealed, **altered).status=='pr_publication_handoff_blocked'
+
+@pytest.mark.parametrize(('target','mutation'), [('body',lambda p:p.write_bytes(p.read_bytes()+b'x')),('binding',lambda p:p.write_text(p.read_text().replace('"body_byte_length": 1295','"body_byte_length": 1'))),('post',lambda p:p.write_text(p.read_text().replace('"head_sha": "'+('b'*40)+'"','"head_sha": "'+('f'*40)+'"'))),('guard',lambda p:p.write_text(p.read_text().replace('pr_metadata_guard_ready','blocked')))])
+def test_publication_handoff_body_head_and_governing_evidence_substitution_fails(tmp_path: Path, target: str, mutation):
+    inputs, paths = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); mutation(paths[target])
+    assert verify_pr_publication_handoff(sealed, **inputs).status=='pr_publication_handoff_blocked'
+
+@pytest.mark.parametrize(('target','old','new'), [('binding','[codex:stabilization] seal exact PR publication handoff','alternate title'),('pre','"effective_profile": "solo"','"effective_profile": "exhaustive"'),('post','"parent_sha": "'+('a'*40)+'"','"parent_sha": "'+('9'*40)+'"'),('binding','"body_sha256": "','"body_sha256": "0')])
+def test_publication_handoff_title_profile_base_and_digest_substitution_fails(tmp_path: Path, target: str, old: str, new: str):
+    inputs, paths = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); paths[target].write_text(paths[target].read_text().replace(old,new))
+    assert verify_pr_publication_handoff(sealed, **inputs).status=='pr_publication_handoff_blocked'

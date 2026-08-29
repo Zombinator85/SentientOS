@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 SCHEMA_VERSION = "codex_landing_evidence_binding.v1"
+PUBLICATION_HANDOFF_SCHEMA_VERSION = "sentientos.pr_publication_handoff:v1"
+PUBLICATION_HANDOFF_READY = "pr_publication_handoff_ready"
 RUNTIME_PREFIXES = ("sentientos_data/vow", "sentientos_data/runtime", "glow/", "pulse/", "artifacts/codex/")
 
 
@@ -160,6 +162,30 @@ class LandingEvidenceVerification:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PrPublicationHandoff:
+    schema_version: str
+    status: str
+    repository: str
+    intended_base_ref: str
+    intended_base_sha: str
+    intended_head_sha: str
+    intended_head_tree_sha: str
+    title: str
+    body_sha256: str
+    body_byte_length: int
+    validation_profile: str
+    exhaustive_matrix_status: str
+    task_acceptance_manifest_sha256: str
+    task_acceptance_provenance_sha256: str
+    evidence_sha256: dict[str, str]
+    boundary: dict[str, bool]
+    handoff_sha256: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 def _status_map(repo: Path) -> dict[str, str]:
     p = subprocess.run(["git", "status", "--porcelain=v1"], cwd=repo, text=True, capture_output=True, check=False)
     out: dict[str, str] = {}
@@ -254,6 +280,99 @@ def verify_body_binding(title: str, body_path: str | Path, sidecar: Mapping[str,
     for name, path in artifact_paths.items():
         if recorded.get(name) != file_sha256(Path(path)): reasons.append(f"stale_artifact_digest:{name}")
     return LandingEvidenceVerification("pr_body_binding_ready" if not reasons else "pr_body_binding_blocked", tuple(reasons), {"body_sha256": sha256_bytes(body), "body_byte_length": len(body), "commit_sha": sidecar.get("commit_sha")})
+
+
+def _json_object(path: str | Path, label: str) -> dict[str, Any]:
+    value = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"{label}_not_object")
+    return value
+
+
+def _decision_status(payload: Mapping[str, Any]) -> str:
+    decision = payload.get("decision")
+    return str(decision.get("status", "")) if isinstance(decision, Mapping) else ""
+
+
+def create_pr_publication_handoff(
+    *, repository: str, intended_base_ref: str, body_path: str | Path,
+    body_binding_path: str | Path, pre_commit_finalizer_path: str | Path,
+    pr_metadata_finalizer_path: str | Path, pr_metadata_guard_path: str | Path,
+) -> PrPublicationHandoff:
+    """Seal exact publication intent from the already-authoritative landing artifacts.
+
+    This function has no publication or hosted-observation authority.
+    """
+    if not repository.strip() or not intended_base_ref.strip():
+        raise ValueError("repository_and_base_ref_required")
+    paths = {
+        "body_binding": str(body_binding_path),
+        "pre_commit_finalizer": str(pre_commit_finalizer_path),
+        "pr_metadata_finalizer": str(pr_metadata_finalizer_path),
+        "pr_metadata_guard": str(pr_metadata_guard_path),
+    }
+    body_binding = _json_object(body_binding_path, "body_binding")
+    pre = _json_object(pre_commit_finalizer_path, "pre_commit_finalizer")
+    post = _json_object(pr_metadata_finalizer_path, "pr_metadata_finalizer")
+    guard = _json_object(pr_metadata_guard_path, "pr_metadata_guard")
+    reasons: list[str] = []
+    if _decision_status(pre) != "ready_to_commit": reasons.append("pre_commit_finalizer_not_ready")
+    if _decision_status(post) != "ready_for_pr_metadata": reasons.append("pr_metadata_finalizer_not_ready")
+    if guard.get("status") != "pr_metadata_guard_ready": reasons.append("pr_metadata_guard_not_ready")
+    commit = post.get("commit_binding")
+    if not isinstance(commit, Mapping):
+        reasons.append("commit_binding_missing"); commit = {}
+    pre_plan = pre.get("landing_validation_plan")
+    post_plan = post.get("landing_validation_plan")
+    plan: Mapping[str, Any]
+    if not isinstance(pre_plan, Mapping) or not isinstance(post_plan, Mapping) or pre_plan != post_plan:
+        reasons.append("landing_validation_plan_mismatch"); plan = {}
+    else:
+        plan = pre_plan
+    if body_binding.get("schema_version") != SCHEMA_VERSION: reasons.append("body_binding_schema_mismatch")
+    if body_binding.get("commit_sha") != commit.get("head_sha"): reasons.append("body_binding_head_mismatch")
+    if body_binding.get("tree_sha") != commit.get("tree_sha"): reasons.append("body_binding_tree_mismatch")
+    body = Path(body_path).read_bytes()
+    if body_binding.get("body_sha256") != sha256_bytes(body): reasons.append("body_digest_mismatch")
+    if body_binding.get("body_byte_length") != len(body): reasons.append("body_length_mismatch")
+    guard_proof_value = guard.get("proof")
+    guard_proof: Mapping[str, Any] = guard_proof_value if isinstance(guard_proof_value, Mapping) else {}
+    if guard_proof.get("head_sha") and guard_proof.get("head_sha") != commit.get("head_sha"):
+        reasons.append("metadata_guard_head_mismatch")
+    acceptance_value = post.get("task_acceptance")
+    acceptance: Mapping[str, Any] = acceptance_value if isinstance(acceptance_value, Mapping) else {}
+    if acceptance and acceptance.get("status") != "task_acceptance_ready": reasons.append("task_acceptance_not_ready")
+    if reasons:
+        raise ValueError("publication_handoff_contradiction:" + ",".join(sorted(set(reasons))))
+    payload: dict[str, Any] = {
+        "schema_version": PUBLICATION_HANDOFF_SCHEMA_VERSION,
+        "status": PUBLICATION_HANDOFF_READY,
+        "repository": repository,
+        "intended_base_ref": intended_base_ref,
+        "intended_base_sha": str(commit.get("parent_sha", "")),
+        "intended_head_sha": str(commit.get("head_sha", "")),
+        "intended_head_tree_sha": str(commit.get("tree_sha", "")),
+        "title": str(body_binding.get("title", "")),
+        "body_sha256": str(body_binding.get("body_sha256", "")),
+        "body_byte_length": int(body_binding.get("body_byte_length", -1)),
+        "validation_profile": str(plan.get("effective_profile", "")),
+        "exhaustive_matrix_status": str(plan.get("exhaustive_matrix_status", "")),
+        "task_acceptance_manifest_sha256": str(acceptance.get("manifest_digest", "")),
+        "task_acceptance_provenance_sha256": str(acceptance.get("provenance_digest", "")),
+        "evidence_sha256": {name: file_sha256(Path(path)) for name, path in sorted(paths.items())},
+        "boundary": {"publishes_pr": False, "observes_hosted_pr": False, "grants_network_authority": False},
+    }
+    return PrPublicationHandoff(**payload, handoff_sha256=digest_json(payload))
+
+
+def verify_pr_publication_handoff(handoff: Mapping[str, Any], **inputs: Any) -> LandingEvidenceVerification:
+    try:
+        rebuilt = create_pr_publication_handoff(**inputs).to_dict()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return LandingEvidenceVerification("pr_publication_handoff_blocked", (str(exc),), {})
+    supplied = dict(handoff)
+    reasons = tuple(f"handoff_mismatch:{key}" for key in sorted(set(rebuilt) | set(supplied)) if rebuilt.get(key) != supplied.get(key))
+    return LandingEvidenceVerification(PUBLICATION_HANDOFF_READY if not reasons else "pr_publication_handoff_blocked", reasons, {"handoff_sha256": rebuilt["handoff_sha256"], "body_sha256": rebuilt["body_sha256"], "body_byte_length": rebuilt["body_byte_length"]})
 
 
 def classify_publication_result(observation: Mapping[str, Any], expected: Mapping[str, Any]) -> LandingEvidenceVerification:
