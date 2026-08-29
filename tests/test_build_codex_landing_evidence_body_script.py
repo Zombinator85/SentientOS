@@ -7,6 +7,7 @@ import pytest
 
 from sentientos.codex_pr_landing_gate import verify_pr_landing_gate
 from sentientos.codex_pr_metadata_contract import REQUIRED_BODY_MARKERS, verify_pr_metadata
+from sentientos.landing_validation_plan import seal_validation_plan
 from scripts.build_codex_landing_evidence_body import main
 
 TITLE = "[codex:landing] harden evidence and recovery rail"
@@ -34,11 +35,19 @@ def _matrix(path: Path) -> Path:
     return path
 
 
+def _finalizer(path: Path, profile: str = "exhaustive") -> Path:
+    matrix_status = "matrix_passed" if profile == "exhaustive" else "not_requested_for_solo_profile"
+    plan = seal_validation_plan({"requested_profile": profile, "effective_profile": profile, "exhaustive_matrix_status": matrix_status, "required_stage_ids": [], "stage_results": {}})
+    path.write_text(json.dumps({"commit_binding": {}, "landing_validation_plan": plan}, sort_keys=True), encoding="utf-8")
+    return path
+
+
 def _build(tmp_path: Path) -> Path:
     matrix = _matrix(tmp_path / "matrix.json")
     supervisor = tmp_path / "supervisor.json"
     supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}, "report": {"reasons": []}}, sort_keys=True), encoding="utf-8")
     output = tmp_path / "body.txt"
+    finalizer = _finalizer(tmp_path / "finalizer.json")
     code = main(
         [
             "--title",
@@ -51,6 +60,8 @@ def _build(tmp_path: Path) -> Path:
             str(supervisor),
             "--output",
             str(output),
+            "--pr-metadata-finalizer-json-path",
+            str(finalizer),
             "--targeted-mypy",
             "passed",
             "--baseline",
@@ -98,7 +109,7 @@ def test_generated_body_includes_every_pr_metadata_guard_required_marker(tmp_pat
 
 def test_missing_matrix_json_fails(tmp_path: Path) -> None:
     output = tmp_path / "body.txt"
-    code = main(["--title", TITLE, "--intended-commit-title", TITLE, "--matrix-json-path", str(tmp_path / "missing.json"), "--landing-supervisor-json-path", str(tmp_path / "supervisor.json"), "--output", str(output)])
+    code = main(["--title", TITLE, "--intended-commit-title", TITLE, "--matrix-json-path", str(tmp_path / "missing.json"), "--landing-supervisor-json-path", str(tmp_path / "supervisor.json"), "--output", str(output), "--pr-metadata-finalizer-json-path", str(_finalizer(tmp_path / "finalizer.json"))])
     assert code == 1
     assert not output.exists()
 
@@ -109,7 +120,7 @@ def test_missing_matrix_path_marker_fails(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path / "matrix.json")
     body = _build(tmp_path).read_text(encoding="utf-8").replace(f"Matrix output path: {matrix}", "Matrix output path omitted")
     try:
-        validate_body(body, matrix_json_path=matrix)
+        validate_body(body, validation_profile="exhaustive", matrix_json_path=matrix)
     except ValueError as exc:
         assert "Matrix output path" in str(exc)
     else:
@@ -135,6 +146,7 @@ def test_contradictory_stale_and_ready_markers_fail(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path / "matrix.json")
     supervisor = tmp_path / "supervisor.json"
     supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}, "report": {"reasons": []}}, sort_keys=True), encoding="utf-8")
+    finalizer = _finalizer(tmp_path / "finalizer.json")
     code = main(
         [
             "--title",
@@ -147,6 +159,8 @@ def test_contradictory_stale_and_ready_markers_fail(tmp_path: Path) -> None:
             str(supervisor),
             "--output",
             str(output),
+            "--pr-metadata-finalizer-json-path",
+            str(finalizer),
             "--finalizer",
             "ready_for_pr_metadata but stale_evidence_matrix_output remains",
             "--pr-metadata-guard",
@@ -164,10 +178,56 @@ def test_generated_pr_evidence_includes_bound_acceptance_result(tmp_path: Path) 
     supervisor = tmp_path / "supervisor.json"
     supervisor.write_text(json.dumps({"decision": {"status": "ready_for_pr_metadata"}}, sort_keys=True), encoding="utf-8")
     finalizer = tmp_path / "finalizer.json"
-    finalizer.write_text(json.dumps({"commit_binding": {}, "task_acceptance": {"status": "task_acceptance_ready", "manifest_digest": "sha256:manifest", "provenance_digest": "sha256:provenance", "required_node_ids": ["tests/test_x.py::test_ok"], "successful_path_node_ids": ["tests/test_x.py::test_ok"], "node_outcomes": [{"node_id": "tests/test_x.py::test_ok", "outcome": "passed"}]}}, sort_keys=True), encoding="utf-8")
+    plan = seal_validation_plan({"requested_profile": "exhaustive", "effective_profile": "exhaustive", "exhaustive_matrix_status": "matrix_passed", "required_stage_ids": [], "stage_results": {}})
+    finalizer.write_text(json.dumps({"commit_binding": {}, "landing_validation_plan": plan, "task_acceptance": {"status": "task_acceptance_ready", "manifest_digest": "sha256:manifest", "provenance_digest": "sha256:provenance", "required_node_ids": ["tests/test_x.py::test_ok"], "successful_path_node_ids": ["tests/test_x.py::test_ok"], "node_outcomes": [{"node_id": "tests/test_x.py::test_ok", "outcome": "passed"}]}}, sort_keys=True), encoding="utf-8")
     output = tmp_path / "body.txt"
     assert main(["--title", TITLE, "--intended-commit-title", TITLE, "--matrix-json-path", str(matrix), "--landing-supervisor-json-path", str(supervisor), "--output", str(output), "--pr-metadata-finalizer-json-path", str(finalizer)]) == 0
     body = output.read_text(encoding="utf-8")
     assert "task_acceptance_ready" in body
     assert "sha256:manifest" in body
     assert "sha256:provenance" in body
+
+
+def test_solo_generation_without_matrix_is_truthful_and_binds(tmp_path: Path) -> None:
+    finalizer = _finalizer(tmp_path / "solo-finalizer.json", "solo")
+    output = tmp_path / "solo-body.md"
+    sidecar = tmp_path / "solo-binding.json"
+    code = main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--landing-supervisor-json-path", "",
+        "--output", str(output),
+        "--pr-metadata-finalizer-json-path", str(finalizer),
+        "--sidecar-output", str(sidecar), "--verify-body-binding",
+        "--targeted-mypy", "passed", "--baseline", "passed",
+        "--docs-build", "passed", "--prompt-boundary", "passed",
+        "--strict-audit", "passed", "--immutability-verifier", "passed",
+    ])
+    assert code == 0
+    body = output.read_text(encoding="utf-8")
+    assert "Validation profile: solo" in body
+    assert "not_requested_for_solo_profile" in body
+    assert "matrix runner succeeded" not in body.lower()
+    assert "matrix passed" not in body.lower()
+
+
+def test_solo_rejects_supplied_exhaustive_matrix(tmp_path: Path) -> None:
+    output = tmp_path / "body.md"
+    code = main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--matrix-json-path", str(_matrix(tmp_path / "matrix.json")),
+        "--landing-supervisor-json-path", "", "--output", str(output),
+        "--pr-metadata-finalizer-json-path", str(_finalizer(tmp_path / "solo.json", "solo")),
+    ])
+    assert code == 1
+    assert not output.exists()
+
+
+def test_exhaustive_without_matrix_fails_closed(tmp_path: Path) -> None:
+    output = tmp_path / "body.md"
+    code = main([
+        "--title", TITLE, "--intended-commit-title", TITLE,
+        "--landing-supervisor-json-path", "", "--output", str(output),
+        "--pr-metadata-finalizer-json-path", str(_finalizer(tmp_path / "exhaustive.json")),
+    ])
+    assert code == 1
+    assert not output.exists()

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from scripts import codex_pr_metadata_contract as cli
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_verify_summary_passes(capsys) -> None:  # type: ignore[no-untyped-def]
