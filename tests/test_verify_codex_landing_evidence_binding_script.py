@@ -22,3 +22,14 @@ def test_cli_seals_and_verifies_publication_handoff_without_publication(tmp_path
     assert main(['seal-publication-handoff',*common,'--output',str(output),'--summary']) == 0
     assert json.loads(output.read_text())['status']=='pr_publication_handoff_ready'
     assert main(['verify-publication-handoff',*common,'--handoff-json',str(output),'--summary']) == 0
+
+def test_cli_seals_verifies_and_refuses_hosted_custody_collision(tmp_path: Path):
+    inputs,paths=publication_inputs(tmp_path); handoff=tmp_path/'handoff.json'; common=['--repository',str(inputs['repository']),'--intended-base-ref',str(inputs['intended_base_ref']),'--body-path',str(paths['body']),'--body-binding-json',str(paths['binding']),'--pre-commit-finalizer-json',str(paths['pre']),'--pr-metadata-finalizer-json',str(paths['post']),'--pr-metadata-guard-json',str(paths['guard'])]
+    assert main(['seal-publication-handoff',*common,'--output',str(handoff)])==0
+    sealed=json.loads(handoff.read_text()); observation=tmp_path/'observation.json'; observation.write_text(json.dumps({'repository':sealed['repository'],'pr_number':7,'base_ref':sealed['intended_base_ref'],'base_sha':sealed['intended_base_sha'],'head_sha':sealed['intended_head_sha'],'head_tree_sha':sealed['intended_head_tree_sha'],'title':sealed['title'],'body_sha256':sealed['body_sha256'],'body_byte_length':sealed['body_byte_length'],'validation_profile':sealed['validation_profile'],'handoff_sha256':sealed['handoff_sha256'],'merge_state':'open','provenance':{'independent_hosted_observation':True,'publication_actuator_payload_echo':False}}))
+    custody=tmp_path/'custody.json'; hosted=['--handoff-json',str(handoff),'--hosted-observation-json',str(observation),'--hosted-body-path',str(paths['body'])]
+    assert main(['seal-hosted-publication-custody',*common,*hosted,'--output',str(custody)])==0
+    assert main(['verify-hosted-publication-custody',*common,*hosted,'--custody-json',str(custody)])==0
+    custody.write_text('{}')
+    with pytest.raises(ValueError,match='output_collision'):
+        main(['seal-hosted-publication-custody',*common,*hosted,'--output',str(custody)])

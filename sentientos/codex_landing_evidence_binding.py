@@ -8,6 +8,11 @@ from typing import Any, Mapping, Sequence
 SCHEMA_VERSION = "codex_landing_evidence_binding.v1"
 PUBLICATION_HANDOFF_SCHEMA_VERSION = "sentientos.pr_publication_handoff:v1"
 PUBLICATION_HANDOFF_READY = "pr_publication_handoff_ready"
+HOSTED_PUBLICATION_SCHEMA_VERSION = "sentientos.hosted_pr_publication_custody:v1"
+HOSTED_PUBLICATION_EXACT = "hosted_publication_custody_verified_exact"
+HOSTED_PUBLICATION_REWRITTEN = "hosted_publication_head_rewritten_tree_equivalent_custody_break"
+HOSTED_PUBLICATION_MISMATCH = "hosted_publication_mismatch"
+HOSTED_PUBLICATION_INSUFFICIENT = "hosted_publication_observation_insufficient"
 RUNTIME_PREFIXES = ("sentientos_data/vow", "sentientos_data/runtime", "glow/", "pulse/", "artifacts/codex/")
 
 
@@ -181,6 +186,24 @@ class PrPublicationHandoff:
     evidence_sha256: dict[str, str]
     boundary: dict[str, bool]
     handoff_sha256: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class HostedPrPublicationCustody:
+    schema_version: str
+    status: str
+    exact_publication_custody: bool
+    handoff_sha256: str
+    authorized_publication: dict[str, Any]
+    hosted_observation: dict[str, Any]
+    exact_hosted_body: dict[str, Any]
+    equivalence: dict[str, Any]
+    reasons: tuple[str, ...]
+    boundary: dict[str, bool]
+    custody_sha256: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -373,6 +396,121 @@ def verify_pr_publication_handoff(handoff: Mapping[str, Any], **inputs: Any) -> 
     supplied = dict(handoff)
     reasons = tuple(f"handoff_mismatch:{key}" for key in sorted(set(rebuilt) | set(supplied)) if rebuilt.get(key) != supplied.get(key))
     return LandingEvidenceVerification(PUBLICATION_HANDOFF_READY if not reasons else "pr_publication_handoff_blocked", reasons, {"handoff_sha256": rebuilt["handoff_sha256"], "body_sha256": rebuilt["body_sha256"], "body_byte_length": rebuilt["body_byte_length"]})
+
+
+def create_hosted_pr_publication_custody(
+    *, handoff: Mapping[str, Any], observation: Mapping[str, Any],
+    hosted_body_path: str | Path | None = None, **handoff_inputs: Any,
+) -> HostedPrPublicationCustody:
+    """Bind externally supplied hosted state to reconstructed publication authority.
+
+    Observation collection is deliberately outside this metadata-only function.
+    """
+    handoff_check = verify_pr_publication_handoff(handoff, **handoff_inputs)
+    if handoff_check.status != PUBLICATION_HANDOFF_READY:
+        raise ValueError("governing_handoff_not_verified:" + ",".join(handoff_check.reasons))
+    expected = create_pr_publication_handoff(**handoff_inputs).to_dict()
+    authorized_keys = (
+        "repository", "intended_base_ref", "intended_base_sha", "intended_head_sha",
+        "intended_head_tree_sha", "title", "body_sha256", "body_byte_length",
+        "validation_profile", "exhaustive_matrix_status",
+        "task_acceptance_manifest_sha256", "task_acceptance_provenance_sha256",
+        "evidence_sha256",
+    )
+    authorized = {key: expected[key] for key in authorized_keys}
+    observed = dict(observation)
+    reasons: list[str] = []
+    provenance = observed.get("provenance")
+    if not isinstance(provenance, Mapping) or provenance.get("independent_hosted_observation") is not True:
+        reasons.append("independent_hosted_observation_required")
+    if isinstance(provenance, Mapping) and provenance.get("publication_actuator_payload_echo") is True:
+        reasons.append("publication_actuator_payload_echo_untrusted")
+    required = (
+        "repository", "pr_number", "base_ref", "base_sha", "head_sha", "head_tree_sha",
+        "title", "body_sha256", "body_byte_length", "validation_profile",
+        "handoff_sha256", "merge_state",
+    )
+    reasons.extend(f"hosted_observation_missing:{key}" for key in required if observed.get(key) in (None, ""))
+    comparisons = {
+        "repository": "repository", "base_ref": "intended_base_ref",
+        "base_sha": "intended_base_sha", "head_tree_sha": "intended_head_tree_sha",
+        "title": "title", "body_sha256": "body_sha256",
+        "body_byte_length": "body_byte_length", "validation_profile": "validation_profile",
+        "handoff_sha256": "handoff_sha256",
+    }
+    for observed_key, expected_key in comparisons.items():
+        if observed.get(observed_key) not in (None, "") and observed.get(observed_key) != expected.get(expected_key):
+            reasons.append(f"hosted_publication_mismatch:{observed_key}")
+    body_proof: dict[str, Any] = {"supplied": hosted_body_path is not None}
+    if hosted_body_path is None:
+        reasons.append("exact_hosted_body_bytes_required")
+    else:
+        body_bytes = Path(hosted_body_path).read_bytes()
+        try:
+            body_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            reasons.append("hosted_body_not_utf8")
+        body_proof.update({"sha256": sha256_bytes(body_bytes), "byte_length": len(body_bytes)})
+        if body_proof["sha256"] != expected["body_sha256"]: reasons.append("hosted_publication_mismatch:body_bytes")
+        if body_proof["byte_length"] != expected["body_byte_length"]: reasons.append("hosted_publication_mismatch:body_byte_length")
+        if observed.get("body_sha256") != body_proof["sha256"]: reasons.append("hosted_observation_body_digest_contradiction")
+        if observed.get("body_byte_length") != body_proof["byte_length"]: reasons.append("hosted_observation_body_length_contradiction")
+    merge_state = observed.get("merge_state")
+    if merge_state == "merged":
+        if not observed.get("merge_commit_sha"): reasons.append("hosted_observation_missing:merge_commit_sha")
+        if not observed.get("merge_commit_tree_sha"): reasons.append("hosted_observation_missing:merge_commit_tree_sha")
+    equivalence = {
+        "head_sha_exact": observed.get("head_sha") == expected["intended_head_sha"],
+        "tree_equal": observed.get("head_tree_sha") == expected["intended_head_tree_sha"],
+        "parent_equal": None,
+        "subject_equal": None,
+    }
+    if observed.get("intended_head_parent_sha") and observed.get("hosted_head_parent_sha"):
+        equivalence["parent_equal"] = observed["intended_head_parent_sha"] == observed["hosted_head_parent_sha"] == expected["intended_base_sha"]
+    if observed.get("intended_head_subject") and observed.get("hosted_head_subject"):
+        equivalence["subject_equal"] = observed["intended_head_subject"] == observed["hosted_head_subject"]
+    mismatch = any(reason.startswith("hosted_publication_mismatch:") or reason.startswith("hosted_observation_body_") for reason in reasons)
+    insufficient = any(reason.startswith("hosted_observation_missing:") or reason in {
+        "independent_hosted_observation_required", "publication_actuator_payload_echo_untrusted",
+        "exact_hosted_body_bytes_required", "hosted_body_not_utf8",
+    } for reason in reasons)
+    if mismatch:
+        status = HOSTED_PUBLICATION_MISMATCH
+    elif insufficient:
+        status = HOSTED_PUBLICATION_INSUFFICIENT
+    elif not equivalence["head_sha_exact"] and equivalence["tree_equal"]:
+        status = HOSTED_PUBLICATION_REWRITTEN
+    elif not equivalence["head_sha_exact"]:
+        status = HOSTED_PUBLICATION_MISMATCH
+        reasons.append("hosted_publication_mismatch:head_sha")
+    else:
+        status = HOSTED_PUBLICATION_EXACT
+    payload: dict[str, Any] = {
+        "schema_version": HOSTED_PUBLICATION_SCHEMA_VERSION, "status": status,
+        "exact_publication_custody": status == HOSTED_PUBLICATION_EXACT,
+        "handoff_sha256": expected["handoff_sha256"], "authorized_publication": authorized,
+        "hosted_observation": observed, "exact_hosted_body": body_proof,
+        "equivalence": equivalence, "reasons": tuple(sorted(set(reasons))),
+        "boundary": {"observes_network": False, "publishes_pr": False, "mutates_hosted_state": False},
+    }
+    return HostedPrPublicationCustody(**payload, custody_sha256=digest_json(payload))
+
+
+def verify_hosted_pr_publication_custody(
+    custody: Mapping[str, Any], *, handoff: Mapping[str, Any], observation: Mapping[str, Any],
+    hosted_body_path: str | Path | None = None, **handoff_inputs: Any,
+) -> LandingEvidenceVerification:
+    try:
+        rebuilt = create_hosted_pr_publication_custody(
+            handoff=handoff, observation=observation, hosted_body_path=hosted_body_path,
+            **handoff_inputs,
+        ).to_dict()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return LandingEvidenceVerification(HOSTED_PUBLICATION_MISMATCH, (str(exc),), {})
+    supplied = dict(custody)
+    reasons = tuple(f"hosted_custody_artifact_mismatch:{key}" for key in sorted(set(rebuilt) | set(supplied)) if canonical_json(rebuilt.get(key)) != canonical_json(supplied.get(key)))
+    status = rebuilt["status"] if not reasons else HOSTED_PUBLICATION_MISMATCH
+    return LandingEvidenceVerification(status, reasons or tuple(rebuilt["reasons"]), {"custody_sha256": rebuilt["custody_sha256"], "exact_publication_custody": rebuilt["exact_publication_custody"], "equivalence": rebuilt["equivalence"]})
 
 
 def classify_publication_result(observation: Mapping[str, Any], expected: Mapping[str, Any]) -> LandingEvidenceVerification:

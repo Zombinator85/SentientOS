@@ -1,7 +1,7 @@
 from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
-from sentientos.codex_landing_evidence_binding import classify_publication_result, create_body_binding, create_pr_publication_handoff, verify_body_binding, verify_pr_publication_handoff
+from sentientos.codex_landing_evidence_binding import classify_publication_result, create_body_binding, create_hosted_pr_publication_custody, create_pr_publication_handoff, verify_body_binding, verify_hosted_pr_publication_custody, verify_pr_publication_handoff
 
 from typing import Any
 
@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     c=sub.add_parser('classify-publication'); c.add_argument('--publication-json', required=True); c.add_argument('--expected-json', required=True); c.add_argument('--summary', action='store_true')
     for name in ('seal-publication-handoff', 'verify-publication-handoff'):
         h=sub.add_parser(name); h.add_argument('--repository', required=True); h.add_argument('--intended-base-ref', required=True); h.add_argument('--body-path', required=True); h.add_argument('--body-binding-json', required=True); h.add_argument('--pre-commit-finalizer-json', required=True); h.add_argument('--pr-metadata-finalizer-json', required=True); h.add_argument('--pr-metadata-guard-json', required=True); h.add_argument('--handoff-json', required=name.startswith('verify')); h.add_argument('--output', required=name.startswith('seal')); h.add_argument('--summary', action='store_true')
+    for name in ('seal-hosted-publication-custody', 'verify-hosted-publication-custody'):
+        h=sub.add_parser(name); h.add_argument('--repository', required=True); h.add_argument('--intended-base-ref', required=True); h.add_argument('--body-path', required=True); h.add_argument('--body-binding-json', required=True); h.add_argument('--pre-commit-finalizer-json', required=True); h.add_argument('--pr-metadata-finalizer-json', required=True); h.add_argument('--pr-metadata-guard-json', required=True); h.add_argument('--handoff-json', required=True); h.add_argument('--hosted-observation-json', required=True); h.add_argument('--hosted-body-path'); h.add_argument('--custody-json', required=name.startswith('verify')); h.add_argument('--output', required=name.startswith('seal')); h.add_argument('--summary', action='store_true')
     a=p.parse_args(argv)
     def artifacts(items: list[str]) -> dict[str, str]:
         return dict(item.split('=',1) for item in items)
@@ -34,5 +36,14 @@ def main(argv: list[str] | None = None) -> int:
                 output.parent.mkdir(parents=True, exist_ok=True); output.write_bytes(rendered.encode('utf-8'))
             print(json.dumps({'status':handoff['status'],'handoff_sha256':handoff['handoff_sha256'],'body_sha256':handoff['body_sha256'],'body_byte_length':handoff['body_byte_length']}, indent=2, sort_keys=True)); return 0
         res=verify_pr_publication_handoff(load(a.handoff_json), **inputs); print(json.dumps(res.to_dict(), indent=2, sort_keys=True)); return 0 if res.status=='pr_publication_handoff_ready' else 1
+    if a.cmd in ('seal-hosted-publication-custody', 'verify-hosted-publication-custody'):
+        inputs={'repository':a.repository,'intended_base_ref':a.intended_base_ref,'body_path':a.body_path,'body_binding_path':a.body_binding_json,'pre_commit_finalizer_path':a.pre_commit_finalizer_json,'pr_metadata_finalizer_path':a.pr_metadata_finalizer_json,'pr_metadata_guard_path':a.pr_metadata_guard_json}
+        kwargs={'handoff':load(a.handoff_json),'observation':load(a.hosted_observation_json),'hosted_body_path':a.hosted_body_path,**inputs}
+        if a.cmd=='seal-hosted-publication-custody':
+            custody=create_hosted_pr_publication_custody(**kwargs).to_dict(); rendered_bytes=(json.dumps(custody,indent=2,sort_keys=True)+'\n').encode(); output=Path(a.output)
+            if output.exists() and output.read_bytes()!=rendered_bytes: raise ValueError('hosted_publication_custody_output_collision')
+            if not output.exists(): output.parent.mkdir(parents=True,exist_ok=True); output.write_bytes(rendered_bytes)
+            print(json.dumps({'status':custody['status'],'custody_sha256':custody['custody_sha256'],'exact_publication_custody':custody['exact_publication_custody']},indent=2,sort_keys=True)); return 0
+        res=verify_hosted_pr_publication_custody(load(a.custody_json),**kwargs); print(json.dumps(res.to_dict(),indent=2,sort_keys=True)); return 0 if res.status!='hosted_publication_mismatch' else 1
     res=classify_publication_result(load(a.publication_json), load(a.expected_json)); print(json.dumps(res.to_dict() if not a.summary else {'status':res.status,'reasons':res.reasons,'proof':res.proof}, indent=2, sort_keys=True)); return 0 if not res.status.endswith('contradicted') else 1
 if __name__=='__main__': raise SystemExit(main())
