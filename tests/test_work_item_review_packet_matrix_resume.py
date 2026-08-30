@@ -45,6 +45,28 @@ def test_matrix_timeout_preserves_completed_lane_checkpoint(tmp_path: Path) -> N
     report = run_resumable_matrix(commands=commands, checkpoint=tmp_path / "c.json", command_timeout_seconds=1)
     assert report["status"] == "matrix_timed_out" and report["completed_labels"] == ["one"]
     assert report["results"][-1]["label"] == "two"
+    assert report["results"][-1]["exit_reason"] in {"process_tree_terminated", "process_tree_killed_after_grace"}
+    persisted=json.loads((tmp_path / "c.json").read_text())
+    assert persisted["completion_status"] == "matrix_timed_out" and persisted["active_lane"] is None
+
+
+def test_optional_diagnostic_timeout_is_explicit_nonproof_not_success(tmp_path: Path) -> None:
+    command=MatrixCommand("diagnostic",(sys.executable,"-c","import threading; threading.Event().wait()"),required=False,
+                          proof_required=False,execution_required=False,diagnostic_only=True,nonexecution_allowed=True)
+    report=run_resumable_matrix(commands=[command],checkpoint=tmp_path/"c.json",command_timeout_seconds=1)
+    result=report["results"][0]
+    assert report["status"]=="matrix_timed_out"
+    assert report["required_failure_count"]==0
+    assert result["proof_status"]=="timed-out" and result["diagnostic_only"] is True
+
+
+def test_progress_and_checkpoint_name_active_lane(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    checkpoint=tmp_path/"c.json"
+    report=run_resumable_matrix(commands=[MatrixCommand("named_lane",(sys.executable,"-c","pass"))],
+                                checkpoint=checkpoint,progress=True)
+    assert report["status"]=="matrix_passed"
+    assert "[matrix] start 1/1 named_lane" in capsys.readouterr().out
+    assert json.loads(checkpoint.read_text())["active_lane"] is None
 
 
 def test_completed_passing_matrix_reuses_without_execution(tmp_path: Path) -> None:

@@ -18,7 +18,37 @@ ACTUATOR_EXACT_COMPATIBLE = "publication_actuator_exact_custody_compatible"
 ACTUATOR_EXACT_HEAD_INCOMPATIBLE = "publication_actuator_exact_head_custody_incompatible"
 ACTUATOR_CAPABILITY_INSUFFICIENT = "publication_actuator_capability_insufficient"
 ACTUATOR_MATERIAL_CONTRADICTION = "publication_actuator_evidence_material_contradiction"
+PUBLICATION_OBSERVER_SCOPE_SCHEMA_VERSION = "sentientos.publication_observer_scope:v1"
 RUNTIME_PREFIXES = ("sentientos_data/vow", "sentientos_data/runtime", "glow/", "pulse/", "artifacts/codex/")
+
+
+def publication_observer_scope(*, actuator_exposed_here: bool, performed_by_this_execution: bool,
+                               hosted_observation: Mapping[str, Any] | None = None,
+                               hosted_custody_verified: bool = False) -> dict[str, Any]:
+    """Render execution-local capability/effect facts separately from supplied remote evidence."""
+    observation = dict(hosted_observation) if hosted_observation is not None else None
+    if hosted_custody_verified and observation is None:
+        raise ValueError("hosted_custody_verification_requires_observation")
+    return {
+        "schema_version": PUBLICATION_OBSERVER_SCOPE_SCHEMA_VERSION,
+        "local_execution": {
+            "actuator_capability": "actuator_exposed_here" if actuator_exposed_here else "actuator_not_exposed_here",
+            "publication_effect": "publication_performed_by_this_execution" if performed_by_this_execution else "publication_not_performed_by_this_execution",
+            "scope": "supplied_tool_environment",
+        },
+        "hosted_state": {
+            "classification": ("hosted_publication_verified" if hosted_custody_verified else
+                               "hosted_publication_observed" if observation is not None else
+                               "hosted_publication_not_observed"),
+            "remote_existence": True if observation is not None else None,
+            "observation": observation,
+        },
+        "inference_boundaries": {
+            "local_actuator_absence_proves_global_nonexistence": False,
+            "local_nonperformance_proves_global_nonexistence": False,
+            "unobserved_remote_state_is_unknown": observation is None,
+        },
+    }
 
 
 def sha256_bytes(data: bytes) -> str:

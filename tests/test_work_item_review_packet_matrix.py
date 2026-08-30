@@ -71,7 +71,7 @@ def test_docs_bootstrap_path_runs_recheck() -> None:
 
 def test_output_written_only_when_explicit(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(matrix, "default_matrix_commands", lambda: [matrix.MatrixCommand("ok", ("python", "ok"))])
-    monkeypatch.setattr(matrix, "_default_runner", lambda _cmd: FakeCompleted(0, stdout="ok"))
+    monkeypatch.setattr(matrix, "_run_bounded", lambda _cmd, **_kwargs: (FakeCompleted(0, stdout="ok"), 0.01))
     out = tmp_path / "matrix.json"
     assert matrix.main(["--output", str(out)]) == 0
     payload = json.loads(out.read_text(encoding="utf-8"))

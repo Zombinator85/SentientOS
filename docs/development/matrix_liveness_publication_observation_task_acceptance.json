@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "matrix_liveness_publication_observation",
+  "test_provenance_path": "/tmp/matrix_liveness_publication_observation_test_provenance.json",
+  "successful_path_nodes": [
+    "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane",
+    "tests/test_codex_landing_evidence_binding.py::test_pr_2068_later_observation_advances_remote_knowledge_without_rewriting_local_facts"
+  ],
+  "task_classification": "behavior_adding",
+  "repository_sha": "15eb5e4d2dd45547470a9cfc233eda480cb2b356",
+  "required_nodes": [
+    {"node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_timeout_preserves_completed_lane_checkpoint", "rationale": "bounded required-lane timeout and partial artifact"},
+    {"node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_optional_diagnostic_timeout_is_explicit_nonproof_not_success", "rationale": "diagnostic timeout remains non-proof"},
+    {"node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_workspace_change", "rationale": "workspace-bound resume refusal"},
+    {"node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_resume_rejects_command_manifest_change", "rationale": "contract-bound resume refusal"},
+    {"node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_matrix_checkpoints_after_each_lane", "rationale": "successful checkpointing matrix path"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_unavailable_local_actuator_leaves_unobserved_hosted_state_unknown", "rationale": "local capability absence preserves unknown remote state"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_pr_2068_later_observation_advances_remote_knowledge_without_rewriting_local_facts", "rationale": "PR 2068 observer-scope regression"}
+  ]
+}
