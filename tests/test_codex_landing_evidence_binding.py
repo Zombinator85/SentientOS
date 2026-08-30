@@ -115,3 +115,51 @@ def test_publication_handoff_body_head_and_governing_evidence_substitution_fails
 def test_publication_handoff_title_profile_base_and_digest_substitution_fails(tmp_path: Path, target: str, old: str, new: str):
     inputs, paths = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); paths[target].write_text(paths[target].read_text().replace(old,new))
     assert verify_pr_publication_handoff(sealed, **inputs).status=='pr_publication_handoff_blocked'
+
+def hosted_case(tmp_path: Path, **changes: object):
+    inputs, paths=publication_inputs(tmp_path); handoff=create_pr_publication_handoff(**inputs).to_dict()
+    observation={'repository':handoff['repository'],'pr_number':7,'base_ref':handoff['intended_base_ref'],'base_sha':handoff['intended_base_sha'],'head_sha':handoff['intended_head_sha'],'head_tree_sha':handoff['intended_head_tree_sha'],'title':handoff['title'],'body_sha256':handoff['body_sha256'],'body_byte_length':handoff['body_byte_length'],'validation_profile':handoff['validation_profile'],'handoff_sha256':handoff['handoff_sha256'],'merge_state':'open','provenance':{'independent_hosted_observation':True,'publication_actuator_payload_echo':False,'source_kind':'operator_export'}}
+    observation.update(changes)
+    return inputs, paths, handoff, observation
+
+def test_hosted_publication_exact_match_is_deterministic_and_merge_identity_is_separate(tmp_path: Path):
+    inputs,paths,handoff,observation=hosted_case(tmp_path,merge_state='merged',merge_commit_sha='1'*40,merge_commit_tree_sha='2'*40)
+    first=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).to_dict()
+    second=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).to_dict()
+    assert first==second and first['status']==HOSTED_PUBLICATION_EXACT and first['exact_publication_custody'] is True
+    assert first['hosted_observation']['merge_commit_sha'] != first['hosted_observation']['head_sha']
+    assert verify_hosted_pr_publication_custody(first,handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).status==HOSTED_PUBLICATION_EXACT
+
+def test_pr_2066_rewritten_head_equal_tree_is_non_exact_custody_break(tmp_path: Path):
+    inputs,paths,handoff,observation=hosted_case(tmp_path)
+    handoff=dict(handoff); handoff['intended_head_sha']='131e27bb61ede5f59a02cb47b3fc8351d2b788f3'; handoff['intended_head_tree_sha']='0632acc46299a8fa69b8152788425cc244340d9f'
+    # Authoritative governing inputs are represented by the fixture's rebuilt handoff.
+    observation.update(head_sha='6cd5ec95c034a999de5a23f41969bd499f1f8b01',head_tree_sha=handoff['intended_head_tree_sha'],merge_state='merged',merge_commit_sha='205137c65c72c7732c60493dc7f199c2ffed1078',merge_commit_tree_sha=handoff['intended_head_tree_sha'])
+    # Replace only fixture-local governing commit fields so verification still reconstructs them.
+    post=json.loads(paths['post'].read_text()); post['commit_binding']['head_sha']=handoff['intended_head_sha']; post['commit_binding']['tree_sha']=handoff['intended_head_tree_sha']; paths['post'].write_text(json.dumps(post))
+    guard=json.loads(paths['guard'].read_text()); guard['proof']['head_sha']=handoff['intended_head_sha']; paths['guard'].write_text(json.dumps(guard))
+    binding=json.loads(paths['binding'].read_text()); binding['commit_sha']=handoff['intended_head_sha']; binding['tree_sha']=handoff['intended_head_tree_sha']; binding['artifact_digests']={'pre':file_sha256(paths['pre']),'post':file_sha256(paths['post']),'guard':file_sha256(paths['guard'])}; paths['binding'].write_text(json.dumps(binding))
+    handoff=create_pr_publication_handoff(**inputs).to_dict(); observation['handoff_sha256']=handoff['handoff_sha256']
+    result=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs)
+    assert result.status==HOSTED_PUBLICATION_REWRITTEN and result.exact_publication_custody is False
+    assert result.equivalence=={'head_sha_exact':False,'tree_equal':True,'parent_equal':None,'subject_equal':None}
+
+@pytest.mark.parametrize(('field','value'), [('repository','elsewhere'),('base_ref','release'),('base_sha','0'*40),('head_tree_sha','9'*40),('title','changed'),('body_sha256','0'*64),('body_byte_length',1),('validation_profile','exhaustive'),('handoff_sha256','0'*64)])
+def test_hosted_publication_material_substitution_fails(tmp_path: Path, field: str, value: object):
+    inputs,paths,handoff,observation=hosted_case(tmp_path,**{field:value})
+    result=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs)
+    assert result.status==HOSTED_PUBLICATION_MISMATCH and not result.exact_publication_custody
+
+def test_hosted_publication_requires_independent_observation_and_exact_body_bytes(tmp_path: Path):
+    inputs,paths,handoff,observation=hosted_case(tmp_path,provenance={'independent_hosted_observation':False,'publication_actuator_payload_echo':True})
+    result=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,**inputs)
+    assert result.status==HOSTED_PUBLICATION_INSUFFICIENT and not result.exact_publication_custody
+    altered=tmp_path/'hosted-body.md'; altered.write_bytes(paths['body'].read_bytes()+b'x')
+    assert create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=altered,**inputs).status==HOSTED_PUBLICATION_MISMATCH
+
+def test_hosted_publication_substituted_handoff_and_artifact_fail_closed(tmp_path: Path):
+    inputs,paths,handoff,observation=hosted_case(tmp_path); bad=dict(handoff); bad['repository']='other'
+    with pytest.raises(ValueError,match='governing_handoff_not_verified'):
+        create_hosted_pr_publication_custody(handoff=bad,observation=observation,hosted_body_path=paths['body'],**inputs)
+    custody=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).to_dict(); custody['status']='forged'
+    assert verify_hosted_pr_publication_custody(custody,handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).status==HOSTED_PUBLICATION_MISMATCH

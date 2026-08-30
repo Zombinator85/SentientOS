@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "205137c65c72c7732c60493dc7f199c2ffed1078",
+  "test_provenance_path": "/tmp/hosted_publication_custody_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_hosted_publication_exact_match_is_deterministic_and_merge_identity_is_separate", "rationale": "successful exact hosted custody path"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_pr_2066_rewritten_head_equal_tree_is_non_exact_custody_break", "rationale": "PR 2066 equal-tree rewrite remains non-exact"},
+    {"node_id": "tests/test_codex_landing_evidence_binding.py::test_hosted_publication_requires_independent_observation_and_exact_body_bytes", "rationale": "independence and exact-byte fail-closed rule"},
+    {"node_id": "tests/test_verify_codex_landing_evidence_binding_script.py::test_cli_seals_verifies_and_refuses_hosted_custody_collision", "rationale": "deterministic CLI and collision refusal"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_landing_evidence_binding.py::test_hosted_publication_exact_match_is_deterministic_and_merge_identity_is_separate"
+  ]
+}
