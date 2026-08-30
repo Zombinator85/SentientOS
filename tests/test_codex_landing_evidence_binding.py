@@ -226,3 +226,22 @@ def test_other_actuator_history_not_generalized_and_substitutions_fail(tmp_path:
     assert verify_publication_actuator_compatibility(sealed,handoff=handoff,actuator_evidence_path=evidence,**inputs).status==ACTUATOR_MATERIAL_CONTRADICTION
     bad=dict(handoff); bad['repository']='substituted'
     assert verify_publication_actuator_compatibility(sealed,handoff=bad,actuator_evidence_path=evidence,**inputs).status==ACTUATOR_MATERIAL_CONTRADICTION
+
+def test_unavailable_local_actuator_leaves_unobserved_hosted_state_unknown():
+    report=publication_observer_scope(actuator_exposed_here=False,performed_by_this_execution=False)
+    assert report['local_execution']['actuator_capability']=='actuator_not_exposed_here'
+    assert report['local_execution']['publication_effect']=='publication_not_performed_by_this_execution'
+    assert report['hosted_state']['classification']=='hosted_publication_not_observed'
+    assert report['hosted_state']['remote_existence'] is None
+    assert report['inference_boundaries']['unobserved_remote_state_is_unknown'] is True
+
+def test_pr_2068_later_observation_advances_remote_knowledge_without_rewriting_local_facts():
+    local=publication_observer_scope(actuator_exposed_here=False,performed_by_this_execution=False)
+    observation={'pr_number':2068,'hosted_head_sha':'80a1765c081bc736c446782a670794f2d8227777',
+                 'merge_commit_sha':'15eb5e4d2dd45547470a9cfc233eda480cb2b356','source_kind':'independent_hosted_observation'}
+    later=publication_observer_scope(actuator_exposed_here=False,performed_by_this_execution=False,
+                                     hosted_observation=observation,hosted_custody_verified=True)
+    assert later['local_execution']==local['local_execution']
+    assert later['hosted_state']['classification']=='hosted_publication_verified'
+    assert later['hosted_state']['remote_existence'] is True
+    assert later['hosted_state']['observation']==observation

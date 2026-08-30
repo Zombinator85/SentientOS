@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import os
+import signal
 import time
 from datetime import datetime, timezone
 from typing import Callable, TypedDict
@@ -66,6 +67,7 @@ class MatrixReport(TypedDict, total=False):
     matrix_contract_digest: object
     workspace_binding: dict[str, object]
     resume_block_reasons: list[str]
+    active_lane: dict[str, object] | None
 
 
 MATRIX_SCHEMA = "sentientos.work_item_review_packet_matrix:v2"
@@ -449,6 +451,46 @@ def _default_runner(command: tuple[str, ...]) -> subprocess.CompletedProcess[str
     return subprocess.run(command, check=False, capture_output=True, text=True)
 
 
+def _terminate_process_tree(process: subprocess.Popen[str], *, grace_seconds: float = 2.0) -> str:
+    """Terminate only the process tree created for one matrix lane and reap it."""
+    if process.poll() is not None:
+        process.communicate()
+        return "child_already_exited"
+    if os.name == "posix":
+        os.killpg(process.pid, signal.SIGTERM)
+    else:  # pragma: no cover - exercised on supported Windows runners
+        process.terminate()
+    try:
+        process.communicate(timeout=grace_seconds)
+        return "process_tree_terminated"
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:  # pragma: no cover
+            process.kill()
+        process.communicate()
+        return "process_tree_killed_after_grace"
+
+
+def _run_bounded(command: tuple[str, ...], *, timeout_seconds: int, repo: Path) -> tuple[subprocess.CompletedProcess[str], float]:
+    started = time.perf_counter()
+    process = subprocess.Popen(command, cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               start_new_session=(os.name == "posix"))
+    try:
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired as exc:
+        termination_reason = _terminate_process_tree(process)
+        stdout = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+        stderr = (exc.stderr or "") if isinstance(exc.stderr, str) else ""
+        timeout = subprocess.TimeoutExpired(command, timeout_seconds, output=stdout, stderr=stderr)
+        timeout.termination_reason = termination_reason  # type: ignore[attr-defined]
+        raise timeout
+    except KeyboardInterrupt:
+        _terminate_process_tree(process)
+        raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr), time.perf_counter() - started
+
+
 def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
                          resume_from: Path | None = None, command_timeout_seconds: int = 900,
                          progress: bool = False, repo: Path = Path(".")) -> MatrixReport:
@@ -489,6 +531,8 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
             if checkpoint != resume_from: _atomic_json(checkpoint, prior)
             return prior  # type: ignore[no-any-return]
 
+    active_lane: dict[str, object] | None = None
+
     def emit(status: str) -> MatrixReport:
         failures = [str(r["label"]) for r in results if _is_required_failure(r)]
         payload: MatrixReport = {"schema_version": MATRIX_SCHEMA, "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -496,29 +540,44 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
             "diagnostic_failure_count": len([r for r in results if r.get("diagnostic_only") and r.get("exit_code") != 0]),
             "nonproof_count": len([r for r in results if not r.get("proof_required", True)]), "results": results,
             "matrix_contract": contract, "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": binding,
-            "completed_labels": [str(r["label"]) for r in results], "next_lane_index": len(results), "completion_status": status}
+            "completed_labels": [str(r["label"]) for r in results], "next_lane_index": len(results), "completion_status": status,
+            "active_lane": active_lane}
         payload["checkpoint_digest"] = _digest(dict(payload))
         _atomic_json(checkpoint, payload); return payload
 
     emit("matrix_in_progress")
     for index, command in enumerate(commands[len(results):], start=len(results)):
+        active_lane = {"label": command.label, "command": list(command.command), "lifecycle_state": "running",
+                       "lane_index": index, "execution_deadline_seconds": command_timeout_seconds}
+        emit("matrix_in_progress")
         if progress: print(f"[matrix] start {index + 1}/{len(commands)} {command.label}", flush=True)
         started = time.perf_counter()
         try:
-            completed = subprocess.run(command.command, check=False, capture_output=True, text=True, timeout=command_timeout_seconds, cwd=repo)
+            completed, elapsed = _run_bounded(command.command, timeout_seconds=command_timeout_seconds, repo=repo)
             result = run_one(command, lambda _: completed)
-            result["duration_seconds"] = round(time.perf_counter() - started, 3)
+            result["duration_seconds"] = round(elapsed, 3)
             results.append(result)
+            active_lane = None
             state = "matrix_failed" if _is_required_failure(result) else "matrix_in_progress"
         except subprocess.TimeoutExpired as exc:
             output = ((exc.stdout or "") + "\n" + (exc.stderr or "")) if isinstance(exc.stdout, str) else ""
             results.append({"label": command.label, "command": list(command.command), "required": command.required,
                 "proof_required": command.proof_required, "execution_required": command.execution_required, "diagnostic_only": command.diagnostic_only,
-                "exit_code": 124, "duration_seconds": round(time.perf_counter() - started, 3), "output_tail": _tail(output), "proof_status": "timed-out"})
+                "nonexecution_allowed": command.nonexecution_allowed, "classification_reason": command.classification_reason,
+                "exit_code": 124, "duration_seconds": round(time.perf_counter() - started, 3), "output_tail": _tail(output),
+                "proof_status": "timed-out", "exit_reason": getattr(exc, "termination_reason", "execution_deadline_exceeded")})
+            active_lane = None
             if progress: print(f"[matrix] end {index + 1}/{len(commands)} {command.label} status=timed_out", flush=True)
             report = emit("matrix_timed_out")
             report["next_lane_index"] = index
             report["completed_labels"] = [str(r["label"]) for r in results[:-1]]
+            report["checkpoint_digest"] = _digest({k: v for k, v in report.items() if k != "checkpoint_digest"})
+            _atomic_json(checkpoint, report)
+            return report
+        except KeyboardInterrupt:
+            active_lane = None
+            report = emit("matrix_interrupted")
+            report["next_lane_index"] = index
             report["checkpoint_digest"] = _digest({k: v for k, v in report.items() if k != "checkpoint_digest"})
             _atomic_json(checkpoint, report)
             return report
@@ -541,10 +600,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command_timeout_seconds <= 0:
         parser.error("--command-timeout-seconds must be positive")
     commands = default_matrix_commands()
-    checkpoint = args.checkpoint
-    report = (run_resumable_matrix(commands=commands, checkpoint=checkpoint, resume_from=args.resume_from,
-                                   command_timeout_seconds=args.command_timeout_seconds, progress=args.progress)
-              if checkpoint is not None else run_matrix(commands=commands, runner=_default_runner))
+    checkpoint = args.checkpoint or args.output or Path("/tmp/work_item_review_packet_matrix.checkpoint.json")
+    report = run_resumable_matrix(commands=commands, checkpoint=checkpoint, resume_from=args.resume_from,
+                                  command_timeout_seconds=args.command_timeout_seconds, progress=args.progress)
     if any(r["label"]=="strict_audits" and r["exit_code"]!=0 for r in report["results"]):
         report["strict_audit_repair_command"]="python scripts/codex_strict_audit_repair.py diagnose --summary"
         if args.auto_repair_audits:

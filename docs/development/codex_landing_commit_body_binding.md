@@ -112,3 +112,21 @@ explicitly weaker contract; it is not part of `sentientos.pr_publication_handoff
 `ready_to_commit` is not a commit. `ready_for_pr_metadata` is not a PR. `pr_metadata_guard_ready` is not a PR. `pr_body_binding_ready` only authorizes submitting exact bytes. A title/body payload echo is not remote publication. Only concrete external remote evidence can advance remote-state classification; this rail performs no remote API calls and grants no branch, push, merge, or PR-creation authority. Sealing custody classifies supplied evidence only; it does not manufacture hosted observation or hosted success.
 
 Finalizer subprocesses use external runtime roots by default (`/tmp/sentientos-codex-finalizer/<binding-id>`) and export `SENTIENTOS_DATA_DIR` plus `SENTIENTOS_RUNTIME_STATE_ROOT` to children. Roots inside the workspace or `.git` fail closed.
+
+## Observer-scoped publication reporting
+
+Publication reports keep local actuator availability, effects performed by the reporting
+execution, externally supplied hosted observation, and verified hosted custody as
+separate facts. `actuator_not_exposed_here` is scoped to the supplied tool environment;
+`publication_not_performed_by_this_execution` is an execution-local effect statement;
+and `hosted_publication_not_observed` leaves remote existence null/unknown rather than
+false. Later independent evidence may advance hosted state to observed or verified
+without changing those historical local facts.
+
+PR #2068 is the deterministic regression example. Its originating execution exposed no
+`make_pr`, performed no publication, and observed no hosted publication at its reporting
+boundary. A later independent observation supplied PR number 2068, hosted head
+`80a1765c081bc736c446782a670794f2d8227777`, and merge commit
+`15eb5e4d2dd45547470a9cfc233eda480cb2b356`. These records are compatible: later hosted
+evidence advances remote knowledge and does not rewrite the originating execution's
+capability, effect, or observation boundary.
