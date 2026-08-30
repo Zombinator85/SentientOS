@@ -4,7 +4,7 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 import json
 from scripts.verify_codex_landing_evidence_binding import main
-from tests.test_codex_landing_evidence_binding import publication_inputs
+from tests.test_codex_landing_evidence_binding import actuator_evidence, publication_inputs
 
 def test_cli_body_and_publication(tmp_path: Path):
     body=tmp_path/'body.md'; body.write_text('### Motivation\n' + 'evidence '*100)
@@ -33,3 +33,13 @@ def test_cli_seals_verifies_and_refuses_hosted_custody_collision(tmp_path: Path)
     custody.write_text('{}')
     with pytest.raises(ValueError,match='output_collision'):
         main(['seal-hosted-publication-custody',*common,*hosted,'--output',str(custody)])
+
+def test_cli_seals_verifies_and_refuses_actuator_compatibility_collision_without_actuation(tmp_path: Path):
+    inputs,paths=publication_inputs(tmp_path); handoff=tmp_path/'handoff.json'; common=['--repository',str(inputs['repository']),'--intended-base-ref',str(inputs['intended_base_ref']),'--body-path',str(paths['body']),'--body-binding-json',str(paths['binding']),'--pre-commit-finalizer-json',str(paths['pre']),'--pr-metadata-finalizer-json',str(paths['post']),'--pr-metadata-guard-json',str(paths['guard'])]
+    assert main(['seal-publication-handoff',*common,'--output',str(handoff)])==0
+    evidence=actuator_evidence(tmp_path); compatibility=tmp_path/'compatibility.json'; actuator=['--handoff-json',str(handoff),'--actuator-evidence-json',str(evidence)]
+    assert main(['seal-actuator-compatibility',*common,*actuator,'--output',str(compatibility)])==0
+    assert main(['verify-actuator-compatibility',*common,*actuator,'--compatibility-json',str(compatibility)])==0
+    compatibility.write_text('{}')
+    with pytest.raises(ValueError,match='actuator_compatibility_output_collision'):
+        main(['seal-actuator-compatibility',*common,*actuator,'--output',str(compatibility)])

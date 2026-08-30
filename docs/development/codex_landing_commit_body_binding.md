@@ -13,8 +13,8 @@ The canonical local sequence is:
 5. body builder parses JSON artifacts and emits body plus sidecar;
 6. body verifier returns `pr_body_binding_ready`;
 7. clean-tree and current-HEAD checks pass;
-8. `make_pr` submits the exact verified body bytes;
-9. the external actuator submits the sealed handoff without gaining repository authority;
+8. select a tightly scoped publication actuator and seal its compatibility preflight;
+9. an external actuation, if separately authorized, submits the sealed handoff;
 10. an independent observer supplies hosted PR state and the exact hosted body bytes;
 11. hosted-publication custody verification binds that observation to the reconstructed handoff;
 12. merge state, when observed, remains a separate identity from the hosted PR head.
@@ -37,6 +37,39 @@ different payload and cannot claim the body binding. The handoff performs no net
 access, creates or updates no pull request, and does not observe hosted state. Hosted
 head rewriting or any other actuator transformation remains an external custody break
 until separately supplied, trustworthy observation establishes what the host received.
+
+## Publication-actuator compatibility preflight
+
+`seal-actuator-compatibility` and `verify-actuator-compatibility` add a deterministic
+`sentientos.publication_actuator_compatibility:v1` artifact after
+`pr_publication_handoff_ready` and before external actuation. The selected identity
+has both an actuator ID and a deployment/workcell scope; observations for a different
+exact identity do not apply. Verification reconstructs the handoff and binds the
+supplied capability-evidence bytes rather than trusting duplicated artifact fields.
+
+Declared capability, independently observed historical behavior, payload echo/self-report,
+and unknown evidence are distinct classes. Preservation guarantees are tri-state, so
+unknown stays unknown. Exact compatibility requires declared preservation of repository
+routing, base ref and SHA, exact head commit and tree, exact title, and exact UTF-8 body
+bytes, plus a guarantee against synthesis, replay, cherry-pick, re-authoring, recommit,
+normalization, or other commit replacement. Branch/ref preservation is required when
+declared relevant. An independently observed rewrite for the same scoped actuator
+establishes incompatibility with exact-head custody; it neither generalizes to another
+actuator nor proves every future invocation will transform a commit. Equal trees do not
+repair the incompatibility.
+
+The machine-distinct results are `publication_actuator_exact_custody_compatible`,
+`publication_actuator_exact_head_custody_incompatible`,
+`publication_actuator_capability_insufficient`, and
+`publication_actuator_evidence_material_contradiction`. Payload echoes cannot establish
+hosted behavior or exact compatibility, and contradictory declarations fail closed.
+
+Handoff readiness means the exact local payload is sealed. Actuator compatibility means
+only that supplied evidence establishes preservation of the handoff's required identities.
+Publication is a separate external side effect, and hosted custody verification is
+independent post-publication evidence. Therefore `pr_publication_handoff_ready` does not
+imply that every actuator is compatible with the handoff, and actuator compatibility
+does not prove publication occurred.
 
 ## Hosted publication custody
 
@@ -61,12 +94,20 @@ records equal trees with a different hosted head and remains non-exact;
 `hosted_publication_observation_insufficient` records missing or non-independent evidence.
 
 The full custody chain is: local workspace → implementation commit → exact body
-binding → publication handoff → external actuator → independently observed hosted
-PR state → merge state. The intended implementation commit, hosted PR head commit,
+binding → exact publication handoff → selected actuator → actuator compatibility
+preflight → external actuation → independently observed hosted PR state → hosted
+custody classification → merge observation. The intended implementation commit, hosted PR head commit,
 merge commit, and resulting tree are four distinct identities. Equal trees show
 content equivalence only; they do not make commit objects equal and cannot satisfy
 an exact-head publication contract. The `sentientos.pr_publication_handoff:v1`
 semantics are unchanged and never authorize actuator rewriting.
+
+Repository investigation found no existing publication-capability, transport-capability,
+or effect-contract abstraction that safely covered this boundary. The landing-evidence
+binding module and CLI already own exact handoff and hosted custody, so the preflight is
+integrated there rather than conflating it with unrelated runtime capability or actuation
+authority. A future content/tree-equivalent publication profile would require a separate,
+explicitly weaker contract; it is not part of `sentientos.pr_publication_handoff:v1`.
 
 `ready_to_commit` is not a commit. `ready_for_pr_metadata` is not a PR. `pr_metadata_guard_ready` is not a PR. `pr_body_binding_ready` only authorizes submitting exact bytes. A title/body payload echo is not remote publication. Only concrete external remote evidence can advance remote-state classification; this rail performs no remote API calls and grants no branch, push, merge, or PR-creation authority. Sealing custody classifies supplied evidence only; it does not manufacture hosted observation or hosted success.
 

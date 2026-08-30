@@ -1,0 +1,29 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "publication_actuator_compatibility_preflight",
+  "test_provenance_path": "/tmp/publication_actuator_compatibility_test_provenance.json",
+  "successful_path_nodes": [
+    "tests/test_codex_landing_evidence_binding.py::test_actuator_exact_compatibility_is_deterministic_verified_and_effect_free",
+    "tests/test_verify_codex_landing_evidence_binding_script.py::test_cli_seals_verifies_and_refuses_actuator_compatibility_collision_without_actuation"
+  ],
+  "task_classification": "behavior_adding",
+  "repository_sha": "d6b5b6ad7f96bc67a21e2fce7c5d266aed7ab3ee",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_landing_evidence_binding.py::test_actuator_exact_compatibility_is_deterministic_verified_and_effect_free",
+      "rationale": "successful exact-compatible metadata-only path"
+    },
+    {
+      "node_id": "tests/test_codex_landing_evidence_binding.py::test_historical_equal_tree_rewrites_are_preflight_exact_head_incompatible[131e27bb61ede5f59a02cb47b3fc8351d2b788f3-6cd5ec95c034a999de5a23f41969bd499f1f8b01-0632acc46299a8fa69b8152788425cc244340d9f-205137c65c72c7732c60493dc7f199c2ffed1078]",
+      "rationale": "PR 2066 rewrite regression"
+    },
+    {
+      "node_id": "tests/test_codex_landing_evidence_binding.py::test_historical_equal_tree_rewrites_are_preflight_exact_head_incompatible[3885a5b9bf9d1be8af7cc1a46638dd6259c0cae3-6835ce880697b4c8bac201f92fa456c812ca1418-62c3cadfce766158f17bc04411164179951092b8-d6b5b6ad7f96bc67a21e2fce7c5d266aed7ab3ee]",
+      "rationale": "PR 2067 rewrite regression"
+    },
+    {
+      "node_id": "tests/test_verify_codex_landing_evidence_binding_script.py::test_cli_seals_verifies_and_refuses_actuator_compatibility_collision_without_actuation",
+      "rationale": "CLI determinism, verification, collision refusal, and no actuation"
+    }
+  ]
+}

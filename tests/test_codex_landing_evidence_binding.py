@@ -163,3 +163,66 @@ def test_hosted_publication_substituted_handoff_and_artifact_fail_closed(tmp_pat
         create_hosted_pr_publication_custody(handoff=bad,observation=observation,hosted_body_path=paths['body'],**inputs)
     custody=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).to_dict(); custody['status']='forged'
     assert verify_hosted_pr_publication_custody(custody,handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs).status==HOSTED_PUBLICATION_MISMATCH
+
+def actuator_evidence(tmp_path: Path, *, evidence_class='declared_actuator_capability', identity=None, preservation=None, replacement=None, observations=None):
+    identity=identity or {'id':'codex-hosted-publication-bridge','scope':'sentientos/operator-workcell/v1'}
+    guarantees={key:True for key in ('repository_routing','intended_base_ref','intended_base_sha','exact_head_commit','head_tree','exact_title','exact_body_bytes')}
+    guarantees.update({'branch_ref_identity':None,'branch_ref_relevant':False})
+    if preservation: guarantees.update(preservation)
+    replacements={key:False for key in ('synthesize','replay','cherry_pick','reauthor','recommit','normalize','otherwise_replace')}
+    if replacement: replacements.update(replacement)
+    path=tmp_path/'actuator.json'; path.write_text(json.dumps({'actuator_identity':identity,'evidence_class':evidence_class,'preservation_guarantees':guarantees,'commit_replacement':replacements,'historical_observations':observations or []},sort_keys=True))
+    return path
+
+def compatibility_case(tmp_path: Path, evidence: Path):
+    inputs,_=publication_inputs(tmp_path); handoff=create_pr_publication_handoff(**inputs).to_dict()
+    return inputs,handoff,create_publication_actuator_compatibility(handoff=handoff,actuator_evidence_path=evidence,**inputs)
+
+def test_actuator_exact_compatibility_is_deterministic_verified_and_effect_free(tmp_path: Path, monkeypatch):
+    evidence=actuator_evidence(tmp_path); inputs,handoff,first=compatibility_case(tmp_path,evidence)
+    second=create_publication_actuator_compatibility(handoff=handoff,actuator_evidence_path=evidence,**inputs)
+    assert first==second and first.status==ACTUATOR_EXACT_COMPATIBLE and first.exact_publication_compatible
+    assert first.schema_version=='sentientos.publication_actuator_compatibility:v1'
+    assert all(value is False for value in first.boundary.values())
+    assert verify_publication_actuator_compatibility(first.to_dict(),handoff=handoff,actuator_evidence_path=evidence,**inputs).status==ACTUATOR_EXACT_COMPATIBLE
+
+@pytest.mark.parametrize(('preservation','replacement'), [
+    ({'exact_head_commit':None},None), ({'exact_body_bytes':False},None), ({'exact_title':None},None),
+    ({'repository_routing':False},None), ({'intended_base_ref':None},None), ({'intended_base_sha':None},None),
+    ({'branch_ref_relevant':True,'branch_ref_identity':None},None), ({'exact_head_commit':False},{'recommit':True}),
+])
+def test_actuator_incomplete_guarantees_never_become_compatible(tmp_path: Path, preservation, replacement):
+    evidence=actuator_evidence(tmp_path,preservation=preservation,replacement=replacement)
+    _,_,result=compatibility_case(tmp_path,evidence)
+    expected=ACTUATOR_EXACT_HEAD_INCOMPATIBLE if replacement else ACTUATOR_CAPABILITY_INSUFFICIENT
+    assert result.status==expected and not result.exact_publication_compatible
+
+def test_actuator_contradictory_declaration_and_payload_echo_fail_closed(tmp_path: Path):
+    evidence=actuator_evidence(tmp_path,replacement={'normalize':True})
+    _,_,result=compatibility_case(tmp_path,evidence)
+    assert result.status==ACTUATOR_MATERIAL_CONTRADICTION
+    echo=actuator_evidence(tmp_path,evidence_class='payload_echo_self_report')
+    _,_,result=compatibility_case(tmp_path,echo)
+    assert result.status==ACTUATOR_CAPABILITY_INSUFFICIENT
+
+@pytest.mark.parametrize(('intended','hosted','tree','merge'), [
+    ('131e27bb61ede5f59a02cb47b3fc8351d2b788f3','6cd5ec95c034a999de5a23f41969bd499f1f8b01','0632acc46299a8fa69b8152788425cc244340d9f','205137c65c72c7732c60493dc7f199c2ffed1078'),
+    ('3885a5b9bf9d1be8af7cc1a46638dd6259c0cae3','6835ce880697b4c8bac201f92fa456c812ca1418','62c3cadfce766158f17bc04411164179951092b8','d6b5b6ad7f96bc67a21e2fce7c5d266aed7ab3ee'),
+])
+def test_historical_equal_tree_rewrites_are_preflight_exact_head_incompatible(tmp_path: Path,intended,hosted,tree,merge):
+    identity={'id':'codex-hosted-publication-bridge','scope':'sentientos/operator-workcell/v1'}
+    observation={'actuator_identity':identity,'independent_hosted_observation':True,'publication_actuator_payload_echo':False,'intended_head_sha':intended,'hosted_head_sha':hosted,'intended_head_tree_sha':tree,'hosted_head_tree_sha':tree,'merge_commit_sha':merge}
+    evidence=actuator_evidence(tmp_path,evidence_class='observed_actuator_behavior',identity=identity,preservation={key:None for key in ('repository_routing','intended_base_ref','intended_base_sha','exact_head_commit','head_tree','exact_title','exact_body_bytes')},replacement={key:None for key in ('synthesize','replay','cherry_pick','reauthor','recommit','normalize','otherwise_replace')},observations=[observation])
+    _,_,result=compatibility_case(tmp_path,evidence)
+    assert result.status==ACTUATOR_EXACT_HEAD_INCOMPATIBLE and result.historical_observations[0]['tree_equivalent'] is True
+
+def test_other_actuator_history_not_generalized_and_substitutions_fail(tmp_path: Path):
+    selected={'id':'bridge-a','scope':'tenant-a/workcell-v1'}; other={'id':'bridge-b','scope':'tenant-b/workcell-v1'}
+    observation={'actuator_identity':other,'independent_hosted_observation':True,'publication_actuator_payload_echo':False,'intended_head_sha':'1'*40,'hosted_head_sha':'2'*40,'intended_head_tree_sha':'3'*40,'hosted_head_tree_sha':'3'*40}
+    evidence=actuator_evidence(tmp_path,evidence_class='observed_actuator_behavior',identity=selected,observations=[observation])
+    inputs,handoff,result=compatibility_case(tmp_path,evidence)
+    assert result.status==ACTUATOR_CAPABILITY_INSUFFICIENT and not result.historical_observations[0]['applies_to_selected_actuator']
+    sealed=result.to_dict(); evidence.write_text(evidence.read_text().replace('bridge-a','bridge-substituted'))
+    assert verify_publication_actuator_compatibility(sealed,handoff=handoff,actuator_evidence_path=evidence,**inputs).status==ACTUATOR_MATERIAL_CONTRADICTION
+    bad=dict(handoff); bad['repository']='substituted'
+    assert verify_publication_actuator_compatibility(sealed,handoff=bad,actuator_evidence_path=evidence,**inputs).status==ACTUATOR_MATERIAL_CONTRADICTION
