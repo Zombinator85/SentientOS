@@ -13,6 +13,11 @@ HOSTED_PUBLICATION_EXACT = "hosted_publication_custody_verified_exact"
 HOSTED_PUBLICATION_REWRITTEN = "hosted_publication_head_rewritten_tree_equivalent_custody_break"
 HOSTED_PUBLICATION_MISMATCH = "hosted_publication_mismatch"
 HOSTED_PUBLICATION_INSUFFICIENT = "hosted_publication_observation_insufficient"
+ACTUATOR_COMPATIBILITY_SCHEMA_VERSION = "sentientos.publication_actuator_compatibility:v1"
+ACTUATOR_EXACT_COMPATIBLE = "publication_actuator_exact_custody_compatible"
+ACTUATOR_EXACT_HEAD_INCOMPATIBLE = "publication_actuator_exact_head_custody_incompatible"
+ACTUATOR_CAPABILITY_INSUFFICIENT = "publication_actuator_capability_insufficient"
+ACTUATOR_MATERIAL_CONTRADICTION = "publication_actuator_evidence_material_contradiction"
 RUNTIME_PREFIXES = ("sentientos_data/vow", "sentientos_data/runtime", "glow/", "pulse/", "artifacts/codex/")
 
 
@@ -209,6 +214,26 @@ class HostedPrPublicationCustody:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PublicationActuatorCompatibility:
+    schema_version: str
+    status: str
+    exact_publication_compatible: bool
+    handoff_sha256: str
+    actuator_identity: dict[str, str]
+    evidence_class: str
+    preservation_guarantees: dict[str, bool | None]
+    commit_replacement: dict[str, bool | None]
+    historical_observations: tuple[dict[str, Any], ...]
+    reasons: tuple[str, ...]
+    governing_evidence_sha256: str
+    boundary: dict[str, bool]
+    compatibility_sha256: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 def _status_map(repo: Path) -> dict[str, str]:
     p = subprocess.run(["git", "status", "--porcelain=v1"], cwd=repo, text=True, capture_output=True, check=False)
     out: dict[str, str] = {}
@@ -396,6 +421,128 @@ def verify_pr_publication_handoff(handoff: Mapping[str, Any], **inputs: Any) -> 
     supplied = dict(handoff)
     reasons = tuple(f"handoff_mismatch:{key}" for key in sorted(set(rebuilt) | set(supplied)) if rebuilt.get(key) != supplied.get(key))
     return LandingEvidenceVerification(PUBLICATION_HANDOFF_READY if not reasons else "pr_publication_handoff_blocked", reasons, {"handoff_sha256": rebuilt["handoff_sha256"], "body_sha256": rebuilt["body_sha256"], "body_byte_length": rebuilt["body_byte_length"]})
+
+
+_ACTUATOR_REQUIRED_GUARANTEES = (
+    "repository_routing", "intended_base_ref", "intended_base_sha",
+    "exact_head_commit", "head_tree", "exact_title", "exact_body_bytes",
+)
+_ACTUATOR_REPLACEMENT_KINDS = (
+    "synthesize", "replay", "cherry_pick", "reauthor", "recommit", "normalize", "otherwise_replace",
+)
+
+
+def create_publication_actuator_compatibility(
+    *, handoff: Mapping[str, Any], actuator_evidence_path: str | Path,
+    **handoff_inputs: Any,
+) -> PublicationActuatorCompatibility:
+    """Classify supplied actuator evidence without actuating or observing a host."""
+    check = verify_pr_publication_handoff(handoff, **handoff_inputs)
+    if check.status != PUBLICATION_HANDOFF_READY:
+        raise ValueError("governing_handoff_not_verified:" + ",".join(check.reasons))
+    rebuilt_handoff = create_pr_publication_handoff(**handoff_inputs).to_dict()
+    evidence = _json_object(actuator_evidence_path, "actuator_evidence")
+    identity_value = evidence.get("actuator_identity")
+    if not isinstance(identity_value, Mapping):
+        raise ValueError("actuator_identity_missing")
+    identity = {"id": str(identity_value.get("id", "")), "scope": str(identity_value.get("scope", ""))}
+    if not identity["id"] or not identity["scope"]:
+        raise ValueError("actuator_identity_incomplete")
+    evidence_class = str(evidence.get("evidence_class", "unknown"))
+    if evidence_class not in {"declared_actuator_capability", "observed_actuator_behavior", "payload_echo_self_report", "unknown"}:
+        raise ValueError("actuator_evidence_class_unknown")
+    raw_preservation = evidence.get("preservation_guarantees", {})
+    raw_replacement = evidence.get("commit_replacement", {})
+    raw_observations = evidence.get("historical_observations", [])
+    if not isinstance(raw_preservation, Mapping) or not isinstance(raw_replacement, Mapping) or not isinstance(raw_observations, list):
+        raise ValueError("actuator_evidence_malformed")
+    allowed_guarantees = (*_ACTUATOR_REQUIRED_GUARANTEES, "branch_ref_identity", "branch_ref_relevant")
+    preservation = {key: raw_preservation.get(key) for key in allowed_guarantees}
+    replacement = {key: raw_replacement.get(key) for key in _ACTUATOR_REPLACEMENT_KINDS}
+    if any(value not in {True, False, None} for value in (*preservation.values(), *replacement.values())):
+        raise ValueError("actuator_capability_value_not_tristate")
+    observations: list[dict[str, Any]] = []
+    contradiction: list[str] = []
+    rewrite_observed = False
+    for index, value in enumerate(raw_observations):
+        if not isinstance(value, Mapping):
+            contradiction.append(f"historical_observation_malformed:{index}"); continue
+        observation = dict(value)
+        observed_identity = observation.get("actuator_identity")
+        if not isinstance(observed_identity, Mapping):
+            contradiction.append(f"historical_observation_identity_missing:{index}"); continue
+        same_identity = (str(observed_identity.get("id", "")), str(observed_identity.get("scope", ""))) == (identity["id"], identity["scope"])
+        independent = observation.get("independent_hosted_observation") is True
+        echo = observation.get("publication_actuator_payload_echo") is True
+        observation["applies_to_selected_actuator"] = same_identity
+        observations.append(observation)
+        if same_identity and independent and not echo:
+            intended = str(observation.get("intended_head_sha", "")); hosted = str(observation.get("hosted_head_sha", ""))
+            intended_tree = str(observation.get("intended_head_tree_sha", "")); hosted_tree = str(observation.get("hosted_head_tree_sha", ""))
+            if not intended or not hosted:
+                contradiction.append(f"historical_observation_head_missing:{index}")
+            elif intended != hosted:
+                rewrite_observed = True
+                if intended_tree and hosted_tree and intended_tree != hosted_tree:
+                    observation["tree_equivalent"] = False
+                elif intended_tree and hosted_tree:
+                    observation["tree_equivalent"] = True
+    declared = evidence_class == "declared_actuator_capability"
+    replacement_allowed = any(value is True for value in replacement.values())
+    exact_head_promised = preservation["exact_head_commit"] is True
+    if declared and exact_head_promised and replacement_allowed:
+        contradiction.append("exact_head_promise_contradicts_commit_replacement")
+    if contradiction:
+        status = ACTUATOR_MATERIAL_CONTRADICTION
+    elif rewrite_observed or (declared and replacement_allowed):
+        status = ACTUATOR_EXACT_HEAD_INCOMPATIBLE
+    elif declared and all(preservation[key] is True for key in _ACTUATOR_REQUIRED_GUARANTEES) and all(value is False for value in replacement.values()):
+        if preservation["branch_ref_relevant"] is True and preservation["branch_ref_identity"] is not True:
+            status = ACTUATOR_CAPABILITY_INSUFFICIENT
+        else:
+            status = ACTUATOR_EXACT_COMPATIBLE
+    else:
+        status = ACTUATOR_CAPABILITY_INSUFFICIENT
+    reasons: list[str] = contradiction
+    if status == ACTUATOR_EXACT_HEAD_INCOMPATIBLE:
+        reasons.append("exact_head_required_but_commit_replacement_known")
+    elif status == ACTUATOR_CAPABILITY_INSUFFICIENT:
+        reasons.append("all_required_preservation_guarantees_not_established")
+    payload: dict[str, Any] = {
+        "schema_version": ACTUATOR_COMPATIBILITY_SCHEMA_VERSION,
+        "status": status,
+        "exact_publication_compatible": status == ACTUATOR_EXACT_COMPATIBLE,
+        "handoff_sha256": rebuilt_handoff["handoff_sha256"],
+        "actuator_identity": identity,
+        "evidence_class": evidence_class,
+        "preservation_guarantees": preservation,
+        "commit_replacement": replacement,
+        "historical_observations": tuple(observations),
+        "reasons": tuple(reasons),
+        "governing_evidence_sha256": file_sha256(Path(actuator_evidence_path)),
+        "boundary": {"publishes_pr": False, "observes_hosted_pr": False, "grants_network_authority": False, "authorizes_actuation": False},
+    }
+    return PublicationActuatorCompatibility(**payload, compatibility_sha256=digest_json(payload))
+
+
+def verify_publication_actuator_compatibility(
+    artifact: Mapping[str, Any], **inputs: Any,
+) -> LandingEvidenceVerification:
+    try:
+        rebuilt = create_publication_actuator_compatibility(**inputs).to_dict()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return LandingEvidenceVerification(ACTUATOR_MATERIAL_CONTRADICTION, (str(exc),), {})
+    supplied = dict(artifact)
+    reasons = tuple(
+        f"actuator_compatibility_artifact_mismatch:{key}"
+        for key in sorted(set(rebuilt) | set(supplied))
+        if canonical_json(rebuilt.get(key)) != canonical_json(supplied.get(key))
+    )
+    return LandingEvidenceVerification(
+        rebuilt["status"] if not reasons else ACTUATOR_MATERIAL_CONTRADICTION,
+        reasons or tuple(rebuilt["reasons"]),
+        {"compatibility_sha256": rebuilt["compatibility_sha256"], "handoff_sha256": rebuilt["handoff_sha256"], "actuator_identity": rebuilt["actuator_identity"]},
+    )
 
 
 def create_hosted_pr_publication_custody(
