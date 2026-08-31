@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, List
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
@@ -36,19 +38,30 @@ except Exception:  # pragma: no cover - defensive initialization
 def _get_model() -> object:
     global _MODEL
     if _MODEL is None:
-        _MODEL = LocalModel.autoload()
+        activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
+        if activation:
+            from .local_model_production_commissioning import load_activation
+            _MODEL, _ = load_activation(Path(activation))
+        else:
+            _MODEL = LocalModel.autoload()
         LOGGER.info("Chat model loaded: %s", _MODEL.describe())
     return _MODEL
 
 
 def _get_invoker() -> GovernedLocalModelInvoker:
-    global _INVOKER
+    global _INVOKER, _MODEL
     if _INVOKER is None:
         model = _get_model()
         config = getattr(model, "config", None)
         if not isinstance(config, ModelConfig):
             config = ModelConfig(candidates=[ModelCandidate(path=None, engine="echo", name="Injected chat model")], generation=GenerationConfig())
-        authority_map = build_local_model_authority_map(config)
+        activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
+        if activation:
+            from .local_model_production_commissioning import load_activation
+            model, authority_map = load_activation(Path(activation))
+            _MODEL = model
+        else:
+            authority_map = build_local_model_authority_map(config)
         _INVOKER = GovernedLocalModelInvoker(model=model, authority_map=authority_map)
     return _INVOKER
 

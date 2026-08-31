@@ -330,7 +330,10 @@ class _LlamaCppBackend(_ModelBackend):
 
         gpu_layers = candidate.options.get("gpu_layers")
         if gpu_layers is None:
-            gpu_layers = -1 if _cuda_available() else 0
+            # Production candidates must never acquire an execution posture from
+            # an unrelated ambient torch installation.  Legacy callers retain
+            # the conservative CPU default and may opt in explicitly.
+            gpu_layers = 0
 
         runtime_options: dict[str, Any] = {}
         if candidate.options.get("n_threads") is not None:
