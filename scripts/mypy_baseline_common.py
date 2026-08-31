@@ -4,15 +4,23 @@ from collections import Counter
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any, Iterable, Sequence
 
 BASELINE_PATH = Path("vow/mypy_baseline.json")
+CANONICAL_MYPY_VERSION = "1.20.2"
+TARGET_PYTHON_VERSION = "3.11"
 DEFAULT_MYPY_COMMAND = (
     "python",
     "-m",
     "mypy",
+    "--config-file",
+    "pyproject.toml",
+    "--python-version",
+    TARGET_PYTHON_VERSION,
+    "--no-site-packages",
     "--no-incremental",
     "--hide-error-context",
     "--no-color-output",
@@ -22,13 +30,47 @@ DEFAULT_MYPY_COMMAND = (
     "sentientos/",
 )
 STABLE_GENERATED_AT = "stable-baseline-refresh"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 STATUS_CLEAN = "mypy_baseline_clean"
 STATUS_MATCHES = "mypy_baseline_matches_existing_debt"
 STATUS_REGRESSION = "mypy_baseline_regression_detected"
 STATUS_IMPROVED = "mypy_baseline_improved"
 STATUS_MISSING = "mypy_baseline_missing"
 STATUS_INVALID = "mypy_baseline_invalid"
+STATUS_TOOLCHAIN_MISMATCH = "mypy_baseline_toolchain_mismatch"
+STATUS_TOOLCHAIN_INCOMPATIBLE = "mypy_baseline_toolchain_incompatible"
+
+_VERSION_RE = re.compile(r"(?:^|\s)(\d+\.\d+\.\d+)(?:\s|$)")
+_SANITIZED_ENVIRONMENT_KEYS = ("MYPYPATH", "PYTHONPATH", "PYTHONHOME", "MYPY_CONFIG_FILE", "MYPY_CACHE_DIR")
+
+
+def normalize_mypy_version(raw: str) -> str | None:
+    match = _VERSION_RE.search(raw.strip())
+    return match.group(1) if match else None
+
+
+def sanitized_mypy_environment(source: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(os.environ if source is None else source)
+    for key in _SANITIZED_ENVIRONMENT_KEYS:
+        env.pop(key, None)
+    env["PYTHONNOUSERSITE"] = "1"
+    return env
+
+
+def toolchain_contract() -> dict[str, Any]:
+    return {
+        "mypy_version": CANONICAL_MYPY_VERSION,
+        "mypy_command": list(DEFAULT_MYPY_COMMAND),
+        "site_packages_enabled": False,
+        "target_python_version": TARGET_PYTHON_VERSION,
+        "environment_sanitized": list(_SANITIZED_ENVIRONMENT_KEYS),
+        "user_site_enabled": False,
+    }
+
+
+def toolchain_contract_digest() -> str:
+    encoded = json.dumps(toolchain_contract(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 _ERROR_RE = re.compile(
     r"^(?P<path>[^:\n]+):(?P<line>\d+)"
@@ -141,7 +183,7 @@ def records_digest(records: Iterable[MypyErrorRecord]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def build_manifest(*, records: Sequence[MypyErrorRecord], mypy_command: Sequence[str], mypy_version: str | None) -> dict[str, Any]:
+def build_manifest(*, records: Sequence[MypyErrorRecord], mypy_command: Sequence[str] = DEFAULT_MYPY_COMMAND, mypy_version: str | None = CANONICAL_MYPY_VERSION) -> dict[str, Any]:
     normalized = normalize_records(records)
     per_file = Counter(record.path for record in normalized)
     return {
@@ -149,7 +191,11 @@ def build_manifest(*, records: Sequence[MypyErrorRecord], mypy_command: Sequence
         "generated_at": STABLE_GENERATED_AT,
         "generator": "scripts.build_mypy_baseline",
         "mypy_command": list(mypy_command),
-        "mypy_version": mypy_version or "unknown",
+        "mypy_version": normalize_mypy_version(mypy_version or "") or mypy_version or "unknown",
+        "site_packages_enabled": False,
+        "target_python_version": TARGET_PYTHON_VERSION,
+        "toolchain_contract": toolchain_contract(),
+        "toolchain_contract_digest": toolchain_contract_digest(),
         "total_error_count": len(normalized),
         "affected_file_count": len(per_file),
         "per_file_counts": {path: per_file[path] for path in sorted(per_file)},
@@ -185,6 +231,14 @@ def manifest_records(manifest: dict[str, Any]) -> list[MypyErrorRecord]:
 def validate_manifest(manifest: dict[str, Any]) -> None:
     if manifest.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("unsupported mypy baseline schema_version")
+    if manifest.get("mypy_version") != CANONICAL_MYPY_VERSION:
+        raise ValueError("baseline/toolchain incompatibility: mypy version")
+    if manifest.get("mypy_command") != list(DEFAULT_MYPY_COMMAND):
+        raise ValueError("baseline/toolchain incompatibility: canonical command")
+    if manifest.get("site_packages_enabled") is not False or manifest.get("target_python_version") != TARGET_PYTHON_VERSION:
+        raise ValueError("baseline/toolchain incompatibility: type-resolution posture")
+    if manifest.get("toolchain_contract") != toolchain_contract() or manifest.get("toolchain_contract_digest") != toolchain_contract_digest():
+        raise ValueError("baseline/toolchain incompatibility: contract digest")
     records = manifest_records(manifest)
     expected_digest = records_digest(records)
     if manifest.get("digest") != expected_digest:
