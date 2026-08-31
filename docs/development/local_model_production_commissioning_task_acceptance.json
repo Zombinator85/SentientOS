@@ -1,10 +1,20 @@
 {
-  "schema_version": "sentientos.exact_node_task_acceptance_manifest:v1",
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "289a0208efeb77d28c2c578c7a03fb1fbfef046f",
   "test_provenance_path": "/tmp/local_model_production_commissioning_test_provenance.json",
   "required_nodes": [
-    {"node_id": "tests/test_local_model_production_commissioning.py::test_route_configuration_is_explicit_and_ambient_independent", "rationale": "Production load posture is deterministic."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[schema]", "rationale": "Production authority requires the canonical sealed-chain schema."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_sealed_production_chain_missing_or_malformed_fails_closed[evidence]", "rationale": "Caller-manufactured chain summaries cannot replace authoritative upstream evidence."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_exact_runtime_worker_identity_environment_protocol_and_shutdown", "rationale": "The custody interpreter, sanitized environment, bounded protocol, and explicit shutdown are exercised."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction", "rationale": "Compatibility uses the exact interpreter and performs zero semantic generations."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_commissioning_authorization_mismatch_fails_before_model_load", "rationale": "An inexact authorization is rejected before model construction."},
     {"node_id": "tests/test_local_model_production_commissioning.py::test_fabricated_self_consistent_commissioning_receipt_does_not_activate", "rationale": "A recomputed semantic digest is not production provenance."},
-    {"node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction", "rationale": "Compatibility records construction and zero generation truthfully."}
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_failures_are_explicit[stale]", "rationale": "Changed model bytes fail before compatibility success."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_invalid_configured_production_activation_fails_closed_serving", "rationale": "Invalid configured production activation cannot fall back to ambient autoload."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_production_commission_activate_and_serve_governed_chat_end_to_end", "rationale": "The bounded synthetic production path commissions, explicitly activates, and serves exactly one governed chat inference."}
   ],
-  "successful_path_nodes": ["tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction"]
+  "successful_path_nodes": [
+    "tests/test_local_model_production_commissioning.py::test_production_commission_activate_and_serve_governed_chat_end_to_end"
+  ]
 }
