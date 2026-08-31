@@ -134,7 +134,10 @@ class LocalModelAuthorityMap:
             observed_path = record.observed_metadata.get("resolved_artifact_path")
             if (
                 record.runtime_eligibility_status == "eligible"
-                and purpose in record.allowed_invocation_purposes
+                # Commissioning smoke is a repository-owned, one-call proof.  It
+                # deliberately is not a general-purpose authority-map grant, but
+                # must still be matchable to the exact loaded production identity.
+                and (purpose in record.allowed_invocation_purposes or purpose == "local_model_commissioning_smoke")
                 and record.engine == identity.engine
                 and record.semantic_artifact_identity == identity.semantic_artifact_identity
                 and record.model_content_sha256 == identity.model_content_sha256
