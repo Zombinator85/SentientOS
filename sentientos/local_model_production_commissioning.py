@@ -15,8 +15,9 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
-from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
+from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt
 from .local_model import LocalModel
+from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_model_artifact_acquisition import compose_acquisition_plan, verify_acquisition_receipt
 from .local_model_authority import build_local_model_authority_map
 from .local_runtime_backend_verification import compose_verification_plan as compose_backend_plan
@@ -30,6 +31,7 @@ ACTIVATION_SCHEMA = "sentientos.local_model_activation:v1"
 SMOKE_PROMPT_ID = "sentientos.local_model_commissioning_smoke:v1"
 SMOKE_PROMPT = "Reply with one short confirmation token."
 DENIED = {key: False for key in ("provider_network", "tool", "memory", "action", "adoption", "repository_mutation", "autonomous_invocation", "background_inference")}
+CHAIN_SCHEMA = "sentientos.local_model_production_chain:v1"
 
 
 class ProductionCommissioningError(RuntimeError):
@@ -72,7 +74,8 @@ def reconstruct_chain(*, selection: Mapping[str, Any], runtime_provisioning: Map
     digest, size = _digest_file(artifact)
     if digest != acquisition_plan["artifact_sha256"] or size != acquisition_plan["artifact_size_bytes"]:
         raise ProductionCommissioningError("acquired_artifact_stale")
-    return {
+    chain = {
+        "schema_version": CHAIN_SCHEMA, "status": "production_chain_reconstructed_current",
         "catalog_digest": acquisition_plan["local_model_catalog_digest"],
         "selection_digest": acquisition_plan["selection_plan_digest"],
         "provisioning_digest": runtime_provisioning["provisioning_plan_digest"],
@@ -90,6 +93,34 @@ def reconstruct_chain(*, selection: Mapping[str, Any], runtime_provisioning: Map
         "interpreter_path": import_plan["venv_interpreter_path"], "artifact_path": str(artifact),
         "artifact_sha256": digest, "artifact_size_bytes": size,
     }
+    chain["authoritative_evidence"] = {key: dict(value) for key, value in {
+        "selection": selection, "runtime_provisioning": runtime_provisioning,
+        "installation_plan": installation_plan, "installation_receipt": installation_receipt,
+        "import_plan": import_plan, "import_receipt": import_receipt, "backend_plan": backend_plan,
+        "backend_receipt": backend_receipt, "catalog": catalog, "acquisition_plan": acquisition_plan,
+        "acquisition_receipt": acquisition_receipt}.items()}
+    chain["sealed_chain_digest"] = semantic_digest(chain)
+    return chain
+
+
+def revalidate_chain(chain: Mapping[str, Any]) -> dict[str, Any]:
+    """Reconstruct every derivable stage and re-read current runtime/model bytes."""
+    if chain.get("schema_version") != CHAIN_SCHEMA or chain.get("status") != "production_chain_reconstructed_current":
+        raise ProductionCommissioningError("sealed_production_chain_required")
+    copy = dict(chain); claimed = copy.pop("sealed_chain_digest", None)
+    if claimed != semantic_digest(copy):
+        raise ProductionCommissioningError("sealed_production_chain_tampered")
+    evidence = chain.get("authoritative_evidence")
+    if not isinstance(evidence, Mapping):
+        raise ProductionCommissioningError("authoritative_chain_evidence_missing")
+    try: rebuilt = reconstruct_chain(**{key: evidence[key] for key in (
+        "selection", "runtime_provisioning", "installation_plan", "installation_receipt", "import_plan",
+        "import_receipt", "backend_plan", "backend_receipt", "catalog", "acquisition_plan", "acquisition_receipt")})
+    except (KeyError, OSError, ValueError) as exc:
+        raise ProductionCommissioningError("production_chain_no_longer_current") from exc
+    if rebuilt != dict(chain):
+        raise ProductionCommissioningError("production_chain_no_longer_current")
+    return rebuilt
 
 
 _PROBE = r'''import json,sys
@@ -145,6 +176,7 @@ def verify_compatibility(chain: Mapping[str, Any], *, timeout_seconds: float = 6
 
 
 def compose_commissioning_plan(chain: Mapping[str, Any], compatibility: Mapping[str, Any], output_root: Path | str) -> dict[str, Any]:
+    revalidate_chain(chain)
     _validate_digest(compatibility, "receipt_semantic_digest", "compatibility_receipt_invalid")
     if compatibility.get("chain_digest") != semantic_digest(chain):
         raise ProductionCommissioningError("compatibility_chain_mismatch")
@@ -179,6 +211,7 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
                model_factory: Callable[[ModelConfig], Any] | None = None,
                invoker_factory: Callable[..., GovernedLocalModelInvoker] = GovernedLocalModelInvoker) -> dict[str, Any]:
     _validate_digest(plan, "commissioning_plan_digest", "commissioning_plan_invalid")
+    revalidate_chain(plan["chain"])
     if authorization != authorization_for(plan, operator_confirmed_plan_digest=str(plan["commissioning_plan_digest"])):
         raise ProductionCommissioningError("commissioning_authorization_invalid")
     if compatibility.get("receipt_semantic_digest") != plan["compatibility_receipt_digest"]:
@@ -187,9 +220,7 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
     if (digest, size) != (chain["artifact_sha256"], chain["artifact_size_bytes"]): raise ProductionCommissioningError("artifact_changed_before_load")
     config = _config(plan)
     if model_factory is None:
-        backend, metadata = LocalModel._initialise_backend(config.candidates[0], config)
-        identity = LocalModel._identity_for(config.candidates[0], config, backend, metadata, 0)
-        model = LocalModel(backend, metadata, config, backend, identity)
+        model = ExactRuntimeLocalModel(chain, plan["load_configuration"])
     else: model = model_factory(config)
     identity = model.active_identity
     if identity.fallback or identity.posture != "production" or identity.engine != "llama_cpp" or identity.model_content_sha256 != digest or identity.artifact_size_bytes != size:
@@ -208,10 +239,20 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
         "operator_authorization_digest": authorization["authorization_digest"], "load_configuration": dict(plan["load_configuration"]),
         "active_model_identity": identity.to_dict(), "authority_map": authority.to_dict(),
         "smoke_request_digest": request.request_digest, "smoke_receipt_digest": smoke["receipt_digest"],
+        "smoke_evidence": {key: smoke[key] for key in ("request", "status", "reason_codes", "output_digest",
+            "output_size_bytes", "generation_config", "admission_decision_ref", "purpose", "output_truncated",
+            "fallback_occurred", "effects", "receipt_id", "receipt_digest")},
         "smoke_prompt_id": SMOKE_PROMPT_ID, "smoke_inference_count": 1, "activated": False, **DENIED}
     receipt["receipt_semantic_digest"] = semantic_digest(receipt)
-    root = Path(plan["output_root"]); root.mkdir(parents=True, exist_ok=True)
-    (root / "commissioning-receipt.json").write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
+    root = Path(plan["output_root"]); root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    target = root / "commissioning-receipt.json"
+    payload = json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n"
+    if target.exists():
+        if target.is_symlink() or target.read_text() != payload: raise ProductionCommissioningError("commissioning_receipt_conflict")
+    else:
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "w") as stream: stream.write(payload); stream.flush(); os.fsync(stream.fileno())
+        parent_fd = os.open(root, os.O_RDONLY); os.fsync(parent_fd); os.close(parent_fd)
     return receipt
 
 
@@ -219,7 +260,17 @@ def activate(receipt: Mapping[str, Any], activation_path: Path | str) -> dict[st
     _validate_digest(receipt, "receipt_semantic_digest", "commissioning_receipt_invalid")
     if receipt.get("schema_version") != RECEIPT_SCHEMA or receipt.get("status") != "local_model_commissioned":
         raise ProductionCommissioningError("production_commissioning_required")
-    chain = receipt["chain"]; digest, size = _digest_file(Path(chain["artifact_path"]))
+    chain = receipt["chain"]; revalidate_chain(chain)
+    smoke = receipt.get("smoke_evidence", {})
+    smoke_valid, _ = validate_receipt(smoke)
+    if (not smoke_valid or smoke.get("status") != "admitted_completed" or smoke.get("purpose") != "local_model_commissioning_smoke" or
+            smoke.get("request", {}).get("request_digest") != receipt.get("smoke_request_digest") or
+            smoke.get("receipt_digest") != receipt.get("smoke_receipt_digest") or
+            not smoke.get("output_digest") or smoke.get("fallback_occurred") is not False or
+            any(bool(value) for key, value in smoke.get("effects", {}).items() if key != "local_model_inference") or
+            smoke.get("effects", {}).get("local_model_inference") is not True):
+        raise ProductionCommissioningError("commissioning_smoke_evidence_invalid")
+    digest, size = _digest_file(Path(chain["artifact_path"]))
     if (digest, size) != (chain["artifact_sha256"], chain["artifact_size_bytes"]): raise ProductionCommissioningError("commissioned_artifact_stale")
     value = {"schema_version": ACTIVATION_SCHEMA, "status": "local_model_activated",
         "commissioning_receipt": dict(receipt), "commissioning_receipt_digest": receipt["receipt_semantic_digest"],
@@ -229,29 +280,31 @@ def activate(receipt: Mapping[str, Any], activation_path: Path | str) -> dict[st
         "load_configuration": dict(receipt["load_configuration"]), "authority_map": dict(receipt["authority_map"]),
         "serving_grant": "already_governed_local_invocation_only", **DENIED}
     value["activation_digest"] = semantic_digest(value)
-    target = Path(activation_path); target.parent.mkdir(parents=True, exist_ok=True)
+    target = Path(activation_path); target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if target.is_symlink() or target.parent.is_symlink(): raise ProductionCommissioningError("activation_path_unsafe")
     fd, temporary = tempfile.mkstemp(prefix=".activation-", dir=target.parent)
     try:
         with os.fdopen(fd, "w") as stream: json.dump(value, stream, sort_keys=True, separators=(",", ":")); stream.write("\n"); stream.flush(); os.fsync(stream.fileno())
         os.replace(temporary, target)
+        parent_fd = os.open(target.parent, os.O_RDONLY); os.fsync(parent_fd); os.close(parent_fd)
     finally:
         if os.path.exists(temporary): os.unlink(temporary)
     return value
 
 
-def load_activation(path: Path | str) -> tuple[LocalModel, Any]:
+def load_activation(path: Path | str) -> tuple[Any, Any]:
     value = json.loads(Path(path).read_text())
     copy = dict(value); claimed = copy.pop("activation_digest", None)
     if claimed != semantic_digest(copy): raise ProductionCommissioningError("activation_invalid")
     receipt = value["commissioning_receipt"]; _validate_digest(receipt, "receipt_semantic_digest", "commissioning_receipt_invalid")
     if receipt["receipt_semantic_digest"] != value["commissioning_receipt_digest"]: raise ProductionCommissioningError("activation_commissioning_mismatch")
-    chain = receipt["chain"]; digest, size = _digest_file(Path(chain["artifact_path"]))
+    chain = receipt["chain"]; revalidate_chain(chain)
+    digest, size = _digest_file(Path(chain["artifact_path"]))
     if (digest, size) != (value["artifact_sha256"], value["artifact_size_bytes"]): raise ProductionCommissioningError("activated_artifact_stale")
     plan = {"chain": chain, "load_configuration": value["load_configuration"]}; config = _config(plan)
-    backend, metadata = LocalModel._initialise_backend(config.candidates[0], config)
-    identity = LocalModel._identity_for(config.candidates[0], config, backend, metadata, 0)
+    model = ExactRuntimeLocalModel(chain, value["load_configuration"])
+    identity = model.active_identity
     if identity.to_dict() != receipt["active_model_identity"]: raise ProductionCommissioningError("activated_identity_mismatch")
-    model = LocalModel(backend, metadata, config, backend, identity)
     authority = build_local_model_authority_map(config, allowed_roots=[Path(chain["artifact_path"]).parent], observed_at="1970-01-01T00:00:00+00:00")
     if authority.to_dict() != value["authority_map"]: raise ProductionCommissioningError("activated_authority_mismatch")
     return model, authority

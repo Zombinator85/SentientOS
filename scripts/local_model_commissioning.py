@@ -8,7 +8,19 @@ from pathlib import Path
 
 from sentientos.config import GenerationConfig
 from sentientos.local_model_commissioning import doctor, inspect_artifact, render_bundle, verify_bundle
-from sentientos.local_model_production_commissioning import activate
+from sentientos.local_model_production_commissioning import (
+    ProductionCommissioningError, activate, authorization_for, commission,
+    compose_commissioning_plan, load_activation, reconstruct_chain, revalidate_chain,
+    verify_compatibility,
+)
+
+EVIDENCE_NAMES = ("selection", "runtime_provisioning", "installation_plan", "installation_receipt",
+                  "import_plan", "import_receipt", "backend_plan", "backend_receipt", "catalog",
+                  "acquisition_plan", "acquisition_receipt")
+
+
+def _production_chain(root: Path) -> dict[str, object]:
+    return reconstruct_chain(**{name: json.loads((root / f"{name}.json").read_text()) for name in EVIDENCE_NAMES})
 
 
 def main() -> int:
@@ -36,6 +48,14 @@ def main() -> int:
     activation = sub.add_parser("activate")
     activation.add_argument("--commissioning-receipt", type=Path, required=True)
     activation.add_argument("--activation-path", type=Path, required=True)
+    for name in ("production-plan", "compatibility", "commission"):
+        command = sub.add_parser(name)
+        command.add_argument("--evidence-root", type=Path, required=True)
+        command.add_argument("--output-root", type=Path, required=True)
+        if name != "production-plan": command.add_argument("--compatibility-receipt", type=Path)
+        if name == "commission": command.add_argument("--confirm-plan-digest", required=True)
+    status = sub.add_parser("status")
+    status.add_argument("--activation-path", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command in {"inspect", "render"}:
@@ -56,9 +76,32 @@ def main() -> int:
                 result = validation
             else:
                 result = json.loads((args.state_root / "calibration-handoff.json").read_text())
-        else:
+        elif args.command == "activate":
             result = activate(json.loads(args.commissioning_receipt.read_text()), args.activation_path)
-    except (OSError, ValueError, FileExistsError, json.JSONDecodeError) as exc:
+        elif args.command in {"production-plan", "compatibility", "commission"}:
+            chain = _production_chain(args.evidence_root)
+            if args.command == "compatibility":
+                result = verify_compatibility(chain)
+                target = args.compatibility_receipt or (args.output_root / "compatibility-receipt.json")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
+            else:
+                compatibility_path = args.compatibility_receipt or (args.output_root / "compatibility-receipt.json")
+                compatibility = json.loads(compatibility_path.read_text()) if compatibility_path.exists() else {
+                    "receipt_semantic_digest": "plan_requires_verified_compatibility"}
+                result = compose_commissioning_plan(chain, compatibility, args.output_root)
+                if args.command == "commission":
+                    authorization = authorization_for(result, operator_confirmed_plan_digest=args.confirm_plan_digest)
+                    result = commission(result, compatibility, authorization)
+        else:
+            model, _ = load_activation(args.activation_path)
+            try:
+                result = {"status": "active_production_chain_current", "active_model_identity": model.active_identity.to_dict(),
+                          "semantic_model_generations": 0}
+            finally:
+                close = getattr(model, "close", None)
+                if close is not None: close()
+    except (OSError, ValueError, FileExistsError, json.JSONDecodeError, ProductionCommissioningError) as exc:
         result = {"status": "blocked", "reason": str(exc), "semantic_model_generations": 0}
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     return 0 if result.get("status") not in {"blocked"} else 2

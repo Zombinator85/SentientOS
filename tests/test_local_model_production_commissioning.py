@@ -38,7 +38,7 @@ def test_compatibility_receipt_records_truthful_bounded_construction(tmp_path: P
     assert receipt["semantic_generations"] == 0
 
 
-def test_activation_requires_valid_commissioning_and_current_bytes(tmp_path: Path) -> None:
+def test_fabricated_self_consistent_commissioning_receipt_does_not_activate(tmp_path: Path) -> None:
     model = tmp_path / "m.gguf"; model.write_bytes(b"GGUFsynthetic")
     chain = _chain(model, Path("/verified/python"))
     receipt = {"schema_version": "sentientos.local_model_commissioning_receipt:v2", "status": "local_model_commissioned",
@@ -46,8 +46,5 @@ def test_activation_requires_valid_commissioning_and_current_bytes(tmp_path: Pat
         "activated": False, "provider_network": False, "tool": False, "memory": False, "action": False,
         "adoption": False, "repository_mutation": False, "autonomous_invocation": False, "background_inference": False}
     receipt["receipt_semantic_digest"] = semantic_digest(receipt)
-    activation = activate(receipt, tmp_path / "active.json")
-    assert activation["status"] == "local_model_activated"
-    model.write_bytes(b"changed")
-    with pytest.raises(ProductionCommissioningError, match="commissioned_artifact_stale"):
-        activate(receipt, tmp_path / "active2.json")
+    with pytest.raises(ProductionCommissioningError, match="sealed_production_chain_required"):
+        activate(receipt, tmp_path / "active.json")
