@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f159a93d51b971ad18587608b7657a45c97657e5",
+  "test_provenance_path": "/tmp/local_model_artifact_acquisition_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_deterministic_cross_bound_plan_and_inspection_are_zero_effect", "rationale": "Deterministic inspection binds governing evidence without effects."},
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_crossed_route_provisioning_and_backend_fail", "rationale": "Crossed route/runtime/backend evidence fails closed."},
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_authorization_and_space_fail_before_network", "rationale": "Authorization and storage preflight precede network."},
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_stream_publish_receipt_and_verified_cache_hit", "rationale": "Exact streamed bytes publish deterministic escrow and receipt with verified cache reuse."},
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_exact_stream_failures_leave_no_canonical_artifact[synthetic opaque GGUF bytes-extra-None-model_artifact_size_mismatch]", "rationale": "Overrun cannot publish partial canonical bytes."},
+    {"node_id": "tests/test_local_model_artifact_acquisition.py::test_tampered_receipt_is_not_downstream_authority", "rationale": "Tampering cannot convert acquisition evidence into loading or inference authority."},
+    {"node_id": "tests/test_local_model_artifact_acquisition_script.py::test_cli_execute_requires_exact_plan_digest", "rationale": "CLI effect mode requires exact plan confirmation."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_artifact_acquisition.py::test_stream_publish_receipt_and_verified_cache_hit"
+  ]
+}

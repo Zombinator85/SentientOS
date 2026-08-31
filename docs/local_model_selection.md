@@ -39,9 +39,11 @@ acquired; catalog entry selected ≠ artifact acquired; artifact acquired ≠ GG
 compatible; GGUF compatible ≠ model loaded; model loaded ≠ commissioned; commissioned
 ≠ inference authorized. Catalog promotion is curator-controlled metadata publication.
 Catalog validation and selection grant no network, download, runtime, model,
-commissioning, inference, or other execution authority. A later acquisition stage must
-cross-bind the selected model route, runtime provisioning plan, and sealed backend
-receipt before it may fetch any bytes.
+commissioning, inference, or other execution authority. The implemented
+[local-model artifact acquisition](local_model_artifact_acquisition.md) stage cross-binds
+the selected model route, runtime provisioning plan, and sealed backend receipt before
+it fetches exact catalog-authorized bytes. Acquisition remains distinct from GGUF
+compatibility, loading, commissioning, and inference authority.
 
 The immutable hardware profile records inventory identity/digest, OS and architecture, exact total RAM bytes, optional available storage, tri-state AVX/AVX2/AVX512 facts, explicit accelerator observations/vendor/family/VRAM/backend, missing facts, and warnings. The adapter uses `HostInventoryManifest` fields directly. It never derives instruction sets from CPU text, VRAM from labels, or runtime backends from hardware brands. Facts not explicitly supplied remain `unknown`.
 
