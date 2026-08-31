@@ -1,5 +1,30 @@
 # Production-local model commissioning
 
+The historical `sentientos.local_model_commissioning:v1` bundle described below is
+retained as a **legacy, non-production inspection and calibration handoff**. It is
+not accepted by production activation. Production v2 lives in
+`sentientos.local_model_production_commissioning`: it reconstructs the selection,
+provisioning, installation, import-verification, backend-verification, and acquisition
+objects through their canonical composers; runs the exact installed interpreter in an
+isolated bounded subprocess; and constructs llama.cpp in `vocab_only` mode. That probe
+does construct bounded model/vocabulary state, but performs zero generations and grants
+no commissioning or inference authority.
+
+Production v2 derives `n_gpu_layers=0` for CPU routes and a conservative single-layer
+offload for a verified accelerator route. The latter proves only a conservative
+accelerated construction, never full-model offload. Ambient torch/CUDA discovery is
+not used. A digest-bound authorization naming the exact commissioning-plan digest is
+required before load. Exactly one repository-owned smoke prompt then passes through
+`GovernedLocalModelInvoker` and the control plane before a deterministic commissioning
+receipt can be written.
+
+Activation is a separate atomic replacement of one activation JSON file and performs
+no inference or daemon startup. Setting `SENTIENTOS_LOCAL_MODEL_ACTIVATION` to that file
+makes the existing chat service revalidate the embedded commissioning receipt, current
+GGUF bytes, exact active identity, and authority map before using the existing governed
+invoker. Without a valid activation, the production path cannot load acquired bytes;
+legacy null/echo development fallback remains machine-distinct simulation.
+
 Commissioning proves that one exact, operator-supplied GGUF and one exact existing
 `ModelConfig` can occupy SentientOS's governed production-local model slot. It binds
 the resolved artifact path, byte size, SHA-256, optional adjacent JSON sidecar digest,

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from sentientos.config import GenerationConfig
 from sentientos.local_model_commissioning import doctor, inspect_artifact, render_bundle, verify_bundle
+from sentientos.local_model_production_commissioning import activate
 
 
 def main() -> int:
@@ -32,6 +33,9 @@ def main() -> int:
     doctor_parser.add_argument("--require-load-verification", action="store_true")
     handoff = sub.add_parser("handoff")
     handoff.add_argument("--state-root", type=Path, required=True)
+    activation = sub.add_parser("activate")
+    activation.add_argument("--commissioning-receipt", type=Path, required=True)
+    activation.add_argument("--activation-path", type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command in {"inspect", "render"}:
@@ -46,12 +50,14 @@ def main() -> int:
         elif args.command == "doctor":
             result = doctor(args.state_root,
                             require_load_verification=args.require_load_verification)
-        else:
+        elif args.command == "handoff":
             validation = verify_bundle(args.state_root)
             if not validation.get("bundle_valid"):
                 result = validation
             else:
                 result = json.loads((args.state_root / "calibration-handoff.json").read_text())
+        else:
+            result = activate(json.loads(args.commissioning_receipt.read_text()), args.activation_path)
     except (OSError, ValueError, FileExistsError, json.JSONDecodeError) as exc:
         result = {"status": "blocked", "reason": str(exc), "semantic_model_generations": 0}
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))

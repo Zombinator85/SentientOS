@@ -9,7 +9,7 @@ from typing import Any, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "genesis_proposal_advice", "discernment_judgment"}
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:
@@ -128,7 +128,7 @@ class GovernedLocalModelInvoker:
         if not ok: reasons += ["authority_map_invalid", *map_reasons]
         if request.purpose not in SUPPORTED_PURPOSES: reasons.append("purpose_unsupported")
         if record is None: reasons.append("model_record_missing")
-        elif record.runtime_eligibility_status != "eligible" or request.purpose not in record.allowed_invocation_purposes:
+        elif record.runtime_eligibility_status != "eligible" or (request.purpose not in record.allowed_invocation_purposes and request.purpose != "local_model_commissioning_smoke"):
             if record.engine in {"null", "echo"} and request.purpose == "local_user_chat":
                 reasons.append("simulation_backend")
             else: reasons.append("model_not_eligible_for_purpose")
@@ -159,7 +159,7 @@ class GovernedLocalModelInvoker:
         if request.authority_map_digest != self.authority_map.map_digest: reasons.append("model_authority_stale")
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
-        if request.purpose == "discernment_judgment":
+        if request.purpose in {"discernment_judgment", "local_model_commissioning_smoke"}:
             if identity is None:
                 reasons.append("active_model_identity_unavailable")
             elif identity.fallback or identity.posture != "production":
@@ -177,7 +177,7 @@ class GovernedLocalModelInvoker:
             else:
                 try:
                     self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment"} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
+                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke"} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
                     gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                     def _call_model() -> str:
                         governed_generate = getattr(self.model, "generate_governed", None)
