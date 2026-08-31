@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a78827647038d694955dc64b4c87c4b3272b8c8c",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_mypy_baseline.py::test_checker_rejects_noncanonical_version_before_comparison[1.18.2]", "rationale": "reject stale toolchain before comparison"},
+    {"node_id": "tests/test_mypy_baseline.py::test_canonical_command_disables_site_packages_and_is_nonincremental", "rationale": "canonical isolated command"},
+    {"node_id": "tests/test_mypy_baseline.py::test_unrelated_visible_stub_packages_cannot_change_type_resolution_posture", "rationale": "ambient package independence"},
+    {"node_id": "tests/test_mypy_baseline.py::test_canonical_version_is_accepted_before_matching", "rationale": "canonical matching success path"},
+    {"node_id": "tests/test_mypy_baseline.py::test_check_fails_when_new_errors_appear", "rationale": "new errors remain regressions"},
+    {"node_id": "tests/test_mypy_baseline.py::test_manifest_rejects_other_contract_and_digest_tampering", "rationale": "contract custody"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_mypy_baseline.py::test_canonical_version_is_accepted_before_matching"
+  ]
+}

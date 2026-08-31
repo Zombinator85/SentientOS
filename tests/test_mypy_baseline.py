@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from scripts.mypy_baseline_common import (
     DEFAULT_MYPY_COMMAND,
+    CANONICAL_MYPY_VERSION,
     MypyErrorRecord,
     STATUS_IMPROVED,
     STATUS_INVALID,
@@ -19,6 +21,8 @@ from scripts.mypy_baseline_common import (
     manifest_to_text,
     parse_mypy_output,
     records_digest,
+    normalize_mypy_version,
+    sanitized_mypy_environment,
 )
 from scripts import build_mypy_baseline, check_mypy_baseline
 
@@ -66,8 +70,8 @@ def test_baseline_manifest_is_deterministic() -> None:
         MypyErrorRecord("b.py", 2, None, "arg-type", "B"),
         MypyErrorRecord("a.py", 1, 3, None, "A"),
     ]
-    first = manifest_to_text(build_manifest(records=records, mypy_command=DEFAULT_MYPY_COMMAND, mypy_version="mypy 1.x"))
-    second = manifest_to_text(build_manifest(records=list(reversed(records)), mypy_command=DEFAULT_MYPY_COMMAND, mypy_version="mypy 1.x"))
+    first = manifest_to_text(build_manifest(records=records))
+    second = manifest_to_text(build_manifest(records=list(reversed(records))))
     assert first == second
 
 
@@ -144,6 +148,68 @@ def test_check_fails_when_baseline_invalid(tmp_path: Path, capsys) -> None:
     out = json.loads(capsys.readouterr().out)
     assert exit_code == 2
     assert out["status"] == STATUS_INVALID
+
+
+@pytest.mark.parametrize("raw", ["mypy 1.20.2 (compiled: yes)", "mypy 1.20.2 (compiled: no)", "mypy 1.20.2"])
+def test_semantic_version_normalizes_build_annotations(raw: str) -> None:
+    assert normalize_mypy_version(raw) == CANONICAL_MYPY_VERSION
+
+
+@pytest.mark.parametrize("observed", ["1.18.2", "1.21.0"])
+def test_checker_rejects_noncanonical_version_before_comparison(monkeypatch, tmp_path: Path, capsys, observed: str) -> None:
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(manifest_to_text(build_manifest(records=[])), encoding="utf-8")
+    monkeypatch.setattr(check_mypy_baseline, "_mypy_version", lambda: observed)
+    monkeypatch.setattr(check_mypy_baseline, "_run_command", lambda command: pytest.fail("comparison must not run"))
+    assert check_mypy_baseline.main(["--baseline", str(baseline)]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "mypy_baseline_toolchain_mismatch"
+    assert result["expected_mypy_version"] == CANONICAL_MYPY_VERSION
+
+
+def test_canonical_command_disables_site_packages_and_is_nonincremental() -> None:
+    assert "--no-site-packages" in DEFAULT_MYPY_COMMAND
+    assert "--no-incremental" in DEFAULT_MYPY_COMMAND
+    assert DEFAULT_MYPY_COMMAND[DEFAULT_MYPY_COMMAND.index("--config-file") + 1] == "pyproject.toml"
+
+
+def test_ambient_python_and_mypy_paths_are_sanitized() -> None:
+    source = {"PATH": "/bin", "MYPYPATH": "/stubs", "PYTHONPATH": "/packages", "PYTHONHOME": "/other", "MYPY_CONFIG_FILE": "/other.ini", "MYPY_CACHE_DIR": "/cache"}
+    first = sanitized_mypy_environment(source)
+    second = sanitized_mypy_environment({**source, "MYPYPATH": "/different", "PYTHONPATH": "/different"})
+    assert first == second
+    assert all(key not in first for key in ("MYPYPATH", "PYTHONPATH", "PYTHONHOME", "MYPY_CONFIG_FILE", "MYPY_CACHE_DIR"))
+    assert first["PYTHONNOUSERSITE"] == "1"
+
+
+def test_unrelated_visible_stub_packages_cannot_change_type_resolution_posture(tmp_path: Path) -> None:
+    one = tmp_path / "one"; two = tmp_path / "two"
+    one.mkdir(); two.mkdir()
+    (one / "unrelated.pyi").write_text("value: int\n", encoding="utf-8")
+    (two / "unrelated.pyi").write_text("value: str\n", encoding="utf-8")
+    assert sanitized_mypy_environment({**os.environ, "MYPYPATH": str(one), "PYTHONPATH": str(one)}) == sanitized_mypy_environment({**os.environ, "MYPYPATH": str(two), "PYTHONPATH": str(two)})
+
+
+def test_manifest_rejects_other_contract_and_digest_tampering(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    manifest = build_manifest(records=[])
+    manifest["toolchain_contract"]["site_packages_enabled"] = True
+    baseline.write_text(manifest_to_text(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="baseline/toolchain incompatibility"):
+        load_manifest(baseline)
+    manifest = build_manifest(records=[])
+    manifest["toolchain_contract_digest"] = "0" * 64
+    baseline.write_text(manifest_to_text(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="contract digest"):
+        load_manifest(baseline)
+
+
+def test_canonical_version_is_accepted_before_matching(monkeypatch, tmp_path: Path, capsys) -> None:
+    output = tmp_path / "current.txt"; output.write_text("", encoding="utf-8")
+    baseline = tmp_path / "baseline.json"; baseline.write_text(manifest_to_text(build_manifest(records=[])), encoding="utf-8")
+    monkeypatch.setattr(check_mypy_baseline, "_mypy_version", lambda: CANONICAL_MYPY_VERSION)
+    assert check_mypy_baseline.main(["--baseline", str(baseline), "--current-output-file", str(output)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "mypy_baseline_clean"
 
 
 def test_explicit_baseline_refresh_updates_records_and_digest(tmp_path: Path) -> None:

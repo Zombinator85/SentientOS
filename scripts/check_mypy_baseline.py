@@ -15,19 +15,28 @@ from scripts.mypy_baseline_common import (
     DEFAULT_MYPY_COMMAND,
     STATUS_INVALID,
     STATUS_MISSING,
+    STATUS_TOOLCHAIN_MISMATCH,
+    CANONICAL_MYPY_VERSION,
     compare_records,
     load_manifest,
     manifest_records,
     parse_mypy_output,
+    normalize_mypy_version,
+    sanitized_mypy_environment,
 )
 
 
 def _run_command(command: list[str]) -> str:
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    completed = subprocess.run(command, check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
     output = completed.stdout
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr
     return output
+
+
+def _mypy_version() -> str | None:
+    completed = subprocess.run([sys.executable, "-m", "mypy", "--version"], check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
+    return normalize_mypy_version(completed.stdout) if completed.returncode == 0 else None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -37,6 +46,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--summary", type=Path, help="Optional path for reviewer summary JSON.")
     parser.add_argument("targets", nargs="*", help="Override mypy targets/flags after 'python -m mypy'.")
     args = parser.parse_args(argv)
+
+    observed_version = _mypy_version()
+    if observed_version != CANONICAL_MYPY_VERSION:
+        summary = {"status": STATUS_TOOLCHAIN_MISMATCH, "expected_mypy_version": CANONICAL_MYPY_VERSION, "observed_mypy_version": observed_version or "unknown", "executable": sys.executable, "remediation": f"install mypy=={CANONICAL_MYPY_VERSION} from requirements.lock"}
+        print(json.dumps(summary, sort_keys=True))
+        return 2
 
     if not args.baseline.exists():
         summary = {"status": STATUS_MISSING, "baseline": str(args.baseline)}
