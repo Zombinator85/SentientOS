@@ -654,6 +654,7 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--phase", default="pr-metadata")
         s.add_argument("--validation-profile", choices=("solo", "exhaustive"), default="solo")
         s.add_argument("--matrix-json-path", default="/tmp/work_item_review_packet_matrix.json")
+        s.add_argument("--prevalidated-matrix-json", help="exact completed matrix artifact to reuse during pre-commit finalization")
         s.add_argument("--workspace-root", default=".")
         s.add_argument("--focused-test-command", action="append", default=[])
         s.add_argument("--targeted-mypy-command", action="append", default=[])
@@ -767,6 +768,71 @@ def main(argv: list[str] | None = None) -> int:
     stage_specs.extend(("focused_tests", c, True) for c in a.focused_test_command)
     stage_specs.extend(("targeted_mypy", c, True) for c in a.targeted_mypy_command)
     exact_matrix_reuse = a.validation_profile == "exhaustive" and a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and bool(a.pre_commit_finalizer_json)
+    prevalidated_matrix_reuse = False
+    prevalidated_matrix_reasons: list[str] = []
+    prevalidated_matrix_evidence: dict[str, object] = {
+        "reuse_requested": bool(a.prevalidated_matrix_json), "reuse_accepted": False,
+        "reuse_artifact_path": a.prevalidated_matrix_json,
+    }
+    if a.prevalidated_matrix_json:
+        if a.validation_profile != "exhaustive" or normalized_phase != "pre-commit":
+            prevalidated_matrix_reasons.append("prevalidated_matrix_requires_exhaustive_pre_commit")
+        try:
+            from scripts.run_work_item_review_packet_matrix import (
+                MATRIX_SCHEMA, _digest as matrix_digest, _is_required_failure,
+                default_matrix_commands,
+                matrix_contract, workspace_binding as matrix_workspace_binding,
+            )
+            artifact_path = Path(a.prevalidated_matrix_json)
+            artifact_bytes = artifact_path.read_bytes()
+            matrix = json.loads(artifact_bytes.decode("utf-8"))
+            commands_now = default_matrix_commands()
+            contract_now = matrix_contract(commands_now)
+            binding_now = matrix_workspace_binding(commands_now, Path(a.workspace_root))
+            results = matrix.get("results")
+            expected_labels = [command.label for command in commands_now]
+            checks = (
+                (matrix.get("schema_version") == MATRIX_SCHEMA, "matrix_schema_invalid"),
+                (matrix.get("status") == "matrix_passed", "matrix_status_not_passed"),
+                (matrix.get("completion_status") == "matrix_passed", "matrix_completion_incomplete"),
+                (matrix.get("required_failure_count") == 0, "matrix_required_failures_nonzero"),
+                (matrix.get("required_failures") == [], "matrix_required_failures_manifest_invalid"),
+                (matrix.get("command_count") == len(commands_now), "matrix_command_count_changed"),
+                (matrix.get("matrix_contract_digest") == contract_now["manifest_digest"], "matrix_contract_changed"),
+                (matrix.get("matrix_contract") == contract_now, "matrix_contract_manifest_changed"),
+                (isinstance(results, list) and len(results) == len(commands_now), "matrix_lane_count_changed"),
+                (matrix.get("completed_labels") == expected_labels, "matrix_completed_lanes_invalid"),
+                (matrix.get("next_lane_index") == len(commands_now), "matrix_next_lane_invalid"),
+                (matrix.get("active_lane") is None, "matrix_active_lane_present"),
+                (matrix.get("workspace_binding") == binding_now, "workspace_binding_changed"),
+                (matrix.get("checkpoint_digest") == matrix_digest({k: v for k, v in matrix.items() if k != "checkpoint_digest"}), "matrix_artifact_digest_mismatch"),
+            )
+            prevalidated_matrix_reasons.extend(reason for valid, reason in checks if not valid)
+            if isinstance(results, list) and len(results) == len(commands_now):
+                for index, (row, command) in enumerate(zip(results, commands_now)):
+                    if (row.get("label") != command.label or row.get("command") != list(command.command)
+                            or row.get("required") != command.required or row.get("proof_required") != command.proof_required
+                            or row.get("execution_required") != command.execution_required or row.get("diagnostic_only") != command.diagnostic_only):
+                        prevalidated_matrix_reasons.append(f"matrix_lane_contract_changed:{index}")
+                    if _is_required_failure(row):
+                        prevalidated_matrix_reasons.append(f"matrix_required_lane_not_passed:{command.label}")
+            prevalidated_matrix_reuse = not prevalidated_matrix_reasons
+            prevalidated_matrix_evidence.update({
+                "reuse_accepted": prevalidated_matrix_reuse,
+                "reused_matrix_digest": matrix.get("checkpoint_digest"),
+                "reused_matrix_artifact_sha256": _sha256(artifact_bytes),
+                "current_matrix_contract_digest": contract_now["manifest_digest"],
+                "current_workspace_binding_digest": binding_now.get("binding_digest"),
+                "comparison_result": "exact_match" if prevalidated_matrix_reuse else "rejected",
+                "reason": "exact_prevalidated_matrix_reuse" if prevalidated_matrix_reuse else prevalidated_matrix_reasons[0],
+            })
+            if prevalidated_matrix_reuse:
+                a.matrix_json_path = a.prevalidated_matrix_json
+        except (OSError, ValueError, json.JSONDecodeError, TypeError) as exc:
+            prevalidated_matrix_reasons.append(f"prevalidated_matrix_unreadable:{type(exc).__name__}")
+            prevalidated_matrix_evidence.update({"comparison_result": "rejected", "reason": prevalidated_matrix_reasons[0]})
+        if prevalidated_matrix_reasons:
+            runtime_error = "prevalidated_matrix_reuse_rejected:" + ",".join(prevalidated_matrix_reasons)
     precommit_retry_reuse = False
     precommit_retry_reasons: list[str] = []
     if a.phase.replace("_", "-") == "pre-commit" and a.pre_commit_retry_finalizer_json:
@@ -787,7 +853,7 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             precommit_retry_reasons.append(f"invalid_precommit_retry_artifact:{type(exc).__name__}")
     matrix_stages: list[tuple[str, str, bool]] = []
-    if a.validation_profile == "exhaustive" and not (exact_matrix_reuse or precommit_retry_reuse):
+    if a.validation_profile == "exhaustive" and not (exact_matrix_reuse or precommit_retry_reuse or prevalidated_matrix_reuse):
         matrix_stages = [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
     changed_surface = set(a.changed_file) | set(inferred_changed_files) | set(inferred_untracked_task_files)
     docs_required = a.force_docs_validation or any(path.startswith("docs/") or path in {"mkdocs.yml", "scripts/build_docs.py"} for path in changed_surface)
@@ -1042,7 +1108,7 @@ def main(argv: list[str] | None = None) -> int:
         "skipped_or_deferred_stage_ids": ([] if docs_required else ["docs_check_deps", "docs_build"]) + ([] if a.validation_profile == "exhaustive" else ["matrix_summary"]),
         "stage_results": stage_results, "total_validation_duration_seconds": time.monotonic() - started,
         "configured_total_budget_seconds": a.overall_timeout_seconds, "remaining_budget_seconds": max(0.0, deadline - time.monotonic()),
-        "exhaustive_matrix_status": SOLO_MATRIX_STATUS if a.validation_profile == "solo" else ("matrix_reused" if exact_matrix_reuse else "matrix_passed" if stage_results.get("matrix_summary", {}).get("status") == "passed" else "matrix_failed"),
+        "exhaustive_matrix_status": SOLO_MATRIX_STATUS if a.validation_profile == "solo" else ("matrix_reused" if exact_matrix_reuse or prevalidated_matrix_reuse else "matrix_passed" if stage_results.get("matrix_summary", {}).get("status") == "passed" else "matrix_failed"),
         "exhaustive_matrix_digest": None if a.validation_profile == "solo" else payload.get("workspace_binding", {}).get("matrix_digest"),
         "overall_status": decision_status,
     })
@@ -1051,6 +1117,7 @@ def main(argv: list[str] | None = None) -> int:
         "status": "exact_precommit_plan_reused" if prior_solo_plan else "not_applicable",
         "artifact_digest": prior_solo_plan.get("artifact_digest") if prior_solo_plan else None,
     }
+    payload["prevalidated_matrix_reuse"] = prevalidated_matrix_evidence
     # Exact content bindings are semantic evidence; runtime roots are custody metadata only.
     binding_errors = []
     binding_obj = None
@@ -1092,11 +1159,11 @@ def main(argv: list[str] | None = None) -> int:
     }
     payload["evidence_freshness"] = {
         "stale_evidence_reasons": stale_reasons,
-        "matrix_execution_mode": "exact_binding_reuse" if exact_matrix_reuse else "exact_precommit_retry_reuse" if precommit_retry_reuse else "resumed_or_executed" if a.pre_commit_retry_finalizer_json else "executed",
-        "matrix_reuse_status": "exact_precommit_retry_reuse" if precommit_retry_reuse else "not_reused",
-        "matrix_reuse_reasons": precommit_retry_reasons,
-        "reused_matrix_digest": payload.get("workspace_binding", {}).get("matrix_digest") if exact_matrix_reuse else None,
-        "reuse_justification": "post-commit exact binding reuse requested with pre-commit finalizer artifact" if exact_matrix_reuse else "matrix executed",
+        "matrix_execution_mode": "exact_prevalidated_matrix_reuse" if prevalidated_matrix_reuse else "exact_binding_reuse" if exact_matrix_reuse else "exact_precommit_retry_reuse" if precommit_retry_reuse else "resumed_or_executed" if a.pre_commit_retry_finalizer_json else "executed",
+        "matrix_reuse_status": "exact_prevalidated_matrix_reuse" if prevalidated_matrix_reuse else "exact_precommit_retry_reuse" if precommit_retry_reuse else "not_reused",
+        "matrix_reuse_reasons": prevalidated_matrix_reasons if a.prevalidated_matrix_json else precommit_retry_reasons,
+        "reused_matrix_digest": prevalidated_matrix_evidence.get("reused_matrix_digest") if prevalidated_matrix_reuse else payload.get("workspace_binding", {}).get("matrix_digest") if exact_matrix_reuse else None,
+        "reuse_justification": "exact_prevalidated_matrix_reuse" if prevalidated_matrix_reuse else "post-commit exact binding reuse requested with pre-commit finalizer artifact" if exact_matrix_reuse else "matrix executed",
         "stale_evidence_refresh_attempted": refresh_attempted,
         "stale_evidence_refresh_result": refresh_status,
         "refresh_failure_reason": refresh_failure_reason or None,

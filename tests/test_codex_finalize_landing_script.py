@@ -152,6 +152,82 @@ def test_parser_has_output_timeouts_and_progress_flags() -> None:
     assert args.stage_timeout_seconds == 5
     assert args.overall_timeout_seconds == 10
     assert args.progress is False
+    assert p.parse_args(["finalize", "--prevalidated-matrix-json", "/tmp/matrix.json"]).prevalidated_matrix_json == "/tmp/matrix.json"
+
+
+def _exact_matrix_artifact(path: Path) -> dict[str, object]:
+    from scripts.run_work_item_review_packet_matrix import _digest, default_matrix_commands, matrix_contract, workspace_binding
+
+    commands = default_matrix_commands()
+    contract = matrix_contract(commands)
+    results = [{
+        "label": command.label, "command": list(command.command), "required": command.required,
+        "proof_required": command.proof_required, "execution_required": command.execution_required,
+        "diagnostic_only": command.diagnostic_only, "exit_code": 0, "proof_status": "proof-passed",
+    } for command in commands]
+    payload: dict[str, object] = {
+        "schema_version": "sentientos.work_item_review_packet_matrix:v2", "status": "matrix_passed",
+        "completion_status": "matrix_passed", "command_count": len(commands), "required_failure_count": 0,
+        "required_failures": [], "results": results, "matrix_contract": contract,
+        "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": workspace_binding(commands),
+        "completed_labels": [command.label for command in commands], "next_lane_index": len(commands), "active_lane": None,
+    }
+    payload["checkpoint_digest"] = _digest(payload)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return payload
+
+
+@pytest.mark.no_legacy_skip
+def test_exact_prevalidated_matrix_reaches_ready_without_matrix_execution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    matrix_path = tmp_path / "matrix.json"
+    matrix = _exact_matrix_artifact(matrix_path)
+    out = tmp_path / "finalizer.json"
+    observed: list[str] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_tracked_changes", lambda: ())
+
+    def fake_stage(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
+        observed.append(stage_id)
+        from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, "", required), _successful_runtime(stage_id, command, required)
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", fake_stage)
+    code = main(["finalize", "--phase", "pre-commit", "--validation-profile", "exhaustive",
+        "--title", "x", "--intended-commit-title", "x", "--allow-no-focused-tests",
+        "--prevalidated-matrix-json", str(matrix_path), "--output", str(out)])
+    payload = json.loads(out.read_text())
+    assert code == 0 and payload["decision"]["status"] == "ready_to_commit"
+    assert "matrix_summary" not in observed
+    assert payload["landing_validation_plan"]["exhaustive_matrix_status"] == "matrix_reused"
+    assert payload["evidence_freshness"]["matrix_execution_mode"] == "exact_prevalidated_matrix_reuse"
+    assert payload["evidence_freshness"]["reused_matrix_digest"] == matrix["checkpoint_digest"]
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(("mutation", "reason"), [
+    (lambda p: p.update(status="matrix_failed"), "matrix_status_not_passed"),
+    (lambda p: p.update(status="matrix_timed_out"), "matrix_status_not_passed"),
+    (lambda p: p.update(completion_status="matrix_interrupted"), "matrix_completion_incomplete"),
+    (lambda p: p.update(required_failure_count=1), "matrix_required_failures_nonzero"),
+    (lambda p: p.update(schema_version="substitution"), "matrix_schema_invalid"),
+    (lambda p: p.update(matrix_contract_digest="0" * 64), "matrix_contract_changed"),
+    (lambda p: p.update(command_count=0), "matrix_command_count_changed"),
+    (lambda p: p["workspace_binding"].update(head_sha="0" * 40), "workspace_binding_changed"),
+])
+def test_prevalidated_matrix_rejection_is_fail_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mutation: object, reason: str) -> None:
+    matrix_path = tmp_path / "matrix.json"
+    payload = _exact_matrix_artifact(matrix_path)
+    mutation(payload)  # type: ignore[operator]
+    matrix_path.write_text(json.dumps(payload), encoding="utf-8")
+    out = tmp_path / "out.json"
+    invoked: list[str] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", lambda *args, **kwargs: invoked.append(str(args[0])))
+    code = main(["finalize", "--phase", "pre-commit", "--validation-profile", "exhaustive", "--title", "x",
+        "--intended-commit-title", "x", "--allow-no-focused-tests", "--prevalidated-matrix-json", str(matrix_path), "--output", str(out)])
+    result = json.loads(out.read_text())
+    assert code == 1 and reason in result["prevalidated_matrix_reuse"]["reason"]
+    assert invoked == []
 
 
 def test_finalize_writes_output_and_decision_line(tmp_path: Path, capsys: object) -> None:

@@ -37,6 +37,21 @@ Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata i
 Pre-commit: run finalize with `--phase pre-commit`, `--allow-current-tracked-changes`, `--allow-current-task-files` (or explicit `--changed-file` entries), and require `ready_to_commit` before commit.
 Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting.
 
+When an authoritative exhaustive matrix has already completed against the unchanged
+pre-commit workspace, pass its exact output as `--prevalidated-matrix-json PATH` with
+`--validation-profile exhaustive`. The finalizer independently reconstructs the current
+matrix contract and canonical matrix workspace binding, verifies the completed artifact
+and every lane, and fails closed on any mismatch. Exact acceptance records
+`matrix_reused` and `exact_prevalidated_matrix_reuse`; it does not run `matrix_summary`
+again. This explicit option never falls back to another exhaustive execution when the
+supplied artifact is stale, incomplete, crossed, or tampered.
+
+The reuse comparison requires the v2 schema, `matrix_passed`, zero required failures,
+the exact command count and lane manifest, all current required lanes passing, a valid
+artifact checkpoint digest, the current matrix-contract digest, and an exact canonical
+workspace-binding match. That binding covers HEAD, tracked tree, changed and task-owned
+untracked file identities, dependency/lock digests, and the Python executable/version.
+
 ## No-change validation-only example
 If repository source/doc/test files are unchanged, run the pr-metadata phase for validation evidence only and report completion without commit/`make_pr`.
 
@@ -45,6 +60,31 @@ If repository source/doc/test files are unchanged, run the pr-metadata phase for
 - Commit + `make_pr` after partial finalizer usage (pre-commit only).
 - Deferring post-commit finalizer to a later seal follow-up turn for task-caused changes.
 - Treating `unknown_dirty_tree` without exact path-level diagnostics as acceptable proof.
+- Rerunning an already exact authoritative matrix instead of using
+  `--prevalidated-matrix-json`.
+- Running `git push` or `gh pr create` merely to discover whether an external
+  publication actuator exists.
+
+## Clean local terminal report and publication boundary
+
+Repository-local landing ends only after pre-commit readiness, the implementation
+commit, post-commit readiness, metadata guard readiness, exact PR-body binding, and a
+sealed and verified publication handoff. These satisfied contracts are reported as
+successful local stages. External publication is a separate observer-scoped capability.
+
+Capability discovery must precede actuation. If no compatible authorized external
+publication actuator is exposed to this execution, do not invoke `git push` or
+`gh pr create`. Record the existing observer facts `actuator_not_exposed_here`,
+`publication_not_performed_by_this_execution`, `hosted_publication_not_observed`, and
+remote existence `unknown`. This is a successful local terminal state, not a validation
+warning, landing failure, or claim that a hosted PR does not exist. A compatible
+authorized actuator that is actually invoked must still report any real failure.
+
+The canonical successful report shape uses successful local-stage markers through
+`pr_publication_handoff_ready`, followed by neutral prose (or a successful contract
+marker) stating that external publication was correctly not attempted because no
+authorized actuator was exposed. It must not use a warning marker for that intentional
+capability boundary.
 
 ## Unknown dirty-tree diagnostics contract
 - `unknown_dirty_tree` is a hard stop (`manual_review_required`) and must be resolved, not bypassed.
