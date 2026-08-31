@@ -3,8 +3,8 @@
   "test_provenance_path": "/tmp/local_model_production_commissioning_test_provenance.json",
   "required_nodes": [
     {"node_id": "tests/test_local_model_production_commissioning.py::test_route_configuration_is_explicit_and_ambient_independent", "rationale": "Production load posture is deterministic."},
-    {"node_id": "tests/test_local_model_production_commissioning.py::test_activation_requires_valid_commissioning_and_current_bytes", "rationale": "Commissioning and activation are separate fail-closed boundaries."},
+    {"node_id": "tests/test_local_model_production_commissioning.py::test_fabricated_self_consistent_commissioning_receipt_does_not_activate", "rationale": "A recomputed semantic digest is not production provenance."},
     {"node_id": "tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction", "rationale": "Compatibility records construction and zero generation truthfully."}
   ],
-  "successful_path_nodes": ["tests/test_local_model_production_commissioning.py::test_activation_requires_valid_commissioning_and_current_bytes"]
+  "successful_path_nodes": ["tests/test_local_model_production_commissioning.py::test_compatibility_receipt_records_truthful_bounded_construction"]
 }

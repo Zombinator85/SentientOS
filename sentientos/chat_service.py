@@ -26,6 +26,7 @@ LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _MODEL: Any | None = None
 _INVOKER: GovernedLocalModelInvoker | None = None
+_SERVING_ACTIVATION: str | None = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -36,12 +37,14 @@ except Exception:  # pragma: no cover - defensive initialization
 
 
 def _get_model() -> object:
-    global _MODEL
+    global _MODEL, _SERVING_ACTIVATION
     if _MODEL is None:
         activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
         if activation:
             from .local_model_production_commissioning import load_activation
-            _MODEL, _ = load_activation(Path(activation))
+            _MODEL, authority_map = load_activation(Path(activation))
+            setattr(_MODEL, "commissioned_authority_map", authority_map)
+            _SERVING_ACTIVATION = activation
         else:
             _MODEL = LocalModel.autoload()
         LOGGER.info("Chat model loaded: %s", _MODEL.describe())
@@ -49,7 +52,7 @@ def _get_model() -> object:
 
 
 def _get_invoker() -> GovernedLocalModelInvoker:
-    global _INVOKER, _MODEL
+    global _INVOKER, _MODEL, _SERVING_ACTIVATION
     if _INVOKER is None:
         model = _get_model()
         config = getattr(model, "config", None)
@@ -57,9 +60,21 @@ def _get_invoker() -> GovernedLocalModelInvoker:
             config = ModelConfig(candidates=[ModelCandidate(path=None, engine="echo", name="Injected chat model")], generation=GenerationConfig())
         activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
         if activation:
-            from .local_model_production_commissioning import load_activation
-            model, authority_map = load_activation(Path(activation))
-            _MODEL = model
+            # _get_model is the single activation load/session boundary.  Reuse
+            # that exact worker rather than constructing the commissioned model twice.
+            if _SERVING_ACTIVATION != activation:
+                from .local_model_production_commissioning import load_activation
+                model, authority_map = load_activation(Path(activation))
+                _MODEL = model; _SERVING_ACTIVATION = activation
+            else:
+                authority_map = getattr(model, "commissioned_authority_map", None)
+                if authority_map is None:
+                    from .local_model_production_commissioning import load_activation
+                    replacement, authority_map = load_activation(Path(activation))
+                    close = getattr(model, "close", None)
+                    if close is not None: close()
+                    model = replacement; _MODEL = replacement
+            setattr(model, "commissioned_authority_map", authority_map)
         else:
             authority_map = build_local_model_authority_map(config)
         _INVOKER = GovernedLocalModelInvoker(model=model, authority_map=authority_map)
