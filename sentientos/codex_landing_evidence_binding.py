@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from sentientos.landing_validation_plan import verify_validation_plan_transition
+
 SCHEMA_VERSION = "codex_landing_evidence_binding.v1"
 PUBLICATION_HANDOFF_SCHEMA_VERSION = "sentientos.pr_publication_handoff:v1"
 PUBLICATION_HANDOFF_READY = "pr_publication_handoff_ready"
@@ -400,14 +402,24 @@ def create_pr_publication_handoff(
     commit = post.get("commit_binding")
     if not isinstance(commit, Mapping):
         reasons.append("commit_binding_missing"); commit = {}
+    workspace = pre.get("workspace_binding")
+    if not isinstance(workspace, Mapping):
+        reasons.append("workspace_binding_missing"); workspace = {}
     pre_plan = pre.get("landing_validation_plan")
     post_plan = post.get("landing_validation_plan")
     plan: Mapping[str, Any]
-    if not isinstance(pre_plan, Mapping) or not isinstance(post_plan, Mapping) or pre_plan != post_plan:
-        reasons.append("landing_validation_plan_mismatch"); plan = {}
+    if not isinstance(pre_plan, Mapping):
+        reasons.append("pre_commit_validation_plan_invalid:validation_plan_not_object"); plan = {}
+    elif not isinstance(post_plan, Mapping):
+        reasons.append("pr_metadata_validation_plan_invalid:validation_plan_not_object"); plan = {}
     else:
-        plan = pre_plan
+        transition_ready, transition_reasons, _transition_proof = verify_validation_plan_transition(
+            pre_plan, post_plan, workspace, commit,
+        )
+        if not transition_ready: reasons.extend(transition_reasons)
+        plan = post_plan
     if body_binding.get("schema_version") != SCHEMA_VERSION: reasons.append("body_binding_schema_mismatch")
+    if body_binding.get("title") != plan.get("title"): reasons.append("body_binding_title_mismatch")
     if body_binding.get("commit_sha") != commit.get("head_sha"): reasons.append("body_binding_head_mismatch")
     if body_binding.get("tree_sha") != commit.get("tree_sha"): reasons.append("body_binding_tree_mismatch")
     body = Path(body_path).read_bytes()
@@ -420,6 +432,10 @@ def create_pr_publication_handoff(
     acceptance_value = post.get("task_acceptance")
     acceptance: Mapping[str, Any] = acceptance_value if isinstance(acceptance_value, Mapping) else {}
     if acceptance and acceptance.get("status") != "task_acceptance_ready": reasons.append("task_acceptance_not_ready")
+    if acceptance.get("manifest_digest") != plan.get("task_acceptance_manifest_digest"):
+        reasons.append("task_acceptance_manifest_digest_mismatch")
+    if acceptance.get("provenance_digest") != plan.get("task_acceptance_provenance_digest"):
+        reasons.append("task_acceptance_provenance_digest_mismatch")
     if reasons:
         raise ValueError("publication_handoff_contradiction:" + ",".join(sorted(set(reasons))))
     payload: dict[str, Any] = {

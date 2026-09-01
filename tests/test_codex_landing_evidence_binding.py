@@ -5,6 +5,7 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 from sentientos.codex_landing_evidence_binding import *
+from sentientos.landing_validation_plan import seal_validation_plan, verify_validation_plan
 
 def git(repo: Path, *args: str):
     return subprocess.run(['git', *args], cwd=repo, check=True, text=True, capture_output=True).stdout.strip()
@@ -79,17 +80,43 @@ def test_body_binding_and_publication_classification(tmp_path: Path):
 def publication_inputs(tmp_path: Path) -> tuple[dict[str, object], dict[str, Path]]:
     body=tmp_path/'body.md'; body.write_bytes(('### Motivation\n' + 'sealed evidence '*80).encode())
     pre=tmp_path/'pre.json'; post=tmp_path/'post.json'; guard=tmp_path/'guard.json'; binding=tmp_path/'binding.json'
-    plan={'effective_profile':'solo','exhaustive_matrix_status':'not_requested_for_solo_profile'}
-    commit={'head_sha':'b'*40,'tree_sha':'c'*40,'parent_sha':'a'*40,'matrix_digest':''}
+    title='[codex:stabilization] fix publication handoff validation lineage'
+    matrix_digest='f'*64
+    common={'requested_profile':'exhaustive','effective_profile':'exhaustive','title':title,
+            'intended_commit_title':title,'task_acceptance_manifest_digest':'d'*64,
+            'task_acceptance_provenance_digest':'e'*64,
+            'focused_test_command_contract':['python -m scripts.run_tests -q tests/test_codex_landing_evidence_binding.py'],
+            'targeted_mypy_command_contract':['python -m mypy sentientos/codex_landing_evidence_binding.py'],
+            'configured_total_budget_seconds':3600,'exhaustive_matrix_digest':matrix_digest}
+    pre_plan=seal_validation_plan({**common,'repository_sha':'a'*40,'phase':'pre-commit',
+        'changed_file_identity':['sentientos/codex_landing_evidence_binding.py'],
+        'required_stage_ids':['focused_tests'],'conditionally_required_stage_ids':['docs_build'],
+        'skipped_or_deferred_stage_ids':['docs_build'],
+        'stage_results':{'focused_tests':{'status':'passed','duration_seconds':2}},
+        'total_validation_duration_seconds':20,'remaining_budget_seconds':3580,
+        'exhaustive_matrix_status':'matrix_reused','overall_status':'ready_to_commit'})
+    post_plan=seal_validation_plan({**common,'repository_sha':'b'*40,'phase':'pr-metadata',
+        'changed_file_identity':[],'required_stage_ids':['focused_tests','pr_landing_gate'],
+        'conditionally_required_stage_ids':['docs_build'],'skipped_or_deferred_stage_ids':['docs_build','matrix_summary'],
+        'stage_results':{'focused_tests':{'status':'passed','duration_seconds':3},'pr_landing_gate':{'status':'passed','duration_seconds':1}},
+        'total_validation_duration_seconds':12,'remaining_budget_seconds':3588,
+        'exhaustive_matrix_status':'matrix_reused','overall_status':'ready_for_pr_metadata'})
+    assert pre_plan != post_plan
+    assert verify_validation_plan(pre_plan)[0] and verify_validation_plan(post_plan)[0]
+    workspace={'schema_version':'codex_landing_evidence_binding.v1','base_head_sha':'a'*40,
+               'intended_commit_title':title,'changed_path_manifest_digest':'1'*64,'matrix_digest':matrix_digest}
+    commit={'schema_version':'codex_landing_evidence_binding.v1','head_sha':'b'*40,'tree_sha':'c'*40,
+            'parent_sha':'a'*40,'commit_subject':title,'changed_path_manifest_digest':'1'*64,
+            'pre_commit_workspace_manifest_digest':'1'*64,'matrix_digest':matrix_digest}
     acceptance={'status':'task_acceptance_ready','manifest_digest':'d'*64,'provenance_digest':'e'*64}
-    pre.write_text(json.dumps({'decision':{'status':'ready_to_commit'},'landing_validation_plan':plan}))
-    post.write_text(json.dumps({'decision':{'status':'ready_for_pr_metadata'},'landing_validation_plan':plan,'commit_binding':commit,'task_acceptance':acceptance}))
+    pre.write_text(json.dumps({'decision':{'status':'ready_to_commit'},'landing_validation_plan':pre_plan,'workspace_binding':workspace}))
+    post.write_text(json.dumps({'decision':{'status':'ready_for_pr_metadata'},'landing_validation_plan':post_plan,'commit_binding':commit,'task_acceptance':acceptance}))
     guard.write_text(json.dumps({'status':'pr_metadata_guard_ready','proof':{'head_sha':commit['head_sha']}}))
-    binding.write_text(json.dumps(create_body_binding('[codex:stabilization] seal exact PR publication handoff',body,commit,{'pre':str(pre),'post':str(post),'guard':str(guard)}).to_dict()))
+    binding.write_text(json.dumps(create_body_binding(title,body,commit,{'pre':str(pre),'post':str(post),'guard':str(guard)}).to_dict()))
     inputs={'repository':'SentientOS/SentientOS','intended_base_ref':'main','body_path':body,'body_binding_path':binding,'pre_commit_finalizer_path':pre,'pr_metadata_finalizer_path':post,'pr_metadata_guard_path':guard}
     return inputs, {'body':body,'pre':pre,'post':post,'guard':guard,'binding':binding}
 
-def test_valid_solo_publication_handoff_exact_identity_determinism_and_no_hosted_claim(tmp_path: Path):
+def test_distinct_phase_specific_validation_plans_seal_publication_handoff(tmp_path: Path):
     inputs, _ = publication_inputs(tmp_path)
     first=create_pr_publication_handoff(**inputs).to_dict(); second=create_pr_publication_handoff(**inputs).to_dict()
     assert first == second
@@ -97,9 +124,52 @@ def test_valid_solo_publication_handoff_exact_identity_determinism_and_no_hosted
     assert first['schema_version']=='sentientos.pr_publication_handoff:v1'
     body=Path(inputs['body_path']).read_bytes()
     assert (first['body_sha256'],first['body_byte_length'])==(sha256_bytes(body),len(body))
-    assert first['validation_profile']=='solo' and first['exhaustive_matrix_status']=='not_requested_for_solo_profile'
+    assert first['validation_profile']=='exhaustive' and first['exhaustive_matrix_status']=='matrix_reused'
     assert first['boundary']=={'publishes_pr':False,'observes_hosted_pr':False,'grants_network_authority':False}
     assert not any(word in first['status'] for word in ('published','hosted','github'))
+
+@pytest.mark.parametrize(('target','field','value','reason'), [
+    ('pre', 'artifact_digest', 'sha256:bad', 'pre_commit_validation_plan_invalid:validation_plan_digest_mismatch'),
+    ('post', 'artifact_digest', 'sha256:bad', 'pr_metadata_validation_plan_invalid:validation_plan_digest_mismatch'),
+])
+def test_publication_handoff_rejects_invalid_phase_plan_digest(tmp_path: Path, target: str, field: str, value: str, reason: str):
+    inputs, paths=publication_inputs(tmp_path); payload=json.loads(paths[target].read_text()); payload['landing_validation_plan'][field]=value; paths[target].write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=reason): create_pr_publication_handoff(**inputs)
+
+@pytest.mark.parametrize(('field','value'), [
+    ('effective_profile','solo'), ('task_acceptance_manifest_digest','changed'),
+    ('task_acceptance_provenance_digest','changed'), ('focused_test_command_contract',['pytest substituted']),
+    ('targeted_mypy_command_contract',['mypy substituted']),
+])
+def test_publication_handoff_rejects_stable_validation_lineage_substitution(tmp_path: Path, field: str, value: object):
+    inputs, paths=publication_inputs(tmp_path); post=json.loads(paths['post'].read_text()); post['landing_validation_plan'][field]=value; post['landing_validation_plan']=seal_validation_plan(post['landing_validation_plan']); paths['post'].write_text(json.dumps(post))
+    with pytest.raises(ValueError, match=f'validation_lineage_field_mismatch:{field}'):
+        create_pr_publication_handoff(**inputs)
+
+@pytest.mark.parametrize(('target','field','value','reason'), [
+    ('pre','phase','post-commit','pre_commit_validation_phase_invalid'),
+    ('post','phase','post-commit','pr_metadata_validation_phase_invalid'),
+    ('pre','repository_sha','9'*40,'pre_commit_validation_repository_sha_mismatch'),
+    ('post','repository_sha','9'*40,'pr_metadata_validation_repository_sha_mismatch'),
+])
+def test_publication_handoff_rejects_phase_or_sha_transition_substitution(tmp_path: Path, target: str, field: str, value: str, reason: str):
+    inputs, paths=publication_inputs(tmp_path); payload=json.loads(paths[target].read_text()); payload['landing_validation_plan'][field]=value; payload['landing_validation_plan']=seal_validation_plan(payload['landing_validation_plan']); paths[target].write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=reason): create_pr_publication_handoff(**inputs)
+
+@pytest.mark.parametrize(('target','field','value','reason'), [
+    ('post','parent_sha','9'*40,'commit_parent_mismatch'),
+    ('post','changed_path_manifest_digest','9'*64,'workspace_manifest_mismatch'),
+    ('post','matrix_digest','9'*64,'matrix_digest_mismatch'),
+])
+def test_publication_handoff_rejects_commit_or_matrix_lineage_substitution(tmp_path: Path, target: str, field: str, value: str, reason: str):
+    inputs, paths=publication_inputs(tmp_path); payload=json.loads(paths[target].read_text()); payload['commit_binding'][field]=value; paths[target].write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=reason): create_pr_publication_handoff(**inputs)
+
+def test_publication_handoff_accepts_digest_protected_phase_local_differences(tmp_path: Path):
+    inputs, paths=publication_inputs(tmp_path); pre=json.loads(paths['pre'].read_text())['landing_validation_plan']; post=json.loads(paths['post'].read_text())['landing_validation_plan']
+    for field in ('stage_results','required_stage_ids','skipped_or_deferred_stage_ids','total_validation_duration_seconds','remaining_budget_seconds','changed_file_identity','phase','repository_sha','overall_status'):
+        assert pre[field] != post[field]
+    assert create_pr_publication_handoff(**inputs).status == PUBLICATION_HANDOFF_READY
 
 @pytest.mark.parametrize(('field','value'), [('repository','Other/repo'),('intended_base_ref','release')])
 def test_publication_handoff_repository_and_base_substitution_fails(tmp_path: Path, field: str, value: str):
@@ -111,7 +181,7 @@ def test_publication_handoff_body_head_and_governing_evidence_substitution_fails
     inputs, paths = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); mutation(paths[target])
     assert verify_pr_publication_handoff(sealed, **inputs).status=='pr_publication_handoff_blocked'
 
-@pytest.mark.parametrize(('target','old','new'), [('binding','[codex:stabilization] seal exact PR publication handoff','alternate title'),('pre','"effective_profile": "solo"','"effective_profile": "exhaustive"'),('post','"parent_sha": "'+('a'*40)+'"','"parent_sha": "'+('9'*40)+'"'),('binding','"body_sha256": "','"body_sha256": "0')])
+@pytest.mark.parametrize(('target','old','new'), [('binding','[codex:stabilization] fix publication handoff validation lineage','alternate title'),('pre','"effective_profile": "exhaustive"','"effective_profile": "solo"'),('post','"parent_sha": "'+('a'*40)+'"','"parent_sha": "'+('9'*40)+'"'),('binding','"body_sha256": "','"body_sha256": "0')])
 def test_publication_handoff_title_profile_base_and_digest_substitution_fails(tmp_path: Path, target: str, old: str, new: str):
     inputs, paths = publication_inputs(tmp_path); sealed=create_pr_publication_handoff(**inputs).to_dict(); paths[target].write_text(paths[target].read_text().replace(old,new))
     assert verify_pr_publication_handoff(sealed, **inputs).status=='pr_publication_handoff_blocked'
@@ -136,7 +206,7 @@ def test_pr_2066_rewritten_head_equal_tree_is_non_exact_custody_break(tmp_path: 
     # Authoritative governing inputs are represented by the fixture's rebuilt handoff.
     observation.update(head_sha='6cd5ec95c034a999de5a23f41969bd499f1f8b01',head_tree_sha=handoff['intended_head_tree_sha'],merge_state='merged',merge_commit_sha='205137c65c72c7732c60493dc7f199c2ffed1078',merge_commit_tree_sha=handoff['intended_head_tree_sha'])
     # Replace only fixture-local governing commit fields so verification still reconstructs them.
-    post=json.loads(paths['post'].read_text()); post['commit_binding']['head_sha']=handoff['intended_head_sha']; post['commit_binding']['tree_sha']=handoff['intended_head_tree_sha']; paths['post'].write_text(json.dumps(post))
+    post=json.loads(paths['post'].read_text()); post['commit_binding']['head_sha']=handoff['intended_head_sha']; post['commit_binding']['tree_sha']=handoff['intended_head_tree_sha']; post['landing_validation_plan']['repository_sha']=handoff['intended_head_sha']; post['landing_validation_plan']=seal_validation_plan(post['landing_validation_plan']); paths['post'].write_text(json.dumps(post))
     guard=json.loads(paths['guard'].read_text()); guard['proof']['head_sha']=handoff['intended_head_sha']; paths['guard'].write_text(json.dumps(guard))
     binding=json.loads(paths['binding'].read_text()); binding['commit_sha']=handoff['intended_head_sha']; binding['tree_sha']=handoff['intended_head_tree_sha']; binding['artifact_digests']={'pre':file_sha256(paths['pre']),'post':file_sha256(paths['post']),'guard':file_sha256(paths['guard'])}; paths['binding'].write_text(json.dumps(binding))
     handoff=create_pr_publication_handoff(**inputs).to_dict(); observation['handoff_sha256']=handoff['handoff_sha256']
@@ -144,7 +214,7 @@ def test_pr_2066_rewritten_head_equal_tree_is_non_exact_custody_break(tmp_path: 
     assert result.status==HOSTED_PUBLICATION_REWRITTEN and result.exact_publication_custody is False
     assert result.equivalence=={'head_sha_exact':False,'tree_equal':True,'parent_equal':None,'subject_equal':None}
 
-@pytest.mark.parametrize(('field','value'), [('repository','elsewhere'),('base_ref','release'),('base_sha','0'*40),('head_tree_sha','9'*40),('title','changed'),('body_sha256','0'*64),('body_byte_length',1),('validation_profile','exhaustive'),('handoff_sha256','0'*64)])
+@pytest.mark.parametrize(('field','value'), [('repository','elsewhere'),('base_ref','release'),('base_sha','0'*40),('head_tree_sha','9'*40),('title','changed'),('body_sha256','0'*64),('body_byte_length',1),('validation_profile','solo'),('handoff_sha256','0'*64)])
 def test_hosted_publication_material_substitution_fails(tmp_path: Path, field: str, value: object):
     inputs,paths,handoff,observation=hosted_case(tmp_path,**{field:value})
     result=create_hosted_pr_publication_custody(handoff=handoff,observation=observation,hosted_body_path=paths['body'],**inputs)
