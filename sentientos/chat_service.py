@@ -5,7 +5,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, List, Mapping
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -21,12 +21,17 @@ from .local_model import LocalModel
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import GovernedLocalModelInvoker
 from .local_model_authority import build_local_model_authority_map
+from .conversation_session import (
+    ConversationMemoryStore, ConversationSessionStore, assemble_local_chat_context,
+)
+from .governed_local_model_invocation import LocalModelInvocationBudget
 
 LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
 _MODEL: Any | None = None
 _INVOKER: GovernedLocalModelInvoker | None = None
 _SERVING_ACTIVATION: str | None = None
+_CONVERSATION_SERVICE: "PersistentConversationService | None" = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -82,10 +87,76 @@ def _get_invoker() -> GovernedLocalModelInvoker:
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str | None = None
+    retain: bool = False
 
 
 class ChatResponse(BaseModel):
     response: str
+    session_id: str
+    turn_id: str
+    context: dict[str, object]
+
+
+class PersistentConversationService:
+    """One transaction boundary for durable turns and governed inference.
+
+    A denied/failed invocation intentionally preserves the user turn as an
+    unanswered turn and never manufactures an assistant turn.
+    """
+    def __init__(self, *, invoker: GovernedLocalModelInvoker, session_store: ConversationSessionStore,
+                 memory_store: ConversationMemoryStore, context_budget_chars: int = 4000,
+                 memory_budget_chars: int = 1600) -> None:
+        self.invoker = invoker; self.sessions = session_store; self.memories = memory_store
+        self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
+
+    def chat(self, message: str, *, session_id: str | None = None, retain: bool = False) -> ChatResponse:
+        identity = getattr(self.invoker.model, "active_identity", None)
+        identity_payload: Mapping[str, Any] = identity.to_dict() if identity is not None else {}
+        session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
+        if session["model_identity_digest"] != __import__("hashlib").sha256(
+            __import__("json").dumps(identity_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest():
+            raise ValueError("session_model_identity_mismatch")
+        user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
+                                              retention_state="requested" if retain else "not_requested")
+        history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
+                                            exclude_turn_id=user_turn["turn_id"])
+        memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
+        prompt = assemble_local_chat_context(history=history, memory_snapshot=memory, current_message=message)
+        linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
+                   "conversation_context_snapshot_digest": history.snapshot_digest,
+                   "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
+        request = self.invoker.build_request(purpose="local_user_chat", prompt=prompt, caller="chat_service",
+                                             correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
+                                             budget=LocalModelInvocationBudget(max_input_chars=8000), linkage=linkage)
+        receipt = self.invoker.invoke(request)
+        accepted_statuses = {"admitted_completed"}
+        if identity is None:  # compatibility for explicitly non-production echo/null fixtures
+            accepted_statuses.add("admitted_simulation")
+        if receipt.status not in accepted_statuses or not receipt.output_text:
+            raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
+        assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=receipt.output_text,
+            linkage={"request_id": receipt.request.get("request_id"), "invocation_receipt_digest": receipt.receipt_digest,
+                     "active_model_identity_digest": session["model_identity_digest"], "context_snapshot_digest": history.snapshot_digest,
+                     "memory_snapshot_digest": memory["snapshot_digest"]})
+        if retain:
+            retention = self.memories.retain_user_turn(session_id=session["session_id"], turn=user_turn, explicitly_requested=True)
+            self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retained", receipt=retention)
+        return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
+                            context={"conversation_snapshot_digest": history.snapshot_digest,
+                                     "memory_snapshot_digest": memory["snapshot_digest"],
+                                     "selected_turn_count": len(history.turns), "selected_memory_count": len(memory["memories"])})
+
+
+def _get_conversation_service() -> PersistentConversationService:
+    global _CONVERSATION_SERVICE
+    if _CONVERSATION_SERVICE is None:
+        data_root = Path(os.getenv("SENTIENTOS_DATA_ROOT", "/var/lib/sentientos"))
+        _CONVERSATION_SERVICE = PersistentConversationService(invoker=_get_invoker(),
+            session_store=ConversationSessionStore(data_root / "conversations"),
+            memory_store=ConversationMemoryStore(data_root / "memory"))
+    return _CONVERSATION_SERVICE
 
 
 class BootEvent(BaseModel):
@@ -107,13 +178,25 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
     if _CHANGE_NARRATOR is not None:
         summary = _CHANGE_NARRATOR.maybe_respond(message)
         if summary is not None:
-            return ChatResponse(response=summary)
-    invoker = _get_invoker()
-    invocation_request = invoker.build_request(purpose="local_user_chat", prompt=message, caller="chat_service", correlation_id=f"chat:{uuid.uuid4().hex}")
-    receipt = invoker.invoke(invocation_request)
-    if receipt.output_text:
-        return ChatResponse(response=receipt.output_text)
-    return ChatResponse(response="Local model inference was not available for this request; no remote provider, tool, memory, action, adoption, or repository effect was attempted.")
+            # Narrator responses are not model conversation turns.
+            raise HTTPException(status_code=409, detail=summary)
+    try:
+        return _get_conversation_service().chat(message, session_id=request.session_id, retain=request.retain)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@APP.get("/sessions")
+async def list_sessions() -> list[dict[str, Any]]:
+    return _get_conversation_service().sessions.list_recent()
+
+
+@APP.get("/sessions/{session_id}")
+async def inspect_session(session_id: str) -> dict[str, Any]:
+    session = _get_conversation_service().sessions.load(session_id)
+    return {k: session[k] for k in ("session_id", "created_at", "latest_activity_at", "title", "revision", "lifecycle_state", "model_identity_digest")}
 
 
 @APP.get("/boot-feed", response_model=List[BootEvent])
@@ -193,7 +276,7 @@ async def root_page() -> HTMLResponse:
                     const res = await fetch('/chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message }),
+                        body: JSON.stringify({ message, session_id: localStorage.getItem('sentientos_session_id') }),
                     });
                     if (!res.ok) {
                         const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
@@ -201,6 +284,7 @@ async def root_page() -> HTMLResponse:
                         return;
                     }
                     const data = await res.json();
+                    localStorage.setItem('sentientos_session_id', data.session_id);
                     responseTextEl.textContent = data.response;
                     responseEl.hidden = false;
                 }

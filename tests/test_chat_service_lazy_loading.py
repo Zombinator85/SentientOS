@@ -68,7 +68,9 @@ def test_first_chat_request_lazy_loads_model(monkeypatch: pytest.MonkeyPatch) ->
     resp = client.post("/chat", json={"message": "hello"})
 
     assert resp.status_code == 200
-    assert resp.json()["response"] == "reply:hello"
+    assert resp.json()["response"].startswith("reply:[SYSTEM_INSTRUCTION]")
+    assert resp.json()["response"].endswith("hello")
+    assert resp.json()["session_id"].startswith("session-")
     assert calls == ["autoload"]
 
 
@@ -91,4 +93,5 @@ def test_dependency_injection_model_without_autoload(monkeypatch: pytest.MonkeyP
 
     resp = client.post("/chat", json={"message": "hello"})
     assert resp.status_code == 200
-    assert resp.json()["response"] == "injected:hello"
+    assert resp.json()["response"].startswith("injected:[SYSTEM_INSTRUCTION]")
+    assert resp.json()["response"].endswith("hello")
