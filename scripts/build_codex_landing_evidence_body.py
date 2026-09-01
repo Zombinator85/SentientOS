@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from sentientos.codex_landing_evidence_binding import file_sha256, create_body_binding, verify_body_binding
 from sentientos.codex_pr_metadata_contract import verify_pr_metadata
-from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, verify_validation_plan
+from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, verify_validation_plan, verify_validation_plan_transition
 
 REQUIRED_SECTIONS: tuple[str, ...] = (
     "### Motivation",
@@ -170,18 +170,23 @@ def build_body(
     if any([pre_commit_finalizer_json_path, pr_metadata_finalizer_json_path, pr_metadata_guard_json_path]) and not isinstance(commit_binding, Mapping):
         raise ValueError("parsed finalizer artifacts missing commit binding")
 
-    plans = [payload.get("landing_validation_plan") for key, payload in parsed_artifacts.items() if key in ("pre_commit_finalizer", "pr_metadata_finalizer")]
-    if not plans or not all(isinstance(plan, Mapping) for plan in plans):
+    pre_payload = parsed_artifacts.get("pre_commit_finalizer", {})
+    post_payload = parsed_artifacts.get("pr_metadata_finalizer", {})
+    pre_plan = pre_payload.get("landing_validation_plan")
+    post_plan = post_payload.get("landing_validation_plan")
+    if not isinstance(post_plan, Mapping):
         raise ValueError("authoritative finalizer landing validation plan is required")
-    if any(plan != plans[0] for plan in plans[1:]):
-        raise ValueError("finalizer landing validation profiles or plans disagree")
-    plan_value = plans[0]
-    if not isinstance(plan_value, Mapping):
-        raise ValueError("authoritative finalizer landing validation plan is required")
-    plan: Mapping[str, Any] = plan_value
-    valid_plan, plan_reasons = verify_validation_plan(plan)
-    if not valid_plan:
-        raise ValueError("invalid authoritative landing validation plan: " + ", ".join(plan_reasons))
+    if isinstance(pre_plan, Mapping):
+        valid_transition, transition_reasons, _transition_proof = verify_validation_plan_transition(
+            pre_plan, post_plan, pre_payload.get("workspace_binding", {}), commit_binding,
+        )
+        if not valid_transition:
+            raise ValueError("invalid landing validation plan transition: " + ", ".join(transition_reasons))
+    else:
+        valid_plan, plan_reasons = verify_validation_plan(post_plan)
+        if not valid_plan:
+            raise ValueError("invalid authoritative landing validation plan: " + ", ".join(plan_reasons))
+    plan: Mapping[str, Any] = post_plan
     validation_profile = str(plan.get("effective_profile"))
     matrix_status = str(plan.get("exhaustive_matrix_status"))
     if validation_profile == "solo":

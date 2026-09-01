@@ -11,7 +11,7 @@ import stat
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
@@ -1096,13 +1096,23 @@ def main(argv: list[str] | None = None) -> int:
         prior_duration = prior.get("duration_seconds", 0.0) if prior else 0.0
         stage_results[item.stage_id] = {"status": "passed" if passed else item.status, "duration_seconds": item.duration_seconds + (float(prior_duration) if isinstance(prior_duration, (int, float, str)) else 0.0)}
     required_stage_ids = list(dict.fromkeys(stage for stage, _cmd, required in stage_specs if required))
+    inherited_acceptance: Mapping[str, Any] = {}
+    inherited_plan: Mapping[str, Any] = {}
+    if a.pre_commit_finalizer_json and acceptance_custody is None and normalized_phase in {"post-commit", "pr-metadata"}:
+        prior_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))
+        prior_acceptance = prior_payload.get("task_acceptance")
+        prior_plan = prior_payload.get("landing_validation_plan")
+        if isinstance(prior_acceptance, Mapping): inherited_acceptance = prior_acceptance
+        if isinstance(prior_plan, Mapping): inherited_plan = prior_plan
+        if inherited_acceptance.get("status") == "task_acceptance_ready":
+            payload["task_acceptance"] = dict(inherited_acceptance)
     validation_plan = seal_validation_plan({
         "requested_profile": a.validation_profile, "effective_profile": a.validation_profile,
         "repository_sha": subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip(),
         "phase": normalized_phase, "title": a.title or "", "intended_commit_title": a.intended_commit_title or "",
         "changed_file_identity": sorted(changed_surface),
-        "task_acceptance_manifest_digest": acceptance_custody.get("captured_manifest_digest") if acceptance_custody else None,
-        "task_acceptance_provenance_digest": acceptance_custody.get("captured_provenance_digest") if acceptance_custody else None,
+        "task_acceptance_manifest_digest": acceptance_custody.get("captured_manifest_digest") if acceptance_custody else inherited_plan.get("task_acceptance_manifest_digest"),
+        "task_acceptance_provenance_digest": acceptance_custody.get("captured_provenance_digest") if acceptance_custody else inherited_plan.get("task_acceptance_provenance_digest"),
         "focused_test_command_contract": list(a.focused_test_command), "targeted_mypy_command_contract": list(a.targeted_mypy_command),
         "required_stage_ids": required_stage_ids, "conditionally_required_stage_ids": ["docs_check_deps", "docs_build"],
         "skipped_or_deferred_stage_ids": ([] if docs_required else ["docs_check_deps", "docs_build"]) + ([] if a.validation_profile == "exhaustive" else ["matrix_summary"]),
