@@ -21,9 +21,9 @@ from .local_model import LocalModel
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import GovernedLocalModelInvoker
 from .local_model_authority import build_local_model_authority_map
-from .conversation_session import (
-    ConversationMemoryStore, ConversationSessionStore, assemble_local_chat_context,
-)
+from .conversation_session import ConversationSessionStore, assemble_local_chat_context
+from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
+    ExplicitRetentionAdmissionGate, sentientos_data_dir)
 from .governed_local_model_invocation import LocalModelInvocationBudget
 
 LOGGER = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ class ChatResponse(BaseModel):
     session_id: str
     turn_id: str
     context: dict[str, object]
+    retention: dict[str, object]
 
 
 class PersistentConversationService:
@@ -105,9 +106,11 @@ class PersistentConversationService:
     unanswered turn and never manufactures an assistant turn.
     """
     def __init__(self, *, invoker: GovernedLocalModelInvoker, session_store: ConversationSessionStore,
-                 memory_store: ConversationMemoryStore, context_budget_chars: int = 4000,
-                 memory_budget_chars: int = 1600) -> None:
+                 memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
+                 memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None) -> None:
         self.invoker = invoker; self.sessions = session_store; self.memories = memory_store
+        self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
+        self.retention_writer = AdmittedRetentionWriter(memory_store)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False) -> ChatResponse:
@@ -140,22 +143,36 @@ class PersistentConversationService:
             linkage={"request_id": receipt.request.get("request_id"), "invocation_receipt_digest": receipt.receipt_digest,
                      "active_model_identity_digest": session["model_identity_digest"], "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"]})
+        retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
-            retention = self.memories.retain_user_turn(session_id=session["session_id"], turn=user_turn, explicitly_requested=True)
-            self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retained", receipt=retention)
+            request_id = "retain-request-" + uuid.uuid4().hex[:24]
+            candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session["session_id"],
+                         "source_turn_id": user_turn["turn_id"], "source_role": "user",
+                         "source_text_digest": user_turn["text_digest"], "explicitly_requested": True,
+                         "request_id": request_id, "operation_id": "retain:" + session["session_id"] + ":" + user_turn["turn_id"]}
+            admission = self.admission_gate.decide(candidate)
+            try:
+                if admission.decision != "retention_admitted": raise PermissionError(admission.reason or "retention_denied")
+                retention_result = self.retention_writer.execute(candidate, admission, user_turn)
+                self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retained", receipt=retention_result)
+            except Exception as exc:
+                retention_result = {"status": "retention_failed", "reason": str(exc),
+                                    "admission_receipt_digest": admission.receipt_digest}
+                self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retention_failed", receipt=retention_result)
         return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
-                                     "selected_turn_count": len(history.turns), "selected_memory_count": len(memory["memories"])})
+                                     "selected_turn_count": len(history.turns), "selected_memory_count": len(memory["memories"])},
+                            retention=retention_result)
 
 
 def _get_conversation_service() -> PersistentConversationService:
     global _CONVERSATION_SERVICE
     if _CONVERSATION_SERVICE is None:
-        data_root = Path(os.getenv("SENTIENTOS_DATA_ROOT", "/var/lib/sentientos"))
+        data_root = sentientos_data_dir()
         _CONVERSATION_SERVICE = PersistentConversationService(invoker=_get_invoker(),
             session_store=ConversationSessionStore(data_root / "conversations"),
-            memory_store=ConversationMemoryStore(data_root / "memory"))
+            memory_store=CanonicalMemoryStore(data_root / "memory"))
     return _CONVERSATION_SERVICE
 
 

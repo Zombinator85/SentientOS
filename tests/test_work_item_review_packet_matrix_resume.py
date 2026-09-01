@@ -77,3 +77,23 @@ def test_failed_required_lane_cannot_be_relabelled_passed(tmp_path: Path) -> Non
     commands = [MatrixCommand("bad", (sys.executable, "-c", "raise SystemExit(1)"))]
     checkpoint = tmp_path / "c.json"; assert run_resumable_matrix(commands=commands, checkpoint=checkpoint)["status"] == "matrix_failed"
     assert run_resumable_matrix(commands=commands, checkpoint=tmp_path / "out", resume_from=checkpoint)["status"] == "matrix_resume_blocked"
+
+
+def test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding(tmp_path: Path) -> None:
+    from scripts.run_work_item_review_packet_matrix import MatrixCommand, workspace_binding
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "source.py").write_text("value = 1\n")
+    (tmp_path / "artifacts").mkdir()
+    artifact = tmp_path / "artifacts/work_item_review_packet_matrix.json"
+    artifact.write_text('{"status":"old"}\n')
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    commands = [MatrixCommand("proof", ("true",))]
+    before = workspace_binding(commands, tmp_path)
+    artifact.write_text('{"status":"matrix_passed"}\n')
+    assert workspace_binding(commands, tmp_path) == before
+    (tmp_path / "source.py").write_text("value = 2\n")
+    assert workspace_binding(commands, tmp_path)["binding_digest"] != before["binding_digest"]

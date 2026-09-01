@@ -71,7 +71,7 @@ class MatrixReport(TypedDict, total=False):
 
 
 MATRIX_SCHEMA = "sentientos.work_item_review_packet_matrix:v2"
-GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "sentientos_data/vow", "sentientos_data/runtime")
+GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime")
 
 
 def _digest(value: object) -> str:

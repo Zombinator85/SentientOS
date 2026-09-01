@@ -25,7 +25,7 @@ from sentientos.task_acceptance import verify as verify_task_acceptance
 from sentientos.bounded_subprocess import DEFAULT_HEARTBEAT_SECONDS, DEFAULT_TAIL_LINES, run_supervised
 from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, seal_validation_plan, verify_validation_plan
 
-GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/")
+GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
 MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wav", ".mp3")
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
