@@ -3,8 +3,8 @@
 SentientOS local chat now returns a stable session ID and reuses it on later
 requests. The browser keeps that ID locally, while `GET /sessions` lists safe
 session metadata and `GET /sessions/{session_id}` supports exact resume. Session
-files live below `SENTIENTOS_DATA_ROOT/conversations`, use private permissions,
-atomic replacement, file and directory fsync, strict size limits, ordered turn
+files live below `SENTIENTOS_DATA_DIR/conversations`, use private permissions,
+per-session cross-process file locks with bounded fail-closed acquisition, atomic replacement, file and directory fsync, strict size limits, ordered turn
 sequences, text digests, and invocation/context linkage. A process restart opens
 the same session and reconstructs its recent history.
 
@@ -26,9 +26,7 @@ failure, the submitted user turn remains durably and explicitly unanswered.
 There is no remote/provider fallback.
 
 Conversation durability is not long-term semantic retention. Ordinary chat
-never writes long-term memory. `retain: true` admits only the exact user turn,
-writes a source-bound local memory record, stores a durable receipt, and links
-that receipt back to the turn. Assistant speculation is not silently retained,
+never writes long-term memory. `retain: true` creates an exact source-bound candidate for the independent explicit-retention admission gate. Only an admitted candidate reaches the terminal writer, which stores a raw fragment in the canonical `SENTIENTOS_DATA_DIR/memory/raw` domain and returns a separate execution receipt linked back to the turn. Retention failure leaves the completed chat exchange intact while marking the user turn `retention_failed`. The deprecated `SENTIENTOS_DATA_ROOT` name is only a lower-precedence compatibility alias. A detected `conversation_memories.json` file is inert, reported as legacy data, and never automatically ingested or queried. Assistant speculation is not silently retained,
 and there is no autonomous retention loop. Exact long-term deletion is deferred
 until the production tomb executor matures; deleting a session must not imply
 deletion of independently retained memory.

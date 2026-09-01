@@ -1,8 +1,7 @@
 """Crash-safe persistent governed conversation sessions and explicit memory.
 
 Conversation history is durable product state, not long-term semantic memory.
-Only :meth:`ConversationMemoryStore.retain_user_turn` crosses that boundary and
-it requires an explicit request tied to an exact user turn.
+Long-term memory crosses an independent admission and canonical execution boundary.
 """
 from __future__ import annotations
 
@@ -12,10 +11,12 @@ import os
 import re
 import tempfile
 import uuid
+import fcntl
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import IO, Any, Mapping, Sequence
 
 SCHEMA = "sentientos.conversation_session:v1"
 MAX_TURN_BYTES = 64 * 1024
@@ -76,8 +77,22 @@ class ContextSnapshot:
 
 
 class ConversationSessionStore:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, lock_timeout_seconds: float = 5.0) -> None:
         self.root = _safe_root(root)
+        self.lock_timeout_seconds = lock_timeout_seconds
+
+    def _locked(self, session_id: str) -> IO[str]:
+        handle = (self.root / f".{session_id}.lock").open("a+")
+        deadline = time.monotonic() + self.lock_timeout_seconds
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return handle
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    handle.close()
+                    raise TimeoutError("session_lock_timeout")
+                time.sleep(0.01)
 
     def _path(self, session_id: str) -> Path:
         if not _ID.fullmatch(session_id): raise ValueError("invalid_session_id")
@@ -115,21 +130,29 @@ class ConversationSessionStore:
         if role not in {"user", "assistant"}: raise ValueError("invalid_turn_role")
         encoded = text.encode("utf-8")
         if not text or len(encoded) > MAX_TURN_BYTES: raise ValueError("turn_size_limit")
-        session = self.load(session_id)
-        sequence = len(session["turns"]) + 1
-        turn = {"turn_id": f"turn-{uuid.uuid4().hex[:24]}", "sequence": sequence, "role": role, "timestamp": _now(),
-                "text": text, "text_digest": _digest({"text": text}), "character_count": len(text), "byte_count": len(encoded),
-                "linkage": dict(linkage or {}), "retention_state": retention_state}
-        session["turns"].append(turn); session["revision"] = sequence; session["latest_activity_at"] = turn["timestamp"]
-        _atomic_json(self._path(session_id), session)
-        return turn
+        lock = self._locked(session_id)
+        try:
+            session = self.load(session_id)
+            sequence = len(session["turns"]) + 1
+            turn = {"turn_id": f"turn-{uuid.uuid4().hex[:24]}", "sequence": sequence, "role": role, "timestamp": _now(),
+                    "text": text, "text_digest": _digest({"text": text}), "character_count": len(text), "byte_count": len(encoded),
+                    "linkage": dict(linkage or {}), "retention_state": retention_state}
+            session["turns"].append(turn); session["revision"] = sequence; session["latest_activity_at"] = turn["timestamp"]
+            _atomic_json(self._path(session_id), session)
+            return turn
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 
     def update_turn_retention(self, session_id: str, turn_id: str, *, state: str, receipt: Mapping[str, Any]) -> None:
-        session = self.load(session_id)
-        matches = [turn for turn in session["turns"] if turn["turn_id"] == turn_id]
-        if len(matches) != 1: raise KeyError(turn_id)
-        matches[0]["retention_state"] = state; matches[0]["retention_receipt"] = dict(receipt)
-        session["latest_activity_at"] = _now(); _atomic_json(self._path(session_id), session)
+        lock = self._locked(session_id)
+        try:
+            session = self.load(session_id)
+            matches = [turn for turn in session["turns"] if turn["turn_id"] == turn_id]
+            if len(matches) != 1: raise KeyError(turn_id)
+            matches[0]["retention_state"] = state; matches[0]["retention_receipt"] = dict(receipt)
+            session["latest_activity_at"] = _now(); _atomic_json(self._path(session_id), session)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 
     def reconstruct(self, session_id: str, *, budget_chars: int, exclude_turn_id: str | None = None) -> ContextSnapshot:
         session = self.load(session_id)
@@ -151,54 +174,6 @@ class ConversationSessionStore:
             except (OSError, ValueError): continue
             result.append({k: session.get(k) for k in ("session_id", "created_at", "latest_activity_at", "title", "revision", "lifecycle_state", "model_identity_digest")})
         return sorted(result, key=lambda item: (str(item["latest_activity_at"]), str(item["session_id"])), reverse=True)[:max(0, limit)]
-
-
-class ConversationMemoryStore:
-    """Small real executor for explicitly approved user memories; retrieval is read-only."""
-    def __init__(self, root: Path) -> None:
-        self.root = _safe_root(root)
-        self.path = self.root / "conversation_memories.json"
-
-    def _read(self) -> list[dict[str, Any]]:
-        if not self.path.exists(): return []
-        if self.path.is_symlink(): raise ValueError("memory_store_symlink")
-        data = json.loads(self.path.read_text(encoding="utf-8"))
-        if not isinstance(data, list): raise ValueError("malformed_memory_store")
-        return data
-
-    def retain_user_turn(self, *, session_id: str, turn: Mapping[str, Any], explicitly_requested: bool) -> dict[str, Any]:
-        if not explicitly_requested or turn.get("role") != "user": raise PermissionError("explicit_user_retention_required")
-        record = {"memory_id": "memory-" + uuid.uuid4().hex[:24], "text": turn["text"], "text_digest": turn["text_digest"],
-                  "source": {"kind": "conversation_user_turn", "session_id": session_id, "turn_id": turn["turn_id"]}, "created_at": _now()}
-        records = self._read(); records.append(record)
-        receipt = {"status": "admitted_committed", "memory_id": record["memory_id"], "source_turn_id": turn["turn_id"],
-                   "memory_digest": _digest(record), "admission": "explicit_structured_user_request"}
-        self._write_records(records)
-        return receipt
-
-    def _write_records(self, records: Sequence[Mapping[str, Any]]) -> None:
-        wrapper = self.root / ".memory-wrapper.json"
-        _atomic_json(wrapper, {"records": list(records)})
-        payload = json.loads(wrapper.read_text(encoding="utf-8"))["records"]
-        raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode()
-        fd, temp = tempfile.mkstemp(prefix=".memories-", dir=self.root)
-        with os.fdopen(fd, "wb") as handle: handle.write(raw); handle.flush(); os.fsync(handle.fileno())
-        os.replace(temp, self.path); wrapper.unlink()
-
-    def retrieve(self, query: str, *, limit: int = 4, budget_chars: int = 2000) -> dict[str, Any]:
-        terms = set(re.findall(r"[a-z0-9]+", query.lower()))
-        scored = []
-        for record in self._read():
-            score = len(terms & set(re.findall(r"[a-z0-9]+", str(record["text"]).lower())))
-            if score: scored.append((score, str(record["memory_id"]), record))
-        selected: list[dict[str, Any]] = []; used = 0
-        for _, _, record in sorted(scored, key=lambda item: (-item[0], item[1]))[:max(0, limit)]:
-            if used + len(record["text"]) > budget_chars: continue
-            selected.append(record); used += len(record["text"])
-        identity = [(r["memory_id"], r["text_digest"]) for r in selected]
-        return {"memories": selected, "selected_memory_ids": [r["memory_id"] for r in selected],
-                "snapshot_digest": _digest({"query_digest": _digest({"query": query}), "selected": identity, "limit": limit, "budget_chars": budget_chars}),
-                "budget_chars": budget_chars, "read_only": True}
 
 
 def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Mapping[str, Any], current_message: str) -> str:

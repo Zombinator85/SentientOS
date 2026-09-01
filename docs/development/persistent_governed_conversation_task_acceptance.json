@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "8680e3054d2b6be4b8ead4260efca83a3430e85b",
+  "repository_sha": "4061b4e7585e736ae0915809a6933231b77916df",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {
@@ -24,10 +24,27 @@
     },
     {
       "node_id": "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_canonical_root_selection"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible"
+    },
+    {
+      "node_id": "tests/test_work_item_review_packet_matrix_resume.py::test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding"
     }
   ],
   "successful_path_nodes": [
-    "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
     "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success"
   ]
 }

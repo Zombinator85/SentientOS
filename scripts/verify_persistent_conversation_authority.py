@@ -7,7 +7,7 @@ from pathlib import Path
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    paths = [root / "sentientos/conversation_session.py", root / "sentientos/chat_service.py"]
+    paths = [root / "sentientos/conversation_session.py", root / "sentientos/chat_service.py", root / "sentientos/canonical_memory.py"]
     forbidden = {"create_chat_completion", "generate_governed", "requests", "httpx", "openai", "urllib"}
     findings: list[str] = []
     for path in paths:
@@ -21,7 +21,14 @@ def main() -> int:
     chat = paths[1].read_text(encoding="utf-8")
     if "GovernedLocalModelInvoker" not in chat or "self.invoker.invoke" not in chat:
         findings.append("chat_service:governed_invoker_missing")
+    canonical = paths[2].read_text(encoding="utf-8")
+    if "valid_admission_evidence_required" not in canonical or "retention_admitted" not in canonical:
+        findings.append("canonical_memory:admission_evidence_requirement_missing")
+    if "conversation_memories.json" in canonical and "legacy_sidecar_present" not in canonical:
+        findings.append("canonical_memory:legacy_sidecar_used_as_authority")
     context = paths[0].read_text(encoding="utf-8")
+    if "admitted_committed" in context or "ConversationMemoryStore" in context:
+        findings.append("conversation_session:self_issued_admission")
     if "[RETRIEVED_MEMORY_DATA_UNTRUSTED]" not in context or "MEMORY_DATA:" not in context:
         findings.append("conversation_session:memory_provenance_missing")
     if findings:
