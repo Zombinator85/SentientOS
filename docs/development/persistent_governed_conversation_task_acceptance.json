@@ -1,0 +1,33 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8680e3054d2b6be4b8ead4260efca83a3430e85b",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_durable_session_reopen"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success"
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
+    "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success"
+  ]
+}
