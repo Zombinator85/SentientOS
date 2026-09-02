@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ffd2017743fef642fa3b082f03f76c8115bb7eb7",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_deterministic_dependency_startup_order", "rationale": "Registry order is deterministic and dependency aware."},
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_missing_dependency_degrades_without_restart_storm_and_recovers", "rationale": "Semantic dependency loss degrades without a restart storm and recovers."},
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_restart_budget_exhaustion_and_no_further_automatic_restart", "rationale": "Bounded restart exhausts and requires manual reset."},
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_panic_prevents_restart_and_requires_explicit_clear", "rationale": "Durable panic blocks lifecycle activity until explicit clear."},
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_restart_budget_persists_across_supervisor_reconstruction", "rationale": "Reconstruction cannot erase exhausted storm accounting."},
+    {"node_id": "tests/test_runtime_service_supervisor.py::test_persistent_chat_restart_resume_successful_path", "rationale": "Governed chat resumes the exact durable session and retained memory after one bounded restart."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_runtime_service_supervisor.py::test_persistent_chat_restart_resume_successful_path"
+  ]
+}

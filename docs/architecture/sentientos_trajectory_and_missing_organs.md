@@ -221,10 +221,30 @@ Proof required:
 
 ### 5. Runtime Supervisor
 
-A runtime supervisor should maintain a service registry, health status, restart
-policy, safe shutdown, panic shutdown, dependency order, and degraded state for
-SentientOS services. It should coordinate daemons without granting them new
-host authority.
+The first canonical Runtime Supervisor core slice is implemented. Its immutable
+`sentientos.runtime_service:v1` registry deterministically orders commissioned
+local-model readiness, persistent governed chat, and a responsive facade around
+the existing maintenance-runtime owner. Other daemons, kernel-level supervision,
+containers, and arbitrary privileged service control remain unsupervised.
+
+Health is semantic: dependencies must be healthy, chat requires its service and
+durable stores plus commissioned governed-model readiness, and maintenance probes
+only responsiveness (never maintenance work or generation). A missing activation
+degrades chat without restarting its otherwise healthy process; recovery is
+deterministic and does not cascade restart accounting.
+
+Automatic restart is bounded by a persisted rolling budget, exponential bounded
+backoff, and explicit operator reset. Exhaustion survives supervisor reconstruction.
+Reverse dependency shutdown is graceful and bounded before a terminal adapter
+stop. The existing operator/runtime supplies adapters and retains all inference,
+memory, provider, host, repository, and federation authority.
+
+Supervisor state and append-only attempt/effect lifecycle receipts live under
+`SENTIENTOS_RUNTIME_STATE_ROOT`, falling back beneath the canonical data root.
+The durable panic latch blocks starts and automatic recovery until explicit clear,
+while preserving conversations and retained canonical memory. A composed synthetic
+governed-model proof kills chat, records exactly one restart, resumes the exact
+session and context, and retains canonical memory without duplicate turns.
 
 Proof required:
 
@@ -234,7 +254,7 @@ Proof required:
 - Fail-closed behavior when restart budgets or health proofs fail.
 - No implicit authority for services to self-escalate.
 - Operator override and panic handling that stops or disables services.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_runtime_supervisor.py`.
+- Docs proof command: `python -m scripts.run_tests -q tests/test_runtime_service_supervisor.py tests/test_runtime_supervisor_authority.py`.
 
 ### 6. Capability Registry
 

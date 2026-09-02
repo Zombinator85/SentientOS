@@ -243,7 +243,7 @@ def test_execution_proof_wing_capabilities_are_proof_only_and_real_actions_defer
     assert records["effect_receipt_contract"].authority_level == "proof_only"
     assert records["postcondition_checks"].authority_level == "proof_only"
     assert records["rollback_planning"].authority_level == "proof_only"
-    assert records["runtime_supervisor"].authority_level == "telemetry_readiness_only"
+    assert records["runtime_supervisor"].authority_level == "bounded-orchestrator"
     assert records["execution_readiness_manifest"].authority_level == "readiness_only"
     for capability_id in ["real_effect_execution", "real_rollback_execution", "real_actuation_fulfillment"]:
         assert records[capability_id].status == "deferred"

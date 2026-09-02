@@ -173,6 +173,19 @@ class FirstBootWizard:
         federation_payload = self._handle_federation_step(decisions, config)
         summary["federation"] = federation_payload
 
+        # Topology declaration only: first boot never starts these services.
+        runtime_supervisor: dict[str, object] = {
+            "schema": "sentientos.runtime_supervisor_config:v1",
+            "enabled": True,
+            "operator_only": True,
+            "bounded_automatic_restart": True,
+            "services": {"commissioned_model": True, "persistent_governed_chat": True, "maintenance_runtime": True},
+        }
+        config["runtime_supervisor"] = runtime_supervisor
+        self._save_config(config)
+        summary["runtime_supervisor"] = dict(runtime_supervisor)
+        self._record_step("runtime_supervisor", runtime_supervisor)
+
         self._panels.append(
             FirstBootPanel(
                 title="Summary",
