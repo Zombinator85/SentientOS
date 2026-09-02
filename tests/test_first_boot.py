@@ -147,6 +147,8 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     assert config["architect_autonomy"] is False
     assert config["federation_peer_name"] == "Aurora"
     assert config["federation_peers"] == ["tcp://aurora:7777"]
+    assert config["runtime_supervisor"]["bounded_automatic_restart"] is True
+    assert config["runtime_supervisor"]["operator_only"] is True
 
     events = [item["entry"]["event"] for item in ledger_entries]
     assert "first_boot_approved" in events

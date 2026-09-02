@@ -8,7 +8,7 @@ import signal
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Mapping, Optional, Tuple
 
 from .dashboard.console import ConsoleDashboard, LogBuffer
 from .dashboard.status_source import make_log_stream_source, make_status_source
@@ -20,10 +20,29 @@ from .runtime.bootstrap import (
     validate_model_paths,
 )
 from .runtime.shell import RuntimeShell, load_or_init_config
+from .runtime.services import HealthResult, InProcessServiceAdapter
+from .runtime.supervisor import RuntimeServiceDescriptor, RuntimeSupervisor, ServiceRegistry
 from .audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 
 
 LOGGER = logging.getLogger("sentientos.start")
+
+
+def build_runtime_supervisor(shell: RuntimeShell, *, state_root: Path | None = None) -> RuntimeSupervisor:
+    """Bind the canonical supervisor to existing owners without widening authority."""
+    registry = ServiceRegistry()
+    registry.register(RuntimeServiceDescriptor("commissioned_local_model", "Commissioned local model", "semantic_dependency",
+        restart_policy="never", critical=True), InProcessServiceAdapter(name="commissioned-local-model", start=lambda: None,
+        stop=lambda: None, health=lambda: HealthResult(
+            getattr(getattr(shell, "_local_model", None), "active_identity", None) is not None,
+            "commissioned_activation_ready" if getattr(getattr(shell, "_local_model", None), "active_identity", None) is not None else "commissioned_activation_missing")))
+    registry.register(RuntimeServiceDescriptor("maintenance_runtime", "SentientOS maintenance runtime", "responsive_facade",
+        restart_policy="on_failure"), InProcessServiceAdapter(name="sentientosd-maintenance-facade", start=lambda: None,
+        stop=lambda: None, health=lambda: HealthResult(True, "maintenance_facade_responsive", {"maintenance_action_performed": False})))
+    registry.register(RuntimeServiceDescriptor("persistent_governed_chat", "Persistent governed chat", "in_process",
+        dependencies=("commissioned_local_model",), critical=True), InProcessServiceAdapter(name="runtime-shell-chat",
+        start=shell.start, stop=shell.shutdown, health=lambda: HealthResult(True, "chat_surface_and_store_ready")))
+    return RuntimeSupervisor(registry, state_root=state_root)
 
 
 def _run_world_demo(
@@ -141,7 +160,13 @@ def run(init_only: bool = False) -> int:
         except (ValueError, AttributeError):  # pragma: no cover - platform dependent
             continue
 
-    shell.start()
+    supervisor_config = config.get("runtime_supervisor")
+    supervisor: RuntimeSupervisor | None = None
+    if isinstance(supervisor_config, Mapping) and supervisor_config.get("enabled", False):
+        supervisor = build_runtime_supervisor(shell, state_root=runtime_dirs["base"] / "runtime_supervisor")
+        supervisor.start_all()
+    else:
+        shell.start()
     interval = max(1.0, float(config["runtime"].get("watchdog_interval", 5.0)) / 2.0)
 
     dashboard_config = config.get("dashboard")
@@ -232,7 +257,8 @@ def run(init_only: bool = False) -> int:
 
     try:
         while not stop_event.wait(interval):
-            pass
+            if supervisor is not None:
+                supervisor.observe()
     finally:
         if dashboard:
             dashboard.stop()
@@ -243,7 +269,10 @@ def run(init_only: bool = False) -> int:
             world_demo_thread.join(timeout=world_demo_poll_interval)
         if persona_handler:
             logging.getLogger("sentientos.persona").removeHandler(persona_handler)
-        shell.shutdown()
+        if supervisor is not None:
+            supervisor.shutdown()
+        else:
+            shell.shutdown()
     return 0
 
 
