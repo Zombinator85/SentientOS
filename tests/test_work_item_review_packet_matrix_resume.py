@@ -3,10 +3,41 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+import os
+import signal
+import time
 import pytest
 
-from scripts.run_work_item_review_packet_matrix import MatrixCommand, run_resumable_matrix
+from scripts.run_work_item_review_packet_matrix import MatrixCommand, _run_bounded, run_resumable_matrix
 pytestmark = pytest.mark.no_legacy_skip
+
+
+@pytest.mark.parametrize(("stream", "marker"), (("stdout", "DIRECT_STDOUT_MARKER"), ("stderr", "DIRECT_STDERR_MARKER")))
+def test_direct_exit_is_not_blocked_by_detached_descendant_inheriting_stdio(tmp_path: Path, stream: str, marker: str) -> None:
+    pidfile = tmp_path / "descendant.pid"
+    descendant = f"import os,time;open({str(pidfile)!r},'w').write(str(os.getpid()));time.sleep(10)"
+    target = "sys.stdout" if stream == "stdout" else "sys.stderr"
+    parent = f"import subprocess,sys;subprocess.Popen([sys.executable,'-c',{descendant!r}],start_new_session=True);print({marker!r},file={target},flush=True)"
+    started = time.monotonic()
+    try:
+        completed, _ = _run_bounded((sys.executable, "-c", parent), timeout_seconds=3, repo=Path.cwd())
+        assert time.monotonic() - started < 2
+        assert completed.returncode == 0
+        assert marker in (completed.stdout if stream == "stdout" else completed.stderr)
+    finally:
+        deadline = time.monotonic() + 2
+        while not pidfile.exists() and time.monotonic() < deadline: time.sleep(0.01)
+        if pidfile.exists():
+            try: os.kill(int(pidfile.read_text()), signal.SIGKILL)
+            except ProcessLookupError: pass
+
+
+def test_true_direct_timeout_retains_partial_output_and_reaps_tree(tmp_path: Path) -> None:
+    command = (sys.executable, "-c", "import time;print('PARTIAL_BEFORE_TIMEOUT',flush=True);time.sleep(10)")
+    with pytest.raises(__import__('subprocess').TimeoutExpired) as caught:
+        _run_bounded(command, timeout_seconds=1, repo=tmp_path)
+    assert "PARTIAL_BEFORE_TIMEOUT" in str(caught.value.stdout)
+    assert getattr(caught.value, "termination_reason") in {"process_tree_terminated", "process_tree_killed_after_grace"}
 
 
 def _commands(marker: Path) -> list[MatrixCommand]:

@@ -35,3 +35,13 @@ lane remains a required failure.  A timed-out diagnostic lane remains non-proof 
 and cannot make the matrix successful.  Resume accepts only an intact checkpoint bound
 to the same workspace and matrix contract; completed-matrix validation continues to
 require `matrix_passed`.
+
+PR #2069 fixed bounded-runner selection for ordinary CLI invocations. Direct-process
+completion and output-stream EOF are a separate lifecycle distinction: a successfully
+exited lane must not be timed out merely because a detached descendant inherited its
+stdout or stderr handle. The runner now captures output in private temporary regular
+files, waits on the direct lane process, and reads a bounded snapshot after exit without
+waiting for descendant-held handles to reach EOF. A direct process that actually exceeds
+its deadline still fails closed: its owned process session is terminated and reaped,
+available output is retained, and a required lane remains failed. Capture files are
+external, bounded, and removed automatically.

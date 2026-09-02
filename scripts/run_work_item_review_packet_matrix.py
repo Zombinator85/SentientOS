@@ -10,8 +10,9 @@ import sys
 import os
 import signal
 import time
+import tempfile
 from datetime import datetime, timezone
-from typing import Callable, TypedDict
+from typing import Any, Callable, TypedDict, cast
 
 
 @dataclass(frozen=True)
@@ -457,40 +458,52 @@ def _default_runner(command: tuple[str, ...]) -> subprocess.CompletedProcess[str
 def _terminate_process_tree(process: subprocess.Popen[str], *, grace_seconds: float = 2.0) -> str:
     """Terminate only the process tree created for one matrix lane and reap it."""
     if process.poll() is not None:
-        process.communicate()
         return "child_already_exited"
     if os.name == "posix":
         os.killpg(process.pid, signal.SIGTERM)
     else:  # pragma: no cover - exercised on supported Windows runners
         process.terminate()
     try:
-        process.communicate(timeout=grace_seconds)
+        process.wait(timeout=grace_seconds)
         return "process_tree_terminated"
     except subprocess.TimeoutExpired:
         if os.name == "posix":
             os.killpg(process.pid, signal.SIGKILL)
         else:  # pragma: no cover
             process.kill()
-        process.communicate()
+        process.wait()
         return "process_tree_killed_after_grace"
+
+
+_CAPTURE_LIMIT_BYTES = 2 * 1024 * 1024
+
+
+def _capture_snapshot(stream: object) -> str:
+    """Read a bounded snapshot without waiting for inherited handles to close."""
+    handle = cast(Any, stream)
+    handle.flush()
+    size = handle.seek(0, os.SEEK_END)
+    handle.seek(max(0, size - _CAPTURE_LIMIT_BYTES))
+    return str(handle.read().decode("utf-8", errors="replace"))
 
 
 def _run_bounded(command: tuple[str, ...], *, timeout_seconds: int, repo: Path) -> tuple[subprocess.CompletedProcess[str], float]:
     started = time.perf_counter()
-    process = subprocess.Popen(command, cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               start_new_session=(os.name == "posix"))
-    try:
-        stdout, stderr = process.communicate(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired as exc:
-        termination_reason = _terminate_process_tree(process)
-        stdout = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
-        stderr = (exc.stderr or "") if isinstance(exc.stderr, str) else ""
-        timeout = subprocess.TimeoutExpired(command, timeout_seconds, output=stdout, stderr=stderr)
-        timeout.termination_reason = termination_reason  # type: ignore[attr-defined]
-        raise timeout
-    except KeyboardInterrupt:
-        _terminate_process_tree(process)
-        raise
+    with tempfile.TemporaryFile(prefix="sentientos-matrix-stdout-") as stdout_file, tempfile.TemporaryFile(prefix="sentientos-matrix-stderr-") as stderr_file:
+        process = subprocess.Popen(command, cwd=repo, text=True, stdout=stdout_file, stderr=stderr_file,
+                                   start_new_session=(os.name == "posix"))
+        try:
+            process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            termination_reason = _terminate_process_tree(process)
+            timeout = subprocess.TimeoutExpired(command, timeout_seconds,
+                output=_capture_snapshot(stdout_file), stderr=_capture_snapshot(stderr_file))
+            timeout.termination_reason = termination_reason  # type: ignore[attr-defined]
+            raise timeout
+        except KeyboardInterrupt:
+            _terminate_process_tree(process)
+            raise
+        stdout, stderr = _capture_snapshot(stdout_file), _capture_snapshot(stderr_file)
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr), time.perf_counter() - started
 
 
