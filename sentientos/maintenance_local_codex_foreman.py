@@ -194,6 +194,13 @@ class LocalCodexDriver:
     def prepare_session(self, request:Mapping[str,Any], session:Mapping[str,Any])->Mapping[str,Any]: return {"prepared":True}
     def observe_session(self, session:Mapping[str,Any], delivered_steps:int)->Mapping[str,Any]: return {"kind":"interrupt","terminal_reason":"external_foreman_required"}
     def request_cancellation(self, session:Mapping[str,Any], cancellation_reference:str)->Mapping[str,Any]: return {"kind":"interrupt","terminal_reason":"agent_session_cancelled"}
+    def execute(self, *, config:LocalCodexForemanConfig, lease:Mapping[str,Any], request:Mapping[str,Any],
+                session:Mapping[str,Any], artifact_root:Path, evaluation_time:str,
+                validation_feedback:Sequence[Mapping[str,Any]]=())->Mapping[str,Any]:
+        # Codex correction keeps its native same-thread mechanism.  The generic
+        # dispatcher never silently translates a local request into Codex work.
+        if validation_feedback: raise ValueError("codex_continuation_requires_thread_envelope")
+        return run_local_codex_session(config,lease,request,session,artifact_root)
 
 def require_effect_authority(req:Mapping[str,Any])->None:
     missing=EFFECT_AUTHORITIES-set(req.get("requested_authority_classes",()))
