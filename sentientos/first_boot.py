@@ -130,9 +130,9 @@ class FirstBootWizard:
         force: bool = False,
     ) -> dict[str, object]:
         if not force and not self.should_run():
-            summary = {"status": "skipped", "reason": "first_boot_complete"}
-            self._last_summary = summary
-            return dict(summary)
+            skipped_summary: dict[str, object] = {"status": "skipped", "reason": "first_boot_complete"}
+            self._last_summary = skipped_summary
+            return dict(skipped_summary)
 
         decisions = decisions or WizardDecisions()
         self._panels = []
