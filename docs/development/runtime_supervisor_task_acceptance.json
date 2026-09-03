@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "ffd2017743fef642fa3b082f03f76c8115bb7eb7",
+  "repository_sha": "0f4f3220760f29954e46b9615761da34bc90f538",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {"node_id": "tests/test_runtime_service_supervisor.py::test_deterministic_dependency_startup_order", "rationale": "Registry order is deterministic and dependency aware."},

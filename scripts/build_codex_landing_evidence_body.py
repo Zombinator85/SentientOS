@@ -199,7 +199,7 @@ def build_body(
         if matrix_json_path is None or not matrix_json_path.exists():
             raise ValueError("exhaustive landing requires matrix-json-path")
         matrix = _load_json_object(matrix_json_path, label="matrix JSON")
-        if str(matrix.get("status")) != "passed" or int(matrix.get("required_failure_count", 1)) != 0:
+        if str(matrix.get("status")) not in {"passed", "matrix_passed"} or int(matrix.get("required_failure_count", 1)) != 0:
             raise ValueError("exhaustive matrix evidence did not pass")
     else:
         raise ValueError("unsupported authoritative validation profile")

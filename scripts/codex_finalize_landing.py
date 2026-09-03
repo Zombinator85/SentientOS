@@ -148,7 +148,12 @@ def _create_invocation_context(repo_arg: str, sandbox_arg: str | None, binding_i
         missing.append(cursor)
         cursor = cursor.parent
     for component in reversed(missing):
-        os.mkdir(component, 0o700)
+        try:
+            os.mkdir(component, 0o700)
+        except FileExistsError:
+            # A concurrent invocation may have created the shared caller-owned
+            # ancestor after this invocation discovered it was missing.
+            pass
         _assert_no_symlink_components(component)
         _directory_identity(component, enforce_private_mode=False)
     requested_record = _directory_identity(requested, enforce_private_mode=False)
