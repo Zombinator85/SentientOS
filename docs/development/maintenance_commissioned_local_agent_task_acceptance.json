@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ff37e9acef6bdcedce03d03989cd888ff9044052",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_commissioned_local_agent_edits_only_worktree_and_reports_no_remote_effects", "rationale": "The local worker receives the brief, inspects and edits only the detached worktree, and records zero Codex, remote, validation, commit, or publication effects."},
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_symlink_escape_and_unauthorized_command_are_denied", "rationale": "The deterministic tool broker rejects symlink escape and Git command authority."},
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_malformed_and_unsupported_actions_have_no_effect_and_are_bounded", "rationale": "Untrusted malformed or unsupported model actions remain no-effect and bounded."},
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_budget_exhaustion_and_cancellation_stop_effects", "rationale": "Session budget and operator cancellation stop further effects."},
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_corrective_continuation_reuses_worktree_and_receives_validation_failure", "rationale": "Deterministic validation evidence can drive a correction in the same worktree."},
+    {"node_id": "tests/test_maintenance_commissioned_local_agent.py::test_backend_descriptor_is_explicit_and_never_claims_validation_or_remote_inference", "rationale": "Backend identity and non-authority posture are explicit."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_commissioned_local_agent.py::test_commissioned_local_agent_edits_only_worktree_and_reports_no_remote_effects",
+    "tests/test_maintenance_commissioned_local_agent.py::test_corrective_continuation_reuses_worktree_and_receives_validation_failure"
+  ]
+}

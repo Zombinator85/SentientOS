@@ -18,7 +18,7 @@ REQUEST_SCHEMA="sentientos.maintenance_implementation_agent_request:v1"
 SESSION_SCHEMA="sentientos.maintenance_implementation_agent_session:v1"
 RESULT_SCHEMA="sentientos.maintenance_implementation_agent_result:v1"
 FAKE_PLAN_SCHEMA="sentientos.maintenance_fake_agent_plan:v1"
-CLOSED_DRIVER_KINDS=frozenset({"fake_scripted","local_codex"})
+CLOSED_DRIVER_KINDS=frozenset({"fake_scripted","local_codex","commissioned_local"})
 RESERVED_DRIVER_KINDS: frozenset[str]=frozenset()
 EFFECT_CLASS_SYNTHETIC="synthetic_no_effect"
 SESSION_PREFIX="masession_"
@@ -89,6 +89,22 @@ class ImplementationAgentDriver(Protocol):
     def prepare_session(self, request: Mapping[str,Any], session: Mapping[str,Any])->Mapping[str,Any]: ...
     def observe_session(self, session: Mapping[str,Any], delivered_steps: int)->Mapping[str,Any]: ...
     def request_cancellation(self, session: Mapping[str,Any], cancellation_reference: str)->Mapping[str,Any]: ...
+
+class EffectfulImplementationAgentDriver(ImplementationAgentDriver, Protocol):
+    """Common stochastic-worker boundary; deterministic callers retain custody."""
+    def execute(self, *, config: Any, lease: Mapping[str,Any], request: Mapping[str,Any],
+                session: Mapping[str,Any], artifact_root: Path, evaluation_time: str,
+                validation_feedback: Sequence[Mapping[str,Any]]=())->Mapping[str,Any]: ...
+
+def execute_implementation_agent(driver: EffectfulImplementationAgentDriver, *, config: Any,
+        lease: Mapping[str,Any], request: Mapping[str,Any], session: Mapping[str,Any],
+        artifact_root: Path, evaluation_time: str,
+        validation_feedback: Sequence[Mapping[str,Any]]=())->dict[str,Any]:
+    """Dispatch one explicit backend without fallback or success interpretation."""
+    verify_driver(driver)
+    return dict(driver.execute(config=config, lease=lease, request=request, session=session,
+        artifact_root=artifact_root, evaluation_time=evaluation_time,
+        validation_feedback=validation_feedback))
 
 @dataclass(frozen=True)
 class FakeScriptedDriver:

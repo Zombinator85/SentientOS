@@ -9,7 +9,7 @@ from typing import Any, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment"}
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:
@@ -159,7 +159,7 @@ class GovernedLocalModelInvoker:
         if request.authority_map_digest != self.authority_map.map_digest: reasons.append("model_authority_stale")
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
-        if request.purpose in {"discernment_judgment", "local_model_commissioning_smoke"}:
+        if request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation"}:
             if identity is None:
                 reasons.append("active_model_identity_unavailable")
             elif identity.fallback or identity.posture != "production":

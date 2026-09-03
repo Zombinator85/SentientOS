@@ -9,7 +9,7 @@ from tests.local_codex_foreman_fixtures import make_fake_cli
 
 NOW='2026-08-06T00:00:00Z'
 
-def setup(tmp_path:Path, mode:str='success', validation_expectations=None, closed_loop=False, process_real_health=False, process_real_target='tests/test_health_target.py', process_real_initial_content=None, process_real_allowed_paths=None):
+def setup(tmp_path:Path, mode:str='success', validation_expectations=None, closed_loop=False, process_real_health=False, process_real_target='tests/test_health_target.py', process_real_initial_content=None, process_real_allowed_paths=None, extra_authorities=()):
     repo=tmp_path/'repo'; repo.mkdir(); subprocess.run(['git','init'],cwd=repo,check=True,capture_output=True)
     subprocess.run(['git','config','user.email','a@b.c'],cwd=repo,check=True); subprocess.run(['git','config','user.name','T'],cwd=repo,check=True)
     if process_real_health:
@@ -45,7 +45,7 @@ def setup(tmp_path:Path, mode:str='success', validation_expectations=None, close
     roots={n:tmp_path/n for n in ('state','workspace','scratch','inbox','codex_home')}
     for root in roots.values(): root.mkdir(mode=0o700)
     fake=make_fake_cli(tmp_path,mode)
-    auth=['implementation_agent_session',*sorted(EFFECT_AUTHORITIES)]
+    auth=['implementation_agent_session',*sorted(EFFECT_AUTHORITIES),*extra_authorities]
     if closed_loop: auth += ['repository_commit','remote_repository_read','remote_ref_publish']
     target_path = process_real_target if process_real_health else 'allowed.txt'
     allowed_paths = [target_path, *(process_real_allowed_paths or [])]
