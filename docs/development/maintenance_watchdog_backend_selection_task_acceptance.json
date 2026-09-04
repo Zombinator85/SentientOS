@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "efe9a23923406c698a6fa9c15c4be56051052f43",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_watchdog_backend_selection.py::test_watchdog_injects_only_explicit_commissioned_driver", "rationale": "The autonomous watchdog injects the explicitly selected commissioned-local driver and never constructs Codex."},
+    {"node_id": "tests/test_maintenance_watchdog_backend_selection.py::test_commissioned_backend_missing_activation_blocks_without_codex", "rationale": "Missing activation blocks with structured evidence and no Codex fallback."},
+    {"node_id": "tests/test_maintenance_watchdog_backend_selection.py::test_activation_digest_substitution_blocks_without_codex", "rationale": "An activation byte substitution is rejected rather than changing identity or backend."},
+    {"node_id": "tests/test_maintenance_watchdog_backend_selection.py::test_backend_and_exact_activation_survive_config_reload", "rationale": "Durable configuration reload preserves the exact backend, activation path, and activation byte digest."},
+    {"node_id": "tests/test_maintenance_watchdog_backend_selection.py::test_local_codex_backend_forbids_activation_binding", "rationale": "The local-Codex configuration cannot ambiguously carry a commissioned-local activation."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_watchdog_backend_selection.py::test_watchdog_injects_only_explicit_commissioned_driver",
+    "tests/test_maintenance_watchdog_backend_selection.py::test_backend_and_exact_activation_survive_config_reload"
+  ]
+}

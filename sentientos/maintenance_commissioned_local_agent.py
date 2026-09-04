@@ -22,6 +22,7 @@ from sentientos import maintenance_task_authority_lease as leases
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
 
 PURPOSE = "maintenance_implementation"
+RESULT_SCHEMA = "sentientos.maintenance_commissioned_local_agent_result:v1"
 TOOL_NAMES = frozenset({"read_file", "search_text", "list_path", "replace_file", "run_allowed_command", "git_diff", "git_status"})
 TERMINAL_ACTIONS = frozenset({"candidate_complete", "blocked"})
 REQUIRED_AUTHORITIES = frozenset({"implementation_agent_session", "implementation_instruction_disclosure", "repository_state_read", "repository_workspace_provision", "repository_workspace_modify", "filesystem_read", "filesystem_write"})
@@ -320,13 +321,14 @@ class CommissionedLocalDriver:
         manifest=custody.changed_manifest(config,lease,state.worktree)
         if status=="implementation_ready_for_validation" and (not manifest["changed_paths"] or manifest["out_of_scope_paths"] or manifest["forbidden_paths"] or manifest["budget_findings"] or manifest["terminal_head"]!=lease["base_sha"]):
             status="implementation_no_change" if not manifest["changed_paths"] else "implementation_scope_violated"
-        result={"schema_version":"sentientos.maintenance_commissioned_local_agent_result:v1","status":status,"reason_codes":[reason],"task_id":state.task_id,"session_id":state.session_id,"lease_id":state.lease_id,"base_sha":state.exact_base,"driver_id":self.driver_id,"driver_kind":"commissioned_local","model_identity":state.model_identity,"correlation_id":state.correlation_id,"worktree_id":state.worktree["worktree_id"],"worktree_descriptor_digest":state.worktree["worktree_digest"],"change_manifest_digest":manifest["manifest_digest"],"changed_paths":manifest["changed_paths"],"iteration_count":state.iterations,"token_budget_used_upper_bound":state.token_budget_used,"validation_feedback_count":len(state.validation_feedback),"effects":{"local_model_inference_performed":state.iterations>0,"remote_model_invocation_performed":False,"codex_invocation_performed":False,"repository_mutation_performed":bool(manifest["changed_paths"]),"validation_performed":False,"git_commit_performed":False,"publication_performed":False,"unauthorized_host_effect_performed":False},"result_digest":""}
+        result={"schema_version":RESULT_SCHEMA,"status":status,"reason_codes":[reason],"task_id":state.task_id,"session_id":state.session_id,"lease_id":state.lease_id,"base_sha":state.exact_base,"driver_id":self.driver_id,"driver_kind":"commissioned_local","model_identity":state.model_identity,"correlation_id":state.correlation_id,"worktree_id":state.worktree["worktree_id"],"worktree_descriptor_digest":state.worktree["worktree_digest"],"change_manifest_digest":manifest["manifest_digest"],"changed_paths":manifest["changed_paths"],"iteration_count":state.iterations,"token_budget_used_upper_bound":state.token_budget_used,"validation_feedback_count":len(state.validation_feedback),"effects":{"local_model_inference_performed":state.iterations>0,"remote_model_invocation_performed":False,"codex_invocation_performed":False,"repository_mutation_performed":bool(manifest["changed_paths"]),"validation_performed":False,"git_commit_performed":False,"publication_performed":False,"unauthorized_host_effect_performed":False},"result_digest":""}
         result["result_digest"]=_digest({k:v for k,v in result.items() if k!="result_digest"})
+        custody.write_json(config.external_state_root/"maintenance_commissioned_local_results"/(state.session_id+".json"), result, immutable=False)
         self._audit(config,state,{"kind":"terminal","status":status,"reason":reason,"result_digest":result["result_digest"],"change_manifest_digest":manifest["manifest_digest"]})
         return result
 
     def _terminal(self, status: str, session: Mapping[str, Any], *, reason: str) -> dict[str, Any]:
-        result={"schema_version":"sentientos.maintenance_commissioned_local_agent_result:v1","status":status,"reason_codes":[reason],"session_id":session.get("session_id"),"driver_id":self.driver_id,"driver_kind":"commissioned_local","effects":{"remote_model_invocation_performed":False,"codex_invocation_performed":False,"validation_performed":False,"git_commit_performed":False,"publication_performed":False},"result_digest":""}
+        result={"schema_version":RESULT_SCHEMA,"status":status,"reason_codes":[reason],"session_id":session.get("session_id"),"driver_id":self.driver_id,"driver_kind":"commissioned_local","effects":{"remote_model_invocation_performed":False,"codex_invocation_performed":False,"validation_performed":False,"git_commit_performed":False,"publication_performed":False},"result_digest":""}
         result["result_digest"]=_digest({k:v for k,v in result.items() if k!="result_digest"}); return result
 
     def _audit(self, config: custody.LocalCodexForemanConfig, state: CommissionedLocalSession, event: Mapping[str, Any]) -> None:

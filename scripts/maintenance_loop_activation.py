@@ -15,6 +15,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name in ("state", "workspace", "scratch", "inbox"): roots.add_argument("--" + name + "-root", required=True)
     render = sub.add_parser("render-config")
     for name in ("output", "repository-root", "state-root", "workspace-root", "scratch-root", "inbox-root", "standing-grant", "selector-policy", "foreman-policy", "validation-policy", "landing-policy", "base-sha", "tracked-base-ref"): render.add_argument("--" + name, required=True)
+    render.add_argument("--implementation-backend", choices=("local_codex", "commissioned_local"), required=True)
+    render.add_argument("--commissioned-local-activation")
     render.add_argument("--maximum-actions", type=int, required=True); render.add_argument("--maximum-wall-clock-seconds", type=int, required=True); render.add_argument("--publication-retry-backoff-seconds", type=int, required=True)
     for name in ("stop-marker", "control-journal", "base-cursor-journal"): render.add_argument("--" + name)
     for command in ("doctor-live", "smoke-idle", "print-run-command"):
@@ -25,7 +27,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "init-roots": out = activation.init_roots(args.repository_root, {k: getattr(args, k + "_root") for k in ("state", "workspace", "scratch", "inbox")})
         elif args.command == "render-config":
-            names = ("output", "repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "standing_grant", "selector_policy", "foreman_policy", "validation_policy", "landing_policy", "base_sha", "tracked_base_ref", "maximum_actions", "maximum_wall_clock_seconds", "publication_retry_backoff_seconds", "stop_marker", "control_journal", "base_cursor_journal")
+            names = ("output", "repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "standing_grant", "selector_policy", "foreman_policy", "validation_policy", "landing_policy", "base_sha", "tracked_base_ref", "implementation_backend", "commissioned_local_activation", "maximum_actions", "maximum_wall_clock_seconds", "publication_retry_backoff_seconds", "stop_marker", "control_journal", "base_cursor_journal")
             out = activation.render_config(**{name: getattr(args, name) for name in names})
         elif args.command == "doctor-live": out = activation.doctor_live(args.config, evaluation_time=args.evaluation_time, probe_remote=args.probe_remote)
         elif args.command == "smoke-idle": out = activation.smoke_idle(args.config, evaluation_time=args.evaluation_time)

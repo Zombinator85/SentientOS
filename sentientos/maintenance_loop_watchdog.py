@@ -24,6 +24,9 @@ from sentientos import maintenance_task_journal as task_journal
 from sentientos import maintenance_validation_controller as validation
 from sentientos import maintenance_implementation_agent as implementation_agent
 from sentientos import maintenance_local_codex_foreman as foreman
+from sentientos import maintenance_commissioned_local_agent as commissioned_agent
+from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.local_model_production_commissioning import load_activation
 
 CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v1"
 SCAN_SCHEMA = "sentientos.maintenance_watchdog_scan:v1"
@@ -62,7 +65,9 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     required = {"schema_version", "repository_root", "state_root", "workspace_root",
                 "scratch_root", "candidate_inbox_roots", "standing_grant",
                 "selector_policy", "foreman_policy", "validation_policy",
-                "landing_policy", "maximum_active_tasks", "maximum_actions",
+                "landing_policy", "implementation_backend", "commissioned_local_activation",
+                "commissioned_local_activation_digest",
+                "maximum_active_tasks", "maximum_actions",
                 "maximum_wall_clock_seconds", "publication_retry_backoff_seconds",
                 "base_sha", "tracked_base_ref"}
     allowed = required | {"stop_marker", "control_journal", "base_cursor_journal",
@@ -70,6 +75,14 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     _closed(value, allowed, required)
     if value["schema_version"] != CONFIG_SCHEMA or int(value["maximum_active_tasks"]) != 1:
         raise ValueError("invalid_watchdog_config")
+    if value["implementation_backend"] not in {"local_codex", "commissioned_local"}:
+        raise ValueError("implementation_backend_invalid")
+    activation = value["commissioned_local_activation"]
+    activation_digest = value["commissioned_local_activation_digest"]
+    if value["implementation_backend"] == "commissioned_local" and (not isinstance(activation, str) or not isinstance(activation_digest, str)):
+        raise ValueError("commissioned_local_activation_required")
+    if value["implementation_backend"] == "local_codex" and (activation is not None or activation_digest is not None):
+        raise ValueError("commissioned_local_activation_forbidden")
     if int(value["maximum_actions"]) < 1 or int(value["maximum_wall_clock_seconds"]) < 1:
         raise ValueError("invalid_watchdog_bounds")
     if int(value["publication_retry_backoff_seconds"]) < 0:
@@ -136,6 +149,7 @@ def _canonical_artifacts(state: Path) -> list[dict[str, Any]]:
         "maintenance_implementation_briefs", "maintenance_implementation_requests",
         "maintenance_agent_sessions", "maintenance_agent_results", "maintenance_worktrees",
         "maintenance_local_codex_invocations", "maintenance_local_codex_results",
+        "maintenance_commissioned_local_results",
         "maintenance_codex_invocations", "maintenance_codex_results",
         "maintenance_change_manifests", "maintenance_validation_plans",
         "maintenance_validation_cycles", "maintenance_validation_command_results",
@@ -204,7 +218,7 @@ def decide(config: Mapping[str, Any], scan_result: Mapping[str, Any]) -> dict[st
         return [r for r in schemas.get(schema, []) if r.get("payload", {}).get("task_id") == task_id]
     requests = owned(implementation_agent.REQUEST_SCHEMA)
     sessions = owned(implementation_agent.SESSION_SCHEMA)
-    foreman_results = owned(foreman.RESULT_SCHEMA)
+    foreman_results = owned(foreman.RESULT_SCHEMA) + owned(commissioned_agent.RESULT_SCHEMA)
     ready = any(r.get("payload", {}).get("status") == "implementation_ready_for_validation" for r in foreman_results)
     interrupted = bool(foreman_results) and not ready
     incomplete_session = bool(sessions) and bool(active) and not active[0].get("active_attempt") and not ready
@@ -374,11 +388,13 @@ def _prepare_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], 
     _write_once(root / "maintenance_implementation_briefs" / (task + ".json"), brief)
     instruction_ref = "maintenance_implementation_instructions/" + task + ".txt"
     _write_bytes_once(root / instruction_ref, instruction)
+    backend = str(cfg["implementation_backend"])
+    driver_id = foreman.LocalCodexDriver.driver_id if backend == "local_codex" else commissioned_agent.CommissionedLocalDriver.driver_id
     request = implementation_agent.seal_request({
         "task_id": task, "lease_id": lease["lease_id"], "lease_digest": lease["lease_digest"], "candidate_id": lease["candidate_id"],
         "candidate_revision_digest": lease["candidate_revision_digest"], "canonical_candidate_digest": lease["canonical_candidate_digest"],
         "admitted_scope_digest": lease["admitted_scope_digest"], "repository_identity": lease["repository_identity"], "base_sha": lease["base_sha"],
-        "driver_id": foreman.LocalCodexDriver.driver_id, "driver_kind": "local_codex", "attempt_ordinal": 1, "corrective_retry_ordinal": 0,
+        "driver_id": driver_id, "driver_kind": backend, "attempt_ordinal": 1, "corrective_retry_ordinal": 0,
         "implementation_contract_digest": brief["brief_digest"], "bounded_objective": candidate["objective"],
         "subject_paths": list(lease["admitted_subject_paths"]), "validation_expectations": list(lease["validation_expectations"]),
         "requested_authority_classes": list(lease["authority_classes"]), "implementation_time_ceiling_seconds": lease["maximum_implementation_seconds"],
@@ -396,17 +412,47 @@ def _foreman_config(cfg: Mapping[str, Any]) -> foreman.LocalCodexForemanConfig:
     return result
 
 
+def _commissioned_driver(cfg: Mapping[str, Any]) -> tuple[commissioned_agent.CommissionedLocalDriver, Any]:
+    """Reconstruct only the immutable activation explicitly bound in config."""
+    activation = Path(str(cfg["commissioned_local_activation"]))
+    if activation.is_symlink() or not activation.is_absolute() or not activation.is_file():
+        raise ValueError("commissioned_local_activation_invalid")
+    actual_digest = "sha256:" + hashlib.sha256(activation.read_bytes()).hexdigest()
+    if actual_digest != cfg["commissioned_local_activation_digest"]:
+        raise ValueError("commissioned_local_activation_digest_mismatch")
+    model, authority_map = load_activation(activation)
+    invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map,
+        runtime_root=Path(str(cfg["state_root"])) / "maintenance_governed_local_invocations")
+    return commissioned_agent.CommissionedLocalDriver(invoker), model
+
+
+def _driver(cfg: Mapping[str, Any]) -> tuple[implementation_agent.EffectfulImplementationAgentDriver, Any | None]:
+    if cfg["implementation_backend"] == "local_codex":
+        return foreman.LocalCodexDriver(), None
+    return _commissioned_driver(cfg)
+
+
 def _start_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     snapshot = scanned["observations"]["active_tasks"][0]; task = str(snapshot["task_id"]); request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
-    return implementation_agent.start_implementation_agent_session(state_root=cfg["state_root"], lease_id=str(snapshot["active_lease_id"]),
-            request=request, driver=foreman.LocalCodexDriver(), evaluation_time=evaluation_time, repo_root=cfg["repository_root"])
+    driver, model = _driver(cfg)
+    try:
+        return implementation_agent.start_implementation_agent_session(state_root=cfg["state_root"], lease_id=str(snapshot["active_lease_id"]),
+                request=request, driver=driver, evaluation_time=evaluation_time, repo_root=cfg["repository_root"])
+    finally:
+        if model is not None: model.close()
 
 
 def _observe_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
     snapshot = scanned["observations"]["active_tasks"][0]; task = str(snapshot["task_id"])
     session = _owned(scanned, implementation_agent.SESSION_SCHEMA, task)[0]
     request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
-    result = foreman.run_local_codex_session(_foreman_config(cfg), _lease_for(snapshot, cfg), request, session, Path(cfg["state_root"]))
+    driver, model = _driver(cfg)
+    try:
+        result = implementation_agent.execute_implementation_agent(driver, config=_foreman_config(cfg),
+            lease=_lease_for(snapshot, cfg), request=request, session=session,
+            artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time)
+    finally:
+        if model is not None: model.close()
     if result.get("status") == "implementation_ready_for_validation":
         current = task_journal.materialize_snapshot(cfg["state_root"], task, repo_root=cfg["repository_root"], evaluation_time=evaluation_time)
         if current.get("implementation_result", {}).get("status") == "completed": return result
@@ -427,6 +473,14 @@ def _recover_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], 
     sessions = _owned(scanned, implementation_agent.SESSION_SCHEMA, task)
     if not sessions or not snapshot.get("active_attempt"):
         return _start_implementation(cfg, scanned, evaluation_time)
+    if cfg["implementation_backend"] == "commissioned_local":
+        driver, model = _driver(cfg)
+        try:
+            return implementation_agent.execute_implementation_agent(driver, config=_foreman_config(cfg),
+                lease=_lease_for(snapshot, cfg), request=request, session=sessions[0],
+                artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time)
+        finally:
+            if model is not None: model.close()
     result = foreman.resume_local_codex_session(_foreman_config(cfg), _lease_for(snapshot, cfg), request, sessions[0], Path(cfg["state_root"]), evaluation_time)
     if result.get("status") == "foreman_recovery_unavailable" and not result.get("codex_thread_id"):
         return {"status": "blocked", "reason": "missing_codex_thread_id"}
@@ -447,7 +501,8 @@ def _validate(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_tim
         return {"status": "waiting", "reason": "canonical_component_state_not_ready"}
     snapshot = scanned["observations"]["active_tasks"][0]
     task = str(snapshot["task_id"]); lease = _lease_for(snapshot, cfg)
-    results = [r for r in _owned(scanned, foreman.RESULT_SCHEMA, task)
+    result_schema = foreman.RESULT_SCHEMA if cfg["implementation_backend"] == "local_codex" else commissioned_agent.RESULT_SCHEMA
+    results = [r for r in _owned(scanned, result_schema, task)
                if r.get("status") == "implementation_ready_for_validation"]
     if len(results) != 1: raise ValueError("canonical_foreman_result_ambiguous")
     impl = results[0]
@@ -475,11 +530,22 @@ def _validate(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_tim
             attempt_id=cycle.get("attempt_id"), implementation_session_id=cycle.get("session_id"),
             worktree_descriptor_digest=cycle.get("worktree_descriptor_digest"),
             change_manifest_digest=cycle.get("change_manifest_digest"))
-    return validation.advance_validation_controller(state_root=Path(cfg["state_root"]),
-        repository_root=Path(cfg["repository_root"]), policy=policy,
-        lease=lease, implementation_result=impl, worktree=worktree, change_manifest=manifest,
-        request=request, session=session, foreman_config=_foreman_config(cfg), evaluation_time=evaluation_time,
-        recovery_plan=recovery_plan)
+    continuation = None
+    model = None
+    if cfg["implementation_backend"] == "commissioned_local":
+        driver, model = _driver(cfg)
+        continuation = lambda envelope: implementation_agent.execute_implementation_agent(
+            driver, config=_foreman_config(cfg), lease=lease, request=request, session=session,
+            artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time,
+            validation_feedback=(envelope,))
+    try:
+        return validation.advance_validation_controller(state_root=Path(cfg["state_root"]),
+            repository_root=Path(cfg["repository_root"]), policy=policy,
+            lease=lease, implementation_result=impl, worktree=worktree, change_manifest=manifest,
+            request=request, session=session, foreman_config=_foreman_config(cfg), evaluation_time=evaluation_time,
+            recovery_plan=recovery_plan, corrective_continuation=continuation)
+    finally:
+        if model is not None: model.close()
 
 
 def _commit(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
@@ -566,9 +632,17 @@ def tick(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
             stop = Path(cfg.get("stop_marker") or state / "STOP")
             if stop.exists(): transition, effect = "paused", {"status": "paused"}
             else:
-                effect = _dispatch(transition, cfg, scanned, evaluation_time)
+                try:
+                    effect = _dispatch(transition, cfg, scanned, evaluation_time)
+                except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+                    effect = {"status": "blocked", "reason": "backend_construction_or_dispatch_failed",
+                              "configured_backend": cfg["implementation_backend"],
+                              "failure_type": type(exc).__name__, "failure_detail": str(exc)}
         result = {"schema_version": TICK_SCHEMA, "config_digest": cfg["config_digest"], "scan_digest": scanned["scan_digest"],
-                  "decision_digest": decision["decision_digest"], "transition": transition, "effect_result": effect,
+                  "decision_digest": decision["decision_digest"], "transition": transition,
+                  "configured_backend": cfg["implementation_backend"],
+                  "instantiated_backend": (None if effect.get("reason") == "backend_construction_or_dispatch_failed" else cfg["implementation_backend"]),
+                  "effect_result": effect,
                   "status": effect.get("status", "completed") if isinstance(effect, Mapping) else "completed"}
         result["tick_digest"] = digest(result)
         _append_chain(state / "watchdog_ticks.jsonl", TICK_SCHEMA, transition, evaluation_time, result)

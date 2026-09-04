@@ -70,7 +70,8 @@ SENTIENTOS_COMMISSIONED_LOCAL_ACTIVATION=/absolute/path/to/activation.json pytho
 The test is skipped until an operator supplies a commissioned activation and verifies
 that exact model can emit the action protocol; do not claim real-model end-to-end
 maintenance success from the deterministic double or this protocol smoke alone.  The
-first landed boundary is a reusable driver/session runtime.  Wiring an
-operator-selected live driver instance into long-running watchdog configuration remains
-the next bounded activation step; the default watchdog continues selecting Codex and
-cannot silently select or fall back from commissioned-local mode.
+autonomous watchdog now requires an explicit `local_codex` or `commissioned_local`
+selection.  The latter binds an operator-selected activation path and exact byte digest,
+reconstructs only that commissioned production identity, and injects this driver into
+the existing implementation boundary.  It cannot silently select Codex or fall back
+from commissioned-local mode.
