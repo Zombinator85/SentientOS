@@ -202,7 +202,8 @@ def advance_validation_controller(*, state_root:Path, repository_root:Path,
     policy:ValidationPolicy, lease:Mapping[str,Any], implementation_result:Mapping[str,Any],
     worktree:Mapping[str,Any], change_manifest:Mapping[str,Any], request:Mapping[str,Any],
     session:Mapping[str,Any], foreman_config:foreman.LocalCodexForemanConfig,
-    evaluation_time:str, recovery_plan:Mapping[str,Any]|None=None)->dict[str,Any]:
+    evaluation_time:str, recovery_plan:Mapping[str,Any]|None=None,
+    corrective_continuation:Callable[[Mapping[str,Any]],Mapping[str,Any]]|None=None)->dict[str,Any]:
     """Own one bounded validation/correction operation over exact caller bindings.
 
     The watchdog is intentionally only an identity-binding adapter.  Planning,
@@ -222,8 +223,8 @@ def advance_validation_controller(*, state_root:Path, repository_root:Path,
                 lease=lease,previous_result=implementation_result)
         except ValueError as exc:
             return {'status':str(exc),'validation_result':result,'validation_plan':plan}
-        corrected=start_corrective_local_codex_session(foreman_config,lease,request,session,
-            state_root,envelope,evaluation_time)
+        corrected=dict(corrective_continuation(envelope)) if corrective_continuation else start_corrective_local_codex_session(
+            foreman_config,lease,request,session,state_root,envelope,evaluation_time)
         if corrected.get('status')!='implementation_ready_for_validation':
             return {'status':'corrective_continuation_blocked','reason_code':corrected.get('status'),
                     'validation_result':result,'correction_result':corrected}

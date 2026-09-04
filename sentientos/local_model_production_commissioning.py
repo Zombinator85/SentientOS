@@ -294,6 +294,10 @@ def activate(receipt: Mapping[str, Any], activation_path: Path | str) -> dict[st
 
 def load_activation(path: Path | str) -> tuple[Any, Any]:
     value = json.loads(Path(path).read_text())
+    if value.get("schema_version") != ACTIVATION_SCHEMA or value.get("status") != "local_model_activated":
+        raise ProductionCommissioningError("activation_invalid")
+    if any(bool(value.get(key)) for key in DENIED):
+        raise ProductionCommissioningError("activation_effect_boundary_invalid")
     copy = dict(value); claimed = copy.pop("activation_digest", None)
     if claimed != semantic_digest(copy): raise ProductionCommissioningError("activation_invalid")
     receipt = value["commissioning_receipt"]; _validate_digest(receipt, "receipt_semantic_digest", "commissioning_receipt_invalid")

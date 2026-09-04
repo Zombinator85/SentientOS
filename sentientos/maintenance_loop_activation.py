@@ -21,6 +21,7 @@ from sentientos import maintenance_local_codex_foreman as foreman
 from sentientos import maintenance_loop_watchdog as watchdog
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_validation_controller as validation
+from sentientos.local_model_production_commissioning import load_activation
 
 ACTIVATION_REPORT_SCHEMA = "sentientos.maintenance_loop_activation_report:v1"
 ACTIVATION_RECEIPT_SCHEMA = "sentientos.maintenance_loop_activation_receipt:v1"
@@ -95,6 +96,7 @@ def render_config(output: str | Path, *, repository_root: str | Path, state_root
                   standing_grant: str | Path | Mapping[str, Any], selector_policy: str | Path | Mapping[str, Any],
                   foreman_policy: str | Path | Mapping[str, Any], validation_policy: str | Path | Mapping[str, Any],
                   landing_policy: str | Path | Mapping[str, Any], base_sha: str, tracked_base_ref: str,
+                  implementation_backend: str, commissioned_local_activation: str | Path | None,
                   maximum_actions: int, maximum_wall_clock_seconds: int,
                   publication_retry_backoff_seconds: int, stop_marker: str | Path | None = None,
                   control_journal: str | Path | None = None, base_cursor_journal: str | Path | None = None) -> dict[str, Any]:
@@ -104,6 +106,9 @@ def render_config(output: str | Path, *, repository_root: str | Path, state_root
         "candidate_inbox_roots": [str(Path(inbox_root).resolve(strict=True))], "standing_grant": _artifact(standing_grant),
         "selector_policy": _artifact(selector_policy), "foreman_policy": _artifact(foreman_policy),
         "validation_policy": _artifact(validation_policy), "landing_policy": _artifact(landing_policy),
+        "implementation_backend": implementation_backend,
+        "commissioned_local_activation": (str(Path(commissioned_local_activation).expanduser().resolve(strict=False)) if commissioned_local_activation else None),
+        "commissioned_local_activation_digest": (digest_bytes(Path(commissioned_local_activation).expanduser().read_bytes()) if commissioned_local_activation else None),
         "maximum_active_tasks": 1, "maximum_actions": maximum_actions,
         "maximum_wall_clock_seconds": maximum_wall_clock_seconds,
         "publication_retry_backoff_seconds": publication_retry_backoff_seconds,
@@ -180,12 +185,23 @@ def doctor_live(config_path: str | Path, *, evaluation_time: str, probe_remote: 
             check("selector_policy", not allowed - set(grant.get("allowed_authority_classes", ())))
         except Exception as exc: check("selector_policy", False, type(exc).__name__)
         try:
-            fc = foreman.LocalCodexForemanConfig.from_mapping(_load(cfg["foreman_policy"])); probe = foreman.probe_local_codex_cli(fc)
-            check("foreman_probe", probe["status"] == "capability_probe_ready", probe["status"])
-            home = fc.codex_home
-            check("codex_home", home.exists() and home.is_dir() and not home.is_symlink() and not _within(home.resolve(), repo), str(home))
+            fc = foreman.LocalCodexForemanConfig.from_mapping(_load(cfg["foreman_policy"]))
+            if cfg["implementation_backend"] == "local_codex":
+                probe = foreman.probe_local_codex_cli(fc)
+                check("implementation_backend", probe["status"] == "capability_probe_ready", "local_codex:" + probe["status"])
+                home = fc.codex_home
+                check("codex_home", home.exists() and home.is_dir() and not home.is_symlink() and not _within(home.resolve(), repo), str(home))
+            else:
+                path = Path(str(cfg["commissioned_local_activation"]))
+                if digest_bytes(path.read_bytes()) != cfg["commissioned_local_activation_digest"]:
+                    raise ValueError("commissioned_local_activation_digest_mismatch")
+                model, _ = load_activation(path)
+                try: detail = json.dumps(model.active_identity.to_dict(), sort_keys=True)
+                finally: model.close()
+                check("implementation_backend", True, "commissioned_local:" + detail)
+                check("codex_home", True, "not_applicable")
             check("git_executable", fc.git_executable.exists() and subprocess.run([str(fc.git_executable), "--version"], capture_output=True).returncode == 0)
-        except Exception as exc: check("foreman_probe", False, type(exc).__name__); check("codex_home", False, "unavailable"); fc = None
+        except Exception as exc: check("implementation_backend", False, type(exc).__name__); check("codex_home", False, "unavailable"); fc = None
         try: validation.ValidationPolicy.from_mapping(_load(cfg["validation_policy"])); check("validation_policy", True)
         except Exception as exc: check("validation_policy", False, type(exc).__name__)
         try:
