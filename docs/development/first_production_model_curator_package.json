@@ -1,0 +1,194 @@
+{
+  "artifact": {
+    "gguf_magic_verified": true,
+    "production_filename": "qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+    "sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+    "size_bytes": 4683073536,
+    "temporary_intake_only": true,
+    "upstream_lfs_oid": "sha256:509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+    "verified_by_streamed_local_hash": true
+  },
+  "candidate_selection": {
+    "rationale": "Official first-party coding-focused 7.61B instruct GGUF; Apache-2.0; single-file Q4_K_M; modest 9 GiB deterministic RAM floor; exact immutable upstream object.",
+    "rejected_candidates": [
+      {
+        "candidate": "Mistral-7B-Instruct-v0.2",
+        "reason": "Legacy SentientOS reference is not immutable production authority and the upstream repository inspected is not an official GGUF artifact repository."
+      },
+      {
+        "candidate": "MPT-7B-Instruct",
+        "reason": "Older general instruct model with legacy-only local metadata and no frozen official GGUF candidate in this curation."
+      },
+      {
+        "candidate": "EleutherAI/Pythia-12B",
+        "reason": "Larger and not instruction/coding optimized; legacy local metadata is not production authority."
+      },
+      {
+        "candidate": "Meta Llama sample",
+        "reason": "Legacy sample revision is not immutable upstream evidence and the community license adds redistribution review complexity."
+      }
+    ],
+    "selected_model_id": "qwen2.5-coder-7b-instruct-q4-k-m"
+  },
+  "catalog_preview": {
+    "local_model_catalog_digest": "f5e467b3748642032e6740dfdbc3b539b00f8cb23e54d6c543685416e5a49ed7",
+    "models": [
+      {
+        "artifact_content_address": "sha256:509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+        "artifact_filename": "qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+        "artifact_sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+        "artifact_size_bytes": 4683073536,
+        "artifact_urls": [
+          "https://models.sentientos.org/qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf"
+        ],
+        "execution_routes": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "backend_family": "cpu",
+            "engine": "llama_cpp",
+            "os_families": [
+              "windows"
+            ],
+            "route_id": "qwen25-coder-q4-cpu-windows-x86-64",
+            "route_priority": 10
+          },
+          {
+            "accelerator_vendor": "nvidia",
+            "architectures": [
+              "x86_64"
+            ],
+            "backend_family": "cuda",
+            "engine": "llama_cpp",
+            "min_vram_bytes": 8589934592,
+            "os_families": [
+              "linux"
+            ],
+            "route_id": "qwen25-coder-q4-cuda-linux-x86-64",
+            "route_priority": 20
+          },
+          {
+            "accelerator_vendor": "nvidia",
+            "architectures": [
+              "x86_64"
+            ],
+            "backend_family": "cuda",
+            "engine": "llama_cpp",
+            "min_vram_bytes": 8589934592,
+            "os_families": [
+              "windows"
+            ],
+            "route_id": "qwen25-coder-q4-cuda-windows-x86-64",
+            "route_priority": 30
+          },
+          {
+            "accelerator_vendor": "amd",
+            "architectures": [
+              "x86_64"
+            ],
+            "backend_family": "rocm",
+            "engine": "llama_cpp",
+            "min_vram_bytes": 8589934592,
+            "os_families": [
+              "linux"
+            ],
+            "route_id": "qwen25-coder-q4-rocm-linux-x86-64",
+            "route_priority": 40
+          },
+          {
+            "accelerator_vendor": "amd",
+            "architectures": [
+              "x86_64"
+            ],
+            "backend_family": "rocm",
+            "engine": "llama_cpp",
+            "min_vram_bytes": 8589934592,
+            "os_families": [
+              "windows"
+            ],
+            "route_id": "qwen25-coder-q4-hip-windows-x86-64",
+            "route_priority": 50
+          }
+        ],
+        "license_id": "apache-2.0",
+        "model_id": "qwen2.5-coder-7b-instruct-q4-k-m",
+        "priority": 1,
+        "requirements": {
+          "architecture": "x86_64",
+          "avx": false,
+          "avx2": true,
+          "avx512": false,
+          "quantization": "q4",
+          "ram_gb_min": 9
+        },
+        "source_artifact_filename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "source_repository": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+        "source_revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a"
+      }
+    ],
+    "schema_version": "sentientos.local_model_catalog:v1"
+  },
+  "catalog_preview_status": "schema_valid_but_forbidden_to_deploy_before_mirror_verification",
+  "evidence": {
+    "curator_manifest_sha256": "26319bf68cc2c8dfe20a7305914d306390d28c5094a4d943db05d4b3c76aa4b7",
+    "curator_source_sha256": "b7d1026b22c609162a20dafa9d0eeebb4e8e4bb12a3b6a88e21a746f57ccf8de",
+    "license_sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+    "license_size_bytes": 11343,
+    "license_spdx": "Apache-2.0",
+    "model_card_sha256": "a27f564dbb2763abe187c5596d7feb3fb1b2cb413a4f7ac61fc24d30ad0f8fc8",
+    "model_card_size_bytes": 5670
+  },
+  "model_characteristics": {
+    "architecture": "qwen2/transformer with RoPE, SwiGLU, RMSNorm, and attention QKV bias",
+    "family": "Qwen2.5-Coder",
+    "format": "GGUF",
+    "gguf_context_tokens": 32768,
+    "non_embedding_parameter_count": 6530000000,
+    "parameter_count": 7610000000,
+    "quantization": "Q4_K_M",
+    "runtime_engine": "llama_cpp"
+  },
+  "non_authority": {
+    "downloaded_bytes_are_durable_custody": false,
+    "production_acquisition_authorized": false,
+    "production_catalog_deployed": false,
+    "sovereign_artifact_published": false
+  },
+  "redistribution_posture": {
+    "legal_advice_claimed": false,
+    "license": "Apache License 2.0",
+    "mirror_publication_requires_operator_confirmation_of_notice_and_license_obligations": true
+  },
+  "schema_version": "sentientos.first_production_model_curator_package:v1",
+  "sovereign_mirror": {
+    "credentials_inspected": false,
+    "destination_url": "https://models.sentientos.org/qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+    "host": "models.sentientos.org",
+    "publication_actuator_status": "not_implemented_or_not_present_in_repository",
+    "publication_status": "authority_unavailable",
+    "remote_object_verified": false,
+    "required_publication_semantics": [
+      "authenticated operator-owned actuator",
+      "create-only/no overwrite",
+      "exact content-addressed object name",
+      "streamed SHA-256 and byte-size verification",
+      "post-publication retrieval verification",
+      "durable publication receipt"
+    ],
+    "upload_attempted": false
+  },
+  "status": "candidate_frozen_mirror_publication_blocked",
+  "success_level": 1,
+  "upstream": {
+    "artifact_path": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "artifact_resolve_url": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/13fb94bfda8c8cf22497dc57b78f391a9acb426a/qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+    "gated": false,
+    "organization": "Qwen",
+    "private": false,
+    "repository": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "repository_api_url": "https://huggingface.co/api/models/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/revision/13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+    "retrieved_at": "2026-09-04T21:29:00Z",
+    "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a"
+  }
+}
