@@ -1,0 +1,15 @@
+{
+  "repository_sha": "883c30d0e97fc0d36cd6a49b3dd10f343c9391b9",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_first_production_model_curator_package.py::test_frozen_candidate_is_schema_valid_but_not_deployed",
+      "rationale": "The exact frozen model identity validates without claiming mirror publication or catalog deployment."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_first_production_model_curator_package.py::test_frozen_candidate_is_schema_valid_but_not_deployed"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
