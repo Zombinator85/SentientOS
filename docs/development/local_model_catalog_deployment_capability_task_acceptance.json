@@ -1,0 +1,11 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d52f411afe78f127736d2ac26a1ad81d4e8f63a2",
+  "test_provenance_path": "/tmp/local_model_catalog_deployment_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_catalog_deployment_capability_admission.py::test_exact_catalog_deployment_definition_is_eligible_without_grant", "rationale": "Exact typed future task is definition-eligible while capability_granted remains false."},
+    {"node_id": "tests/test_local_model_catalog_deployment_capability_admission.py::test_wrong_subsystem_and_missing_evidence_or_prior_state_are_denied", "rationale": "Verified publication and exact prior-state semantics are mandatory."}
+  ],
+  "successful_path_nodes": ["tests/test_local_model_catalog_deployment_capability_admission.py::test_exact_catalog_deployment_definition_is_eligible_without_grant"]
+}
