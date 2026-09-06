@@ -1,0 +1,19 @@
+{
+  "repository_sha": "db63b8c42ba0262df91031f0c2e8a6f2003f5528",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_model_mirror_capability_admission.py::test_exact_registered_publication_task_is_definition_eligible_not_granted",
+      "rationale": "The exact registered subsystem, deterministic principal, and bounded effect product are eligible without creating a grant."
+    },
+    {
+      "node_id": "tests/test_model_mirror_capability_admission.py::test_capability_id_alone_is_not_an_admission_or_grant",
+      "rationale": "A registered identifier without the exact principal and effect declaration remains fail-closed."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_model_mirror_capability_admission.py::test_exact_registered_publication_task_is_definition_eligible_not_granted"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}

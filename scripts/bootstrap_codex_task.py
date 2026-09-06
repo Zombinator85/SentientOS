@@ -30,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--test-path", action="append", default=[])
     p.add_argument("--doc-path", action="append", default=[])
     p.add_argument("--capability-id", default="")
+    p.add_argument("--authority-principal", default="")
+    p.add_argument("--requested-effect", action="append", default=[])
     p.add_argument("--proof-bundle-artifact-kind", default="")
     p.add_argument("--commit-title", default="")
     a = p.parse_args(argv)
@@ -45,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
         test_path=tuple(a.test_path),
         doc_path=tuple(a.doc_path),
         capability_id=a.capability_id,
+        authority_principal=a.authority_principal,
+        requested_effects=tuple(a.requested_effect),
         proof_bundle_artifact_kind=a.proof_bundle_artifact_kind,
         commit_title=a.commit_title,
     ))
