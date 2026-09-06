@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4461aa14eeac68f53fdb4ba983c39f3d2988e8bb",
+  "test_provenance_path": "/tmp/model_mirror_publication_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_model_mirror_publication.py::test_create_only_streamed_publish_receipt_and_catalog_gate", "rationale": "The successful path streams, independently verifies, receipts, and gates exact bytes."},
+    {"node_id": "tests/test_model_mirror_publication.py::test_existing_exact_object_is_verified_without_upload", "rationale": "An exact existing immutable object is verified without overwrite."},
+    {"node_id": "tests/test_model_mirror_publication.py::test_existing_conflict_is_never_overwritten", "rationale": "A conflicting object is a fail-closed custody violation."},
+    {"node_id": "tests/test_model_mirror_publication.py::test_provider_configuration_is_separate_from_grant", "rationale": "Capability and grant do not fabricate provider configuration."},
+    {"node_id": "tests/test_model_mirror_publication.py::test_unverified_receipt_cannot_make_catalog_eligible", "rationale": "Catalog eligibility requires verified publication evidence."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_model_mirror_publication.py::test_create_only_streamed_publish_receipt_and_catalog_gate"
+  ]
+}

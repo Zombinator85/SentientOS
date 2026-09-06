@@ -41,15 +41,16 @@ def test_exact_registered_publication_task_is_definition_eligible_not_granted() 
 
 
 @pytest.mark.no_legacy_skip
-def test_registry_records_contract_without_live_authority() -> None:
+def test_registry_records_implemented_boundary_without_live_authority() -> None:
     record = build_default_capability_registry().by_id()[MODEL_MIRROR_PUBLISH]
-    assert record.status == "scaffolded"
+    assert record.status == "implemented"
     assert record.authority_level == "contract_only"
     assert record.requires_control_plane_admission is True
     assert record.requires_operator_approval is True
     assert record.network_required is False
     assert record.metadata_only is True
-    assert "capability grant" in record.deferred_surfaces
+    assert "production provider adapter and configuration" in record.deferred_surfaces
+    assert "catalog deployment authority and deployment" in record.deferred_surfaces
 
 
 @pytest.mark.no_legacy_skip
