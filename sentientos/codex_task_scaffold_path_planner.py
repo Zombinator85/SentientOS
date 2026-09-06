@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import PurePosixPath
 from typing import Any
 
+from sentientos.codex_task_authority_admission import authority_admission_blockers
+
 READY = {"ready", "ready_with_warnings", "manual_review_required"}
 NONZERO = {"insufficient", "blocked", "failed"}
 _COMMIT_TITLE_RE = re.compile(r"^\[codex:[a-z0-9-]+\]\s+.+$")
@@ -75,6 +77,8 @@ class PlannerRequest:
     test_path: tuple[str, ...] = ()
     doc_path: tuple[str, ...] = ()
     capability_id: str = ""
+    authority_principal: str = ""
+    requested_effects: tuple[str, ...] = ()
     proof_bundle_artifact_kind: str = ""
     commit_title: str = ""
 
@@ -91,6 +95,8 @@ class PlannerOutput:
     cli_test_path: str
     dev_doc_path: str
     capability_id: str
+    authority_principal: str
+    requested_effects: tuple[str, ...]
     proof_bundle_artifact_kind: str
     proof_bundle_filename: str
     fixture_root: str
@@ -189,7 +195,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     api_test_default = f"tests/test_{slug}.py"
     cli_test_default = f"tests/test_{request.script_prefix}_{slug}_script.py"
     doc_default = f"docs/development/{slug}.md"
-    cap_default = _snake(request.capability_id or slug)
+    cap_default = request.capability_id.strip() if request.capability_id else _snake(slug)
     proof_kind_default = _snake(request.proof_bundle_artifact_kind or f"{cap_default}_capability")
     proof_filename_default = f"artifacts/proof_bundles/{proof_kind_default}.json"
     fixture_root_default = f"tests/fixtures/{cap_default}/" if (request.subsystem_kind or request.preset_id) == "metadata_verification" and cap_default else ""
@@ -203,9 +209,22 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     dev_doc_path = _choose(request.doc_path, doc_default)
     commit_title = request.commit_title or commit_default
 
+    admitted_authority = False
+    if request.authority_principal or request.requested_effects:
+        authority_blockers = authority_admission_blockers(
+            capability_id=request.capability_id,
+            subsystem_kind=request.subsystem_kind or request.preset_id,
+            principal_kind=request.authority_principal,
+            requested_effects=request.requested_effects,
+            task_goal=request.task_goal,
+        )
+        blockers.extend(authority_blockers)
+        admitted_authority = not authority_blockers
+
     for text in (request.task_name, request.task_goal, request.preset_id, request.subsystem_kind):
         if _forbidden_authority_requested(text):
-            blockers.append("forbidden_authority_surface_requested")
+            if not admitted_authority:
+                blockers.append("forbidden_authority_surface_requested")
             break
 
     for path in tuple(x for x in (module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, proof_filename_default, fixture_root_default) if x):
@@ -224,7 +243,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
         status = "blocked"
     elif warnings:
         status = "ready_with_warnings"
-    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, proof_kind_default, proof_filename_default, fixture_root_default, commit_title)
+    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, request.authority_principal, tuple(request.requested_effects), proof_kind_default, proof_filename_default, fixture_root_default, commit_title)
 
 
 def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutput) -> dict[str, Any]:

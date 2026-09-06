@@ -25,6 +25,8 @@ class CodexTaskBootstrapRequest:
     test_path: tuple[str, ...] = ()
     doc_path: tuple[str, ...] = ()
     capability_id: str = ""
+    authority_principal: str = ""
+    requested_effects: tuple[str, ...] = ()
     proof_bundle_artifact_kind: str = ""
     commit_title: str = ""
 
@@ -77,6 +79,8 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         test_path=request.test_path,
         doc_path=request.doc_path,
         capability_id=request.capability_id,
+        authority_principal=request.authority_principal,
+        requested_effects=request.requested_effects,
         proof_bundle_artifact_kind=request.proof_bundle_artifact_kind,
         commit_title=request.commit_title,
     )
@@ -117,7 +121,15 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         status=status,
         warning_codes=warning_codes,
         blocker_codes=tuple(sorted(set(blocker_codes))),
-        planner_result_summary={"status": planned.status, "task_slug": planned.task_slug},
+        planner_result_summary={
+            "status": planned.status,
+            "task_slug": planned.task_slug,
+            "capability_id": planned.capability_id,
+            "authority_principal": planned.authority_principal,
+            "requested_effects": list(planned.requested_effects),
+            "authority_definition_eligibility_only": True,
+            "capability_granted": False,
+        },
         scaffold_result_summary={"status": scaffold.status, "scaffold_id": scaffold.scaffold.scaffold_id},
         scaffold_verifier_result_summary=verifier.to_dict(),
         preset_verifier_result_summary=preset_verifier_summary,

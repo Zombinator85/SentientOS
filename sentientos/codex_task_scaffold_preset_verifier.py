@@ -12,6 +12,7 @@ REQUIRED_PRESET_IDS: tuple[str, ...] = (
     "metadata_digest",
     "metadata_index",
     "metadata_verification",
+    "model_distribution",
     "narrow_repair",
     "operator_confirmed_run",
     "operator_review_packet",
