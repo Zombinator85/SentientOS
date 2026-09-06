@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import PurePosixPath
 from typing import Any
 
-from sentientos.codex_task_authority_admission import authority_admission_blockers
+from sentientos.codex_task_authority_admission import AUTHORITY_DEFINITIONS, authority_admission_blockers
 
 READY = {"ready", "ready_with_warnings", "manual_review_required"}
 NONZERO = {"insufficient", "blocked", "failed"}
@@ -210,7 +210,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     commit_title = request.commit_title or commit_default
 
     admitted_authority = False
-    if request.authority_principal or request.requested_effects:
+    if request.authority_principal or request.requested_effects or request.capability_id in AUTHORITY_DEFINITIONS:
         authority_blockers = authority_admission_blockers(
             capability_id=request.capability_id,
             subsystem_kind=request.subsystem_kind or request.preset_id,

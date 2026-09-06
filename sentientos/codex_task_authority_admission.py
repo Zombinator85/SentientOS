@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 
 MODEL_MIRROR_PUBLISH = "sentientos.model_mirror.publish"
+LOCAL_MODEL_CATALOG_DEPLOY = "sentientos.local_model_catalog.deploy"
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,7 @@ class TaskAuthorityDefinition:
     principal_kinds: frozenset[str]
     required_effects: frozenset[str]
     forbidden_goal_phrases: tuple[str, ...]
+    required_goal_phrases: tuple[str, ...] = ()
 
 
 AUTHORITY_DEFINITIONS = {
@@ -48,7 +50,28 @@ AUTHORITY_DEFINITIONS = {
             "github publication",
             "git publication",
         ),
-    )
+    ),
+    LOCAL_MODEL_CATALOG_DEPLOY: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_CATALOG_DEPLOY,
+        subsystem_kinds=frozenset({"model_distribution"}),
+        principal_kinds=frozenset({"deterministic_catalog_deployment_controller"}),
+        required_effects=frozenset(
+            {
+                "exact_verified_publication_receipt_read",
+                "exact_deployment_eligible_catalog_candidate_read",
+                "authoritative_catalog_compare_and_swap",
+                "catalog_deployment_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "generic deployment", "arbitrary configuration", "generic filesystem",
+            "network authority", "provider administration", "credential management",
+            "git publication", "model acquisition", "commissioning", "activation",
+            "inference", "self-grant", "self grant", "mutable catalog",
+            "arbitrary destination", "arbitrary mirror", "hugging face", "blind overwrite",
+        ),
+        required_goal_phrases=("verified publication", "exact prior-state"),
+    ),
 }
 
 
@@ -74,4 +97,6 @@ def authority_admission_blockers(
     folded_goal = task_goal.casefold()
     if any(phrase in folded_goal for phrase in definition.forbidden_goal_phrases):
         blockers.append("authority_goal_requests_forbidden_scope")
+    if any(phrase not in folded_goal for phrase in definition.required_goal_phrases):
+        blockers.append("authority_goal_missing_required_precondition")
     return tuple(sorted(set(blockers)))
