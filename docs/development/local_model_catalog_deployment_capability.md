@@ -28,14 +28,18 @@ remote digest and size, final publication status, and an exact receipt-to-candid
 match. That evidence is necessary but remains distinct from the explicit deployment
 grant or lease.
 
-The custody transition is a deterministic compare-and-swap. Genesis requires an
+The canonical installation-scoped custody, locking, complete multi-model evidence,
+receipt, and recoverable transaction law is defined by
+[`local_model_catalog_deployment_architecture.md`](local_model_catalog_deployment_architecture.md)
+and its machine-readable projection. The custody transition is a deterministic compare-and-swap. Genesis requires an
 explicit expected-absent state. Every replacement requires the exact observed
 previous catalog semantic digest and the exact proposed digest. Mutation may occur
 only when expected and observed state match; stale proposals and blind overwrite
 fail closed. The future controller must atomically publish only the canonical
 authoritative catalog custody object and durably write one bounded transition
-receipt. This repository currently has no such controller or receipt, so this
-contract does not designate a live catalog path or mutate catalog state.
+receipt. This repository still has no such controller or receipt and does not mutate
+catalog state; it now designates the fixed relative custody identities a future
+controller must use beneath a canonically supplied installation-state root.
 
 The capability excludes curation, artifact identity changes, model-mirror contact,
 provider or credential access, arbitrary destinations, mutable aliases, Hugging

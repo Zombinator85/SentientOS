@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "d24768b564e3c79581fe87552b44850725e9ee69",
+  "test_provenance_path": "/tmp/local_model_catalog_deployment_architecture_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_catalog_deployment_architecture.py::test_exact_capability_and_non_runtime_architecture_remain_bounded",
+      "rationale": "The governance architecture preserves the admitted principal/effects and enables no runtime effects."
+    },
+    {
+      "node_id": "tests/test_local_model_catalog_deployment_architecture.py::test_custody_paths_are_fixed_installation_scoped_and_safe",
+      "rationale": "Canonical installation custody and fixed safe relative identities are machine-legible."
+    },
+    {
+      "node_id": "tests/test_local_model_catalog_deployment_architecture.py::test_complete_multi_model_publication_evidence_projection_is_deterministic",
+      "rationale": "A complete multi-model publication evidence set has a deterministic successful path."
+    },
+    {
+      "node_id": "tests/test_local_model_catalog_deployment_architecture.py::test_missing_extra_or_duplicate_publication_evidence_fails_closed",
+      "rationale": "Incomplete, extra, and duplicate publication evidence fails closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_catalog_deployment_architecture.py::test_complete_multi_model_publication_evidence_projection_is_deterministic"
+  ]
+}
