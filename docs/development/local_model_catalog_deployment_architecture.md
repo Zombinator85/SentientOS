@@ -14,8 +14,12 @@ It is neither host-global nor operator-profile-scoped. Canonical installation
 machinery must supply an authenticated installation identity and its durable state
 root; a controller must not infer that root from an environment variable, current
 directory, repository checkout, curator escrow, artifact store, or caller-selected
-catalog destination. Until installation machinery supplies this binding, live
-deployment remains blocked.
+catalog destination. `sentientos.installation_state` now supplies the canonical
+machine-state registry, normalized installation identity, authenticated state handle,
+descriptor-relative protected-path operations, kernel-backed exclusive locking,
+durable immutable creation, and durable atomic regular-file replacement.
+`sentientos.model_catalog_custody` binds the fixed catalog paths below to that handle.
+These substrate APIs are storage mechanics, not deployment authority.
 
 The platform-independent custody identity is
 `sentientos-installation:model-catalog` qualified by the installation identity. The
@@ -147,4 +151,30 @@ No commissioning. No activation. No inference. No Git publication. No model-mirr
 mutation. No catalog mutation. No runtime or software deployment. No shell authority.
 No arbitrary filesystem authority or destination. No mutable alias. No self-grant.
 No authority inheritance from publication. The deployment controller and all runtime
-consumer enforcement remain deferred.
+consumer enforcement remain deferred. The deployment transaction/recovery state
+machine and grant/lease issuance also remain deferred, and no authoritative catalog
+has been deployed by the installation-state substrate.
+
+## Installation-state platform contract
+
+The strong durable-state implementation currently admits POSIX hosts only when
+descriptor-relative `open`/`stat`/`unlink`, `O_DIRECTORY`, `O_NOFOLLOW`, `O_CLOEXEC`,
+kernel `flock`, file `fsync`, directory `fsync`, and same-directory `os.replace` are
+available. Security-sensitive traversal opens every directory component without
+following links; files are opened relative to retained parent descriptors and checked
+as regular files. Immutable creation uses exclusive no-follow creation, complete
+writes, file `fsync`, parent-directory `fsync`, and an independent reopen. Atomic
+replacement stages exclusively in the same directory, flushes and checks the stage,
+uses descriptor-relative same-directory replacement, flushes the directory, and
+independently reopens the result.
+
+Windows/reparse-safe directory traversal and a proven containing-directory durability
+barrier are not yet implemented. Windows and any limited POSIX runtime therefore fail
+closed with `durable_state_platform_unsupported`; the substrate never reports a
+best-effort write as durable success. A failed write, flush, replacement, directory
+barrier, type check, protected traversal, or independent verification likewise raises
+an installation-state error. A replacement may already be visible if the post-rename
+directory barrier fails, but the call still reports failure so later domain recovery
+must classify the observed state. This is sufficient plumbing for a later controller's
+durable-intent, durable-stage, atomic-publication, durable-receipt, and durable-
+finalization sequence; recovery policy intentionally remains outside the substrate.

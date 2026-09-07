@@ -1,0 +1,40 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a62c6e11b0e6c2ee2d2b8ac6591ff26c42b8f8f0",
+  "test_provenance_path": "/tmp/installation_state_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_installation_state.py::test_registry_is_canonical_and_handle_constructor_is_not_public",
+      "rationale": "Canonical registry derivation and the non-public identity/path pairing boundary are executable."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_symlink_and_unexpected_object_substitution_fail_closed",
+      "rationale": "Protected links and non-regular target objects fail closed."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_installation_scoped_exclusive_lock_contention_and_release",
+      "rationale": "The successful lock path and per-installation kernel contention domain are exercised."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_durable_immutable_create_is_reopenable_and_never_clobbers",
+      "rationale": "Immutable create succeeds, is independently reopenable, and refuses clobbering."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_atomic_replace_publishes_new_regular_bytes_and_removes_stage",
+      "rationale": "Same-directory durable replacement has a successful, independently verified path."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_faulted_post_replace_directory_flush_never_reports_success",
+      "rationale": "A failed containing-directory durability barrier cannot be reported as success."
+    },
+    {
+      "node_id": "tests/test_installation_state.py::test_storage_substrate_does_not_broaden_catalog_deployment_authority",
+      "rationale": "Storage mechanics leave the exact controller principal deferred and enable no runtime effect."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_installation_state.py::test_durable_immutable_create_is_reopenable_and_never_clobbers",
+    "tests/test_installation_state.py::test_atomic_replace_publishes_new_regular_bytes_and_removes_stage"
+  ]
+}
