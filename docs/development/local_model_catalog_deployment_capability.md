@@ -1,7 +1,7 @@
 # Production local-model catalog deployment capability
 
-`sentientos.local_model_catalog.deploy` is an admitted **capability definition**,
-not a grant, lease, controller, deployment, or successful state transition. Catalog
+`sentientos.local_model_catalog.deploy` has a deterministic controller implementation,
+but its registry definition is not a grant, lease, live deployment, or successful state transition. Catalog
 deployment is privileged because it changes which validated metadata production
 selection and acquisition may treat as authoritative. A valid candidate and a
 successful sovereign publication establish evidence and eligibility, not authority.
@@ -20,7 +20,7 @@ The definition admits exactly four effects:
 3. `authoritative_catalog_compare_and_swap`; and
 4. `catalog_deployment_receipt_write`.
 
-A future controller must validate the catalog schema and semantic digest, model ID,
+The controller validates the catalog schema and semantic digest, model ID,
 artifact SHA-256 and byte size, canonical sovereign URL, immutable upstream
 revision, and execution routes. It must independently validate the publication
 receipt semantic digest, `object_verified = true`, complete streamed remote SHA-256,
@@ -37,9 +37,10 @@ previous catalog semantic digest and the exact proposed digest. Mutation may occ
 only when expected and observed state match; stale proposals and blind overwrite
 fail closed. The future controller must atomically publish only the canonical
 authoritative catalog custody object and durably write one bounded transition
-receipt. This repository still has no such controller or receipt and does not mutate
-catalog state; it now designates the fixed relative custody identities a future
-controller must use beneath a canonically supplied installation-state root.
+receipt. `sentientos.local_model_catalog_deployment` implements the fixed installation-
+scoped CAS, immutable intent/stage/receipt/finalization records, and deterministic
+recovery classifier. It only consumes externally supplied, exactly bound authority;
+the repository has no production issuer and no real catalog has been deployed.
 
 The capability excludes curation, artifact identity changes, model-mirror contact,
 provider or credential access, arbitrary destinations, mutable aliases, Hugging

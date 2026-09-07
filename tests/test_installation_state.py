@@ -196,6 +196,32 @@ def test_unsupported_platform_contract_fails_closed(tmp_path: Path, monkeypatch:
 
 def test_storage_substrate_does_not_broaden_catalog_deployment_authority() -> None:
     assert architecture.PRINCIPAL == "deterministic_catalog_deployment_controller"
-    assert architecture.ARCHITECTURE.controller_status == "deferred"
+    assert architecture.ARCHITECTURE.controller_status == "implemented-without-live-authority"
     assert architecture.ARCHITECTURE.runtime_effects_enabled is False
     assert not hasattr(installation_state_module, "deploy_catalog")
+
+
+def test_optional_read_distinguishes_only_absence_and_rejects_symlink(tmp_path: Path) -> None:
+    handle = _handle(tmp_path)
+    directory = handle.fixed_object("secure")
+    handle.ensure_directory(directory)
+    obj = directory.child("value.json")
+    assert handle.read_optional_regular(obj) is None
+    handle.durable_create(obj, b"{}")
+    assert handle.read_optional_regular(obj) == b"{}"
+    obj.path.unlink()
+    obj.path.symlink_to(tmp_path / "outside")
+    with pytest.raises(InstallationStateError):
+        handle.read_optional_regular(obj)
+
+
+def test_regular_enumeration_is_sorted_bound_and_rejects_nonregular_entries(tmp_path: Path) -> None:
+    handle = _handle(tmp_path)
+    directory = handle.fixed_object("transactions")
+    handle.ensure_directory(directory)
+    handle.durable_create(directory.child("b.json"), b"b")
+    handle.durable_create(directory.child("a.json"), b"a")
+    assert handle.list_regular_names(directory) == ("a.json", "b.json")
+    (directory.path / "bad").mkdir()
+    with pytest.raises(InstallationStateError, match="state_directory_entry_not_regular"):
+        handle.list_regular_names(directory)

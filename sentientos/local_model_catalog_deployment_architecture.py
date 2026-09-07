@@ -55,7 +55,7 @@ class CatalogCustodyArchitecture:
     cas_contract: str = "explicit-absent-genesis-or-exact-prior-semantic-digest"
     evidence_contract: str = "complete-duplicate-free-one-receipt-per-candidate-model"
     recovery_contract: str = "durable-intent-staged-candidate-published-catalog-immutable-receipt-finalized"
-    controller_status: str = "deferred"
+    controller_status: str = "implemented-without-live-authority"
     consumer_integration_status: str = "deferred"
     runtime_effects_enabled: bool = False
 

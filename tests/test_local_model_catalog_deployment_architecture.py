@@ -23,7 +23,8 @@ def test_exact_capability_and_non_runtime_architecture_remain_bounded() -> None:
     assert ARCHITECTURE.principal == PRINCIPAL == "deterministic_catalog_deployment_controller"
     assert frozenset(EFFECTS) == definition.required_effects
     assert ARCHITECTURE.runtime_effects_enabled is False
-    assert ARCHITECTURE.controller_status == ARCHITECTURE.consumer_integration_status == "deferred"
+    assert ARCHITECTURE.controller_status == "implemented-without-live-authority"
+    assert ARCHITECTURE.consumer_integration_status == "deferred"
     assert "publication_authority_inheritance" in FORBIDDEN_ADJACENT_AUTHORITY
     assert {"provider_access", "artifact_acquisition", "commissioning", "activation", "inference"} <= set(FORBIDDEN_ADJACENT_AUTHORITY)
 
@@ -76,8 +77,9 @@ def test_missing_extra_or_duplicate_publication_evidence_fails_closed() -> None:
             publication_evidence_set_projection([{"model_id": "a"}, {"model_id": "b"}], receipts)
 
 
-def test_registry_keeps_execution_and_consumers_deferred() -> None:
+def test_registry_describes_controller_but_keeps_live_authority_and_consumers_deferred() -> None:
     record = build_default_capability_registry().by_id()[LOCAL_MODEL_CATALOG_DEPLOY]
-    assert record.authority_level == "contract_only"
-    assert "catalog deployment controller" in record.deferred_surfaces
+    assert record.authority_level == "bounded_operator_confirmed_local_environment_mutation"
+    assert "deterministic authority consumption boundary" in record.implemented_surfaces
+    assert "production deployment grant or lease issuance" in record.deferred_surfaces
     assert "selection and acquisition authoritative-custody enforcement" in record.deferred_surfaces
