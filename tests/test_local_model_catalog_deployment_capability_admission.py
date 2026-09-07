@@ -39,13 +39,14 @@ def test_exact_catalog_deployment_definition_is_eligible_without_grant() -> None
     assert result.planner_result_summary["capability_granted"] is False
 
 
-def test_registry_is_contract_only_and_requires_operator_control_plane_receipt() -> None:
+def test_registry_is_bounded_controller_and_requires_operator_control_plane_receipt() -> None:
     record = build_default_capability_registry().by_id()[LOCAL_MODEL_CATALOG_DEPLOY]
     assert (record.category, record.status, record.authority_level) == (
-        "production_model_catalog_deployment", "implemented", "contract_only")
+        "production_model_catalog_deployment", "implemented", "bounded_operator_confirmed_local_environment_mutation")
     assert record.requires_control_plane_admission and record.requires_operator_approval
     assert record.requires_audit_receipt and record.metadata_only
-    assert "catalog deployment controller" in record.deferred_surfaces
+    assert "deterministic authority consumption boundary" in record.implemented_surfaces
+    assert "production deployment grant or lease issuance" in record.deferred_surfaces
 
 
 @pytest.mark.parametrize("capability", ("deploy", "sentientos.unknown.deploy", MODEL_MIRROR_PUBLISH))

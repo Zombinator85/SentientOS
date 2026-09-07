@@ -259,6 +259,41 @@ class InstallationStateHandle:
         finally:
             os.close(parent_fd)
 
+    def read_optional_regular(self, obj: InstallationStateObject) -> bytes | None:
+        """Securely read a regular object, distinguishing only genuine absence.
+
+        Every other open, traversal, or object-type failure remains an error.
+        """
+        self._require_bound(obj)
+        parent_fd, name = _open_parent(self.root, obj.relative.parts)
+        try:
+            try:
+                os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return None
+            return _read_regular_at(parent_fd, name)
+        finally:
+            os.close(parent_fd)
+
+    def list_regular_names(self, directory: InstallationStateObject) -> tuple[str, ...]:
+        """Enumerate a fixed, bound state directory without following substitutions."""
+        self._require_bound(directory)
+        _require_platform_contract()
+        fd = _open_directory(self.root, directory.relative.parts)
+        try:
+            names = sorted(os.listdir(fd))
+            for name in names:
+                if name in {".", ".."} or "/" in name or "\\" in name:
+                    raise InstallationStateError("state_directory_entry_invalid")
+                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if not stat.S_ISREG(info.st_mode):
+                    raise InstallationStateError("state_directory_entry_not_regular")
+            return tuple(names)
+        except OSError as exc:
+            raise InstallationStateError("state_directory_enumeration_failed") from exc
+        finally:
+            os.close(fd)
+
     def _require_bound(self, obj: InstallationStateObject) -> None:
         if not isinstance(obj, InstallationStateObject) or obj._handle is not self:
             raise InstallationStateError("state_object_binding_mismatch")
@@ -361,6 +396,19 @@ def _open_parent(root: Path, parts: tuple[str, ...]) -> tuple[int, str]:
     except OSError as exc:
         os.close(fd)
         raise InstallationStateError("state_parent_unsafe") from exc
+
+
+def _open_directory(root: Path, parts: tuple[str, ...]) -> int:
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        for part in parts:
+            next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except OSError as exc:
+        os.close(fd)
+        raise InstallationStateError("state_directory_unsafe") from exc
 
 
 def _require_regular_fd(fd: int) -> None:

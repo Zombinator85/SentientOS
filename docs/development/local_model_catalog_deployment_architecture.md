@@ -1,8 +1,8 @@
 # Authoritative local-model catalog custody architecture
 
-This document is the canonical state, custody, and recovery contract for the future
-controller admitted under `sentientos.local_model_catalog.deploy`. It defines law; it
-does not implement the controller, deploy a catalog, issue a grant or lease, or enable
+This document is the canonical state, custody, and recovery contract for the
+controller admitted under `sentientos.local_model_catalog.deploy`. Its implementation
+is `sentientos/local_model_catalog_deployment.py`; this document does not deploy a catalog, issue a grant or lease, or enable
 provider, network, acquisition, commissioning, activation, inference, or consumer
 authority. The machine-readable projection is
 `sentientos/local_model_catalog_deployment_architecture.py`.
@@ -151,9 +151,10 @@ No commissioning. No activation. No inference. No Git publication. No model-mirr
 mutation. No catalog mutation. No runtime or software deployment. No shell authority.
 No arbitrary filesystem authority or destination. No mutable alias. No self-grant.
 No authority inheritance from publication. The deployment controller and all runtime
-consumer enforcement remain deferred. The deployment transaction/recovery state
-machine and grant/lease issuance also remain deferred, and no authoritative catalog
-has been deployed by the installation-state substrate.
+consumer enforcement remain deferred. Production grant/lease issuance and the first
+real authoritative deployment also remain deferred. The transaction/recovery state
+machine only consumes exactly bound authority and no authoritative production catalog
+has been deployed by the controller or installation-state substrate.
 
 ## Installation-state platform contract
 

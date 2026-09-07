@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "40dc2d526b41b943f1068f80816b02df8c9e7a50",
+  "test_provenance_path": "/tmp/local_model_catalog_deployment_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_catalog_deployment.py::test_valid_genesis_deployment_writes_exact_catalog_receipt_and_finalization",
+      "rationale": "The supported successful path proves exact catalog, receipt, and finalization publication."
+    },
+    {
+      "node_id": "tests/test_local_model_catalog_deployment.py::test_exact_digest_replacement_and_stale_contender",
+      "rationale": "Exact replacement succeeds once and a stale contender fails closed."
+    },
+    {
+      "node_id": "tests/test_local_model_catalog_deployment.py::test_missing_extra_and_digest_tampered_publication_evidence_fail",
+      "rationale": "Incomplete and semantically invalid publication evidence cannot authorize deployment."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_catalog_deployment.py::test_valid_genesis_deployment_writes_exact_catalog_receipt_and_finalization",
+    "tests/test_local_model_catalog_deployment.py::test_exact_digest_replacement_and_stale_contender"
+  ]
+}
