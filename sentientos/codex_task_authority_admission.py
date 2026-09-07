@@ -11,6 +11,9 @@ from dataclasses import dataclass
 
 MODEL_MIRROR_PUBLISH = "sentientos.model_mirror.publish"
 LOCAL_MODEL_CATALOG_DEPLOY = "sentientos.local_model_catalog.deploy"
+LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
+    "sentientos.local_model_catalog.deployment_authorization.issue"
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +74,30 @@ AUTHORITY_DEFINITIONS = {
             "arbitrary destination", "arbitrary mirror", "hugging face", "blind overwrite",
         ),
         required_goal_phrases=("verified publication", "exact prior-state"),
+    ),
+    LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE,
+        subsystem_kinds=frozenset({"model_distribution"}),
+        principal_kinds=frozenset({"deterministic_catalog_deployment_authorization_controller"}),
+        required_effects=frozenset(
+            {
+                "exact_operator_approval_evidence_read",
+                "exact_verified_publication_receipt_read",
+                "exact_deployment_eligible_catalog_candidate_read",
+                "bounded_catalog_deployment_grant_issue",
+                "bounded_catalog_deployment_lease_issue",
+                "catalog_deployment_authorization_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "generic deployment authority", "arbitrary filesystem", "network authority",
+            "provider administration", "credential management", "git publication",
+            "model acquisition", "commissioning", "activation", "inference",
+            "self-grant", "self grant", "unbounded grant", "unbounded lease",
+        ),
+        required_goal_phrases=(
+            "explicit operator approval", "verified publication", "exact prior-state",
+        ),
     ),
 }
 
