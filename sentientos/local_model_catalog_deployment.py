@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Callable, Mapping, Sequence
 
 from sentientos.codex_task_authority_admission import LOCAL_MODEL_CATALOG_DEPLOY
 from sentientos.installation_state import InstallationStateError, InstallationStateHandle
@@ -26,6 +26,9 @@ RESULTS = frozenset({"deployed_verified", "recovered_deployed_verified", "alread
                      "stale_prior_state", "authority_denied", "verified_publication_evidence_required",
                      "candidate_invalid", "not_committed", "recovery_required",
                      "manual_recovery_required", "platform_unsupported"})
+SUCCESSFUL_FINALIZATION_OUTCOMES = frozenset(
+    {"deployed_verified", "recovered_deployed_verified", "already_committed_verified"}
+)
 
 
 @dataclass(frozen=True)
@@ -136,7 +139,7 @@ def verify_catalog_publication_evidence(models: Sequence[Mapping[str, Any]], rec
             or receipt.get("final_publication_status") not in {"published_verified", "already_present_verified"}
         ):
             raise EvidenceSetContractError("publication_receipt_not_independently_verified")
-    return cast(dict[str, object], projection)
+    return projection
 
 
 # Kept as an internal alias for callers/tests which exercised the original boundary.
@@ -171,10 +174,29 @@ def verify_deployment_receipt(receipt: Mapping[str, Any]) -> bool:
             and claimed == semantic_digest({**copy, "receipt_id": rid}))
 
 
+def verify_deployment_finalization(finalization: Mapping[str, Any]) -> bool:
+    """Verify the controller's immutable terminal record (not consumer authority)."""
+    required = {
+        "schema_version", "transaction_id", "deployment_receipt_id",
+        "deployment_receipt_semantic_digest",
+        "resulting_authoritative_catalog_semantic_digest", "terminal_outcome",
+    }
+    return bool(
+        set(finalization) == required
+        and finalization.get("schema_version") == FINALIZATION_SCHEMA
+        and isinstance(finalization.get("transaction_id"), str)
+        and str(finalization.get("transaction_id", "")).startswith("catalog-transaction-")
+        and isinstance(finalization.get("deployment_receipt_id"), str)
+        and isinstance(finalization.get("deployment_receipt_semantic_digest"), str)
+        and isinstance(finalization.get("resulting_authoritative_catalog_semantic_digest"), str)
+        and finalization.get("terminal_outcome") in RESULTS
+    )
+
+
 def _catalog_digest(data: bytes | None) -> str:
     if data is None:
-        return cast(str, EXPECTED_ABSENT)
-    return cast(str, local_model_catalog_digest(validate_local_model_catalog(_load(data))))
+        return EXPECTED_ABSENT
+    return local_model_catalog_digest(validate_local_model_catalog(_load(data)))
 
 
 def _create_exact(handle: InstallationStateHandle, obj: Any, data: bytes, verify: Callable[[bytes], None]) -> None:

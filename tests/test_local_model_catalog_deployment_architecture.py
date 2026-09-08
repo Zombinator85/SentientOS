@@ -24,7 +24,7 @@ def test_exact_capability_and_non_runtime_architecture_remain_bounded() -> None:
     assert frozenset(EFFECTS) == definition.required_effects
     assert ARCHITECTURE.runtime_effects_enabled is False
     assert ARCHITECTURE.controller_status == "implemented-without-live-authority"
-    assert ARCHITECTURE.consumer_integration_status == "deferred"
+    assert ARCHITECTURE.consumer_integration_status == "implemented_for_production_selection_and_acquisition"
     assert "publication_authority_inheritance" in FORBIDDEN_ADJACENT_AUTHORITY
     assert {"provider_access", "artifact_acquisition", "commissioning", "activation", "inference"} <= set(FORBIDDEN_ADJACENT_AUTHORITY)
 

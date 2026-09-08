@@ -10,12 +10,14 @@ import pytest
 
 from sentientos.exact_artifact_acquisition import StreamResponse
 from sentientos.local_model_artifact_acquisition import (ModelArtifactAcquisitionError, acquire_model_artifact,
-    authorization_for, compose_acquisition_plan, verify_acquisition_receipt)
+    authorization_for, compose_acquisition_plan, compose_deployed_acquisition_plan, verify_acquisition_receipt)
 from sentientos.local_model_catalog import validate_local_model_catalog
-from sentientos.local_model_selection import GIB, LocalInferenceHardwareProfile, plan_local_model_selection_catalog
+from sentientos.local_model_selection import GIB, LocalInferenceHardwareProfile, plan_local_model_selection_catalog, plan_local_model_selection_deployed
+from tests.test_local_model_catalog_consumer_custody import deploy
 from sentientos.local_runtime_provisioning import semantic_digest
 
 pytestmark = pytest.mark.no_legacy_skip
+_HANDLES = {}
 
 class FakeTransport:
     def __init__(self, data: bytes, *, length: int | None = None, hosts=("models.sentientos.org",), error=None):
@@ -40,7 +42,11 @@ def case(tmp_path: Path, *, backend="cpu", data=b"synthetic opaque GGUF bytes"):
     profile=LocalInferenceHardwareProfile(source_inventory_id="i",source_inventory_digest="0"*64,os_family="linux",
         architecture="x86_64",total_ram_bytes=8*GIB,avx=True,avx2=True,avx512=False,
         accelerator_observed=backend != "cpu", accelerator_vendor="nvidia" if backend=="cuda" else None)
-    selection=plan_local_model_selection_catalog(profile,catalog)
+    key=str(tmp_path)
+    handle=_HANDLES.get(key)
+    if handle is None:
+        handle=deploy(tmp_path/"state",catalog); _HANDLES[key]=handle
+    selection=plan_local_model_selection_deployed(profile,handle)
     selected=selection["selected"]
     provision={"schema_version":"sentientos.local_runtime_provisioning:v1","status":"selected",
         "selection_plan_digest":selection["plan_digest"],"selected_model_id":selected["model_id"],
@@ -52,16 +58,20 @@ def case(tmp_path: Path, *, backend="cpu", data=b"synthetic opaque GGUF bytes"):
         "engine":backend and "llama_cpp","backend_family":backend,"selected_backend_verified":True,
         "backend_runtime_visibility_verified":True,"model_load_performed":False,"inference_performed":False}
     receipt["receipt_semantic_digest"]=semantic_digest(receipt)
-    plan=compose_acquisition_plan(selection,provision,receipt,catalog,tmp_path/"escrow")
+    plan=compose_deployed_acquisition_plan(selection,provision,receipt,handle,tmp_path/"escrow")
+    _HANDLES[plan["acquisition_plan_digest"]]=handle
     return data,catalog,selection,provision,receipt,plan
 
 def execute(data, plan, transport=None, free=10**9):
     return acquire_model_artifact(plan,execute=True,authorization=authorization_for(plan,operator_confirmed=True),
+        installation_handle=_HANDLES[plan["acquisition_plan_digest"]],
         transport=transport or FakeTransport(data),disk_usage_provider=lambda _:SimpleNamespace(free=free))
 
 def test_deterministic_cross_bound_plan_and_inspection_are_zero_effect(tmp_path: Path):
     *_, plan=case(tmp_path)
-    assert plan == compose_acquisition_plan(*case(tmp_path)[2:5],case(tmp_path)[1],tmp_path/"escrow")
+    repeated=case(tmp_path)
+    assert plan == compose_deployed_acquisition_plan(*repeated[2:5],
+        _HANDLES[plan["acquisition_plan_digest"]],tmp_path/"escrow")
     result=acquire_model_artifact(plan)
     assert result["status"]=="inspection_ready" and not (tmp_path/"escrow").exists()
     assert plan["model_loaded"] is plan["inference_authority_granted"] is plan["provider_invoked"] is False
@@ -96,7 +106,7 @@ def test_catalog_artifact_and_route_substitution_fail(tmp_path: Path):
 def test_authorization_and_space_fail_before_network(tmp_path: Path):
     data,*_,plan=case(tmp_path); transport=FakeTransport(data)
     with pytest.raises(ModelArtifactAcquisitionError,match="authorization"):
-        acquire_model_artifact(plan,execute=True,transport=transport)
+        acquire_model_artifact(plan,execute=True,installation_handle=_HANDLES[plan["acquisition_plan_digest"]],transport=transport)
     assert transport.calls==0
     with pytest.raises(ModelArtifactAcquisitionError,match="insufficient"):
         execute(data,plan,transport,free=0)

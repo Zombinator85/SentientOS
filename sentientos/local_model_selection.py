@@ -9,6 +9,8 @@ from typing import Any, Mapping
 
 from hf_intake.manifest import V2_SCHEMA_VERSION, ManifestError, validate_execution_routes, validate_manifest
 from sentientos.host_inventory import HostInventoryManifest
+from sentientos.installation_state import InstallationStateHandle
+from sentientos.local_model_catalog_consumer_custody import construct_authoritative_catalog_consumer_proof
 from sentientos.local_model_catalog import (
     SCHEMA_VERSION as CATALOG_SCHEMA_VERSION,
     LocalModelCatalogError,
@@ -248,7 +250,9 @@ def plan_local_model_selection_catalog(host: LocalInferenceHardwareProfile, cata
             "catalog_schema_version": CATALOG_SCHEMA_VERSION, "no_network_performed": True,
             "no_download_performed": True, "no_install_performed": True, "no_model_load_performed": True,
             "no_commissioning_performed": True, "no_authority_granted": True,
-            "runtime_availability_status": "not_evaluated"}
+            "runtime_availability_status": "not_evaluated",
+            "authoritative_deployed_catalog_verified": False, "production_eligible": False,
+            "catalog_provenance": "caller_supplied_preview"}
     try:
         validated = validate_local_model_catalog(catalog)
     except LocalModelCatalogError:
@@ -284,6 +288,30 @@ def plan_local_model_selection_catalog(host: LocalInferenceHardwareProfile, cata
     plan = {**base, "status": status, "selected": selected,
             "local_model_catalog_digest": validated["local_model_catalog_digest"],
             "eligible_candidates": tuple(eligible), "candidate_summaries": tuple(evaluated), "reason_codes": reasons}
+    plan["plan_digest"] = _digest(plan)
+    return plan
+
+
+def plan_local_model_selection_deployed(
+    host: LocalInferenceHardwareProfile, installation_handle: InstallationStateHandle,
+) -> dict[str, Any]:
+    """Select only from the coherently proven authoritative deployed catalog."""
+    snapshot = construct_authoritative_catalog_consumer_proof(installation_handle)
+    plan = plan_local_model_selection_catalog(host, snapshot.catalog)
+    proof = snapshot.proof
+    plan.pop("plan_digest", None)
+    plan.update({
+        "authoritative_deployed_catalog_verified": True,
+        "production_eligible": plan.get("status") == "selected",
+        "catalog_provenance": "authoritative_deployed_catalog",
+        "authoritative_catalog_proof_digest": proof["proof_semantic_digest"],
+        "installation_identity": proof["installation_identity"],
+        "catalog_custody_identity": proof["custody_identity"],
+        "deployment_receipt_id": proof["deployment_receipt_id"],
+        "deployment_receipt_semantic_digest": proof["deployment_receipt_semantic_digest"],
+        "deployment_transaction_id": proof["deployment_transaction_id"],
+        "transaction_final_state": proof["transaction_final_state"],
+    })
     plan["plan_digest"] = _digest(plan)
     return plan
 
