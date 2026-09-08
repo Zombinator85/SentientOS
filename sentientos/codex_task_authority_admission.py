@@ -16,6 +16,7 @@ LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
     "sentientos.local_model_catalog.deployment_authorization.issue"
 )
 LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
+LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,40 @@ AUTHORITY_DEFINITIONS = {
             "explicit operator approval",
             "authoritative deployed catalog",
             "exact artifact identity",
+        ),
+    ),
+    LOCAL_MODEL_PRODUCTION_COMMISSIONING: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_PRODUCTION_COMMISSIONING,
+        subsystem_kinds=frozenset({"local_model_chat"}),
+        principal_kinds=frozenset(
+            {"deterministic_local_model_commissioning_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_operator_approval_evidence_read",
+                "exact_authoritative_deployed_catalog_proof_read",
+                "exact_hardened_model_artifact_acquisition_receipt_read",
+                "exact_commissioning_intent_read",
+                "bounded_zero_generation_gguf_compatibility_construction",
+                "bounded_exact_local_model_load",
+                "bounded_commissioning_smoke_inference",
+                "local_model_commissioning_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary model path", "arbitrary artifact", "arbitrary runtime",
+            "arbitrary filesystem", "arbitrary output destination",
+            "provider invocation", "provider administration", "credential management",
+            "network authority", "catalog mutation", "artifact acquisition",
+            "activation", "unrestricted serving", "autonomous inference",
+            "background inference", "unbounded inference", "tool authority",
+            "memory authority", "action authority", "repository mutation",
+            "self-grant", "self grant",
+        ),
+        required_goal_phrases=(
+            "explicit operator approval",
+            "authoritative deployed catalog",
+            "exact acquired artifact identity",
         ),
     ),
 }

@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b6533b1a2f25edba1b0f8c73d97c6bbcdbf6de26",
+  "test_provenance_path": "/tmp/local_model_production_commissioning_authority_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_production_commissioning_capability_admission.py::test_future_commissioning_authority_definition_is_admissible_without_grant",
+      "rationale": "The exact future definition is eligible while capability_granted remains false."
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning_capability_admission.py::test_forbidden_commissioning_scope_is_blocked[activation]",
+      "rationale": "Commissioning admission cannot silently include activation."
+    },
+    {
+      "node_id": "tests/test_local_model_production_commissioning_capability_admission.py::test_admission_performs_no_commissioning_or_downstream_effect",
+      "rationale": "Metadata admission creates no approval, construction, load, inference, receipt, or activation result."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_production_commissioning_capability_admission.py::test_future_commissioning_authority_definition_is_admissible_without_grant"
+  ]
+}

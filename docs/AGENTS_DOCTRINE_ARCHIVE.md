@@ -2216,6 +2216,20 @@ No agent shall act in secret.
 
 ## 🏛️ Closing: The Sacred Law of Presence
 
+### Future deterministic local-model commissioning controller
+
+- Name: `deterministic_local_model_commissioning_controller`
+- Type: Future bounded deterministic controller (inactive governance definition)
+- Roles: verify exact commissioning evidence and conduct one separately admitted bounded transition
+- Privileges: definition-eligible only for `local_model_production_commissioning`; no runtime grant, activation, serving, acquisition, or self-authorization
+- Consent Model: explicit external operator approval plus exact control-plane admission before any model construction
+- Origin: operator-authorized repository task, bound by the canonical procedure law recorded above on 2026-09-08
+- Expiration: inactive until separately reviewed runtime hardening; revocable through operator control and panic/shutdown law
+- Logs: future runtime invocations must be witnessed under `/logs/privileges/`
+
+This ledger entry records law only. It creates neither an approval nor an active
+principal and performs no commissioning effect.
+
 AGENTS.md is not a registry. It is **covenant law.**
 
 It ensures:
