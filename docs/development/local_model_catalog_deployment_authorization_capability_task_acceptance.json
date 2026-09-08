@@ -1,0 +1,10 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "6aa0e141d30d3b644e29126686324339e6276cbf",
+  "test_provenance_path": "/tmp/local_model_catalog_deployment_authorization_capability_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_catalog_deployment_authorization_capability_admission.py::test_exact_future_issuer_definition_is_eligible_without_grant", "rationale": "Exact future issuer task is definition-eligible while capability_granted remains false."}
+  ],
+  "successful_path_nodes": ["tests/test_local_model_catalog_deployment_authorization_capability_admission.py::test_exact_future_issuer_definition_is_eligible_without_grant"]
+}
