@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 from typing import Any
 from sentientos.local_model_artifact_acquisition import (ModelArtifactAcquisitionError, acquire_model_artifact,
-    authorization_for, compose_acquisition_plan, default_escrow_root)
+    compose_acquisition_plan, compose_deployed_acquisition_plan, default_escrow_root)
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.control_plane_kernel import ControlPlaneKernel
 
 def _read(path: Path) -> dict[str, Any]:
     value: Any = json.loads(path.read_text(encoding="utf-8"))
@@ -18,18 +20,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--selection-plan", type=Path, required=True)
     parser.add_argument("--runtime-provisioning-plan", type=Path, required=True)
     parser.add_argument("--backend-verification-receipt", type=Path, required=True)
-    parser.add_argument("--local-model-catalog", type=Path, required=True)
+    parser.add_argument("--local-model-catalog", type=Path)
+    parser.add_argument("--installation-identity")
+    parser.add_argument("--approval-evidence", type=Path)
+    parser.add_argument("--correlation-id")
     parser.add_argument("--escrow-root", type=Path, default=default_escrow_root())
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-plan-digest")
     args = parser.parse_args(argv)
     try:
-        plan = compose_acquisition_plan(_read(args.selection_plan), _read(args.runtime_provisioning_plan),
-            _read(args.backend_verification_receipt), _read(args.local_model_catalog), args.escrow_root)
+        if args.execute:
+            if args.local_model_catalog is not None:
+                raise ModelArtifactAcquisitionError("caller_catalog_execution_forbidden")
+            if not args.installation_identity:
+                raise ModelArtifactAcquisitionError("installation_identity_required")
+            if args.approval_evidence is None:
+                raise ModelArtifactAcquisitionError("external_acquisition_approval_required")
+            handle = InstallationStateRegistry.system().open(InstallationIdentity.parse(args.installation_identity))
+            plan = compose_deployed_acquisition_plan(_read(args.selection_plan), _read(args.runtime_provisioning_plan),
+                _read(args.backend_verification_receipt), handle, args.escrow_root)
+        else:
+            if args.local_model_catalog is None:
+                raise ModelArtifactAcquisitionError("preview_catalog_required")
+            handle = None
+            plan = compose_acquisition_plan(_read(args.selection_plan), _read(args.runtime_provisioning_plan),
+                _read(args.backend_verification_receipt), _read(args.local_model_catalog), args.escrow_root)
         if args.execute and args.confirm_plan_digest != plan["acquisition_plan_digest"]:
             raise ModelArtifactAcquisitionError("confirmed_plan_digest_mismatch")
-        result = acquire_model_artifact(plan, execute=args.execute,
-            authorization=authorization_for(plan, operator_confirmed=True) if args.execute else None)
+        result = acquire_model_artifact(plan, execute=args.execute, installation_handle=handle, authorization=None,
+            approval_evidence=_read(args.approval_evidence) if args.execute else None,
+            control_plane_kernel=ControlPlaneKernel() if args.execute else None,
+            correlation_id=args.correlation_id if args.execute else None)
     except (OSError, ValueError, json.JSONDecodeError, ModelArtifactAcquisitionError) as exc:
         code = exc.code if isinstance(exc, ModelArtifactAcquisitionError) else "invalid_input_evidence"
         print(json.dumps({"status": "blocked", "reason_code": code}, sort_keys=True)); return 2

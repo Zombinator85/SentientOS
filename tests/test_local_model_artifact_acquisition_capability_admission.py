@@ -72,8 +72,8 @@ def test_registry_truthfully_marks_runtime_authority_hardening_partial() -> None
     assert record.status == "partial"
     assert record.requires_control_plane_admission and record.requires_operator_approval
     assert "exact catalog-authorized HTTPS streaming with byte and SHA-256 verification" in record.implemented_surfaces
-    assert "replacement of caller-constructible operator_confirmed authorization" in record.deferred_surfaces
-    assert "task-authority admission is live operator approval" in record.forbidden_implications
+    assert "externally supplied immutable exact operator-approval verification" in record.implemented_surfaces
+    assert "task-authority admission is runtime authority" in record.forbidden_implications
 
 
 @pytest.mark.parametrize("missing", (

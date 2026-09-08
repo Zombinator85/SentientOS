@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
+from datetime import datetime, timedelta, timezone
 
 from sentientos.exact_artifact_acquisition import StreamResponse
 from sentientos.local_model_artifact_acquisition import (ModelArtifactAcquisitionError, acquire_model_artifact,
@@ -15,6 +16,8 @@ from sentientos.local_model_catalog import validate_local_model_catalog
 from sentientos.local_model_selection import GIB, LocalInferenceHardwareProfile, plan_local_model_selection_catalog, plan_local_model_selection_deployed
 from tests.test_local_model_catalog_consumer_custody import deploy
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.local_model_artifact_acquisition_authority import APPROVAL_SCHEMA, expected_approval_bindings
+from sentientos.control_plane_kernel import ControlPlaneKernel
 
 pytestmark = pytest.mark.no_legacy_skip
 _HANDLES = {}
@@ -62,8 +65,20 @@ def case(tmp_path: Path, *, backend="cpu", data=b"synthetic opaque GGUF bytes"):
     _HANDLES[plan["acquisition_plan_digest"]]=handle
     return data,catalog,selection,provision,receipt,plan
 
-def execute(data, plan, transport=None, free=10**9):
-    return acquire_model_artifact(plan,execute=True,authorization=authorization_for(plan,operator_confirmed=True),
+NOW=datetime(2026,1,1,tzinfo=timezone.utc)
+def approval(plan, correlation="acquisition-test", **changes):
+    value={"schema_version":APPROVAL_SCHEMA,"approval_evidence_id":"external-approval-1",
+        "operator_identity":"operator:alice","approval_status":"approved",
+        **expected_approval_bindings(plan,correlation_id=correlation),
+        "not_before":(NOW-timedelta(minutes=1)).isoformat(),"expires_at":(NOW+timedelta(minutes=5)).isoformat(),
+        "approval_timestamp":NOW.isoformat(),"synthetic_test_evidence":False,
+        "evidence_source":"external_operator_custody","evidence_provenance":"deterministic test fixture"}
+    value.update(changes); value["approval_semantic_digest"]=semantic_digest(value); return value
+
+def execute(data, plan, transport=None, free=10**9, correlation="acquisition-test"):
+    return acquire_model_artifact(plan,execute=True,approval_evidence=approval(plan,correlation),
+        control_plane_kernel=ControlPlaneKernel(decisions_path=Path(plan["escrow_root"]).parent/f"{correlation}.jsonl"),
+        correlation_id=correlation,observation_time=NOW,
         installation_handle=_HANDLES[plan["acquisition_plan_digest"]],
         transport=transport or FakeTransport(data),disk_usage_provider=lambda _:SimpleNamespace(free=free))
 
@@ -105,7 +120,7 @@ def test_catalog_artifact_and_route_substitution_fail(tmp_path: Path):
 
 def test_authorization_and_space_fail_before_network(tmp_path: Path):
     data,*_,plan=case(tmp_path); transport=FakeTransport(data)
-    with pytest.raises(ModelArtifactAcquisitionError,match="authorization"):
+    with pytest.raises(ModelArtifactAcquisitionError,match="approval"):
         acquire_model_artifact(plan,execute=True,installation_handle=_HANDLES[plan["acquisition_plan_digest"]],transport=transport)
     assert transport.calls==0
     with pytest.raises(ModelArtifactAcquisitionError,match="insufficient"):

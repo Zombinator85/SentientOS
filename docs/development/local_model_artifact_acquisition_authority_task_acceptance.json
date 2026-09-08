@@ -1,27 +1,32 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "02420d4f69249f227309062fdf0d4517c3ec391f",
+  "repository_sha": "e18c2a8a09d3752cf9051993fc200c116d5038be",
   "test_provenance_path": "/tmp/local_model_artifact_acquisition_authority_test_provenance.json",
   "required_nodes": [
     {
+      "node_id": "tests/test_local_model_artifact_acquisition_authority.py::test_external_approval_accepts_exact_evidence_and_rejects_time_and_digest",
+      "rationale": "Exact external approval verification succeeds and bounded time/digest failures close."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition.py::test_stream_publish_receipt_and_verified_cache_hit",
+      "rationale": "Exact control-plane ALLOW enables one bounded fake transfer and strict hardened receipt/cache verification."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition_authority.py::test_legacy_boolean_authorization_cannot_execute",
+      "rationale": "Legacy caller-constructible boolean authority produces zero transport and escrow mutation."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition.py::test_authorization_and_space_fail_before_network",
+      "rationale": "Missing approval and failed prerequisites produce zero transport."
+    },
+    {
       "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_exact_future_acquisition_definition_is_eligible_without_grant_or_effect",
-      "rationale": "The successful path proves definition eligibility while capability_granted remains false and no effect or approval object is produced."
-    },
-    {
-      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_registry_truthfully_marks_runtime_authority_hardening_partial",
-      "rationale": "Registry metadata distinguishes implemented effect mechanics from the incomplete production authorization chain."
-    },
-    {
-      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_wrong_subsystem_and_inexact_effect_surfaces_are_blocked",
-      "rationale": "Subsystem and exact duplicate-free effect equality are mandatory."
-    },
-    {
-      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_admission_contract_has_no_effectful_or_downstream_result_fields",
-      "rationale": "Admission metadata has no network, artifact, approval, commissioning, activation, or inference result."
+      "rationale": "Bootstrap authority remains eligibility-only and grants no capability."
     }
   ],
   "successful_path_nodes": [
-    "tests/test_local_model_artifact_acquisition_capability_admission.py::test_exact_future_acquisition_definition_is_eligible_without_grant_or_effect"
+    "tests/test_local_model_artifact_acquisition_authority.py::test_external_approval_accepts_exact_evidence_and_rejects_time_and_digest",
+    "tests/test_local_model_artifact_acquisition.py::test_stream_publish_receipt_and_verified_cache_hit"
   ]
 }
