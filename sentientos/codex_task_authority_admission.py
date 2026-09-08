@@ -15,6 +15,7 @@ LOCAL_MODEL_CATALOG_DEPLOY = "sentientos.local_model_catalog.deploy"
 LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
     "sentientos.local_model_catalog.deployment_authorization.issue"
 )
+LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,36 @@ AUTHORITY_DEFINITIONS = {
         ),
         required_goal_phrases=(
             "explicit operator approval", "verified publication", "exact prior-state",
+        ),
+    ),
+    LOCAL_MODEL_ARTIFACT_ACQUISITION: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_ARTIFACT_ACQUISITION,
+        subsystem_kinds=frozenset({"model_distribution"}),
+        principal_kinds=frozenset(
+            {"deterministic_model_artifact_acquisition_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_operator_approval_evidence_read",
+                "exact_authoritative_deployed_catalog_proof_read",
+                "exact_model_artifact_acquisition_plan_read",
+                "bounded_exact_https_artifact_stream",
+                "exact_content_addressed_model_escrow_write",
+                "model_artifact_acquisition_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary url", "arbitrary host", "arbitrary network",
+            "generic network authority", "arbitrary filesystem",
+            "arbitrary destination", "mutable artifact alias",
+            "provider administration", "credential management",
+            "catalog mutation", "model commissioning", "activation",
+            "inference", "self-grant", "self grant", "unbounded transfer",
+        ),
+        required_goal_phrases=(
+            "explicit operator approval",
+            "authoritative deployed catalog",
+            "exact artifact identity",
         ),
     ),
 }

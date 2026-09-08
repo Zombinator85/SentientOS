@@ -40,6 +40,9 @@ class AuthorityClass(str, Enum):
     PRIVILEGED_OPERATOR_CONTROL = "privileged_operator_control"
     LOCAL_AUTHORIZATION_GRANT_ISSUANCE = "local_authorization_grant_issuance"
     FULFILLMENT_AUTHORIZATION_CONSUMPTION = "fulfillment_authorization_consumption"
+    # Narrow schema identity for a future separately admitted exact acquisition.
+    # Declaration alone neither admits nor executes an artifact transfer.
+    MODEL_ARTIFACT_ACQUISITION = "model_artifact_acquisition"
 
 
 class AdmissionOutcome(str, Enum):
