@@ -43,6 +43,9 @@ class AuthorityClass(str, Enum):
     # Narrow schema identity for a future separately admitted exact acquisition.
     # Declaration alone neither admits nor executes an artifact transfer.
     MODEL_ARTIFACT_ACQUISITION = "model_artifact_acquisition"
+    # Narrow schema identity for a future separately admitted commissioning
+    # transition. Declaration alone performs no model construction or execution.
+    MODEL_COMMISSIONING = "model_commissioning"
 
 
 class AdmissionOutcome(str, Enum):
