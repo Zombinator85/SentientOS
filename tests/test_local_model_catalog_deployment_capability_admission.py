@@ -82,6 +82,26 @@ def test_wrong_subsystem_and_missing_evidence_or_prior_state_are_denied() -> Non
             request(task_goal=goal)).blocker_codes
 
 
+@pytest.mark.parametrize("goal", (
+    "Implement deployment without verified publication and exact prior-state.",
+    "Implement deployment with no verified publication and exact prior-state.",
+    "Implement deployment with verified publication but without exact prior-state.",
+    "Implement deployment with verified publication and no exact prior-state.",
+))
+def test_negated_goal_preconditions_are_denied(goal: str) -> None:
+    result = plan_codex_task_scaffold_paths(request(task_goal=goal))
+    assert result.status == "blocked"
+    assert "authority_goal_missing_required_precondition" in result.blocker_codes
+
+
+@pytest.mark.parametrize("goal", (
+    "Implement deployment requiring verified publication and exact prior-state identity",
+    "Implement deployment using verified publication evidence after exact prior-state identity",
+))
+def test_affirmative_goal_precondition_forms_remain_eligible(goal: str) -> None:
+    assert plan_codex_task_scaffold_paths(request(task_goal=goal)).status == "ready"
+
+
 @pytest.mark.parametrize("phrase", (
     "generic deployment", "arbitrary configuration", "network authority", "provider administration",
     "credential management", "Git publication", "model acquisition", "commissioning", "activation",
