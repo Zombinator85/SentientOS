@@ -110,7 +110,8 @@ def _authority_valid(request: CatalogDeploymentRequest, authority: CatalogDeploy
         return False
 
 
-def _validate_publications(models: Sequence[Mapping[str, Any]], receipts: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+def verify_catalog_publication_evidence(models: Sequence[Mapping[str, Any]], receipts: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+    """Deeply verify the exact publication set used by deployment and issuance."""
     projection = publication_evidence_set_projection(models, receipts)
     by_model = {str(model["model_id"]): model for model in models}
     for receipt in receipts:
@@ -136,6 +137,10 @@ def _validate_publications(models: Sequence[Mapping[str, Any]], receipts: Sequen
         ):
             raise EvidenceSetContractError("publication_receipt_not_independently_verified")
     return cast(dict[str, object], projection)
+
+
+# Kept as an internal alias for callers/tests which exercised the original boundary.
+_validate_publications = verify_catalog_publication_evidence
 
 
 def _receipt_body(facts: Mapping[str, Any]) -> dict[str, Any]:

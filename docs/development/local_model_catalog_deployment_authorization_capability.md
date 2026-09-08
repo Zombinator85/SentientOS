@@ -1,7 +1,7 @@
 # Catalog deployment authorization issuance capability
 
-`sentientos.local_model_catalog.deployment_authorization.issue` is the contract-only,
-model-distribution capability definition for a future
+`sentientos.local_model_catalog.deployment_authorization.issue` now has a bounded,
+model-distribution runtime implementation for
 `deterministic_catalog_deployment_authorization_controller`. This principal is separate
 from `deterministic_catalog_deployment_controller`, which consumes externally supplied
 authority and cannot mint, widen, renew, or self-grant it. This admission contract is
@@ -45,7 +45,16 @@ controller is eligible to hold issuance authority. Publication authority, public
 evidence, artifact possession, an approval packet, readiness receipt, active generic
 local-authorization record, or capability definition cannot be promoted into it.
 
-Runtime approval verification, grant and lease construction, durable issuance custody,
-issuance receipts, controller projection, real authorization events and deployment,
-consumer custody enforcement, acquisition, commissioning, activation, and inference
-remain deferred. No runtime issuer module or CLI exists as a result of this contract.
+The runtime implementation consumes immutable external approval, independently validates
+the complete catalog and the controller's shared deep publication-evidence contract,
+obtains `LOCAL_AUTHORIZATION_GRANT_ISSUANCE` control-plane admission, and writes exact
+grant, lease, and issuance-receipt records under the fixed installation-state path
+`authorization/model-catalog-deployment/`. Grant lifetime is finite and at most 3600
+seconds; a lease can only narrow it. Exact retries recover grant-only and grant-plus-lease
+partial issuance and return replay only when all three expected objects are identical.
+
+No genuine production approval or issuance event is performed by implementation tests.
+Real authorization exercise and deployment, consumer custody enforcement, sovereign Qwen
+publication, acquisition, commissioning, activation, inference, commissioned-local
+maintenance E2E, and Windows durable-state support remain deferred. Issuance is not
+catalog deployment.
