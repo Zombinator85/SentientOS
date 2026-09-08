@@ -6,6 +6,7 @@ capability, creates a lease, loads credentials, or performs an effect.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -102,6 +103,45 @@ AUTHORITY_DEFINITIONS = {
 }
 
 
+_GOAL_CLAUSE_BOUNDARY_RE = re.compile(r"[.;\n]+")
+_PRECONDITION_DISCLAIMER_RE = re.compile(
+    r"\b(?:without|no|not|never|bypass(?:ing|ed)?|omit(?:ting|ted)?|skip(?:ping|ped)?)\b",
+    re.IGNORECASE,
+)
+_PRECONDITION_NEGATED_SUFFIX_RE = re.compile(
+    r"^\s*(?:is|are|was|were)?\s*(?:not|required\s+not\s+to\s+be)\s*"
+    r"(?:required|needed|used|provided|verified|enforced|included|obtained|present)\b",
+    re.IGNORECASE,
+)
+
+
+def _required_precondition_is_affirmative(task_goal: str, phrase: str) -> bool:
+    """Return true when ``phrase`` occurs in a mechanically affirmative clause.
+
+    This intentionally rejects a whole local clause when a recognizable disclaimer
+    precedes the occurrence.  Trying to resolve double negatives or coordinated
+    negation here would make an authority gate guess at author intent; callers must
+    instead provide a simple affirmative precondition statement.
+    """
+    phrase_pattern = re.compile(
+        rf"(?<![\w-]){re.escape(phrase).replace(r'\ ', r'\s+')}(?![\w-])",
+        re.IGNORECASE,
+    )
+    for match in phrase_pattern.finditer(task_goal):
+        boundaries_before = tuple(_GOAL_CLAUSE_BOUNDARY_RE.finditer(task_goal, 0, match.start()))
+        clause_start = boundaries_before[-1].end() if boundaries_before else 0
+        boundary_after = _GOAL_CLAUSE_BOUNDARY_RE.search(task_goal, match.end())
+        clause_end = boundary_after.start() if boundary_after else len(task_goal)
+        prefix = task_goal[clause_start:match.start()]
+        suffix = task_goal[match.end():clause_end]
+        if _PRECONDITION_DISCLAIMER_RE.search(prefix):
+            continue
+        if _PRECONDITION_NEGATED_SUFFIX_RE.match(suffix):
+            continue
+        return True
+    return False
+
+
 def authority_admission_blockers(
     *, capability_id: str, subsystem_kind: str, principal_kind: str,
     requested_effects: tuple[str, ...], task_goal: str,
@@ -124,6 +164,9 @@ def authority_admission_blockers(
     folded_goal = task_goal.casefold()
     if any(phrase in folded_goal for phrase in definition.forbidden_goal_phrases):
         blockers.append("authority_goal_requests_forbidden_scope")
-    if any(phrase not in folded_goal for phrase in definition.required_goal_phrases):
+    if any(
+        not _required_precondition_is_affirmative(task_goal, phrase)
+        for phrase in definition.required_goal_phrases
+    ):
         blockers.append("authority_goal_missing_required_precondition")
     return tuple(sorted(set(blockers)))

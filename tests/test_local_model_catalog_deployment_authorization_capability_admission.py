@@ -72,6 +72,35 @@ def test_each_goal_precondition_is_mandatory(missing: str) -> None:
         request(task_goal=goal)).blocker_codes
 
 
+@pytest.mark.parametrize("goal", (
+    "Implement bounded issuance without explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance with no explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance not requiring explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance never requiring explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance bypassing explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance omitting explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance skipping explicit operator approval for verified publication and exact prior-state.",
+    "Implement bounded issuance where explicit operator approval is not required; requiring verified publication and exact prior-state.",
+    "Implement bounded issuance with explicit operator approval but without verified publication and exact prior-state.",
+    "Implement bounded issuance with explicit operator approval and verified publication but without exact prior-state.",
+    "Implement bounded issuance; must not proceed without explicit operator approval for verified publication and exact prior-state.",
+))
+def test_negated_or_ambiguous_goal_preconditions_are_denied(goal: str) -> None:
+    planned = plan_codex_task_scaffold_paths(request(task_goal=goal))
+    assert planned.status == "blocked"
+    assert "authority_goal_missing_required_precondition" in planned.blocker_codes
+
+
+@pytest.mark.parametrize("goal", (
+    "Implement bounded issuance requiring explicit operator approval, verified publication, and exact prior-state identity",
+    "Implement bounded issuance with explicit operator approval after verified publication using exact prior-state identity",
+))
+def test_affirmative_goal_precondition_forms_remain_eligible(goal: str) -> None:
+    planned = plan_codex_task_scaffold_paths(request(task_goal=goal))
+    assert planned.status == "ready"
+    assert planned.blocker_codes == ()
+
+
 def test_wrong_subsystem_and_inexact_effects_are_blocked() -> None:
     assert "authority_subsystem_not_admitted" in plan_codex_task_scaffold_paths(
         request(subsystem_kind="local_model_chat")).blocker_codes
