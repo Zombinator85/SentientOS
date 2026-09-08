@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "02420d4f69249f227309062fdf0d4517c3ec391f",
+  "test_provenance_path": "/tmp/local_model_artifact_acquisition_authority_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_exact_future_acquisition_definition_is_eligible_without_grant_or_effect",
+      "rationale": "The successful path proves definition eligibility while capability_granted remains false and no effect or approval object is produced."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_registry_truthfully_marks_runtime_authority_hardening_partial",
+      "rationale": "Registry metadata distinguishes implemented effect mechanics from the incomplete production authorization chain."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_wrong_subsystem_and_inexact_effect_surfaces_are_blocked",
+      "rationale": "Subsystem and exact duplicate-free effect equality are mandatory."
+    },
+    {
+      "node_id": "tests/test_local_model_artifact_acquisition_capability_admission.py::test_admission_contract_has_no_effectful_or_downstream_result_fields",
+      "rationale": "Admission metadata has no network, artifact, approval, commissioning, activation, or inference result."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_artifact_acquisition_capability_admission.py::test_exact_future_acquisition_definition_is_eligible_without_grant_or_effect"
+  ]
+}

@@ -35,3 +35,42 @@ verification is not model acquisition. Acquisition is not GGUF compatibility
 proof, loading, commissioning, or inference authority. No runtime installation,
 runtime import, backend probe, prompt assembly, provider invocation, model
 construction, or inference occurs.
+
+## Future production authority contract
+
+The existing `authorization_for(plan, operator_confirmed=...)` helper is a
+legacy, caller-constructible authorization shape. It is not genuine external
+operator-approval evidence and the next runtime-hardening task must replace it
+on the production `execute=True` path; this governance definition does not
+change that path.
+
+The only admitted future task-authority principal is
+`deterministic_model_artifact_acquisition_controller`, for capability
+`local_model_artifact_acquisition`. Its exact effects are reads of operator
+approval evidence, authoritative deployed-catalog proof, and the exact
+acquisition plan; one bounded exact HTTPS artifact stream; one exact
+content-addressed escrow write; and one acquisition-receipt write. The narrow
+control-plane schema identity is `MODEL_ARTIFACT_ACQUISITION`. Definition
+eligibility and that schema declaration grant no capability and perform no
+effect.
+
+A future hardened controller must consume immutable, externally supplied
+approval for one exact transition. That evidence must bind operator identity;
+approval evidence identity and digest; target principal and capability; the
+exact effect set; installation identity; authoritative catalog custody identity
+and proof digest; deployment receipt identity and digest; acquisition-plan
+digest; model ID; artifact content identity, SHA-256, and size; exact canonical
+source URL; exact content-addressed escrow destination identity; correlation
+ID; and a bounded validity interval. No approval builder that can manufacture
+genuine approval is admitted by this contract.
+
+Immediately before network and filesystem effects, the future executor must
+require both genuine explicit operator approval and exact ControlPlaneKernel
+admission, each bound to the currently revalidated authoritative deployed
+catalog and exact acquisition plan. A structurally valid plan is not execution
+authority; authoritative deployed-catalog proof is not execution authority;
+operator approval is not control-plane admission; control-plane admission is
+not successful acquisition; and an acquisition receipt is not commissioning
+authority. The generic fulfillment-authorization wing remains metadata-only,
+pre-fulfillment law that blocks network egress and is not model-download
+execution authority.
