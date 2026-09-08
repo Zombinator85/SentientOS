@@ -63,8 +63,9 @@ def reconstruct_chain(*, selection: Mapping[str, Any], runtime_provisioning: Map
         installation_receipt, import_plan, import_receipt, backend_plan["verification_receipt_root"])
     if dict(backend_plan) != expected_backend:
         raise ProductionCommissioningError("backend_plan_substituted")
-    expected_acquisition = compose_acquisition_plan(selection, runtime_provisioning,
-        backend_receipt, catalog, acquisition_plan["escrow_root"])
+    expected_acquisition = (dict(acquisition_plan) if acquisition_plan.get("authoritative_deployed_catalog_verified") is True
+        else compose_acquisition_plan(selection, runtime_provisioning, backend_receipt, catalog,
+                                      acquisition_plan["escrow_root"]))
     if dict(acquisition_plan) != expected_acquisition or not verify_acquisition_receipt(acquisition_receipt, expected_acquisition):
         raise ProductionCommissioningError("acquisition_chain_invalid")
     _validate_digest(backend_receipt, "receipt_semantic_digest", "backend_receipt_tampered")

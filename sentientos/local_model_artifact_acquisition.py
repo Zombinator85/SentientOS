@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -20,10 +21,17 @@ from sentientos.local_model_catalog import TRUSTED_ARTIFACT_HOSTS, LocalModelCat
 from sentientos.installation_state import InstallationStateHandle
 from sentientos.local_model_catalog_consumer_custody import construct_authoritative_catalog_consumer_proof
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionRequest,
+                                              ControlPlaneKernel, LifecyclePhase)
+from sentientos.local_model_artifact_acquisition_authority import (
+    CAPABILITY, PRINCIPAL, AcquisitionApprovalError, control_plane_metadata, effect_set_digest,
+    verify_external_approval,
+)
 
 PLAN_SCHEMA = "sentientos.local_model_artifact_acquisition_plan:v1"
 AUTHORIZATION_SCHEMA = "sentientos.local_model_artifact_acquisition_authorization:v1"
-RECEIPT_SCHEMA = "sentientos.local_model_artifact_acquisition_receipt:v1"
+LEGACY_RECEIPT_SCHEMA = "sentientos.local_model_artifact_acquisition_receipt:v1"
+RECEIPT_SCHEMA = "sentientos.local_model_artifact_acquisition_receipt:v2"
 ACTION = "acquire_exact_local_model_artifact"
 SPACE_HEADROOM_BYTES = 64 * 1024 * 1024
 CHUNK_SIZE = 1024 * 1024
@@ -208,6 +216,7 @@ def _revalidate_production_provenance(plan: Mapping[str, Any], handle: Installat
 
 
 def authorization_for(plan: Mapping[str, Any], *, operator_confirmed: bool) -> dict[str, Any]:
+    """Build legacy inspection evidence; never accepted for production execution."""
     value = {"schema_version": AUTHORIZATION_SCHEMA, "action": ACTION,
              "acquisition_plan_digest": plan.get("acquisition_plan_digest"),
              "artifact_id": plan.get("artifact_id"), "route_id": plan.get("route_id"),
@@ -237,7 +246,10 @@ def _hash_file(path: Path) -> tuple[int, str]:
     return size, digest.hexdigest()
 
 
-def _existing(final: Path, plan: Mapping[str, Any]) -> dict[str, Any] | None:
+legacy_authorization_for = authorization_for
+
+
+def _existing(final: Path, plan: Mapping[str, Any], *, production: bool = False) -> dict[str, Any] | None:
     if not final.exists(): return None
     _safe_path(final, allow_missing=False)
     artifact, receipt_path = final / str(plan["artifact_filename"]), final / "acquisition-receipt.json"
@@ -246,17 +258,24 @@ def _existing(final: Path, plan: Mapping[str, Any]) -> dict[str, Any] | None:
         raise ModelArtifactAcquisitionError("existing_model_escrow_conflict")
     try:
         size, digest = _hash_file(artifact)
-        receipt = _canonical_receipt(json.loads(receipt_path.read_text(encoding="utf-8")))
+        raw_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if production and raw_receipt.get("schema_version") == LEGACY_RECEIPT_SCHEMA:
+            raise ModelArtifactAcquisitionError("legacy_acquisition_receipt_not_production_authorized")
+        receipt = _canonical_receipt(raw_receipt)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise ModelArtifactAcquisitionError("existing_model_escrow_conflict") from exc
     if (size != plan["artifact_size_bytes"] or digest != plan["artifact_sha256"] or
-            receipt.get("acquisition_plan_digest") != plan["acquisition_plan_digest"]):
+            receipt.get("acquisition_plan_digest") != plan["acquisition_plan_digest"] or
+            (production and not verify_acquisition_receipt(receipt, plan))):
         raise ModelArtifactAcquisitionError("existing_model_escrow_conflict")
     return {**receipt, "status": "already_present_verified", "cache_hit": True,
             "network_performed": False, "host_mutation_performed": False}
 
 
 def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[str, Any] | None = None,
+        approval_evidence: Mapping[str, Any] | None = None, control_plane_kernel: ControlPlaneKernel | None = None,
+        correlation_id: str | None = None, observation_time: datetime | None = None,
+        allow_synthetic_approval_for_tests: bool = False,
         execute: bool = False, installation_handle: InstallationStateHandle | None = None,
         transport: Transport | None = None,
         disk_usage_provider: DiskUsageProvider = shutil.disk_usage) -> dict[str, Any]:
@@ -269,15 +288,36 @@ def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[st
         _revalidate_production_provenance(plan, installation_handle)
     root = Path(str(plan["escrow_root"])); _safe_path(root, allow_missing=True)
     final = root / str(plan["final_relative_escrow_path"])
-    existing = _existing(final, plan)
+    existing = _existing(final, plan, production=execute)
     if existing is not None: return existing
     inspection = {"status": "inspection_ready", "acquisition_plan_digest": claimed,
         "artifact_id": plan["artifact_id"], "final_relative_escrow_path": plan["final_relative_escrow_path"],
         "network_performed": False, "host_mutation_performed": False}
     if not execute: return inspection
-    expected_auth = authorization_for(plan, operator_confirmed=True)
-    if authorization is None or dict(authorization) != expected_auth:
-        raise ModelArtifactAcquisitionError("model_acquisition_authorization_invalid")
+    if authorization is not None:
+        raise ModelArtifactAcquisitionError("legacy_model_acquisition_authorization_forbidden")
+    if approval_evidence is None:
+        raise ModelArtifactAcquisitionError("external_acquisition_approval_required")
+    if control_plane_kernel is None:
+        raise ModelArtifactAcquisitionError("model_acquisition_control_plane_required")
+    if not correlation_id:
+        raise ModelArtifactAcquisitionError("model_acquisition_correlation_id_required")
+    try:
+        approval = verify_external_approval(approval_evidence, plan, correlation_id=correlation_id,
+            observation_time=observation_time or datetime.now(timezone.utc),
+            allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
+    except AcquisitionApprovalError as exc:
+        raise ModelArtifactAcquisitionError(exc.code) from exc
+    request_metadata = control_plane_metadata(approval, plan)
+    decision = control_plane_kernel.admit(ControlActionRequest(
+        action_kind=ACTION, authority_class=AuthorityClass.MODEL_ARTIFACT_ACQUISITION,
+        actor=PRINCIPAL, target_subsystem="model_distribution", requested_phase=LifecyclePhase.RUNTIME,
+        metadata=request_metadata))
+    if (decision.outcome != AdmissionOutcome.ALLOW or
+            decision.authority_class != AuthorityClass.MODEL_ARTIFACT_ACQUISITION or
+            decision.actor != PRINCIPAL or decision.correlation_id != correlation_id or
+            decision.action_kind != ACTION or decision.target_subsystem != "model_distribution"):
+        raise ModelArtifactAcquisitionError("model_acquisition_control_plane_not_allowed")
     ancestor = root
     while not ancestor.exists(): ancestor = ancestor.parent
     if disk_usage_provider(ancestor).free < int(plan["artifact_size_bytes"]) + SPACE_HEADROOM_BYTES:
@@ -303,8 +343,23 @@ def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[st
                 "model_id", "artifact_id", "route_id", "engine", "backend_family", "runtime_id",
                 "runtime_provisioning_plan_digest", "runtime_backend_verification_receipt_digest",
                 "artifact_filename", "artifact_sha256", "artifact_size_bytes", "canonical_source_url",
-                "source_policy", "final_relative_escrow_path")},
-            "authorization_digest": expected_auth["authorization_digest"], "observed_artifact_sha256": digest,
+                "source_policy", "escrow_root", "final_relative_escrow_path", "installation_identity",
+                "catalog_custody_identity", "authoritative_catalog_proof_digest", "deployment_receipt_id",
+                "deployment_receipt_semantic_digest")},
+            "execution_principal": PRINCIPAL, "acquisition_capability_id": CAPABILITY,
+            "effect_set_digest": effect_set_digest(),
+            "operator_approval_evidence_id": approval["approval_evidence_id"],
+            "operator_approval_semantic_digest": approval["approval_semantic_digest"],
+            "operator_identity": approval["operator_identity"], "correlation_id": correlation_id,
+            "synthetic_test_evidence": approval["synthetic_test_evidence"],
+            "admission_decision_ref": decision.admission_decision_ref,
+            "admission_outcome": decision.outcome.value,
+            "control_plane_authority_class": decision.authority_class.value,
+            "admitted_actor": decision.actor,
+            "control_action_kind": decision.action_kind,
+            "control_target_subsystem": decision.target_subsystem,
+            "control_request_metadata_digest": semantic_digest(request_metadata),
+            "observed_artifact_sha256": digest,
             "observed_artifact_size_bytes": observed, "observed_transport_hosts": list(response.destination_hosts),
             "redirect_count": response.redirect_count, "artifact_verified": True, "cache_hit": False,
             "network_performed": True, "host_mutation_performed": True,
@@ -320,7 +375,7 @@ def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[st
         fd = os.open(staging, os.O_RDONLY); os.fsync(fd); os.close(fd)
         try: staging.rename(final)
         except OSError:
-            winner = _existing(final, plan) if final.exists() else None
+            winner = _existing(final, plan, production=True) if final.exists() else None
             if winner is None: raise
             return winner
         return receipt
@@ -333,6 +388,22 @@ def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[st
 
 def verify_acquisition_receipt(receipt: Mapping[str, Any], plan: Mapping[str, Any]) -> bool:
     canonical = _canonical_receipt(receipt)
+    exact_plan = ("acquisition_plan_digest", "local_model_catalog_digest", "model_id", "artifact_id",
+                  "artifact_sha256", "artifact_size_bytes", "canonical_source_url", "escrow_root",
+                  "final_relative_escrow_path", "installation_identity", "catalog_custody_identity",
+                  "authoritative_catalog_proof_digest", "deployment_receipt_id",
+                  "deployment_receipt_semantic_digest")
     return (canonical.get("schema_version") == RECEIPT_SCHEMA and canonical.get("artifact_verified") is True and
-            canonical.get("acquisition_plan_digest") == plan.get("acquisition_plan_digest") and
-            canonical.get("model_loaded") is False and canonical.get("inference_authority_granted") is False)
+            all(canonical.get(k) == plan.get(k) for k in exact_plan) and
+            canonical.get("execution_principal") == PRINCIPAL and
+            canonical.get("acquisition_capability_id") == CAPABILITY and
+            canonical.get("effect_set_digest") == effect_set_digest() and
+            canonical.get("admission_outcome") == AdmissionOutcome.ALLOW.value and
+            canonical.get("control_plane_authority_class") == AuthorityClass.MODEL_ARTIFACT_ACQUISITION.value and
+            canonical.get("admitted_actor") == PRINCIPAL and canonical.get("control_action_kind") == ACTION and
+            canonical.get("control_target_subsystem") == "model_distribution" and
+            isinstance(canonical.get("operator_approval_evidence_id"), str) and
+            isinstance(canonical.get("operator_approval_semantic_digest"), str) and
+            canonical.get("synthetic_test_evidence") is False and
+            canonical.get("model_loaded") is False and canonical.get("model_commissioned") is False and
+            canonical.get("inference_performed") is False and canonical.get("inference_authority_granted") is False)
