@@ -17,6 +17,8 @@ from sentientos.exact_artifact_acquisition import (
     ExactArtifactError, StreamResponse, https_transport as exact_https_transport, stream_exact,
 )
 from sentientos.local_model_catalog import TRUSTED_ARTIFACT_HOSTS, LocalModelCatalogError, validate_local_model_catalog
+from sentientos.installation_state import InstallationStateHandle
+from sentientos.local_model_catalog_consumer_custody import construct_authoritative_catalog_consumer_proof
 from sentientos.local_runtime_provisioning import semantic_digest
 
 PLAN_SCHEMA = "sentientos.local_model_artifact_acquisition_plan:v1"
@@ -150,9 +152,59 @@ def compose_acquisition_plan(selection: Mapping[str, Any], runtime_provisioning:
         "backend_probe_performed": False, "gguf_compatibility_verified": False, "model_loaded": False,
         "model_commissioned": False, "inference_performed": False, "inference_authority_granted": False,
         "prompt_assembly_performed": False, "provider_invoked": False,
+        "authoritative_deployed_catalog_verified": False, "production_eligible": False,
+        "catalog_provenance": "caller_supplied_preview",
     }
     value["acquisition_plan_digest"] = semantic_digest(value)
     return value
+
+
+def compose_deployed_acquisition_plan(selection: Mapping[str, Any], runtime_provisioning: Mapping[str, Any],
+        backend_receipt: Mapping[str, Any], installation_handle: InstallationStateHandle,
+        escrow_root: Path | str) -> dict[str, Any]:
+    """Compose a production plan after independently re-reading deployed custody."""
+    snapshot = construct_authoritative_catalog_consumer_proof(installation_handle)
+    proof = snapshot.proof
+    bindings = {
+        "local_model_catalog_digest": proof["authoritative_catalog_semantic_digest"],
+        "authoritative_catalog_proof_digest": proof["proof_semantic_digest"],
+        "installation_identity": proof["installation_identity"],
+        "catalog_custody_identity": proof["custody_identity"],
+        "deployment_receipt_id": proof["deployment_receipt_id"],
+        "deployment_receipt_semantic_digest": proof["deployment_receipt_semantic_digest"],
+        "deployment_transaction_id": proof["deployment_transaction_id"],
+        "transaction_final_state": proof["transaction_final_state"],
+    }
+    if (selection.get("authoritative_deployed_catalog_verified") is not True
+            or selection.get("production_eligible") is not True
+            or any(selection.get(key) != value for key, value in bindings.items())):
+        raise ModelArtifactAcquisitionError("stale_or_untrusted_catalog_provenance")
+    plan = compose_acquisition_plan(selection, runtime_provisioning, backend_receipt, snapshot.catalog, escrow_root)
+    plan.pop("acquisition_plan_digest")
+    plan.update(bindings)
+    plan.update({"authoritative_deployed_catalog_verified": True, "production_eligible": True,
+                 "catalog_provenance": "authoritative_deployed_catalog"})
+    plan["acquisition_plan_digest"] = semantic_digest(plan)
+    return plan
+
+
+def _revalidate_production_provenance(plan: Mapping[str, Any], handle: InstallationStateHandle) -> None:
+    snapshot = construct_authoritative_catalog_consumer_proof(handle)
+    proof = snapshot.proof
+    expected = {
+        "local_model_catalog_digest": proof["authoritative_catalog_semantic_digest"],
+        "authoritative_catalog_proof_digest": proof["proof_semantic_digest"],
+        "installation_identity": proof["installation_identity"],
+        "catalog_custody_identity": proof["custody_identity"],
+        "deployment_receipt_id": proof["deployment_receipt_id"],
+        "deployment_receipt_semantic_digest": proof["deployment_receipt_semantic_digest"],
+        "deployment_transaction_id": proof["deployment_transaction_id"],
+        "transaction_final_state": proof["transaction_final_state"],
+    }
+    if (plan.get("authoritative_deployed_catalog_verified") is not True
+            or plan.get("production_eligible") is not True
+            or any(plan.get(key) != value for key, value in expected.items())):
+        raise ModelArtifactAcquisitionError("stale_or_untrusted_catalog_provenance")
 
 
 def authorization_for(plan: Mapping[str, Any], *, operator_confirmed: bool) -> dict[str, Any]:
@@ -205,11 +257,16 @@ def _existing(final: Path, plan: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def acquire_model_artifact(plan: Mapping[str, Any], *, authorization: Mapping[str, Any] | None = None,
-        execute: bool = False, transport: Transport | None = None,
+        execute: bool = False, installation_handle: InstallationStateHandle | None = None,
+        transport: Transport | None = None,
         disk_usage_provider: DiskUsageProvider = shutil.disk_usage) -> dict[str, Any]:
     copy = dict(plan); claimed = copy.pop("acquisition_plan_digest", None)
     if plan.get("schema_version") != PLAN_SCHEMA or plan.get("status") != "model_artifact_acquisition_planned" or claimed != semantic_digest(copy):
         raise ModelArtifactAcquisitionError("model_acquisition_plan_invalid")
+    if execute:
+        if installation_handle is None:
+            raise ModelArtifactAcquisitionError("authoritative_catalog_handle_required")
+        _revalidate_production_provenance(plan, installation_handle)
     root = Path(str(plan["escrow_root"])); _safe_path(root, allow_missing=True)
     final = root / str(plan["final_relative_escrow_path"])
     existing = _existing(final, plan)

@@ -56,7 +56,7 @@ class CatalogCustodyArchitecture:
     evidence_contract: str = "complete-duplicate-free-one-receipt-per-candidate-model"
     recovery_contract: str = "durable-intent-staged-candidate-published-catalog-immutable-receipt-finalized"
     controller_status: str = "implemented-without-live-authority"
-    consumer_integration_status: str = "deferred"
+    consumer_integration_status: str = "implemented_for_production_selection_and_acquisition"
     runtime_effects_enabled: bool = False
 
 
@@ -108,7 +108,7 @@ GRANT_LEASE_BINDINGS = (
 CONSUMER_PROOF_FIELDS = (
     "installation_identity", "custody_identity", "authoritative_catalog_semantic_digest",
     "deployment_receipt_id", "deployment_receipt_semantic_digest", "resulting_catalog_digest",
-    "transaction_final_state",
+    "deployment_transaction_id", "transaction_final_state", "proof_semantic_digest",
 )
 
 FORBIDDEN_ADJACENT_AUTHORITY = (

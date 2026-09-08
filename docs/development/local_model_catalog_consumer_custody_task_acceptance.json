@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "89c60ec2055bb26e72433e6a6a17d2d351d50fe8",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_catalog_consumer_custody.py::test_authoritative_deployed_proof_construction", "rationale": "Exact catalog, receipt, and finalization produce the read-only proof."},
+    {"node_id": "tests/test_local_model_catalog_consumer_custody.py::test_production_selection_from_proven_catalog", "rationale": "Production selection binds the canonical proof."},
+    {"node_id": "tests/test_local_model_catalog_consumer_custody.py::test_production_acquisition_plan_bound_to_proof", "rationale": "Production acquisition composition independently revalidates custody."},
+    {"node_id": "tests/test_local_model_catalog_consumer_custody.py::test_preview_cannot_execute", "rationale": "Caller-supplied valid catalog cannot reach an effect."},
+    {"node_id": "tests/test_local_model_catalog_consumer_custody.py::test_stale_catalog_proof_rejected_before_effect", "rationale": "Execution-time replacement blocks transport."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_catalog_consumer_custody.py::test_authoritative_deployed_proof_construction",
+    "tests/test_local_model_catalog_consumer_custody.py::test_production_selection_from_proven_catalog",
+    "tests/test_local_model_catalog_consumer_custody.py::test_production_acquisition_plan_bound_to_proof"
+  ]
+}
