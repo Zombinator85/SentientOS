@@ -137,7 +137,9 @@ def test_registry_truthfully_marks_authority_boundary_partial() -> None:
     assert record.status == "partial"
     assert record.requires_operator_approval and record.requires_control_plane_admission
     assert "hardened v2 acquisition-receipt verification" in record.implemented_surfaces
-    assert "genuine external commissioning approval verification" in record.deferred_surfaces
+    assert "external commissioning approval verification" in record.implemented_surfaces
+    assert "exact MODEL_COMMISSIONING control-plane admission" in record.implemented_surfaces
+    assert "genuine real-world commissioning approval actuator/event" in record.deferred_surfaces
 
 
 def test_neighboring_authority_definitions_and_control_plane_identity_are_unchanged_and_distinct() -> None:

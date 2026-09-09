@@ -9,10 +9,11 @@ from pathlib import Path
 from sentientos.config import GenerationConfig
 from sentientos.local_model_commissioning import doctor, inspect_artifact, render_bundle, verify_bundle
 from sentientos.local_model_production_commissioning import (
-    ProductionCommissioningError, activate, authorization_for, commission,
-    compose_commissioning_plan, load_activation, reconstruct_chain, revalidate_chain,
-    verify_compatibility,
+    ProductionCommissioningError, activate, commission_production,
+    load_activation, reconstruct_chain,
 )
+from sentientos.control_plane_kernel import get_control_plane_kernel
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 
 EVIDENCE_NAMES = ("selection", "runtime_provisioning", "installation_plan", "installation_receipt",
                   "import_plan", "import_receipt", "backend_plan", "backend_receipt", "catalog",
@@ -48,12 +49,11 @@ def main() -> int:
     activation = sub.add_parser("activate")
     activation.add_argument("--commissioning-receipt", type=Path, required=True)
     activation.add_argument("--activation-path", type=Path, required=True)
-    for name in ("production-plan", "compatibility", "commission"):
-        command = sub.add_parser(name)
-        command.add_argument("--evidence-root", type=Path, required=True)
-        command.add_argument("--output-root", type=Path, required=True)
-        if name != "production-plan": command.add_argument("--compatibility-receipt", type=Path)
-        if name == "commission": command.add_argument("--confirm-plan-digest", required=True)
+    command = sub.add_parser("commission")
+    command.add_argument("--evidence-root", type=Path, required=True)
+    command.add_argument("--installation-identity", required=True)
+    command.add_argument("--approval-json", type=Path, required=True)
+    command.add_argument("--correlation-id", required=True)
     status = sub.add_parser("status")
     status.add_argument("--activation-path", type=Path, required=True)
     args = parser.parse_args()
@@ -78,21 +78,12 @@ def main() -> int:
                 result = json.loads((args.state_root / "calibration-handoff.json").read_text())
         elif args.command == "activate":
             result = activate(json.loads(args.commissioning_receipt.read_text()), args.activation_path)
-        elif args.command in {"production-plan", "compatibility", "commission"}:
+        elif args.command == "commission":
             chain = _production_chain(args.evidence_root)
-            if args.command == "compatibility":
-                result = verify_compatibility(chain)
-                target = args.compatibility_receipt or (args.output_root / "compatibility-receipt.json")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n")
-            else:
-                compatibility_path = args.compatibility_receipt or (args.output_root / "compatibility-receipt.json")
-                compatibility = json.loads(compatibility_path.read_text()) if compatibility_path.exists() else {
-                    "receipt_semantic_digest": "plan_requires_verified_compatibility"}
-                result = compose_commissioning_plan(chain, compatibility, args.output_root)
-                if args.command == "commission":
-                    authorization = authorization_for(result, operator_confirmed_plan_digest=args.confirm_plan_digest)
-                    result = commission(result, compatibility, authorization)
+            handle = InstallationStateRegistry.system().open(InstallationIdentity.parse(args.installation_identity))
+            result = commission_production(chain, installation_handle=handle,
+                approval_evidence=json.loads(args.approval_json.read_text()),
+                control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id)
         else:
             model, _ = load_activation(args.activation_path)
             try:

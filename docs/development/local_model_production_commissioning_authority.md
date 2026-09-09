@@ -1,8 +1,8 @@
 # Production local-model commissioning authority
 
-This document admits governance for a **future** hardened commissioning
-controller. It performs no GGUF construction, model load, inference, receipt
-write, activation, acquisition, catalog mutation, or approval creation. The
+This document records governance and the separately admitted hardened commissioning
+runtime. The authority consumer never creates approval, activation, acquisition,
+catalog mutation, serving authority, or provider authority. The
 capability remains `local_model_production_commissioning`; registry metadata is
 not task-authority admission, task-authority admission is not operator approval,
 and operator approval is not control-plane admission.
@@ -35,14 +35,13 @@ tool, memory, action, provider, credential, or repository authority. Reading an
 acquisition receipt is not acquisition authority; an exact load is not
 activation; a bounded commissioning smoke inference is not serving authority.
 
-`AuthorityClass.MODEL_COMMISSIONING` is a non-effectful schema declaration for
-the whole exact transition. A future runtime must obtain its exact `ALLOW`
+`AuthorityClass.MODEL_COMMISSIONING` is the runtime admission class for
+the whole exact transition. The hardened runtime obtains its exact `ALLOW`
 before the first commissioning effect. The one-shot smoke inference must also
 satisfy the existing governed `LOCAL_MODEL_INFERENCE` boundary. Commissioning
 admission and inference admission are distinct and neither substitutes for the
 other. `MODEL_ARTIFACT_ACQUISITION` cannot be reused for commissioning, and
-`PRIVILEGED_OPERATOR_CONTROL` would be overbroad. This change implements no
-runtime `MODEL_COMMISSIONING` admission.
+`PRIVILEGED_OPERATOR_CONTROL` would be overbroad. The normal `ControlPlaneKernel.admit` path mediates that parent admission.
 
 ## Pre-effect intent and approval
 
@@ -94,23 +93,24 @@ activation, or inference claim.
 
 ## Truthful current posture and next boundary
 
-Existing mechanics reconstruct and revalidate saved chain evidence, verify a
-hardened v2 acquisition receipt, construct the GGUF in bounded vocab-only mode,
-load the exact route-bound model, pass one smoke call through governed local
-invocation, write a deterministic commissioning receipt, and keep activation
-separate. However, `authorization_for(plan,
-operator_confirmed_plan_digest=...)` and CLI `--confirm-plan-digest` remain
-legacy caller-constructible confirmation, not genuine external approval. Chain
-revalidation does not reconstruct current authoritative installation custody.
-The registry is therefore `partial`, not a claim that production authority is
-complete.
+The hardened consumer builds `sentientos.local_model_commissioning_intent:v1`
+before construction and binds current authenticated catalog custody, acquisition
+receipt v2, exact contracts, and fixed installation custody. Acquisition v2 has no
+canonical receipt ID, so its strictly verified semantic digest is used unchanged as
+its identity; historical evidence is not mutated.
 
-Deferred runtime work comprises external commissioning approval verification;
-pre-effect intent; current-catalog revalidation; exact `MODEL_COMMISSIONING`
-admission; removal of caller-constructible confirmation from the production
-effect path; authority-bound commissioning receipt lineage; and a genuine
-production event. Activation authorization, later activation/load currentness,
-and commissioned-local maintenance E2E remain separately reviewable. In all
-cases: acquired is not commissioned; commissioned is not activated; an
-activation record is not unrestricted inference authority; and a commissioning
-receipt is not unrestricted serving authority.
+External approval and exact parent `MODEL_COMMISSIONING` ALLOW precede the first
+vocab-only construction. The independently governed smoke uses a deterministic,
+distinct child correlation and the same kernel. The model is closed in cleanup before
+`sentientos.local_model_commissioning_receipt:v3` is durably created under
+`local-model/commissioning/receipts/`. The production CLI consumes approval and an
+authenticated installation identity; it exposes neither `--confirm-plan-digest`, an
+arbitrary output root, nor standalone compatibility construction.
+
+Legacy v2 authorization/commissioning APIs remain named historical compatibility
+surfaces and are not consumed by `commission_production`. Legacy activation accepts
+only v2 receipts, so hardened v3 evidence cannot cross the separately unhardened
+activation boundary. Registry status remains `partial`: genuine real-world approval
+and commissioning events, activation authority, serving/boot lifecycle, maintenance
+E2E, and performance tuning remain deferred. Acquired is not commissioned;
+commissioned is not activated; a receipt is not unrestricted serving authority.
