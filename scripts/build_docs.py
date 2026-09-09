@@ -83,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="install the minimal docs dependency set without building",
     )
+    parser.add_argument("--bootstrap-if-missing", action="store_true", help="bootstrap missing docs dependencies before building")
     args = parser.parse_args(argv)
 
     config = Path("mkdocs.yml")
@@ -106,6 +107,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print("Docs build dependencies bootstrapped and available.")
         return 0
+    if missing and args.bootstrap_if_missing:
+        if not bootstrap_docs_dependencies():
+            print("ENVIRONMENT/BOOTSTRAP ERROR: Docs dependency bootstrap failed.", file=sys.stderr)
+            return 2
+        missing = missing_docs_dependencies()
     if missing:
         _emit_missing_dependency_message(missing)
         return 2

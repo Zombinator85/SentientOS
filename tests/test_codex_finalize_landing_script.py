@@ -930,3 +930,12 @@ def test_finalizer_blocks_unsatisfied_task_acceptance(monkeypatch: pytest.Monkey
     assert code == 1
     assert payload["decision"]["status"] == "repair_required_task_caused"
     assert payload["task_acceptance"]["status"] == "task_acceptance_blocked"
+
+
+def test_cleanup_generated_removes_conversation_runtime(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr("scripts.codex_finalize_landing.subprocess.run", lambda argv: calls.append(argv) or type("R", (), {"returncode": 0})())
+    path = "sentientos_data/conversations/session-test.json"
+    result = _cleanup_generated([f"?? {path}"])
+    assert calls == [["git", "clean", "-fd", "--", path]]
+    assert result[path] == (True, "removed", "generated_artifact_cleanup")

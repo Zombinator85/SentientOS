@@ -118,3 +118,14 @@ def test_bootstrap_docs_installs_minimal_docs_requirements(monkeypatch) -> None:
     assert commands == [
         [sys.executable, "-m", "pip", "install", *build_docs.DOCS_PIP_REQUIREMENTS]
     ]
+
+
+def test_build_can_bootstrap_missing_dependencies(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "mkdocs.yml").write_text("site_name: Test\n", encoding="utf-8")
+    (tmp_path / "site").mkdir()
+    missing = [["mkdocs"], []]
+    monkeypatch.setattr(build_docs, "missing_docs_dependencies", lambda: missing.pop(0))
+    monkeypatch.setattr(build_docs, "bootstrap_docs_dependencies", lambda: True)
+    monkeypatch.setattr(build_docs.subprocess, "run", lambda *args, **kwargs: _Completed(0))
+    assert build_docs.main(["--bootstrap-if-missing"]) == 0
