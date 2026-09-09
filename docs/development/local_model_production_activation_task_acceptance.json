@@ -1,0 +1,19 @@
+{
+  "repository_sha": "3690f818d5a64a27d476666b65a35ba86cfb113f",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_production_activation.py::test_activation_contract_is_exact_and_selection_only",
+      "rationale": "Exact admitted activation contract remains bounded."
+    },
+    {
+      "node_id": "tests/test_local_model_production_activation.py::test_hardened_state_v2_is_selection_only",
+      "rationale": "Successful hardened state is selection-only and records false load, serving, and inference posture."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_local_model_production_activation.py::test_hardened_state_v2_is_selection_only"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
