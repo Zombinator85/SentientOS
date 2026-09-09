@@ -11,11 +11,14 @@ import json
 import os
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt
+from .control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase
+from .installation_state import InstallationStateHandle
 from .local_model import LocalModel
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_model_artifact_acquisition import compose_acquisition_plan, verify_acquisition_receipt
@@ -27,6 +30,7 @@ COMPATIBILITY_SCHEMA = "sentientos.local_model_compatibility_receipt:v1"
 PLAN_SCHEMA = "sentientos.local_model_commissioning_plan:v2"
 AUTHORIZATION_SCHEMA = "sentientos.local_model_commissioning_authorization:v2"
 RECEIPT_SCHEMA = "sentientos.local_model_commissioning_receipt:v2"
+LEGACY_COMMISSIONING_RECEIPT_SCHEMA = RECEIPT_SCHEMA
 ACTIVATION_SCHEMA = "sentientos.local_model_activation:v1"
 SMOKE_PROMPT_ID = "sentientos.local_model_commissioning_smoke:v1"
 SMOKE_PROMPT = "Reply with one short confirmation token."
@@ -176,6 +180,11 @@ def verify_compatibility(chain: Mapping[str, Any], *, timeout_seconds: float = 6
     return receipt
 
 
+# This legacy effectful helper is retained solely for historical tests.  Production
+# callers must use ``commission_production``; the CLI exposes no direct construction.
+legacy_verify_compatibility = verify_compatibility
+
+
 def compose_commissioning_plan(chain: Mapping[str, Any], compatibility: Mapping[str, Any], output_root: Path | str) -> dict[str, Any]:
     revalidate_chain(chain)
     _validate_digest(compatibility, "receipt_semantic_digest", "compatibility_receipt_invalid")
@@ -254,6 +263,170 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(fd, "w") as stream: stream.write(payload); stream.flush(); os.fsync(stream.fileno())
         parent_fd = os.open(root, os.O_RDONLY); os.fsync(parent_fd); os.close(parent_fd)
+    return receipt
+
+
+legacy_commission = commission
+
+
+def commission_production(chain: Mapping[str, Any], *, installation_handle: InstallationStateHandle,
+        approval_evidence: Mapping[str, Any], control_plane_kernel: ControlPlaneKernel,
+        correlation_id: str, observation_time: datetime | None = None,
+        clock: Callable[[], datetime] | None = None,
+        compatibility_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+        model_factory: Callable[[ModelConfig], Any] | None = None,
+        invoker_factory: Callable[..., GovernedLocalModelInvoker] = GovernedLocalModelInvoker,
+        allow_synthetic_approval_for_tests: bool = False) -> dict[str, Any]:
+    """Perform the single hardened commissioning transition.
+
+    Approval and parent admission necessarily precede compatibility construction.
+    The loaded model is always released before a receipt can be durably written.
+    """
+    from .local_model_production_commissioning_authority import (
+        ACTION, CAPABILITY, COMPATIBILITY_SCHEMA as HARDENED_COMPATIBILITY_SCHEMA,
+        PLAN_SCHEMA as HARDENED_PLAN_SCHEMA, PRINCIPAL, RECEIPT_SCHEMA as HARDENED_RECEIPT_SCHEMA,
+        TARGET_SUBSYSTEM, CommissioningAuthorityError, build_intent, child_smoke_correlation,
+        control_plane_metadata, current_proof, effect_set_digest, verify_external_approval,
+        verify_hardened_receipt,
+    )
+    now = clock or (lambda: datetime.now(timezone.utc))
+    try:
+        fresh_chain = revalidate_chain(chain)
+        intent = build_intent(fresh_chain, installation_handle, correlation_id=correlation_id)
+        approval = verify_external_approval(approval_evidence, intent, observation_time=observation_time or now(),
+            allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
+    except CommissioningAuthorityError as exc:
+        raise ProductionCommissioningError(exc.code) from exc
+    metadata = control_plane_metadata(approval, intent)
+    decision = control_plane_kernel.admit(ControlActionRequest(action_kind=ACTION,
+        authority_class=AuthorityClass.MODEL_COMMISSIONING, actor=PRINCIPAL,
+        target_subsystem=TARGET_SUBSYSTEM, requested_phase=LifecyclePhase.RUNTIME, metadata=metadata))
+    if (decision.outcome != AdmissionOutcome.ALLOW or decision.authority_class != AuthorityClass.MODEL_COMMISSIONING
+            or decision.actor != PRINCIPAL or decision.correlation_id != correlation_id
+            or decision.action_kind != ACTION or decision.target_subsystem != TARGET_SUBSYSTEM):
+        raise ProductionCommissioningError("model_commissioning_control_plane_not_allowed")
+
+    # Check current proof immediately before the first effect.
+    acquisition_plan = fresh_chain["authoritative_evidence"]["acquisition_plan"]
+    try: current_proof(installation_handle, acquisition_plan)
+    except CommissioningAuthorityError as exc: raise ProductionCommissioningError(exc.code) from exc
+    raw_compat = legacy_verify_compatibility(fresh_chain,
+        timeout_seconds=float(intent["compatibility_probe_contract"]["timeout_seconds"]), runner=compatibility_runner)
+    compatibility = {
+        "schema_version": HARDENED_COMPATIBILITY_SCHEMA, "status": "local_model_compatibility_verified",
+        "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],
+        "approval_evidence_id": approval["approval_evidence_id"], "approval_semantic_digest": approval["approval_semantic_digest"],
+        "model_commissioning_admission_ref": decision.admission_decision_ref, "parent_correlation_id": correlation_id,
+        "artifact_sha256": intent["artifact_sha256"], "artifact_size_bytes": intent["artifact_size_bytes"],
+        "interpreter_path": intent["interpreter_path"], "runtime_id": intent["runtime_id"],
+        "load_configuration": dict(intent["load_configuration"]),
+        "compatibility_probe_contract": dict(intent["compatibility_probe_contract"]), "probe_outcome": raw_compat["status"],
+        "model_construction_performed": True, "semantic_generations": 0, "commissioning_completed": False,
+        "activation_performed": False, "authority_granted": False,
+    }
+    compatibility["receipt_semantic_digest"] = semantic_digest(compatibility)
+    # Expiry/currentness are checked again before load.
+    try:
+        verify_external_approval(approval, intent, observation_time=now(),
+            allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
+        proof = current_proof(installation_handle, acquisition_plan)
+    except CommissioningAuthorityError as exc: raise ProductionCommissioningError(exc.code) from exc
+    plan = {"schema_version": HARDENED_PLAN_SCHEMA, "status": "local_model_commissioning_planned",
+        "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],
+        "current_authoritative_proof_digest": proof["proof_semantic_digest"],
+        "hardened_acquisition_receipt_identity": intent["hardened_acquisition_receipt_identity"],
+        "hardened_acquisition_receipt_digest": intent["hardened_acquisition_receipt_digest"],
+        "compatibility_receipt_digest": compatibility["receipt_semantic_digest"],
+        **{key: intent[key] for key in ("model_id", "artifact_id", "route_id", "runtime_id")},
+        "load_configuration": dict(intent["load_configuration"]), "smoke_contract": dict(intent["smoke_contract"]),
+        "commissioning_output_custody_identity": intent["commissioning_output_custody_identity"],
+        "activation_performed": False, "serving_authority_granted": False}
+    plan["commissioning_plan_digest"] = semantic_digest(plan)
+    digest, size = _digest_file(Path(str(intent["artifact_custody_path"])))
+    if (digest, size) != (intent["artifact_sha256"], intent["artifact_size_bytes"]):
+        raise ProductionCommissioningError("artifact_changed_before_load")
+    config = _config({"chain": fresh_chain, "load_configuration": intent["load_configuration"]})
+    model: Any | None = None
+    smoke: dict[str, Any] | None = None
+    request: Any | None = None
+    authority: Any | None = None
+    try:
+        model = ExactRuntimeLocalModel(fresh_chain, intent["load_configuration"]) if model_factory is None else model_factory(config)
+        identity = model.active_identity
+        if (identity.fallback or identity.posture != "production" or identity.engine != intent["engine"]
+                or identity.model_content_sha256 != digest or identity.artifact_size_bytes != size):
+            raise ProductionCommissioningError("active_model_identity_mismatch")
+        authority = build_local_model_authority_map(config, allowed_roots=[Path(str(intent["artifact_custody_path"])).parent],
+            observed_at="1970-01-01T00:00:00+00:00")
+        smoke_root = installation_handle.root / "local-model" / "commissioning" / "smoke" / str(intent["intent_id"])
+        invoker = invoker_factory(model=model, authority_map=authority, kernel=control_plane_kernel, runtime_root=smoke_root)
+        child = child_smoke_correlation(correlation_id, intent)
+        budget = LocalModelInvocationBudget(128, 128, 8, 20, 1)
+        request = invoker.build_request(purpose="local_model_commissioning_smoke", prompt=SMOKE_PROMPT, caller=PRINCIPAL,
+            correlation_id=child, budget=budget, upstream_evidence={"parent_commissioning_correlation_id": correlation_id,
+            "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],
+            "commissioning_approval_digest": approval["approval_semantic_digest"],
+            "model_commissioning_admission_ref": decision.admission_decision_ref,
+            "commissioning_plan_digest": plan["commissioning_plan_digest"]},
+            linkage={"smoke_prompt_id": SMOKE_PROMPT_ID, "parent_commissioning_correlation_id": correlation_id})
+        smoke = invoker.invoke(request, persist=True).to_dict()
+        valid, _ = validate_receipt(smoke)
+        effects = smoke.get("effects", {})
+        if (not valid or smoke.get("status") != "admitted_completed" or smoke.get("purpose") != "local_model_commissioning_smoke"
+                or smoke.get("request", {}).get("request_digest") != request.request_digest
+                or smoke.get("request", {}).get("correlation_id") != child or not smoke.get("admission_decision_ref")
+                or not smoke.get("output_digest") or smoke.get("output_size_bytes", 129) > 128
+                or smoke.get("fallback_occurred") is not False or effects.get("local_model_inference") is not True
+                or any(bool(v) for k, v in effects.items() if k != "local_model_inference")):
+            raise ProductionCommissioningError("commissioning_smoke_failed")
+    finally:
+        if model is not None:
+            close = getattr(model, "close", None) or getattr(model, "release", None)
+            if close is not None: close()
+    assert smoke is not None and request is not None and authority is not None
+    try:
+        verify_external_approval(approval, intent, observation_time=now(),
+            allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
+        final_proof = current_proof(installation_handle, acquisition_plan)
+    except CommissioningAuthorityError as exc: raise ProductionCommissioningError(exc.code) from exc
+    receipt = {"schema_version": HARDENED_RECEIPT_SCHEMA, "status": "local_model_commissioned",
+        "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],
+        "commissioning_plan_digest": plan["commissioning_plan_digest"],
+        "current_authoritative_catalog_digest": final_proof["authoritative_catalog_semantic_digest"],
+        "current_authoritative_proof_digest": final_proof["proof_semantic_digest"],
+        "installation_identity": intent["installation_identity"], "catalog_custody_identity": intent["catalog_custody_identity"],
+        "deployment_receipt_id": intent["deployment_receipt_id"], "deployment_receipt_semantic_digest": intent["deployment_receipt_semantic_digest"],
+        "hardened_acquisition_plan_digest": intent["hardened_acquisition_plan_digest"],
+        "hardened_acquisition_receipt_identity": intent["hardened_acquisition_receipt_identity"],
+        "hardened_acquisition_receipt_digest": intent["hardened_acquisition_receipt_digest"],
+        "execution_principal": PRINCIPAL, "commissioning_capability_id": CAPABILITY, "effect_set_digest": effect_set_digest(),
+        "external_approval_evidence_id": approval["approval_evidence_id"], "external_approval_semantic_digest": approval["approval_semantic_digest"],
+        "operator_identity": approval["operator_identity"], "parent_commissioning_correlation_id": correlation_id,
+        "model_commissioning_admission_ref": decision.admission_decision_ref, "admission_outcome": decision.outcome.value,
+        "control_plane_authority_class": decision.authority_class.value, "admitted_actor": decision.actor,
+        "control_action_kind": decision.action_kind, "control_target_subsystem": decision.target_subsystem,
+        "control_request_metadata_digest": semantic_digest(metadata), "compatibility_receipt_digest": compatibility["receipt_semantic_digest"],
+        "compatibility_evidence": compatibility, **{key: intent[key] for key in ("model_id", "artifact_id", "route_id", "runtime_id", "interpreter_path", "artifact_sha256", "artifact_size_bytes")},
+        "load_configuration": dict(intent["load_configuration"]), "observed_active_model_identity": model.active_identity.to_dict(),
+        "authority_map_digest": authority.map_digest, "smoke_child_correlation_id": request.correlation_id,
+        "smoke_request_digest": request.request_digest, "smoke_receipt_id": smoke["receipt_id"],
+        "smoke_receipt_digest": smoke["receipt_digest"], "smoke_local_model_inference_admission_ref": smoke["admission_decision_ref"],
+        "smoke_evidence": smoke, "smoke_purpose": smoke["purpose"], "model_load_performed": True,
+        "commissioning_smoke_performed": True, "model_left_loaded": False, "activated": False,
+        "serving_authority_granted": False, "synthetic_test_evidence": approval["synthetic_test_evidence"], **DENIED}
+    # Receipt identity derives from the semantic payload before identity fields;
+    # the final digest then covers that identity without a circular definition.
+    base_digest = semantic_digest(receipt); receipt["receipt_id"] = "commissioning-receipt-" + base_digest[:24]
+    receipt["receipt_semantic_digest"] = semantic_digest({k: v for k, v in receipt.items() if k != "receipt_semantic_digest"})
+    # verifier uses the ordinary semantic envelope and exact deterministic ID.
+    if not verify_hardened_receipt(receipt, allow_synthetic_for_tests=allow_synthetic_approval_for_tests):
+        raise ProductionCommissioningError("commissioning_receipt_internal_invalid")
+    installation_handle.ensure_directory(installation_handle.fixed_object("local-model"))
+    installation_handle.ensure_directory(installation_handle.fixed_object("local-model/commissioning"))
+    installation_handle.ensure_directory(installation_handle.fixed_object("local-model/commissioning/receipts"))
+    destination = installation_handle.fixed_object(f"local-model/commissioning/receipts/{receipt['receipt_id']}.json")
+    payload = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    installation_handle.durable_create(destination, payload)
     return receipt
 
 
