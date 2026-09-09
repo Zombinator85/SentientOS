@@ -17,6 +17,7 @@ LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
 )
 LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
 LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
+LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 
 
 @dataclass(frozen=True)
@@ -164,6 +165,43 @@ AUTHORITY_DEFINITIONS = {
             "explicit operator approval",
             "authoritative deployed catalog",
             "exact acquired artifact identity",
+        ),
+    ),
+    LOCAL_MODEL_PRODUCTION_ACTIVATION: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_PRODUCTION_ACTIVATION,
+        subsystem_kinds=frozenset({"local_model_chat"}),
+        principal_kinds=frozenset(
+            {"deterministic_local_model_activation_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_operator_approval_evidence_read",
+                "exact_authoritative_deployed_catalog_proof_read",
+                "exact_hardened_local_model_commissioning_receipt_read",
+                "exact_commissioned_artifact_identity_read",
+                "exact_activation_intent_read",
+                "exact_current_activation_state_read",
+                "authoritative_active_model_compare_and_swap",
+                "local_model_activation_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary activation path", "arbitrary model path",
+            "arbitrary artifact", "arbitrary runtime", "arbitrary filesystem",
+            "arbitrary configuration", "arbitrary state root", "blind overwrite",
+            "wildcard prior state", "model acquisition", "model commissioning",
+            "model load", "serving", "unrestricted serving", "boot load",
+            "automatic boot loading", "inference", "autonomous inference",
+            "background inference", "provider invocation", "provider administration",
+            "credential management", "network authority", "tool authority",
+            "memory authority", "action authority", "repository mutation",
+            "self-grant", "self grant",
+        ),
+        required_goal_phrases=(
+            "explicit operator approval",
+            "authoritative deployed catalog",
+            "hardened commissioning receipt",
+            "exact prior activation state",
         ),
     ),
 }

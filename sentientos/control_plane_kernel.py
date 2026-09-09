@@ -46,6 +46,9 @@ class AuthorityClass(str, Enum):
     # Narrow schema identity for a future separately admitted commissioning
     # transition. Declaration alone performs no model construction or execution.
     MODEL_COMMISSIONING = "model_commissioning"
+    # Narrow schema identity for a future separately admitted activation-state
+    # transition. Declaration alone publishes no state and loads no model.
+    MODEL_ACTIVATION = "model_activation"
 
 
 class AdmissionOutcome(str, Enum):
