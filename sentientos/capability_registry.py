@@ -168,6 +168,7 @@ AUTHORITY_LEVELS = frozenset(
         "bounded_operator_confirmed_selected_backend_probe",
         "bounded_operator_confirmed_model_artifact_acquisition",
         "bounded_in_process_runner",
+        "bounded_state_transition",
         "builtin_runner_action_only",
         "bounded-orchestrator",
         "bounded diagnostic write orchestration",

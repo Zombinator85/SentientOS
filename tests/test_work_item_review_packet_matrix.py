@@ -273,3 +273,8 @@ def test_matrix_summary_metadata_exposes_proof_classification(monkeypatch, tmp_p
         "metrics_status",
     ):
         assert key in result
+
+
+def test_exhaustive_docs_build_bootstraps_missing_dependencies() -> None:
+    docs_build = next(c for c in matrix.default_matrix_commands() if c.label == "docs_build")
+    assert docs_build.command[-1] == "--bootstrap-if-missing"

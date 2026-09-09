@@ -25,7 +25,7 @@ from sentientos.task_acceptance import verify as verify_task_acceptance
 from sentientos.bounded_subprocess import DEFAULT_HEARTBEAT_SECONDS, DEFAULT_TAIL_LINES, run_supervised
 from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, seal_validation_plan, verify_validation_plan
 
-GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime")
+GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime", "sentientos_data/conversations/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
 MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".mov", ".wav", ".mp3")
 DEFAULT_STAGE_TIMEOUT_SECONDS = 900
@@ -867,7 +867,10 @@ def main(argv: list[str] | None = None) -> int:
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
             *matrix_stages,
             *(([("pr_landing_gate", _landing_gate_command(a.title, a.intended_commit_title, a.matrix_json_path), True), ("landing_supervisor", _landing_supervisor_command(a.title, a.intended_commit_title, a.matrix_json_path), True)]) if a.validation_profile == "exhaustive" else []),
-            *(([("docs_check_deps", "python scripts/build_docs.py --check-deps", True), ("docs_build", "python scripts/build_docs.py", True)]) if docs_required else []),
+            *((
+                ([("docs_bootstrap", "python scripts/build_docs.py --bootstrap-docs", True)] if a.allow_docs_bootstrap else [])
+                + [("docs_check_deps", "python scripts/build_docs.py --check-deps", True), ("docs_build", "python scripts/build_docs.py", True)]
+            ) if docs_required else []),
             ("prompt_boundary", "python scripts/verify_context_hygiene_prompt_boundaries.py", True),
             ("strict_audits", "python verify_audits.py --strict", True),
             ("audit_immutability", "python scripts/audit_immutability_verifier.py", True),
