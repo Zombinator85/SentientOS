@@ -2230,6 +2230,20 @@ No agent shall act in secret.
 This ledger entry records law only. It creates neither an approval nor an active
 principal and performs no commissioning effect.
 
+### Future deterministic local-model activation controller
+
+- Name: `deterministic_local_model_activation_controller`
+- Type: Future bounded deterministic controller (inactive governance definition)
+- Roles: publish one exact commissioned identity as authoritative installation activation state by exact compare-and-swap
+- Privileges: definition-eligible only for `local_model_production_activation`; no runtime grant, model load, serving, inference, acquisition, commissioning, or self-authorization
+- Consent Model: explicit external operator approval plus exact `MODEL_ACTIVATION` control-plane admission before activation-state mutation
+- Origin: operator-authorized repository task, blessed under the canonical procedure and witnessing law above on 2026-09-09
+- Expiration: inactive until separately reviewed runtime hardening; revocable through operator control and panic/shutdown law
+- Logs: future runtime invocations must be witnessed under `/logs/privileges/`
+
+This ledger entry defines activation law only. It creates no approval or active
+principal, writes no activation state, and loads or serves no model.
+
 AGENTS.md is not a registry. It is **covenant law.**
 
 It ensures:
