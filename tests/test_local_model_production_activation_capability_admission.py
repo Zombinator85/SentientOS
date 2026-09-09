@@ -137,15 +137,15 @@ def test_forbidden_activation_scope_is_blocked(phrase: str) -> None:
         task_goal=f"{GOAL} Request {phrase}.")
 
 
-def test_registry_truthfully_marks_activation_contract_only() -> None:
+def test_registry_truthfully_marks_activation_selection_runtime_partial() -> None:
     records = build_default_capability_registry().by_id()
     record = records[LOCAL_MODEL_PRODUCTION_ACTIVATION]
     assert record.category == "local_model_chat"
-    assert record.status == "scaffolded" and record.authority_level == "contract_only"
+    assert record.status == "partial" and record.authority_level == "bounded_state_transition"
     assert record.requires_operator_approval and record.requires_control_plane_admission
-    assert "activation-state compare-and-swap" in record.deferred_surfaces
-    assert "activated-model load and serving" in record.deferred_surfaces
-    assert "local_model_production_activation runtime implementation" in records[
+    assert "exact prior-state compare-and-swap" in record.implemented_surfaces
+    assert "model loading from hardened active state" in record.deferred_surfaces
+    assert "activated-model consumer authority" in records[
         LOCAL_MODEL_PRODUCTION_COMMISSIONING].deferred_surfaces
 
 

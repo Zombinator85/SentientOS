@@ -1,6 +1,6 @@
 # Production local-model activation authority
 
-This page defines law for the future contract-only capability
+This page defines law for the bounded selection-state capability
 `local_model_production_activation`. Its sole eligible principal is
 `deterministic_local_model_activation_controller`. The blessed origin is the
 operator-accountability doctrine in
@@ -117,9 +117,9 @@ immutable receipts. Mutable `active.json` changes only through the governed
 controller. Activation custody is not the repository, artifact escrow, catalog
 custody, curator escrow, or commissioning receipt directory.
 
-## Future state and receipt
+## Hardened state and receipt
 
-Future authoritative state uses
+Authoritative state uses
 `sentientos.local_model_activation_state:v2`, not legacy v1. It binds schema,
 status and semantic digest; installation/custody; intent and commissioning
 receipt IDs/digests; current catalog proof; model/artifact/hash/size; route,
@@ -128,7 +128,7 @@ correlation and generation identity; a non-circular receipt reference if feasibl
 and false `model_loaded`, `serving_started`, and `inference_performed`. It means
 only that this commissioned identity is selected.
 
-Future immutable `sentientos.local_model_activation_receipt:v1` binds receipt
+Immutable `sentientos.local_model_activation_receipt:v1` binds receipt
 ID/digest; principal, capability, effects, approval, and `MODEL_ACTIVATION`
 admission; correlation, installation, custody and intent; expected and observed
 prior states; resulting state and current catalog proof; commissioning lineage;
@@ -153,12 +153,12 @@ hardened activation state -> governed consumer -> current-state/catalog/receipt/
 artifact/runtime revalidation -> exact model load -> governed inference serving
 ```
 
-Approval verification runtime, catalog and artifact revalidation, v3 receipt
-consumption, control-plane admission, custody/CAS/receipt implementation, a real
-activation event, and every load/serving/boot lifecycle remain deferred. This
-governance change performs no installation mutation, model construction,
-activation, serving, inference, acquisition, commissioning, publication, catalog
-mutation, provider/network effect, approval creation, or self-grant.
+Approval consumption, catalog and artifact revalidation, v3 receipt consumption,
+`MODEL_ACTIVATION` admission, fixed custody, exact CAS, crash finalization,
+receipt publication, and a read-only current-state verifier are implemented.
+Genuine real-world approval and first activation, and every load/serving/boot
+lifecycle, remain deferred. The implementation creates no model, performs no
+inference, starts no serving process, and grants no consumer authority.
 
 The frozen future invariant is: current authoritative catalog + hardened
 commissioning v3 + exact artifact + exact intent + external approval + exact
