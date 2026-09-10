@@ -145,7 +145,7 @@ def test_registry_truthfully_marks_activation_selection_runtime_partial() -> Non
     assert record.requires_operator_approval and record.requires_control_plane_admission
     assert "exact prior-state compare-and-swap" in record.implemented_surfaces
     assert "model loading from hardened active state" in record.deferred_surfaces
-    assert "activated-model consumer authority" in records[
+    assert "activated-model consumer implementation" in records[
         LOCAL_MODEL_PRODUCTION_COMMISSIONING].deferred_surfaces
 
 
