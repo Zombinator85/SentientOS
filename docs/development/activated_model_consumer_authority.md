@@ -71,6 +71,18 @@ Currentness inspection re-verifies activation and unloads sessions after activat
 change or worker death. The receipt explicitly records that inference was not performed
 and that local-model inference authority was not granted.
 
+Serving keeps four identities separate. The activated-model identity names the exact
+authenticated selection and evidence chain. A caller must supply a bounded, explicit,
+non-placeholder serving-establishment operation identity for each requested load
+attempt. The control-plane correlation deterministically binds both of those identities,
+so admission dedupe prevents replay of one operation while a new operation can be
+separately admitted after a legitimate unload even when the activation is unchanged.
+The resulting serving-session identity names that particular admitted load lifetime and
+is carried into its receipt and invalidation evidence; it is not derived from activation
+alone. A future inference correlation is a fourth, independent identity and still
+requires separate `LOCAL_MODEL_INFERENCE` authority. Establishment never infers and does
+not silently reload.
+
 Chat integration, boot integration and automatic loading, prompt assembly,
 inference/generation, providers, network access, tools, memory, actions, repository
 mutation, and performance tuning remain deferred. A later generation call must obtain

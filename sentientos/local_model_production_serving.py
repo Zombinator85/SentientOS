@@ -20,6 +20,8 @@ ACTION = "establish_exact_activated_model_serving_session"
 RECEIPT_SCHEMA = "sentientos.local_model_serving_session_receipt:v1"
 WITNESS_SCHEMA = "sentientos.privilege_witness:model_serving:v1"
 INVALIDATION_SCHEMA = "sentientos.local_model_serving_session_invalidation:v1"
+MAX_OPERATION_ID_LENGTH = 128
+PLACEHOLDER_OPERATION_IDS = frozenset({"*", "any", "current", "default", "latest", "placeholder", "sample", "test", "wildcard"})
 
 
 class ProductionServingError(RuntimeError):
@@ -48,6 +50,17 @@ def _identity(value: Any) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise ProductionServingError("loaded_model_identity_missing")
     return dict(value)
+
+
+def _operation_id(value: str) -> str:
+    if not isinstance(value, str):
+        raise ProductionServingError("serving_operation_id_invalid")
+    normalized = value.strip()
+    if (not normalized or normalized != value or len(normalized) > MAX_OPERATION_ID_LENGTH
+            or normalized.lower() in PLACEHOLDER_OPERATION_IDS
+            or any(character in normalized for character in "*?[]{}")):
+        raise ProductionServingError("serving_operation_id_invalid")
+    return normalized
 
 
 def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[str, Any]:
@@ -128,7 +141,8 @@ class ProductionServingController:
             return None
         return self._session
 
-    def establish(self) -> ServingSession:
+    def establish(self, *, operation_id: str) -> ServingSession:
+        operation_id = _operation_id(operation_id)
         before = _verified(self._handle, self._allow_synthetic)
         existing = self.current_session()
         if existing is not None:
@@ -140,11 +154,12 @@ class ProductionServingController:
                   "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
                   "model_id": state["model_id"], "artifact_id": state["artifact_id"],
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
-        correlation = "model-serving:" + semantic_digest(intent)
+        operation_intent = {**intent, "serving_operation_id": operation_id}
+        correlation = "model-serving:" + semantic_digest(operation_intent)
         decision = self._kernel.admit(ControlActionRequest(
             action_kind=ACTION, authority_class=AuthorityClass.MODEL_SERVING, actor=PRINCIPAL,
             target_subsystem=TARGET_SUBSYSTEM, requested_phase=LifecyclePhase.RUNTIME,
-            metadata={**intent, "correlation_id": correlation}))
+            metadata={**operation_intent, "correlation_id": correlation}))
         if (decision.outcome != AdmissionOutcome.ALLOW or decision.authority_class != AuthorityClass.MODEL_SERVING
                 or decision.actor != PRINCIPAL or decision.action_kind != ACTION
                 or decision.target_subsystem != TARGET_SUBSYSTEM or decision.correlation_id != correlation):
@@ -170,7 +185,8 @@ class ProductionServingController:
             if (after["active_state"] != state or after["activation_receipt"] != activation
                     or after["catalog_proof"] != proof):
                 raise ProductionServingError("activation_changed_during_load")
-            binding = {**intent, "activation_state": state, "catalog_proof": proof,
+            binding = {**operation_intent, "control_plane_correlation_id": correlation,
+                       "activation_state": state, "catalog_proof": proof,
                        "catalog_proof_semantic_digest": proof["proof_semantic_digest"],
                        "commissioning_receipt_id": state["commissioning_receipt_id"],
                        "commissioning_receipt_semantic_digest": state["commissioning_receipt_semantic_digest"],
@@ -219,6 +235,7 @@ class ProductionServingController:
         if session is None:
             return
         invalidation = {"schema_version": INVALIDATION_SCHEMA, "session_id": session.session_id,
+                        "serving_operation_id": session.binding["serving_operation_id"],
                         "prior_status": session.status, "status": "non_current_unloaded", "reason": reason}
         invalidation["invalidation_id"] = "serving-invalidation-" + semantic_digest(invalidation)[:24]
         invalidation["invalidation_semantic_digest"] = semantic_digest(invalidation)
