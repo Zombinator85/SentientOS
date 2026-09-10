@@ -1,27 +1,60 @@
-# Public Technical Overview for Reviewers
+# Public Technical Overview
+
+This document describes the current technical system and points to reviewer
+proof. The canonical project purpose and maturity boundaries are in
+[SentientOS Project Thesis and Current System](sentientos_project_thesis.md).
 
 Host actuation safety gates are documented in [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`): safety gates are not authorization, hardware allowlists do not grant control, OS backend declarations do not load/invoke backends, panic stop contracts do not execute panic stop, and real actuation remains deferred.
 ## SentientOS in one paragraph
 
-SentientOS is a deterministic governance-and-audit runtime for operator-directed AI automation. It can remember prior artifacts, retrieve bounded context, reflect on outcomes, propose improvements, rehearse changes, and participate in federation workflows, but authority is never implicit: changes move through explicit custody, policy, audit, immutability, and local-governance gates before adoption.
+SentientOS is a free, model-agnostic persistent machine-cognition environment in
+active development. It is intended to preserve continuity, memory,
+developmental history, self-state, embodiment, authority, and consequences
+around replaceable cognitive models. “Sentient” is aspirational and no current
+sentience or consciousness is claimed. Today the implementation is principally
+a hosted Python system whose strongest integrated organ is a deterministic
+governance, audit, immutability, and evidence spine around bounded memory,
+conversation, model, perception, federation, and change surfaces.
 
 ## Purpose and non-purpose
 
 ### What it is
-- A control-plane runtime for policy-gated automation (`sentientos/` and `scripts/` surfaces).
+- A persistent research environment around replaceable local inference workers.
+- A partial introspection architecture built on evidence-bound state, history,
+  identity, capability, resource, change, and consequence records.
+- A control-plane runtime for policy-gated cognition and automation (`sentientos/` and `scripts/` surfaces).
 - A deterministic workflow system with explicit audit and integrity verification.
 - A repository with verification tooling that treats evidence artifacts, state transitions, and governance checks as first-class outputs.
 
 ### What it is not
-- Not autonomous goal generation or autonomous authority: operators and local policy remain final authority.
+- Not a claim of present sentience, guaranteed emergence, complete embodiment,
+  mature bare-metal OS status, or universal host-effect mediation.
+- Not a completed one-click installation; current supported paths retain
+  prerequisites and manual configuration.
+- Not autonomous authority: operators and local policy remain final authority.
 - Not forced federation adoption: federation artifacts do not bypass local adoption gates.
 - Not provider invocation and not prompt assembly; prompt/provider boundaries are explicitly verified.
 - Not remote execution, auto-update, or transport/sync by receipt alone.
 
+## Why introspection and governance coexist
+
+Observability primarily gives SentientOS grounded material from which to form an
+account of its own state, history, active model, resources, capabilities,
+limitations, authority, memories, changes, failures, and consequences. Human
+review, external accountability, and debugging reuse that same evidence spine.
+
+Governance is the reality/authority boundary within the larger environment, not
+the project thesis by itself. Stochastic cognition may interpret, reason,
+create, propose, and err. Deterministic machinery retains custody of current
+truth, permission, verification, recovery, provenance, and consequential state
+transitions. In particular, state is not authority; memory is not current truth;
+proposal is not authorization; authorization is not execution; execution is not
+validation; and validation is not adoption.
+
 ## First reviewer path (short path)
 
-1. Read this document.
-2. Read the proof-oriented release-readiness index: `docs/architecture/reviewer_release_readiness_index.md`.
+1. Read the [project thesis and maturity map](sentientos_project_thesis.md).
+2. Read this document and the proof-oriented release-readiness index: `docs/architecture/reviewer_release_readiness_index.md`.
 3. Read the whole-system trajectory and missing-organs map: `docs/architecture/sentientos_trajectory_and_missing_organs.md`.
 4. Inspect control-plane and policy docs:
    - `docs/control_plane_authority_map.md`
@@ -127,7 +160,24 @@ These artifacts are **not** transport execution, **not** transport/sync by recei
 
 ## Model/runtime loading posture
 
-Chat/model runtime coverage now includes lazy chat service model loading and safe defaults for local transformer model code execution. Local transformer loading defaults `trust_remote_code` to false and requires explicit opt-in where remote model code execution is intended.
+The model supply chain now has bounded sovereign catalog publication/deployment,
+artifact acquisition, hardened production commissioning, and hardened
+production activation controllers. Their stages remain deliberately distinct:
+publication is not deployment; acquisition is not commissioning; commissioning
+is not activation; activation is not loading/serving; and loading/serving is not
+`LOCAL_MODEL_INFERENCE` authority.
+
+Most importantly, hardened production activation publishes authoritative
+selection state only. It records `model_loaded=false`, `serving_started=false`,
+and `inference_performed=false`. The separately governed consumer that turns
+that hardened state into a loaded serving model remains to be built. Current
+`chat_service` instead loads from the older
+`SENTIENTOS_LOCAL_MODEL_ACTIVATION` commissioning-bundle path when explicitly
+configured, or uses legacy autoload, and then invokes through the governed local
+model boundary. These two activation generations must not be conflated.
+
+Local transformer loading defaults `trust_remote_code` to false and requires
+explicit opt-in where remote model code execution is intended.
 
 ## Installer and test-runner reliability posture
 

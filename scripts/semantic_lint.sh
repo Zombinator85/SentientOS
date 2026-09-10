@@ -10,6 +10,21 @@ WHITELIST=(
   "SEMANTIC_REGRESSION_RULES.md"
 )
 
+# These reviewed front-door contracts must be able to state precise negative
+# mechanism boundaries and distinguish them from broader architectural concepts.
+# This is intentionally file-scoped;
+# ordinary docs and code remain subject to every pattern below.
+ARCHITECTURAL_BOUNDARY_DOCS=(
+  "README.md"
+  "one_pager.md"
+  "WHAT_SENTIENTOS_IS_NOT.md"
+  "NON_GOALS_AND_FREEZE.md"
+  "docs/PUBLIC_LANGUAGE_BRIDGE.md"
+  "docs/architecture/public_technical_overview.md"
+  "docs/architecture/sentientos_project_thesis.md"
+  "docs/architecture/sentientos_trajectory_and_missing_organs.md"
+)
+
 PATTERNS=(
   "(^|[^a-zA-Z])wants([^a-zA-Z]|$)"
   "(^|[^a-zA-Z])desires([^a-zA-Z]|$)"
@@ -57,6 +72,16 @@ is_whitelisted() {
   return 1
 }
 
+is_architectural_boundary_doc() {
+  local path="$1"
+  for allowed in "${ARCHITECTURAL_BOUNDARY_DOCS[@]}"; do
+    if [[ "$path" == "$allowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 hits=()
 
 scan_file() {
@@ -93,6 +118,7 @@ scan_file() {
 for file in "${files[@]}"; do
   [[ -f "$file" ]] || continue
   is_whitelisted "$file" && continue
+  is_architectural_boundary_doc "$file" && continue
   scan_file "$file"
 done
 

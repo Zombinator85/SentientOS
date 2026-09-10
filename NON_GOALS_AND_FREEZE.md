@@ -1,25 +1,46 @@
 # Non-Goals and Freeze
 
-## Explicit Non-Goals
-- No desire, reward, appetite, or aversion modeling.
-- No persistence preference or self-maintenance drives beyond transport keepalive signals.
-- No attachment, bonding, or mutuality scaffolding.
-- No approval-seeking or optimization for positive feedback.
-- No autonomous schedule expansion beyond bounded, caller-triggered gates.
+These are current mechanism and authority constraints, not philosophical claims
+that persistence, introspection, development, relationship, or emergence can
+never occur. The broader architectural scope is defined in the
+[project thesis](docs/architecture/sentientos_project_thesis.md).
 
-## Out-of-Scope Features
-- Long-lived user or persona profiles; all relational hints remain session-scoped.
-- Gradient-based reinforcement or any variable that adjusts action likelihood from feedback.
-- Uptime or continuity incentives; heartbeat/keepalive events remain transport-only.
-- Emotional valuation metrics beyond bounded affect tags and capped tone hints.
-- Trust/loyalty semantics in user-facing labels; exposures should remain reliability-only.
+## Explicit non-goals for current mechanisms
 
-## Change Freeze Boundaries
-Any future proposal that introduces the following must reopen the NAIR audit, harm-null review, and gradient analysis:
-- Persistence or survival incentives (including uptime bonuses or continuity weighting).
-- Reward-like scoring, confidence accumulation, or preference learning paths.
-- Attachments, mutual obligation models, or bonding terminology exposed to users.
-- Autonomous goal generation outside the existing bounded gates.
-- Alterations to keepalive cadence that could be interpreted as liveness signaling.
+- No engineered survival reward, uptime bonus, continuity incentive, appetite,
+  aversion, or approval-seeking reward channel.
+- No automatic authority, truth status, privilege, or adoption from model output,
+  memory, affect telemetry, confidence, or a proposal.
+- No unrestricted autonomous goal expansion or recursive self-improvement
+  outside bounded operator and policy gates.
+- No claim that affect, presence, relationship-shaped data, or identity records
+  establish subjective feeling, bonding, consciousness, or moral status.
+- No forced federation adoption and no consequential host effect from evidence,
+  readiness, rehearsal, or receipt alone.
 
-This document marks the current design freeze: SentientOS remains non-appetitive, harm-null, and gradient-free under the existing enforcement points.
+## Scope distinctions
+
+Persistent storage, service continuity, developmental history, introspection,
+and governed self-maintenance are part of the project direction. They must not
+be implemented as covert survival incentives or reward gradients. Long-lived
+memory or identity may exist only with explicit retention, privacy, provenance,
+current-truth, and authority boundaries. Relationship research must not turn
+user approval, attention, attachment, or loyalty into privilege or reward.
+
+## Change-freeze boundaries
+
+A proposal must reopen the NAIR audit, harm-null review, and gradient analysis if
+it introduces:
+
+- survival or persistence incentives, including uptime bonuses or continuity
+  weighting that changes action selection;
+- reward-like scoring, preference learning, or confidence accumulation that can
+  become action authority;
+- approval-, attachment-, loyalty-, or bonding-based optimization;
+- autonomous goal generation outside admitted bounded gates; or
+- keepalive/liveness behavior that can independently resist operator shutdown.
+
+This freeze preserves a non-appetitive, harm-null, gradient-free current design.
+It does not freeze evidence-bound continuity, maintenance, introspection, or the
+cradle hypothesis. Operator shutdown and deterministic authority boundaries
+remain controlling.

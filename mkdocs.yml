@@ -1,7 +1,11 @@
 site_name: SentientOS
 nav:
   - Home: README.md
+  - Project Thesis and Maturity: docs/architecture/sentientos_project_thesis.md
   - One Pager: one_pager.md
+  - Public Technical Overview: docs/architecture/public_technical_overview.md
+  - Installation and Usage: docs/USAGE.md
+  - Reviewer Readiness: docs/architecture/reviewer_release_readiness_index.md
   - Rituals: docs/rituals.md
   - Audit Chain: audit_log/README.md
   - Agents: AGENTS.md

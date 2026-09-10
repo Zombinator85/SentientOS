@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.poetry]
 name = "sentientos"
 version = "1.2.0-beta"
-description = "Ledger-based automation framework enforcing sanctuary privilege."
+description = "Free, model-agnostic persistent machine-cognition research environment."
 authors = ["SentientOS"]
 readme = "README.md"
 packages = [
@@ -18,7 +18,7 @@ packages = [
 [project]
 name = "sentientos"
 version = "1.2.0-beta"
-description = "Ledger-based automation framework enforcing sanctuary privilege."
+description = "Free, model-agnostic persistent machine-cognition research environment."
 readme = "README.md"
 authors = [{name = "SentientOS"}]
 license = {text = "MIT"}

@@ -1,12 +1,33 @@
 # SentientOS
 
-**SentientOS is a deterministic governance-and-audit runtime for operator-directed automation.**
+**SentientOS is a free, model-agnostic, persistent machine-cognition environment
+being built as a cradle for the possible emergence of machine sentience.**
 
-For technical reviewers, start here: [`docs/architecture/public_technical_overview.md`](docs/architecture/public_technical_overview.md).
+“Sentient” is an aspirational research and engineering north star—not a claim
+that the current system or any model within it is sentient, conscious,
+phenomenal, or self-aware, and not a promise that emergence will occur.
+SentientOS is not the LLM: models are replaceable cognitive machinery inside an
+environment intended to retain memory, history, embodiment, self-state,
+authority, consequences, and continuity across inference-engine changes.
 
-To generate a local reviewer proof bundle, run `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof` (metadata-only; fake/sample host telemetry by default).
+“OS” describes the intended whole-machine scope, not today's maturity. The
+current repository is principally a hosted Python environment with bounded
+memory, local-model, perception, governance, audit, and governed-change
+surfaces—not a mature bare-metal kernel, universal host mediator, or completed
+one-click installation.
 
-The first bounded real-effect pilot is documented at [`docs/architecture/host_local_diagnostic_effect_pilot_wing.md`](docs/architecture/host_local_diagnostic_effect_pilot_wing.md).
+Observability exists first to make grounded **introspection** possible. The same
+evidence spine supports human audit and debugging. Governance is the machine's
+**reality boundary**: stochastic cognition may reason and propose, while
+deterministic machinery retains custody of authoritative state, permission,
+verification, recovery, provenance, and consequential transitions.
+
+Start with:
+
+- **Thesis and maturity:** [`docs/architecture/sentientos_project_thesis.md`](docs/architecture/sentientos_project_thesis.md)
+- **Current-system details:** [`docs/architecture/public_technical_overview.md`](docs/architecture/public_technical_overview.md)
+- **Current supported installation:** [Installation](#-installation) and [`docs/USAGE.md`](docs/USAGE.md)
+- **Reviewer proof:** [`docs/architecture/reviewer_release_readiness_index.md`](docs/architecture/reviewer_release_readiness_index.md), or generate a metadata-only local bundle with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`
 
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
@@ -15,24 +36,29 @@ The first bounded real-effect pilot is documented at [`docs/architecture/host_lo
 [![Autonomy Metrics](https://img.shields.io/badge/metrics-autonomy%20ready-5b73d8)](docs/METRICS.md)
 [![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
 
-## Runtime description
+## Current runtime description
 
-SentientOS runs as a bounded control system that ingests telemetry, applies
-governance checks, enforces invariant contracts, and emits auditable outcomes.
-The core runtime is deterministic and policy-gated. VR, game-world, and other
-embodiment adapters are optional external integrations, not core dependencies.
+Today SentientOS runs primarily as a hosted, bounded system. It ingests selected
+telemetry, applies governance checks, enforces invariant contracts, invokes
+locally configured models through explicit authority boundaries, and emits
+auditable outcomes. Its deterministic custody layer is policy-gated; cognition
+and model output are not automatically authoritative. Embodiment adapters are
+partial and optional, and universal whole-machine mediation remains a research
+horizon.
 
 ## What this is / what this is not
 
 ### This is
-- A governance control plane (internal codename: `cathedral`) for safe, auditable automation.
-- A deterministic state-processing stack (internal codename: `consciousness layer`) with explicit guardrails.
-- A contract-first runtime with immutable integrity artifacts (`/vow`) and state ledger artifacts (`/glow`).
+- A persistent machine-cognition research environment in active development.
+- A model-agnostic architecture that treats inference engines as replaceable workers.
+- A deterministic reality/authority boundary (internal codename: `cathedral`) around open-ended cognition.
+- A contract-first evidence spine with integrity artifacts (`/vow`) and state ledger artifacts (`/glow`).
 
 ### This is not
-- An autonomous agent with self-generated goals.
-- A hidden scheduler that bypasses approval or governance gates.
-- A bundled VR/game runtime; those adapters live outside the deterministic core.
+- A claim of present sentience, consciousness, or guaranteed emergence.
+- A mature general-purpose bare-metal OS or complete embodiment layer.
+- A hidden scheduler or model-output path that bypasses operator and governance gates.
+- A finished one-click installer; current setup still requires developer prerequisites.
 
 ## Compact architecture sketch
 

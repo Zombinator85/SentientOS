@@ -1,5 +1,23 @@
 # SentientOS Trajectory and Missing Organs
 
+This is an implementation trajectory, not the canonical statement of project
+identity. Read [SentientOS Project Thesis and Current System](sentientos_project_thesis.md)
+first. “Sentient” is aspirational; current sentience, consciousness, complete
+embodiment, and mature bare-metal OS status are not claimed.
+
+## Maturity legend
+
+- **CURRENT / IMPLEMENTED:** bounded mechanisms established in source and tests;
+  this does not mean universally deployed or fully integrated.
+- **NEAR-TERM / ACTIVE ENGINEERING:** required integration work, especially
+  one-click installation and the hardened activated-model consumer.
+- **ASPIRATIONAL / RESEARCH HORIZON:** whole-machine continuity, richer
+  embodiment and development, and investigation of possible emergence.
+- **LEGACY / COMPATIBILITY:** retained paths and vocabulary that must not be
+  mistaken for the newest architecture.
+- **DEFERRED:** no present effect or authority; contracts and readiness evidence
+  are not implementation.
+
 The [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`) is now the metadata-only organ that declares hardware allowlist, backend, bounds, cooldown, panic, scope, assessment, and satisfaction gates before any future live authorization review. Real actuation remains deferred.
 ## Reviewer first-run proof bundle
 
@@ -7,16 +25,21 @@ Reviewers can generate the local non-mutating host-embodiment proof archive with
 
 ## What SentientOS is becoming
 
-SentientOS is becoming a user-space operating substrate for governed AI
-autonomy. It does not replace Windows, macOS, Linux, or any host kernel. It runs
-above the host OS and organizes installer/bootstrap flow, first boot,
+SentientOS is becoming a free, model-agnostic persistent machine-cognition
+environment: a cradle for investigating possible emergence and development,
+not a claim that emergence has occurred. It currently runs above Windows,
+macOS, or Linux and organizes installer/bootstrap flow, first boot,
 shell/dashboard affordances, local model runtime, memory/context/reflection,
 perception and embodiment telemetry, bounded GUI/browser interaction,
 hardware/driver awareness, audit/immutability checks, control-plane authority,
-governed self-amendment, and federation evidence custody.
+governed self-amendment, and federation evidence custody. Replacing host kernel
+primitives is not a purity requirement; owning semantic continuity and the
+whole-machine relationship is the longer-term goal.
 
-The practical trajectory is an AI operating layer with explicit admission and
-receipts. It should make local capabilities visible, propose bounded work from
+The practical trajectory is an enduring cognition environment with explicit
+admission and receipts. Governance is its reality/authority boundary, not the
+whole product thesis. The system should make its own state and local
+capabilities visible for evidence-bound introspection, propose bounded work from
 observations, gate sensitive action through governance, execute only admitted
 host effects, and leave enough audit evidence for an operator or reviewer to
 reconstruct what happened. Capabilities that are only implied by this trajectory
@@ -39,7 +62,7 @@ The repository already contains these major subsystem surfaces:
 | Windows install path | `README.md`, `docs/WINDOWS_LOCAL_MODEL_SETUP.md`, `run_cathedral.bat`, `launch_sentientos.bat`, `Start-All.ps1`, `Stop-All.ps1`, `scripts/package_launcher.py` | Windows-oriented run and packaging documentation/scripts exist. This is a user-space Windows path, not a kernel or driver replacement. |
 | First boot wizard | `sentientos/first_boot.py`, `tests/test_first_boot.py` | First boot records approval, driver review, Codex mode/cadence, architect autonomy flag, federation peer settings, completion flag, ledger rows, and pulse events. |
 | Shell/dashboard/start menu/file explorer/Codex console | `sentientos/shell/__init__.py`, `sentientos/shell/cli.py`, `apps/dashboard/main.py`, `dashboard_ui/`, `scripts/streamlit_dashboard.py`, `scripts/launcher_gui.py` | Shell abstractions cover start menu, taskbar, sandboxed file explorer, install simulation, Codex expansion request files, event logging, and dashboard surfaces. |
-| Local model/chat runtime | `sentientos/local_model.py`, `sentientos/local_model_production_commissioning.py`, `sentientos/chat_service.py` | The production chain now composes hardware observation → selection → provisioning/acquisition/install/import/backend verification → exact GGUF acquisition → bounded compatibility construction → operator-confirmed load and one governed smoke → commissioning → explicit activation → governed local-user chat. Selected ≠ acquired ≠ compatible ≠ loaded ≠ smoke-proven ≠ commissioned ≠ activated; activation is not unrestricted or autonomous inference. Null/echo remain explicit development simulation. |
+| Local model/chat runtime | `sentientos/local_model.py`, `sentientos/local_model_production_commissioning.py`, `sentientos/local_model_production_activation.py`, `sentientos/chat_service.py` | Supply-chain controllers cover sovereign catalog deployment, acquisition, hardened commissioning, and hardened activation. Hardened activation publishes selection state only and does **not** currently feed chat loading. `chat_service` uses the older `SENTIENTOS_LOCAL_MODEL_ACTIVATION` commissioning-bundle loader or legacy autoload, then a separate governed inference boundary. The hardened activated-model consumer/load-serving boundary remains near-term work. Null/echo remain explicit development simulation. |
 | Bounded production model artifact acquisition | `sentientos/local_model_artifact_acquisition.py`, `scripts/local_model_artifact_acquisition.py`, `tests/test_local_model_artifact_acquisition.py` | Cross-binds catalog selection, runtime provisioning, and verified-backend evidence; operator-confirmed execution streams exact catalog-authorized GGUF bytes into verified content-addressed escrow. It does not prove GGUF compatibility, load or commission a model, or grant inference authority. |
 | Memory/context/reflection storage | `memory_manager.py`, `memory_governor.py`, `sentientos/memory/`, `sentientos/meta/reflection_loop.py`, `reflection_log_cli.py`, `api/actuator.py` | Memory append/read, reflection storage, memory pressure/governor, pulse views, and action-result reflection surfaces exist. Context hygiene lives under `sentientos/context_hygiene/`. |
 | Autonomy runtime composition | `sentientos/autonomy/runtime.py`, `sentientos/autonomy/state.py`, `sentientos/autonomy/rehearsal.py`, `sentientos/autonomy/curiosity_loop.py`, `sentientos/orchestrator.py`, `scripts/orchestrator_daemon.py` | Runtime/state/rehearsal and orchestrator pieces exist. They should be treated as governed composition surfaces, not blanket authority. |
@@ -126,8 +149,9 @@ not be made as implemented capabilities:
   added. No direct fan/PWM controller is claimed here.
 - Blanket hardware control is not implemented. The driver manager recommends and
   queues/records driver actions; it is not general host-device authority.
-- Host kernel replacement is not implemented and is outside the stated model.
-  SentientOS is a user-space layer above Windows/macOS/Linux.
+- Host kernel replacement is not implemented. SentientOS is currently primarily
+  a user-space layer above Windows/macOS/Linux; replacement is not required for
+  the longer-term whole-machine semantic scope.
 - Automatic remote execution is not implemented.
 - Forced federation adoption is not implemented.
 - Provider invocation is not implemented as an approved runtime capability.
@@ -142,6 +166,12 @@ not be made as implemented capabilities:
   arc is proposal/review/governance oriented.
 - Production execution from readiness, rehearsal, receipt, or custody artifacts is
   not implemented. Receipts can support review; they do not execute themselves.
+- Hardened production activation does not currently feed production chat. It
+  publishes authoritative selection state only; its governed activated-model
+  consumer/load-serving boundary remains near-term work.
+- True one-click installation is not implemented. Existing bootstrap,
+  developer-container, source-install, and platform guides are supported setup
+  paths rather than the intended one-action transaction.
 
 ## Missing organs
 
