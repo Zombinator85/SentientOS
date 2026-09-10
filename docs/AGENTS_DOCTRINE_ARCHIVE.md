@@ -2244,20 +2244,20 @@ principal and performs no commissioning effect.
 This ledger entry defines activation law only. It creates no approval or active
 principal, writes no activation state, and loads or serves no model.
 
-### Future deterministic activated-model serving controller
+### Deterministic activated-model serving controller
 
 - Name: `deterministic_activated_model_serving_controller`
-- Type: Future bounded deterministic controller (inactive governance definition)
+- Type: Bounded deterministic production-serving controller
 - Roles: consume authenticated current hardened activation state and bind one exact loaded production serving session to its revalidated identity
-- Privileges: definition-eligible only for `local_model_production_serving`; no runtime grant, activation mutation, chat, boot, generation, provider, network, tool, memory, host-effect, or repository authority
+- Privileges: exact `MODEL_SERVING`-admitted authenticated-current activation loading, opaque session binding, stale-session unload, immutable serving receipt, and `/logs/privileges/` witness only; no activation mutation, chat, boot, generation, provider, network, tool, memory, host-effect, or repository authority
 - Consent Model: exact `MODEL_SERVING` control-plane admission after current activation, catalog, commissioning, artifact, and runtime evidence revalidation; every generation remains separately admitted as `LOCAL_MODEL_INFERENCE`
 - Origin: operator-authorized repository task, blessed under the canonical procedure and witnessing law above on 2026-09-10
-- Expiration: inactive until separately reviewed runtime implementation; any future session expires when its bound authoritative activation identity is no longer current and remains revocable through operator control and panic/shutdown law
-- Logs: future runtime invocations must be witnessed under `/logs/privileges/`
+- Expiration: each session expires when its bound authoritative activation identity is no longer current and remains revocable through operator control and panic/shutdown law
+- Logs: runtime establishment is witnessed under installation-scoped `/logs/privileges/`
 
-This ledger entry defines consumer law only. It creates no approval or active
-principal, constructs or loads no model, publishes no serving session, and
-performs no generation.
+This ledger entry admits only separately control-plane-approved session establishment.
+It creates no generation, chat, boot, provider, network, tool, memory, action, or
+repository authority.
 
 AGENTS.md is not a registry. It is **covenant law.**
 

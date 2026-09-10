@@ -3,13 +3,12 @@
 This page defines governance law for `local_model_production_serving`. Its sole
 eligible principal is `deterministic_activated_model_serving_controller`. Its
 blessed origin is the operator-accountability and witnessing law in
-[`AGENTS_DOCTRINE_ARCHIVE.md`](../AGENTS_DOCTRINE_ARCHIVE.md). Definition
-eligibility is not a grant, control-plane admission, load, serving session, or
-inference call.
+[`AGENTS_DOCTRINE_ARCHIVE.md`](../AGENTS_DOCTRINE_ARCHIVE.md). Definition eligibility is not a grant or inference call. The implemented controller
+still requires exact runtime control-plane admission for every new session.
 
 ## Exact boundary
 
-The future consumer must begin with the authenticated **current** hardened
+The production consumer begins with the authenticated **current** hardened
 activation state, not an activation file, model path, legacy activation bundle,
 autoload choice, or caller-selected root. Immediately before load and session
 publication it must revalidate the exact activation receipt, authoritative
@@ -61,12 +60,19 @@ matches authenticated current activation. An activation change makes the old
 session non-current and requires deterministic invalidation; the old model may
 not silently continue as production-current.
 
-## Deferred implementation
+## Implemented serving establishment
 
-Only the task-authority definition, non-effectful authority-class identity,
-registry posture, doctrine ledger, and admission/denial tests exist. No consumer,
-model construction, model loading, server, serving-session store, chat route,
-boot hook, or inference behavior is implemented. Provider, network, tool,
-memory, host-effect, repository, activation-mutation, and inference authority
-remain outside this capability. Future runtime invocation must obtain exact
-control-plane admission and write its witness under `/logs/privileges/`.
+`ProductionServingController` consumes only an authenticated installation handle and
+the canonical activation verifier. It obtains exact `MODEL_SERVING` admission before
+constructing `ExactRuntimeLocalModel`, checks the observed ready identity, re-verifies
+current activation after the load race, and then publishes an opaque deterministic
+session plus immutable installation-scoped receipt and `/logs/privileges/` witness.
+Currentness inspection re-verifies activation and unloads sessions after activation
+change or worker death. The receipt explicitly records that inference was not performed
+and that local-model inference authority was not granted.
+
+Chat integration, boot integration and automatic loading, prompt assembly,
+inference/generation, providers, network access, tools, memory, actions, repository
+mutation, and performance tuning remain deferred. A later generation call must obtain
+independent `LOCAL_MODEL_INFERENCE` admission; the session intentionally exposes no raw
+model or generation method.

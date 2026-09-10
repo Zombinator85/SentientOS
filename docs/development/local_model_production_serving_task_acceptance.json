@@ -1,0 +1,12 @@
+{
+  "repository_sha": "6a185320844d57c6b7f6a9630e7e9465e9a0c11e",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference", "rationale": "Exact current activation is loaded once and bound without inference."},
+    {"node_id": "tests/test_local_model_production_serving.py::test_activation_change_after_bind_invalidates_and_unloads", "rationale": "Activation changes destroy serving currentness and unload the worker."},
+    {"node_id": "tests/test_local_model_production_serving.py::test_model_serving_admission_precedes_and_blocks_load[deny]", "rationale": "MODEL_SERVING denial prevents construction and publication."}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": ["tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference"],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
