@@ -18,6 +18,7 @@ LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
 LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
 LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
+LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 
 
 @dataclass(frozen=True)
@@ -202,6 +203,44 @@ AUTHORITY_DEFINITIONS = {
             "authoritative deployed catalog",
             "hardened commissioning receipt",
             "exact prior activation state",
+        ),
+    ),
+    LOCAL_MODEL_PRODUCTION_SERVING: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_PRODUCTION_SERVING,
+        subsystem_kinds=frozenset({"local_model_chat"}),
+        principal_kinds=frozenset(
+            {"deterministic_activated_model_serving_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "authenticated_current_hardened_activation_state_read",
+                "exact_current_activation_receipt_read",
+                "exact_authoritative_deployed_catalog_proof_read",
+                "exact_hardened_local_model_commissioning_receipt_read",
+                "exact_activated_artifact_identity_and_bytes_read",
+                "exact_activated_runtime_identity_read",
+                "bounded_exact_activated_model_load",
+                "authoritative_serving_session_bind",
+                "stale_serving_session_invalidation",
+                "local_model_serving_session_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary activation", "arbitrary model path", "arbitrary artifact",
+            "arbitrary runtime", "arbitrary filesystem", "caller-selected activation",
+            "legacy activation path", "legacy autoload", "stale activation",
+            "skip currentness", "retain stale model", "boot integration",
+            "chat integration", "perform inference", "generation call",
+            "provider invocation", "provider administration", "credential management",
+            "network authority", "tool authority", "memory authority",
+            "action authority", "repository mutation", "self-grant", "self grant",
+        ),
+        required_goal_phrases=(
+            "authenticated current hardened activation state",
+            "current catalog provenance",
+            "exact artifact and runtime identity",
+            "activation-change invalidation",
+            "separate local model inference",
         ),
     ),
 }

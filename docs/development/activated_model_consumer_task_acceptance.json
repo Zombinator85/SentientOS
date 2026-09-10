@@ -1,0 +1,23 @@
+{
+  "repository_sha": "06c4e60a14db9fd02b24e634a015d9cb3c075db9",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_activated_model_consumer_capability_admission.py::test_serving_definition_is_eligible_but_non_effectful",
+      "rationale": "The exact serving definition is eligible while bootstrap remains explicitly non-effectful."
+    },
+    {
+      "node_id": "tests/test_activated_model_consumer_capability_admission.py::test_serving_class_and_registry_preserve_independent_inference_authority",
+      "rationale": "MODEL_SERVING remains distinct and the registry keeps model loading and inference deferred."
+    },
+    {
+      "node_id": "tests/test_activated_model_consumer_capability_admission.py::test_inexact_effects_wrong_principal_and_wrong_subsystem_are_denied",
+      "rationale": "Inexact effects and adjacent principals or subsystems fail closed."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_activated_model_consumer_capability_admission.py::test_serving_definition_is_eligible_but_non_effectful"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}

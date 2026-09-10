@@ -49,6 +49,9 @@ class AuthorityClass(str, Enum):
     # Narrow schema identity for a future separately admitted activation-state
     # transition. Declaration alone publishes no state and loads no model.
     MODEL_ACTIVATION = "model_activation"
+    # Narrow schema identity for future loading and production serving-session
+    # binding from current hardened activation. Declaration alone loads nothing.
+    MODEL_SERVING = "model_serving"
 
 
 class AdmissionOutcome(str, Enum):
