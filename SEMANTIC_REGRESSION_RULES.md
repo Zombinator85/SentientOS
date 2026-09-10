@@ -9,6 +9,15 @@
 References to frozen meanings are permitted when the line links directly to a glossary anchor (e.g., `SEMANTIC_GLOSSARY.md#trust`).
 Such anchored references are treated as neutral citations, not reinterpretations.
 
+The small `ARCHITECTURAL_BOUNDARY_DOCS` set in `scripts/semantic_lint.sh` is a
+second, file-scoped exception. Those reviewed front-door contracts must be able
+to distinguish “no engineered mechanism” from “architecturally impossible” and
+“not presently claimed” from “forbidden.” They may therefore name incentive,
+relationship, affect, persistence, and other guarded concepts precisely. This
+exception does not extend to runtime code or ordinary documentation, and it
+does not permit those documents to claim current sentience or subjective
+experience.
+
 ## Forbidden Language Table
 | Forbidden term or pattern | Why it is dangerous | Allowed neutral substitute | Severity |
 | --- | --- | --- | --- |
@@ -40,3 +49,5 @@ Add a commented snippet to your CI or pre-commit configuration to wire the lint:
 
 ## Scope
 These checks apply to comments, README content, and new documentation. They are interpretation guards only and never change runtime behaviour.
+The explicit architectural-boundary set is reviewed as policy source; adding a
+file to it is a semantic-contract change and requires focused tests.

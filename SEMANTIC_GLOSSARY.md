@@ -1,6 +1,12 @@
 # Semantic Glossary (Frozen Meanings)
 
-This glossary freezes terminology across SentientOS. Definitions are authoritative and must be used consistently in code, documentation, and reviews.
+This glossary freezes the meanings of named legacy modules, APIs, fields, and
+current mechanism contracts. It is authoritative at those interfaces; it is
+not a list of global philosophical prohibitions. Broader concepts such as
+introspection, self-modeling, persistent memory, and developmental continuity
+use the meanings in the
+[project thesis](docs/architecture/sentientos_project_thesis.md) while preserving
+the narrow authority and non-appetitive constraints below.
 
 ## Autonomy
 - **Frozen definition:** Coordination module that schedules operator-supplied goals into mesh-ready jobs without self-generated incentives or desires.
@@ -33,15 +39,15 @@ This glossary freezes terminology across SentientOS. Definitions are authoritati
 - **Where used:** `semantic_embeddings.py`, `analysis metrics` documentation.
 
 ## Reflection
-- **Frozen definition:** Structured review of logged telemetry or outputs to produce summaries or audits.
-- **Common incorrect interpretations:** Introspection, rumination, or self-evaluation of desires.
-- **Explicit exclusions:** Does not mean learning loop, self-critique, or emotion.
+- **Frozen module/API definition:** Structured review of logged telemetry or outputs to produce summaries or audits.
+- **Common incorrect interpretations:** Treating a legacy `reflection` result as proof of subjective rumination, desire, emotion, or authority.
+- **Explicit exclusions:** The narrow module does not itself establish learning, feeling, or authoritative self-knowledge. This does not prohibit the broader evidence-bound introspection architecture.
 - **Where used:** `reflection_dashboard.py`, `reflection_digest.py`, `sentient_autonomy.py` (reflective cycle naming only).
 
 ## Memory
-- **Frozen definition:** Stored event or content records persisted for replay, audit, or routing.
-- **Common incorrect interpretations:** Subjective recall; context blending with intent; adaptive learning store.
-- **Explicit exclusions:** Does not mean evolving worldview, preference encoding, or implicit policy training.
+- **Frozen mechanism definition:** Stored event or content records persisted for replay, audit, continuity, or bounded routing.
+- **Common incorrect interpretations:** Subjective recall; current truth; authority; implicit policy training.
+- **Explicit exclusions:** A memory record does not become truth, preference, intent, or authority merely through persistence. Governed developmental history remains an architectural goal.
 - **Where used:** `memory_governor.py`, `memory_manager.py`, `unified_memory_indexer.py`.
 
 ## Heartbeat
@@ -67,6 +73,12 @@ This glossary freezes terminology across SentientOS. Definitions are authoritati
 - **Common incorrect interpretations:** Desire; liking; comfort level of the system.
 - **Explicit exclusions:** Does not mean intention, motivation, or emotional leaning.
 - **Where used:** `codex/amendments.py`, `preference` settings in governance specs.
+
+## Self-model
+- **Frozen legacy schema/API definition:** The existing `self-model` label maps to a runtime identity contract and its compatibility fields.
+- **Common incorrect interpretations:** Treating the record as proof of consciousness, or treating its narrow schema as the complete architecture of introspection.
+- **Explicit exclusions:** The legacy record does not grant authority or prove subjective self-awareness. The term may describe a broader evidence-bound account of system state when that broader meaning is made explicit.
+- **Where used:** `docs/SELF_MODEL.md`, `/glow/self.json`, compatibility schemas.
 
 
 
