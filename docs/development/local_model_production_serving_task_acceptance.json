@@ -1,12 +1,29 @@
 {
-  "repository_sha": "6a185320844d57c6b7f6a9630e7e9465e9a0c11e",
+  "repository_sha": "fb01f878554ec7a4197d025607fb67f0023911ea",
   "required_nodes": [
-    {"node_id": "tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference", "rationale": "Exact current activation is loaded once and bound without inference."},
-    {"node_id": "tests/test_local_model_production_serving.py::test_activation_change_after_bind_invalidates_and_unloads", "rationale": "Activation changes destroy serving currentness and unload the worker."},
-    {"node_id": "tests/test_local_model_production_serving.py::test_model_serving_admission_precedes_and_blocks_load[deny]", "rationale": "MODEL_SERVING denial prevents construction and publication."}
+    {
+      "node_id": "tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference",
+      "rationale": "Exact current activation is initially loaded and bound without inference."
+    },
+    {
+      "node_id": "tests/test_local_model_production_serving.py::test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation",
+      "rationale": "The real kernel dedupes replay while admitting a new operation for unchanged activation."
+    },
+    {
+      "node_id": "tests/test_local_model_production_serving.py::test_current_session_is_reused_without_second_load_and_operation_is_audited",
+      "rationale": "A current session and same-operation lifecycle do not produce a duplicate load."
+    },
+    {
+      "node_id": "tests/test_local_model_production_serving.py::test_activation_change_after_bind_invalidates_and_unloads",
+      "rationale": "A stale activation invalidates and unloads fail closed."
+    }
   ],
   "schema_version": "sentientos.task_acceptance:v1",
-  "successful_path_nodes": ["tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference"],
+  "successful_path_nodes": [
+    "tests/test_local_model_production_serving.py::test_success_loads_once_binds_receipt_and_performs_zero_inference",
+    "tests/test_local_model_production_serving.py::test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation",
+    "tests/test_local_model_production_serving.py::test_current_session_is_reused_without_second_load_and_operation_is_audited"
+  ],
   "task_classification": "behavior_adding",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json"
 }
