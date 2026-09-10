@@ -128,9 +128,9 @@ def test_serving_class_and_registry_preserve_independent_inference_authority() -
     }
     record = build_default_capability_registry().by_id()[LOCAL_MODEL_PRODUCTION_SERVING]
     assert record.status == "partial"
-    assert record.authority_level == "eligibility_only"
-    assert "model construction and loading" in record.deferred_surfaces
-    assert "inference" in record.deferred_surfaces
+    assert record.authority_level == "bounded_in_process_runner"
+    assert "exact activated runtime and model load" in record.implemented_surfaces
+    assert "inference/generation" in record.deferred_surfaces
     assert "serving admission grants inference authority" in record.forbidden_implications
 
 
