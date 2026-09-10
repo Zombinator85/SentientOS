@@ -1,0 +1,31 @@
+{
+  "repository_sha": "cacee5ade988e26f955ad0efb175988baef52d55",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+      "rationale": "Exact serving-backed generation obtains independent inference admission."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[deny]",
+      "rationale": "Inference denial prevents generation."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_pre_effect_stale_session_denies_generation",
+      "rationale": "The immediate pre-effect guard closes the admission race."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_post_generation_stale_output_is_suppressed_and_effect_recorded",
+      "rationale": "Post-effect currentness suppresses stale output without rewriting history."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked",
+      "rationale": "Production identity must exactly match its authority record."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "/tmp/model-serving-inference-provenance.json"
+}

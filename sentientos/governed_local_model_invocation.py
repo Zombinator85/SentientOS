@@ -4,7 +4,7 @@ import json, os, time, concurrent.futures
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Callable, Mapping, cast
 
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
@@ -114,14 +114,17 @@ class GovernedLocalModelInvoker:
     def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None, structured_output_schema: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
         identity = getattr(self.model, "active_identity", None)
         record = self.authority_map.record_for_active_identity(identity, purpose) if identity is not None else self.authority_map.eligible_record(purpose)
-        if record is None and self.authority_map.records:
+        production_identity = identity is not None and getattr(identity, "posture", None) == "production"
+        if record is None and self.authority_map.records and not production_identity:
             record = self.authority_map.records[0]
-        if record is None: raise ValueError("authority_map_has_no_records")
+        if record is None: raise ValueError("exact_production_authority_record_required" if production_identity else "authority_map_has_no_records")
         if structured_output_schema is not None and (purpose != "discernment_judgment" or expected_output_format != "json"):
             raise ValueError("structured output is restricted to discernment JSON")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=dict(structured_output_schema) if structured_output_schema is not None else None)
 
-    def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False) -> LocalModelInvocationReceipt:
+    def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
+               pre_effect_guard: Callable[[], None] | None = None,
+               post_effect_guard: Callable[[], None] | None = None) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False
         record = self._record_for(request.model_id)
         ok, map_reasons = validate_authority_map(self.authority_map.to_dict())
@@ -159,7 +162,8 @@ class GovernedLocalModelInvoker:
         if request.authority_map_digest != self.authority_map.map_digest: reasons.append("model_authority_stale")
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
-        if request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation"}:
+        production_identity = identity is not None and getattr(identity, "posture", None) == "production"
+        if production_identity or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation"}:
             if identity is None:
                 reasons.append("active_model_identity_unavailable")
             elif identity.fallback or identity.posture != "production":
@@ -180,6 +184,8 @@ class GovernedLocalModelInvoker:
                     generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke"} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
                     gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                     def _call_model() -> str:
+                        if pre_effect_guard is not None:
+                            pre_effect_guard()
                         governed_generate = getattr(self.model, "generate_governed", None)
                         if governed_generate is not None:
                             return cast(str, governed_generate(request.prompt, **gen_kwargs))
@@ -194,16 +200,27 @@ class GovernedLocalModelInvoker:
                         except concurrent.futures.TimeoutError as exc:
                             future.cancel()
                             raise TimeoutError() from exc
-                    if len(output.encode("utf-8")) > request.budget.max_output_chars:
+                    generated_output = output
+                    if post_effect_guard is not None:
+                        try:
+                            post_effect_guard()
+                        except Exception:
+                            output = None
+                            status = "serving_lifetime_stale_after_generation"
+                            reasons.append("post_effect_currentness_failed")
+                    if output is not None and len(output.encode("utf-8")) > request.budget.max_output_chars:
                         output = output.encode("utf-8")[:request.budget.max_output_chars].decode("utf-8", "ignore"); truncated = True; reasons.append("output_oversized")
-                    if not output.strip(): reasons.append("empty_output"); status = "degraded_fallback"; fallback = True
+                    if output is None: pass
+                    elif not output.strip(): reasons.append("empty_output"); status = "degraded_fallback"; fallback = True
                     elif request.purpose == "genesis_proposal_advice" and not self._valid_genesis_advice(output): reasons.append("output_malformed"); status = "output_malformed"
                     elif request.purpose == "discernment_judgment" and not self._valid_discernment_judgment(output, request): reasons.append("output_malformed"); status = "output_malformed"
                     else: status = "admitted_simulation" if record and record.engine in {"null", "echo"} else "admitted_completed"
                 except TimeoutError: status = "timeout"; reasons.append("timeout")
                 except Exception as exc: status = "backend_failure"; reasons.append(f"backend_failure:{exc.__class__.__name__}")
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": output}) if output is not None else None, output_size_bytes=len((output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": status in {"admitted_completed", "admitted_simulation", "output_malformed", "degraded_fallback"}, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
+        effect_occurred = "generated_output" in locals()
+        receipt_output = generated_output if effect_occurred else output
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
         if persist: self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
         return receipt
 

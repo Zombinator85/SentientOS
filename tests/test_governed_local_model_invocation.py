@@ -11,6 +11,7 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt
 from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.local_model import ActiveModelIdentity
 
 class FakeModel:
     def __init__(self, text: str = "ok") -> None:
@@ -59,3 +60,17 @@ def test_malformed_genesis_advice_records_failure(tmp_path: Path) -> None:
     assert fake.calls == 0
     assert receipt.status in {"blocked_invalid", "denied"}
     assert "genesis_review_evidence_missing_or_invalid" in receipt.reason_codes
+
+
+def test_production_identity_mismatch_is_blocked(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    record = inv.authority_map.records[0]
+    fake.active_identity = ActiveModelIdentity(
+        engine=record.engine, resolved_artifact_path=str(tmp_path / "other.gguf"),
+        semantic_artifact_identity="sha256:" + "0" * 64,
+        model_content_sha256="0" * 64, artifact_size_bytes=1,
+        sidecar_metadata_digest=None, configuration_digest=record.configuration_digest,
+        candidate_index=0, posture="production", fallback=False)
+    with pytest.raises(ValueError, match="exact_production_authority_record_required"):
+        inv.build_request(purpose="local_user_chat", prompt="hi", caller="test", correlation_id="mismatch")
+    assert fake.calls == 0

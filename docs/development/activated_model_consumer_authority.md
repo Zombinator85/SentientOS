@@ -60,7 +60,7 @@ matches authenticated current activation. An activation change makes the old
 session non-current and requires deterministic invalidation; the old model may
 not silently continue as production-current.
 
-## Implemented serving establishment
+## Implemented serving establishment and inference handoff
 
 `ProductionServingController` consumes only an authenticated installation handle and
 the canonical activation verifier. It obtains exact `MODEL_SERVING` admission before
@@ -79,12 +79,21 @@ so admission dedupe prevents replay of one operation while a new operation can b
 separately admitted after a legitimate unload even when the activation is unchanged.
 The resulting serving-session identity names that particular admitted load lifetime and
 is carried into its receipt and invalidation evidence; it is not derived from activation
-alone. A future inference correlation is a fourth, independent identity and still
-requires separate `LOCAL_MODEL_INFERENCE` authority. Establishment never infers and does
-not silently reload.
+alone. A serving-backed inference correlation is the fourth, independent identity and
+requires separate `LOCAL_MODEL_INFERENCE` authority for every generation. The bridge
+reconstructs the commissioning authority map, proves its digest and exact loaded
+identity, and binds its request to all three upstream identities and their evidence. It
+rechecks currentness after admission immediately before generation and again after it;
+a pre-effect change prevents generation, while a post-effect change preserves the
+truthful effect receipt, suppresses stale output, and invalidates the old lifetime.
 
-Chat integration, boot integration and automatic loading, prompt assembly,
-inference/generation, providers, network access, tools, memory, actions, repository
-mutation, and performance tuning remain deferred. A later generation call must obtain
-independent `LOCAL_MODEL_INFERENCE` admission; the session intentionally exposes no raw
-model or generation method.
+The four identities are therefore activation identity, serving-operation identity,
+serving-session/load-lifetime identity, and inference request/correlation identity. Only
+the fourth is governed by `LOCAL_MODEL_INFERENCE`; neither `MODEL_SERVING` nor its receipt
+grants generation. Establishment never infers and the bridge never silently reloads or
+retries.
+
+Production chat integration, boot integration and automatic loading, prompt assembly,
+providers, network access, tools, memory, actions, repository mutation, and performance
+tuning remain deferred. The serving-bound handoff is implemented only through separate
+inference admission; the session intentionally exposes no raw model or generation method.

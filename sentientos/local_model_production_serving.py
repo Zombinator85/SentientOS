@@ -141,6 +141,20 @@ class ProductionServingController:
             return None
         return self._session
 
+    def _current_inference_model(self, expected: ServingSession) -> Any:
+        """Package-private handoff for the separately governed inference bridge."""
+        current = self.current_session()
+        if current is None or current != expected or self._model is None:
+            raise ProductionServingError("serving_session_not_current")
+        if _identity(self._model.active_identity) != expected.binding.get("observed_loaded_model_identity"):
+            self._invalidate("loaded_model_identity_changed")
+            raise ProductionServingError("loaded_model_identity_changed")
+        return self._model
+
+    def _invalidate_inference_session(self, expected: ServingSession, reason: str) -> None:
+        if self._session == expected:
+            self._invalidate(reason)
+
     def establish(self, *, operation_id: str) -> ServingSession:
         operation_id = _operation_id(operation_id)
         before = _verified(self._handle, self._allow_synthetic)
