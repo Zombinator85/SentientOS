@@ -77,6 +77,11 @@ non-placeholder serving-establishment operation identity for each requested load
 attempt. The control-plane correlation deterministically binds both of those identities,
 so admission dedupe prevents replay of one operation while a new operation can be
 separately admitted after a legitimate unload even when the activation is unchanged.
+Authenticated serving-receipt custody also prohibits a fresh controller or process from
+loading the same unchanged activation under an operation identity that already produced
+a valid receipt. The check precedes `MODEL_SERVING` admission and load. Exact current
+in-memory session reuse remains idempotent, while a label used against a genuinely
+different activation retains its activation-bound identity semantics.
 The resulting serving-session identity names that particular admitted load lifetime and
 is carried into its receipt and invalidation evidence; it is not derived from activation
 alone. A serving-backed inference correlation is the fourth, independent identity and

@@ -179,7 +179,7 @@ def test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation
                      factory=lambda c, l: made.append(Model(identity())) or made[-1])
     first = ctl.establish(operation_id="serve-operation-1")
     ctl.close()
-    with pytest.raises(ProductionServingError, match="control_plane_not_allowed"):
+    with pytest.raises(ProductionServingError, match="serving_operation_activation_replay"):
         ctl.establish(operation_id="serve-operation-1")
     assert len(made) == 1
     second = ctl.establish(operation_id="serve-operation-2")
@@ -189,6 +189,24 @@ def test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation
     assert len({receipt["receipt_id"] for receipt in receipts}) == 2
     assert all(receipt["inference_performed"] is False for receipt in receipts)
     assert all(receipt["local_model_inference_authority_granted"] is False for receipt in receipts)
+
+
+def test_same_activation_operation_replay_blocked_across_fresh_controllers(monkeypatch, handle, tmp_path):
+    current, made = evidence(), []
+    monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation",
+                        lambda *a, **k: current)
+    first = ProductionServingController(handle, ControlPlaneKernel(decisions_path=tmp_path / "one.jsonl"),
+        model_factory=lambda c, l: made.append(Model(identity())) or made[-1])
+    second = ProductionServingController(handle, ControlPlaneKernel(decisions_path=tmp_path / "two.jsonl"),
+        model_factory=lambda c, l: made.append(Model(identity())) or made[-1])
+    monkeypatch.setattr(first, "_commissioning_identity", lambda s: identity().to_dict())
+    monkeypatch.setattr(second, "_commissioning_identity", lambda s: identity().to_dict())
+    first.establish(operation_id="serve-operation-X"); first.close()
+    with pytest.raises(ProductionServingError, match="serving_operation_activation_replay"):
+        second.establish(operation_id="serve-operation-X")
+    assert len(made) == 1
+    second.establish(operation_id="serve-operation-Y")
+    assert len(made) == 2
 
 
 @pytest.mark.parametrize("cause", ["worker_death", "controller_close"])
