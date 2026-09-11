@@ -158,6 +158,14 @@ def test_validation_rejects_provider_network_prompt_authority_claims() -> None:
     assert any("provider_network_prompt" in finding for finding in result.findings)
 
 
+def test_local_model_chat_records_canonical_startup_without_recovery_or_deployment() -> None:
+    record = build_default_capability_registry().by_id()["local_model_chat"]
+    assert "explicit operator-enabled canonical RuntimeSupervisor startup" in record.implemented_surfaces
+    assert "canonical boot/startup wiring" not in record.deferred_surfaces
+    assert "automatic serving recovery or re-establishment" in record.deferred_surfaces
+    assert "one-click installation or launch" in record.deferred_surfaces
+
+
 def test_validation_rejects_federation_evidence_as_transport() -> None:
     bad = CapabilityRecord(
         capability_id="bad_federation",
