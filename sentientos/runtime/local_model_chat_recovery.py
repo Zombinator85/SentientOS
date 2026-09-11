@@ -253,14 +253,18 @@ def verify_approval(approval: Mapping[str, Any], intent: Mapping[str, Any], *, n
         raise LocalModelChatRecoveryError("recovery_intent_semantic_digest_invalid")
     if value.get("schema_version") != APPROVAL_SCHEMA or value.get("approval_status") != "approved":
         raise LocalModelChatRecoveryError("recovery_approval_invalid")
-    source = value.get("evidence_source")
-    if not isinstance(source, str) or source.strip().lower() in PLACEHOLDER_PROVENANCE:
-        raise LocalModelChatRecoveryError("recovery_approval_provenance_invalid")
+    for field in ("evidence_source", "evidence_provenance"):
+        item = value.get(field)
+        if (not isinstance(item, str) or item.strip().lower() in PLACEHOLDER_PROVENANCE
+                or "*" in item):
+            raise LocalModelChatRecoveryError("recovery_approval_provenance_invalid")
     for field in ("operator_identity", "evidence_id"):
         item = value.get(field)
-        if not isinstance(item, str) or item.strip().lower() in PLACEHOLDER_PROVENANCE:
+        if (not isinstance(item, str) or item.strip().lower() in PLACEHOLDER_PROVENANCE
+                or "*" in item):
             raise LocalModelChatRecoveryError("recovery_approval_identity_invalid")
-    if value.get("synthetic") and not allow_synthetic_evidence_for_tests:
+    synthetic = value.get("synthetic_test_evidence")
+    if not isinstance(synthetic, bool) or (synthetic and not allow_synthetic_evidence_for_tests):
         raise LocalModelChatRecoveryError("synthetic_recovery_approval_forbidden")
     bindings = {"intent_id": "intent_id", "intent_semantic_digest": "intent_semantic_digest",
         "installation_identity": "installation_identity", "runtime_supervisor_generation": "runtime_supervisor_generation",
@@ -272,16 +276,20 @@ def verify_approval(approval: Mapping[str, Any], intent: Mapping[str, Any], *, n
         raise LocalModelChatRecoveryError("recovery_approval_intent_mismatch")
     if value.get("approval_semantic_digest") != semantic_digest(_without(value, "approval_semantic_digest")):
         raise LocalModelChatRecoveryError("recovery_approval_semantic_digest_invalid")
-    instant = now if now is not None else time.time()
+    instant = datetime.fromtimestamp(now, timezone.utc) if now is not None else datetime.now(timezone.utc)
     try:
-        not_before = datetime.fromisoformat(str(value["not_before"]).replace("Z", "+00:00")).timestamp()
-        expires = datetime.fromisoformat(str(value["expires_at"]).replace("Z", "+00:00")).timestamp()
-        approved = datetime.fromisoformat(str(value["approved_at"]).replace("Z", "+00:00")).timestamp()
+        parsed = [datetime.fromisoformat(str(value[key]).replace("Z", "+00:00"))
+                  for key in ("not_before", "approved_at", "expires_at")]
     except (KeyError, ValueError, TypeError) as exc:
         raise LocalModelChatRecoveryError("recovery_approval_time_invalid") from exc
-    if not_before > instant or approved > instant:
+    if any(item.tzinfo is None or item.utcoffset() is None for item in parsed):
+        raise LocalModelChatRecoveryError("recovery_approval_time_invalid")
+    not_before, approved, expires = parsed
+    if not_before > approved or approved > expires:
+        raise LocalModelChatRecoveryError("recovery_approval_interval_invalid")
+    if instant < not_before:
         raise LocalModelChatRecoveryError("recovery_approval_not_yet_valid")
-    if expires <= instant:
+    if instant > expires:
         raise LocalModelChatRecoveryError("recovery_approval_expired")
     return value
 
@@ -329,25 +337,33 @@ class ProductionLocalModelChatRecoveryController:
     def process_pending(self) -> tuple[dict[str, Any], ...]:
         outcomes = []
         for name in self._handle.list_regular_names(self._requests):
-            request_id = name[:-5] if name.endswith(".json") else name
-            if self._handle.read_optional_regular(self._receipts.child(request_id + ".json")) is None:
-                outcomes.append(self.process_request(name))
+            outcomes.append(self.process_request(name))
         return tuple(outcomes)
+
+    def _existing_receipt(self, request_id: str) -> dict[str, Any] | None:
+        existing = self._handle.read_optional_regular(self._receipts.child(request_id + ".json"))
+        if existing is None:
+            return None
+        try:
+            loaded = json.loads(existing)
+        except (ValueError, TypeError) as exc:
+            raise LocalModelChatRecoveryError("recovery_receipt_malformed") from exc
+        if (not isinstance(loaded, dict) or loaded.get("schema_version") != RECEIPT_SCHEMA
+                or loaded.get("request_id") != request_id
+                or loaded.get("installation_identity") != self._handle.identity.value
+                or loaded.get("receipt_semantic_digest")
+                != semantic_digest(_without(loaded, "receipt_semantic_digest"))):
+            raise LocalModelChatRecoveryError("recovery_receipt_malformed")
+        return loaded
 
     def process_request(self, name: str) -> dict[str, Any]:
         request_id = name[:-5] if name.endswith(".json") else name
-        existing = self._handle.read_optional_regular(self._receipts.child(request_id + ".json"))
-        if existing is not None:
-            loaded = json.loads(existing)
-            if not isinstance(loaded, dict):
-                raise LocalModelChatRecoveryError("recovery_receipt_malformed")
+        loaded = self._existing_receipt(request_id)
+        if loaded is not None:
             return loaded
         with self._handle.exclusive_lock(self._lock):
-            existing = self._handle.read_optional_regular(self._receipts.child(request_id + ".json"))
-            if existing is not None:
-                loaded = json.loads(existing)
-                if not isinstance(loaded, dict):
-                    raise LocalModelChatRecoveryError("recovery_receipt_malformed")
+            loaded = self._existing_receipt(request_id)
+            if loaded is not None:
                 return loaded
             attempted = completed = False; readiness = "not_observed"; decision_ref = None; outcome = "not_requested"
             try:

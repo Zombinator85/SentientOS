@@ -86,6 +86,37 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
             "catalog_proof": dict(verified["catalog_proof"])}
 
 
+def _reject_replayed_lifetime(handle: InstallationStateHandle, operation_id: str,
+                              activation_digest: str) -> None:
+    directory = handle.fixed_object("local-model/serving/receipts")
+    try:
+        names = handle.list_regular_names(directory)
+    except InstallationStateError as exc:
+        raise ProductionServingError("serving_receipt_custody_unavailable") from exc
+    for name in names:
+        if not name.endswith(".json"):
+            raise ProductionServingError("serving_receipt_malformed")
+        try:
+            receipt = json.loads(handle.read_regular(directory.child(name)))
+        except (OSError, ValueError, TypeError, InstallationStateError) as exc:
+            raise ProductionServingError("serving_receipt_malformed") from exc
+        if (not isinstance(receipt, dict) or receipt.get("schema_version") != RECEIPT_SCHEMA
+                or receipt.get("receipt_semantic_digest")
+                != semantic_digest({k: v for k, v in receipt.items() if k != "receipt_semantic_digest"})
+                or receipt.get("control_plane_authority_class") != AuthorityClass.MODEL_SERVING.value
+                or receipt.get("admission_outcome") != AdmissionOutcome.ALLOW.value
+                or receipt.get("model_loaded") is not True
+                or receipt.get("serving_session_bound") is not True
+                or receipt.get("inference_performed") is not False):
+            raise ProductionServingError("serving_receipt_malformed")
+        binding = receipt.get("binding")
+        if not isinstance(binding, dict) or binding.get("installation_identity") != handle.identity.value:
+            raise ProductionServingError("serving_receipt_installation_mismatch")
+        if (binding.get("serving_operation_id") == operation_id
+                and binding.get("activation_state_semantic_digest") == activation_digest):
+            raise ProductionServingError("serving_operation_activation_replay")
+
+
 @dataclass(frozen=True, slots=True)
 class ServingSession:
     """Opaque inspection record.  Deliberately contains no model or generation method."""
@@ -112,6 +143,8 @@ class ProductionServingController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._session: ServingSession | None = None
         self._model: Any | None = None
+        for relative in ("local-model", "local-model/serving", "local-model/serving/receipts"):
+            installation_handle.ensure_directory(installation_handle.fixed_object(relative))
 
     def _same_activation(self, verified: Mapping[str, Any], session: ServingSession) -> bool:
         state = verified["active_state"]
@@ -190,6 +223,7 @@ class ProductionServingController:
         if existing is not None:
             return existing
         state, activation, proof = before["active_state"], before["activation_receipt"], before["catalog_proof"]
+        _reject_replayed_lifetime(self._handle, operation_id, state["state_semantic_digest"])
         intent = {"installation_identity": self._handle.identity.value,
                   "activation_state_semantic_digest": state["state_semantic_digest"],
                   "activation_generation": state["generation"], "activation_receipt_id": activation["receipt_id"],

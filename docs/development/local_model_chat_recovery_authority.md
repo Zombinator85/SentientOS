@@ -15,6 +15,14 @@ receipt, approval validity, unchanged hardened activation provenance, and that t
 replacement serving-operation identity has never appeared in installation serving
 custody. Every terminal request gets one immutable receipt and is never retried.
 
+External approval evidence must carry timezone-aware ISO-8601 `not_before`,
+`approved_at`, and `expires_at` values ordered as `not_before <= approved_at <=
+expires_at`, and observation must be inside that window. Operator identity, evidence id,
+source, and provenance must be explicit and non-placeholder. Production requires an
+explicit `synthetic_test_evidence=false`; only the dedicated test seam may admit true
+synthetic evidence. The semantic digest covers the complete approval body, and naive
+timestamps fail closed.
+
 ## Mechanically separate authority
 
 Immediately before the sole lifecycle effect the controller independently requests
@@ -30,6 +38,12 @@ model load. Success requires bounded `/readyz` semantic `serving_current`, not p
 liveness. Recovery performs zero inference and grants no `LOCAL_MODEL_INFERENCE`; every
 later chat generation independently obtains that authority.
 
+The successful path is tested as one effectful transaction through `process_request()`
+and `process_pending()`, from evidence verification and exactly one `DAEMON_RESTART`
+through replacement, `serving_current`, snapshot advancement, and a zero-inference
+terminal receipt. Existing receipts are schema-, request-, installation-, and
+semantic-digest-verified before replay.
+
 ## Preserved boundaries
 
 `restart_policy="never"` remains intentional. Generic and automatic supervisor restart,
@@ -38,3 +52,8 @@ recovery across changed activation, arbitrary process/model/path selection, plat
 service installation, and one-click deployment remain deferred. A failed child launch,
 serving establishment, or readiness observation is terminal and leaves the startup
 snapshot bound to the prior lifetime.
+
+The installation lock provides in-process concurrency and replay safety. Abrupt process
+loss after restart but before terminal receipt publication is not deterministically
+finalizable here; this implementation makes no crash-safe exactly-once or automatic-retry
+claim.

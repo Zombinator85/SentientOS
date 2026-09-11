@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,10 +15,13 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.runtime.local_model_chat_recovery import (
     LocalModelChatRecoveryError,
+    ProductionLocalModelChatRecoveryController,
     build_recovery_intent,
     build_startup_snapshot,
     require_fresh_operation,
+    verify_approval,
     verified_serving_receipts,
+    write_startup_snapshot,
 )
 from sentientos.runtime.local_model_chat_service import LocalModelChatServiceAdapter, LocalModelChatStartup
 
@@ -127,3 +132,94 @@ def test_daemon_restart_independent_admission_uses_real_control_plane_kernel(tmp
     assert decision.outcome is AdmissionOutcome.ALLOW
     assert decision.authority_class is AuthorityClass.DAEMON_RESTART
     assert decision.correlation_id == correlation
+
+
+def approval_for(intent: dict, **changes) -> dict:
+    value = {"schema_version": "sentientos.local_model_chat_recovery_approval:v1",
+        "approval_status": "approved", "operator_identity": "operator:alice",
+        "evidence_id": "approval-1", "evidence_source": "operator-console",
+        "evidence_provenance": "signed-local-approval", "synthetic_test_evidence": False,
+        "not_before": "2026-01-01T00:00:00+00:00", "approved_at": "2026-01-01T00:01:00+00:00",
+        "expires_at": "2026-01-01T01:00:00+00:00",
+        "intent_id": intent["intent_id"], "intent_semantic_digest": intent["intent_semantic_digest"],
+        "installation_identity": intent["installation_identity"],
+        "runtime_supervisor_generation": intent["runtime_supervisor_generation"],
+        "prior_serving_operation_id": intent["prior_serving_operation_id"],
+        "replacement_serving_operation_id": intent["replacement_serving_operation_id"],
+        "expected_activation_state_digest": intent["activation_state_semantic_digest"],
+        "recovery_correlation_id": intent["recovery_correlation_id"]}
+    value.update(changes)
+    value["approval_semantic_digest"] = semantic_digest(
+        {key: item for key, item in value.items() if key != "approval_semantic_digest"})
+    return value
+
+
+@pytest.mark.parametrize("change,code", [
+    ({"approved_at": "2026-01-01T00:01:00"}, "time_invalid"),
+    ({"not_before": "2026-01-01T00:02:00+00:00"}, "interval_invalid"),
+    ({"evidence_provenance": ""}, "provenance_invalid"),
+    ({"synthetic_test_evidence": True}, "synthetic_recovery_approval_forbidden"),
+    ({"synthetic_test_evidence": None}, "synthetic_recovery_approval_forbidden"),
+])
+def test_recovery_approval_temporal_and_provenance_hardening(change, code) -> None:
+    intent = build_recovery_intent(snapshot=snapshot(), prior_receipt=receipt(), activation=activation(),
+        replacement_serving_operation_id="serve-2", recovery_correlation_id="recover-1")
+    with pytest.raises(LocalModelChatRecoveryError, match=code):
+        verify_approval(approval_for(intent, **change), intent, now=1767227400.0)
+
+
+@pytest.mark.parametrize("outcome", [AdmissionOutcome.ALLOW, AdmissionOutcome.DENY,
+                                      AdmissionOutcome.DEFER, AdmissionOutcome.QUARANTINE])
+def test_full_recovery_controller_transaction_and_denials(monkeypatch, tmp_path: Path, outcome) -> None:
+    handle = InstallationStateRegistry._for_testing(tmp_path / "custody").open(
+        InstallationIdentity("install-1"), create=True)
+    serving_dir = handle.fixed_object("local-model/serving/receipts"); handle.ensure_directory(serving_dir)
+    prior = receipt(); handle.durable_create(serving_dir.child("prior.json"),
+        (json.dumps(prior, sort_keys=True, separators=(",", ":")) + "\n").encode())
+    root = tmp_path / "runtime"; snap = snapshot(); write_startup_snapshot(snap, root)
+    intent = build_recovery_intent(snapshot=snap, prior_receipt=prior, activation=activation(),
+        replacement_serving_operation_id="serve-2", recovery_correlation_id="recover-1")
+    approval = approval_for(intent)
+    request = {"schema_version": "sentientos.local_model_chat_recovery_request:v1",
+               "intent": intent, "approval": approval, "inference_performed": False}
+    request["request_id"] = "local-model-chat-recovery-request-" + semantic_digest(request)[:24]
+    request["request_semantic_digest"] = semantic_digest(request)
+    request_dir = handle.fixed_object("local-model/recovery/requests"); handle.ensure_directory(request_dir)
+    handle.durable_create(request_dir.child(request["request_id"] + ".json"),
+        (json.dumps(request, sort_keys=True, separators=(",", ":")) + "\n").encode())
+    supervisor = SimpleNamespace(root=root, generation="generation-1",
+        status=lambda: {"generation": "generation-1", "state": "running",
+                        "services": {"local_model_chat": {"state": "unhealthy"}}},
+        _observe_explicit_recovery=lambda _service: "healthy")
+    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(True, "install-1", "serve-1"))
+    restarts = []
+    monkeypatch.setattr(adapter, "_restart_with_fresh_serving_operation",
+        lambda **kw: restarts.append(kw))
+    monkeypatch.setattr(adapter, "health", lambda: SimpleNamespace(reason="serving_current"))
+    monkeypatch.setattr(adapter, "force_stop", lambda: pytest.fail("successful readiness must not clean up"))
+    monkeypatch.setattr("sentientos.runtime.local_model_chat_recovery._current_activation", lambda _handle: activation())
+    kernel = SimpleNamespace(requests=[])
+    def admit(control_request):
+        kernel.requests.append(control_request)
+        return SimpleNamespace(outcome=outcome, authority_class=control_request.authority_class,
+            actor=control_request.actor, action_kind=control_request.action_kind,
+            target_subsystem=control_request.target_subsystem,
+            correlation_id=control_request.metadata["correlation_id"], admission_decision_ref="decision-1")
+    kernel.admit = admit
+    ctl = ProductionLocalModelChatRecoveryController(supervisor, adapter, kernel, handle,
+        clock=lambda: 1767227400.0)
+    result = ctl.process_request(request["request_id"] + ".json")
+    assert len(kernel.requests) == 1
+    assert kernel.requests[0].authority_class is AuthorityClass.DAEMON_RESTART
+    assert kernel.requests[0].actor == "deterministic_local_model_chat_recovery_controller"
+    assert kernel.requests[0].target_subsystem == "local_model_chat"
+    if outcome is AdmissionOutcome.ALLOW:
+        assert result["terminal_status"] == "recovered" and len(restarts) == 1
+        assert result["model_serving_granted_by_recovery"] is False
+        assert result["inference_performed"] is False
+        assert result["local_model_inference_authority_granted"] is False
+        assert ctl.process_request(request["request_id"] + ".json") == result
+        assert ctl.process_pending() == (result,)
+        assert len(kernel.requests) == 1 and len(restarts) == 1
+    else:
+        assert result["terminal_status"] == "failed" and restarts == []
