@@ -126,3 +126,12 @@ model auto-discovery/fallback, providers, adjacent tools/actions, repository mut
 performance tuning remain deferred. Failed process or semantic readiness uses the explicit
 `never` restart policy and requires a later operator launch with a fresh operation id. The
 session and chat service expose no raw model, backend, worker, or generic production invoker.
+
+## Explicit hardened-chat recovery composition
+
+The bounded recovery runtime composes, but does not merge, existing authorities. An
+externally approved unchanged-activation recovery obtains only `DAEMON_RESTART`; the
+fresh replacement child independently obtains `MODEL_SERVING`, and later generations
+independently obtain `LOCAL_MODEL_INFERENCE`. Recovery performs zero inference. The
+service retains `restart_policy="never"`; generic/automatic restart, changed-activation
+recovery, and hot switching remain deferred.

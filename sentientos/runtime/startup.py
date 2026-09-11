@@ -6,7 +6,13 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from .local_model_chat_service import LocalModelChatStartup, build_runtime_service_registry
+from sentientos.control_plane_kernel import ControlPlaneKernel
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+
+from .local_model_chat_service import (SERVICE_ID, LocalModelChatServiceAdapter,
+                                       LocalModelChatStartup, build_runtime_service_registry)
+from .local_model_chat_recovery import (ProductionLocalModelChatRecoveryController,
+                                        build_startup_snapshot, write_startup_snapshot)
 from .supervisor import RuntimeSupervisor
 
 
@@ -40,8 +46,20 @@ def run_canonical_runtime(
             signal.signal(signum, request_stop)
     try:
         supervisor.start_all()
+        recovery = None
+        if config.enabled:
+            adapter = registry.adapter(SERVICE_ID)
+            assert isinstance(adapter, LocalModelChatServiceAdapter)
+            write_startup_snapshot(build_startup_snapshot(config, supervisor.generation), supervisor.root)
+            assert config.installation_identity is not None
+            handle = InstallationStateRegistry.system().open(
+                InstallationIdentity.parse(config.installation_identity))
+            recovery = ProductionLocalModelChatRecoveryController(
+                supervisor, adapter, ControlPlaneKernel(), handle)
         while not stopping.wait(cadence_seconds):
             supervisor.observe()
+            if recovery is not None:
+                recovery.process_pending()
     finally:
         supervisor.shutdown()
         for signum, handler in previous.items():

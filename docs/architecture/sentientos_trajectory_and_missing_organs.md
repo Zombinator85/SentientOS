@@ -522,3 +522,13 @@ The read-only host-resource observation runtime and the host privilege review / 
 - [Host Fulfillment Executor Contract Readiness Runtime](host_fulfillment_executor_contract_readiness_runtime.md) now closes the contract-readiness evidence loop after fulfillment-authorization consumption. It still leaves executor implementation, backend loading/invocation, dry-run execution, future execution admission, fulfillment grant, privileged-effect admission, and real host mutation as missing/deferred organs.
 
 - [Host Dry-Run Execution Runtime](host_dry_run_execution_runtime.md) closes the simulation-only runtime custody loop from exact executor-readiness evidence into the inert dry-run harness. It does not close real executor implementation, real backend invocation, real fulfillment, privileged-effect admission, audit closure, real rollback, or host actuation.
+
+### Bounded local-model chat recovery
+
+Explicit operator-approved recovery of one failed hardened-chat lifetime is implemented.
+It requires authenticated prior serving evidence, unchanged activation, and a globally
+fresh installation-scoped serving operation. Recovery obtains only `DAEMON_RESTART`;
+the child independently obtains `MODEL_SERVING`, readiness is semantic and
+inference-free, and later chat obtains `LOCAL_MODEL_INFERENCE` per generation.
+`restart_policy="never"` remains intentional: automatic/generic restart, hot switching,
+and one-click deployment remain missing/deferred organs.

@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b32ea7d770606bb4015d0ec747f2408fe9f09502",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_chat_recovery.py::test_approved_unchanged_activation_recovery_intent_is_deterministic_and_zero_inference", "rationale": "Proves exact deterministic intent binding and zero inference."},
+    {"node_id": "tests/test_local_model_chat_recovery.py::test_globally_fresh_replacement_operation_rejects_any_older_lifetime", "rationale": "Proves installation-global replacement identity freshness."},
+    {"node_id": "tests/test_local_model_chat_recovery.py::test_activation_race_guard_fails_before_model_serving_admission", "rationale": "Proves the child-side activation race guard fails before MODEL_SERVING or load."},
+    {"node_id": "tests/test_local_model_chat_recovery.py::test_exact_restart_preserves_fixed_custody_and_passes_activation_guard", "rationale": "Proves the bounded fixed launcher preserves custody and passes the exact guard."},
+    {"node_id": "tests/test_local_model_chat_recovery.py::test_daemon_restart_independent_admission_uses_real_control_plane_kernel", "rationale": "Proves independent exact DAEMON_RESTART admission through a real ControlPlaneKernel."},
+    {"node_id": "tests/test_local_model_chat_recovery_capability_admission.py::test_existing_serving_effects_and_restart_policy_remain_unchanged", "rationale": "Proves the serving authority and restart_policy=never boundary remain unchanged."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_chat_recovery.py::test_approved_unchanged_activation_recovery_intent_is_deterministic_and_zero_inference",
+    "tests/test_local_model_chat_recovery.py::test_exact_restart_preserves_fixed_custody_and_passes_activation_guard"
+  ]
+}

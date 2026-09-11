@@ -158,6 +158,7 @@ def _get_conversation_service() -> PersistentConversationService:
 
 
 def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
+                              expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
@@ -165,7 +166,10 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     handle = InstallationStateRegistry.system().open(identity)
     serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
     try:
-        serving.establish(operation_id=serving_operation_id)
+        establish_arguments = {"operation_id": serving_operation_id}
+        if expected_activation_state_digest is not None:
+            establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
+        serving.establish(**establish_arguments)
         inference = ProductionServingInferenceController(serving)
         data_root = sentientos_data_dir()
         service = PersistentConversationService(inference=inference,

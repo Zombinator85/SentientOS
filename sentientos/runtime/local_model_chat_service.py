@@ -18,6 +18,8 @@ from typing import Callable
 
 from sentientos.installation_state import InstallationIdentity
 from sentientos.local_model_production_serving import _operation_id
+from sentientos.local_model_production_serving import _semantic_digest
+from sentientos.local_runtime_provisioning import semantic_digest
 
 from .services import ChildProcessServiceAdapter, HealthResult
 from .supervisor import RuntimeServiceDescriptor, ServiceRegistry
@@ -65,14 +67,46 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         config.validate()
         assert config.enabled and config.installation_identity and config.serving_operation_id
         root = Path(__file__).resolve().parents[2]
-        argv = (sys.executable, str(root / "scripts" / "local_model_chat.py"),
-                "--installation-identity", config.installation_identity,
-                "--serving-operation-id", config.serving_operation_id,
-                "--host", config.host, "--port", str(config.port))
+        argv = self._launcher_argv(config, root=root)
+        self._config = config
+        self._root = root
         super().__init__(name=SERVICE_ID, argv=argv, cwd=root, environment=os.environ)
         self._readiness_url = f"http://{config.host}:{config.port}/readyz"
         self._probe = probe or _probe_readiness
         self._stopped = False
+
+    @staticmethod
+    def _launcher_argv(config: LocalModelChatStartup, *, root: Path,
+                       expected_activation_state_digest: str | None = None) -> tuple[str, ...]:
+        assert config.installation_identity is not None and config.serving_operation_id is not None
+        argv: tuple[str, ...] = (sys.executable, str(root / "scripts" / "local_model_chat.py"),
+                "--installation-identity", config.installation_identity,
+                "--serving-operation-id", config.serving_operation_id,
+                "--host", config.host, "--port", str(config.port))
+        if expected_activation_state_digest is not None:
+            argv += ("--expected-activation-state-digest", expected_activation_state_digest)
+        return argv
+
+    def _restart_with_fresh_serving_operation(
+        self, *, replacement_serving_operation_id: str,
+        expected_activation_state_digest: str,
+    ) -> None:
+        """Replace exactly this child's lifetime; never retries or changes custody."""
+        replacement = _operation_id(replacement_serving_operation_id)
+        expected = _semantic_digest(expected_activation_state_digest)
+        self.stop()
+        if self._process is not None and self._process.poll() is None:
+            self.force_stop()
+        self._config = LocalModelChatStartup(True, self._config.installation_identity,
+                                             replacement, self._config.host, self._config.port)
+        self._argv = self._launcher_argv(self._config, root=self._root,
+                                         expected_activation_state_digest=expected)
+        self._stopped = False
+        super().start()
+
+    @property
+    def startup_configuration(self) -> LocalModelChatStartup:
+        return self._config
 
     @property
     def identity(self) -> dict[str, str]:

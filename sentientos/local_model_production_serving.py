@@ -63,6 +63,13 @@ def _operation_id(value: str) -> str:
     return normalized
 
 
+def _semantic_digest(value: str) -> str:
+    if (not isinstance(value, str) or len(value) != 64
+            or any(character not in "0123456789abcdef" for character in value)):
+        raise ProductionServingError("activation_state_digest_invalid")
+    return value
+
+
 def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[str, Any]:
     try:
         verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=allow_synthetic)
@@ -170,9 +177,15 @@ class ProductionServingController:
         if self._session == expected:
             self._invalidate(reason)
 
-    def establish(self, *, operation_id: str) -> ServingSession:
+    def establish(self, *, operation_id: str,
+                  expected_activation_state_digest: str | None = None) -> ServingSession:
         operation_id = _operation_id(operation_id)
+        if expected_activation_state_digest is not None:
+            expected_activation_state_digest = _semantic_digest(expected_activation_state_digest)
         before = _verified(self._handle, self._allow_synthetic)
+        if (expected_activation_state_digest is not None
+                and before["active_state"].get("state_semantic_digest") != expected_activation_state_digest):
+            raise ProductionServingError("expected_activation_state_mismatch")
         existing = self.current_session()
         if existing is not None:
             return existing
