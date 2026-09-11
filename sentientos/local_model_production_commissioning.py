@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt
@@ -269,6 +269,20 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
 legacy_commission = commission
 
 
+def prepare_commissioning_intent(chain: Mapping[str, Any], *,
+        installation_handle: InstallationStateHandle, correlation_id: str) -> Mapping[str, Any]:
+    """Revalidate evidence and return its canonical intent without model effects."""
+    from .local_model_production_commissioning_authority import (
+        CommissioningAuthorityError, build_intent,
+    )
+    try:
+        fresh_chain = revalidate_chain(chain)
+        return cast(Mapping[str, Any], build_intent(
+            fresh_chain, installation_handle, correlation_id=correlation_id))
+    except CommissioningAuthorityError as exc:
+        raise ProductionCommissioningError(exc.code) from exc
+
+
 def commission_production(chain: Mapping[str, Any], *, installation_handle: InstallationStateHandle,
         approval_evidence: Mapping[str, Any], control_plane_kernel: ControlPlaneKernel,
         correlation_id: str, observation_time: datetime | None = None,
@@ -285,14 +299,15 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
     from .local_model_production_commissioning_authority import (
         ACTION, CAPABILITY, COMPATIBILITY_SCHEMA as HARDENED_COMPATIBILITY_SCHEMA,
         PLAN_SCHEMA as HARDENED_PLAN_SCHEMA, PRINCIPAL, RECEIPT_SCHEMA as HARDENED_RECEIPT_SCHEMA,
-        TARGET_SUBSYSTEM, CommissioningAuthorityError, build_intent, child_smoke_correlation,
+        TARGET_SUBSYSTEM, CommissioningAuthorityError, child_smoke_correlation,
         control_plane_metadata, current_proof, effect_set_digest, verify_external_approval,
         verify_hardened_receipt,
     )
     now = clock or (lambda: datetime.now(timezone.utc))
     try:
+        intent = prepare_commissioning_intent(chain, installation_handle=installation_handle,
+                                              correlation_id=correlation_id)
         fresh_chain = revalidate_chain(chain)
-        intent = build_intent(fresh_chain, installation_handle, correlation_id=correlation_id)
         approval = verify_external_approval(approval_evidence, intent, observation_time=observation_time or now(),
             allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
     except CommissioningAuthorityError as exc:
