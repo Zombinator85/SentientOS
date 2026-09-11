@@ -168,13 +168,14 @@ def test_exact_runtime_worker_identity_environment_protocol_and_shutdown(tmp_pat
     assert "NO_PROXY" in _environment()
 
 
-def test_invalid_configured_production_activation_fails_closed_serving(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_legacy_activation_environment_no_longer_configures_chat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     activation = tmp_path / "invalid.json"; activation.write_text("{}")
     monkeypatch.setenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION", str(activation))
     monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: (_ for _ in ()).throw(AssertionError("no fallback")))
     import importlib, sentientos.chat_service as chat
     chat = importlib.reload(chat)
-    with pytest.raises(ProductionCommissioningError): chat._get_model()
+    with pytest.raises(RuntimeError, match="chat_not_explicitly_configured"):
+        chat._get_conversation_service()
 
 
 def test_production_commission_activate_and_serve_governed_chat_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -93,7 +93,18 @@ the fourth is governed by `LOCAL_MODEL_INFERENCE`; neither `MODEL_SERVING` nor i
 grants generation. Establishment never infers and the bridge never silently reloads or
 retries.
 
-Production chat integration, boot integration and automatic loading, prompt assembly,
-providers, network access, tools, memory, actions, repository mutation, and performance
-tuning remain deferred. The serving-bound handoff is implemented only through separate
-inference admission; the session intentionally exposes no raw model or generation method.
+Explicit production chat composition is implemented. It parses an installation identity,
+opens only `InstallationStateRegistry.system()` custody, establishes one caller-named
+serving operation, and installs the opaque serving-backed inference bridge. Every chat
+turn retains its own conversation/turn correlation and independently admitted
+`LOCAL_MODEL_INFERENCE` request. Durable conversation identity binds stable activation,
+artifact, runtime, authority-map, and observed-model provenance while deliberately
+excluding serving operation and session identities. Activation change, worker death, or
+currentness failure invalidates the lifetime and fails chat closed; it never autoloads,
+selects simulation, or silently re-establishes serving.
+
+Echo/null use is available only through affirmative development/test composition.
+Canonical boot integration, automatic loading or recovery, one-click installation,
+providers, network access, tools, actions, repository mutation, and performance tuning
+remain deferred. The session and chat service expose no raw model, backend, worker, or
+generic production invoker.

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from sentientos.canonical_memory import CanonicalMemoryStore
-from sentientos.chat_service import PersistentConversationService
+from sentientos.chat_service import DevelopmentSimulationInference, PersistentConversationService
 from sentientos.conversation_session import ConversationSessionStore
 from sentientos.runtime.services import HealthResult, InProcessServiceAdapter
 from sentientos.runtime.supervisor import RuntimeServiceDescriptor, RuntimeSupervisor, ServiceRegistry
@@ -142,7 +142,7 @@ class ChatAdapter:
     @property
     def identity(self): return {"kind": "persistent_governed_chat", "model": "commissioned-synthetic"}
     def start(self):
-        invoker = Invoker(); self.invokers.append(invoker); self.app = PersistentConversationService(invoker=invoker,
+        invoker = Invoker(); self.invokers.append(invoker); self.app = PersistentConversationService(inference=DevelopmentSimulationInference(invoker),
             session_store=ConversationSessionStore(self.root / "conversations"), memory_store=CanonicalMemoryStore(self.root / "memory")); self.alive = True; self.starts += 1
     def health(self): return HealthResult(self.alive and self.app is not None, "chat_store_and_commissioned_invoker_ready" if self.alive else "chat_surface_failed")
     def stop(self): self.alive = False

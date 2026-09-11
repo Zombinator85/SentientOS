@@ -141,3 +141,20 @@ def test_authority_digest_mismatch_fails_before_generation(monkeypatch, tmp_path
     with pytest.raises(ProductionServingInferenceError, match="authority_map_digest_mismatch"):
         bridge._authority(ServingSession(session.session_id, MappingProxyType(binding)))
     assert model.calls == 0
+
+
+def test_stable_conversation_identity_excludes_serving_lifetime(monkeypatch, tmp_path):
+    bridge, _, session, _, _, _ = setup(monkeypatch, tmp_path)
+    identity = bridge.current_conversation_model_identity()
+    assert identity["activation_state_semantic_digest"] == session.binding["activation_state_semantic_digest"]
+    assert "serving_session_id" not in identity and "serving_operation_id" not in identity
+
+
+def test_caller_linkage_is_namespaced_and_cannot_override_serving_evidence(monkeypatch, tmp_path):
+    bridge, _, session, _, _, _ = setup(monkeypatch, tmp_path)
+    supplied = {"session_id": "conversation", "serving_session_id": "forged", "runtime_id": "forged"}
+    receipt = bridge.generate(prompt="hello", caller="chat", correlation_id="caller-linkage", caller_linkage=supplied)
+    linkage = receipt.request["linkage"]
+    assert linkage["serving_session_id"] == session.session_id
+    assert linkage["runtime_id"] == session.binding["runtime_id"]
+    assert linkage["caller_context"] == supplied

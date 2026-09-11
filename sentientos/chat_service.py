@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Mapping
+from typing import TYPE_CHECKING, Any, List, Mapping, Protocol
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -17,10 +16,12 @@ else:
 
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
-from .local_model import LocalModel
-from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import GovernedLocalModelInvoker
-from .local_model_authority import build_local_model_authority_map
+from .governed_local_model_invocation import LocalModelInvocationReceipt
+from .installation_state import InstallationIdentity, InstallationStateRegistry
+from .control_plane_kernel import ControlPlaneKernel
+from .local_model_production_serving import ProductionServingController
+from .local_model_serving_inference import ProductionServingInferenceController
 from .conversation_session import ConversationSessionStore, assemble_local_chat_context
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
@@ -28,10 +29,8 @@ from .governed_local_model_invocation import LocalModelInvocationBudget
 
 LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
-_MODEL: Any | None = None
-_INVOKER: GovernedLocalModelInvoker | None = None
-_SERVING_ACTIVATION: str | None = None
 _CONVERSATION_SERVICE: "PersistentConversationService | None" = None
+_PRODUCTION_COMPOSITION: "ProductionChatComposition | None" = None
 try:
     _CHANGE_NARRATOR: ChangeNarrator | None = build_default_change_narrator()
 except Exception:  # pragma: no cover - defensive initialization
@@ -41,49 +40,35 @@ except Exception:  # pragma: no cover - defensive initialization
 
 
 
-def _get_model() -> object:
-    global _MODEL, _SERVING_ACTIVATION
-    if _MODEL is None:
-        activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
-        if activation:
-            from .local_model_production_commissioning import load_activation
-            _MODEL, authority_map = load_activation(Path(activation))
-            setattr(_MODEL, "commissioned_authority_map", authority_map)
-            _SERVING_ACTIVATION = activation
-        else:
-            _MODEL = LocalModel.autoload()
-        LOGGER.info("Chat model loaded: %s", _MODEL.describe())
-    return _MODEL
+class ChatInference(Protocol):
+    def current_conversation_model_identity(self) -> Mapping[str, Any]: ...
+    def generate(self, *, prompt: str, caller: str, correlation_id: str,
+                 budget: LocalModelInvocationBudget,
+                 caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt: ...
 
 
-def _get_invoker() -> GovernedLocalModelInvoker:
-    global _INVOKER, _MODEL, _SERVING_ACTIVATION
-    if _INVOKER is None:
-        model = _get_model()
-        config = getattr(model, "config", None)
-        if not isinstance(config, ModelConfig):
-            config = ModelConfig(candidates=[ModelCandidate(path=None, engine="echo", name="Injected chat model")], generation=GenerationConfig())
-        activation = os.getenv("SENTIENTOS_LOCAL_MODEL_ACTIVATION")
-        if activation:
-            # _get_model is the single activation load/session boundary.  Reuse
-            # that exact worker rather than constructing the commissioned model twice.
-            if _SERVING_ACTIVATION != activation:
-                from .local_model_production_commissioning import load_activation
-                model, authority_map = load_activation(Path(activation))
-                _MODEL = model; _SERVING_ACTIVATION = activation
-            else:
-                authority_map = getattr(model, "commissioned_authority_map", None)
-                if authority_map is None:
-                    from .local_model_production_commissioning import load_activation
-                    replacement, authority_map = load_activation(Path(activation))
-                    close = getattr(model, "close", None)
-                    if close is not None: close()
-                    model = replacement; _MODEL = replacement
-            setattr(model, "commissioned_authority_map", authority_map)
-        else:
-            authority_map = build_local_model_authority_map(config)
-        _INVOKER = GovernedLocalModelInvoker(model=model, authority_map=authority_map)
-    return _INVOKER
+class DevelopmentSimulationInference:
+    """Affirmative test/development-only adapter; never selected by production."""
+    __slots__ = ("_delegate",)
+    def __init__(self, invoker: GovernedLocalModelInvoker) -> None:
+        self._delegate = invoker
+    def current_conversation_model_identity(self) -> Mapping[str, Any]:
+        identity = getattr(self._delegate.model, "active_identity", None)
+        return identity.to_dict() if identity is not None else {}
+    def generate(self, *, prompt: str, caller: str, correlation_id: str,
+                 budget: LocalModelInvocationBudget,
+                 caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
+        request = self._delegate.build_request(purpose="local_user_chat", prompt=prompt, caller=caller,
+            correlation_id=correlation_id, budget=budget, linkage=caller_linkage)
+        return self._delegate.invoke(request)
+
+
+class ProductionChatComposition:
+    __slots__ = ("service", "_serving")
+    def __init__(self, service: "PersistentConversationService", serving: ProductionServingController) -> None:
+        self.service, self._serving = service, serving
+    def close(self) -> None:
+        self._serving.close()
 
 class ChatRequest(BaseModel):
     message: str
@@ -105,17 +90,16 @@ class PersistentConversationService:
     A denied/failed invocation intentionally preserves the user turn as an
     unanswered turn and never manufactures an assistant turn.
     """
-    def __init__(self, *, invoker: GovernedLocalModelInvoker, session_store: ConversationSessionStore,
+    def __init__(self, *, inference: ChatInference, session_store: ConversationSessionStore,
                  memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None) -> None:
-        self.invoker = invoker; self.sessions = session_store; self.memories = memory_store
+        self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
         self.retention_writer = AdmittedRetentionWriter(memory_store)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False) -> ChatResponse:
-        identity = getattr(self.invoker.model, "active_identity", None)
-        identity_payload: Mapping[str, Any] = identity.to_dict() if identity is not None else {}
+        identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
         if session["model_identity_digest"] != __import__("hashlib").sha256(
             __import__("json").dumps(identity_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
@@ -130,12 +114,11 @@ class PersistentConversationService:
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
-        request = self.invoker.build_request(purpose="local_user_chat", prompt=prompt, caller="chat_service",
-                                             correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
-                                             budget=LocalModelInvocationBudget(max_input_chars=8000), linkage=linkage)
-        receipt = self.invoker.invoke(request)
+        receipt = self._inference.generate(prompt=prompt, caller="chat_service",
+            correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
+            budget=LocalModelInvocationBudget(max_input_chars=8000), caller_linkage=linkage)
         accepted_statuses = {"admitted_completed"}
-        if identity is None:  # compatibility for explicitly non-production echo/null fixtures
+        if isinstance(self._inference, DevelopmentSimulationInference):
             accepted_statuses.add("admitted_simulation")
         if receipt.status not in accepted_statuses or not receipt.output_text:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
@@ -167,13 +150,53 @@ class PersistentConversationService:
 
 
 def _get_conversation_service() -> PersistentConversationService:
-    global _CONVERSATION_SERVICE
     if _CONVERSATION_SERVICE is None:
+        raise RuntimeError("chat_not_explicitly_configured")
+    return _CONVERSATION_SERVICE
+
+
+def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
+                              control_plane_kernel: ControlPlaneKernel | None = None) -> None:
+    """Establish exactly one explicit hardened production serving lifetime."""
+    global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    identity = InstallationIdentity.parse(installation_identity)
+    handle = InstallationStateRegistry.system().open(identity)
+    serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
+    try:
+        serving.establish(operation_id=serving_operation_id)
+        inference = ProductionServingInferenceController(serving)
         data_root = sentientos_data_dir()
-        _CONVERSATION_SERVICE = PersistentConversationService(invoker=_get_invoker(),
+        service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(data_root / "conversations"),
             memory_store=CanonicalMemoryStore(data_root / "memory"))
-    return _CONVERSATION_SERVICE
+    except Exception:
+        serving.close()
+        raise
+    close_production_chat()
+    _CONVERSATION_SERVICE = service
+    _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving)
+
+
+def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
+                               data_root: Path | None = None) -> None:
+    """Explicitly install isolated echo/null/test inference."""
+    global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    close_production_chat()
+    root = data_root or sentientos_data_dir()
+    _CONVERSATION_SERVICE = PersistentConversationService(
+        inference=DevelopmentSimulationInference(invoker),
+        session_store=ConversationSessionStore(root / "conversations"),
+        memory_store=CanonicalMemoryStore(root / "memory"))
+    _PRODUCTION_COMPOSITION = None
+
+
+def close_production_chat() -> None:
+    global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    composition = _PRODUCTION_COMPOSITION
+    _PRODUCTION_COMPOSITION = None
+    _CONVERSATION_SERVICE = None
+    if composition is not None:
+        composition.close()
 
 
 class BootEvent(BaseModel):
@@ -185,6 +208,11 @@ class BootEvent(BaseModel):
 @APP.on_event("startup")
 async def _startup_event() -> None:
     LOGGER.info("Chat interface ready")
+
+
+@APP.on_event("shutdown")
+async def _shutdown_event() -> None:
+    close_production_chat()
 
 
 @APP.post("/chat", response_model=ChatResponse)
@@ -202,7 +230,8 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        LOGGER.warning("Production chat unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Local model inference unavailable") from exc
 
 
 @APP.get("/sessions")

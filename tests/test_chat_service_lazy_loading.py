@@ -8,90 +8,51 @@ from types import SimpleNamespace
 import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
-
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 
-def _reload_chat_service():
+def _reload():
     sys.modules.pop("sentientos.chat_service", None)
-    import sentientos.chat_service as chat_service
+    import sentientos.chat_service as module
+    return importlib.reload(module)
 
-    return importlib.reload(chat_service)
 
-
-def test_import_does_not_autoload_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
-
-    monkeypatch.setattr(
-        "sentientos.local_model.LocalModel.autoload",
-        lambda: calls.append("autoload") or SimpleNamespace(describe=lambda: "fake", generate=lambda _: "ok"),
-    )
-
-    chat_service = _reload_chat_service()
-
+def test_import_does_not_autoload_model(monkeypatch):
+    calls = []
+    monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: calls.append("autoload"))
+    chat = _reload()
     assert calls == []
-    assert chat_service._MODEL is None
+    assert chat._CONVERSATION_SERVICE is None
 
 
-def test_health_paths_do_not_load_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
-    monkeypatch.setattr(
-        "sentientos.local_model.LocalModel.autoload",
-        lambda: calls.append("autoload") or SimpleNamespace(describe=lambda: "fake", generate=lambda _: "ok"),
-    )
-    chat_service = _reload_chat_service()
-    client = TestClient(chat_service.APP)
-
-    root = client.get("/")
-    boot = client.get("/boot-feed")
-
-    assert root.status_code == 200
-    assert boot.status_code == 200
+def test_health_paths_do_not_load_model(monkeypatch):
+    calls = []
+    monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: calls.append("autoload"))
+    chat = _reload(); client = TestClient(chat.APP)
+    assert client.get("/").status_code == 200
+    assert client.get("/boot-feed").status_code == 200
     assert calls == []
 
 
-def test_first_chat_request_lazy_loads_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
-
-    class FakeModel:
-        def describe(self) -> str:
-            return "fake"
-
-        def generate(self, prompt: str) -> str:
-            return f"reply:{prompt}"
-
-    monkeypatch.setattr("sentientos.local_model.LocalModel.autoload", lambda: calls.append("autoload") or FakeModel())
-    chat_service = _reload_chat_service()
-    client = TestClient(chat_service.APP)
-
-    resp = client.post("/chat", json={"message": "hello"})
-
-    assert resp.status_code == 200
-    assert resp.json()["response"].startswith("reply:[SYSTEM_INSTRUCTION]")
-    assert resp.json()["response"].endswith("hello")
-    assert resp.json()["session_id"].startswith("session-")
-    assert calls == ["autoload"]
+class SimulationInvoker:
+    def __init__(self):
+        self.model = SimpleNamespace(active_identity=None)
+        self.calls = 0
+    def build_request(self, **kwargs):
+        return SimpleNamespace(request_id="simulation-request", **kwargs)
+    def invoke(self, request):
+        self.calls += 1
+        return SimpleNamespace(status="admitted_simulation", output_text="explicit simulation",
+            request={"request_id": request.request_id}, receipt_digest="simulation-receipt")
 
 
-def test_dependency_injection_model_without_autoload(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "sentientos.local_model.LocalModel.autoload",
-        lambda: (_ for _ in ()).throw(AssertionError("autoload should not be called")),
-    )
-    chat_service = _reload_chat_service()
-
-    class FakeModel:
-        def describe(self) -> str:
-            return "fake"
-
-        def generate(self, prompt: str) -> str:
-            return f"injected:{prompt}"
-
-    chat_service._MODEL = FakeModel()
-    client = TestClient(chat_service.APP)
-
-    resp = client.post("/chat", json={"message": "hello"})
-    assert resp.status_code == 200
-    assert resp.json()["response"].startswith("injected:[SYSTEM_INSTRUCTION]")
-    assert resp.json()["response"].endswith("hello")
+def test_model_work_requires_explicit_simulation_composition(tmp_path):
+    chat = _reload(); client = TestClient(chat.APP)
+    assert client.post("/chat", json={"message": "hello"}).status_code == 503
+    invoker = SimulationInvoker()
+    chat.configure_development_chat(invoker=invoker, data_root=tmp_path)
+    response = client.post("/chat", json={"message": "hello"})
+    assert response.status_code == 200
+    assert response.json()["response"] == "explicit simulation"
+    assert invoker.calls == 1
