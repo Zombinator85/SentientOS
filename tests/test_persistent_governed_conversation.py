@@ -8,7 +8,7 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 
-from sentientos.chat_service import PersistentConversationService
+from sentientos.chat_service import DevelopmentSimulationInference, PersistentConversationService
 from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetentionAdmissionGate,
     AdmittedRetentionWriter, CANDIDATE_TYPE, digest, sentientos_data_dir)
 from sentientos.conversation_session import (
@@ -40,7 +40,7 @@ class FakeInvoker:
 
 
 def service(root: Path, invoker: FakeInvoker | None = None) -> PersistentConversationService:
-    return PersistentConversationService(invoker=invoker or FakeInvoker(),
+    return PersistentConversationService(inference=DevelopmentSimulationInference(invoker or FakeInvoker()),
         session_store=ConversationSessionStore(root / "sessions"),
         memory_store=CanonicalMemoryStore(root / "memory"), context_budget_chars=400)
 

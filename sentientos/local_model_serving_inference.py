@@ -34,6 +34,22 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("production_serving_controller_required")
         self._serving = serving_controller
 
+    def current_conversation_model_identity(self) -> Mapping[str, Any]:
+        """Return stable activation/model provenance, never a worker-lifetime identity."""
+        session = self._serving.current_session()
+        if session is None:
+            raise ProductionServingInferenceError("current_serving_session_required")
+        binding = session.binding
+        return {
+            key: binding[key]
+            for key in (
+                "activation_state_semantic_digest", "activation_generation",
+                "activation_receipt_id", "activation_receipt_semantic_digest", "model_id",
+                "observed_loaded_model_identity", "artifact_id", "artifact_sha256",
+                "runtime_id", "authority_map_digest",
+            )
+        }
+
     @staticmethod
     def _authority(session: ServingSession) -> LocalModelAuthorityMap:
         binding = session.binding
@@ -53,7 +69,8 @@ class ProductionServingInferenceController:
         return authority
 
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
-                 budget: LocalModelInvocationBudget | None = None) -> LocalModelInvocationReceipt:
+                 budget: LocalModelInvocationBudget | None = None,
+                 caller_linkage: Mapping[str, Any] | None = None) -> LocalModelInvocationReceipt:
         session = self._serving.current_session()
         if session is None:
             raise ProductionServingInferenceError("current_serving_session_required")
@@ -80,6 +97,7 @@ class ProductionServingInferenceController:
             "artifact_id": binding["artifact_id"],
             "artifact_sha256": binding["artifact_sha256"],
             "runtime_id": binding["runtime_id"],
+            "caller_context": dict(caller_linkage or {}),
         }
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,

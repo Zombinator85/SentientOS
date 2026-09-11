@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2d860f910afcde5176d2a87449bd39dcdf34eb6a",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_chat_service_hardened_serving.py::test_explicit_hardened_production_chat_composition_uses_system_custody_and_operation", "rationale": "Explicit composition uses canonical custody and the supplied serving operation."},
+    {"node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage", "rationale": "Current serving and independent inference admission complete successfully."},
+    {"node_id": "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations", "rationale": "A second turn reuses composition while receiving a distinct inference identity."},
+    {"node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]", "rationale": "Production inference failure preserves the user turn without fallback output."},
+    {"node_id": "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_refuses_existing_but_allows_new", "rationale": "Activation provenance change refuses an existing conversation and permits a new binding."},
+    {"node_id": "tests/test_local_model_serving_inference.py::test_post_generation_stale_output_is_suppressed_and_effect_recorded", "rationale": "Post-effect stale output is truthfully suppressed."},
+    {"node_id": "tests/test_chat_service_lazy_loading.py::test_model_work_requires_explicit_simulation_composition", "rationale": "Development simulation is affirmative and isolated from unconfigured production."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_chat_service_hardened_serving.py::test_explicit_hardened_production_chat_composition_uses_system_custody_and_operation",
+    "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+    "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations",
+    "tests/test_chat_service_lazy_loading.py::test_model_work_requires_explicit_simulation_composition"
+  ]
+}
