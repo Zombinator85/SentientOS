@@ -114,3 +114,39 @@ activation boundary. Registry status remains `partial`: genuine real-world appro
 and commissioning events, activation authority, serving/boot lifecycle, maintenance
 E2E, and performance tuning remain deferred. Acquired is not commissioned;
 commissioned is not activated; a receipt is not unrestricted serving authority.
+
+## Zero-effect intent ceremony
+
+The canonical production CLI now exposes the exact hardened intent without accepting
+approval or performing commissioning:
+
+```console
+python scripts/local_model_commissioning.py intent \
+  --evidence-root <exact-production-evidence-root> \
+  --installation-identity <installation-id> \
+  --correlation-id <commissioning-correlation>
+```
+
+The operator ceremony is deliberately separated:
+
+1. Prepare the canonical commissioning intent from current production evidence and
+   authenticated `InstallationStateRegistry.system()` custody.
+2. Inspect and review that complete intent externally.
+3. Obtain genuine external approval evidence bound to that exact intent.
+4. Invoke `commission` with the same evidence root, installation identity, and
+   correlation ID, plus the external approval JSON.
+5. `commission` independently reconstructs current evidence and recomputes the intent;
+   it never trusts an intent returned by the caller.
+6. Any approval mismatch or stale catalog, acquisition, artifact, runtime,
+   installation, correlation, or contract evidence fails closed.
+
+Intent preparation is read-only. It performs no control-plane admission, compatibility
+construction, model construction or load, smoke inference, activation, serving
+establishment, active-state write, or commissioning-receipt write. It neither creates
+nor issues approval. Commissioning still grants neither activation nor serving, and its
+bounded smoke admission grants no future inference authority.
+
+The separately governed activation consumer and hardened serving/startup machinery are
+implemented capabilities; their existence does not widen commissioning authority.
+Genuine external approval issuance and the first genuine production commissioning event
+remain deferred, and registry maturity remains `partial`.

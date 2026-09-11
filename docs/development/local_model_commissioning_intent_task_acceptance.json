@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "210de0f77684155da3c32507b08a7fe7985c070f",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_commissioning_intent_cli.py::test_cli_intent_equals_canonical_build_intent_and_is_deterministic", "rationale": "Direct equality proves canonical schema, deterministic identity and digest, current catalog custody, and hardened acquisition/artifact/runtime/contract binding."},
+    {"node_id": "tests/test_local_model_commissioning_intent_cli.py::test_cli_intent_is_zero_effect_and_uses_no_effectful_commission_path", "rationale": "Intent emission cannot call commissioning or request control-plane admission and records no activation or serving authority."},
+    {"node_id": "tests/test_local_model_commissioning_intent_cli.py::test_cli_intent_evidence_failures_are_closed[stale]", "rationale": "Stale authoritative catalog evidence fails closed."},
+    {"node_id": "tests/test_local_model_commissioning_intent_cli.py::test_cli_intent_evidence_failures_are_closed[receipt]", "rationale": "Invalid hardened acquisition evidence fails closed."},
+    {"node_id": "tests/test_local_model_production_commissioning_authority.py::test_external_approval_fails_closed[subset]", "rationale": "Approval bindings reject intent/effect mismatch."},
+    {"node_id": "tests/test_local_model_commissioning_intent_cli.py::test_capability_truth_remains_partial_and_separates_downstream_authority", "rationale": "Registry proof preserves partial commissioning maturity while exposing the zero-effect surface and removing only stale downstream absence claims."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_commissioning_intent_cli.py::test_cli_intent_equals_canonical_build_intent_and_is_deterministic"
+  ]
+}

@@ -10,7 +10,7 @@ from sentientos.config import GenerationConfig
 from sentientos.local_model_commissioning import doctor, inspect_artifact, render_bundle, verify_bundle
 from sentientos.local_model_production_commissioning import (
     ProductionCommissioningError, activate, commission_production,
-    load_activation, reconstruct_chain,
+    load_activation, prepare_commissioning_intent, reconstruct_chain,
 )
 from sentientos.control_plane_kernel import get_control_plane_kernel
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
@@ -49,11 +49,13 @@ def main() -> int:
     activation = sub.add_parser("activate")
     activation.add_argument("--commissioning-receipt", type=Path, required=True)
     activation.add_argument("--activation-path", type=Path, required=True)
+    intent = sub.add_parser("intent")
     command = sub.add_parser("commission")
-    command.add_argument("--evidence-root", type=Path, required=True)
-    command.add_argument("--installation-identity", required=True)
+    for production_command in (intent, command):
+        production_command.add_argument("--evidence-root", type=Path, required=True)
+        production_command.add_argument("--installation-identity", required=True)
+        production_command.add_argument("--correlation-id", required=True)
     command.add_argument("--approval-json", type=Path, required=True)
-    command.add_argument("--correlation-id", required=True)
     status = sub.add_parser("status")
     status.add_argument("--activation-path", type=Path, required=True)
     args = parser.parse_args()
@@ -78,12 +80,16 @@ def main() -> int:
                 result = json.loads((args.state_root / "calibration-handoff.json").read_text())
         elif args.command == "activate":
             result = activate(json.loads(args.commissioning_receipt.read_text()), args.activation_path)
-        elif args.command == "commission":
+        elif args.command in {"intent", "commission"}:
             chain = _production_chain(args.evidence_root)
             handle = InstallationStateRegistry.system().open(InstallationIdentity.parse(args.installation_identity))
-            result = commission_production(chain, installation_handle=handle,
-                approval_evidence=json.loads(args.approval_json.read_text()),
-                control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id)
+            if args.command == "intent":
+                result = dict(prepare_commissioning_intent(
+                    chain, installation_handle=handle, correlation_id=args.correlation_id))
+            else:
+                result = commission_production(chain, installation_handle=handle,
+                    approval_evidence=json.loads(args.approval_json.read_text()),
+                    control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id)
         else:
             model, _ = load_activation(args.activation_path)
             try:
