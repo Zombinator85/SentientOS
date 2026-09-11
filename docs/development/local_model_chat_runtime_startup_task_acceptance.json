@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a861f3c243c5027ca90d86f0f6d0cbe80410dbe4",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_disabled_registration_has_zero_production_or_child_effects", "rationale": "Disabled canonical registration performs no enabled adapter or serving construction."},
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_enabled_adapter_constructs_only_exact_launcher_argv", "rationale": "Enabled custody constructs only the fixed hardened production launcher."},
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_semantic_health_distinguishes_current_unavailable_and_exit", "rationale": "Supervisor health differentiates semantic currentness from process liveness."},
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_readiness_is_coarse_and_does_not_establish_or_generate", "rationale": "Readiness is coarse, observation-only, and performs no establishment or generation."},
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_local_chat_never_restarts_while_other_on_failure_service_does", "rationale": "Chat never restarts automatically while existing on-failure behavior remains intact."},
+    {"node_id": "tests/test_local_model_chat_runtime_startup.py::test_runtime_loop_uses_one_supervisor_and_one_shutdown", "rationale": "Canonical lifecycle uses one supervisor and deterministic shutdown."},
+    {"node_id": "tests/test_local_model_production_serving.py::test_read_only_currentness_reports_activation_change_without_invalidation", "rationale": "Stale activation is non-ready without readiness-driven lifecycle mutation."},
+    {"node_id": "tests/test_local_model_production_serving.py::test_read_only_currentness_reports_dead_worker_without_invalidation", "rationale": "Dead exact-runtime worker is non-ready without automatic replacement."},
+    {"node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage", "rationale": "Every successful generation retains independent LOCAL_MODEL_INFERENCE admission."},
+    {"node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]", "rationale": "Stale output remains suppressed without assistant persistence or fallback."},
+    {"node_id": "tests/test_chat_service_lazy_loading.py::test_model_work_requires_explicit_simulation_composition", "rationale": "Development simulation stays affirmative and isolated."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_chat_runtime_startup.py::test_enabled_adapter_constructs_only_exact_launcher_argv",
+    "tests/test_local_model_chat_runtime_startup.py::test_runtime_loop_uses_one_supervisor_and_one_shutdown",
+    "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage"
+  ]
+}

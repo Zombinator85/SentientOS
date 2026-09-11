@@ -217,6 +217,16 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     verify_formal.add_argument("--json", action="store_true", help="render canonical JSON payload")
     verify_formal.add_argument("--spec", action="append", default=[], help="specific spec id (repeatable)")
 
+    runtime = domains.add_parser("runtime", help="explicit canonical runtime lifecycle")
+    runtime_sub = runtime.add_subparsers(dest="action", required=True)
+    runtime_start = runtime_sub.add_parser("start", help="start one operator-configured RuntimeSupervisor")
+    runtime_start.add_argument("--enable-local-model-chat", action="store_true")
+    runtime_start.add_argument("--installation-identity")
+    runtime_start.add_argument("--serving-operation-id")
+    runtime_start.add_argument("--local-model-chat-host", default="127.0.0.1")
+    runtime_start.add_argument("--local-model-chat-port", type=int, default=5000)
+    runtime_start.add_argument("--health-cadence-seconds", type=float, default=2.0)
+
     return parser
 
 
@@ -224,6 +234,20 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
     parser = build_parser(prog=prog)
     args, unknown = parser.parse_known_args(list(argv) if argv is not None else None)
     repo_root = _resolve_repo_root(getattr(args, "repo_root", None))
+
+    if args.domain == "runtime" and args.action == "start":
+        if unknown:
+            parser.error("unrecognized arguments: " + " ".join(unknown))
+        from sentientos.runtime.local_model_chat_service import LocalModelChatStartup
+        from sentientos.runtime.startup import run_canonical_runtime
+
+        config = LocalModelChatStartup(
+            enabled=bool(args.enable_local_model_chat),
+            installation_identity=args.installation_identity,
+            serving_operation_id=args.serving_operation_id,
+            host=str(args.local_model_chat_host), port=int(args.local_model_chat_port),
+        )
+        return run_canonical_runtime(config, cadence_seconds=float(args.health_cadence_seconds))
 
     if args.domain == "node" and args.action == "bootstrap":
         payload = run_bootstrap(repo_root, reason=str(args.reason), seed_minimal=bool(args.seed_minimal), allow_restore=not bool(args.no_restore))
