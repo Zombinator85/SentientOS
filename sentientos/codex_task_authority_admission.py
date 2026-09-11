@@ -19,6 +19,7 @@ LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
 LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
+LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 
 
 @dataclass(frozen=True)
@@ -241,6 +242,45 @@ AUTHORITY_DEFINITIONS = {
             "exact artifact and runtime identity",
             "activation-change invalidation",
             "separate local model inference",
+        ),
+    ),
+    LOCAL_MODEL_CHAT_RECOVERY: TaskAuthorityDefinition(
+        capability_id=LOCAL_MODEL_CHAT_RECOVERY,
+        subsystem_kinds=frozenset({"local_model_chat"}),
+        principal_kinds=frozenset(
+            {"deterministic_local_model_chat_recovery_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_operator_recovery_approval_evidence_read",
+                "exact_runtime_supervisor_local_model_chat_state_read",
+                "exact_prior_serving_lifetime_evidence_read",
+                "authenticated_current_hardened_activation_state_read",
+                "exact_local_model_chat_startup_configuration_read",
+                "exact_fresh_serving_operation_identity_read",
+                "bounded_exact_local_model_chat_child_restart",
+                "post_restart_semantic_readiness_observation",
+                "local_model_chat_recovery_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "automatic recovery", "automatic restart", "silent recovery",
+            "hot activation switching", "hot activation switch",
+            "changed activation recovery", "reuse serving operation",
+            "reuse operation id", "arbitrary executable", "arbitrary argv",
+            "arbitrary command", "arbitrary model path",
+            "arbitrary activation path", "arbitrary runtime",
+            "arbitrary state root", "simulation fallback", "provider invocation",
+            "network authority", "tool authority", "memory authority",
+            "action authority", "repository mutation", "perform inference",
+            "generation call", "self-grant", "self grant",
+        ),
+        required_goal_phrases=(
+            "explicit operator recovery approval",
+            "exact prior serving lifetime evidence",
+            "unchanged activation provenance",
+            "fresh serving operation identity",
+            "separate model serving and local model inference authority",
         ),
     ),
 }
