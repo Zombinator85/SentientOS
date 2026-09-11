@@ -1,84 +1,40 @@
 # Explicit local-model chat recovery authority
 
-## Status and motivation
+## Implemented bounded runtime
 
-`local_model_chat_recovery` is a metadata-only, eligibility-only task-authority
-contract for a future recovery implementation. It admits planning of one explicit,
-operator-approved recovery of a failed hardened production serving lifetime. It does
-not restart a process, load a model, establish serving, perform inference, issue an
-approval, or grant runtime authority. Effectful recovery remains deferred.
+`local_model_chat_recovery` now implements one explicit, externally approved recovery
+transaction for an eligible failed canonical hardened-chat lifetime. The operator first
+prepares a deterministic intent with `python -m sentientos.ops runtime
+local-model-chat-recovery-intent`, obtains approval outside SentientOS, and publishes an
+immutable request with `request-local-model-chat-recovery`. Publication performs no
+restart, model load, or inference. The enabled running runtime alone consumes requests.
 
-The contract preserves the operator's decision at the failure boundary. An eligible
-serving or process failure stays failed and visible: automatic supervisor restart
-remains disabled, and `local_model_chat` retains `restart_policy="never"`.
+The controller re-verifies, under an installation-scoped lock, the exact supervisor
+generation and failed state, runtime startup configuration, immutable prior serving
+receipt, approval validity, unchanged hardened activation provenance, and that the
+replacement serving-operation identity has never appeared in installation serving
+custody. Every terminal request gets one immutable receipt and is never retried.
 
-## Exact eligible lifecycle and preconditions
+## Mechanically separate authority
 
-The future controller may consider recovery only when all of the following facts can
-be bound and verified:
+Immediately before the sole lifecycle effect the controller independently requests
+existing `AuthorityClass.DAEMON_RESTART`, with `action_kind="restart_daemon"`, actor
+`deterministic_local_model_chat_recovery_controller`, and target `local_model_chat`.
+Only an exact `ALLOW` permits the fixed adapter to replace the process lifetime. The
+controller neither obtains nor pre-grants `MODEL_SERVING`.
 
-1. The canonical runtime explicitly enabled the `local_model_chat` service.
-2. The prior service lifetime began with authenticated installation identity, its
-   exact startup configuration, and an explicit `prior_serving_operation_id`.
-3. That exact lifetime is unhealthy due to an eligible serving/process failure.
-4. Automatic restart remains disabled.
-5. An operator explicitly requests recovery and supplies a non-placeholder,
-   non-wildcard `replacement_serving_operation_id`.
-6. One recovery intent binds the exact runtime/supervisor generation (or equivalent
-   runtime identity), exact service id `local_model_chat`, exact prior startup
-   configuration, exact prior serving lifetime evidence, exact expected activation
-   provenance, exact fresh serving-operation identity, and exact recovery correlation
-   identity.
-7. Genuine external operator approval evidence is bound to that exact intent.
-8. Authoritative current hardened activation provenance is unchanged from the
-   provenance bound to the prior lifetime and recovery intent.
-9. Both `prior_serving_operation_id` and `replacement_serving_operation_id` are bound,
-   and verification proves they differ.
+The replacement fixed launcher carries the approved fresh serving operation and exact
+expected activation-state digest into `ProductionServingController.establish`. The child
+independently obtains `MODEL_SERVING`; a changed activation fails before admission and
+model load. Success requires bounded `/readyz` semantic `serving_current`, not process
+liveness. Recovery performs zero inference and grants no `LOCAL_MODEL_INFERENCE`; every
+later chat generation independently obtains that authority.
 
-If activation provenance changed, recovery is not eligible. Switching or adopting
-the new activation requires a distinct explicit lifecycle action outside this
-capability. Recovery never provides hot activation switching.
+## Preserved boundaries
 
-## Authority separation
-
-After verifying every precondition, the future deterministic controller must request
-the existing `AuthorityClass.DAEMON_RESTART` with
-`action_kind="restart_daemon"` and exactly
-`target_subsystem="local_model_chat"`. Only an `ALLOW` decision can permit the bounded
-restart of that exact supervised child. The restart uses the already-fixed hardened
-launcher custody and the newly approved operation identity. This capability creates
-no new runtime `AuthorityClass` and does not alter `DAEMON_RESTART`.
-
-The replacement child then independently opens authenticated installation custody and
-calls the existing `ProductionServingController.establish(...)`. It must independently
-obtain `MODEL_SERVING`; neither eligibility, operator approval, nor `DAEMON_RESTART`
-grants serving. The existing serving controller remains authoritative for validation
-of the replacement operation identity. Recovery succeeds only after semantic
-serving-current readiness is observed.
-
-Recovery performs zero inference. `MODEL_SERVING` does not grant
-`LOCAL_MODEL_INFERENCE`, and each later generation must independently obtain
-`LOCAL_MODEL_INFERENCE`. The required chain is therefore:
-
-```text
-explicit operator recovery approval
-    -> DAEMON_RESTART
-    -> replacement child starts
-    -> independent MODEL_SERVING
-    -> semantic serving-current readiness
-
-each later generation -> independent LOCAL_MODEL_INFERENCE
-```
-
-## Failure and denial
-
-Missing, ambiguous, stale, mismatched, reused, placeholder, or wildcard evidence
-fails closed. A denied restart admission produces no restart. A replacement child
-that cannot obtain its own serving admission does not become ready. Readiness itself
-never grants recovery or inference authority, and no simulation or provider fallback
-may disguise failure.
-
-Automatic recovery, automatic restart, an effectful recovery controller, approval
-issuance, recovery-intent execution, child-restart execution, serving
-re-establishment, hot activation switching, and universal/one-click deployment are
-all deferred to separately governed work.
+`restart_policy="never"` remains intentional. Generic and automatic supervisor restart,
+automatic recovery, hidden retries, approval issuance, hot activation switching,
+recovery across changed activation, arbitrary process/model/path selection, platform
+service installation, and one-click deployment remain deferred. A failed child launch,
+serving establishment, or readiness observation is terminal and leaves the startup
+snapshot bound to the prior lifetime.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 from typing import Literal, Sequence, cast
@@ -226,6 +227,17 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     runtime_start.add_argument("--local-model-chat-host", default="127.0.0.1")
     runtime_start.add_argument("--local-model-chat-port", type=int, default=5000)
     runtime_start.add_argument("--health-cadence-seconds", type=float, default=2.0)
+    runtime_intent = runtime_sub.add_parser("local-model-chat-recovery-intent",
+        help="prepare a zero-effect exact hardened-chat recovery intent")
+    runtime_intent.add_argument("--installation-identity", required=True)
+    runtime_intent.add_argument("--replacement-serving-operation-id", required=True)
+    runtime_intent.add_argument("--correlation-id", required=True)
+    runtime_intent.add_argument("--json", action="store_true")
+    runtime_request = runtime_sub.add_parser("request-local-model-chat-recovery",
+        help="publish one externally approved immutable recovery request")
+    runtime_request.add_argument("--installation-identity", required=True)
+    runtime_request.add_argument("--approval-json", required=True)
+    runtime_request.add_argument("--json", action="store_true")
 
     return parser
 
@@ -234,6 +246,28 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
     parser = build_parser(prog=prog)
     args, unknown = parser.parse_known_args(list(argv) if argv is not None else None)
     repo_root = _resolve_repo_root(getattr(args, "repo_root", None))
+
+    if args.domain == "runtime" and args.action == "local-model-chat-recovery-intent":
+        if unknown:
+            parser.error("unrecognized arguments: " + " ".join(unknown))
+        from sentientos.runtime.local_model_chat_recovery import prepare_recovery_intent
+        payload = prepare_recovery_intent(installation_identity=str(args.installation_identity),
+            replacement_serving_operation_id=str(args.replacement_serving_operation_id),
+            recovery_correlation_id=str(args.correlation_id))
+        print(json.dumps(payload, sort_keys=True) if args.json else payload["intent_id"])
+        return 0
+
+    if args.domain == "runtime" and args.action == "request-local-model-chat-recovery":
+        if unknown:
+            parser.error("unrecognized arguments: " + " ".join(unknown))
+        from sentientos.runtime.local_model_chat_recovery import publish_recovery_request
+        try:
+            approval = json.loads(Path(args.approval_json).read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError) as exc:
+            parser.error("invalid approval JSON: " + str(exc))
+        payload = publish_recovery_request(installation_identity=str(args.installation_identity), approval=approval)
+        print(json.dumps(payload, sort_keys=True) if args.json else payload["request_id"])
+        return 0
 
     if args.domain == "runtime" and args.action == "start":
         if unknown:

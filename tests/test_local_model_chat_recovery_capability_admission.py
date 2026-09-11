@@ -98,17 +98,17 @@ def test_broader_or_effectful_recovery_scope_is_forbidden(phrase: str) -> None:
     assert "authority_goal_requests_forbidden_scope" in blockers(task_goal=f"{GOAL} Request {phrase}.")
 
 
-def test_registry_truth_is_partial_eligibility_only() -> None:
+def test_registry_truth_is_partial_bounded_in_process_runner() -> None:
     record = build_default_capability_registry().by_id()[LOCAL_MODEL_CHAT_RECOVERY]
     assert record.category == "local_model_chat"
     assert record.status == "partial"
-    assert record.authority_level == "eligibility_only"
+    assert record.authority_level == "bounded_in_process_runner"
     assert record.requires_operator_approval
     assert record.requires_control_plane_admission
     assert record.requires_audit_receipt
-    assert "unchanged-activation eligibility requirement" in record.implemented_surfaces
-    assert "fresh serving-operation identity requirement" in record.implemented_surfaces
-    assert "effectful recovery controller" in record.deferred_surfaces
+    assert "unchanged-activation verification" in record.implemented_surfaces
+    assert "globally fresh serving-operation verification" in record.implemented_surfaces
+    assert "automatic recovery" in record.deferred_surfaces
 
 
 def test_no_recovery_runtime_authority_or_effectful_method_is_introduced() -> None:

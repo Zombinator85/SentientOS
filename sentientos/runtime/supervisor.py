@@ -213,6 +213,16 @@ class RuntimeSupervisor:
                 if self.registry.descriptors[service_id].enabled and self._states[service_id] not in {"failed", "disabled", "panic_stopped"}:
                     self._observe(service_id)
 
+    def _observe_explicit_recovery(self, service_id: str) -> str:
+        """Observe one externally admitted recovery without invoking auto-restart."""
+        with self._lock:
+            if self.panic_latched:
+                raise RuntimeError("panic_latched")
+            if service_id not in self.registry.descriptors:
+                raise ValueError("unknown_service")
+            self._observe(service_id, restart_on_failure=False)
+            return self._states[service_id]
+
     def _restart(self, service_id: str) -> None:
         d = self.registry.descriptors[service_id]
         if self.panic_latched or d.restart_policy != "on_failure" or service_id in self._exhausted: return
