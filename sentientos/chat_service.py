@@ -69,6 +69,8 @@ class ProductionChatComposition:
         self.service, self._serving = service, serving
     def close(self) -> None:
         self._serving.close()
+    def ready(self) -> bool:
+        return self._serving.serving_is_current()
 
 class ChatRequest(BaseModel):
     message: str
@@ -199,6 +201,12 @@ def close_production_chat() -> None:
         composition.close()
 
 
+def production_chat_ready() -> bool:
+    """Return coarse read-only readiness; never establish or invoke a model."""
+    composition = _PRODUCTION_COMPOSITION
+    return composition is not None and composition.ready()
+
+
 class BootEvent(BaseModel):
     timestamp: str
     message: str
@@ -232,6 +240,14 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
     except RuntimeError as exc:
         LOGGER.warning("Production chat unavailable: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Local model inference unavailable") from exc
+
+
+@APP.get("/readyz")
+async def readiness_endpoint() -> dict[str, str]:
+    """Expose no serving identity: only coarse current/unavailable state."""
+    if not production_chat_ready():
+        raise HTTPException(status_code=503, detail="unavailable")
+    return {"status": "ready"}
 
 
 @APP.get("/sessions")

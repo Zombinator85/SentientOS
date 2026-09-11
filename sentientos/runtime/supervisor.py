@@ -24,6 +24,7 @@ from .services import HealthResult, ServiceAdapter
 SCHEMA = "sentientos.runtime_service:v1"
 STATES = frozenset({"registered", "starting", "healthy", "degraded", "unhealthy", "restarting",
                     "stopped", "failed", "disabled", "panic_stopped"})
+RESTART_POLICIES = frozenset({"on_failure", "never"})
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class RuntimeServiceDescriptor:
         if not self.service_id or self.schema != SCHEMA: raise ValueError("invalid_service_descriptor")
         if min(self.startup_timeout, self.health_timeout, self.shutdown_timeout) <= 0: raise ValueError("timeouts_must_be_positive")
         if self.restart_budget < 0 or self.min_backoff < 0 or self.max_backoff < self.min_backoff: raise ValueError("invalid_restart_policy")
+        if self.restart_policy not in RESTART_POLICIES: raise ValueError("invalid_restart_policy")
 
 
 class ServiceRegistry:

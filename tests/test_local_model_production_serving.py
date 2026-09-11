@@ -114,6 +114,25 @@ def test_dead_worker_is_not_current(monkeypatch, handle):
     assert ctl.current_session() is None and model.closed
 
 
+def test_read_only_currentness_reports_activation_change_without_invalidation(monkeypatch, handle):
+    model = Model(identity()); one, two = evidence(1), evidence(2)
+    ctl = controller(monkeypatch, handle, [one, one, two], factory=lambda c, l: model)
+    ctl.establish(operation_id="serve-operation-1")
+    assert ctl.serving_is_current() is False
+    assert model.closed is False
+    assert not (handle.root / "local-model" / "serving" / "invalidations").exists()
+
+
+def test_read_only_currentness_reports_dead_worker_without_invalidation(monkeypatch, handle):
+    model = Model(identity()); current = evidence()
+    ctl = controller(monkeypatch, handle, [current, current, current], factory=lambda c, l: model)
+    ctl.establish(operation_id="serve-operation-1")
+    model._process = SimpleNamespace(poll=lambda: 7)
+    assert ctl.serving_is_current() is False
+    assert model.closed is False
+    assert not (handle.root / "local-model" / "serving" / "invalidations").exists()
+
+
 def test_constructor_has_no_path_runtime_or_preloaded_model_parameters():
     import inspect
     parameters = inspect.signature(ProductionServingController).parameters

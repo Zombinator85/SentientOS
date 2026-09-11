@@ -104,7 +104,25 @@ currentness failure invalidates the lifetime and fails chat closed; it never aut
 selects simulation, or silently re-establishes serving.
 
 Echo/null use is available only through affirmative development/test composition.
-Canonical boot integration, automatic loading or recovery, one-click installation,
-providers, network access, tools, actions, repository mutation, and performance tuning
-remain deferred. The session and chat service expose no raw model, backend, worker, or
-generic production invoker.
+
+## Canonical runtime startup boundary
+
+Hardened production chat is now an explicitly enabled `local_model_chat` service in the
+canonical `RuntimeSupervisor`. The operator supplies authenticated installation identity
+and a distinct serving-operation identity for that invocation; the runtime constructs the
+fixed production launcher itself. A coarse loopback readiness probe observes, without
+generation or invalidation, that composition exists, activation still matches, and the
+exact runtime worker remains alive. Deterministic supervisor shutdown terminates the child
+and lets the existing chat shutdown hook close its controller.
+
+The historical `runtime.model_path` and `runtime.llama_server_path` bootstrap settings are
+compatibility/demo configuration only. They are not hardened activation, runtime, enabling,
+or fallback inputs and canonical production chat never inspects or forwards them.
+
+This integration is not universal deployment. Automatic serving recovery or
+re-establishment, hot activation switching, one-click installation/launch, platform
+launcher integration, OS daemon/service installation, arbitrary service restart authority,
+model auto-discovery/fallback, providers, adjacent tools/actions, repository mutation, and
+performance tuning remain deferred. Failed process or semantic readiness uses the explicit
+`never` restart policy and requires a later operator launch with a fresh operation id. The
+session and chat service expose no raw model, backend, worker, or generic production invoker.
