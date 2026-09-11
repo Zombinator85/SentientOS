@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "03ec62bb1bd94a556f9a3f405c52b770a8736dd6",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_model_chat_recovery_capability_admission.py::test_exact_recovery_authority_eligibility_is_admitted_without_effect", "rationale": "Exact principal, subsystem, duplicate-free effects, and canonical affirmative goal admit eligibility."},
+    {"node_id": "tests/test_local_model_chat_recovery_capability_admission.py::test_each_affirmative_recovery_precondition_is_required[unchanged activation provenance]", "rationale": "Unchanged activation provenance is mechanically mandatory."},
+    {"node_id": "tests/test_local_model_chat_recovery_capability_admission.py::test_each_affirmative_recovery_precondition_is_required[fresh serving operation identity]", "rationale": "A fresh serving-operation identity is mechanically mandatory."},
+    {"node_id": "tests/test_local_model_chat_recovery_capability_admission.py::test_registry_truth_is_partial_eligibility_only", "rationale": "Capability truth remains partial and eligibility-only."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_chat_recovery_capability_admission.py::test_exact_recovery_authority_eligibility_is_admitted_without_effect",
+    "tests/test_local_model_chat_recovery_capability_admission.py::test_registry_truth_is_partial_eligibility_only"
+  ]
+}
