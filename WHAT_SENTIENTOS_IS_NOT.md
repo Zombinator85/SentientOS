@@ -56,5 +56,11 @@ self-improvement.
 
 Current source installation requires prerequisites and configuration. Hardened
 production activation records authoritative selection only; it does not itself
-load, serve, or infer. The consumer boundary into current serving remains
-near-term work, and `LOCAL_MODEL_INFERENCE` remains a separate authority.
+load, serve, or infer. A separately governed consumer now authenticates that
+selection for bounded loading and serving, while `LOCAL_MODEL_INFERENCE` remains
+independently admitted for each generation. Explicit unchanged-activation chat
+recovery is not automatic or generic recovery.
+
+Governed offline local repository absorption is not unrestricted self-modification,
+does not install or supply a scheduler, and does not restart or adopt code into a
+running SentientOS process.

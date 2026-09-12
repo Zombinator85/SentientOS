@@ -123,15 +123,37 @@ SentientOS contains memory/context and reflection-style surfaces, but with bound
 
 Memory/context selection improves retrieval quality; it is not treated as truth authority by itself.
 
-## GenesisForge/Codex self-amendment loop (governed)
+## Governed maintenance and historical self-amendment surfaces
 
-Self-amendment/proposal workflows are represented as governed proposal and review components (for example, status/reporting and review/quarantine paths). Review targets include:
-- `scripts/forge_status.py`
-- `scripts/work_plan_build.py`
-- `scripts/work_plan_run.py`
-- tests covering amendment interception/quarantine behavior (`tests/test_amendment_sentinel.py`, `tests/test_codex_anomalies.py`, `tests/test_codex_rewrites.py`)
+Historical `GenesisForge`, forge queue, `SpecAmender`, and Codex repair components
+remain useful proposal, review, quarantine, and compatibility surfaces. They do not
+constitute the canonical current landing path, and proposal generation, simulation,
+repair evidence, or a repository-mutation handoff is not adoption authority.
 
-Interpretation boundary: proposal generation, simulation, or repair evidence is not equivalent to local adoption authority.
+The current bounded maintenance chain is explicit and separable:
+
+1. candidate intake/selection and operator-authorized task admission;
+2. a scoped task authority lease;
+3. bounded local implementation through an admitted foreman/agent backend;
+4. independent validation, measurement, and same-thread correction;
+5. deterministic construction and custody of the exact validated commit object;
+6. a separately configured landing mode: remote fast-forward, pull request, or
+   offline `local_fast_forward_base_ref` absorption; and
+7. watchdog observation, recovery, one-transition dispatch, and closure.
+
+Local absorption requires separate `repository_commit` and
+`local_repository_base_advance` authority, performs no network publication, and
+advances only the exact configured canonical local ref. The watchdog is external
+bounded developer-workflow machinery, not a scheduler and not a `sentientosd`
+service. Candidate collection, external scheduler invocation, hosted publication,
+and runtime restart/adoption remain separate.
+
+Reviewer entry points include `docs/development/maintenance_task_authority_lease.md`,
+`docs/development/maintenance_local_codex_foreman.md`,
+`docs/development/maintenance_validation_controller.md`,
+`docs/development/maintenance_commit_publication.md`,
+`docs/development/maintenance_loop_watchdog.md`, and
+`docs/development/maintenance_activation_profiles.md`.
 
 ## Embodiment boundaries
 
@@ -158,26 +180,45 @@ Current runway terms are best interpreted as custody metadata stages:
 
 These artifacts are **not** transport execution, **not** transport/sync by receipt alone, **not** adoption, **not** merge/apply/install, **not** forced update, **not** provider invocation, **not** prompt assembly, and **not** runtime authority by themselves.
 
-## Model/runtime loading posture
+## Model/runtime custody and loading posture
 
-The model supply chain now has bounded sovereign catalog publication/deployment,
-artifact acquisition, hardened production commissioning, and hardened
-production activation controllers. Their stages remain deliberately distinct:
-publication is not deployment; acquisition is not commissioning; commissioning
-is not activation; activation is not loading/serving; and loading/serving is not
+The model supply chain has bounded catalog publication/deployment, artifact acquisition,
+production commissioning, activation, serving, inference, chat, runtime composition, and
+explicit recovery organs. Every transition preserves independent authority:
+publication is not deployment; acquisition is not commissioning; commissioning is not
+activation; activation is not loading/serving; and loading/serving is not
 `LOCAL_MODEL_INFERENCE` authority.
 
-Most importantly, hardened production activation publishes authoritative
-selection state only. It records `model_loaded=false`, `serving_started=false`,
-and `inference_performed=false`. The separately governed consumer that turns
-that hardened state into a loaded serving model remains to be built. Current
-`chat_service` instead loads from the older
-`SENTIENTOS_LOCAL_MODEL_ACTIVATION` commissioning-bundle path when explicitly
-configured, or uses legacy autoload, and then invokes through the governed local
-model boundary. These two activation generations must not be conflated.
+Commissioning can prepare deterministic zero-effect intent for external approval and,
+when separately approved and admitted, revalidate authoritative custody, perform a
+bounded exact load plus separately governed smoke inference, and issue authenticated
+commissioning custody. Activation separately consumes approval and `MODEL_ACTIVATION`
+admission to publish authoritative selection state. Activation itself continues to
+record no load, serving, or inference effect.
 
-Local transformer loading defaults `trust_remote_code` to false and requires
-explicit opt-in where remote model code execution is intended.
+The production serving consumer authenticates current activation custody, obtains
+independent `MODEL_SERVING` admission, revalidates activation before and after the exact
+load, and binds an opaque serving session whose currentness is checked at inference.
+Each generation requires independent `LOCAL_MODEL_INFERENCE` admission. Explicit
+production chat composition persists stable activation/model provenance across shorter
+serving lifetimes. Affirmative operator enablement registers the service with the
+canonical `RuntimeSupervisor`, whose readiness is semantic (`serving_current`) and whose
+shutdown is deterministic.
+
+Explicit recovery is narrower than automatic restart: an externally approved request
+and independent `DAEMON_RESTART` admission may replace one failed hardened-chat child
+only when its activation is unchanged and the new serving operation is globally fresh.
+Recovery performs zero inference and grants neither serving nor inference authority;
+the restarted child must obtain its own authorities. Automatic/generic recovery, hot
+activation switching, platform service installation, and one-click deployment remain
+deferred. Legacy direct model-path/autoload paths are compatibility/development surfaces,
+not the hardened production authority chain.
+
+Local transformer loading defaults `trust_remote_code` to false and requires explicit
+opt-in where remote model code execution is intended. Capability records still defer
+first genuine real-world commissioning and activation approval events, so implemented
+mechanisms must not be presented as proof that those ceremonies or universal deployment
+have occurred.
 
 ## Installer and test-runner reliability posture
 
@@ -218,7 +259,14 @@ For broader internal language mapping, see `docs/PUBLIC_LANGUAGE_BRIDGE.md`.
 The current reviewer proof path is summarized in `docs/architecture/reviewer_release_readiness_index.md` and covers these repaired areas:
 - Control-plane admission, runtime closure, maintenance admission gating, and degradation boundaries.
 - Federation trust ledger startup recovery, event replay fallback, and probe prioritization ordering.
-- Chat/model lazy loading and local transformer `trust_remote_code` safe default behavior.
+- Production commissioning/activation custody, authenticated serving, independently
+  admitted inference, hardened chat composition, runtime lifecycle, and explicit
+  unchanged-activation recovery.
+- Bounded maintenance leases, implementation, validation/correction, deterministic
+  commit/landing custody, offline local absorption, watchdog closure, and activation
+  profiles.
+- Legacy chat/model lazy loading and local transformer `trust_remote_code` safe default
+  behavior as supplementary compatibility proof.
 - Integration pytest marker compatibility and minimal test-airlock bootstrap custody.
 - Federated improvement custody runway receipts and lineage/dissemination metadata.
 
@@ -234,7 +282,13 @@ python -m scripts.run_tests -q tests/test_sentientosd_runtime_closure.py
 # Federation trust ledger recovery and probe ordering
 python -m scripts.run_tests -q tests/test_trust_ledger.py sentientos/tests/test_trust_ledger_recovery.py
 
-# Chat/model runtime loading and local model safety
+# Hardened production model/runtime and explicit recovery
+python -m scripts.run_tests -q tests/test_local_model_production_commissioning.py tests/test_local_model_production_commissioning_authority.py tests/test_local_model_production_commissioning_capability_admission.py tests/test_local_model_production_activation.py tests/test_local_model_production_activation_capability_admission.py tests/test_local_model_production_serving.py tests/test_local_model_serving_inference.py tests/test_chat_service_hardened_serving.py tests/test_local_model_chat_runtime_startup.py tests/test_local_model_chat_recovery.py tests/test_local_model_chat_recovery_capability_admission.py
+
+# Current bounded maintenance chain and local absorption
+python -m scripts.run_tests -q tests/test_maintenance_task_lease.py tests/test_maintenance_local_codex_foreman.py tests/test_maintenance_validation_execution.py tests/test_maintenance_corrective_continuation.py tests/test_maintenance_commit_execution.py tests/test_maintenance_commit_publication_recovery.py tests/test_maintenance_offline_absorption.py tests/test_maintenance_watchdog_closed_loop.py tests/test_maintenance_watchdog_publication.py tests/test_maintenance_activation_profiles.py
+
+# Supplementary legacy chat/model loading safety
 python -m scripts.run_tests -q tests/test_chat_service_lazy_loading.py tests/test_local_model.py tests/integration/test_chat_mistral_runtime.py
 
 # Test-runner bootstrap and integration marker compatibility
