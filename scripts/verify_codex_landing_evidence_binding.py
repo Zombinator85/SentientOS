@@ -1,7 +1,7 @@
 from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
-from sentientos.codex_landing_evidence_binding import ACTUATOR_EXACT_COMPATIBLE, classify_publication_result, create_body_binding, create_hosted_pr_publication_custody, create_pr_publication_handoff, create_publication_actuator_compatibility, verify_body_binding, verify_hosted_pr_publication_custody, verify_pr_publication_handoff, verify_publication_actuator_compatibility
+from sentientos.codex_landing_evidence_binding import ACTUATOR_EXACT_COMPATIBLE, HOSTED_PUBLICATION_EXACT, classify_publication_result, create_body_binding, create_hosted_pr_publication_custody, create_pr_publication_handoff, create_publication_actuator_compatibility, verify_body_binding, verify_hosted_pr_publication_custody, verify_pr_publication_handoff, verify_publication_actuator_compatibility
 
 from typing import Any
 
@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
             if output.exists() and output.read_bytes()!=rendered_bytes: raise ValueError('hosted_publication_custody_output_collision')
             if not output.exists(): output.parent.mkdir(parents=True,exist_ok=True); output.write_bytes(rendered_bytes)
             print(json.dumps({'status':custody['status'],'custody_sha256':custody['custody_sha256'],'exact_publication_custody':custody['exact_publication_custody']},indent=2,sort_keys=True)); return 0
-        res=verify_hosted_pr_publication_custody(load(a.custody_json),**kwargs); print(json.dumps(res.to_dict(),indent=2,sort_keys=True)); return 0 if res.status!='hosted_publication_mismatch' else 1
+        res=verify_hosted_pr_publication_custody(load(a.custody_json),**kwargs); print(json.dumps(res.to_dict(),indent=2,sort_keys=True)); return 0 if res.status==HOSTED_PUBLICATION_EXACT else 1
     if a.cmd in ('seal-actuator-compatibility', 'verify-actuator-compatibility'):
         inputs={'repository':a.repository,'intended_base_ref':a.intended_base_ref,'body_path':a.body_path,'body_binding_path':a.body_binding_json,'pre_commit_finalizer_path':a.pre_commit_finalizer_json,'pr_metadata_finalizer_path':a.pr_metadata_finalizer_json,'pr_metadata_guard_path':a.pr_metadata_guard_json}
         kwargs={'handoff':load(a.handoff_json),'actuator_evidence_path':a.actuator_evidence_json,**inputs}

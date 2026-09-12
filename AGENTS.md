@@ -22,8 +22,9 @@ The Cathedral blessing, agent taxonomy and ledger, presence and privilege contra
 3. Implement a complete bounded task. Required validation failures are task-owned until proven otherwise; repair task-caused fallout in this workspace.
 4. Run repository-native focused tests with `python -m scripts.run_tests`, targeted mypy, the relevant matrix, docs/prompt checks when applicable, strict audits, and immutability verification. Focused tests or aggregate counts alone are not behavioral proof.
 5. Run the two-phase landing finalizer in the same implementation task. Pre-commit must return `ready_to_commit`; `unknown_dirty_tree` and `manual_review_required` block commit. Commit once. Post-commit must return `ready_for_pr_metadata`.
-6. Require `pr_metadata_guard_ready`, generate the PR body from canonical artifacts, require `pr_body_binding_ready` for the exact bytes, recheck clean tree/current HEAD, then call `make_pr` once. A payload echo is unverified publication.
-7. Never final-report partial sealing while feasible task-owned repair remains. If no repository change was made, do not commit or call `make_pr`.
+6. Require `pr_metadata_guard_ready`, generate the PR body from canonical artifacts, require `pr_body_binding_ready`, and seal `pr_publication_handoff_ready` for the exact bytes before the one external `make_pr` call. This is only `ready_for_external_pr_publication`; a payload echo is unverified publication.
+7. After external publication, only an independently supplied observation that verifies as `hosted_publication_custody_verified_exact` closes hosted publication custody. A rewritten head is a custody break even when its tree is equal; missing observation remains unverified and must not block truthful pre-publication readiness.
+8. Never final-report partial sealing while feasible task-owned repair remains. If no repository change was made, do not commit or call `make_pr`.
 
 The policy source is [`docs/development/codex_validation_and_landing_contract.md`](docs/development/codex_validation_and_landing_contract.md). The executable commands and finalizer statuses are canonical in [`docs/development/codex_finalize_landing.md`](docs/development/codex_finalize_landing.md). Do not copy their full ritual into templates, roadmaps, or prompts.
 

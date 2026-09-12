@@ -8,7 +8,7 @@ import pytest
 from sentientos.codex_task_lifecycle_summary import (
     BLOCKED,
     GUARD_NOT_PROVIDED,
-    READY,
+    READY_FOR_PUBLICATION_HANDOFF,
     CodexTaskLifecycleSummaryError,
     CodexTaskLifecycleSummaryRequest,
     build_task_lifecycle_summary,
@@ -41,14 +41,14 @@ def _request(tmp_path: Path, pre: dict[str, object], pr: dict[str, object], guar
 
 def test_ready_lifecycle_summary_with_ready_guard(tmp_path: Path) -> None:
     summary = build_task_lifecycle_summary(_request(tmp_path, _finalizer("ready_to_commit"), _finalizer("ready_for_pr_metadata"), {"status": "pr_metadata_guard_ready"}))
-    assert summary["overall_lifecycle_status"] == READY
+    assert summary["overall_lifecycle_status"] == READY_FOR_PUBLICATION_HANDOFF
     assert summary["pr_metadata_guard_status"] == "pr_metadata_guard_ready"
     assert summary["rerun_required"] is False
 
 
 def test_ready_lifecycle_summary_without_guard(tmp_path: Path) -> None:
     summary = build_task_lifecycle_summary(_request(tmp_path, _finalizer("ready_to_commit"), _finalizer("ready_for_pr_metadata")))
-    assert summary["overall_lifecycle_status"] == READY
+    assert summary["overall_lifecycle_status"] == READY_FOR_PUBLICATION_HANDOFF
     assert summary["pr_metadata_guard_status"] == GUARD_NOT_PROVIDED
 
 

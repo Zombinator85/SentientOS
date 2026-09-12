@@ -36,4 +36,4 @@ No authority widening, no runtime boundary expansion.
 The localized failure is reproduced, fixed, and proven by focused tests with no unintended scope expansion. It does not supersede whole-system requirements unless the repair is explicitly scoped as narrow by the user or justified as pre-existing/external/environmental fallout.
 
 ## Commit/report rule
-Do not fabricate a commit if no code or docs changes are required.
+Do not fabricate a commit if no code or docs changes are required. Distinguish local commit, PR metadata readiness, exact publication-handoff readiness, external publication, and independent exact hosted custody. A handoff-only report must say hosted publication is not yet observed, not that the repair is exactly hosted or landed.

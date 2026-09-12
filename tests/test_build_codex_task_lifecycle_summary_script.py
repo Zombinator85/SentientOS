@@ -5,6 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def _write(path: Path, payload: dict[str, object]) -> str:
     path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
@@ -40,8 +44,10 @@ def test_cli_writes_deterministic_json_and_prints_summary(tmp_path: Path) -> Non
     second = subprocess.run(cmd, check=True, text=True, capture_output=True)
     assert out.read_text(encoding="utf-8") == first_payload
     summary = json.loads(first_payload)
-    assert summary["overall_lifecycle_status"] == "codex_lifecycle_ready"
-    assert "codex_lifecycle_ready" in first.stdout
+    assert summary["overall_lifecycle_status"] == "ready_for_pr_publication_handoff"
+    assert summary["hosted_publication_custody_status"] == "hosted_publication_not_observed"
+    assert summary["exact_hosted_publication_custody"] is False
+    assert "ready_for_pr_publication_handoff" in first.stdout
     assert second.returncode == 0
 
 
@@ -74,3 +80,23 @@ def test_cli_invalid_json_returns_clean_error(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "codex_task_lifecycle_summary_error" in result.stderr
     assert not out.exists()
+
+
+def test_lifecycle_requires_exact_hosted_custody_for_terminal_closure(tmp_path: Path) -> None:
+    pre = _write(tmp_path / "pre.json", {"decision": {"status": "ready_to_commit"}})
+    post = _write(tmp_path / "post.json", {"decision": {"status": "ready_for_pr_metadata"}})
+    guard = _write(tmp_path / "guard.json", {"status": "pr_metadata_guard_ready"})
+    handoff = _write(tmp_path / "handoff.json", {"status": "pr_publication_handoff_ready"})
+    out = tmp_path / "summary.json"
+    base = [sys.executable, "scripts/build_codex_task_lifecycle_summary.py", "--title", "title", "--intended-commit-title", "title", "--pre-commit-finalizer-json", pre, "--pr-metadata-finalizer-json", post, "--matrix-json-path", "/tmp/matrix.json", "--pr-metadata-guard-json", guard, "--publication-handoff-json", handoff, "--output", str(out)]
+
+    subprocess.run(base, check=True)
+    summary = json.loads(out.read_text())
+    assert summary["overall_lifecycle_status"] == "ready_for_external_pr_publication"
+    assert summary["exact_hosted_publication_custody"] is False
+
+    custody = _write(tmp_path / "custody.json", {"status": "hosted_publication_custody_verified_exact", "exact_publication_custody": True})
+    subprocess.run([*base, "--hosted-publication-custody-json", custody], check=True)
+    summary = json.loads(out.read_text())
+    assert summary["overall_lifecycle_status"] == "exact_hosted_publication_closed"
+    assert summary["exact_hosted_publication_custody"] is True
