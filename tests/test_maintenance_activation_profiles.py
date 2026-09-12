@@ -88,3 +88,18 @@ def test_unsafe_output_symlink_template_and_argv_only_plan(tmp_path: Path) -> No
     assert plan["scheduler_installation"] is False and "shell" not in profiles.canonical_bytes(plan).decode()
     target=tmp_path/"target"; target.mkdir(); link=tmp_path/"link"; link.symlink_to(target, target_is_directory=True); m["output_directory"]=str(link); _rewrite(path,m)
     with pytest.raises(ValueError, match="symlink"): profiles.render_profile_bundle(path)
+
+
+def test_local_offline_profile_has_only_local_landing_authority_and_no_client(tmp_path: Path) -> None:
+    path,m=_manifest(tmp_path)
+    m["publication_mode"]=landing.LOCAL_FAST_FORWARD_MODE
+    m["tracked_base_ref"]=m["base_ref"]
+    m["authority_classes"]=[a for a in m["authority_classes"] if a not in {"remote_repository_read","remote_ref_publish","pull_request_publish"}]
+    m["authority_classes"].append("local_repository_base_advance")
+    del m["publication_client_executable"]
+    _rewrite(path,m)
+    assert profiles.render_profile_bundle(path)["status"] == "profile_bundle_ready"
+    bundle=json.loads((tmp_path/"bundle"/profiles.FILENAMES["landing_policy"]).read_text())
+    grant=json.loads((tmp_path/"bundle"/profiles.FILENAMES["standing_grant"]).read_text())
+    assert bundle.get("publication_client_executable") is None
+    assert set(grant["landing_terms"]["required_authority_classes"]) == {"repository_commit","local_repository_base_advance"}

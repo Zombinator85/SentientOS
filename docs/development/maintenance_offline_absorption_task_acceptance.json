@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8b31d0a0789365fa134e9e508a34c625a0049c20",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_offline_absorption.py::test_real_offline_absorption_updates_exact_main_and_checkout",
+      "rationale": "A real repository with no remote advances its exact main ref by CAS, synchronizes the checkout, records zero-network evidence, and replays without mutation."
+    },
+    {
+      "node_id": "tests/test_maintenance_offline_absorption.py::test_local_mode_requires_only_exact_local_authorities",
+      "rationale": "Both independent local landing authorities are mandatory and remote authority is unnecessary."
+    },
+    {
+      "node_id": "tests/test_maintenance_activation_profiles.py::test_local_offline_profile_has_only_local_landing_authority_and_no_client",
+      "rationale": "Operator-authored local profiles bind exact local refs and require no publication client."
+    },
+    {
+      "node_id": "tests/test_maintenance_offline_absorption.py::test_dirty_canonical_checkout_blocks_before_ref_mutation[tracked]",
+      "rationale": "tracked checkout ambiguity fails closed before ref mutation."
+    },
+    {
+      "node_id": "tests/test_maintenance_offline_absorption.py::test_dirty_canonical_checkout_blocks_before_ref_mutation[index]",
+      "rationale": "index checkout ambiguity fails closed before ref mutation."
+    },
+    {
+      "node_id": "tests/test_maintenance_offline_absorption.py::test_dirty_canonical_checkout_blocks_before_ref_mutation[untracked]",
+      "rationale": "untracked checkout ambiguity fails closed before ref mutation."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_offline_absorption.py::test_real_offline_absorption_updates_exact_main_and_checkout"
+  ]
+}

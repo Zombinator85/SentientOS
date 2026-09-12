@@ -80,7 +80,8 @@ def _contains_secret_field(value: Any) -> bool:
 
 def validate_manifest(value: Mapping[str, Any], *, production: bool = True) -> dict[str, Any]:
     m = dict(value)
-    if set(m) != REQUIRED or m.get("schema_version") != MANIFEST_SCHEMA:
+    keys=set(m); optional_local={"publication_client_executable"} if m.get("publication_mode")==landing.LOCAL_FAST_FORWARD_MODE else set()
+    if keys-REQUIRED or REQUIRED-keys-optional_local or m.get("schema_version") != MANIFEST_SCHEMA:
         raise ValueError("manifest_closed_schema_invalid")
     if _contains_secret_field(m):
         raise ValueError("credential_or_secret_field_forbidden")
@@ -96,10 +97,15 @@ def validate_manifest(value: Mapping[str, Any], *, production: bool = True) -> d
         raise ValueError("authority_classes_invalid")
     if m["publication_mode"] not in landing.PUBLICATION_MODES:
         raise ValueError("publication_mode_invalid")
-    if m["publication_mode"] == "fast_forward_base_ref" and "pull_request_publish" in auth:
+    if m["publication_mode"] in {"fast_forward_base_ref", landing.LOCAL_FAST_FORWARD_MODE} and "pull_request_publish" in auth:
         raise ValueError("publication_authority_incompatible")
-    needed = {"repository_commit", "remote_repository_read", "remote_ref_publish"}
-    if m["publication_mode"] == "pull_request": needed.add("pull_request_publish")
+    if m["publication_mode"] == landing.LOCAL_FAST_FORWARD_MODE:
+        needed={"repository_commit", "local_repository_base_advance"}
+        if set(auth) & {"remote_repository_read", "remote_ref_publish"}: raise ValueError("publication_authority_incompatible")
+        if m["tracked_base_ref"] != m["base_ref"]: raise ValueError("local_base_ref_mismatch")
+    else:
+        needed = {"repository_commit", "remote_repository_read", "remote_ref_publish"}
+        if m["publication_mode"] == "pull_request": needed.add("pull_request_publish")
     if not needed.issubset(auth):
         raise ValueError("landing_authority_missing")
     if not re.fullmatch(r"[0-9a-f]{40}", str(m["base_sha"])):
@@ -114,8 +120,9 @@ def validate_manifest(value: Mapping[str, Any], *, production: bool = True) -> d
         raise ValueError("validation_bounds_invalid")
     if _timestamp(m["not_before"]) >= _timestamp(m["expires_at"]):
         raise ValueError("validity_window_invalid")
-    for key in ("repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "codex_home", "codex_executable", "git_executable", "python_executable", "publication_client_executable", "output_directory"):
+    for key in ("repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "codex_home", "codex_executable", "git_executable", "python_executable", "output_directory"):
         if not Path(str(m[key])).is_absolute(): raise ValueError(key + "_must_be_absolute")
+    if m.get("publication_client_executable") is not None and not Path(str(m["publication_client_executable"])).is_absolute(): raise ValueError("publication_client_executable_must_be_absolute")
     return m
 
 
@@ -160,14 +167,15 @@ def _write(path: Path, value: Mapping[str, Any]) -> str:
 
 def _artifacts(m: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     b = m["budgets"]; auths = sorted(m["authority_classes"])
-    terms = {"schema_version": landing.LANDING_TERMS_SCHEMA, "publication_mode": m["publication_mode"], "remote_name": m["remote_name"], "base_ref": m["base_ref"], "head_ref_prefix": m["head_ref_prefix"], "required_authority_classes": sorted({"repository_commit", "remote_repository_read", "remote_ref_publish", *(["pull_request_publish"] if m["publication_mode"] == "pull_request" else [])})}
+    required = ({"repository_commit", "local_repository_base_advance"} if m["publication_mode"] == landing.LOCAL_FAST_FORWARD_MODE else {"repository_commit", "remote_repository_read", "remote_ref_publish", *(["pull_request_publish"] if m["publication_mode"] == "pull_request" else [])})
+    terms = {"schema_version": landing.LANDING_TERMS_SCHEMA, "publication_mode": m["publication_mode"], "remote_name": m["remote_name"], "base_ref": m["base_ref"], "head_ref_prefix": m["head_ref_prefix"], "required_authority_classes": sorted(required)}
     grant = authority.seal_grant({"grant_id": "activation_" + str(m["manifest_id"]), "operator_reference": m["operator_reference"], "approval_reference": m["approval_reference"], "repository_identity": m["repository_identity"], "allowed_base_sha": m["base_sha"], "allowed_base_sha_rule": "exact", "allowed_candidate_kinds": sorted(m["allowed_candidate_kinds"]), "allowed_path_prefixes": sorted(m["allowed_path_prefixes"]), "forbidden_path_patterns": sorted(m["forbidden_paths"]), "allowed_authority_classes": auths, **{k: b[k] for k in ("maximum_file_count", "maximum_changed_line_count", "maximum_implementation_seconds", "maximum_validation_seconds", "maximum_wall_clock_seconds", "maximum_attempts", "maximum_corrective_retries")}, "not_before": m["not_before"], "expires_at": m["expires_at"], "grant_generation": str(m["manifest_id"]), "explicit_constraints": ["operator_authored_manifest", "no_scope_widening"], "landing_terms": terms})
     sp = selector.build_policy({"repository_base_sha": m["base_sha"], "allowed_path_prefixes": m["allowed_path_prefixes"], "forbidden_path_patterns": m["forbidden_paths"], "available_authority_classes": auths, "maximum_file_count": b["maximum_file_count"], "maximum_estimated_changed_lines": b["maximum_changed_line_count"], "maximum_implementation_seconds": b["maximum_implementation_seconds"], "maximum_validation_seconds": b["maximum_validation_seconds"], "allowed_candidate_kinds": m["allowed_candidate_kinds"]}).to_dict()
     fc = foreman.LocalCodexForemanConfig(configuration_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), repository_root=Path(m["repository_root"]), external_workspace_root=Path(m["workspace_root"]), external_state_root=Path(m["state_root"]), codex_executable=Path(m["codex_executable"]), git_executable=Path(m["git_executable"]), codex_home=Path(m["codex_home"]), process_timeout_seconds=float(b["maximum_implementation_seconds"]), maximum_same_session_recovery_count=b["maximum_corrective_retries"], configuration_constraints=tuple(["authority:" + a for a in auths])).to_dict()
     vb = m["validation_bounds"]
     vp = validation.ValidationPolicy(policy_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), python_executable=str(m["python_executable"]), git_executable=str(m["git_executable"]), external_scratch_root=str(m["scratch_root"]), maximum_corrective_retries=b["maximum_corrective_retries"], **vb).to_dict()
     ci = m["commit_identity"]
-    lp = landing.seal_landing_policy({"policy_id": "activation_" + str(m["manifest_id"]), "repository_identity": m["repository_identity"], "canonical_repository_root": m["repository_root"], "external_state_root": m["state_root"], "git_executable": m["git_executable"], "publication_client_executable": m["publication_client_executable"], "commit_author_name": ci["author_name"], "commit_author_email": ci["author_email"], "commit_committer_name": ci["committer_name"], "commit_committer_email": ci["committer_email"], "commit_identity_reference": ci["reference"], "maximum_publication_attempts": b["maximum_attempts"], "constraints": ["publication_mode:" + m["publication_mode"], "remote_name:" + m["remote_name"], "base_ref:" + m["base_ref"], "tracked_base_ref:" + m["tracked_base_ref"], "title_prefix:" + m["commit_title_policy"]["prefix"], *["authority:" + a for a in auths]]})
+    lp = landing.seal_landing_policy({"policy_id": "activation_" + str(m["manifest_id"]), "repository_identity": m["repository_identity"], "canonical_repository_root": m["repository_root"], "external_state_root": m["state_root"], "git_executable": m["git_executable"], "publication_client_executable": m.get("publication_client_executable"), "commit_author_name": ci["author_name"], "commit_author_email": ci["author_email"], "commit_committer_name": ci["committer_name"], "commit_committer_email": ci["committer_email"], "commit_identity_reference": ci["reference"], "maximum_publication_attempts": b["maximum_attempts"], "constraints": ["publication_mode:" + m["publication_mode"], "remote_name:" + m["remote_name"], "base_ref:" + m["base_ref"], "tracked_base_ref:" + m["tracked_base_ref"], "title_prefix:" + m["commit_title_policy"]["prefix"], *["authority:" + a for a in auths]]})
     return {"standing_grant": grant, "selector_policy": sp, "foreman_policy": fc, "validation_policy": vp, "landing_policy": lp}
 
 
