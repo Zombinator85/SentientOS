@@ -36,7 +36,7 @@ Governance is the reality boundary, not the whole product. Models may interpret,
 reason, create, propose, or be wrong; deterministic machinery retains custody of
 authoritative state, permissions, provenance, recovery, and consequential
 transitions. Memory is not current truth, proposal is not authorization,
-authorization is not execution, and validation is not adoption.
+authorization is not execution, validation is not adoption, publication is not deployment, and repository absorption is not runtime restart or adoption.
 
 ## Development and installation
 
@@ -52,19 +52,23 @@ software. Eventually one action should inspect the host, select admissible free
 runtime/model routes, explain a deterministic plan, acquire and verify artifacts,
 configure, commission and activate cognition, establish services and
 persistence, prove health, and leave repair/update/rollback state. Current setup
-is not yet one-click.
+is not yet one-click. Implemented mechanisms are not claims of universal deployment.
 
 ## Maturity
 
 - **CURRENT / IMPLEMENTED:** hosted governance, audit, immutability, memory,
-  conversation, bounded perception/embodiment observation, governed local-model
-  invocation, model supply-chain controllers, and governed-change surfaces.
-  Hardened production activation currently publishes authoritative selection
-  state only; current chat loading still uses a separate legacy activation path
-  or autoload, and inference remains separately governed.
-- **NEAR-TERM / ACTIVE ENGINEERING:** the hardened activated-model consumer and
-  load/serve boundary, genuine one-click installation, and stronger integration
-  of continuity, self-state, memory, model identity, and host observation.
+  conversation, bounded perception/embodiment observation, and model supply-chain
+  custody. The hardened production chain has separate bounded organs for
+  commissioning intent and custody, activation, authenticated loading/serving,
+  independently admitted inference, chat composition, operator-enabled runtime
+  startup/readiness/shutdown, conversation provenance, and explicit
+  unchanged-activation recovery. The bounded maintenance chain separately covers
+  admitted work, scoped leases, local implementation, validation/correction,
+  deterministic commit custody, three landing modes, watchdog coordination, and
+  explicitly authorized network-free local repository absorption.
+- **NEAR-TERM / ACTIVE ENGINEERING:** genuine one-click installation, platform
+  service/deployment integration, and stronger integration of continuity,
+  self-state, memory, model identity, and host observation.
 - **ASPIRATIONAL / RESEARCH HORIZON:** enduring whole-machine embodiment,
   controlled cross-model continuity experiments, richer consequential
   development, and investigation of possible emergent organization.

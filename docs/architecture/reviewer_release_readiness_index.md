@@ -108,6 +108,66 @@ local transformer loading defaults. Importing chat service code does not load th
 model, and local custom model code execution defaults to `trust_remote_code=False`
 unless explicitly opted in.
 
+### Hardened production model, chat, runtime, and recovery
+
+The current proof chain begins with commissioning intent and authority
+(`tests/test_local_model_commissioning_intent_cli.py`,
+`tests/test_local_model_production_commissioning.py`,
+`tests/test_local_model_production_commissioning_authority.py`, and
+`tests/test_local_model_production_commissioning_capability_admission.py`). Activation
+custody and admission are covered by `tests/test_local_model_production_activation.py`
+and `tests/test_local_model_production_activation_capability_admission.py`.
+
+Authenticated activation consumption, bounded serving, serving-session currentness, and
+independently admitted generation are covered by
+`tests/test_local_model_production_serving.py` and
+`tests/test_local_model_serving_inference.py`. Explicit hardened chat composition and
+persistent provenance are covered by `tests/test_chat_service_hardened_serving.py`;
+operator-enabled `RuntimeSupervisor` startup, semantic `serving_current` readiness, and
+deterministic shutdown are covered by `tests/test_local_model_chat_runtime_startup.py`.
+Explicit externally approved unchanged-activation recovery is covered by
+`tests/test_local_model_chat_recovery.py` and
+`tests/test_local_model_chat_recovery_capability_admission.py`.
+
+These tests establish implemented bounded mechanisms, not universal deployment or proof
+of a first real-world commissioning/activation ceremony. Activation itself does not load,
+serve, or infer; serving does not grant inference; recovery does not infer or grant the
+child's serving authority. Automatic/generic recovery and hot switching remain deferred.
+
+### Bounded maintenance execution, landing, and watchdog
+
+Task authority is proved by `tests/test_maintenance_authority_grant.py`,
+`tests/test_maintenance_task_lease.py`, `tests/test_maintenance_scope_admission.py`, and
+`tests/test_maintenance_lease_journal_integration.py`. Implementation adapter and
+process-real foreman custody are covered by
+`tests/test_maintenance_implementation_agent_adapter.py`,
+`tests/test_maintenance_local_codex_foreman.py`, and
+`tests/test_maintenance_local_codex_recovery.py`. Validation, correction, and recovery
+are covered by `tests/test_maintenance_validation_execution.py`,
+`tests/test_maintenance_corrective_continuation.py`, and
+`tests/test_maintenance_validation_recovery.py`.
+
+Deterministic commit custody, remote landing, and interruption recovery are covered by
+`tests/test_maintenance_commit_execution.py`,
+`tests/test_maintenance_commit_publication_journal.py`,
+`tests/test_maintenance_commit_publication_recovery.py`, and
+`tests/test_maintenance_commit_publication_cli.py`. Exact operator-authorized offline
+local base-ref absorption is covered by `tests/test_maintenance_offline_absorption.py`.
+Watchdog scan/decision/dispatch/recovery/closure are covered by
+`tests/test_maintenance_watchdog_closed_loop.py`,
+`tests/test_maintenance_watchdog_publication.py`,
+`tests/test_maintenance_watchdog_recovery.py`, and
+`tests/test_maintenance_watchdog_control.py`. Mode-specific rendered configuration is
+covered by `tests/test_maintenance_activation_profiles.py` and activation consumption by
+`tests/test_maintenance_loop_activation.py`.
+
+Admission is not implementation; implementation is not validation; validation is not
+commit; commit is not repository absorption/publication; and repository absorption is
+not runtime restart/adoption. Local absorption is a real bounded repository effect, not
+"automatic adoption": it requires explicit local authority and exact configuration,
+performs no remote publication, and does not install a scheduler. The watchdog remains an
+externally invoked bounded runner and is not integrated into `sentientosd`.
+
 ### Test runner bootstrap reliability
 
 `tests/test_run_tests_bootstrap_airlock.py` and
@@ -192,8 +252,16 @@ external service calls disabled.
 - Admission idempotency is bounded process-local TTL, not pretend-durable.
 - Trust ledger recovers from state or events and degrades on malformed input.
 - Suspicious federation peers are prioritized deterministically.
-- Chat service import does not load the model.
-- Local model custom code execution defaults false.
+- Chat service import does not load the model, and local custom model code execution
+  defaults false.
+- Production activation remains selection-only in its own effect while the separately
+  admitted consumer provides authenticated serving and per-generation inference custody.
+- Explicit chat recovery is externally approved, unchanged-activation, inference-free,
+  and not automatic/generic restart authority.
+- Maintenance authority, implementation, validation, commit, landing, and runtime
+  adoption remain separate.
+- Local repository absorption requires exact operator authority and ref equality; it is
+  not remote publication, scheduler installation, or runtime restart/adoption.
 - Focused tests do not require broad runtime dependency install.
 - Docs build dependencies are explicit.
 - Provider invocation remains release-blocked.
@@ -219,7 +287,13 @@ python -m scripts.run_tests -q tests/test_control_plane_kernel.py tests/test_sen
 # Federation trust ledger recovery and probe prioritization.
 python -m scripts.run_tests -q tests/test_trust_ledger.py sentientos/tests/test_trust_ledger_recovery.py
 
-# Chat/model lazy loading and local model safety.
+# Hardened production commissioning, activation, serving/inference, chat/runtime, and recovery.
+python -m scripts.run_tests -q tests/test_local_model_commissioning_intent_cli.py tests/test_local_model_production_commissioning.py tests/test_local_model_production_commissioning_authority.py tests/test_local_model_production_commissioning_capability_admission.py tests/test_local_model_production_activation.py tests/test_local_model_production_activation_capability_admission.py tests/test_local_model_production_serving.py tests/test_local_model_serving_inference.py tests/test_chat_service_hardened_serving.py tests/test_local_model_chat_runtime_startup.py tests/test_local_model_chat_recovery.py tests/test_local_model_chat_recovery_capability_admission.py
+
+# Bounded maintenance authority, implementation, validation, landing, local absorption, watchdog, and profiles.
+python -m scripts.run_tests -q tests/test_maintenance_authority_grant.py tests/test_maintenance_task_lease.py tests/test_maintenance_scope_admission.py tests/test_maintenance_implementation_agent_adapter.py tests/test_maintenance_local_codex_foreman.py tests/test_maintenance_validation_execution.py tests/test_maintenance_corrective_continuation.py tests/test_maintenance_commit_execution.py tests/test_maintenance_commit_publication_journal.py tests/test_maintenance_commit_publication_recovery.py tests/test_maintenance_offline_absorption.py tests/test_maintenance_watchdog_closed_loop.py tests/test_maintenance_watchdog_publication.py tests/test_maintenance_activation_profiles.py tests/test_maintenance_loop_activation.py
+
+# Supplementary legacy chat/model loading safety.
 python -m scripts.run_tests -q tests/test_chat_service_lazy_loading.py tests/test_local_model.py tests/integration/test_chat_mistral_runtime.py
 
 # Integration marker compatibility.
@@ -253,7 +327,10 @@ python scripts/build_docs.py
 - Real provider invocation.
 - Prompt assembly or prompt-text export for provider invocation.
 - Federation transport/sync for improvement receipts.
-- Automatic adoption.
+- Automatic runtime adoption. This is distinct from implemented, explicit
+  operator-authorized `local_fast_forward_base_ref` repository absorption.
+- Automatic/generic serving recovery and hot activation switching.
+- Built-in maintenance scheduling or `sentientosd` watchdog integration.
 - Remote execution.
 - Merge/conflict-resolution engine.
 - Apply/install/update engine for federated improvement receipts.
@@ -267,7 +344,8 @@ python scripts/build_docs.py
 2. Run the proof-map commands above from the repository root.
 3. Inspect `tests/test_control_plane_kernel.py` and `tests/test_sentientosd_runtime_closure.py`.
 4. Inspect `tests/test_trust_ledger.py` and `sentientos/tests/test_trust_ledger_recovery.py`.
-5. Inspect `tests/test_chat_service_lazy_loading.py`, `tests/test_local_model.py`, and `tests/integration/test_chat_mistral_runtime.py`.
+5. Inspect the hardened model/runtime/recovery and maintenance proof groups above;
+   treat the legacy loading tests as supplementary compatibility evidence.
 6. Inspect the federated improvement receipt tests listed in the custody runway section.
 7. Build docs with `python scripts/build_docs.py --check-deps` and `python scripts/build_docs.py`.
 

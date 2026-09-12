@@ -25,8 +25,9 @@ the local-Codex foreman until `implementation_ready_for_validation`. It now bind
 that exact result, lease, attempt, session, thread, worktree, change manifest, and
 validation policy to the existing validation controller. The controller retains
 planning, execution, same-thread correction, remeasurement, revalidation, recovery,
-and immutable custody. Exact passing evidence then reaches the existing commit,
-one-shot fast-forward publication, verified base cursor, closure, and idle path.
+and immutable custody. Exact passing evidence then reaches the existing commit and the configured landing
+mode: remote fast-forward, pull request, or offline local base-ref absorption. Verified
+landing evidence then permits base-cursor advancement, closure, and the idle path.
 The production-CLI fake closed-loop proof passes, so the bounded core maintenance
 loop is complete.
 
@@ -46,21 +47,36 @@ and tracked base ref. Custody roots must exist outside the repository and `.git`
 and must not be symlinks. The standing grant is input authority; the watchdog cannot
 create or expand it.
 
-Fast-forward publication permits closure and base-cursor advancement only after an
-exact remote observation equals the task commit. PR creation is not merge evidence:
-PR-mode work remains waiting until a later remote observation proves the task commit
-is an ancestor of the tracked base. Only explicitly retryable publication failures
-may be retried after configured deterministic backoff. Authentication, integrity,
-and remote-conflict failures block without a hot loop.
+Remote `fast_forward_base_ref` permits closure and base-cursor advancement only
+after an exact remote observation equals the task commit. PR creation is not merge
+evidence: pull-request work remains waiting until a later remote observation proves
+the task commit is an ancestor of the tracked base. These remote modes retain their
+configured remote-observation and ancestry semantics.
+
+For `local_fast_forward_base_ref`, closure instead requires exact equality of the
+configured local tracked ref to the absorbed commit. A local-only activation requires
+`repository_commit` and `local_repository_base_advance`, rejects remote publication
+authorities, and can operate without a configured Git remote or PR publication client.
+The landing controller performs the exact local compare-and-swap and checkout
+synchronization; the watchdog does not weaken its clean-tree, identity, recovery, or
+no-network guarantees.
+
+Only explicitly retryable landing failures may be retried after configured deterministic
+backoff. Authentication, integrity, and remote/local conflict failures block without a
+hot loop. Local absorption changes the canonical checkout on disk but does not restart a
+running SentientOS process, load the new code into that process, or adopt runtime
+capability.
 
 The coordinator never duplicates implementation, validation, Git, or publication
 logic, merges, force-pushes, waits for hosted checks, reads credential contents, or
 relays operator messages between stages. Those effects remain with the established
 candidate, journal, lease, foreman, validation, commit, and publication components.
-Live unattended deployment still requires external configuration, an explicit
-standing grant, authenticated local Codex/validator/publication tools, a candidate
-inbox, external state/workspace/scratch custody roots, Git remote authority, and a
-scheduler invocation.
+Unattended repetition still requires external configuration, an explicit standing
+grant, authenticated tools appropriate to the selected implementation/validation/landing
+path, a candidate inbox, external state/workspace/scratch custody roots, and an external
+scheduler invocation. Remote modes require their remote/publication authority and tools;
+a local-only mode does not require remote authority, a configured Git remote, or a PR
+client. Neither mode makes the watchdog a scheduler or integrates it into `sentientosd`.
 
 ## CLI
 

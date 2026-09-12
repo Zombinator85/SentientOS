@@ -186,90 +186,69 @@ All artifacts live under `escrow/` with accompanying `LICENSE.txt`, `MODEL_CARD.
 
 For non-interactive CI, trigger the `Codex CI` workflow or execute `./scripts/ci.sh` locally—the script mirrors the pipeline used for release validation.
 
-## 🪟 SentientOS for Windows — Minimal Architecture
+## 🪟 Windows developer path and current bounded architecture
 
-> 📘 **Need the full walkthrough?** Follow
-> [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md) for a
-> line-by-line Windows checklist that covers prerequisites, environment
-> creation, Mistral-7B placement, and service scheduling.
+> 📘 **Windows status.** [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md)
+> is a legacy/developer compatibility guide, not a one-click production installer.
+> The hardened production path is governed by the same custody and authority
+> contracts on every supported host; the repository does not currently provide a
+> polished Windows production deployment.
 
-The minimal Windows stack ships with a local runtime daemon, a browser-based
-chat experience, and self-updating Git integration. Everything runs offline and
-communicates through local files or sockets.
+### Local model/runtime path
 
-### 1. Local Runtime Service
+The current production model path keeps each transition independent. Verified
+catalog custody and acquisition do not commission a model; commissioning does not
+activate it; activation records an authoritative selection but does not itself load
+or serve it. A separately admitted serving operation authenticates the current
+activation, rechecks currentness before and after loading, and owns an opaque serving
+session. Each generation then requires its own `LOCAL_MODEL_INFERENCE` admission.
+Explicit production chat composition can register with an operator-enabled
+`RuntimeSupervisor`, report semantic `serving_current` readiness, preserve durable
+conversation provenance, and shut down deterministically.
 
-* **Runtime:** Python 3.12 (Windows compatible).
-* **Entry point:** `sentientosd.py` (installed as the `sentientosd` console
-  script).
-* **Responsibilities:**
-  * Load a local LLM via `sentientos.local_model.LocalModel`. Set
-    `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` to point at the Mistral-7B
-    GGUF file (defaults to
-   `C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf`).
-    The runtime auto-detects GPU offload (`n_gpu_layers=-1` when CUDA is
-    available) and applies the 32,768-token context length defined in the
-    GGUF metadata using the `mistral-instruct` chat template.
-  * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
-    `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
-  * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
-    `IntegrityDaemon`, `CodexHealer`) once per minute.  The loop now publishes
-    proposals to the Pulse Bus, runs covenant checks plus HungryEyes dual
-    control, executes `python -m scripts.run_tests -q`/`make ci`, and only then advances amendments
-    to the approved state.
-  * Commit approved amendments with the staged batching policy (minor fixes are
-    batched every ~5 minutes, major fixes are committed immediately).
+Recovery is equally narrow: an externally approved request plus independent
+`DAEMON_RESTART` admission can restart one failed hardened-chat lifetime only while
+its activation remains unchanged. Recovery does not infer, switch activation, grant
+serving or inference authority, or enable automatic/generic restart. Legacy direct
+model-path/autoload commands remain compatibility and development surfaces, not the
+canonical hardened authority path.
 
-Launch locally with:
+### Governed maintenance path
 
-```bash
-sentientosd
-```
+The canonical maintenance path begins with an admitted, operator-authorized task and
+a scope-bound authority lease. Existing components can coordinate bounded local
+implementation, validation and same-thread correction, deterministic commit-object
+construction, and a separately selected landing mode. The landing modes are remote
+fast-forward, pull request, and explicitly configured offline
+`local_fast_forward_base_ref` absorption. Local absorption advances only the exact
+configured canonical local ref to the already validated commit and synchronizes its
+checkout under fail-closed recovery rules; it performs no network or remote
+publication operation.
 
-Install as a Windows Service (requires `pywin32`) with:
+The maintenance watchdog is an externally invoked bounded coordinator. It selects
+and dispatches one canonical transition per tick (or repeats only within explicit
+`run-bounded` limits); it is not a scheduler and is not integrated into
+`sentientosd`. With explicit operator authority and local landing configuration, the
+bounded path can carry an admitted task through implementation, validation,
+deterministic commit creation, and canonical local repository absorption entirely
+offline. Candidate intake, scheduler invocation, and runtime restart/adoption remain
+separate. Repository absorption changes files on disk; it does not silently install
+new authority or load the new code into a running process.
+
+Historical `GenesisForge`, `SpecAmender`, `CodexHealer`, repository-handoff, and
+`updater.py` surfaces remain available where documented. They are proposal,
+compatibility, or explicit operator-invoked utilities; they are not a daemon-scheduled
+self-update loop and do not replace the bounded maintenance chain above.
+
+### Local interfaces
+
+The FastAPI chat surface remains available through `sentientos-chat`, and the legacy
+runtime entry point remains available through `sentientosd`. Install the optional
+Windows service only as an explicit operator action:
 
 ```powershell
 python -m sentientos.windows_service install
 ```
-
-### 2. Chat Interface
-
-* **Backend:** FastAPI app (`sentientos.chat_service.APP`) exposing `/chat`.
-* **Frontend:** Minimal HTML/JS chatbox served from the same FastAPI instance on
-  `http://localhost:3928`.
-* **Run:**
-
-  ```bash
-  sentientos-chat
-  ```
-
-### 3. Repository Custody
-
-* **Review handoffs:** `SpecAmender`/`sentientosd` may produce metadata-only
-  repository mutation handoffs for already-approved explicit-path proposals. The
-  daemon does not stage files, create commits, mutate branches, push, or create
-  pull requests; external operator/Codex landing review remains required.
-* **Explicit legacy updates:** `updater.py` runs `git pull` then restarts the daemon only when invoked by an operator. Use it as an explicit scheduled task:
-
-  ```bash
-  sentientos-updater
-  ```
-
-### 4. Automation Flow
-
-1. `GapSeeker` feeds `GenesisForge`, which drafts targeted amendments and
-   publishes them to the Pulse Bus.
-2. The covenant IntegrityDaemon validates proposals and HungryEyes scores the
-   proof report.  Violations are quarantined immediately.
-3. Approved proposals run through the automated test gate (`python -m scripts.run_tests -q`, then
-   `make ci` when available).
-4. `SpecAmender` batches minor approvals or ships major fixes immediately with a
-   descriptive commit message.
-5. `CodexHealer` prunes stale, rejected, or failed amendments.
-6. `updater.py` pulls fresh lineage and restarts the daemon.
-
-The result is a closed loop—SentientOS drafts, validates, commits, and absorbs
-its own amendments entirely offline.
 
 ### 🖼️ GUI Launch
 ```bash

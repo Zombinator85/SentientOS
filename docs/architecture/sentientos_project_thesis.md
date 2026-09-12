@@ -93,10 +93,20 @@ authorization != execution
 execution != validation
 validation != adoption
 publication != deployment
+
 acquisition != commissioning
 commissioning != activation
 activation != loading/serving
 loading/serving != inference authority
+
+maintenance admission != implementation
+implementation != validation
+validation != commit
+commit != repository absorption/publication
+repository absorption != runtime restart/adoption
+
+bounded watchdog runner != scheduler
+operator-authorized local absorption != unattended continuous self-maintenance
 ```
 
 Local operator authority, denial by default, provenance, rollback, and safe
@@ -158,13 +168,24 @@ boring.
 - Bounded memory, persistent-conversation, local-model invocation, perception,
   embodiment-observation, federation-evidence, and governed-change surfaces.
 - Sovereign catalog publication/deployment, bounded artifact acquisition, and
-  hardened production commissioning and activation controllers with explicit
-  authority and receipts.
-- Hardened production activation publishes authoritative model-selection state
-  only: it does not load a model, start serving, or perform inference.
-- `chat_service` can load through the older
-  `SENTIENTOS_LOCAL_MODEL_ACTIVATION` commissioning-bundle path, or fall back to
-  legacy autoload. Governed local inference is a separate authority boundary.
+  production commissioning authority, including deterministic zero-effect intent
+  preparation for external approval and authority-bound commissioning custody.
+- Hardened activation custody plus a separately governed production consumer that
+  authenticates the current activation, revalidates it before and after bounded
+  model loading, and owns an opaque serving session with currentness checking.
+  Activation itself still selects; it does not load, serve, or infer.
+- Serving-backed inference under independently admitted `LOCAL_MODEL_INFERENCE`,
+  explicit hardened chat composition, persistent conversation provenance, and
+  operator-enabled canonical `RuntimeSupervisor` startup with semantic
+  `serving_current` readiness and deterministic supervised shutdown.
+- Explicit governed recovery of one failed hardened-chat lifetime under external
+  approval and independent `DAEMON_RESTART` admission, limited to an unchanged
+  activation and a fresh serving operation, with zero inference during recovery.
+- A bounded maintenance chain for admitted work, scoped task leases, local
+  implementation, validation/correction, deterministic commit custody, three
+  separate landing modes, and watchdog coordination. Explicitly configured
+  `local_fast_forward_base_ref` landing can absorb the validated commit into the
+  exact canonical local ref without network access.
 
 Implemented means that source and tests establish a bounded mechanism. It does
 not mean every contract/readiness surface is deployed in an installation or
@@ -172,8 +193,9 @@ that every historic subsystem is part of the current production path.
 
 ### NEAR-TERM / ACTIVE ENGINEERING
 
-- A governed consumer that takes hardened authoritative activation selection
-  through a distinct load/serve boundary and into current chat/runtime use.
+- Genuine deployment integration around the implemented model/runtime organs,
+  including platform launchers and service installation, without collapsing their
+  independent authority boundaries.
 - Genuine one-click host inspection, free dependency/model acquisition,
   configuration, commissioning, service establishment, health proof, repair,
   update, and rollback.
@@ -197,7 +219,7 @@ Names such as `cathedral`, `consciousness cycle`, `reflection`, and `self-model`
 remain in APIs, modules, files, and cultural archives. Their narrow interface
 definitions do not impose global philosophical limits on introspection or
 self-modeling. Legacy activation-bundle loading likewise must not be confused
-with the newer hardened activation-selection controller.
+with the hardened activation, serving, inference, and chat composition chain.
 
 ### DEFERRED
 
