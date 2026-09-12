@@ -587,9 +587,14 @@ def _close(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_time: 
     commit = str(snapshot.get("commit_reference", {}).get("payload", {}).get("commit_sha") or "")
     if not commit:
         return {"status": "blocked", "reason": "publication_commit_binding_missing"}
-    observed = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", commit, str(cfg["tracked_base_ref"])],
-        cwd=cfg["repository_root"], capture_output=True, check=False).returncode == 0
+    results = _owned(scanned, landing.PUBLICATION_RESULT_SCHEMA, str(snapshot["task_id"]))
+    local = any(r.get("mode") == landing.LOCAL_FAST_FORWARD_MODE and
+                r.get("terminal_status") == "publication_succeeded" and
+                r.get("commit_sha") == commit for r in results)
+    command = (["git", "rev-parse", "--verify", str(cfg["tracked_base_ref"])] if local
+               else ["git", "merge-base", "--is-ancestor", commit, str(cfg["tracked_base_ref"])])
+    checked = subprocess.run(command, cwd=cfg["repository_root"], capture_output=True, check=False, text=True)
+    observed = (checked.returncode == 0 and checked.stdout.strip() == commit) if local else checked.returncode == 0
     if not observed:
         return {"status": "waiting", "reason": "verified_base_advancement_required"}
     event = _append_chain(

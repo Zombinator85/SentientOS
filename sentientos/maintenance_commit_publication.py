@@ -21,8 +21,9 @@ PUBLICATION_ATTEMPT_SCHEMA='sentientos.maintenance_publication_attempt:v1'
 PUBLICATION_RESULT_SCHEMA='sentientos.maintenance_publication_result:v1'
 PUBLICATION_BODY_SCHEMA='sentientos.maintenance_publication_body:v1'
 TITLE_BYTE_CEILING=180
-PUBLICATION_MODES=frozenset({'fast_forward_base_ref','pull_request'})
-LANDING_AUTHORITIES=frozenset({'repository_commit','remote_repository_read','remote_ref_publish','pull_request_publish'})
+LOCAL_FAST_FORWARD_MODE='local_fast_forward_base_ref'
+PUBLICATION_MODES=frozenset({'fast_forward_base_ref','pull_request',LOCAL_FAST_FORWARD_MODE})
+LANDING_AUTHORITIES=frozenset({'repository_commit','local_repository_base_advance','remote_repository_read','remote_ref_publish','pull_request_publish'})
 TERMINAL_CLASSIFICATIONS=frozenset({'publication_succeeded','publication_already_succeeded','publication_authentication_unavailable','publication_remote_conflict','publication_client_incompatible','publication_remote_unavailable','publication_retryable_failure','publication_terminal_failure','publication_integrity_failed','publication_expired','publication_attempt_limit_reached'})
 
 class MaintenanceLandingError(RuntimeError): pass
@@ -85,14 +86,16 @@ def current_changed_paths(repo: Path, worktree: Path, base: str, git: str='git')
 def validate_landing_authority(lease: Mapping[str,Any], authorities: Sequence[str], mode: str)->None:
     have=set(lease.get('authority_classes',()))
     if set(authorities)-have: raise MaintenanceLandingError('missing_authority')
-    if mode=='fast_forward_base_ref' and 'pull_request_publish' in have: raise MaintenanceLandingError('excess_pull_request_authority')
+    if mode in {'fast_forward_base_ref',LOCAL_FAST_FORWARD_MODE} and 'pull_request_publish' in have: raise MaintenanceLandingError('excess_pull_request_authority')
+    if mode==LOCAL_FAST_FORWARD_MODE and have & {'remote_repository_read','remote_ref_publish'}: raise MaintenanceLandingError('excess_remote_authority')
 
 def build_commit_plan(*, state_root: str|Path, repository_root: str|Path, worktree_root: str|Path, lease: Mapping[str,Any], validation_result: Mapping[str,Any], landing_policy: Mapping[str,Any], evaluation_time: str, objective: str|None=None)->dict[str,Any]:
     pol=seal_landing_policy(landing_policy); repo=Path(repository_root); wt=Path(worktree_root)
     if validation_result.get('terminal_status')!='validation_ready_for_commit': raise MaintenanceLandingError('validation_not_ready_for_commit')
     mode=str(lease.get('landing_terms',{}).get('publication_mode') or validation_result.get('publication_mode') or 'pull_request')
     if mode not in PUBLICATION_MODES: raise MaintenanceLandingError('unknown_publication_mode')
-    validate_landing_authority(lease, ['repository_commit','remote_repository_read','remote_ref_publish']+(['pull_request_publish'] if mode=='pull_request' else []), mode)
+    required=(['repository_commit','local_repository_base_advance'] if mode==LOCAL_FAST_FORWARD_MODE else ['repository_commit','remote_repository_read','remote_ref_publish']+(['pull_request_publish'] if mode=='pull_request' else []))
+    validate_landing_authority(lease, required, mode)
     base=str(validation_result.get('base_sha') or lease.get('base_sha'))
     head=_git(pol['git_executable'], wt, ['rev-parse','HEAD']).stdout.decode().strip()
     branch=_git(pol['git_executable'], wt, ['symbolic-ref','--short','-q','HEAD'])
@@ -155,7 +158,7 @@ def _ensure_request(root: Path, plan: Mapping[str,Any], result: Mapping[str,Any]
             raise MaintenanceLandingError('immutable_conflict')
         return {'terminal_status':'commit_ready_publication_queued','plan':plan,'commit_result':result,'publication_request':req,'body_digest':req.get('body_digest',bd),'remote_operations':0}
     body_path=root/'maintenance_publication_bodies'/(pubid+'.md'); _write_immutable(body_path, {'schema_version':PUBLICATION_BODY_SCHEMA,'body_utf8':body.decode(),'body_digest':bd})
-    req={'schema_version':PUBLICATION_REQUEST_SCHEMA,'publication_id':pubid,'task_id':plan['task_id'],'lease_id':plan['lease_id'],'lease_digest':plan['lease_digest'],'commit_reference_id':journal.derive_commit_ref_id(plan['task_id'],result['commit_sha']),'commit_result_digest':result['commit_result_digest'],'commit_sha':result['commit_sha'],'tree_sha':result['tree_sha'],'parent_sha':result['parent_sha'],'repository_identity':policy['repository_identity'],'publication_mode':plan['publication_mode'],'remote_name':plan['remote_name'],'base_ref':plan['base_ref'],'head_ref':plan.get('head_ref',''),'title':plan['commit_title'],'body_artifact_path':str(body_path.name),'body_digest':bd,'body_binding_digest':digest({'path':body_path.name,'digest':bd}),'publication_policy_digest':seal_landing_policy(policy)['policy_digest'],'attempt_ceiling':policy.get('maximum_publication_attempts',1),'expiry':plan.get('expiry') or '9999','queue_time':evaluation_time,'journal_commit_event_digest':commit_event_digest}
+    req={'schema_version':PUBLICATION_REQUEST_SCHEMA,'publication_id':pubid,'task_id':plan['task_id'],'lease_id':plan['lease_id'],'commit_reference_id':journal.derive_commit_ref_id(plan['task_id'],result['commit_sha']),'commit_result_digest':result['commit_result_digest'],'commit_plan_digest':plan['plan_digest'],'validation_result_digest':plan['validation_result_digest'],'lease_digest':plan['lease_digest'],'changed_paths':plan['changed_paths'],'commit_sha':result['commit_sha'],'tree_sha':result['tree_sha'],'parent_sha':result['parent_sha'],'repository_identity':policy['repository_identity'],'publication_mode':plan['publication_mode'],'remote_name':plan['remote_name'],'base_ref':plan['base_ref'],'head_ref':plan.get('head_ref',''),'title':plan['commit_title'],'body_artifact_path':str(body_path.name),'body_digest':bd,'body_binding_digest':digest({'path':body_path.name,'digest':bd}),'publication_policy_digest':seal_landing_policy(policy)['policy_digest'],'attempt_ceiling':policy.get('maximum_publication_attempts',1),'expiry':plan.get('expiry') or '9999','queue_time':evaluation_time,'journal_commit_event_digest':commit_event_digest}
     req['publication_request_digest']=_seal({**req,'publication_request_digest':''},'publication_request_digest')
     _write_immutable(root/'maintenance_publication_requests'/(pubid+'.json'), req)
     return {'terminal_status':'commit_ready_publication_queued','plan':plan,'commit_result':result,'publication_request':req,'body_digest':bd,'remote_operations':0}
@@ -166,6 +169,100 @@ def list_queued_requests(state_root: str|Path, repo_root: str|Path|None=None)->l
         r=_read_json(p); res=root/'maintenance_publication_results'/(r['publication_id']+'.json')
         if not res.exists() or _read_json(res).get('terminal_classification')!='publication_succeeded': out.append(r)
     return out
+
+def _git_text(git: str, repo: Path, args: Sequence[str])->str:
+    cp=_git(git,repo,args)
+    if cp.returncode: raise MaintenanceLandingError('local_repository_precondition_failed')
+    return cp.stdout.decode().strip()
+
+def _git_clean(git: str, repo: Path)->bool:
+    return (_git(git,repo,['diff','--quiet']).returncode==0
+            and _git(git,repo,['diff','--cached','--quiet']).returncode==0
+            and not _git_text(git,repo,['ls-files','--others','--exclude-standard']))
+
+def _operation_in_progress(git: str, repo: Path)->bool:
+    names=('MERGE_HEAD','REBASE_HEAD','CHERRY_PICK_HEAD','REVERT_HEAD','BISECT_LOG','rebase-merge','rebase-apply')
+    for name in names:
+        path=_git_text(git,repo,['rev-parse','--git-path',name])
+        if (repo/path).exists() if not Path(path).is_absolute() else Path(path).exists(): return True
+    return False
+
+def _bound_artifact(root: Path, directory: str, digest_field: str, expected: str)->dict[str,Any]:
+    matches=[]
+    for path in (root/directory).glob('*.json') if (root/directory).exists() else ():
+        value=_read_json(path)
+        if value.get(digest_field)==expected: matches.append(value)
+    if len(matches)!=1 or matches[0].get(digest_field)!=_seal({**matches[0],digest_field:''},digest_field):
+        raise MaintenanceLandingError('local_absorption_evidence_invalid')
+    return matches[0]
+
+def _local_absorption(pol: Mapping[str,Any], req: Mapping[str,Any], root: Path,
+                      repo: Path, lease: Mapping[str,Any], evaluation_time: str)->tuple[str,dict[str,Any]]:
+    """Advance and synchronize one lease-bound local base ref; never contacts a remote."""
+    obs: dict[str,Any]={'remote_operations':0,'network_performed':False,'pull_request_created':False,
+        'force_update_used':False,'merge_performed':False,'runtime_restart_performed':False,
+        'runtime_adoption_performed':False,'checkout_synchronization':'not_started','postcondition_status':'not_verified'}
+    try:
+        if Path(str(pol['canonical_repository_root'])).resolve()!=repo.resolve() or req.get('repository_identity')!=pol.get('repository_identity'):
+            raise MaintenanceLandingError('repository_identity_mismatch')
+        if req.get('base_ref')!=lease.get('landing_terms',{}).get('base_ref') or not re.fullmatch(r'refs/heads/[A-Za-z0-9._/-]+',str(req.get('base_ref',''))):
+            raise MaintenanceLandingError('local_base_ref_mismatch')
+        if req.get('task_id')!=lease.get('task_id') or req.get('lease_id')!=lease.get('lease_id') or req.get('lease_digest')!=lease.get('lease_digest'):
+            raise MaintenanceLandingError('lease_binding_mismatch')
+        if lease.get('lease_digest')!=lease_mod._seal(lease,'lease_digest') or evaluation_time>=str(lease.get('expires_at','')) or lease.get('lease_status')!='active':
+            raise MaintenanceLandingError('lease_inactive')
+        validate_landing_authority(lease,['repository_commit','local_repository_base_advance'],LOCAL_FAST_FORWARD_MODE)
+        if req.get('publication_request_digest')!=_seal({**req,'publication_request_digest':''},'publication_request_digest'):
+            raise MaintenanceLandingError('publication_request_invalid')
+        result=_bound_artifact(root,'maintenance_commit_results','commit_result_digest',str(req.get('commit_result_digest')))
+        plan=_bound_artifact(root,'maintenance_commit_plans','plan_digest',str(req.get('commit_plan_digest')))
+        bindings=('task_id','lease_id','lease_digest','validation_result_digest','commit_sha','tree_sha','parent_sha','changed_paths')
+        if any(req.get(k)!=result.get(k) for k in ('task_id','commit_sha','tree_sha','parent_sha','changed_paths')) or any(req.get(k)!=plan.get(k) for k in ('task_id','lease_id','lease_digest','validation_result_digest','changed_paths')):
+            raise MaintenanceLandingError('local_absorption_evidence_invalid')
+        git=str(pol['git_executable']); commit=str(req['commit_sha']); parent=str(req['parent_sha']); ref=str(req['base_ref'])
+        if _git(git,repo,['cat-file','-e',commit+'^{commit}']).returncode or _git_text(git,repo,['show','-s','--format=%P',commit])!=parent:
+            raise MaintenanceLandingError('commit_parent_invalid')
+        tree=_git_text(git,repo,['show','-s','--format=%T',commit])
+        subject=_git_text(git,repo,['show','-s','--format=%s',commit])
+        author=_git_text(git,repo,['show','-s','--format=%an%x00%ae',commit]).split('\x00')
+        committer=_git_text(git,repo,['show','-s','--format=%cn%x00%ce',commit]).split('\x00')
+        changed=tuple(sorted(_git_text(git,repo,['diff-tree','--no-commit-id','--name-only','-r',parent,commit]).splitlines()))
+        if tree!=req.get('tree_sha') or subject!=req.get('title') or changed!=tuple(req.get('changed_paths',())) or result.get('identity_digests')!={'author':digest({'name':author[0],'email':author[1]}),'committer':digest({'name':committer[0],'email':committer[1]})}:
+            raise MaintenanceLandingError('commit_evidence_mismatch')
+        symbolic=_git_text(git,repo,['symbolic-ref','-q','HEAD'])
+        if symbolic!=ref: raise MaintenanceLandingError('canonical_head_ref_mismatch')
+        current=_git_text(git,repo,['rev-parse',ref]); head=_git_text(git,repo,['rev-parse','HEAD'])
+        obs.update({'local_base_ref':ref,'local_base_ref_before':current,'canonical_head_before':head,
+                    'exact_parent_sha':parent,'exact_tree_sha':tree,'changed_paths':list(changed)})
+        if _operation_in_progress(git,repo): raise MaintenanceLandingError('git_operation_in_progress')
+        if current==parent:
+            if head!=parent or not _git_clean(git,repo): raise MaintenanceLandingError('canonical_checkout_not_clean')
+            cas=_git(git,repo,['update-ref',ref,commit,parent])
+            if cas.returncode: raise MaintenanceLandingError('local_base_compare_and_swap_failed')
+            obs['ref_compare_and_swap']='advanced'
+        elif current==commit and head==commit:
+            obs['ref_compare_and_swap']='already_advanced'
+        else: raise MaintenanceLandingError('local_base_compare_and_swap_failed')
+        # After CAS, either finalize an already exact checkout or prove the index/worktree
+        # still represent the pristine parent before forwarding them.
+        if _git_clean(git,repo) and _git_text(git,repo,['write-tree'])==tree:
+            obs['checkout_synchronization']='already_exact'
+        else:
+            parent_tree=_git_text(git,repo,['show','-s','--format=%T',parent])
+            untracked=_git_text(git,repo,['ls-files','--others','--exclude-standard'])
+            if untracked or _git_text(git,repo,['write-tree'])!=parent_tree or _git(git,repo,['diff-files','--quiet']).returncode:
+                raise MaintenanceLandingError('local_checkout_recovery_ambiguous')
+            sync=_git(git,repo,['read-tree','-u','--reset',commit])
+            if sync.returncode: raise MaintenanceLandingError('local_checkout_synchronization_failed')
+            obs['checkout_synchronization']='synchronized'
+        after=_git_text(git,repo,['rev-parse',ref]); head_after=_git_text(git,repo,['rev-parse','HEAD'])
+        if after!=commit or head_after!=commit or _git_text(git,repo,['symbolic-ref','-q','HEAD'])!=ref or not _git_clean(git,repo) or _git_text(git,repo,['write-tree'])!=tree:
+            raise MaintenanceLandingError('local_absorption_postcondition_failed')
+        obs.update({'local_base_ref_after':after,'canonical_head_after':head_after,'postcondition_status':'verified'})
+        return 'publication_succeeded',obs
+    except MaintenanceLandingError as exc:
+        obs['failure_reason']=str(exc)
+        return 'publication_integrity_failed',obs
 
 def publish_one_maintenance_request(*, state_root: str|Path, repository_root: str|Path, lease: Mapping[str,Any], landing_policy: Mapping[str,Any], publication_id: str, evaluation_time: str)->dict[str,Any]:
     root=journal.resolve_state_root(state_root, repo_root=repository_root); req=_read_json(root/'maintenance_publication_requests'/(publication_id+'.json')); pol=seal_landing_policy(landing_policy); lock=root/(publication_id+'.publish.lock'); lock.touch(exist_ok=True)
@@ -180,7 +277,13 @@ def publish_one_maintenance_request(*, state_root: str|Path, repository_root: st
       sr=journal.append_event(root,'publication_started',task_id=req['task_id'],payload=start,event_id=_id('mevent',start),repository_sha=req['commit_sha'],recorded_at=evaluation_time,repo_root=repository_root)
       if sr.status not in {'event_appended','event_already_recorded'}: return _publication_result(root,req,'publication_integrity_failed',{'journal':sr.reason_code},evaluation_time,repository_root)
       obs: dict[str, Any]={}; cls='publication_succeeded'; git=pol['git_executable']
-      if req['publication_mode']=='fast_forward_base_ref':
+      if req['publication_mode']==LOCAL_FAST_FORWARD_MODE:
+        verified=lease_mod.verify_lease(root,str(req.get('lease_id')),evaluation_time=evaluation_time,repo_root=repository_root)
+        if verified.get('status')!='lease_active' or verified.get('lease_digest')!=lease.get('lease_digest'):
+            cls='publication_integrity_failed'; obs={'failure_reason':'lease_inactive','remote_operations':0,'network_performed':False}
+        else:
+            cls,obs=_local_absorption(pol,req,root,Path(repository_root),lease,evaluation_time)
+      elif req['publication_mode']=='fast_forward_base_ref':
         before=_git(git, repository_root, ['ls-remote',req['remote_name'],req['base_ref']]); oid=before.stdout.decode().split()[0] if before.stdout.strip() else ''
         obs['remote_base_before']=oid
         if oid!=req['parent_sha']: cls='publication_remote_conflict'
@@ -220,6 +323,8 @@ def _publish_pr(pol: Mapping[str,Any], req: Mapping[str,Any], root: Path)->tuple
 
 def _publication_result(root: Path, req: Mapping[str,Any], cls: str, obs: Mapping[str,Any], at: str, repo_root: str|Path, ordinal:int|None=None)->dict[str,Any]:
     res={'schema_version':PUBLICATION_RESULT_SCHEMA,'publication_id':req['publication_id'],'task_id':req['task_id'],'attempt_ordinal':ordinal,'request_digest':req['publication_request_digest'],'commit_sha':req['commit_sha'],'mode':req['publication_mode'],'remote_observations':dict(obs),'terminal_classification':cls,'terminal_status':cls,'recorded_at':at,'hosted_checks_waited':False,'force_push_used':False,'merge_performed':False,'credential_bytes_inspected':False,'operator_message_relayed':False}
+    if req['publication_mode']==LOCAL_FAST_FORWARD_MODE:
+        res.update({'lease_id':req.get('lease_id'),'lease_digest':req.get('lease_digest'),'validation_result_digest':req.get('validation_result_digest'),'commit_plan_digest':req.get('commit_plan_digest'),'commit_result_digest':req.get('commit_result_digest'),'parent_sha':req.get('parent_sha'),'tree_sha':req.get('tree_sha'),'local_base_ref':req.get('base_ref'),'changed_paths':req.get('changed_paths',[]),'local_base_ref_before':obs.get('local_base_ref_before'),'local_base_ref_after':obs.get('local_base_ref_after'),'canonical_head_before':obs.get('canonical_head_before'),'canonical_head_after':obs.get('canonical_head_after'),'checkout_synchronization_result':obs.get('checkout_synchronization'),'postcondition_status':obs.get('postcondition_status'),'remote_operations':0,'force_update_used':False,'pull_request_created':False,'network_performed':False,'runtime_restart_performed':False,'runtime_adoption_performed':False})
     res['publication_result_digest']=_seal({**res,'publication_result_digest':''},'publication_result_digest')
     if cls=='publication_succeeded': _write_immutable(root/'maintenance_publication_results'/(req['publication_id']+'.json'), res)
     else: _write_immutable(root/'maintenance_publication_attempts'/(req['publication_id']+'-'+str(ordinal or 0)+'.json'), res)
