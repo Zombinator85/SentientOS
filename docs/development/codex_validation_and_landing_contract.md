@@ -23,7 +23,7 @@ Pass `--task-acceptance-manifest PATH` to both finalizer phases when the task us
 ## Required evidence
 Run the validation required by `AGENTS.md`, the task profile/template, and the changed surfaces. Focused tests alone are insufficient when matrix, governance, landing, audit, supervisor, proof, or capability rails apply.
 
-The mandatory landing sequence remains: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> `make_pr`.
+The mandatory lifecycle is two-sided around an external boundary: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> exact body binding -> `pr_publication_handoff_ready` -> `ready_for_external_pr_publication` -> external `make_pr` -> independent hosted observation -> `hosted_publication_custody_verified_exact` -> `exact_hosted_publication_closed`. External publication and observation remain outside repository library authority.
 
 Situational validation selects the relevant lanes without weakening the landing contract:
 
@@ -60,13 +60,13 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - A finalizer artifact alone is not enough when the PR metadata guard says blocked.
 - Focused tests passing without a ready PR metadata guard is not a complete landing.
 
-Strict landing sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; only then `make_pr`.
+Strict local sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; bind the exact body and seal the exact publication handoff; only then invoke external `make_pr`. This reaches pre-publication readiness, not hosted closure. Exact hosted closure requires a later independent observation and exact custody verification.
 
 ## Metadata-only lifecycle summaries
 
 A Codex task lifecycle summary may be produced as a developer workflow artifact after validation/finalizer/guard evidence exists. The summary consumes already-produced finalizer JSON artifacts, the matrix JSON path, and optional PR metadata guard JSON. It emits deterministic metadata including finalizer decisions, optional PR #1878 terminal freshness fields, cleanup fields, guard status, lifecycle status, rerun reason, and explicit non-authority posture flags.
 
-The summary is evidence only. It does not replace bootstrap, validation, matrix, supervisor, pre-commit finalizer, post-commit/pr-metadata finalizer, PR metadata guard, clean-tree checks, commit requirements, or `make_pr` requirements. If the summary reports `codex_lifecycle_ready`, that means only that the supplied artifacts contain ready statuses; the executable landing sequence still controls.
+The summary is evidence only. It does not replace bootstrap, validation, matrix, supervisor, pre-commit finalizer, post-commit/pr-metadata finalizer, PR metadata guard, clean-tree checks, commit requirements, publication handoff, external `make_pr`, or independent observation. `ready_for_pr_publication_handoff` records local finalizer/guard readiness; `ready_for_external_pr_publication` additionally requires a supplied ready handoff. Only supplied custody evidence classified `hosted_publication_custody_verified_exact` can produce `exact_hosted_publication_closed`. Rewritten, mismatched, insufficient, or absent observation never produces closure.
 
 ## Lifecycle doctor and validation evidence boundaries
 

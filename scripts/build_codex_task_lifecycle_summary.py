@@ -21,6 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--matrix-json-path", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--pr-metadata-guard-json")
+    parser.add_argument("--publication-handoff-json")
+    parser.add_argument("--hosted-publication-custody-json")
     parser.add_argument("--task-id")
     parser.add_argument("--summary", action="store_true")
     return parser
@@ -38,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
                 matrix_json_path=args.matrix_json_path,
                 output=args.output,
                 pr_metadata_guard_json=args.pr_metadata_guard_json,
+                publication_handoff_json=args.publication_handoff_json,
+                hosted_publication_custody_json=args.hosted_publication_custody_json,
                 task_id=args.task_id,
             )
         )

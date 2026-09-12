@@ -6,16 +6,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-READY = "codex_lifecycle_ready"
+READY_FOR_EXTERNAL_PUBLICATION = "ready_for_external_pr_publication"
+READY_FOR_PUBLICATION_HANDOFF = "ready_for_pr_publication_handoff"
+EXACT_HOSTED_CLOSURE = "exact_hosted_publication_closed"
 INCOMPLETE = "codex_lifecycle_incomplete"
 BLOCKED = "codex_lifecycle_blocked"
 GUARD_READY = "pr_metadata_guard_ready"
 GUARD_NOT_PROVIDED = "not_provided"
+HANDOFF_READY = "pr_publication_handoff_ready"
+HOSTED_EXACT = "hosted_publication_custody_verified_exact"
+HOSTED_NOT_OBSERVED = "hosted_publication_not_observed"
 
 NON_AUTHORITY_POSTURE: dict[str, bool] = {
     "summary_does_not_bypass_finalizer": True,
     "summary_does_not_bypass_pr_metadata_guard": True,
     "summary_does_not_authorize_pr_creation": True,
+    "pre_publication_readiness_does_not_prove_hosted_publication": True,
+    "payload_echo_does_not_prove_hosted_publication": True,
     "summary_does_not_authorize_dirty_source_files": True,
     "summary_does_not_grant_runtime_authority": True,
 }
@@ -47,6 +54,8 @@ class CodexTaskLifecycleSummaryRequest:
     matrix_json_path: str
     output: str = ""
     pr_metadata_guard_json: str | None = None
+    publication_handoff_json: str | None = None
+    hosted_publication_custody_json: str | None = None
     task_id: str | None = None
 
 
@@ -123,7 +132,37 @@ def build_task_lifecycle_summary(request: CodexTaskLifecycleSummaryRequest) -> d
     if guard_status not in {GUARD_NOT_PROVIDED, GUARD_READY}:
         reasons.append(f"pr_metadata_guard_not_ready:{guard_status}")
 
-    overall = INCOMPLETE if missing_required else (BLOCKED if reasons else READY)
+    handoff_status = GUARD_NOT_PROVIDED
+    handoff_path = request.publication_handoff_json
+    if handoff_path:
+        handoff = _load_json_object(handoff_path, "publication_handoff_json")
+        value = handoff.get("status")
+        handoff_status = value if isinstance(value, str) and value else "invalid"
+        if handoff_status != HANDOFF_READY:
+            reasons.append(f"publication_handoff_not_ready:{handoff_status}")
+
+    custody_status = HOSTED_NOT_OBSERVED
+    custody_path = request.hosted_publication_custody_json
+    exact_custody = False
+    if custody_path:
+        custody = _load_json_object(custody_path, "hosted_publication_custody_json")
+        value = custody.get("status")
+        custody_status = value if isinstance(value, str) and value else "invalid"
+        exact_custody = custody_status == HOSTED_EXACT and custody.get("exact_publication_custody") is True
+        if custody_status == HOSTED_EXACT and not exact_custody:
+            reasons.append("hosted_publication_exact_status_contradiction")
+        if exact_custody and handoff_status != HANDOFF_READY:
+            reasons.append("exact_hosted_custody_requires_publication_handoff")
+
+    local_ready = not reasons and not missing_required
+    if not local_ready:
+        overall = INCOMPLETE if missing_required else BLOCKED
+    elif exact_custody:
+        overall = EXACT_HOSTED_CLOSURE
+    elif handoff_status != HANDOFF_READY:
+        overall = READY_FOR_PUBLICATION_HANDOFF
+    else:
+        overall = READY_FOR_EXTERNAL_PUBLICATION
     rerun_required = bool(reasons or missing_required)
 
     summary: dict[str, Any] = {
@@ -136,6 +175,11 @@ def build_task_lifecycle_summary(request: CodexTaskLifecycleSummaryRequest) -> d
         "pr_metadata_finalizer_status": pr["status"],
         "pr_metadata_guard_status": guard_status,
         "pr_metadata_guard_json_path": guard_path,
+        "publication_handoff_status": handoff_status,
+        "publication_handoff_json_path": handoff_path,
+        "hosted_publication_custody_status": custody_status,
+        "hosted_publication_custody_json_path": custody_path,
+        "exact_hosted_publication_custody": exact_custody,
         "finalizers": {"pre_commit": pre, "pr_metadata": pr},
         "overall_lifecycle_status": overall,
         "rerun_required": rerun_required,

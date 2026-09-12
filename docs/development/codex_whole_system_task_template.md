@@ -18,7 +18,7 @@ List exact successful behavior, denial/failure cases, deterministic artifacts, p
 List implementation, integration, docs, typing, capability/proof, reviewer/index, and matrix surfaces that genuinely apply. Do not manufacture a runtime capability for developer workflow work.
 
 ## Task-specific validation
-List only focused tests, targeted mypy scope, relevant matrix lane, and additional task-specific checks. Inherit bootstrap, baseline, docs/prompt checks, audits, clean-tree rules, two-phase finalizer, guard, body binding, and `make_pr` procedure by reference; do not duplicate their command blocks.
+List only focused tests, targeted mypy scope, relevant matrix lane, and additional task-specific checks. Inherit bootstrap, baseline, docs/prompt checks, audits, clean-tree rules, two-phase finalizer, guard, body binding, publication handoff, and external `make_pr` procedure by reference; do not duplicate their command blocks. Report handoff readiness separately from hosted custody. Only later independent hosted evidence may close exact publication custody.
 
 ## Done when
-The objective, integration, documentation, exact-node behavioral proof, required matrix, repair loop, and canonical landing contract all pass after the last task-caused change. Do not defer task-caused stabilization.
+The objective, integration, documentation, exact-node behavioral proof, required matrix, repair loop, and canonical local landing contract all pass after the last task-caused change. Do not defer task-caused stabilization. A task may truthfully stop at `ready_for_external_pr_publication`; it must not claim exact hosted closure until independent custody verification succeeds.

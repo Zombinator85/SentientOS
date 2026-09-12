@@ -92,6 +92,18 @@ the only exact success; `hosted_publication_head_rewritten_tree_equivalent_custo
 records equal trees with a different hosted head and remains non-exact;
 `hosted_publication_mismatch` records material contradiction; and
 `hosted_publication_observation_insufficient` records missing or non-independent evidence.
+The `verify-hosted-publication-custody` gate exits zero only for the exact-success
+classification. It exits nonzero for rewritten-tree custody breaks, material mismatches,
+and insufficient observations. `seal-hosted-publication-custody` may still exit zero after
+persisting a deterministic diagnostic artifact; sealing records a classification and is
+not gate success.
+
+The lifecycle summary accepts optional `--publication-handoff-json` and
+`--hosted-publication-custody-json` inputs. Local finalizer/guard readiness alone is
+`ready_for_pr_publication_handoff`; a verified-ready handoff advances only to
+`ready_for_external_pr_publication`. The terminal `exact_hosted_publication_closed`
+status requires supplied custody evidence whose status is
+`hosted_publication_custody_verified_exact` and whose exact-custody flag is true.
 
 The full custody chain is: local workspace → implementation commit → exact body
 binding → exact publication handoff → selected actuator → actuator compatibility
