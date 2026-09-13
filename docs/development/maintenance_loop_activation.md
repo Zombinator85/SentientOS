@@ -1,9 +1,9 @@
 # Maintenance-loop operator activation
 
-After watchdog idle proof, `render-scheduler-config`, `doctor-scheduler`, and
-`print-scheduler-command` seal and inspect an exact digest-bound cadence profile;
-they never start it. The operator explicitly runs the bounded scheduler. External
-process management is needed only for persistent machine-startup deployment.
+After watchdog idle proof, `render-scheduler-config` and `doctor-scheduler` seal and
+inspect an exact digest-bound cadence profile; they never start it. The operator may
+then run `render-daemon-adoption --enabled` to separately bind that exact profile for
+`sentientosd`, or use `print-scheduler-command` for a manual bounded run.
 Changing watchdog configuration requires a new profile. First-boot autonomy and
 interval metadata is not scheduling authority. No OS scheduler entry is installed.
 
@@ -31,9 +31,17 @@ empty-inbox idle run, and prints the exact scheduler argv.
 6. Place one explicitly selected, canonical candidate in the inbox.
 7. Invoke the production bounded runner manually using `print-run-command`'s
    argv and inspect the bounded terminal state.
-8. Only then render and explicitly start the bounded SentientOS cadence runner (or
-   configure external process management for persistent deployment). The runner serializes
-   invocations and honor the watchdog's bounded exit state before retrying.
+8. Run `doctor-scheduler`, then explicitly render daemon adoption with an external
+   ownership-evidence path, shutdown bound, and re-entry delay. Set
+   `SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG` to that adoption file and start
+   `sentientosd`. The daemon is not started by activation tooling.
+
+No adoption is inferred from scheduler presence, candidate contents, watchdog state,
+repository contents, or first-boot `architect_autonomy`, `codex_interval`, `codex_mode`,
+or `codex_max_iterations`. Adoption owns lifecycle only: it creates no candidate or
+lease and grants no implementation, validation, Git, publication, provider, network,
+credential, host-actuation, or runtime-code-adoption authority. Locking uses `fcntl`, so
+daemon scheduler adoption is POSIX-only.
 
 `print-run-command` prints a JSON argv array first; it does not produce a shell
 program. SentientOS does **not** install or modify cron, systemd, launchd, or Task

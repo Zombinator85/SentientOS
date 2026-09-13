@@ -13,7 +13,7 @@ import stat
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Mapping
 
 from sentientos import maintenance_loop_watchdog as watchdog
 
@@ -150,7 +150,7 @@ def _next_due(cfg: Mapping[str, Any], events: list[dict[str, Any]]) -> tuple[int
 
 
 def _verified_watchdog(cfg: Mapping[str, Any]) -> dict[str, Any]:
-    current = cast(dict[str, Any], watchdog.load_config(str(cfg["watchdog_config_path"])))
+    current: dict[str, Any] = dict(watchdog.load_config(str(cfg["watchdog_config_path"])))
     if current["config_digest"] != cfg["watchdog_config_digest"]:
         raise ValueError("maintenance_scheduler_watchdog_config_drift")
     return current
@@ -211,9 +211,12 @@ def run_once(config: Mapping[str, Any], *, evaluation_time: str, monotonic: Call
 
 def run_bounded(config: Mapping[str, Any], *, wall_clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
                 monotonic: Callable[[], float] = time.monotonic, sleeper: Callable[[float], None] = time.sleep,
-                watchdog_runner: Callable[..., dict[str, Any]] = watchdog.run_bounded) -> dict[str, Any]:
-    cfg = validate_config(config); start = monotonic(); cycles = 0; results = []
+                watchdog_runner: Callable[..., dict[str, Any]] = watchdog.run_bounded,
+                stop_requested: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+    cfg = validate_config(config); start = monotonic(); cycles = 0; results: list[dict[str, Any]] = []
     while cycles < int(cfg["maximum_cycles"]):
+        if stop_requested():
+            return {"status": "maintenance_scheduler_daemon_shutdown", "cycle_count": cycles, "results": results}
         elapsed = monotonic() - start
         if elapsed >= int(cfg["maximum_scheduler_wall_clock_seconds"]): break
         state = inspect(cfg); now = _utc(_utc_text(wall_clock())); due = _utc(state["next_due_utc"])
@@ -223,7 +226,10 @@ def run_bounded(config: Mapping[str, Any], *, wall_clock: Callable[[], datetime]
         remaining = int(cfg["maximum_scheduler_wall_clock_seconds"]) - elapsed
         if wait > 0:
             if wait >= remaining: break
-            sleeper(wait); continue
+            sleeper(wait)
+            if stop_requested():
+                return {"status": "maintenance_scheduler_daemon_shutdown", "cycle_count": cycles, "results": results}
+            continue
         result = run_once(cfg, evaluation_time=_utc_text(now), monotonic=monotonic, watchdog_runner=watchdog_runner); results.append(result)
         if result["status"] == "maintenance_scheduler_lock_busy": break
         if result["status"] != "maintenance_scheduler_not_due": cycles += 1

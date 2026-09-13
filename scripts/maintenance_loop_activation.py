@@ -30,6 +30,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         scheduler_render.add_argument("--" + name, required=True, type=int)
     scheduler_doctor = sub.add_parser("doctor-scheduler"); scheduler_doctor.add_argument("--config", required=True)
     scheduler_command = sub.add_parser("print-scheduler-command"); scheduler_command.add_argument("--config", required=True)
+    daemon_adoption = sub.add_parser("render-daemon-adoption")
+    daemon_adoption.add_argument("--output", required=True); daemon_adoption.add_argument("--scheduler-config-path", required=True)
+    daemon_adoption.add_argument("--evidence-path", required=True); daemon_adoption.add_argument("--enabled", action="store_true")
+    daemon_adoption.add_argument("--shutdown-timeout-seconds", type=float, required=True)
+    daemon_adoption.add_argument("--reentry-delay-seconds", type=float, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "init-roots": out = activation.init_roots(args.repository_root, {k: getattr(args, k + "_root") for k in ("state", "workspace", "scratch", "inbox")})
@@ -45,6 +50,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "doctor-scheduler":
             from sentientos import maintenance_loop_scheduler as scheduler
             out = scheduler.doctor(scheduler.load_config(args.config))
+        elif args.command == "render-daemon-adoption":
+            out = activation.render_daemon_adoption(args.output, scheduler_config_path=args.scheduler_config_path,
+                evidence_path=args.evidence_path, enabled=args.enabled,
+                shutdown_timeout_seconds=args.shutdown_timeout_seconds, reentry_delay_seconds=args.reentry_delay_seconds)
         elif args.command == "print-scheduler-command":
             av = activation.scheduler_argv(args.config); print(json.dumps(av, separators=(",", ":"))); print("Command: " + " ".join(json.dumps(x) for x in av)); return 0
         else:

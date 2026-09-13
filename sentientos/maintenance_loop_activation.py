@@ -20,6 +20,7 @@ from sentientos import maintenance_commit_publication as landing
 from sentientos import maintenance_local_codex_foreman as foreman
 from sentientos import maintenance_loop_watchdog as watchdog
 from sentientos import maintenance_loop_scheduler as scheduler
+from sentientos import maintenance_scheduler_daemon as daemon_scheduler
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_validation_controller as validation
 from sentientos.local_model_production_commissioning import load_activation
@@ -176,6 +177,36 @@ def render_scheduler_config(output: str | Path, *, watchdog_config_path: str | P
 def scheduler_argv(config_path: str | Path, command: str = "run-bounded") -> list[str]:
     cfg = scheduler.load_config(config_path); repo = Path(watchdog.load_config(cfg["watchdog_config_path"])["repository_root"])
     return [sys.executable, str(repo / "scripts" / "maintenance_loop_scheduler.py"), "--config", str(Path(config_path).resolve()), command]
+
+
+def render_daemon_adoption(output: str | Path, *, scheduler_config_path: str | Path,
+                           evidence_path: str | Path, enabled: bool,
+                           shutdown_timeout_seconds: float,
+                           reentry_delay_seconds: float) -> dict[str, Any]:
+    """Explicitly seal daemon lifecycle ownership; scheduler rendering never calls this."""
+    path = Path(scheduler_config_path).expanduser().resolve(strict=True)
+    cfg = scheduler.load_config(path)
+    adoption = daemon_scheduler.validate_adoption({
+        "schema_version": daemon_scheduler.ADOPTION_SCHEMA, "enabled": enabled,
+        "scheduler_config_path": str(path), "scheduler_config_digest": cfg["config_digest"],
+        "expected_scheduler_schema": scheduler.CONFIG_SCHEMA,
+        "evidence_path": str(Path(evidence_path).expanduser().resolve(strict=False)),
+        "shutdown_timeout_seconds": shutdown_timeout_seconds,
+        "reentry_delay_seconds": reentry_delay_seconds,
+    })
+    data = canonical_bytes(adoption) + b"\n"; destination = Path(output)
+    if destination.exists():
+        if destination.is_symlink() or destination.read_bytes() != data:
+            raise ValueError("configuration_output_conflict")
+        status = "reused"
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as handle: handle.write(data)
+        status = "created"
+    return {"schema_version": "sentientos.maintenance_scheduler_daemon_activation_render:v1",
+            "status": "daemon_adoption_configuration_ready", "output_path": str(destination.resolve()),
+            "scheduler_config_digest": cfg["config_digest"], "enabled": enabled, "write_status": status}
 
 
 def _load(value: Any) -> dict[str, Any]:
