@@ -1,5 +1,10 @@
 # Maintenance Loop Watchdog
 
+The watchdog remains the sole bounded transition organ. The separate explicitly
+operator-started bounded cadence runner invokes its existing `run_bounded` entry
+point under exact config binding; it neither reproduces watchdog logic nor widens
+authority. Persistent OS-service deployment remains external future work.
+
 The maintenance-loop watchdog is external developer-workflow machinery. It is a
 deterministic coordinator, not a daemon: each tick observes external custody,
 selects exactly one top-level transition, delegates that transition to an existing

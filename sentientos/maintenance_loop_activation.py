@@ -19,6 +19,7 @@ from typing import Any, Mapping, Sequence, cast
 from sentientos import maintenance_commit_publication as landing
 from sentientos import maintenance_local_codex_foreman as foreman
 from sentientos import maintenance_loop_watchdog as watchdog
+from sentientos import maintenance_loop_scheduler as scheduler
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_validation_controller as validation
 from sentientos.local_model_production_commissioning import load_activation
@@ -138,6 +139,43 @@ def run_argv(config_path: str | Path, evaluation_time: str) -> list[str]:
     repo = Path(watchdog.load_config(config_path)["repository_root"])
     return [sys.executable, str(repo / "scripts" / "maintenance_loop_watchdog.py"),
             "--config", str(Path(config_path).resolve()), "--evaluation-time", evaluation_time, "run-bounded"]
+
+
+def render_scheduler_config(output: str | Path, *, watchdog_config_path: str | Path,
+                            scheduler_state_root: str | Path, cadence_interval_seconds: int,
+                            initial_run_posture: str, schedule_anchor_utc: str,
+                            maximum_cycles: int, maximum_scheduler_wall_clock_seconds: int,
+                            consecutive_failure_threshold: int) -> dict[str, Any]:
+    """Seal, but never start, a scheduler profile for one watchdog config."""
+    watchdog_path = Path(watchdog_config_path).expanduser().resolve(strict=True)
+    watchdog_cfg = watchdog.load_config(watchdog_path)
+    state = _safe_external(scheduler_state_root, watchdog_cfg["repository_root"])
+    if not state.exists() or not state.is_dir():
+        raise ValueError("scheduler_state_root_not_initialized")
+    config = scheduler.validate_config({
+        "schema_version": scheduler.CONFIG_SCHEMA, "watchdog_config_path": str(watchdog_path),
+        "watchdog_config_digest": watchdog_cfg["config_digest"], "scheduler_state_root": str(state),
+        "cadence_interval_seconds": cadence_interval_seconds, "initial_run_posture": initial_run_posture,
+        "schedule_anchor_utc": schedule_anchor_utc, "maximum_cycles": maximum_cycles,
+        "maximum_scheduler_wall_clock_seconds": maximum_scheduler_wall_clock_seconds,
+        "consecutive_failure_threshold": consecutive_failure_threshold,
+        "stop_marker": str(state / "SCHEDULER_STOP"), "journal_path": str(state / "scheduler_events.jsonl")})
+    data = scheduler.canonical_bytes(config) + b"\n"; destination = Path(output)
+    if destination.exists():
+        if destination.is_symlink() or destination.read_bytes() != data: raise ValueError("configuration_output_conflict")
+        status = "reused"
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as handle: handle.write(data)
+        status = "created"
+    return {"schema_version": "sentientos.maintenance_scheduler_activation_render:v1", "status": "scheduler_configuration_ready",
+            "output_path": str(destination.resolve()), "configuration_digest": config["config_digest"], "write_status": status}
+
+
+def scheduler_argv(config_path: str | Path, command: str = "run-bounded") -> list[str]:
+    cfg = scheduler.load_config(config_path); repo = Path(watchdog.load_config(cfg["watchdog_config_path"])["repository_root"])
+    return [sys.executable, str(repo / "scripts" / "maintenance_loop_scheduler.py"), "--config", str(Path(config_path).resolve()), command]
 
 
 def _load(value: Any) -> dict[str, Any]:
@@ -274,4 +312,5 @@ def inspect_activation(receipt_path: str | Path, *, missing_ok: bool = False) ->
     return {"schema_version": "sentientos.maintenance_activation_receipt_inspection:v1", "status": "activation_receipts_ready", "receipts": receipts, "head_digest": previous}
 
 
-__all__ = ["init_roots", "render_config", "doctor_live", "smoke_idle", "run_argv", "inspect_activation"]
+__all__ = ["init_roots", "render_config", "render_scheduler_config", "doctor_live", "smoke_idle",
+           "run_argv", "scheduler_argv", "inspect_activation"]
