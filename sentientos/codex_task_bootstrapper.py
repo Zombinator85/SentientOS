@@ -8,6 +8,7 @@ from typing import Any
 from sentientos.codex_task_scaffold import CodexTaskScaffoldRequest, build_codex_task_scaffold
 from sentientos.codex_task_scaffold_path_planner import NONZERO, PlannerRequest, build_scaffold_request_payload, plan_codex_task_scaffold_paths
 from sentientos.codex_task_scaffold_preset_verifier import verify_codex_task_scaffold_presets
+from sentientos.codex_task_scaffold_presets import list_preset_ids
 from sentientos.codex_task_scaffold_verifier import verify_codex_task_scaffold_payload
 
 READY = frozenset({"ready", "ready_with_warnings", "manual_review_required"})
@@ -103,8 +104,11 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
     scaffold = build_codex_task_scaffold(scaffold_request)
     verifier = verify_codex_task_scaffold_payload(scaffold.to_dict())
     preset_verifier_summary: dict[str, Any] = {}
-    if include_preset_verifier and scaffold_request.subsystem_kind:
-        preset_result = verify_codex_task_scaffold_presets(scaffold_request.subsystem_kind)
+    preset_to_verify = request.preset_id
+    if not preset_to_verify and request.subsystem_kind in list_preset_ids():
+        preset_to_verify = request.subsystem_kind
+    if include_preset_verifier and preset_to_verify:
+        preset_result = verify_codex_task_scaffold_presets(preset_to_verify)
         preset_verifier_summary = preset_result.to_dict()
 
     warning_codes = tuple(sorted(set(planned.warning_codes + scaffold.scaffold.warning_codes)))
