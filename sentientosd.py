@@ -54,6 +54,7 @@ from sentientos.repository_mutation_handoff import (
     resolve_runtime_handoff_root,
     write_handoff_json,
 )
+from sentientos.maintenance_scheduler_daemon import MaintenanceSchedulerOwner, load_adoption
 
 LOGGER = logging.getLogger(__name__)
 
@@ -690,22 +691,36 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         governed_local_invoker=governed_invoker,
         genesis_advice_source=genesis_advice,
     )
+    scheduler_owner: MaintenanceSchedulerOwner | None = None
+    adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG")
+    if adoption_path:
+        scheduler_owner = MaintenanceSchedulerOwner(load_adoption(adoption_path))
+        scheduler_owner.start()
+    runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = (
+        scheduler_owner.health() if scheduler_owner is not None else {"status": "disabled", "read_only": True}
+    )
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
-    while not shutdown_event.is_set():
-        _run_maintenance_tick(
-            kernel=kernel,
-            runtime_surfaces=runtime_surfaces,
-            contract_sentinel=contract_sentinel,
-            forge_daemon=forge_daemon,
-            merge_train=merge_train,
-        )
+    try:
+        while not shutdown_event.is_set():
+            if scheduler_owner is not None:
+                runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = scheduler_owner.health()
+            _run_maintenance_tick(
+                kernel=kernel,
+                runtime_surfaces=runtime_surfaces,
+                contract_sentinel=contract_sentinel,
+                forge_daemon=forge_daemon,
+                merge_train=merge_train,
+            )
 
-        try:
-            await asyncio.wait_for(shutdown_event.wait(), timeout=interval_seconds)
-        except asyncio.TimeoutError:
-            continue
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=interval_seconds)
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        if scheduler_owner is not None:
+            scheduler_owner.stop()
 
     kernel.set_phase(LifecyclePhase.SHUTDOWN, actor="sentientosd")
     LOGGER.info("SentientOS daemon shutting down")

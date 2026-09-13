@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "860d26e2b4d104d449f2475acfed4ed1c196731e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_explicit_exact_adoption_runs_one_lifetime_records_evidence_and_stops", "rationale": "successful exact-profile daemon ownership, evidence, and bounded shutdown"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_adoption_disabled_and_missing_environment_do_not_touch_scheduler", "rationale": "disabled and missing configuration denial"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_scheduler_config_digest_drift_blocks_before_invocation", "rationale": "exact scheduler digest drift denial"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_watchdog_drift_propagates_degraded_before_invocation", "rationale": "bound watchdog drift denial"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_terminal_results_are_not_restarted[maintenance_scheduler_lock_busy-lock_contention]", "rationale": "external scheduler lock contention is terminal"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_terminal_results_are_not_restarted[maintenance_scheduler_stop-paused]", "rationale": "pause stops daemon re-entry"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_terminal_results_are_not_restarted[maintenance_scheduler_failure_threshold-failure_threshold_reached]", "rationale": "failure threshold stops daemon re-entry"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_terminal_results_are_not_restarted[maintenance_scheduler_recovery_ambiguous-degraded]", "rationale": "ambiguous recovery does not retry"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_first_boot_fields_are_not_adoption_or_cadence_authority", "rationale": "historical first-boot metadata is denied"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_owner_surface_contains_no_candidate_lease_git_provider_or_network_authority", "rationale": "candidate and downstream authority remain absent"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_scheduler_daemon.py::test_explicit_exact_adoption_runs_one_lifetime_records_evidence_and_stops"
+  ]
+}

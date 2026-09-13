@@ -1,7 +1,7 @@
 # Maintenance Loop Watchdog
 
 The watchdog remains the sole bounded transition organ. The separate explicitly
-operator-started bounded cadence runner invokes its existing `run_bounded` entry
+operator-selected bounded cadence runner invokes its existing `run_bounded` entry
 point under exact config binding; it neither reproduces watchdog logic nor widens
 authority. Persistent OS-service deployment remains external future work.
 
@@ -11,7 +11,7 @@ selects exactly one top-level transition, delegates that transition to an existi
 canonical component, records the result, and stops. `run-bounded` repeats ticks only
 until a configured action/time bound or a terminal idle, waiting, paused, or blocked
 result. It never installs or supplies a scheduler and is not integrated into
-`sentientosd`.
+`sentientosd` unless an operator supplies the separate exact daemon-adoption config.
 
 Commit `83cca3e` introduced the deterministic watchdog scaffold, `cc7a9da`
 added canonical scanning and selection, admission, and landing dispatch, and
@@ -78,10 +78,10 @@ relays operator messages between stages. Those effects remain with the establish
 candidate, journal, lease, foreman, validation, commit, and publication components.
 Unattended repetition still requires external configuration, an explicit standing
 grant, authenticated tools appropriate to the selected implementation/validation/landing
-path, a candidate inbox, external state/workspace/scratch custody roots, and an external
-scheduler invocation. Remote modes require their remote/publication authority and tools;
+path, a candidate inbox, external state/workspace/scratch custody roots, and either a manual
+scheduler invocation or explicit exact-profile `sentientosd` adoption. Remote modes require their remote/publication authority and tools;
 a local-only mode does not require remote authority, a configured Git remote, or a PR
-client. Neither mode makes the watchdog a scheduler or integrates it into `sentientosd`.
+client. Neither mode makes the watchdog a scheduler or gives daemon ownership any downstream maintenance authority.
 
 ## CLI
 

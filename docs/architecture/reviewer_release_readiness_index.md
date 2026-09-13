@@ -165,8 +165,9 @@ Admission is not implementation; implementation is not validation; validation is
 commit; commit is not repository absorption/publication; and repository absorption is
 not runtime restart/adoption. Local absorption is a real bounded repository effect, not
 "automatic adoption": it requires explicit local authority and exact configuration,
-performs no remote publication, and does not install a scheduler. The watchdog remains an
-externally invoked bounded runner and is not integrated into `sentientosd`.
+performs no remote publication, and does not install a scheduler. The scheduler remains bounded; `sentientosd` owns repeated lifetimes only after an
+operator explicitly binds one exact profile. This lifecycle integration neither creates
+candidates nor changes watchdog, lease, implementation, validation, or landing authority.
 
 ### Test runner bootstrap reliability
 
@@ -330,7 +331,7 @@ python scripts/build_docs.py
 - Automatic runtime adoption. This is distinct from implemented, explicit
   operator-authorized `local_fast_forward_base_ref` repository absorption.
 - Automatic/generic serving recovery and hot activation switching.
-- Built-in maintenance scheduling or `sentientosd` watchdog integration.
+- Automatic scheduler discovery, OS scheduler installation, and Windows-native locking.
 - Remote execution.
 - Merge/conflict-resolution engine.
 - Apply/install/update engine for federated improvement receipts.
