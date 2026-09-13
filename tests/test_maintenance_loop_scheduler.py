@@ -113,6 +113,42 @@ def test_corrupt_or_tampered_journal_fails_closed(tmp_path):
     with pytest.raises(ValueError, match="scheduler_journal_chain_invalid"): scheduler.inspect(cfg)
 
 
+def test_unmatched_invocation_intent_blocks_recovery_without_reinvoking(tmp_path):
+    cfg, _ = configured(tmp_path)
+    calls = []
+
+    def interrupted(*args, **kwargs):
+        calls.append("interrupted")
+        raise RuntimeError("simulated_watchdog_crash")
+
+    with pytest.raises(RuntimeError, match="simulated_watchdog_crash"):
+        scheduler.run_once(cfg, evaluation_time="2026-01-01T00:00:00Z", watchdog_runner=interrupted)
+    with pytest.raises(ValueError, match="maintenance_scheduler_recovery_ambiguous"):
+        scheduler.run_once(
+            cfg,
+            evaluation_time="2026-01-01T00:01:00Z",
+            watchdog_runner=lambda *args, **kwargs: calls.append("duplicate") or result(),
+        )
+
+    assert calls == ["interrupted"]
+
+
+def test_bounded_scheduler_rejects_naive_injected_wall_clock(tmp_path):
+    cfg, _ = configured(tmp_path)
+    calls = []
+
+    with pytest.raises(ValueError, match="scheduler_timestamp_not_timezone_aware"):
+        scheduler.run_bounded(
+            cfg,
+            wall_clock=lambda: datetime(2026, 1, 1),
+            monotonic=lambda: 0.0,
+            sleeper=lambda seconds: None,
+            watchdog_runner=lambda *args, **kwargs: calls.append(1) or result(),
+        )
+
+    assert calls == []
+
+
 def test_bounded_repeated_cadence_and_cycle_bound(tmp_path):
     cfg, _ = configured(tmp_path); wall = [datetime(2026, 1, 1, tzinfo=timezone.utc)]; mono = [0.0]; calls = []
     def sleep(seconds): wall[0] += timedelta(seconds=seconds); mono[0] += seconds

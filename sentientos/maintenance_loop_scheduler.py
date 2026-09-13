@@ -13,7 +13,7 @@ import stat
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from sentientos import maintenance_loop_watchdog as watchdog
 
@@ -40,6 +40,8 @@ def _utc(value: str) -> datetime:
 
 
 def _utc_text(value: datetime) -> str:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("scheduler_timestamp_not_timezone_aware")
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
@@ -148,7 +150,7 @@ def _next_due(cfg: Mapping[str, Any], events: list[dict[str, Any]]) -> tuple[int
 
 
 def _verified_watchdog(cfg: Mapping[str, Any]) -> dict[str, Any]:
-    current = watchdog.load_config(str(cfg["watchdog_config_path"]))
+    current = cast(dict[str, Any], watchdog.load_config(str(cfg["watchdog_config_path"])))
     if current["config_digest"] != cfg["watchdog_config_digest"]:
         raise ValueError("maintenance_scheduler_watchdog_config_drift")
     return current
@@ -214,7 +216,7 @@ def run_bounded(config: Mapping[str, Any], *, wall_clock: Callable[[], datetime]
     while cycles < int(cfg["maximum_cycles"]):
         elapsed = monotonic() - start
         if elapsed >= int(cfg["maximum_scheduler_wall_clock_seconds"]): break
-        state = inspect(cfg); now = wall_clock().astimezone(timezone.utc); due = _utc(state["next_due_utc"])
+        state = inspect(cfg); now = _utc(_utc_text(wall_clock())); due = _utc(state["next_due_utc"])
         if Path(cfg["stop_marker"]).exists():
             result = run_once(cfg, evaluation_time=_utc_text(now), monotonic=monotonic, watchdog_runner=watchdog_runner); results.append(result); break
         wait = max(0.0, (due - now).total_seconds())
