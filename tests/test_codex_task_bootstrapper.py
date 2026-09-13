@@ -133,3 +133,38 @@ def test_bootstrap_metadata_verification_declares_fixture_root() -> None:
     assert result.planned_paths["fixture_root"] == "tests/fixtures/memory_commit_execution_gate/"
     assert tuple(result.generated_scaffold_json["scaffold"]["expected_fixture_roots"]) == ("tests/fixtures/memory_commit_execution_gate/",)
     assert "Expected task-owned fixture roots: tests/fixtures/memory_commit_execution_gate/" in result.generated_prompt_text
+
+
+@pytest.mark.no_legacy_skip
+def test_specialized_subsystem_is_not_misrouted_as_preset() -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Maintenance metadata", task_goal="Describe bounded maintenance metadata",
+        subsystem_kind="maintenance", commit_title="[codex:maintenance] metadata"))
+    assert "preset_verifier_incomplete" not in result.warning_codes
+    assert result.preset_verifier_result_summary == {}
+
+
+@pytest.mark.no_legacy_skip
+def test_explicit_unknown_preset_remains_unknown() -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Unknown preset", task_goal="Describe metadata", preset_id="not_registered",
+        subsystem_kind="maintenance", commit_title="[codex:developer] metadata"))
+    assert "preset_verifier_incomplete" in result.warning_codes
+    assert "unknown_preset_id:not_registered" in result.preset_verifier_result_summary["errors"]
+
+
+@pytest.mark.no_legacy_skip
+def test_registered_subsystem_compatibly_routes_to_preset_verifier() -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Metadata", task_goal="Create metadata", subsystem_kind="developer_workflow_metadata",
+        commit_title="[codex:developer] metadata"))
+    assert result.preset_verifier_result_summary["status"] == "codex_task_scaffold_preset_verifier_ready"
+
+
+@pytest.mark.no_legacy_skip
+def test_generated_scaffold_has_exact_pr_metadata_doctrine_clause() -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Metadata", task_goal="Create metadata", preset_id="developer_workflow_metadata",
+        subsystem_kind="developer_workflow_metadata", commit_title="[codex:developer] metadata"))
+    assert "Do not create PR metadata before green final validation.\n" in result.generated_prompt_text
+    assert result.scaffold_verifier_result_summary["status"] == "codex_task_scaffold_verifier_ready"

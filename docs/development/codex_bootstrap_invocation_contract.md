@@ -71,3 +71,11 @@ PYTHONPATH=. python scripts/bootstrap_codex_task.py \
   --commit-title "[codex:developer] repair bootstrap path metadata" \
   --summary
 ```
+
+## Preset selection versus subsystem classification
+
+`preset_id` explicitly selects a registered scaffold preset, while `subsystem_kind`
+classifies the task surface. When `preset_id` is omitted, a subsystem that is itself a
+registered preset ID retains compatibility verification. A specialized subsystem that
+is not in the preset catalog does not implicitly select a preset and is not reported as
+an unknown preset. An explicitly supplied unknown `preset_id` is still reported.

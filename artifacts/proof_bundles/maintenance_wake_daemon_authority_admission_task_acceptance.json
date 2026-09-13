@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f4eab7e7e63086b39f5f3631820944515a780700",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_canonical_wake_daemon_authority_eligibility_succeeds_without_grant", "rationale": "Exact future authority definition is planning-eligible without granting runtime authority."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_missing_effect_rejected", "rationale": "Missing effects fail closed."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_extra_effect_rejected", "rationale": "Extra effects fail closed."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_wrong_principal_rejected", "rationale": "Wrong principal fails closed."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_wrong_subsystem_rejected", "rationale": "Wrong subsystem fails closed."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_each_required_precondition_is_independently_required[explicit operator adoption]", "rationale": "Every affirmative precondition remains mandatory."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_each_forbidden_goal_phrase_rejected[automatic authority renewal]", "rationale": "Broader goal authority fails closed."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_registry_reports_eligibility_only_preimplementation_truth", "rationale": "Registry truth remains eligibility-only and preimplementation."},
+    {"node_id": "tests/test_codex_task_bootstrapper.py::test_specialized_subsystem_is_not_misrouted_as_preset", "rationale": "Specialized subsystem classification does not invent a preset."},
+    {"node_id": "tests/test_codex_task_bootstrapper.py::test_explicit_unknown_preset_remains_unknown", "rationale": "Explicit unknown presets remain visible."},
+    {"node_id": "tests/test_codex_task_bootstrapper.py::test_generated_scaffold_has_exact_pr_metadata_doctrine_clause", "rationale": "Generated whole-system scaffold passes exact doctrine verification."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_wake_daemon_adoption_capability_admission.py::test_canonical_wake_daemon_authority_eligibility_succeeds_without_grant"
+  ]
+}

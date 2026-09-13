@@ -20,6 +20,7 @@ LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
+MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
 
 
 @dataclass(frozen=True)
@@ -281,6 +282,38 @@ AUTHORITY_DEFINITIONS = {
             "unchanged activation provenance",
             "fresh serving operation identity",
             "separate model serving and local model inference authority",
+        ),
+    ),
+    MAINTENANCE_WAKE_DAEMON_ADOPTION: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_WAKE_DAEMON_ADOPTION,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_wake_daemon_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_operator_wake_adoption_configuration_read",
+                "exact_maintenance_wake_configuration_read",
+                "bounded_maintenance_wake_cycle_invoke",
+                "bounded_maintenance_wake_daemon_lifecycle",
+                "maintenance_wake_daemon_evidence_write",
+                "read_only_maintenance_wake_health_projection",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "automatic authority renewal", "silent authority renewal",
+            "self-grant", "self grant", "unapproved self-modification",
+            "unapproved self modification", "arbitrary command",
+            "arbitrary scheduler target", "arbitrary executable",
+            "first-boot authority", "first boot authority",
+            "candidate admission", "lease issuance", "git publication",
+            "provider invocation", "network authority", "credential management",
+            "automatic runtime adoption", "os scheduler installation",
+            "windows-native support", "windows native support",
+        ),
+        required_goal_phrases=(
+            "explicit operator adoption", "exact wake configuration",
+            "bounded wake cycle", "separate downstream maintenance authority",
         ),
     ),
 }

@@ -132,7 +132,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     expected_docs = _norm(request.expected_doc_paths)
     expected_fixture_roots = _norm(request.expected_fixture_roots or ((f"tests/fixtures/{request.capability_id}/",) if request.subsystem_kind == "metadata_verification" and request.capability_id else ()))
     forbidden = _norm(request.forbidden_behaviors or (preset.default_forbidden_surfaces if preset else (
-        "Do not invoke Codex.", "Do not call OpenAI/provider APIs.", "Do not call GitHub APIs.", "Do not invoke shell/subprocess from library code.",
+        "Do not invoke Codex.", "Do not call OpenAI/provider APIs or use network egress.", "Do not call GitHub APIs.", "Do not invoke shell/subprocess from library code.", "Do not integrate an action wing.",
     )))
     required_integrations = _norm(
         tuple(x for x, enabled in (
@@ -164,7 +164,8 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "Pre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\n"
             "Before PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\n"
             "Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\n"
-            "Do not create PR metadata before green final validation and a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\n"
+            "Do not create PR metadata before green final validation.\n"
+            "Also require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\n"
             f"Goal: {request.task_goal}\nSubsystem: {request.task_name} ({request.subsystem_kind})."
             + (f"\nExpected task-owned fixture roots: {', '.join(expected_fixture_roots)}." if expected_fixture_roots else "")
         )
