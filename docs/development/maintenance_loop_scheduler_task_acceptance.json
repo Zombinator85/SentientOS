@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "788400540ad79e6271f2a96d95e6402f8c019d25",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_exact_profile_binding_due_invocation_and_durable_receipt","rationale":"Exact profile binding produces one watchdog call and durable chained receipt."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_not_due_is_non_sleeping_and_does_not_invoke","rationale":"A non-due cycle neither sleeps nor invokes maintenance."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_watchdog_config_drift_blocks","rationale":"Changed watchdog authority/configuration fails closed."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_scheduler_lock_contention_does_not_advance","rationale":"Scheduler contention cannot duplicate or advance cadence."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_blocked_failure_threshold_and_stop_marker","rationale":"Failure thresholds and explicit stop prevent future invocation."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_missed_intervals_collapse_without_catch_up_and_restart_reconstructs","rationale":"Restart reconstruction collapses missed intervals without a storm."},
+    {"node_id":"tests/test_maintenance_loop_scheduler.py::test_corrupt_or_tampered_journal_fails_closed","rationale":"Malformed or tampered custody blocks."}
+  ],
+  "successful_path_nodes": ["tests/test_maintenance_loop_scheduler.py::test_exact_profile_binding_due_invocation_and_durable_receipt"]
+}

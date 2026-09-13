@@ -1,5 +1,12 @@
 # Maintenance-loop operator activation
 
+After watchdog idle proof, `render-scheduler-config`, `doctor-scheduler`, and
+`print-scheduler-command` seal and inspect an exact digest-bound cadence profile;
+they never start it. The operator explicitly runs the bounded scheduler. External
+process management is needed only for persistent machine-startup deployment.
+Changing watchdog configuration requires a new profile. First-boot autonomy and
+interval metadata is not scheduling authority. No OS scheduler entry is installed.
+
 This bundle is activation tooling for the existing maintenance loop, not a new
 maintenance-loop subsystem and not additional runtime authority. It creates or
 verifies explicitly selected external custody roots, renders the watchdog's
@@ -24,7 +31,8 @@ empty-inbox idle run, and prints the exact scheduler argv.
 6. Place one explicitly selected, canonical candidate in the inbox.
 7. Invoke the production bounded runner manually using `print-run-command`'s
    argv and inspect the bounded terminal state.
-8. Only then configure an external scheduler. The scheduler should serialize
+8. Only then render and explicitly start the bounded SentientOS cadence runner (or
+   configure external process management for persistent deployment). The runner serializes
    invocations and honor the watchdog's bounded exit state before retrying.
 
 `print-run-command` prints a JSON argv array first; it does not produce a shell

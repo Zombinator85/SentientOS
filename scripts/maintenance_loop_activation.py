@@ -23,6 +23,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         p = sub.add_parser(command); p.add_argument("--config", required=True); p.add_argument("--evaluation-time", required=True)
         if command == "doctor-live": p.add_argument("--probe-remote", action="store_true")
     inspect = sub.add_parser("inspect-activation"); inspect.add_argument("--receipts", required=True)
+    scheduler_render = sub.add_parser("render-scheduler-config")
+    for name in ("output", "watchdog-config-path", "scheduler-state-root", "initial-run-posture", "schedule-anchor-utc"):
+        scheduler_render.add_argument("--" + name, required=True)
+    for name in ("cadence-interval-seconds", "maximum-cycles", "maximum-scheduler-wall-clock-seconds", "consecutive-failure-threshold"):
+        scheduler_render.add_argument("--" + name, required=True, type=int)
+    scheduler_doctor = sub.add_parser("doctor-scheduler"); scheduler_doctor.add_argument("--config", required=True)
+    scheduler_command = sub.add_parser("print-scheduler-command"); scheduler_command.add_argument("--config", required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "init-roots": out = activation.init_roots(args.repository_root, {k: getattr(args, k + "_root") for k in ("state", "workspace", "scratch", "inbox")})
@@ -32,6 +39,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "doctor-live": out = activation.doctor_live(args.config, evaluation_time=args.evaluation_time, probe_remote=args.probe_remote)
         elif args.command == "smoke-idle": out = activation.smoke_idle(args.config, evaluation_time=args.evaluation_time)
         elif args.command == "inspect-activation": out = activation.inspect_activation(args.receipts)
+        elif args.command == "render-scheduler-config":
+            scheduler_names = ("output", "watchdog_config_path", "scheduler_state_root", "cadence_interval_seconds", "initial_run_posture", "schedule_anchor_utc", "maximum_cycles", "maximum_scheduler_wall_clock_seconds", "consecutive_failure_threshold")
+            out = activation.render_scheduler_config(**{name: getattr(args, name) for name in scheduler_names})
+        elif args.command == "doctor-scheduler":
+            from sentientos import maintenance_loop_scheduler as scheduler
+            out = scheduler.doctor(scheduler.load_config(args.config))
+        elif args.command == "print-scheduler-command":
+            av = activation.scheduler_argv(args.config); print(json.dumps(av, separators=(",", ":"))); print("Command: " + " ".join(json.dumps(x) for x in av)); return 0
         else:
             av = activation.run_argv(args.config, args.evaluation_time); print(json.dumps(av, separators=(",", ":"))); print("Command: " + " ".join(json.dumps(x) for x in av)); return 0
         _emit(out); return 0 if out.get("status") not in {"activation_blocked", "activation_warning"} else 2
