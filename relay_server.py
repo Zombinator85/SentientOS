@@ -1,21 +1,14 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-import json
-import time
-from pathlib import Path
-
-from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import logging
 import os
+import socket
 import time
 from pathlib import Path
-import http.client
-import socket
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
@@ -24,8 +17,8 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 from pydantic import BaseModel
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 from sentientos.local_model import LocalModel, ModelLoadError
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
@@ -464,4 +457,3 @@ if __name__ == "__main__":
     except Exception as exc:  # pragma: no cover - startup failure should exit
         LOGGER.error("Relay server failed to start: %s", exc)
         raise SystemExit(1) from exc
-

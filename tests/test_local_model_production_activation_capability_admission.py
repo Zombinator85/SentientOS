@@ -12,6 +12,7 @@ from sentientos.codex_task_authority_admission import (
     LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE,
     LOCAL_MODEL_PRODUCTION_ACTIVATION,
     LOCAL_MODEL_PRODUCTION_COMMISSIONING,
+    LOCAL_MODEL_PRODUCTION_SERVING,
     MODEL_MIRROR_PUBLISH,
 )
 from sentientos.codex_task_bootstrapper import CodexTaskBootstrapRequest, bootstrap_codex_task
@@ -139,14 +140,41 @@ def test_forbidden_activation_scope_is_blocked(phrase: str) -> None:
 
 def test_registry_truthfully_marks_activation_selection_runtime_partial() -> None:
     records = build_default_capability_registry().by_id()
-    record = records[LOCAL_MODEL_PRODUCTION_ACTIVATION]
-    assert record.category == "local_model_chat"
-    assert record.status == "partial" and record.authority_level == "bounded_state_transition"
-    assert record.requires_operator_approval and record.requires_control_plane_admission
-    assert "exact prior-state compare-and-swap" in record.implemented_surfaces
-    assert "model loading from hardened active state" in record.deferred_surfaces
-    assert "activated-model consumer implementation" in records[
-        LOCAL_MODEL_PRODUCTION_COMMISSIONING].deferred_surfaces
+    activation = records[LOCAL_MODEL_PRODUCTION_ACTIVATION]
+    serving = records[LOCAL_MODEL_PRODUCTION_SERVING]
+    assert activation.category == "local_model_chat"
+    assert activation.status == "partial"
+    assert activation.authority_level == "bounded_state_transition"
+    assert activation.requires_operator_approval and activation.requires_control_plane_admission
+    assert "exact prior-state compare-and-swap" in activation.implemented_surfaces
+    assert "selection-only production CLI" in activation.implemented_surfaces
+    assert "activation and serving separation" in activation.implemented_surfaces
+    assert "current activation consumable by separately governed production serving" in (
+        activation.implemented_surfaces
+    )
+    assert {
+        "activation state means model loaded",
+        "activation state means serving started",
+        "activation grants inference authority",
+    }.issubset(activation.forbidden_implications)
+
+    stale_downstream_work = {
+        "activated-model consumer implementation",
+        "model loading from hardened active state",
+        "boot lifecycle",
+        "governed serving",
+        "serving currentness revalidation",
+    }
+    assert stale_downstream_work.isdisjoint(activation.deferred_surfaces)
+    assert {
+        "authenticated current activation consumption",
+        "exact pre-load and post-load currentness revalidation",
+        "exact activated runtime and model load",
+        "authoritative opaque serving-session binding",
+        "serving-bound handoff to independently admitted LOCAL_MODEL_INFERENCE",
+        "explicit production chat consumption",
+        "explicit operator-enabled canonical RuntimeSupervisor registration",
+    }.issubset(serving.implemented_surfaces)
 
 
 def test_neighboring_definitions_remain_unchanged_and_activation_class_is_distinct() -> None:
@@ -157,6 +185,7 @@ def test_neighboring_definitions_remain_unchanged_and_activation_class_is_distin
             "deterministic_catalog_deployment_authorization_controller",
         LOCAL_MODEL_ARTIFACT_ACQUISITION: "deterministic_model_artifact_acquisition_controller",
         LOCAL_MODEL_PRODUCTION_COMMISSIONING: "deterministic_local_model_commissioning_controller",
+        LOCAL_MODEL_PRODUCTION_SERVING: "deterministic_activated_model_serving_controller",
     }
     for capability, principal in expected.items():
         assert AUTHORITY_DEFINITIONS[capability].principal_kinds == frozenset({principal})
@@ -165,6 +194,12 @@ def test_neighboring_definitions_remain_unchanged_and_activation_class_is_distin
         AuthorityClass.MODEL_COMMISSIONING, AuthorityClass.MODEL_ARTIFACT_ACQUISITION,
         AuthorityClass.LOCAL_MODEL_INFERENCE, AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
     }
+    assert len({
+        AuthorityClass.MODEL_COMMISSIONING,
+        AuthorityClass.MODEL_ACTIVATION,
+        AuthorityClass.MODEL_SERVING,
+        AuthorityClass.LOCAL_MODEL_INFERENCE,
+    }) == 4
 
 
 def test_admission_performs_no_activation_model_load_serving_or_inference() -> None:
