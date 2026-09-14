@@ -501,6 +501,8 @@ def build_default_capability_registry() -> CapabilityRegistry:
             ),
             proof_tests=(
                 "tests/test_maintenance_successor_generation_adoption_capability_admission.py",
+                "tests/test_maintenance_successor_generation_adoption.py",
+                "tests/test_sentientosd_runtime_closure.py",
             ),
             proof_commands=(
                 "python -m scripts.run_tests -q tests/test_maintenance_successor_generation_adoption_capability_admission.py tests/test_capability_registry.py",
@@ -510,6 +512,8 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "current generation reconstruction from immutable completed handoffs",
                 "exact successor generation and continuity receipt verification",
                 "digest-chained cooperative wake-owner handoff",
+                "canonical successor watchdog/collector/autonomy/health/wake configuration closure",
+                "bounded forward recovery of exact final handoff phase prefixes",
                 "bounded daemon ownership and read-only runtime health",
             ),
             deferred_surfaces=(
