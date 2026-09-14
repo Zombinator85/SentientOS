@@ -88,20 +88,20 @@ def test_canonical_future_handoff_goal_is_admitted() -> None:
     assert blockers(task_goal=GOAL) == ()
 
 
-def test_registry_reports_scaffolded_eligibility_only_truth() -> None:
+def test_registry_reports_implemented_bounded_truth() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION]
     assert record.category == MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION
-    assert record.status == "scaffolded"
-    assert record.authority_level == "eligibility_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded_in_process_runner"
     assert record.requires_control_plane_admission and record.requires_audit_receipt
     assert record.requires_operator_approval
-    assert "automatic post-advancement wake continuation" in record.deferred_surfaces
+    assert "automatic continuity derive-next invocation" in record.deferred_surfaces
     assert "eligibility grants runtime authority" in record.forbidden_implications
 
 
-def test_no_successor_adoption_runtime_module_is_implemented() -> None:
-    assert not Path("sentientos/maintenance_successor_generation_adoption.py").exists()
-    assert not Path("scripts/maintenance_successor_generation_adoption.py").exists()
+def test_successor_adoption_runtime_module_is_implemented() -> None:
+    assert Path("sentientos/maintenance_successor_generation_adoption.py").exists()
+    assert Path("scripts/maintenance_successor_generation_adoption.py").exists()
 
 
 def test_existing_wake_daemon_authority_semantics_are_preserved() -> None:

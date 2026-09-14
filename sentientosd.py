@@ -56,23 +56,29 @@ from sentientos.repository_mutation_handoff import (
 )
 from sentientos.maintenance_scheduler_daemon import MaintenanceSchedulerOwner, load_adoption
 from sentientos.maintenance_wake_daemon_adoption import MaintenanceWakeOwner, load_adoption as load_wake_adoption
+from sentientos.maintenance_successor_generation_adoption import MaintenanceSuccessorGenerationOwner, load_config as load_successor_adoption
 
 LOGGER = logging.getLogger(__name__)
 
 
 def _start_maintenance_daemon_owners(
     scheduler_adoption_path: str | None, wake_adoption_path: str | None,
-) -> tuple[MaintenanceSchedulerOwner | None, MaintenanceWakeOwner | None, bool]:
+    successor_adoption_path: str | None = None,
+) -> tuple[MaintenanceSchedulerOwner | None, MaintenanceWakeOwner | None, MaintenanceSuccessorGenerationOwner | None, bool]:
     """Start at most one explicitly selected maintenance cadence owner."""
     scheduler_adoption = load_adoption(scheduler_adoption_path) if scheduler_adoption_path else None
     wake_adoption = load_wake_adoption(wake_adoption_path) if wake_adoption_path else None
-    overlapping = bool(scheduler_adoption and scheduler_adoption["enabled"] and wake_adoption and wake_adoption["enabled"])
-    scheduler_owner = None; wake_owner = None
+    successor_adoption = load_successor_adoption(successor_adoption_path) if successor_adoption_path else None
+    enabled = sum(bool(item and item["enabled"]) for item in (scheduler_adoption, wake_adoption, successor_adoption))
+    overlapping = enabled > 1
+    scheduler_owner = None; wake_owner = None; successor_owner = None
     if not overlapping and scheduler_adoption:
         scheduler_owner = MaintenanceSchedulerOwner(scheduler_adoption); scheduler_owner.start()
     if not overlapping and wake_adoption:
         wake_owner = MaintenanceWakeOwner(wake_adoption); wake_owner.start()
-    return scheduler_owner, wake_owner, overlapping
+    if not overlapping and successor_adoption:
+        successor_owner = MaintenanceSuccessorGenerationOwner(successor_adoption); successor_owner.start()
+    return scheduler_owner, wake_owner, successor_owner, overlapping
 
 
 def resolve_improvement_evidence_sources(
@@ -709,13 +715,18 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     )
     adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG")
     wake_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_WAKE_ADOPTION_CONFIG")
-    scheduler_owner, wake_owner, overlapping = _start_maintenance_daemon_owners(adoption_path, wake_adoption_path)
+    successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
+    scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners(adoption_path, wake_adoption_path, successor_adoption_path)
     runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = (
         scheduler_owner.health() if scheduler_owner is not None else {"status": "disabled", "read_only": True}
     )
     runtime_surfaces._feedback["surfaces"]["maintenance_wake_daemon_adoption"] = (
         {"status": "blocked", "reason": "overlapping_maintenance_daemon_adoptions", "read_only": True}
         if overlapping else wake_owner.health() if wake_owner is not None else {"status": "disabled", "read_only": True}
+    )
+    runtime_surfaces._feedback["surfaces"]["maintenance_successor_generation_adoption"] = (
+        {"status": "blocked", "reason": "overlapping_maintenance_daemon_adoptions", "read_only": True}
+        if overlapping else successor_owner.health() if successor_owner is not None else {"status": "disabled", "read_only": True}
     )
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
@@ -726,6 +737,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = scheduler_owner.health()
             if wake_owner is not None:
                 runtime_surfaces._feedback["surfaces"]["maintenance_wake_daemon_adoption"] = wake_owner.health()
+            if successor_owner is not None:
+                runtime_surfaces._feedback["surfaces"]["maintenance_successor_generation_adoption"] = successor_owner.health()
             _run_maintenance_tick(
                 kernel=kernel,
                 runtime_surfaces=runtime_surfaces,
@@ -743,6 +756,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             scheduler_owner.stop()
         if wake_owner is not None:
             wake_owner.stop()
+        if successor_owner is not None:
+            successor_owner.stop()
 
     kernel.set_phase(LifecyclePhase.SHUTDOWN, actor="sentientosd")
     LOGGER.info("SentientOS daemon shutting down")

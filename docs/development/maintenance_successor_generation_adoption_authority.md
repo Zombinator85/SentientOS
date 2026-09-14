@@ -8,11 +8,13 @@ between two existing maintenance contracts:
 - `maintenance_wake_daemon_adoption` identifies the currently active exact bounded
   wake owner and configuration.
 
-This task registers only eligibility for a future
+The admission task registered eligibility for a future
 `deterministic_maintenance_successor_generation_adoption_controller`. It grants no
 runtime authority and implements no owner handoff, generation derivation, daemon
 start, maintenance work, wake continuation, process restart, module reload, or
-resident Python-code adoption.
+resident Python-code adoption. The subsequently implemented bounded controller is
+documented in `maintenance_successor_generation_adoption.md`; this paragraph
+preserves the historical admission truth rather than describing current posture.
 
 ## Canonical inputs and verification boundary
 
