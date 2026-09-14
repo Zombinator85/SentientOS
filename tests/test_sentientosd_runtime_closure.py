@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+import sentientosd
 
 from sentientos.control_plane_kernel import (
     AuthorityClass,
@@ -595,3 +596,14 @@ def test_sentientosd_has_no_host_fulfillment_executor_readiness_runtime_calls() 
     text = open(sentientosd.__file__, encoding='utf-8').read()
     assert 'HostFulfillmentExecutorReadinessRuntimeCoordinator' not in text
     assert 'host_fulfillment_executor_contract_readiness_metadata_evaluation' not in text
+def test_overlapping_watchdog_and_wake_adoptions_start_neither(monkeypatch) -> None:
+    started: list[str] = []
+    class Owner:
+        def __init__(self, _config): pass
+        def start(self): started.append("started")
+    monkeypatch.setattr(sentientosd, "load_adoption", lambda path: {"enabled": True})
+    monkeypatch.setattr(sentientosd, "load_wake_adoption", lambda path: {"enabled": True})
+    monkeypatch.setattr(sentientosd, "MaintenanceSchedulerOwner", Owner)
+    monkeypatch.setattr(sentientosd, "MaintenanceWakeOwner", Owner)
+    scheduler_owner, wake_owner, overlapping = sentientosd._start_maintenance_daemon_owners("scheduler", "wake")
+    assert overlapping is True and scheduler_owner is None and wake_owner is None and started == []
