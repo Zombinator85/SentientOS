@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "af1e1a00577ce6980bbfbf44d956c3ef9002db57",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_canonical_continuity_eligibility_is_admitted_without_grant", "rationale": "Canonical exact continuity definition admits eligibility without granting authority."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_wrong_subsystem_and_principal_reject", "rationale": "Wrong subsystem and principal fail closed."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_missing_and_extra_effect_reject", "rationale": "Missing and extra effects fail exact-surface admission."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_each_required_precondition_is_independently_required[exact successor repository state]", "rationale": "Exact successor proof is a mechanical precondition."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_every_forbidden_future_scope_rejects[arbitrary authority widening]", "rationale": "Authority widening is forbidden."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_registry_truth_is_scaffolded_eligibility_only", "rationale": "Registry truth remains preimplementation and eligibility-only."},
+    {"node_id": "tests/test_maintenance_authority_continuity_capability_admission.py::test_no_runtime_continuity_controller_is_introduced", "rationale": "Runtime continuity remains absent."},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_naive_clock_and_exact_drift_fail_before_wake", "rationale": "Current exact-base/component stale behavior remains fail closed."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_authority_continuity_capability_admission.py::test_canonical_continuity_eligibility_is_admitted_without_grant"
+  ]
+}

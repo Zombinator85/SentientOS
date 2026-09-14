@@ -21,6 +21,7 @@ LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
+MAINTENANCE_AUTHORITY_CONTINUITY = "maintenance_authority_continuity"
 
 
 @dataclass(frozen=True)
@@ -314,6 +315,40 @@ AUTHORITY_DEFINITIONS = {
         required_goal_phrases=(
             "explicit operator adoption", "exact wake configuration",
             "bounded wake cycle", "separate downstream maintenance authority",
+        ),
+    ),
+    MAINTENANCE_AUTHORITY_CONTINUITY: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_AUTHORITY_CONTINUITY,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_authority_continuity_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_prior_maintenance_authority_generation_read",
+                "exact_completed_maintenance_generation_evidence_read",
+                "exact_successor_repository_state_read",
+                "bounded_successor_maintenance_authority_derive",
+                "successor_maintenance_configuration_generation_write",
+                "maintenance_authority_continuity_receipt_write",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary authority widening", "widen authority",
+            "new authority class", "arbitrary path expansion",
+            "extend authority expiry", "ignore prior authority",
+            "unverified successor", "arbitrary successor state",
+            "publication alone proves successor", "pr creation proves successor",
+            "self-grant from model output", "model output grants authority",
+            "arbitrary policy mutation", "arbitrary grant creation",
+            "credential management", "provider invocation", "network authority",
+            "automatic runtime adoption", "os scheduler installation",
+        ),
+        required_goal_phrases=(
+            "successful prior maintenance generation",
+            "exact successor repository state",
+            "same or narrower authority",
+            "bounded successor authority",
         ),
     ),
 }
