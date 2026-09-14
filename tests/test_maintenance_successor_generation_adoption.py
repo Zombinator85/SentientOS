@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timezone
 
 import pytest
 
@@ -41,3 +42,21 @@ def test_controller_has_no_continuity_derivation_or_runtime_code_adoption() -> N
     source = Path(adoption.__file__).read_text(encoding="utf-8")
     forbidden = ("derive_next(", "os.exec", "subprocess", "importlib", "git ", "requests")
     assert not any(item in source for item in forbidden)
+
+
+def test_production_owner_installs_canonical_builder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = disabled_config(tmp_path); cfg["enabled"] = True
+    monkeypatch.setattr(adoption, "validate_config", lambda value: dict(value))
+    owner = adoption.MaintenanceSuccessorGenerationOwner(cfg)
+    assert callable(owner._builder)
+
+
+def test_background_owner_reports_deterministic_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = disabled_config(tmp_path); cfg.update(enabled=True, maximum_wall_clock_seconds=1)
+    monkeypatch.setattr(adoption, "validate_config", lambda value: dict(value))
+    owner = adoption.MaintenanceSuccessorGenerationOwner(cfg, waiter=lambda _: None,
+        clock=lambda: datetime(2030, 1, 1, tzinfo=timezone.utc))
+    monkeypatch.setattr(owner, "handoff_once", lambda: (_ for _ in ()).throw(ValueError("custody_ambiguous")))
+    owner._run()
+    assert owner.health() == {"status": "degraded", "read_only": True,
+                              "reason": "custody_ambiguous", "terminal": True}
