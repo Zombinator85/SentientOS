@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "cbb2d92d8b62ea38250b5e26907ee606cfd7db29",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_exact_enabled_adoption_one_due_wake_intent_receipt_and_bound", "rationale": "explicit exact adoption, bounded cadence, wake_once boundary, durable intent/completion, and lifetime bound"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_disabled_or_unselected_has_no_effect", "rationale": "disabled and absent selection have no effects"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_naive_clock_and_exact_drift_fail_before_wake", "rationale": "naive time and exact configuration drift deny invocation"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_nested_component_drift_and_unmatched_or_corrupt_evidence_block", "rationale": "nested drift, unmatched intent, and corrupt custody fail closed"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_stop_and_blocked_unknown_results_are_terminal", "rationale": "STOP and closed unknown disposition are terminal"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_first_boot_and_downstream_authority_fields_are_closed", "rationale": "first-boot and direct downstream authority are absent"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_owner_cooperative_shutdown_and_bounded_timeout", "rationale": "cooperative bounded shutdown is witnessed"},
+    {"node_id": "tests/test_maintenance_wake_daemon_adoption.py::test_platform_truth_is_posix_fcntl", "rationale": "POSIX-only lock truth"},
+    {"node_id": "tests/test_maintenance_scheduler_daemon.py::test_explicit_exact_adoption_runs_one_lifetime_records_evidence_and_stops", "rationale": "watchdog-only daemon contract remains independent"},
+    {"node_id": "tests/test_maintenance_wake_cycle.py::test_idle_findings_invokes_autonomy_once", "rationale": "findings use the existing autonomy boundary at most once"},
+    {"node_id": "tests/test_maintenance_wake_cycle_closed_loop.py::test_stop_appearing_after_probe_prevents_autonomy", "rationale": "STOP between probe and autonomy prevents progression"}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_wake_daemon_adoption.py::test_exact_enabled_adoption_one_due_wake_intent_receipt_and_bound"
+  ]
+}

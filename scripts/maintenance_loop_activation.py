@@ -35,6 +35,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     daemon_adoption.add_argument("--evidence-path", required=True); daemon_adoption.add_argument("--enabled", action="store_true")
     daemon_adoption.add_argument("--shutdown-timeout-seconds", type=float, required=True)
     daemon_adoption.add_argument("--reentry-delay-seconds", type=float, required=True)
+    wake_adoption = sub.add_parser("render-wake-daemon-adoption")
+    for name in ("output", "wake-config-path", "cadence-state-root", "schedule-anchor-utc", "initial-run-posture"):
+        wake_adoption.add_argument("--" + name, required=True)
+    wake_adoption.add_argument("--enabled", action="store_true")
+    for name in ("cadence-interval-seconds", "maximum-cycles", "maximum-daemon-wall-clock-seconds"):
+        wake_adoption.add_argument("--" + name, required=True, type=int)
+    wake_adoption.add_argument("--shutdown-timeout-seconds", required=True, type=float)
     args = parser.parse_args(argv)
     try:
         if args.command == "init-roots": out = activation.init_roots(args.repository_root, {k: getattr(args, k + "_root") for k in ("state", "workspace", "scratch", "inbox")})
@@ -54,6 +61,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             out = activation.render_daemon_adoption(args.output, scheduler_config_path=args.scheduler_config_path,
                 evidence_path=args.evidence_path, enabled=args.enabled,
                 shutdown_timeout_seconds=args.shutdown_timeout_seconds, reentry_delay_seconds=args.reentry_delay_seconds)
+        elif args.command == "render-wake-daemon-adoption":
+            wake_names = ("output", "wake_config_path", "cadence_state_root", "enabled", "cadence_interval_seconds",
+                     "schedule_anchor_utc", "initial_run_posture", "maximum_cycles",
+                     "maximum_daemon_wall_clock_seconds", "shutdown_timeout_seconds")
+            out = activation.render_wake_daemon_adoption(**{name: getattr(args, name) for name in wake_names})
         elif args.command == "print-scheduler-command":
             av = activation.scheduler_argv(args.config); print(json.dumps(av, separators=(",", ":"))); print("Command: " + " ".join(json.dumps(x) for x in av)); return 0
         else:

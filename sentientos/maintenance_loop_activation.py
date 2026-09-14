@@ -209,6 +209,38 @@ def render_daemon_adoption(output: str | Path, *, scheduler_config_path: str | P
             "scheduler_config_digest": cfg["config_digest"], "enabled": enabled, "write_status": status}
 
 
+def render_wake_daemon_adoption(output: str | Path, *, wake_config_path: str | Path,
+        cadence_state_root: str | Path, enabled: bool, cadence_interval_seconds: int,
+        schedule_anchor_utc: str, initial_run_posture: str, maximum_cycles: int,
+        maximum_daemon_wall_clock_seconds: int, shutdown_timeout_seconds: float) -> dict[str, Any]:
+    """Seal an explicit wake adoption; rendering alone starts no owner."""
+    from sentientos import maintenance_wake_cycle as wake
+    from sentientos import maintenance_wake_daemon_adoption as wake_daemon
+    wake_path = Path(wake_config_path).expanduser().resolve(strict=True); cfg = wake.load_config(wake_path)
+    state = Path(cadence_state_root).expanduser().resolve(strict=True)
+    adoption = wake_daemon.validate_adoption({"schema_version": wake_daemon.ADOPTION_SCHEMA,
+        "enabled": enabled, "wake_config_path": str(wake_path), "wake_config_digest": cfg["config_digest"],
+        "expected_wake_schema": wake.CONFIG_SCHEMA, "cadence_state_root": str(state),
+        "journal_path": str(state / "wake_daemon_cadence.jsonl"),
+        "evidence_path": str(state / "wake_daemon_owner.jsonl"), "stop_marker": str(state / "STOP"),
+        "cadence_interval_seconds": cadence_interval_seconds, "schedule_anchor_utc": schedule_anchor_utc,
+        "initial_run_posture": initial_run_posture, "maximum_cycles": maximum_cycles,
+        "maximum_daemon_wall_clock_seconds": maximum_daemon_wall_clock_seconds,
+        "shutdown_timeout_seconds": shutdown_timeout_seconds})
+    data = wake_daemon.canonical_bytes(adoption) + b"\n"; destination = Path(output)
+    if destination.exists():
+        if destination.is_symlink() or destination.read_bytes() != data: raise ValueError("configuration_output_conflict")
+        write_status = "reused"
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        write_status = "created"
+    return {"schema_version": "sentientos.maintenance_wake_daemon_activation_render:v1",
+            "status": "wake_daemon_adoption_configuration_ready", "output_path": str(destination.resolve()),
+            "wake_config_digest": cfg["config_digest"], "enabled": enabled, "write_status": write_status}
+
+
 def _load(value: Any) -> dict[str, Any]:
     if isinstance(value, Mapping):
         return dict(value)

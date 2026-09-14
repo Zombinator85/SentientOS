@@ -83,14 +83,15 @@ def test_each_forbidden_goal_phrase_rejected(phrase: str) -> None:
     assert "authority_goal_requests_forbidden_scope" in blockers(task_goal=f"{GOAL} Request {phrase}.")
 
 
-def test_registry_reports_eligibility_only_preimplementation_truth() -> None:
+def test_registry_reports_bounded_runtime_without_downstream_authority() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_WAKE_DAEMON_ADOPTION]
     assert record.category == "maintenance_wake_daemon_adoption"
-    assert record.status == "scaffolded"
-    assert record.authority_level == "eligibility_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded_in_process_runner"
     assert record.requires_operator_approval and record.requires_control_plane_admission
     assert record.requires_audit_receipt
-    assert "sentientosd integration" in record.deferred_surfaces
+    assert "explicit exact operator wake adoption" in record.implemented_surfaces
+    assert "authority inheritance or renewal across repository advancement" in record.deferred_surfaces
     assert "eligibility metadata is runtime authority" in record.forbidden_implications
 
 
