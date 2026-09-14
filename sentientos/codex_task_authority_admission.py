@@ -22,6 +22,9 @@ LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
 MAINTENANCE_AUTHORITY_CONTINUITY = "maintenance_authority_continuity"
+MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION = (
+    "maintenance_authority_continuity_auto_derivation"
+)
 MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
     "maintenance_successor_generation_adoption"
 )
@@ -352,6 +355,52 @@ AUTHORITY_DEFINITIONS = {
             "exact successor repository state",
             "same or narrower authority",
             "bounded successor authority",
+        ),
+    ),
+    MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_authority_continuity_auto_derivation_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_maintenance_continuity_policy_read",
+                "exact_prior_maintenance_authority_generation_read",
+                "exact_completed_maintenance_generation_evidence_read",
+                "exact_successor_repository_state_read",
+                "bounded_successor_maintenance_authority_derive",
+                "successor_maintenance_configuration_generation_write",
+                "maintenance_authority_continuity_receipt_write",
+                "exact_maintenance_successor_generation_adoption_state_read",
+                "bounded_canonical_completed_maintenance_transition_discovery",
+                "maintenance_authority_continuity_evidence_normalization_write",
+                "bounded_maintenance_authority_continuity_auto_derivation_lifecycle",
+                "maintenance_authority_continuity_auto_derivation_receipt_write",
+                "read_only_maintenance_authority_continuity_auto_derivation_health_projection",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "unadopted generation derivation", "derive ahead of adoption",
+            "skip generation", "arbitrary completed task", "caller-selected task",
+            "newest task", "mtime selection", "arbitrary evidence",
+            "self-asserted completion", "weak v1 continuity evidence",
+            "authority widening", "extend authority expiry", "unverified successor",
+            "arbitrary successor state", "publication alone proves successor",
+            "pr creation proves successor", "wake owner handoff",
+            "automatic runtime adoption", "runtime code adoption", "hot reload",
+            "automatic process restart", "git mutation", "git publication",
+            "provider invocation", "network authority", "credential management",
+            "candidate admission", "lease issuance", "arbitrary command",
+            "arbitrary executable", "os scheduler installation",
+            "windows-native support",
+        ),
+        required_goal_phrases=(
+            "currently adopted maintenance generation",
+            "canonical successful maintenance closure",
+            "exact successor repository state",
+            "bounded automatic continuity derivation",
+            "same or narrower authority",
         ),
     ),
     MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION: TaskAuthorityDefinition(

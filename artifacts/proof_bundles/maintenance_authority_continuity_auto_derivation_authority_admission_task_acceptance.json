@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ef344dac10ea48acc9368daab0f6dbbf91410ff8",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_exact_new_capability_eligibility_is_non_granting", "rationale": "Exact eligibility is admitted without becoming a grant."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_wrong_subsystem_and_principal_are_denied", "rationale": "Wrong subsystem and principal fail closed."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_missing_extra_and_duplicate_effects_are_denied", "rationale": "The authority effect set is exact and duplicate-free."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_each_affirmative_precondition_is_independently_required[currently adopted maintenance generation]", "rationale": "Adopted-generation alignment is affirmative."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_every_forbidden_scope_is_denied[derive ahead of adoption]", "rationale": "Ahead-of-adoption derivation is forbidden."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_registry_reports_scaffolded_eligibility_only_truth", "rationale": "Registry truth remains non-granting eligibility."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_existing_continuity_authority_is_unchanged", "rationale": "Existing continuity derivation authority is preserved."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_existing_successor_adoption_authority_is_unchanged_and_does_not_derive", "rationale": "Successor adoption stays separate and does not derive."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_no_effectful_auto_derivation_runtime_module_exists", "rationale": "No effectful automatic derivation runtime exists."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_documentation_separates_persistent_approval_and_resident_code", "rationale": "Resident-code adoption remains separate from persistent posture approval."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py::test_exact_new_capability_eligibility_is_non_granting"
+  ]
+}
