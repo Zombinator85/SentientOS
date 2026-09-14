@@ -83,20 +83,20 @@ def test_every_forbidden_future_scope_rejects(phrase: str) -> None:
     assert "authority_goal_requests_forbidden_scope" in blockers(task_goal=f"{GOAL} Request {phrase}.")
 
 
-def test_registry_truth_is_scaffolded_eligibility_only() -> None:
+def test_registry_truth_is_implemented_bounded_derivation() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_AUTHORITY_CONTINUITY]
     assert record.category == MAINTENANCE_AUTHORITY_CONTINUITY
-    assert record.status == "scaffolded"
-    assert record.authority_level == "eligibility_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded-orchestrator"
     assert record.requires_control_plane_admission and record.requires_audit_receipt
     assert "same-or-narrower inheritance contract" in record.implemented_surfaces
-    assert "successor profile derivation" in record.deferred_surfaces
-    assert "eligibility itself grants successor authority" in record.forbidden_implications
+    assert "same-or-narrower successor activation profile derivation" in record.implemented_surfaces
+    assert "automatic daemon rebinding" in record.deferred_surfaces
 
 
-def test_no_runtime_continuity_controller_is_introduced() -> None:
-    assert not Path("sentientos/maintenance_authority_continuity.py").exists()
-    assert not Path("scripts/maintenance_authority_continuity.py").exists()
+def test_bounded_controller_is_introduced_without_runtime_adoption() -> None:
+    assert Path("sentientos/maintenance_authority_continuity.py").exists()
+    assert Path("scripts/maintenance_authority_continuity.py").exists()
     module = __import__("sentientos.codex_task_authority_admission", fromlist=["x"])
     for effectful_name in ("derive_successor", "write_configuration", "rebind_daemon", "adopt_runtime"):
         assert not hasattr(module, effectful_name)

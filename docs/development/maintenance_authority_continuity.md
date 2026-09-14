@@ -1,88 +1,66 @@
-# Maintenance authority continuity eligibility
+# Bounded maintenance authority continuity
 
-`maintenance_authority_continuity` is the planning-eligibility contract for the first
-bounded authority-inheritance mechanism in SentientOS. It prepares a separately
-reviewed future controller; it does not grant authority, derive a profile, issue a
-lease, mutate the repository, change daemon configuration, invoke maintenance, or
-adopt or restart runtime code.
+`maintenance_authority_continuity` implements the derivation half of maintenance
+authority inheritance.  Its admitted principal remains
+`deterministic_maintenance_authority_continuity_controller` with the exact registered
+effect set.  Eligibility does not itself grant capability; each invocation consumes
+an already operator-established continuity policy and verified predecessor custody.
 
-The definition binds subsystem `maintenance` and principal
-`deterministic_maintenance_authority_continuity_controller` to this exact effect set:
+## Immutable lineage
 
-- `exact_prior_maintenance_authority_generation_read`
-- `exact_completed_maintenance_generation_evidence_read`
-- `exact_successor_repository_state_read`
-- `bounded_successor_maintenance_authority_derive`
-- `successor_maintenance_configuration_generation_write`
-- `maintenance_authority_continuity_receipt_write`
+The controller defines closed, digest-bound v1 records for a persistent continuity
+policy, maintenance authority generation, completed-generation evidence, exact
+successor evidence, and a continuity receipt.  The policy names generation zero once.
+Later generations use ordinal filenames under its exact external custody roots; no
+glob, timestamp, newest-file, or caller-selected later-generation authority is used.
+Every adjacent descriptor and receipt is verified, and orphaned, corrupt, conflicting,
+or branched custody fails closed.
 
-These effects describe continuity between generations, not candidate creation or
-admission, lease execution, implementation, validation, Git operations, publication,
-provider or credential access, arbitrary policy/grant creation, or runtime adoption.
+Generation descriptors bind the exact activation manifest, profile bundle, base SHA,
+predecessor generation, and prior continuity receipt.  A derived generation is the
+same schema as generation zero, so generation 1 can be the predecessor for generation
+2 without a new operator-authored profile.
 
-## Present and intended behavior
+## Closure and successor proof
 
-The [wake-daemon adoption contract](maintenance_wake_daemon_adoption.md) says exact
-base/component staleness fails closed **in this proving phase** while separately
-reviewed authority continuity remains possible. The present behavior is:
+Completed-generation evidence must bind admission, lease, implementation, passing
+validation, exact validated commit, successful landing, terminal completion, and
+integrity evidence identities.  Every required status must be successful; waiting,
+failed, paused, incomplete, ambiguous, or unlanded work is rejected.
 
-```text
-successful maintenance changes repository
--> old exact-base authority becomes stale
--> wake owner blocks
--> operator must presently create new authority/configuration
-```
+The implemented successor mode is only `local_fast_forward_base_ref`.  Evidence must
+show that the validated commit is the successor, its parent and compare-and-swap old
+object are the predecessor base, the exact local base/tracked ref advanced to it, the
+checkout synchronized to it, and current clean repository truth still equals it.
+PR/publication requests, payload echoes, equal trees, rewrites, merges, rebases, and
+squashes are not accepted.
 
-This fail-closed behavior remains unchanged by this admission task. It is a present
-proving posture, not a permanent principle that requires human re-authoring between
-every successful generation. The intended, still-deferred behavior is:
+## Same-or-narrower derivation
 
-```text
-successful maintenance generation
--> prove exact successor repository state
--> prove predecessor authority and successful closure
--> derive same-or-narrower successor authority generation
--> continue bounded maintenance under the successor generation
-```
+The successor manifest is copied through the canonical maintenance activation-profile
+renderer, changing only its deterministic generation identity, output custody path,
+and proven base SHA.  Authority classes, candidate kinds, paths, budgets, attempts,
+corrective retries, validation bounds, landing/ref/executable authority, validity
+start, and expiry must remain the same or narrower.  The controller neither creates
+operator approval nor extends expiry.  Every generated profile artifact is checked by
+the existing profile-bundle verifier.
 
-## Predecessor and exact-successor proof
+Writes are immutable, exclusive, deterministic, and no-clobber.  Exact replay returns
+the existing generation; conflicting partial output blocks.  One `derive-next` call
+derives at most one ordinal and writes a narrow receipt linking the predecessor,
+closure evidence identities, exact successor proof, narrowing result, successor
+manifest/profile, generation descriptor, and prior receipt.  Bodies, prompts,
+credentials, transcripts, and validator output are never copied.
 
-A future controller must consume one exact prior authority/profile generation, the
-still-valid constraints from that generation, canonical proof of an legitimately
-admitted and successfully completed maintenance task, and exact successor-state
-evidence. It should bind existing canonical identities for the activation profile,
-standing grant, selector policy, admitted lease, implementation, validation, commit,
-publication or absorption, terminal closure/custody, and wake/autonomy/watchdog
-evidence when needed. It must not reconstruct success from loose file presence or
-duplicate evidence already bound by a canonical terminal artifact.
+## CLI and authority boundary
 
-An exact local base-ref advancement or exact fast-forward tracked-base advancement may
-qualify when existing evidence unambiguously proves it. Publication, PR creation, or
-tree equivalence alone is insufficient: an equal tree is not exact commit custody.
-Merge, rebase, or squash continuity stays deferred unless the authoritative successor
-and its relation to the validated result can be proved exactly. An unproven hosted
-transformation must fail closed.
+`python scripts/maintenance_authority_continuity.py` exposes `doctor`, `inspect`,
+`inspect-receipts`, and `derive-next`.  Inspection is read-only.  Derivation renders
+external configuration custody only.  The module contains no Git, provider, network,
+candidate, lease, implementation, validation, commit, publication, daemon, restart,
+or runtime-adoption actuator.
 
-## Same-or-narrower inheritance
-
-The successor may preserve or reduce prior operator-authored policy, but success does
-not widen it. It may not increase authority classes, allowed path prefixes, candidate
-kinds, file or changed-line budgets, implementation/validation/wall-clock budgets,
-attempts, corrective retries, publication retry/backoff authority, landing modes,
-executable authority, or remote/network authority. It may not extend predecessor
-expiry without a separately admitted future capability. Exact base-linked identities
-and digests may change solely to bind the proven successor; that rebinding is not an
-authority widening.
-
-Future effectful goals must affirm `successful prior maintenance generation`, `exact
-successor repository state`, `same or narrower authority`, and `bounded successor
-authority`. Goals requesting arbitrary widening or policy/grant creation, a new
-authority class or path expansion, expiry extension, disregard of predecessor
-authority, an arbitrary or unverified successor, publication/PR-only proof, model
-self-grant, credentials, providers, network authority, runtime adoption, or OS
-scheduler installation are ineligible.
-
-The registry therefore reports `scaffolded` and `eligibility_only`, requires governed
-control-plane admission and an audit receipt, and explicitly defers successor-state
-observation, predecessor-proof verification, successor derivation/rendering, daemon
-rebinding, post-advancement wake continuation, and runtime adoption.
+Automatic wake-daemon rebinding, post-advancement wake continuation, runtime code
+adoption, hosted transformations, authority widening, and expiry extension remain
+deferred.  The generation-N wake owner may therefore still fail closed after the base
+changes until a separately authorized adoption boundary is implemented.

@@ -443,17 +443,20 @@ def build_default_capability_registry() -> CapabilityRegistry:
         _record(
             "maintenance_authority_continuity",
             "maintenance_authority_continuity",
-            "scaffolded",
-            "eligibility_only",
+            "implemented",
+            "bounded-orchestrator",
             source_paths=(
                 "sentientos/codex_task_authority_admission.py",
+                "sentientos/maintenance_authority_continuity.py",
+                "scripts/maintenance_authority_continuity.py",
                 "docs/development/maintenance_authority_continuity.md",
             ),
             proof_tests=(
                 "tests/test_maintenance_authority_continuity_capability_admission.py",
+                "tests/test_maintenance_authority_continuity.py",
             ),
             proof_commands=(
-                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_capability_admission.py tests/test_capability_registry.py",
+                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity.py tests/test_maintenance_authority_continuity_capability_admission.py tests/test_capability_registry.py",
             ),
             implemented_surfaces=(
                 "planning eligibility definition",
@@ -461,18 +464,18 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "same-or-narrower inheritance contract",
                 "required and forbidden future task language",
                 "documentation and admission tests",
+                "immutable continuity policy, generation, and receipt schemas",
+                "exact local fast-forward successor evidence verification",
+                "same-or-narrower successor activation profile derivation",
+                "multi-generation lineage custody and idempotent recovery",
             ),
             deferred_surfaces=(
-                "successor-state observation",
-                "prior-generation proof verification",
-                "successor profile derivation",
-                "successor maintenance configuration rendering",
                 "automatic daemon rebinding",
                 "wake-loop continuation after base advancement",
                 "runtime adoption of landed code",
             ),
             forbidden_implications=(
-                "eligibility itself grants successor authority",
+                "continuity evidence grants unrelated authority",
                 "arbitrary self-grant",
                 "authority widening",
                 "unverified base migration",
