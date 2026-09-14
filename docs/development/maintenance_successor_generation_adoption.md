@@ -20,10 +20,13 @@ invalid handoff chains, and STOP posture. Absence of N+1 is a zero-effect
 or test-only dependency injection. It verifies the generation-bound activation
 manifest and rendered profile bundle, then derives the existing watchdog,
 candidate-collector, autonomy-cycle, health-probe, wake-cycle, and wake-daemon
-schemas from the predecessor closure. Only successor bindings and private,
-generation-specific state/configuration paths are rebound. Every `base_sha` is the
-successor base, watchdog/profile/collector/autonomy references agree, and each
-native validator plus the wake doctor runs before quiescence. Writes are exclusive
+schemas from the predecessor closure. The successor manifest remains policy truth:
+its state, workspace, scratch, and inbox roots are retained exactly by the watchdog
+and collector. Private collector, autonomy, health, wake, governed-signal, and
+cadence evidence custody uses deterministic generation-specific subtrees beneath
+the adoption state root. Every `base_sha` and repository identity is the successor
+binding, watchdog/profile/collector/autonomy references agree, and the native
+configuration and cross-component agreement validators run before quiescence. Writes are exclusive
 and deterministic: equal bytes are reused and unequal existing bytes block.
 
 Cadence custody is not shared across adoption digests. The successor receives a
