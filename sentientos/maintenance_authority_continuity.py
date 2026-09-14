@@ -14,11 +14,17 @@ from pathlib import Path
 from typing import Any, Mapping, cast
 
 from sentientos import maintenance_activation_profiles as profiles
+from sentientos import maintenance_commit_publication as landing
+from sentientos import maintenance_task_authority_lease as leases
+from sentientos import maintenance_task_journal as journal
+from sentientos import maintenance_validation_controller as validation
 
 POLICY_SCHEMA = "sentientos.maintenance_continuity_policy:v1"
 GENERATION_SCHEMA = "sentientos.maintenance_authority_generation:v1"
 COMPLETION_SCHEMA = "sentientos.completed_maintenance_generation_evidence:v1"
 SUCCESSOR_SCHEMA = "sentientos.exact_successor_repository_evidence:v1"
+CANONICAL_COMPLETION_SCHEMA = "sentientos.completed_maintenance_generation_evidence:v2"
+CANONICAL_SUCCESSOR_SCHEMA = "sentientos.exact_successor_repository_evidence:v2"
 RECEIPT_SCHEMA = "sentientos.maintenance_authority_continuity_receipt:v1"
 RESULT_SCHEMA = "sentientos.maintenance_authority_continuity_result:v1"
 
@@ -58,6 +64,8 @@ POLICY_KEYS = {"schema_version", "policy_id", "policy_digest", "lineage_id", "re
 GENERATION_KEYS = {"schema_version", "generation_id", "generation_digest", "lineage_id", "ordinal", "base_sha", "manifest_path", "manifest_digest", "profile_bundle_digest", "predecessor_generation_digest", "prior_receipt_digest", "created_at"}
 COMPLETION_KEYS = {"schema_version", "evidence_id", "evidence_digest", "generation_digest", "task_id", "lease_id", "lease_digest", "admission_status", "implementation_status", "implementation_evidence_digest", "validation_status", "validation_evidence_digest", "validated_commit_sha", "commit_status", "commit_evidence_digest", "landing_status", "landing_evidence_digest", "terminal_status", "closure_evidence_digest", "integrity_status"}
 SUCCESSOR_KEYS = {"schema_version", "evidence_id", "evidence_digest", "mode", "predecessor_base_sha", "successor_sha", "validated_commit_sha", "commit_parent_sha", "expected_old_sha", "base_ref", "base_ref_after", "canonical_tracked_ref", "canonical_tracked_ref_sha", "checkout_synchronization", "checkout_head_sha", "current_repository_sha", "current_repository_clean", "network_performed", "runtime_adoption_performed"}
+CANONICAL_COMPLETION_KEYS = {"schema_version", "evidence_id", "evidence_digest", "generation_digest", "task_id", "repository_root", "state_root", "journal_path", "journal_digest", "lease_path", "lease_digest", "validation_result_path", "validation_evidence_digest", "commit_plan_path", "commit_plan_digest", "commit_result_path", "commit_evidence_digest", "publication_request_path", "publication_request_digest", "landing_result_path", "landing_evidence_digest", "closure_event_digest"}
+CANONICAL_SUCCESSOR_KEYS = {"schema_version", "evidence_id", "evidence_digest", "completion_evidence_digest", "landing_result_path", "landing_evidence_digest", "repository_root", "base_ref", "predecessor_base_sha", "successor_sha", "observed_at"}
 RECEIPT_KEYS = {"schema_version", "receipt_id", "receipt_digest", "lineage_id", "ordinal", "predecessor_generation_digest", "predecessor_base_sha", "completed_task_id", "completion_evidence_digest", "validation_evidence_digest", "commit_evidence_digest", "landing_evidence_digest", "closure_evidence_digest", "successor_evidence_digest", "successor_classification", "successor_sha", "same_or_narrower", "successor_manifest_digest", "successor_profile_bundle_digest", "successor_generation_digest", "prior_receipt_digest", "created_at"}
 
 
@@ -126,21 +134,66 @@ def _current_generation(policy: Mapping[str, Any]) -> dict[str, Any]:
     return generation
 
 
+def _source(path: object, root: Path, directory: str, schema: str, digest_key: str, expected: object) -> dict[str, Any]:
+    p = Path(str(path))
+    expected_parent = (root / directory).resolve()
+    if p.parent.resolve() != expected_parent or p.suffix != ".json":
+        raise ValueError("canonical_source_path_invalid")
+    value = _load(p)
+    if value.get("schema_version") != schema or value.get(digest_key) != expected or value.get(digest_key) != landing._seal({**value, digest_key: ""}, digest_key):
+        raise ValueError("canonical_source_digest_or_schema_invalid")
+    return value
+
+
 def _verify_completion(value: Mapping[str, Any], generation: Mapping[str, Any]) -> dict[str, Any]:
-    c = _closed(value, COMPLETION_SCHEMA, COMPLETION_KEYS, "evidence_digest")
-    required = {"admission_status":"admitted", "implementation_status":"implemented", "validation_status":"passed", "commit_status":"committed", "landing_status":"landed", "terminal_status":"completed", "integrity_status":"verified"}
-    if c["generation_digest"] != generation["generation_digest"] or any(c[k] != v for k, v in required.items()):
+    if value.get("schema_version") == COMPLETION_SCHEMA:
+        raise ValueError("weak_v1_completion_diagnostic_only")
+    c = _closed(value, CANONICAL_COMPLETION_SCHEMA, CANONICAL_COMPLETION_KEYS, "evidence_digest")
+    if c["generation_digest"] != generation["generation_digest"]:
+        raise ValueError("maintenance_generation_mismatch")
+    repo, root = Path(c["repository_root"]).resolve(), Path(c["state_root"]).resolve()
+    jp = Path(c["journal_path"])
+    if jp.resolve() != (root / "maintenance_tasks" / f"{c['task_id']}.jsonl").resolve() or landing.bytes_digest(jp.read_bytes()) != c["journal_digest"]:
+        raise ValueError("canonical_journal_binding_invalid")
+    replay = journal.replay_journal(jp)
+    snap = journal.reduce_events(replay.events, integrity_status=replay.integrity_status, reason_code=replay.reason_code,
+                                 last_valid_sequence=replay.last_valid_sequence, last_event_digest=replay.last_event_digest)
+    if snap.get("journal_integrity_status") != "journal_ready" or snap.get("lifecycle_state") != "closed" or snap.get("task_id") != c["task_id"] or snap.get("base_sha") != generation["base_sha"] or snap.get("last_event_digest") != c["closure_event_digest"]:
+        raise ValueError("maintenance_generation_not_terminally_closed")
+    lease = _source(c["lease_path"], root, "maintenance_leases", leases.LEASE_SCHEMA, "lease_digest", c["lease_digest"])
+    if lease.get("task_id") != c["task_id"] or lease.get("base_sha") != generation["base_sha"] or lease.get("grant_generation") != generation["generation_digest"] or snap.get("active_lease_id") != lease.get("lease_id") or snap.get("active_lease_digest") != lease.get("lease_digest"):
+        raise ValueError("canonical_lease_binding_invalid")
+    vr = _source(c["validation_result_path"], root, "maintenance_validation_results", validation.RESULT_SCHEMA, "result_digest", c["validation_evidence_digest"])
+    plan = _source(c["commit_plan_path"], root, "maintenance_commit_plans", landing.COMMIT_PLAN_SCHEMA, "plan_digest", c["commit_plan_digest"])
+    commit = _source(c["commit_result_path"], root, "maintenance_commit_results", landing.COMMIT_RESULT_SCHEMA, "commit_result_digest", c["commit_evidence_digest"])
+    request = _source(c["publication_request_path"], root, "maintenance_publication_requests", landing.PUBLICATION_REQUEST_SCHEMA, "publication_request_digest", c["publication_request_digest"])
+    result = _source(c["landing_result_path"], root, "maintenance_publication_results", landing.PUBLICATION_RESULT_SCHEMA, "publication_result_digest", c["landing_evidence_digest"])
+    task, lease_id = c["task_id"], lease["lease_id"]
+    if vr.get("terminal_status") != "validation_ready_for_commit" or any(x.get("task_id") != task for x in (vr, plan, commit, request, result)) or plan.get("lease_id") != lease_id or plan.get("lease_digest") != lease["lease_digest"]:
+        raise ValueError("canonical_validation_or_task_binding_invalid")
+    if plan.get("validation_result_digest") != vr["result_digest"] or commit.get("plan_digest") != plan["plan_digest"] or request.get("commit_result_digest") != commit["commit_result_digest"] or result.get("request_digest") != request["publication_request_digest"]:
+        raise ValueError("canonical_custody_chain_invalid")
+    if result.get("terminal_status") != "publication_succeeded" or result.get("mode") != landing.LOCAL_FAST_FORWARD_MODE or snap.get("validation_result",{}).get("payload",{}).get("result_digest") != vr["result_digest"] or snap.get("commit_reference",{}).get("payload",{}).get("commit_sha") != commit.get("commit_sha") or snap.get("publication_state") != "succeeded":
         raise ValueError("maintenance_generation_not_successfully_closed")
-    for key in ("lease_digest", "implementation_evidence_digest", "validation_evidence_digest", "commit_evidence_digest", "landing_evidence_digest", "closure_evidence_digest"):
-        if not isinstance(c[key], str) or not c[key].startswith("sha256:"): raise ValueError("completion_identity_invalid")
+    c["validated_commit_sha"] = commit["commit_sha"]
+    c["closure_evidence_digest"] = c["closure_event_digest"]
     return c
 
 
 def _verify_successor(value: Mapping[str, Any], generation: Mapping[str, Any], completion: Mapping[str, Any]) -> dict[str, Any]:
-    s = _closed(value, SUCCESSOR_SCHEMA, SUCCESSOR_KEYS, "evidence_digest")
-    sha = s["successor_sha"]
-    exact = s["mode"] == "local_fast_forward_base_ref" and completion["validated_commit_sha"] == sha == s["validated_commit_sha"] and s["commit_parent_sha"] == generation["base_sha"] == s["predecessor_base_sha"] == s["expected_old_sha"] and s["base_ref"] == s["canonical_tracked_ref"] and s["base_ref_after"] == sha == s["canonical_tracked_ref_sha"] == s["checkout_head_sha"] == s["current_repository_sha"] and s["checkout_synchronization"] in {"synchronized", "already_exact"} and s["current_repository_clean"] is True and s["network_performed"] is False and s["runtime_adoption_performed"] is False
-    if not exact: raise ValueError("exact_local_successor_not_proven")
+    if value.get("schema_version") == SUCCESSOR_SCHEMA:
+        raise ValueError("weak_v1_successor_diagnostic_only")
+    s = _closed(value, CANONICAL_SUCCESSOR_SCHEMA, CANONICAL_SUCCESSOR_KEYS, "evidence_digest")
+    if s["completion_evidence_digest"] != completion["evidence_digest"] or s["landing_evidence_digest"] != completion["landing_evidence_digest"] or Path(s["landing_result_path"]).resolve() != Path(completion["landing_result_path"]).resolve() or Path(s["repository_root"]).resolve() != Path(completion["repository_root"]).resolve():
+        raise ValueError("successor_provenance_binding_invalid")
+    result = _source(s["landing_result_path"], Path(completion["state_root"]), "maintenance_publication_results", landing.PUBLICATION_RESULT_SCHEMA, "publication_result_digest", s["landing_evidence_digest"])
+    sha, repo, ref = s["successor_sha"], Path(s["repository_root"]), s["base_ref"]
+    obs = result.get("remote_observations", {})
+    exact = result.get("mode") == landing.LOCAL_FAST_FORWARD_MODE and result.get("terminal_status") == "publication_succeeded" and completion["validated_commit_sha"] == sha == result.get("commit_sha") and result.get("parent_sha") == generation["base_sha"] == s["predecessor_base_sha"] and result.get("local_base_ref") == ref and result.get("local_base_ref_before") == generation["base_sha"] and result.get("local_base_ref_after") == sha and result.get("canonical_head_after") == sha and result.get("postcondition_status") == "verified" and result.get("checkout_synchronization_result") in {"synchronized", "already_exact"} and obs.get("ref_compare_and_swap") in {"advanced", "already_advanced"} and result.get("network_performed") is False and result.get("runtime_adoption_performed") is False
+    git = "git"
+    current_ref = landing._git_text(git, repo, ["rev-parse", ref]); head = landing._git_text(git, repo, ["rev-parse", "HEAD"]); symbolic = landing._git_text(git, repo, ["symbolic-ref", "-q", "HEAD"])
+    if not exact or current_ref != sha or head != sha or symbolic != ref or not landing._git_clean(git, repo) or landing._operation_in_progress(git, repo):
+        raise ValueError("exact_local_successor_not_proven")
     return s
 
 
@@ -163,8 +216,8 @@ def derive_next(policy_path: str | Path, completion_path: str | Path, successor_
     """Derive no more than one exact successor generation."""
     try:
         policy = validate_policy(_load(policy_path)); predecessor = _current_generation(policy)
-        supplied_completion = _closed(_load(completion_path), COMPLETION_SCHEMA, COMPLETION_KEYS, "evidence_digest")
-        supplied_successor = _closed(_load(successor_path), SUCCESSOR_SCHEMA, SUCCESSOR_KEYS, "evidence_digest")
+        supplied_completion = _load(completion_path)
+        supplied_successor = _load(successor_path)
         if predecessor["ordinal"] > 0 and supplied_completion["generation_digest"] != predecessor["generation_digest"]:
             prior = _closed(_load(_receipt_path(policy, predecessor["ordinal"])), RECEIPT_SCHEMA, RECEIPT_KEYS, "receipt_digest")
             if prior["completion_evidence_digest"] == supplied_completion["evidence_digest"] and prior["successor_evidence_digest"] == supplied_successor["evidence_digest"]:

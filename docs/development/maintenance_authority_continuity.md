@@ -8,8 +8,8 @@ an already operator-established continuity policy and verified predecessor custo
 
 ## Immutable lineage
 
-The controller defines closed, digest-bound v1 records for a persistent continuity
-policy, maintenance authority generation, completed-generation evidence, exact
+The controller defines closed, digest-bound records for a persistent continuity
+policy, maintenance authority generation, canonical completed-generation evidence, exact
 successor evidence, and a continuity receipt.  The policy names generation zero once.
 Later generations use ordinal filenames under its exact external custody roots; no
 glob, timestamp, newest-file, or caller-selected later-generation authority is used.
@@ -23,15 +23,22 @@ same schema as generation zero, so generation 1 can be the predecessor for gener
 
 ## Closure and successor proof
 
-Completed-generation evidence must bind admission, lease, implementation, passing
-validation, exact validated commit, successful landing, terminal completion, and
-integrity evidence identities.  Every required status must be successful; waiting,
-failed, paused, incomplete, ambiguous, or unlanded work is rejected.
+Authority-bearing v2 completed-generation evidence names the canonical task journal,
+lease, validation result, commit plan/result, publication request/result, and terminal
+closure event by absolute path and exact digest. Derivation reloads each artifact
+from its schema-owned state-root directory, verifies its native seal, replays the
+journal, and cross-checks task, lease, generation/base, validation, commit, landing,
+and closure identities. Missing, moved, mutated, stale, failed, ambiguous, or
+non-terminal custody fails closed. The old v1 completion and successor formats are
+diagnostic-only and can never authorize derivation; they are not silently upgraded.
 
-The implemented successor mode is only `local_fast_forward_base_ref`.  Evidence must
-show that the validated commit is the successor, its parent and compare-and-swap old
-object are the predecessor base, the exact local base/tracked ref advanced to it, the
-checkout synchronized to it, and current clean repository truth still equals it.
+The implemented successor mode is only `local_fast_forward_base_ref`. The canonical
+publication result proves that the validated commit is the successor, its parent and
+compare-and-swap old object are the predecessor base, the exact local base/tracked ref
+advanced to it, and the checkout synchronized to it. At derivation time the controller
+also performs read-only Git observations of the exact ref, symbolic HEAD, clean
+index/worktree/untracked state, and absence of an ambiguous in-progress operation.
+Caller-asserted SHAs and cleanliness booleans are not trusted.
 PR/publication requests, payload echoes, equal trees, rewrites, merges, rebases, and
 squashes are not accepted.
 
@@ -56,9 +63,10 @@ credentials, transcripts, and validator output are never copied.
 
 `python scripts/maintenance_authority_continuity.py` exposes `doctor`, `inspect`,
 `inspect-receipts`, and `derive-next`.  Inspection is read-only.  Derivation renders
-external configuration custody only.  The module contains no Git, provider, network,
-candidate, lease, implementation, validation, commit, publication, daemon, restart,
-or runtime-adoption actuator.
+external configuration custody only. The module contains no Git mutation, provider,
+network, daemon, restart, or runtime-adoption actuator. It reuses canonical maintenance
+validators and read-only repository observation helpers; it never fetches, pulls,
+publishes, or moves a ref.
 
 Automatic wake-daemon rebinding, post-advancement wake continuation, runtime code
 adoption, hosted transformations, authority widening, and expiry extension remain
