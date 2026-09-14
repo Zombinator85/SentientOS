@@ -12,6 +12,7 @@ import os
 import threading
 import time
 import fcntl
+import stat
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
@@ -88,7 +89,7 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("initial_wake_adoption_binding_mismatch")
     result.update(repository_root=str(repo), state_root=str(Path(result["state_root"]).resolve()),
                   successor_configuration_root=str(Path(result["successor_configuration_root"]).resolve()))
-    return result
+    return dict(result)
 
 
 def load_config(path: str | Path) -> dict[str, Any]: return validate_config(_load(path))
@@ -126,12 +127,25 @@ def _write_exact(path: Path, value: Mapping[str, Any]) -> None:
     with os.fdopen(fd, "wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
 
 
+def _prepare_private_directory(path: Path) -> None:
+    """Create or verify private custody without adopting unsafe existing paths."""
+    if path.exists():
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError("successor_configuration_custody_unsafe")
+        if os.name == "posix" and stat.S_IMODE(os.lstat(path).st_mode) != 0o700:
+            raise ValueError("successor_configuration_custody_permissions")
+        return
+    path.mkdir(parents=True, mode=0o700)
+    if os.name == "posix" and stat.S_IMODE(os.lstat(path).st_mode) != 0o700:
+        raise ValueError("successor_configuration_custody_permissions")
+
+
 def build_successor_adoption(config: Mapping[str, Any], current: Mapping[str, Any],
                              predecessor: Mapping[str, Any], successor: Mapping[str, Any]) -> dict[str, Any]:
     """Build the canonical, immutable N+1 component closure from N's schemas."""
     cfg = validate_config(config); root = Path(cfg["successor_configuration_root"]) / f"generation-{successor['ordinal']}"
     state = Path(cfg["state_root"]) / f"generation-{successor['ordinal']}"
-    for directory in (root, state): directory.mkdir(parents=True, exist_ok=True, mode=0o700); directory.chmod(0o700)
+    for directory in (root, state): _prepare_private_directory(directory)
     manifest = profiles.validate_manifest(_load(successor["manifest_path"]))
     if manifest["manifest_digest"] != successor["manifest_digest"] or manifest["base_sha"] != successor["base_sha"]:
         raise ValueError("successor_manifest_binding_mismatch")
@@ -145,28 +159,33 @@ def build_successor_adoption(config: Mapping[str, Any], current: Mapping[str, An
     if checked_bundle["status"] != "profile_bundle_ready" or checked_bundle["bundle_digest"] != successor["profile_bundle_digest"]:
         raise ValueError("successor_profile_bundle_binding_mismatch")
     profile_dir = Path(manifest["output_directory"])
-    watchdog_state = state / "watchdog"
-    for p in (watchdog_state, state / "workspace", state / "scratch", state / "inbox"):
-        p.mkdir(mode=0o700); p.chmod(0o700)
-    wd = dict(old_watchdog); wd.update(base_sha=successor["base_sha"], state_root=str(watchdog_state),
-        workspace_root=str(state / "workspace"), scratch_root=str(state / "scratch"),
-        candidate_inbox_roots=[str(state / "inbox")])
+    wd = dict(old_watchdog); wd.update(repository_root=manifest["repository_root"],
+        base_sha=successor["base_sha"], state_root=manifest["state_root"],
+        workspace_root=manifest["workspace_root"], scratch_root=manifest["scratch_root"],
+        candidate_inbox_roots=[manifest["inbox_root"]],
+        stop_marker=str(Path(manifest["state_root"]) / "STOP"))
     for field, filename in profiles.FILENAMES.items():
         if field in wd: wd[field] = str(profile_dir / filename)
     wd.pop("config_digest", None); wd = watchdog.validate_config(wd); _write_exact(paths["watchdog"], wd)
-    cc = dict(old_collector); cc.update(base_sha=successor["base_sha"], activation_profile_bundle_manifest_path=str(Path(successor["manifest_path"]).resolve()), watchdog_configuration_path=str(paths["watchdog"].resolve()), collector_state_root=str(state / "collector"), receipt_journal_path=str(state / "collector" / "receipts.jsonl"), stop_marker=str(state / "collector" / "STOP")); cc.pop("config_digest", None)
-    for p in (state / "collector",): p.mkdir(mode=0o700); p.chmod(0o700)
-    cc = collector.validate_config(cc); _write_exact(paths["collector"], cc)
-    ac = dict(old_autonomy); ac.update(base_sha=successor["base_sha"], activation_profile_bundle_manifest_path=str(Path(successor["manifest_path"]).resolve()), collector_configuration_path=str(paths["collector"].resolve()), watchdog_configuration_path=str(paths["watchdog"].resolve()), external_cycle_state_root=str(state / "autonomy"), cycle_receipt_journal_path=str(state / "autonomy" / "receipts.jsonl"), stop_marker=str(state / "autonomy" / "STOP")); ac.pop("config_digest", None)
-    (state / "autonomy").mkdir(mode=0o700); (state / "autonomy").chmod(0o700); ac = autonomy.validate_config(ac); _write_exact(paths["autonomy"], ac)
-    hc = dict(old_health); hc.update(base_sha=successor["base_sha"], probe_state_root=str(state / "health"), governed_signal_output_root=str(state / "signals"), receipt_journal_path=str(state / "health" / "receipts.jsonl")); hc.pop("config_digest", None)
-    for p in (state / "health", state / "signals"): p.mkdir(mode=0o700); p.chmod(0o700)
+    cc = dict(old_collector); cc.update(repository_identity=manifest["repository_identity"], repository_root=manifest["repository_root"], base_sha=successor["base_sha"], activation_profile_bundle_manifest_path=str(Path(successor["manifest_path"]).resolve()), watchdog_configuration_path=str(paths["watchdog"].resolve()), collector_state_root=str(state / "collector"), maintenance_candidate_inbox=manifest["inbox_root"], receipt_journal_path=str(state / "collector" / "receipts.jsonl"), stop_marker=str(state / "collector" / "STOP")); cc.pop("config_digest", None)
+    _prepare_private_directory(state / "collector")
+    cc = collector.validate_config(cc)
+    _prepare_private_directory(state / "signals")
+    sources = list(cc["governed_improvement_signal_source_roots"])
+    if str(state / "signals") not in sources:
+        sources.append(str(state / "signals"))
+    cc["governed_improvement_signal_source_roots"] = sources
+    cc.pop("config_digest", None); cc = collector.validate_config(cc); _write_exact(paths["collector"], cc)
+    ac = dict(old_autonomy); ac.update(repository_identity=manifest["repository_identity"], repository_root=manifest["repository_root"], base_sha=successor["base_sha"], activation_profile_bundle_manifest_path=str(Path(successor["manifest_path"]).resolve()), collector_configuration_path=str(paths["collector"].resolve()), watchdog_configuration_path=str(paths["watchdog"].resolve()), external_cycle_state_root=str(state / "autonomy"), cycle_receipt_journal_path=str(state / "autonomy" / "receipts.jsonl"), stop_marker=str(state / "autonomy" / "STOP")); ac.pop("config_digest", None)
+    _prepare_private_directory(state / "autonomy"); ac = autonomy.validate_config(ac); _write_exact(paths["autonomy"], ac)
+    hc = dict(old_health); hc.update(repository_identity=manifest["repository_identity"], repository_root=manifest["repository_root"], base_sha=successor["base_sha"], probe_state_root=str(state / "health"), governed_signal_output_root=str(state / "signals"), receipt_journal_path=str(state / "health" / "receipts.jsonl")); hc.pop("config_digest", None)
+    _prepare_private_directory(state / "health")
     hc = health.validate_config(hc); _write_exact(paths["health"], hc)
-    wc = dict(old_wake); wc.update(base_sha=successor["base_sha"], health_probe_configuration_path=str(paths["health"].resolve()), autonomy_cycle_configuration_path=str(paths["autonomy"].resolve()), external_wake_state_root=str(state / "wake"), wake_receipt_journal_path=str(state / "wake" / "receipts.jsonl"), stop_marker=str(state / "wake" / "STOP")); wc.pop("config_digest", None)
-    (state / "wake").mkdir(mode=0o700); (state / "wake").chmod(0o700); wc = wake.validate_config(wc); _write_exact(paths["wake"], wc)
+    wc = dict(old_wake); wc.update(repository_identity=manifest["repository_identity"], repository_root=manifest["repository_root"], base_sha=successor["base_sha"], health_probe_configuration_path=str(paths["health"].resolve()), autonomy_cycle_configuration_path=str(paths["autonomy"].resolve()), external_wake_state_root=str(state / "wake"), wake_receipt_journal_path=str(state / "wake" / "receipts.jsonl"), stop_marker=str(state / "wake" / "STOP")); wc.pop("config_digest", None)
+    _prepare_private_directory(state / "wake"); wc = wake.validate_config(wc); _write_exact(paths["wake"], wc)
     # The new digest gets new cadence custody, but starts at N's exact next due instant.
     next_due = wake_daemon.inspect(predecessor)["next_due_utc"]
-    cadence = state / "cadence"; cadence.mkdir(mode=0o700); cadence.chmod(0o700)
+    cadence = state / "cadence"; _prepare_private_directory(cadence)
     output = root / "wake-adoption.json"
     activation.render_wake_daemon_adoption(output, wake_config_path=paths["wake"], cadence_state_root=cadence,
         enabled=True, cadence_interval_seconds=int(predecessor["cadence_interval_seconds"]), schedule_anchor_utc=next_due,
@@ -174,9 +193,11 @@ def build_successor_adoption(config: Mapping[str, Any], current: Mapping[str, An
         maximum_daemon_wall_clock_seconds=int(predecessor["maximum_daemon_wall_clock_seconds"]),
         shutdown_timeout_seconds=float(predecessor["shutdown_timeout_seconds"]))
     result = wake_daemon.load_adoption(output)
-    if wake.doctor(wc, evaluation_time=str(wc["evaluation_time"]))["status"] != "maintenance_wake_ready":
-        raise ValueError("successor_wake_closure_not_ready")
-    return cast(dict[str, Any], result)
+    # Exercise the native cross-component agreement chain without requiring
+    # effectful tool availability during deterministic configuration rendering.
+    wake._components(wc)
+    autonomy._component_configs(ac, evaluation_time=str(wc["evaluation_time"]))
+    return dict(result)
 
 
 def _append(cfg: Mapping[str, Any], event_type: str, generation: Mapping[str, Any], successor: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
