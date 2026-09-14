@@ -22,6 +22,9 @@ LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
 MAINTENANCE_AUTHORITY_CONTINUITY = "maintenance_authority_continuity"
+MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
+    "maintenance_successor_generation_adoption"
+)
 
 
 @dataclass(frozen=True)
@@ -349,6 +352,43 @@ AUTHORITY_DEFINITIONS = {
             "exact successor repository state",
             "same or narrower authority",
             "bounded successor authority",
+        ),
+    ),
+    MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_successor_generation_adoption_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_maintenance_continuity_policy_read",
+                "exact_successor_maintenance_authority_generation_read",
+                "exact_maintenance_authority_continuity_receipt_read",
+                "exact_current_maintenance_wake_adoption_state_read",
+                "successor_maintenance_configuration_generation_write",
+                "bounded_maintenance_wake_owner_generation_handoff",
+                "maintenance_successor_generation_adoption_receipt_write",
+                "read_only_maintenance_successor_generation_health_projection",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "authority widening", "extend authority expiry",
+            "unverified successor generation", "arbitrary successor generation",
+            "caller-selected generation", "skip generation",
+            "arbitrary wake configuration", "arbitrary adoption configuration",
+            "self-grant from model output", "model output grants authority",
+            "runtime code adoption", "hot reload", "automatic process restart",
+            "arbitrary command", "arbitrary executable", "candidate admission",
+            "lease issuance", "git mutation", "git publication",
+            "provider invocation", "network authority", "credential management",
+            "os scheduler installation", "windows-native support",
+        ),
+        required_goal_phrases=(
+            "verified successor authority generation",
+            "exact continuity receipt",
+            "bounded wake owner handoff",
+            "same lineage authority",
         ),
     ),
 }

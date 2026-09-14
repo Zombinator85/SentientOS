@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "710971c8304001d7f49f1735d997a03ed7f65883",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_canonical_new_capability_eligibility_is_exact_and_non_granting", "rationale": "Exact eligibility contract admits without granting authority."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_wrong_subsystem_and_principal_are_denied", "rationale": "Wrong subsystem and principal fail closed."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_missing_extra_and_duplicate_effects_are_denied", "rationale": "Non-exact effect surfaces fail closed."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_every_required_goal_phrase_is_independently_required[verified successor authority generation]", "rationale": "Successor verification is an affirmative prerequisite."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_every_forbidden_future_scope_is_denied[runtime code adoption]", "rationale": "Runtime code adoption remains separately forbidden."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_registry_reports_scaffolded_eligibility_only_truth", "rationale": "Registry truth is preimplementation eligibility only."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_existing_wake_daemon_authority_semantics_are_preserved", "rationale": "Wake authority and automatic-renewal prohibition remain unchanged."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_continuity_remains_derivation_only_and_rebinding_deferred", "rationale": "Continuity remains derivation-only and rebinding remains deferred."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_no_successor_adoption_runtime_module_is_implemented", "rationale": "No runtime handoff implementation exists."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_successor_generation_adoption_capability_admission.py::test_canonical_new_capability_eligibility_is_exact_and_non_granting"
+  ]
+}
