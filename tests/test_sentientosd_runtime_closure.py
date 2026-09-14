@@ -605,5 +605,5 @@ def test_overlapping_watchdog_and_wake_adoptions_start_neither(monkeypatch) -> N
     monkeypatch.setattr(sentientosd, "load_wake_adoption", lambda path: {"enabled": True})
     monkeypatch.setattr(sentientosd, "MaintenanceSchedulerOwner", Owner)
     monkeypatch.setattr(sentientosd, "MaintenanceWakeOwner", Owner)
-    scheduler_owner, wake_owner, overlapping = sentientosd._start_maintenance_daemon_owners("scheduler", "wake")
-    assert overlapping is True and scheduler_owner is None and wake_owner is None and started == []
+    scheduler_owner, wake_owner, successor_owner, overlapping = sentientosd._start_maintenance_daemon_owners("scheduler", "wake")
+    assert overlapping is True and scheduler_owner is None and wake_owner is None and successor_owner is None and started == []
