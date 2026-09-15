@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "605212cd63b0b14cbbc28d946a444a38c4885463",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_canonical_test_airlock_dependencies.py::test_jinja2_is_bound_to_the_canonical_minimal_airlock_and_lock", "rationale": "The canonical declarations and generated lock include Jinja2 and the lock verifies."},
+    {"node_id": "tests/test_canonical_test_airlock_dependencies.py::test_runner_probes_jinja2_and_keeps_full_explicit", "rationale": "The infrastructure probe and default minimal bootstrap remain distinct from explicit full mode."},
+    {"node_id": "tests/test_canonical_test_airlock_dependencies.py::test_missing_jinja2_is_reported_as_incomplete_infrastructure", "rationale": "Missing Jinja2 is detected before pytest collection and the complete probe succeeds when imports are available."},
+    {"node_id": "tests/test_canonical_test_airlock_dependencies.py::test_minimal_install_failure_never_falls_back_to_full", "rationale": "Minimal installation failure fails closed without requesting the full aggregate."},
+    {"node_id": "tests/test_canonical_test_airlock_dependencies.py::test_minimal_airlock_excludes_full_capability_dependencies", "rationale": "Core dependencies remain empty and playsound remains outside the Codex airlock."},
+    {"node_id": "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements", "rationale": "Repository-native bootstrap retains binary-only canonical requirements installation without full."},
+    {"node_id": "tests/test_dashboard_drift_api.py::test_drift_recent_rejects_invalid_n", "rationale": "Dashboard construction executes successfully with the corrected minimal test infrastructure."},
+    {"node_id": "tests/test_dashboard_drift_api.py::test_drift_recent_clamps_n", "rationale": "Dashboard endpoint behavior executes under the canonical airlock."},
+    {"node_id": "tests/test_dashboard_drift_api.py::test_drift_silhouette_invalid_payload_returns_422", "rationale": "Dashboard template infrastructure no longer blocks API validation behavior."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_canonical_test_airlock_dependencies.py::test_jinja2_is_bound_to_the_canonical_minimal_airlock_and_lock",
+    "tests/test_canonical_test_airlock_dependencies.py::test_runner_probes_jinja2_and_keeps_full_explicit",
+    "tests/test_canonical_test_airlock_dependencies.py::test_missing_jinja2_is_reported_as_incomplete_infrastructure",
+    "tests/test_run_tests_bootstrap_airlock.py::test_targeted_bootstrap_uses_canonical_minimal_requirements",
+    "tests/test_dashboard_drift_api.py::test_drift_recent_rejects_invalid_n"
+  ]
+}
