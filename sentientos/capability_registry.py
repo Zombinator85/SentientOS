@@ -605,15 +605,18 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "docs/development/maintenance_resident_runtime_adoption_authority.md",
             ),
             proof_tests=(
+                "tests/test_maintenance_resident_runtime_adoption.py",
                 "tests/test_maintenance_resident_runtime_adoption_capability_admission.py",
+                "tests/test_maintenance_successor_generation_adoption.py",
             ),
             proof_commands=(
-                "python -m scripts.run_tests -q tests/test_maintenance_resident_runtime_adoption_capability_admission.py tests/test_capability_registry.py",
+                "python -m scripts.run_tests -q tests/test_maintenance_resident_runtime_adoption.py tests/test_maintenance_resident_runtime_adoption_capability_admission.py tests/test_maintenance_successor_generation_adoption.py tests/test_sentientosd_runtime_closure.py tests/test_capability_registry.py",
             ),
             implemented_surfaces=(
-                "closed resident-adoption configuration and immutable launch provenance",
-                "exact successor readiness barrier and digest-chained transition custody",
+                "closed resident-adoption configuration and immutable per-process launch provenance",
+                "exact successor repository and pending-handoff readiness barrier",
                 "bounded exact POSIX sentientosd self exec and crash recovery",
+                "bounded cooperative maintenance-owner quiescence and exact post-exec marker reconciliation",
                 "sentientosd integration and read-only resident health",
                 "exact maintenance subsystem, principal, and effect declaration",
                 "required successor-readiness barrier task language",

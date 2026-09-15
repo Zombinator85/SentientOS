@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import signal
+import time
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,8 +60,37 @@ from sentientos.maintenance_wake_daemon_adoption import MaintenanceWakeOwner, lo
 from sentientos.maintenance_successor_generation_adoption import MaintenanceSuccessorGenerationOwner, load_config as load_successor_adoption
 from sentientos.maintenance_authority_continuity_auto_derivation import MaintenanceAuthorityContinuityAutoDerivationOwner, load_config as load_continuity_auto_derivation
 from sentientos.maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController, load_config as load_resident_adoption
+from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _prepare_resident_runtime_startup(controller: MaintenanceResidentRuntimeAdoptionController) -> dict[str, Any]:
+    """Prove this image before any maintenance owner is allowed to start."""
+    marker = os.environ.get(RESIDENT_TRANSITION_ENV)
+    if marker:
+        return controller.complete_post_exec(marker=marker)
+    return controller.capture_baseline()
+
+
+def _drive_resident_runtime_transition(
+    controller: MaintenanceResidentRuntimeAdoptionController,
+    successor_owner: MaintenanceSuccessorGenerationOwner,
+    auto_derivation_owner: MaintenanceAuthorityContinuityAutoDerivationOwner | None,
+) -> dict[str, Any] | None:
+    """Drive only the canonical resident barrier; never owns successor wake."""
+    if successor_owner.health().get("status") != "waiting_for_resident_runtime_readiness":
+        return None
+
+    def quiesce(timeout: float) -> bool:
+        started = time.monotonic()
+        if auto_derivation_owner is not None and not auto_derivation_owner.stop():
+            return False
+        if not successor_owner.stop():
+            return False
+        return time.monotonic() - started <= timeout
+
+    return controller.request_replacement(quiesce=quiesce)
 
 
 def _start_maintenance_daemon_owners(
@@ -755,6 +785,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                      (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
                 raise ValueError("resident_runtime_configuration_binding_mismatch")
             resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
+            _prepare_resident_runtime_startup(resident_controller)
             resident_health = resident_controller.health()
         except Exception as exc:
             resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
@@ -792,6 +823,22 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 runtime_surfaces._feedback["surfaces"]["maintenance_successor_generation_adoption"] = successor_owner.health()
             if auto_derivation_owner is not None:
                 runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_owner.health()
+            if resident_controller is not None and successor_owner is not None:
+                try:
+                    transition = _drive_resident_runtime_transition(
+                        resident_controller, successor_owner, auto_derivation_owner
+                    )
+                    if transition is not None:
+                        # A real execve cannot return.  Returning is permitted only
+                        # for the narrow injected boundary used by behavioral proof.
+                        resident_health = resident_controller.health()
+                        runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
+                        continue
+                except Exception as exc:
+                    resident_health = {"status": "blocked", "reason": str(exc), "terminal": True, "read_only": True}
+                    runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
+                    shutdown_event.set()
+                    continue
             _run_maintenance_tick(
                 kernel=kernel,
                 runtime_surfaces=runtime_surfaces,
