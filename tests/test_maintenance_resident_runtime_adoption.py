@@ -1,4 +1,6 @@
 import json
+import fcntl
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -39,7 +41,10 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, object], dict[str, object], Path
         "repository_identity": "repo", "repository_root": str(repository.resolve()),
         "python_executable": str(Path(sys.executable).resolve()), "daemon_module": "sentientosd",
         "daemon_entrypoint": str((repository / "sentientosd.py").resolve()), "working_directory": str(repository.resolve()),
-        "inherited_environment_allowlist": ["PATH"], "required_environment": {resident.CONFIG_ENV: str(config_path.resolve())},
+        "inherited_environment_allowlist": ["PATH"], "required_environment": {
+            resident.CONFIG_ENV: str(config_path.resolve()),
+            resident.SUCCESSOR_CONFIG_ENV: str(successor_path.resolve()),
+        },
         "state_root": str(state), "transition_journal_path": str(state / "transitions.jsonl"),
         "provenance_root": str(state / "provenance"), "receipt_root": str(state / "receipts"),
         "stop_marker": str(state / "STOP"), "quiescence_timeout_seconds": 2,
@@ -126,6 +131,8 @@ def test_post_exec_marker_provenance_and_readiness_recovery(tmp_path: Path) -> N
     receipt = new.complete_post_exec(marker=transition["transition_id"])
     handoff = adoption.pending_handoff(owner.config)
     assert receipt["successor_launch_provenance_digest"] and new.readiness_guard(handoff)
+    assert not old.readiness_guard(handoff)
+    owner._successor_start_readiness_guard = new.readiness_guard
     assert owner.handoff_once()["status"] == "handoff_completed"
     assert 1 in Owner.starts
 
@@ -189,3 +196,52 @@ def test_resident_runtime_n0_to_n1_to_n2_behavioral_closure(tmp_path: Path) -> N
 def test_generic_service_and_process_authority_remains_absent() -> None:
     source = Path(resident.__file__).read_text()
     assert "Popen(" not in source and "system(" not in source and "service restart" not in source
+
+
+def test_exec_environment_reconstructs_exact_new_image_topology(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg, generation, _, _ = _fixture(tmp_path); calls: list[tuple[str, list[str], dict[str, str]]] = []
+    old = resident.MaintenanceResidentRuntimeAdoptionController(cfg, process_observer=lambda: _observer(cfg, 1),
+        execve=lambda executable, argv, env: calls.append((executable, argv, dict(env))))
+    old.capture_baseline(); _advance(tmp_path, cfg, generation, 0); owner = _pending_owner(cfg, old)
+    transition = old.request_replacement(quiesce=lambda _: True); env = calls[0][2]
+    for name in (resident.CONFIG_ENV, resident.SUCCESSOR_CONFIG_ENV, resident.AUTO_CONFIG_ENV, resident.TRANSITION_ENV):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items(): monkeypatch.setenv(name, value)
+    recovered = resident.load_config(os.environ[resident.CONFIG_ENV])
+    assert adoption.load_config(os.environ[resident.SUCCESSOR_CONFIG_ENV])["config_digest"] == cfg["successor_adoption_config_digest"]
+    observation = _observer(cfg, 2); observation["environment"] = {
+        "PYTHONPATH": None, "PYTHONHOME": None, resident.TRANSITION_ENV: transition["transition_id"],
+        resident.CONFIG_ENV: os.environ[resident.CONFIG_ENV], resident.SUCCESSOR_CONFIG_ENV: os.environ[resident.SUCCESSOR_CONFIG_ENV],
+        resident.AUTO_CONFIG_ENV: None,
+    }
+    new = resident.MaintenanceResidentRuntimeAdoptionController(recovered, process_observer=lambda: observation)
+    sentientosd._prepare_resident_runtime_startup(new)
+    owner._successor_start_readiness_guard = new.readiness_guard
+    assert owner.handoff_once()["status"] == "handoff_completed"
+
+
+def test_required_topology_environment_and_stable_process_identity(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    for missing in (resident.CONFIG_ENV, resident.SUCCESSOR_CONFIG_ENV):
+        bad = dict(cfg); bad["required_environment"] = dict(cfg["required_environment"]); bad["required_environment"].pop(missing)
+        bad["config_digest"] = resident.digest(bad, "config_digest")
+        with pytest.raises(ValueError, match="topology_environment"): resident.validate_config(bad)
+    controller = resident.MaintenanceResidentRuntimeAdoptionController(cfg, process_observer=lambda: _observer(cfg, 9))
+    assert controller.capture_baseline()["process_instance_id"] == controller.capture_baseline()["process_instance_id"]
+
+
+def test_transition_lock_contention_and_journal_mtime_is_not_authority(tmp_path: Path) -> None:
+    cfg, generation, _, _ = _fixture(tmp_path); calls: list[object] = []
+    controller = resident.MaintenanceResidentRuntimeAdoptionController(cfg, process_observer=lambda: _observer(cfg, 1), execve=lambda *v: calls.append(v))
+    controller.capture_baseline(); _advance(tmp_path, cfg, generation, 0); _pending_owner(cfg, controller)
+    lock_path = Path(str(cfg["state_root"])) / "resident-transition.lock"; handle = lock_path.open("a+b")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with pytest.raises(ValueError, match="lock_busy"): controller.request_replacement(quiesce=lambda _: True)
+    assert not calls
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN); handle.close()
+    transition = controller.request_replacement(quiesce=lambda _: True)
+    journal = Path(str(cfg["transition_journal_path"])); os.utime(journal, (1, 1))
+    new = resident.MaintenanceResidentRuntimeAdoptionController(cfg, clock=lambda: float(json.loads(journal.read_text().splitlines()[3])["request_timestamp"]) + 1,
+        process_observer=lambda: _observer(cfg, 2))
+    assert new.complete_post_exec(marker=transition["transition_id"])["status"] == "resident_ready"
+    assert new.complete_post_exec(marker=transition["transition_id"])["status"] == "resident_ready"

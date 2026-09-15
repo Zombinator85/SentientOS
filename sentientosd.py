@@ -117,6 +117,19 @@ def _start_maintenance_daemon_owners(
     return scheduler_owner, wake_owner, successor_owner, overlapping
 
 
+def _start_maintenance_daemon_owners_after_resident_decision(
+    scheduler_adoption_path: str | None, wake_adoption_path: str | None,
+    successor_adoption_path: str | None,
+    resident_controller: MaintenanceResidentRuntimeAdoptionController | None,
+    *, resident_blocked: bool,
+) -> tuple[MaintenanceSchedulerOwner | None, MaintenanceWakeOwner | None, MaintenanceSuccessorGenerationOwner | None, bool]:
+    """Make blocked resident posture a pre-construction, zero-owner decision."""
+    if resident_blocked:
+        return None, None, None, False
+    return _start_maintenance_daemon_owners(
+        scheduler_adoption_path, wake_adoption_path, successor_adoption_path, resident_controller)
+
+
 def _start_maintenance_continuity_auto_derivation(
     config_path: str | None, selected_successor_path: str | None,
     successor_owner: MaintenanceSuccessorGenerationOwner | None, overlapping: bool,
@@ -789,13 +802,13 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             resident_health = resident_controller.health()
         except Exception as exc:
             resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
-    scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners(
+            resident_controller = None
+    resident_blocked = bool(resident_path and resident_health["status"] == "blocked")
+    scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners_after_resident_decision(
         adoption_path, wake_adoption_path, successor_adoption_path,
-        resident_controller if resident_path and resident_health["status"] != "blocked" else None)
-    if resident_path and resident_health["status"] == "blocked" and successor_owner is not None:
-        successor_owner.stop(); successor_owner = None
+        resident_controller if resident_path and not resident_blocked else None, resident_blocked=resident_blocked)
     auto_derivation_owner, auto_derivation_health = _start_maintenance_continuity_auto_derivation(
-        auto_derivation_path, successor_adoption_path, successor_owner, overlapping
+        None if resident_blocked else auto_derivation_path, successor_adoption_path, successor_owner, overlapping
     )
     runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = (
         scheduler_owner.health() if scheduler_owner is not None else {"status": "disabled", "read_only": True}
@@ -806,7 +819,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     )
     runtime_surfaces._feedback["surfaces"]["maintenance_successor_generation_adoption"] = (
         {"status": "blocked", "reason": "overlapping_maintenance_daemon_adoptions", "read_only": True}
-        if overlapping else successor_owner.health() if successor_owner is not None else {"status": "disabled", "read_only": True}
+        if overlapping else ({"status": "blocked", "reason": "resident_runtime_startup_blocked", "read_only": True}
+            if resident_blocked else successor_owner.health() if successor_owner is not None else {"status": "disabled", "read_only": True})
     )
     runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_health
     runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health

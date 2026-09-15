@@ -13,6 +13,17 @@ state custody, STOP marker, closed environment, and count/time bounds. Ambient
 <configured-python-realpath> -m sentientosd
 ```
 
+An enabled posture requires the closed exec environment to bind the canonical
+resident configuration path in
+`SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG` and the digest-bound
+successor configuration path in
+`SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG`. When automatic
+continuity is configured it also binds its exact path in
+`SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG`; when it is
+not configured that variable is forbidden. The post-exec environment adds only
+the exact transition marker. Authority-bearing topology never falls back to an
+ambient configuration variable.
+
 ## Provenance and transition machine
 
 Before maintenance owners start, ordinary daemon startup reconstructs the
@@ -24,19 +35,26 @@ digest. Consequently, two legitimate launches in one generation retain two
 records rather than overwriting a mutable `generation-N.json` pointer. Each
 record binds the generation and manifest, configuration, repository observation,
 interpreter, daemon entrypoint/module, cwd, exact argv, bounded environment,
-PID/process instance, and startup time.
+PID/process instance, and a once-captured controller startup time. Repeated
+observations by one controller therefore retain one identity. The daemon path
+is the resolved `sys.modules["sentientosd"].__file__`, with the module-spec
+origin bound when Python supplies it, rather than a path synthesized from cwd.
+The bounded actual-process environment projection is verified and hashed; it
+contains no unrelated ambient or secret-bearing variables.
 
 Replacement is eligible only when the canonical successor journal is exactly at
 `predecessor_confirmed_quiescent`. The controller reconstructs N, verifies the
 canonical N+1 generation and continuity receipt, requires consecutive ordinals
 and exact lineage/digests, and rejects fabricated caller handoffs. It then
-re-proves that the local repository is exactly N+1. `sentientosd` stops ordinary
+re-proves that the local repository is exactly N+1 using only the absolute,
+canonical, executable `git_executable` bound by that generation's manifest.
+`sentientosd` stops ordinary
 stale-resident ticks at this barrier and cooperatively stops only its automatic
 continuity and successor-generation owners within the configured quiescence
 bound. The successor owner remains the sole owner of predecessor wake shutdown
 and successor wake startup.
 
-After those proofs, the resident journal admits exactly this v2 phase sequence:
+After those proofs, the resident journal admits exactly this v3 phase sequence:
 
 1. `resident_adoption_intent_recorded`
 2. `predecessor_resident_provenance_verified`
@@ -46,9 +64,13 @@ After those proofs, the resident journal admits exactly this v2 phase sequence:
 6. `successor_resident_readiness_recorded`
 7. `resident_adoption_completed`
 
-The pre-exec transaction binds the exact predecessor launch record, N/N+1 and
+Intent and predecessor-provenance verification are durable before cooperative
+quiescence. The quiescence event follows only success, and the self-exec request
+is written immediately before exec. The pre-exec transaction binds the exact predecessor launch record, N/N+1 and
 continuity identities, pending successor event, observed successor commit/tree,
-and exec contract. `os.execve` receives only allowlisted inherited variables,
+and exec contract. Its self-exec-request event also binds the immutable request
+timestamp used for the readiness window; filesystem mtime has no authority.
+`os.execve` receives only allowlisted inherited variables,
 required sealed variables, and the exact transition marker. There is no shell,
 subprocess restart, arbitrary executable/argv, checkout, reload, or rollback.
 
@@ -65,10 +87,25 @@ revalidates all those bindings. Only the existing successor owner may then appen
 `handoff_completed`; automatic continuity remains a separate complementary
 owner and may resume after adoption.
 
+An enabled posture that fails this startup reconciliation is decided before
+owner construction: no successor owner (gated or ungated), automatic-continuity
+owner, or ordinary maintenance tick starts. Absent and explicitly disabled
+resident postures retain their historical behavior and install no false guard.
+
 Journal replay accepts only exact phase prefixes for one transition and exact
 idempotent immutable evidence. Skips, repeats, branching identities, conflicting
 provenance, a second in-flight transition, or completion without the exact
 pre-exec transaction fail closed.
+
+The external state root contains a nonblocking, lineage/configuration-scoped
+`resident-transition.lock`; a contender reports busy and neither branches the
+journal nor execs. Legal intent-only and predecessor-provenance prefixes can
+continue the same predecessor transaction through quiescence. A durable exec
+request can create phase 4. Phase 4 is reusable only when its immutable launch
+record identifies the current process instance. Existing exact readiness bytes
+are reused before a missing phase 5 is appended; phase 5 reuses those bytes
+before phase 6; phase 6 returns the same receipt without another transition.
+Foreign/dead-process phase-4 provenance fails closed.
 
 STOP prevents a new replacement. A quiescence timeout, stale post-exec readiness
 window, lifecycle wall-clock exhaustion, or successful-transition-count
@@ -76,6 +113,11 @@ exhaustion prevents further effect. An exec exception is terminal and stale
 maintenance remains quiescent. An already-effected transaction may be reconciled
 non-effectfully from its exact marker and custody, but recovery cannot authorize
 a new exec and does not bypass STOP/pause control over wake effects.
+
+This is exact in-process/post-exec startup transaction reconciliation, not
+generic process-death recovery. A fresh process cannot recover an arbitrary
+dead image's dynamic marker or claim its provenance; restart-after-process-death
+remains deferred to the external parent-supervisor topology.
 
 This capability provides no generic service restart, arbitrary process control,
 Git mutation, parent supervisor, Windows-native replacement, network/provider
