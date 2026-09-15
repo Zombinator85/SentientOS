@@ -81,7 +81,7 @@ Automatic resident-code adoption remains a separate authority boundary. Restart,
 exec/re-exec, module reload, hot loading, resident identity changes, and claims that
 newly landed code is running remain deferred.
 
-## Admission language and deferred implementation
+## Admission history and implemented successor
 
 Future effectful goals must affirm: `currently adopted maintenance generation`,
 `canonical successful maintenance closure`, `exact successor repository state`,
@@ -90,6 +90,8 @@ registry's forbidden language rejects derivation ahead of adoption, weak or arbi
 evidence, authority widening/expiry extension, wake handoff, runtime adoption, Git,
 network/provider, maintenance-work, generic execution, and scheduler authority.
 
-Production evidence discovery, hardened v2 normalization, the bounded observation
-lifecycle, automatic `derive_next` invocation, an in-process controller, `sentientosd`
-integration, health projection, and runtime-code adoption are deferred.
+This document preserves the eligibility admission history.  Production evidence
+discovery, hardened v2 normalization, the bounded observation lifecycle, automatic
+`derive_next` invocation, the in-process controller, `sentientosd` integration, and
+health projection are now implemented by the separately proven capability.  Only
+runtime-code adoption remains deferred.

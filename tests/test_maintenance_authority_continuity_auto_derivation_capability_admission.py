@@ -94,21 +94,23 @@ def test_canonical_future_auto_derivation_goal_is_admitted() -> None:
     assert blockers() == ()
 
 
-def test_registry_reports_scaffolded_eligibility_only_truth() -> None:
+def test_registry_reports_implemented_bounded_runner_truth() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION]
     assert record.category == MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION
-    assert record.status == "scaffolded"
-    assert record.authority_level == "eligibility_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded_in_process_runner"
     assert record.requires_control_plane_admission
     assert record.requires_operator_approval
     assert record.requires_audit_receipt
-    assert "in-process automatic derivation controller" in record.deferred_surfaces
+    assert "bounded in-process owner and read-only health projection" in record.implemented_surfaces
     assert "eligibility is a grant" in record.forbidden_implications
 
 
-def test_no_effectful_auto_derivation_runtime_module_exists() -> None:
-    assert not Path("sentientos/maintenance_authority_continuity_auto_derivation.py").exists()
-    assert not Path("scripts/maintenance_authority_continuity_auto_derivation.py").exists()
+def test_effectful_auto_derivation_runtime_is_bounded() -> None:
+    source = Path("sentientos/maintenance_authority_continuity_auto_derivation.py").read_text(encoding="utf-8")
+    assert "continuity.derive_next(" in source
+    assert "wake_handoff_performed\":False" in source
+    assert "resident_code_adoption_performed\":False" in source
 
 
 def test_existing_continuity_authority_is_unchanged() -> None:

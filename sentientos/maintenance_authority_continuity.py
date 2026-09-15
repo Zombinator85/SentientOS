@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, cast
@@ -119,18 +120,19 @@ def _write(path: Path, value: Mapping[str, Any]) -> str:
     return "created"
 
 
-def _current_generation(policy: Mapping[str, Any]) -> dict[str, Any]:
+def _current_generation(policy: Mapping[str, Any], *, allow_exact_partial: bool = False) -> dict[str, Any]:
     first = Path(policy["initial_generation_path"])
     generation = validate_generation(_load(first), policy)
     if generation["ordinal"] != 0: raise ValueError("initial_generation_not_zero")
     ordinal = 0
-    while _generation_path(policy, ordinal + 1).exists():
+    while _generation_path(policy, ordinal + 1).exists() and _receipt_path(policy, ordinal + 1).exists():
         nxt = validate_generation(_load(_generation_path(policy, ordinal + 1)), policy)
         receipt = _closed(_load(_receipt_path(policy, ordinal + 1)), RECEIPT_SCHEMA, RECEIPT_KEYS, "receipt_digest")
         if nxt["ordinal"] != ordinal + 1 or nxt["predecessor_generation_digest"] != generation["generation_digest"] or receipt["successor_generation_digest"] != nxt["generation_digest"] or nxt["prior_receipt_digest"] != receipt["receipt_digest"]:
             raise ValueError("continuity_lineage_branched_or_corrupt")
         generation, ordinal = nxt, ordinal + 1
-    if _receipt_path(policy, ordinal + 1).exists(): raise ValueError("continuity_orphan_receipt")
+    if not allow_exact_partial and (_receipt_path(policy, ordinal + 1).exists() or _generation_path(policy, ordinal + 1).exists()):
+        raise ValueError("continuity_partial_transition")
     return generation
 
 
@@ -212,10 +214,10 @@ def _same_or_narrower(old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
     return True
 
 
-def derive_next(policy_path: str | Path, completion_path: str | Path, successor_path: str | Path, evaluation_time: str) -> dict[str, Any]:
+def _derive_next_locked(policy_path: str | Path, completion_path: str | Path, successor_path: str | Path, evaluation_time: str) -> dict[str, Any]:
     """Derive no more than one exact successor generation."""
     try:
-        policy = validate_policy(_load(policy_path)); predecessor = _current_generation(policy)
+        policy = validate_policy(_load(policy_path)); predecessor = _current_generation(policy, allow_exact_partial=True)
         supplied_completion = _load(completion_path)
         supplied_successor = _load(successor_path)
         if predecessor["ordinal"] > 0 and supplied_completion["generation_digest"] != predecessor["generation_digest"]:
@@ -246,11 +248,27 @@ def derive_next(policy_path: str | Path, completion_path: str | Path, successor_
         receipt["successor_generation_digest"] = generation["generation_digest"]
         receipt["receipt_digest"] = digest(receipt, "receipt_digest")
         generation["prior_receipt_digest"] = receipt["receipt_digest"]
-        _write(_receipt_path(policy, ordinal), receipt)
+        rs = _write(_receipt_path(policy, ordinal), receipt)
         gs = _write(_generation_path(policy, ordinal), generation)
-        return {"schema_version":RESULT_SCHEMA, "status":"successor_generation_ready", "generation_id":generation["generation_id"], "generation_digest":generation["generation_digest"], "receipt_digest":receipt["receipt_digest"], "write_status":gs, "effects_performed":["successor_maintenance_configuration_generation_write", "maintenance_authority_continuity_receipt_write"], "runtime_adoption_performed":False, "git_operations_performed":0, "network_performed":False}
+        return {"schema_version":RESULT_SCHEMA, "status":"successor_generation_ready", "generation_id":generation["generation_id"], "generation_digest":generation["generation_digest"], "receipt_digest":receipt["receipt_digest"], "write_status":"reused" if rs == gs == "reused" else "created", "effects_performed":["successor_maintenance_configuration_generation_write", "maintenance_authority_continuity_receipt_write"], "runtime_adoption_performed":False, "git_operations_performed":0, "network_performed":False}
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         return {"schema_version":RESULT_SCHEMA, "status":"continuity_not_ready", "reason_codes":[str(exc)], "effects_performed":[], "runtime_adoption_performed":False, "git_operations_performed":0, "network_performed":False}
+
+
+def derive_next(policy_path: str | Path, completion_path: str | Path, successor_path: str | Path, evaluation_time: str) -> dict[str, Any]:
+    """Serialize and derive one transition, including exact partial-pair recovery."""
+    try:
+        policy = validate_policy(_load(policy_path))
+        lock_path = Path(policy["generation_root"]) / ".continuity-derive.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+") as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return {"schema_version": RESULT_SCHEMA, "status": "continuity_not_ready", "reason_codes": ["continuity_derivation_busy"], "effects_performed": [], "runtime_adoption_performed": False, "git_operations_performed": 0, "network_performed": False}
+            return _derive_next_locked(policy_path, completion_path, successor_path, evaluation_time)
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return {"schema_version": RESULT_SCHEMA, "status": "continuity_not_ready", "reason_codes": [str(exc)], "effects_performed": [], "runtime_adoption_performed": False, "git_operations_performed": 0, "network_performed": False}
 
 
 def inspect(policy_path: str | Path) -> dict[str, Any]:
