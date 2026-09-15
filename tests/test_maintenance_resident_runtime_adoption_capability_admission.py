@@ -97,32 +97,31 @@ def test_every_forbidden_scope_phrase_rejects(phrase: str) -> None:
     )
 
 
-def test_registry_reports_scaffolded_eligibility_only_non_granting_truth() -> None:
+def test_registry_reports_implemented_bounded_controller_truth() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_RESIDENT_RUNTIME_ADOPTION]
     assert record.category == MAINTENANCE_RESIDENT_RUNTIME_ADOPTION
-    assert record.status == "scaffolded"
-    assert record.authority_level == "eligibility_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded-orchestrator"
     assert record.requires_control_plane_admission
     assert record.requires_operator_approval
     assert record.requires_audit_receipt
     assert not record.requires_rollback_receipt
-    assert "exact sentientosd self process-image replacement" in record.deferred_surfaces
+    assert "bounded exact POSIX sentientosd self exec and crash recovery" in record.implemented_surfaces
     assert "eligibility grants resident-runtime adoption authority" in record.forbidden_implications
 
 
-def test_no_resident_adoption_runtime_or_process_replacement_path_exists() -> None:
-    assert not Path("sentientos/maintenance_resident_runtime_adoption.py").exists()
-    assert not Path("scripts/maintenance_resident_runtime_adoption.py").exists()
+def test_resident_adoption_runtime_is_narrow_and_has_no_generic_restart() -> None:
+    assert Path("sentientos/maintenance_resident_runtime_adoption.py").exists()
+    assert Path("scripts/maintenance_resident_runtime_adoption.py").exists()
     changed_runtime = (
         Path("sentientosd.py"),
         Path("sentientos/runtime/supervisor.py"),
         Path("sentientos/runtime/services.py"),
         Path("sentientos/runtime/startup.py"),
     )
-    for path in changed_runtime:
-        text = path.read_text(encoding="utf-8")
-        assert "maintenance_resident_runtime_adoption" not in text
-        assert "bounded_exact_sentientosd_self_exec" not in text
+    runtime = Path("sentientos/maintenance_resident_runtime_adoption.py").read_text(encoding="utf-8")
+    assert "os.execve" in runtime
+    assert "subprocess" not in runtime and "os.system" not in runtime and "shell=True" not in runtime
 
 
 def test_existing_maintenance_authority_definitions_remain_exact() -> None:
@@ -170,9 +169,9 @@ def test_existing_automatic_n0_n1_n2_recursion_proof_remains_required() -> None:
     assert any("test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next" in command for command in record.proof_commands)
 
 
-def test_resident_adoption_remains_false_and_persistent_posture_is_documented() -> None:
+def test_resident_adoption_is_implemented_and_persistent_posture_is_documented() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_RESIDENT_RUNTIME_ADOPTION]
-    assert record.status == "scaffolded" and record.authority_level == "eligibility_only"
+    assert record.status == "implemented" and record.authority_level == "bounded-orchestrator"
     document = Path("docs/development/maintenance_resident_runtime_adoption_authority.md").read_text(encoding="utf-8")
     assert "Fresh human\napproval is not required for each N-to-N+1 transition" in document
     assert "This persistent approval is not itself a runtime grant" in document

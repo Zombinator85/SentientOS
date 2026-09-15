@@ -261,10 +261,12 @@ class MaintenanceSuccessorGenerationOwner:
     """Own exactly one wake owner and perform bounded, forward-only handoffs."""
     def __init__(self, config: Mapping[str, Any], *, wake_owner_factory: Callable[[Mapping[str, Any]], Any] = wake_daemon.MaintenanceWakeOwner,
                  successor_adoption_builder: Callable[[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]], Mapping[str, Any]] | None = None,
+                 successor_start_readiness_guard: Callable[[Mapping[str, Any]], bool] | None = None,
                  clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc), waiter: Callable[[float], None] = time.sleep) -> None:
         self.config = validate_config(config); self._factory = wake_owner_factory
         self._builder = successor_adoption_builder or (lambda cur, old, nxt: build_successor_adoption(self.config, cur, old, nxt))
         self._clock = clock; self._waiter = waiter; self._owner: Any = None; self._thread: threading.Thread | None = None
+        self._successor_start_readiness_guard = successor_start_readiness_guard
         self._stop = threading.Event(); self._lock = threading.Lock(); self._health = {"status": "configured" if self.config["enabled"] else "disabled", "read_only": True}
 
     def health(self) -> dict[str, Any]:
@@ -318,6 +320,14 @@ class MaintenanceSuccessorGenerationOwner:
             elif not _owner_lock_free(current_adoption):
                 raise ValueError("predecessor_owner_custody_ambiguous")
             _append(self.config, PHASES[2], current, successor); phase = 3
+        if phase == 3 and self._successor_start_readiness_guard is not None:
+            guard_input = pending_handoff(self.config)
+            if guard_input is None or not self._successor_start_readiness_guard(guard_input):
+                self._set("waiting_for_resident_runtime_readiness", lineage_id=successor["lineage_id"],
+                          current_ordinal=current["ordinal"], successor_ordinal=successor["ordinal"],
+                          successor_generation_digest=successor["generation_digest"])
+                return {"status": "waiting_for_resident_runtime_readiness", "effect_count": 0,
+                        "successor_ordinal": successor["ordinal"]}
         if phase == 3: _append(self.config, PHASES[3], current, successor); phase = 4
         if phase == 4 and not _owner_lock_free(adoption): raise ValueError("successor_start_custody_ambiguous")
         candidate = self._factory(adoption)
@@ -346,4 +356,31 @@ def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
             "successor_ordinal": successor[0]["ordinal"] if successor else None, "handoff_event_count": len(_journal(validate_config(config)))}
 
 
-__all__ = ["CONFIG_SCHEMA", "HANDOFF_SCHEMA", "PHASES", "MaintenanceSuccessorGenerationOwner", "build_successor_adoption", "validate_config", "load_config", "reconstruct_current", "verified_successor", "inspect"]
+def pending_handoff(config: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return the canonical, read-only projection of the incomplete handoff."""
+    cfg = validate_config(config)
+    rows = _journal(cfg)
+    pending = rows[len(rows) - len(rows) % len(PHASES):] if len(rows) % len(PHASES) else []
+    if not pending:
+        return None
+    first, last = pending[0], pending[-1]
+    if any(row["predecessor_generation_digest"] != first["predecessor_generation_digest"] or
+           row["successor_generation_digest"] != first["successor_generation_digest"] for row in pending):
+        raise ValueError("successor_handoff_chain_branched")
+    phase = str(last["event_type"])
+    return {"config_digest": cfg["config_digest"], "lineage_id": first["lineage_id"],
+            "predecessor_ordinal": first["predecessor_ordinal"],
+            "predecessor_generation_digest": first["predecessor_generation_digest"],
+            "successor_ordinal": first["successor_ordinal"],
+            "successor_generation_digest": first["successor_generation_digest"],
+            "continuity_receipt_digest": first.get("continuity_receipt_digest"),
+            "pending_handoff_event_digest": last["event_digest"], "current_phase": phase,
+            "predecessor_quiescence_confirmed": PHASES.index(phase) >= 2,
+            "successor_start_attempted": PHASES.index(phase) >= 3,
+            "successor_started": PHASES.index(phase) >= 4,
+            "handoff_completed": phase == PHASES[5],
+            "successor_wake_adoption_path": last.get("successor_wake_adoption_path"),
+            "successor_wake_adoption_digest": last.get("successor_wake_adoption_digest")}
+
+
+__all__ = ["CONFIG_SCHEMA", "HANDOFF_SCHEMA", "PHASES", "MaintenanceSuccessorGenerationOwner", "build_successor_adoption", "validate_config", "load_config", "reconstruct_current", "verified_successor", "pending_handoff", "inspect"]
