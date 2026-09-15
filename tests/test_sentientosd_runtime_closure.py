@@ -12,10 +12,12 @@ from dataclasses import dataclass
 import asyncio
 import json
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import pytest
 import sentientosd
+from sentientos import maintenance_resident_runtime_adoption as resident
 
 from sentientos.control_plane_kernel import (
     AuthorityClass,
@@ -693,3 +695,167 @@ def test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks(monkeypatc
     asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
     assert shutdown.loop_decisions >= 1
     assert counters == {name: 0 for name in counters}
+
+
+def _disabled_resident_config(tmp_path: Path) -> tuple[Path, dict[str, object]]:
+    state = tmp_path / "resident-state"
+    state.mkdir()
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    config_path = tmp_path / "resident.json"
+    cfg: dict[str, object] = {
+        "schema_version": resident.CONFIG_SCHEMA, "enabled": False,
+        "continuity_policy_path": str(tmp_path / "continuity.json"),
+        "continuity_policy_digest": "sha256:continuity",
+        "successor_adoption_config_path": str(tmp_path / "successor.json"),
+        "successor_adoption_config_digest": "sha256:successor",
+        "automatic_continuity_config_path": str(tmp_path / "automatic.json"),
+        "automatic_continuity_config_digest": "sha256:automatic",
+        "repository_identity": "repo", "repository_root": str(repository.resolve()),
+        "python_executable": str(Path(sys.executable).resolve()), "daemon_module": "sentientosd",
+        "daemon_entrypoint": str((repository / "sentientosd.py").resolve()),
+        "working_directory": str(repository.resolve()), "inherited_environment_allowlist": ["PATH"],
+        "required_environment": {}, "state_root": str(state.resolve()),
+        "transition_journal_path": str((state / "transitions.jsonl").resolve()),
+        "provenance_root": str((state / "provenance").resolve()),
+        "receipt_root": str((state / "receipts").resolve()), "stop_marker": str((state / "STOP").resolve()),
+        "quiescence_timeout_seconds": 1, "readiness_timeout_seconds": 1,
+        "maximum_successful_transitions": 2, "maximum_wall_clock_seconds": 10, "config_digest": "",
+    }
+    cfg["config_digest"] = resident.digest(cfg, "config_digest")
+    config_path.write_bytes(resident.canonical_bytes(cfg) + b"\n")
+    return config_path, cfg
+
+
+def _write_resident_journal_prefix(cfg: dict[str, object], count: int) -> None:
+    evidence = {"lineage_id": "lineage", "predecessor_generation_digest": "sha256:predecessor",
+        "successor_generation_digest": "sha256:successor", "continuity_receipt_digest": "sha256:continuity",
+        "pending_handoff_event_digest": "sha256:handoff"}
+    for phase in resident.PHASES[:count]:
+        resident._append(cfg, phase, "transition-1", evidence)  # type: ignore[attr-defined]
+
+
+def _patch_resident_run_loop(monkeypatch, tmp_path: Path) -> tuple[dict[str, int], type]:
+    counters = {name: 0 for name in ("tick", "resident", "capture", "complete", "successor", "automatic")}
+
+    class Kernel:
+        def set_phase(self, *_args, **_kwargs): pass
+
+    class Surfaces:
+        last = None
+        def __init__(self, *_args, **_kwargs):
+            self._feedback = {"surfaces": {}}
+            Surfaces.last = self
+
+    class ForbiddenResident:
+        def __init__(self, *_args, **_kwargs):
+            counters["resident"] += 1
+        def capture_baseline(self):
+            counters["capture"] += 1
+        def complete_post_exec(self, **_kwargs):
+            counters["complete"] += 1
+
+    class Successor:
+        guards: list[object] = []
+        def __init__(self, _config, **kwargs):
+            counters["successor"] += 1
+            self.guards.append(kwargs.get("successor_start_readiness_guard"))
+        def start(self): return True
+        def stop(self): return True
+        def health(self): return {"status": "running", "read_only": True}
+
+    class Automatic:
+        def __init__(self, _config): counters["automatic"] += 1
+        def start(self): return True
+        def stop(self): return True
+        def health(self): return {"status": "running", "read_only": True}
+
+    monkeypatch.setattr(sentientosd.CeremonialScript, "perform", lambda self: None)
+    monkeypatch.setattr(sentientosd.FirstContact, "affirm_integrity", lambda self: None)
+    monkeypatch.setattr(sentientosd.FirstContact, "invite_conversation", lambda self: None)
+    monkeypatch.setattr(sentientosd, "build_boot_ceremony_link", lambda _emitter: SimpleNamespace(narrate=lambda: None))
+    monkeypatch.setattr(sentientosd.LocalModel, "autoload", lambda: SimpleNamespace(describe=lambda: "test"))
+    monkeypatch.setattr(sentientosd, "ForgeDaemon", lambda: SimpleNamespace(repo_root=tmp_path))
+    monkeypatch.setattr(sentientosd, "ForgeMergeTrain", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "ContractSentinel", lambda: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "get_control_plane_kernel", lambda: Kernel())
+    monkeypatch.setattr(sentientosd, "build_local_model_authority_map", lambda: {})
+    monkeypatch.setattr(sentientosd, "GovernedLocalModelInvoker", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "GenesisModelAdviceCoordinator", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "resolve_improvement_evidence_sources", lambda _root: ())
+    monkeypatch.setattr(sentientosd, "RuntimeMaintenanceSurfaces", Surfaces)
+    monkeypatch.setattr(sentientosd, "MaintenanceResidentRuntimeAdoptionController", ForbiddenResident)
+    monkeypatch.setattr(sentientosd, "load_successor_adoption", lambda _path: {"enabled": True})
+    monkeypatch.setattr(sentientosd, "MaintenanceSuccessorGenerationOwner", Successor)
+    monkeypatch.setattr(sentientosd, "load_continuity_auto_derivation", lambda _path: {
+        "successor_adoption_config_path": str((tmp_path / "successor.json").resolve())})
+    monkeypatch.setattr(sentientosd, "MaintenanceAuthorityContinuityAutoDerivationOwner", Automatic)
+    monkeypatch.setattr(sentientosd, "_run_maintenance_tick", lambda **_kwargs: counters.__setitem__("tick", counters["tick"] + 1))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG", str(tmp_path / "successor.json"))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG", str(tmp_path / "automatic.json"))
+    return counters, Surfaces
+
+
+def test_explicitly_disabled_resident_posture_preserves_historical_successor_behavior(monkeypatch, tmp_path) -> None:
+    config_path, _ = _disabled_resident_config(tmp_path)
+    counters, surfaces = _patch_resident_run_loop(monkeypatch, tmp_path)
+    monkeypatch.setenv(resident.CONFIG_ENV, str(config_path))
+    shutdown = asyncio.Event()
+    original_tick = sentientosd._run_maintenance_tick
+    def bounded_tick(**kwargs):
+        original_tick(**kwargs)
+        shutdown.set()
+    monkeypatch.setattr(sentientosd, "_run_maintenance_tick", bounded_tick)
+    asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
+    assert counters == {"tick": 1, "resident": 0, "capture": 0, "complete": 0, "successor": 1, "automatic": 1}
+    assert surfaces.last._feedback["surfaces"]["maintenance_resident_runtime_adoption"]["status"] == "disabled"
+    assert surfaces.last._feedback["surfaces"]["maintenance_resident_runtime_adoption"]["custody_status"] == "no_resident_transactions"
+    assert sentientosd.MaintenanceSuccessorGenerationOwner.guards == [None]
+
+
+def test_absent_resident_posture_preserves_historical_behavior(monkeypatch, tmp_path) -> None:
+    counters, _ = _patch_resident_run_loop(monkeypatch, tmp_path)
+    monkeypatch.delenv(resident.CONFIG_ENV, raising=False)
+    shutdown = asyncio.Event()
+    original_tick = sentientosd._run_maintenance_tick
+    monkeypatch.setattr(sentientosd, "_run_maintenance_tick", lambda **kwargs: (original_tick(**kwargs), shutdown.set()))
+    asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
+    assert counters["resident"] == 0 and counters["successor"] == 1 and counters["automatic"] == 1 and counters["tick"] == 1
+    assert sentientosd.MaintenanceSuccessorGenerationOwner.guards == [None]
+
+
+def test_disabled_resident_posture_with_transition_marker_fails_closed(monkeypatch, tmp_path) -> None:
+    config_path, _ = _disabled_resident_config(tmp_path)
+    counters, surfaces = _patch_resident_run_loop(monkeypatch, tmp_path)
+    monkeypatch.setenv(resident.CONFIG_ENV, str(config_path))
+    monkeypatch.setenv(resident.TRANSITION_ENV, "transition-1")
+    asyncio.run(sentientosd.run_loop(asyncio.Event(), interval_seconds=0))
+    assert counters == {name: 0 for name in counters}
+    health = surfaces.last._feedback["surfaces"]["maintenance_resident_runtime_adoption"]
+    assert health["status"] == "blocked" and health["reason"] == "disabled_resident_posture_transition_marker_present"
+
+
+@pytest.mark.parametrize("phase_count", (1, 4))
+def test_disabled_resident_posture_with_incomplete_transaction_fails_closed(monkeypatch, tmp_path, phase_count: int) -> None:
+    config_path, cfg = _disabled_resident_config(tmp_path)
+    _write_resident_journal_prefix(cfg, phase_count)
+    counters, surfaces = _patch_resident_run_loop(monkeypatch, tmp_path)
+    monkeypatch.setenv(resident.CONFIG_ENV, str(config_path))
+    asyncio.run(sentientosd.run_loop(asyncio.Event(), interval_seconds=0))
+    assert counters == {name: 0 for name in counters}
+    health = surfaces.last._feedback["surfaces"]["maintenance_resident_runtime_adoption"]
+    assert health["status"] == "blocked" and health["reason"] == "disabled_resident_posture_incomplete_transition"
+
+
+def test_disabled_resident_posture_with_completed_history_preserves_historical_behavior(monkeypatch, tmp_path) -> None:
+    config_path, cfg = _disabled_resident_config(tmp_path)
+    _write_resident_journal_prefix(cfg, len(resident.PHASES))
+    counters, surfaces = _patch_resident_run_loop(monkeypatch, tmp_path)
+    monkeypatch.setenv(resident.CONFIG_ENV, str(config_path))
+    shutdown = asyncio.Event()
+    original_tick = sentientosd._run_maintenance_tick
+    monkeypatch.setattr(sentientosd, "_run_maintenance_tick", lambda **kwargs: (original_tick(**kwargs), shutdown.set()))
+    asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
+    assert counters["resident"] == 0 and counters["successor"] == 1 and counters["automatic"] == 1 and counters["tick"] == 1
+    health = surfaces.last._feedback["surfaces"]["maintenance_resident_runtime_adoption"]
+    assert health["status"] == "disabled" and health["custody_status"] == "complete_resident_transactions_only"

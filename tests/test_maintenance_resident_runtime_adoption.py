@@ -106,6 +106,48 @@ def test_config_consumes_canonical_digest_bindings(tmp_path: Path) -> None:
     with pytest.raises((ValueError, FileNotFoundError)): resident.validate_config(bad)
 
 
+def _disabled(cfg: dict[str, object]) -> dict[str, object]:
+    value = dict(cfg)
+    value["enabled"] = False
+    value["config_digest"] = resident.digest(value, "config_digest")
+    return value
+
+
+def _journal_prefix(cfg: dict[str, object], count: int, *, transition: str = "transition-1") -> None:
+    evidence = {
+        "lineage_id": "lineage",
+        "predecessor_generation_digest": "sha256:predecessor",
+        "successor_generation_digest": "sha256:successor",
+        "continuity_receipt_digest": "sha256:continuity",
+        "pending_handoff_event_digest": "sha256:handoff",
+    }
+    for phase in resident.PHASES[:count]:
+        resident._append(cfg, phase, transition, evidence)  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("phase_count", "expected"),
+    ((0, "no_resident_transactions"), (1, "incomplete_resident_transaction"),
+     (4, "incomplete_resident_transaction"), (7, "complete_resident_transactions_only")),
+)
+def test_read_only_transition_custody_inspection_distinguishes_postures(
+    tmp_path: Path, phase_count: int, expected: str,
+) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    _journal_prefix(disabled, phase_count)
+    result = resident.inspect_transition_custody(disabled)
+    assert result["status"] == expected
+    assert result["read_only"] is True
+
+
+def test_read_only_transition_custody_inspection_reports_corrupt_journal(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    Path(str(disabled["transition_journal_path"])).write_text("not-json\n", encoding="utf-8")
+    assert resident.inspect_transition_custody(disabled)["status"] == "corrupt_or_ambiguous"
+
+
 def test_exact_pre_exec_canonical_pending_handoff_eligibility(tmp_path: Path) -> None:
     cfg, generation, _, _ = _fixture(tmp_path); calls: list[tuple[str, list[str], object]] = []
     controller = resident.MaintenanceResidentRuntimeAdoptionController(cfg, process_observer=lambda: _observer(cfg),

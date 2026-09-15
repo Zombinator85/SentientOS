@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "3e3165277fb4a182bd87d85a901500806c177dd5",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_absent_resident_posture_preserves_historical_behavior","rationale":"An absent resident selection constructs no resident controller or readiness guard and preserves historical owners and ticks."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_explicitly_disabled_resident_posture_preserves_historical_successor_behavior","rationale":"Clean disabled posture constructs no resident controller, preserves exact successor and automatic continuity startup, and permits an ordinary tick."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_transition_marker_fails_closed","rationale":"A transition marker cannot be bypassed by selecting disabled posture."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[1]","rationale":"Disabled posture cannot abandon a phase-0 journal prefix."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[4]","rationale":"Disabled posture cannot abandon a phase-3 journal prefix."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_completed_history_preserves_historical_behavior","rationale":"Completed immutable history alone remains non-active under disabled posture."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks","rationale":"Enabled reconciliation failure remains terminal with zero ordinary ticks and owners."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_blocked_resident_startup_never_starts_ungated_successor_owner","rationale":"Blocked resident startup retains its pre-construction zero-owner barrier."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[0]","rationale":"Foreign phase-0 continuation remains denied."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[1]","rationale":"Foreign phase-1 continuation remains denied."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[2]","rationale":"Foreign phase-2 continuation remains denied."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_no_marker_fresh_restart_with_incomplete_transition_is_blocked[0]","rationale":"A fresh process cannot adopt a phase-0 predecessor prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_no_marker_fresh_restart_with_incomplete_transition_is_blocked[1]","rationale":"A fresh process cannot adopt a phase-1 predecessor prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_no_marker_fresh_restart_with_incomplete_transition_is_blocked[2]","rationale":"A fresh process cannot adopt a phase-2 predecessor prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_no_marker_fresh_restart_with_incomplete_transition_is_blocked[3]","rationale":"A fresh process cannot adopt a phase-3 predecessor prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery","rationale":"Exact phase-4+ post-exec marker reconciliation remains intact."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure","rationale":"Resident adoption still closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next","rationale":"Automatic continuity independently closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_runtime_supervision_and_generic_restart_registry_truth_remain_unchanged","rationale":"Generic service restart and restart-after-process-death recovery remain blocked."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_sentientosd_runtime_closure.py::test_absent_resident_posture_preserves_historical_behavior",
+    "tests/test_sentientosd_runtime_closure.py::test_explicitly_disabled_resident_posture_preserves_historical_successor_behavior",
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_completed_history_preserves_historical_behavior",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next"
+  ]
+}

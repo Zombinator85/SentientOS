@@ -61,6 +61,7 @@ from sentientos.maintenance_successor_generation_adoption import MaintenanceSucc
 from sentientos.maintenance_authority_continuity_auto_derivation import MaintenanceAuthorityContinuityAutoDerivationOwner, load_config as load_continuity_auto_derivation
 from sentientos.maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController, load_config as load_resident_adoption
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
+from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 
 LOGGER = logging.getLogger(__name__)
 
@@ -792,14 +793,24 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     if resident_path:
         try:
             resident_config = load_resident_adoption(resident_path)
-            if (not successor_adoption_path or
-                    Path(resident_config["successor_adoption_config_path"]).resolve() != Path(successor_adoption_path).resolve() or
-                    (resident_config["automatic_continuity_config_path"] and
-                     (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
-                raise ValueError("resident_runtime_configuration_binding_mismatch")
-            resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
-            _prepare_resident_runtime_startup(resident_controller)
-            resident_health = resident_controller.health()
+            if not resident_config["enabled"]:
+                if os.environ.get(RESIDENT_TRANSITION_ENV):
+                    raise ValueError("disabled_resident_posture_transition_marker_present")
+                custody = inspect_resident_transition_custody(resident_config)
+                if custody["status"] == "incomplete_resident_transaction":
+                    raise ValueError("disabled_resident_posture_incomplete_transition")
+                if custody["status"] == "corrupt_or_ambiguous":
+                    raise ValueError("disabled_resident_posture_custody_corrupt_or_ambiguous")
+                resident_health = {"status": "disabled", "custody_status": custody["status"], "read_only": True}
+            else:
+                if (not successor_adoption_path or
+                        Path(resident_config["successor_adoption_config_path"]).resolve() != Path(successor_adoption_path).resolve() or
+                        (resident_config["automatic_continuity_config_path"] and
+                         (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
+                    raise ValueError("resident_runtime_configuration_binding_mismatch")
+                resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
+                _prepare_resident_runtime_startup(resident_controller)
+                resident_health = resident_controller.health()
         except Exception as exc:
             resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
             resident_controller = None
@@ -830,7 +841,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     try:
         while not shutdown_event.is_set():
             if resident_blocked:
-                # Blocked enabled resident posture is terminal for this image.
+                # Blocked resident posture is terminal for this image.
                 # Health has already been projected; no maintenance effector may run.
                 shutdown_event.set()
                 continue
