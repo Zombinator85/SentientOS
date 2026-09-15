@@ -615,7 +615,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
             implemented_surfaces=(
                 "closed resident-adoption configuration and immutable per-process launch provenance",
                 "exact successor repository and pending-handoff readiness barrier",
-                "bounded exact POSIX sentientosd self exec and crash recovery",
+                "bounded exact POSIX sentientosd self exec and exact post-exec startup transaction reconciliation",
                 "bounded cooperative maintenance-owner quiescence and exact post-exec marker reconciliation",
                 "sentientosd integration and read-only resident health",
                 "exact maintenance subsystem, principal, and effect declaration",
@@ -626,6 +626,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
             deferred_surfaces=(
                 "Windows-native process replacement",
                 "external parent-supervisor topology",
+                "restart-after-process-death recovery",
                 "automatic rollback",
             ),
             forbidden_implications=(

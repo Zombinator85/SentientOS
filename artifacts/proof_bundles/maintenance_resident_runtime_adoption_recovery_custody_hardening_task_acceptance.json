@@ -1,0 +1,25 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f0b31d44faaaf9f6726dc0167488b63dfa66014c",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_exec_environment_reconstructs_exact_new_image_topology","rationale":"Exact exec environment reconstructs resident and successor topology and releases guarded wake."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_exact_launch_and_repository_provenance_is_per_process","rationale":"Loaded launch provenance and distinct process instances remain immutable."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_exact_pre_exec_canonical_pending_handoff_eligibility","rationale":"Manifest-bound repository proof precedes durable intent and exec."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_blocked_resident_startup_never_starts_ungated_successor_owner","rationale":"Blocked resident startup constructs no ungated successor owner."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_quiescence_stop_count_and_time_bounds_fail_closed","rationale":"Intent remains durable when bounded quiescence fails."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery","rationale":"Legal post-exec prefix reconciles and foreign controller provenance cannot release wake."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_transition_lock_contention_and_journal_mtime_is_not_authority","rationale":"Nonblocking serialization denies contenders and immutable request time governs readiness."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure","rationale":"Resident adoption closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next","rationale":"Automatic continuity independently closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_required_topology_environment_and_stable_process_identity","rationale":"Missing topology environment is denied and one process identity is stable."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_generic_service_and_process_authority_remains_absent","rationale":"Generic restart and arbitrary process authority remain absent."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_runtime_supervision_and_generic_restart_registry_truth_remain_unchanged","rationale":"Registry continues to block generic restart."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_runtime_adoption.py::test_exec_environment_reconstructs_exact_new_image_topology",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next"
+  ]
+}

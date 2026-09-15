@@ -617,3 +617,10 @@ def test_successor_mode_uses_production_canonical_builder(monkeypatch, tmp_path)
     monkeypatch.setattr(successor.MaintenanceSuccessorGenerationOwner, "start", lambda self: True)
     _, _, owner, overlapping = sentientosd._start_maintenance_daemon_owners(None, None, "successor")
     assert overlapping is False and owner is not None and callable(owner._builder)
+def test_blocked_resident_startup_never_starts_ungated_successor_owner(monkeypatch) -> None:
+    calls: list[object] = []
+    monkeypatch.setattr(sentientosd, "_start_maintenance_daemon_owners", lambda *args: calls.append(args))
+    result = sentientosd._start_maintenance_daemon_owners_after_resident_decision(
+        None, None, "/external/pending-successor.json", None, resident_blocked=True)
+    assert result == (None, None, None, False)
+    assert calls == []

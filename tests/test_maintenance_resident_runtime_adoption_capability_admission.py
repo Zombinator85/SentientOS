@@ -106,7 +106,8 @@ def test_registry_reports_implemented_bounded_controller_truth() -> None:
     assert record.requires_operator_approval
     assert record.requires_audit_receipt
     assert not record.requires_rollback_receipt
-    assert "bounded exact POSIX sentientosd self exec and crash recovery" in record.implemented_surfaces
+    assert "bounded exact POSIX sentientosd self exec and exact post-exec startup transaction reconciliation" in record.implemented_surfaces
+    assert "restart-after-process-death recovery" in record.deferred_surfaces
     assert "eligibility grants resident-runtime adoption authority" in record.forbidden_implications
 
 
