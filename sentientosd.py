@@ -58,6 +58,7 @@ from sentientos.maintenance_scheduler_daemon import MaintenanceSchedulerOwner, l
 from sentientos.maintenance_wake_daemon_adoption import MaintenanceWakeOwner, load_adoption as load_wake_adoption
 from sentientos.maintenance_successor_generation_adoption import MaintenanceSuccessorGenerationOwner, load_config as load_successor_adoption
 from sentientos.maintenance_authority_continuity_auto_derivation import MaintenanceAuthorityContinuityAutoDerivationOwner, load_config as load_continuity_auto_derivation
+from sentientos.maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController, load_config as load_resident_adoption
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ LOGGER = logging.getLogger(__name__)
 def _start_maintenance_daemon_owners(
     scheduler_adoption_path: str | None, wake_adoption_path: str | None,
     successor_adoption_path: str | None = None,
+    resident_controller: MaintenanceResidentRuntimeAdoptionController | None = None,
 ) -> tuple[MaintenanceSchedulerOwner | None, MaintenanceWakeOwner | None, MaintenanceSuccessorGenerationOwner | None, bool]:
     """Start at most one explicitly selected maintenance cadence owner."""
     scheduler_adoption = load_adoption(scheduler_adoption_path) if scheduler_adoption_path else None
@@ -78,7 +80,9 @@ def _start_maintenance_daemon_owners(
     if not overlapping and wake_adoption:
         wake_owner = MaintenanceWakeOwner(wake_adoption); wake_owner.start()
     if not overlapping and successor_adoption:
-        successor_owner = MaintenanceSuccessorGenerationOwner(successor_adoption)
+        successor_owner = (MaintenanceSuccessorGenerationOwner(successor_adoption,
+            successor_start_readiness_guard=resident_controller.readiness_guard)
+            if resident_controller else MaintenanceSuccessorGenerationOwner(successor_adoption))
         setattr(successor_owner, "_sentientos_started", bool(successor_owner.start()))
     return scheduler_owner, wake_owner, successor_owner, overlapping
 
@@ -738,8 +742,27 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG")
     wake_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_WAKE_ADOPTION_CONFIG")
     successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
-    scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners(adoption_path, wake_adoption_path, successor_adoption_path)
     auto_derivation_path = os.environ.get("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG")
+    resident_path = os.environ.get("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG")
+    resident_controller = None
+    resident_health: dict[str, Any] = {"status": "disabled", "read_only": True}
+    if resident_path:
+        try:
+            resident_config = load_resident_adoption(resident_path)
+            if (not successor_adoption_path or
+                    Path(resident_config["successor_adoption_config_path"]).resolve() != Path(successor_adoption_path).resolve() or
+                    (resident_config["automatic_continuity_config_path"] and
+                     (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
+                raise ValueError("resident_runtime_configuration_binding_mismatch")
+            resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
+            resident_health = resident_controller.health()
+        except Exception as exc:
+            resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
+    scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners(
+        adoption_path, wake_adoption_path, successor_adoption_path,
+        resident_controller if resident_path and resident_health["status"] != "blocked" else None)
+    if resident_path and resident_health["status"] == "blocked" and successor_owner is not None:
+        successor_owner.stop(); successor_owner = None
     auto_derivation_owner, auto_derivation_health = _start_maintenance_continuity_auto_derivation(
         auto_derivation_path, successor_adoption_path, successor_owner, overlapping
     )
@@ -755,6 +778,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         if overlapping else successor_owner.health() if successor_owner is not None else {"status": "disabled", "read_only": True}
     )
     runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_health
+    runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
