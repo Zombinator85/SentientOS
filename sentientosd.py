@@ -78,7 +78,8 @@ def _start_maintenance_daemon_owners(
     if not overlapping and wake_adoption:
         wake_owner = MaintenanceWakeOwner(wake_adoption); wake_owner.start()
     if not overlapping and successor_adoption:
-        successor_owner = MaintenanceSuccessorGenerationOwner(successor_adoption); successor_owner.start()
+        successor_owner = MaintenanceSuccessorGenerationOwner(successor_adoption)
+        setattr(successor_owner, "_sentientos_started", bool(successor_owner.start()))
     return scheduler_owner, wake_owner, successor_owner, overlapping
 
 
@@ -91,7 +92,7 @@ def _start_maintenance_continuity_auto_derivation(
         return None, {"status": "disabled", "read_only": True}
     try:
         config = load_continuity_auto_derivation(config_path)
-        if (overlapping or successor_owner is None or not selected_successor_path or
+        if (overlapping or successor_owner is None or not getattr(successor_owner, "_sentientos_started", False) or not selected_successor_path or
                 Path(config["successor_adoption_config_path"]).resolve() != Path(selected_successor_path).resolve()):
             return None, {"status": "blocked", "reason": "exact_successor_adoption_owner_not_running", "read_only": True}
         owner = MaintenanceAuthorityContinuityAutoDerivationOwner(config)
