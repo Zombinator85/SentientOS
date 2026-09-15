@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "96d298a32ba0b59b722b4365bfd55e51f26a61d9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_exact_capability_registration_and_canonical_goal_admit_without_grant", "rationale": "Exact registration and canonical future goal establish non-granting eligibility."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_wrong_subsystem_rejects", "rationale": "The capability is maintenance-only."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_wrong_principal_rejects", "rationale": "Only the deterministic resident-adoption controller principal is eligible."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_missing_extra_and_duplicate_effects_reject", "rationale": "Missing, widened, and duplicate effect surfaces fail closed."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_registry_reports_scaffolded_eligibility_only_non_granting_truth", "rationale": "Registry truth remains scaffolded and eligibility-only."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_no_resident_adoption_runtime_or_process_replacement_path_exists", "rationale": "No resident implementation, exec, or restart integration exists."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_existing_maintenance_authority_definitions_remain_exact", "rationale": "Continuity, auto-derivation, successor adoption, and wake authority stay separate."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_runtime_supervision_and_generic_restart_registry_truth_remain_unchanged", "rationale": "Runtime supervision is not widened and generic restart remains blocked/none."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_existing_automatic_n0_n1_n2_recursion_proof_remains_required", "rationale": "The proven recursive maintenance chain remains required evidence."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_resident_adoption_remains_false_and_persistent_posture_is_documented", "rationale": "Persistent posture is distinguished from per-generation approval and runtime execution."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_exact_capability_registration_and_canonical_goal_admit_without_grant"
+  ]
+}
