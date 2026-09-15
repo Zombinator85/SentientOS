@@ -1,0 +1,29 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2b9381e441488e5510420e023e2cdc5d0ba4311d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks","rationale":"Production loop reaches its blocked decision while constructing no owner and running no ordinary maintenance tick."},
+    {"node_id":"tests/test_sentientosd_runtime_closure.py::test_blocked_resident_startup_never_starts_ungated_successor_owner","rationale":"Blocked resident startup retains the pre-construction zero-owner barrier."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_same_process_pre_exec_prefix_continuation[0]","rationale":"The exact phase-0 predecessor process may continue its own prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_same_process_pre_exec_prefix_continuation[1]","rationale":"The exact phase-1 predecessor process may continue its own prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_same_process_pre_exec_prefix_continuation[2]","rationale":"The exact phase-2 predecessor process may continue its own prefix."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[0]","rationale":"Foreign phase-0 continuation is denied without a journal, exec, or wake effect."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[1]","rationale":"Foreign phase-1 continuation is denied without a journal, exec, or wake effect."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_foreign_process_pre_exec_prefix_continuation_rejected[2]","rationale":"Foreign phase-2 continuation is denied without a journal, exec, or wake effect."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_no_marker_fresh_restart_with_incomplete_transition_is_blocked[0]","rationale":"A no-marker fresh restart cannot adopt an incomplete predecessor transaction."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery","rationale":"Exact phase-4+ marker reconciliation remains intact."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure","rationale":"Resident adoption still closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next","rationale":"Automatic continuity independently closes N0 through N2."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_exact_launch_and_repository_provenance_is_per_process","rationale":"Stale or foreign predecessor launch provenance is distinguishable per process instance."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption.py::test_required_topology_environment_and_stable_process_identity","rationale":"Exact launch topology and stable same-process identity remain required."},
+    {"node_id":"tests/test_maintenance_resident_runtime_adoption_capability_admission.py::test_runtime_supervision_and_generic_restart_registry_truth_remain_unchanged","rationale":"Generic restart authority and restart-after-process-death recovery remain blocked."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_runtime_adoption.py::test_same_process_pre_exec_prefix_continuation[0]",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next"
+  ]
+}

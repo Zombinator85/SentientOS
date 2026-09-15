@@ -9,8 +9,10 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
+import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import sentientosd
@@ -624,3 +626,70 @@ def test_blocked_resident_startup_never_starts_ungated_successor_owner(monkeypat
         None, None, "/external/pending-successor.json", None, resident_blocked=True)
     assert result == (None, None, None, False)
     assert calls == []
+
+
+def test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks(monkeypatch, tmp_path) -> None:
+    counters = {name: 0 for name in ("tick", "scheduler", "wake", "successor", "automatic")}
+
+    class CountingEvent(asyncio.Event):
+        loop_decisions = 0
+        def set(self) -> None:
+            self.loop_decisions += 1
+            super().set()
+
+    class Kernel:
+        def set_phase(self, *_args, **_kwargs): pass
+
+    class Surfaces:
+        def __init__(self, *_args, **_kwargs):
+            self._feedback = {"surfaces": {}}
+
+    class ResidentController:
+        def __init__(self, _config): pass
+
+    def owner(name):
+        class ForbiddenOwner:
+            def __init__(self, *_args, **_kwargs):
+                counters[name] += 1
+            def start(self):
+                counters[name] += 1
+                return True
+        return ForbiddenOwner
+
+    monkeypatch.setattr(sentientosd.CeremonialScript, "perform", lambda self: None)
+    monkeypatch.setattr(sentientosd.FirstContact, "affirm_integrity", lambda self: None)
+    monkeypatch.setattr(sentientosd.FirstContact, "invite_conversation", lambda self: None)
+    monkeypatch.setattr(sentientosd, "build_boot_ceremony_link", lambda _emitter: SimpleNamespace(narrate=lambda: None))
+    monkeypatch.setattr(sentientosd.LocalModel, "autoload", lambda: SimpleNamespace(describe=lambda: "test"))
+    monkeypatch.setattr(sentientosd, "ForgeDaemon", lambda: SimpleNamespace(repo_root=tmp_path))
+    monkeypatch.setattr(sentientosd, "ForgeMergeTrain", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "ContractSentinel", lambda: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "get_control_plane_kernel", lambda: Kernel())
+    monkeypatch.setattr(sentientosd, "build_local_model_authority_map", lambda: {})
+    monkeypatch.setattr(sentientosd, "GovernedLocalModelInvoker", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "GenesisModelAdviceCoordinator", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "resolve_improvement_evidence_sources", lambda _root: ())
+    monkeypatch.setattr(sentientosd, "RuntimeMaintenanceSurfaces", Surfaces)
+    monkeypatch.setattr(sentientosd, "load_resident_adoption", lambda _path: {
+        "successor_adoption_config_path": str(tmp_path / "successor.json"),
+        "automatic_continuity_config_path": str(tmp_path / "automatic.json"),
+    })
+    monkeypatch.setattr(sentientosd, "MaintenanceResidentRuntimeAdoptionController", ResidentController)
+    monkeypatch.setattr(sentientosd, "_prepare_resident_runtime_startup",
+                        lambda _controller: (_ for _ in ()).throw(ValueError("reconciliation_failed")))
+    monkeypatch.setattr(sentientosd, "MaintenanceSchedulerOwner", owner("scheduler"))
+    monkeypatch.setattr(sentientosd, "MaintenanceWakeOwner", owner("wake"))
+    monkeypatch.setattr(sentientosd, "MaintenanceSuccessorGenerationOwner", owner("successor"))
+    monkeypatch.setattr(sentientosd, "MaintenanceAuthorityContinuityAutoDerivationOwner", owner("automatic"))
+    monkeypatch.setattr(sentientosd, "_run_maintenance_tick",
+                        lambda **_kwargs: counters.__setitem__("tick", counters["tick"] + 1))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG", str(tmp_path / "scheduler.json"))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_WAKE_ADOPTION_CONFIG", str(tmp_path / "wake.json"))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG", str(tmp_path / "successor.json"))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG", str(tmp_path / "automatic.json"))
+    monkeypatch.setenv("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG", str(tmp_path / "resident.json"))
+
+    shutdown = CountingEvent()
+    asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
+    assert shutdown.loop_decisions >= 1
+    assert counters == {name: 0 for name in counters}
