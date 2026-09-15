@@ -1,0 +1,31 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "43fb94f8e8468e59731458409c7867842bc1b7f1",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_exact_launch_and_repository_provenance_is_per_process", "rationale": "Exact Git and immutable per-process provenance succeeds and dirty custody is denied."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_config_consumes_canonical_digest_bindings", "rationale": "The persistent configuration consumes its lineage and launch bindings."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_exact_pre_exec_canonical_pending_handoff_eligibility", "rationale": "Only the canonical quiescent pending handoff produces the exact exec request."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery", "rationale": "The new image independently proves N+1 and releases wake only after durable readiness."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_quiescence_stop_count_and_time_bounds_fail_closed", "rationale": "Quiescence failure and STOP deny a new replacement."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_sentientosd_drives_resident_transition_before_successor_wake", "rationale": "Production orchestration requests replacement while N+1 wake remains withheld."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_sentientosd_post_exec_recovery_unlocks_successor_wake", "rationale": "Production startup recovery creates readiness before the successor owner starts wake."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure", "rationale": "One persistent posture closes two consecutive resident and wake handoffs."},
+    {"node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_generic_service_and_process_authority_remains_absent", "rationale": "Generic service/process execution authority remains absent."},
+    {"node_id": "tests/test_maintenance_successor_generation_adoption.py::test_real_default_builder_hands_off_n0_to_n1_then_n1_to_n2", "rationale": "The existing successor owner retains canonical wake handoff ownership."},
+    {"node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next", "rationale": "Automatic continuity remains a separate two-generation derivation owner."},
+    {"node_id": "tests/test_sentientosd_runtime_closure.py::test_successor_mode_uses_production_canonical_builder", "rationale": "sentientosd constructs the production successor integration."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_runtime_adoption.py::test_exact_launch_and_repository_provenance_is_per_process",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_exact_pre_exec_canonical_pending_handoff_eligibility",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_post_exec_marker_provenance_and_readiness_recovery",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_sentientosd_drives_resident_transition_before_successor_wake",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_sentientosd_post_exec_recovery_unlocks_successor_wake",
+    "tests/test_maintenance_resident_runtime_adoption.py::test_resident_runtime_n0_to_n1_to_n2_behavioral_closure",
+    "tests/test_maintenance_successor_generation_adoption.py::test_real_default_builder_hands_off_n0_to_n1_then_n1_to_n2",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next",
+    "tests/test_sentientosd_runtime_closure.py::test_successor_mode_uses_production_canonical_builder"
+  ]
+}
