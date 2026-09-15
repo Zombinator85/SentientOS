@@ -27,6 +27,8 @@ TEST_INFRA_IMPORTS = (
     ("fastapi", None),
     ("starlette.testclient", "TestClient"),
     ("httpx", None),
+    ("jinja2", None),
+    ("mypy", None),
     ("sentientos", None),
 )
 CANONICAL_REQUIREMENTS_PATH = "requirements-codex.txt"
