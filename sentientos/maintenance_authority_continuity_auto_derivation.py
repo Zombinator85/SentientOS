@@ -170,8 +170,29 @@ def _discover(cfg: Mapping[str, Any], generation: Mapping[str, Any], wake_adopti
                                (commit,"commit_result_digest"),(request,"publication_request_digest"),
                                (result,"publication_result_digest")):
                 _require_native_digest(value, key)
-            if lease.get("grant_generation") != generation["generation_digest"] or lease.get("base_sha") != generation["base_sha"]: continue
-            if val.get("terminal_status") != "validation_ready_for_commit" or result.get("terminal_status") != "publication_succeeded" or result.get("mode") != publication.LOCAL_FAST_FORWARD_MODE or result.get("parent_sha") != generation["base_sha"]: continue
+            if lease.get("grant_generation") != generation["generation_digest"]:
+                raise ValueError("terminal_success_lease_generation_mismatch")
+            if lease.get("base_sha") != generation["base_sha"]:
+                raise ValueError("terminal_success_lease_base_mismatch")
+            if val.get("terminal_status") != "validation_ready_for_commit":
+                raise ValueError("terminal_success_validation_not_ready")
+            if plan.get("validation_result_digest") != val["result_digest"] or plan.get("base_sha") != generation["base_sha"]:
+                raise ValueError("terminal_success_commit_validation_chain_mismatch")
+            if (commit.get("validation_result_digest") != val["result_digest"] or
+                    commit.get("parent_sha") != generation["base_sha"]):
+                raise ValueError("terminal_success_commit_validation_chain_mismatch")
+            if (request.get("commit_sha") != commit.get("commit_sha") or
+                    request.get("parent_sha") != commit.get("parent_sha") or
+                    request.get("validation_result_digest") != val["result_digest"]):
+                raise ValueError("terminal_success_publication_request_chain_mismatch")
+            if result.get("terminal_status") != "publication_succeeded":
+                raise ValueError("terminal_success_publication_result_mismatch")
+            if result.get("mode") != publication.LOCAL_FAST_FORWARD_MODE:
+                raise ValueError("terminal_success_landing_mode_mismatch")
+            if result.get("parent_sha") != generation["base_sha"]:
+                raise ValueError("terminal_success_landing_parent_mismatch")
+            if result.get("commit_sha") != commit.get("commit_sha"):
+                raise ValueError("terminal_success_landing_commit_mismatch")
             sources = {"journal_path": str((root/"maintenance_tasks"/f"{task}.jsonl").resolve()), "lease_path":str(lease_p), "validation_result_path":str(val_p), "commit_plan_path":str(plan_p), "commit_result_path":str(commit_p), "publication_request_path":str(request_p), "landing_result_path":str(result_p)}
             candidates.append((task, snap, {"lease":lease,"validation":val,"plan":plan,"commit":commit,"request":request,"result":result,"paths":sources,"state_root":root}))
         except (KeyError, ValueError) as exc:
@@ -198,7 +219,7 @@ def derive_once(config: Mapping[str, Any], *, evaluation_time: str | None = None
     if Path(cfg["stop_marker"]).exists() or Path(bound["stop_marker"]).exists() or Path(wake_adoption["stop_marker"]).exists(): return {"schema_version":RESULT_SCHEMA,"status":"paused","effect_count":0}
     _, wd = _watchdog_from_adoption(wake_adoption)
     control = watchdog.inspect_control(wd)
-    paused = Path(wd["stop_marker"]).exists() or control.get("paused") or control.get("status") != "ready"
+    paused = Path(wd.get("stop_marker") or Path(wd["state_root"]) / "STOP").exists() or control.get("paused") or control.get("status") != "ready"
     if paused:
         # While paused, only seal custody whose continuity effect is already a
         # complete N+1.  No normalization or derive_next invocation is allowed.

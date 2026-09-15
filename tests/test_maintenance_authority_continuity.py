@@ -42,8 +42,8 @@ def setup(tmp_path: Path):
     return write(root/"policy.json", p), write(root/"generation-0.json", g), g, root, repository
 
 
-def canonical_custody(tmp_path: Path, repository: Path, generation: dict, number: int):
-    task = f"task{number}"; state = tmp_path/f"state-{number}"; state.mkdir()
+def canonical_custody(tmp_path: Path, repository: Path, generation: dict, number: int, *, create_adapters: bool = True, state_root: Path | None = None):
+    task = f"task{number}"; state = state_root or tmp_path/f"state-{number}"; state.mkdir(exist_ok=True)
     wt = tmp_path/f"wt-{number}"; subprocess.run(["git","worktree","add","--detach",str(wt),generation["base_sha"]],cwd=repository,check=True,capture_output=True)
     (wt/"a.txt").write_text(f"generation {number + 1}\n")
     le = lease(task=task, base=generation["base_sha"], mode=landing.LOCAL_FAST_FORWARD_MODE); le["grant_generation"] = generation["generation_digest"]; le["lease_digest"] = leases._seal(le,"lease_digest")
@@ -60,6 +60,8 @@ def canonical_custody(tmp_path: Path, repository: Path, generation: dict, number
     journal.append_event(state,"task_closed",task_id=task,payload={"closure_status":"completed"},repo_root=repository,repository_sha=result["commit_sha"],recorded_at=NOW)
     jp=state/"maintenance_tasks"/f"{task}.jsonl"; snapshot=journal.materialize_snapshot(state,task,repo_root=repository)
     paths={"lease_path":state/"maintenance_leases"/f"{le['lease_id']}.json","validation_result_path":state/"maintenance_validation_results"/f"v{number}.json","commit_plan_path":state/"maintenance_commit_plans"/f"{built['plan']['plan_digest'].split(':')[1]}.json","commit_result_path":state/"maintenance_commit_results"/f"{built['commit_result']['commit_result_id']}.json","publication_request_path":state/"maintenance_publication_requests"/f"{built['publication_request']['publication_id']}.json","landing_result_path":state/"maintenance_publication_results"/f"{built['publication_request']['publication_id']}.json"}
+    if not create_adapters:
+        return None, None, {"task_id": task, "snapshot": snapshot, "paths": paths}, result
     cm=sealed({"schema_version":c.CANONICAL_COMPLETION_SCHEMA,"evidence_id":f"done{number}","evidence_digest":"","generation_digest":generation["generation_digest"],"task_id":task,"repository_root":str(repository.resolve()),"state_root":str(state.resolve()),"journal_path":str(jp.resolve()),"journal_digest":landing.bytes_digest(jp.read_bytes()),"lease_path":str(paths["lease_path"].resolve()),"lease_digest":le["lease_digest"],"validation_result_path":str(paths["validation_result_path"].resolve()),"validation_evidence_digest":vr["result_digest"],"commit_plan_path":str(paths["commit_plan_path"].resolve()),"commit_plan_digest":built["plan"]["plan_digest"],"commit_result_path":str(paths["commit_result_path"].resolve()),"commit_evidence_digest":built["commit_result"]["commit_result_digest"],"publication_request_path":str(paths["publication_request_path"].resolve()),"publication_request_digest":built["publication_request"]["publication_request_digest"],"landing_result_path":str(paths["landing_result_path"].resolve()),"landing_evidence_digest":result["publication_result_digest"],"closure_event_digest":snapshot["last_event_digest"]},"evidence_digest")
     sp=sealed({"schema_version":c.CANONICAL_SUCCESSOR_SCHEMA,"evidence_id":f"next{number}","evidence_digest":"","completion_evidence_digest":cm["evidence_digest"],"landing_result_path":cm["landing_result_path"],"landing_evidence_digest":cm["landing_evidence_digest"],"repository_root":str(repository.resolve()),"base_ref":"refs/heads/main","predecessor_base_sha":generation["base_sha"],"successor_sha":result["commit_sha"],"observed_at":NOW},"evidence_digest")
     return write(tmp_path/f"completion-{number}.json",cm),write(tmp_path/f"successor-{number}.json",sp),cm,sp
