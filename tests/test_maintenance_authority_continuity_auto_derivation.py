@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from sentientos import maintenance_authority_continuity_auto_derivation as auto
+import sentientosd
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -29,3 +30,51 @@ def test_controller_has_no_handoff_or_resident_code_surface() -> None:
         assert forbidden not in source
     assert '"wake_handoff_performed":False' in source
     assert '"resident_code_adoption_performed":False' in source
+
+def test_sentientosd_starts_auto_only_after_successor_owner_reports_started(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Successor:
+        def __init__(self, _config: object) -> None: pass
+        def start(self) -> bool: return False
+        def health(self) -> dict[str, object]: return {"status":"current_wake_owner_start_failed","read_only":True}
+    class AutoOwner:
+        starts = 0
+        def __init__(self, config: dict[str, object]) -> None: self.config=config
+        def start(self) -> bool: AutoOwner.starts += 1; return True
+        def health(self) -> dict[str, object]: return {"status":"running","read_only":True}
+    monkeypatch.setattr(sentientosd, "load_successor_adoption", lambda _p: {"enabled":True})
+    monkeypatch.setattr(sentientosd, "MaintenanceSuccessorGenerationOwner", Successor)
+    _, _, successor, overlap = sentientosd._start_maintenance_daemon_owners(None, None, "successor.json")
+    assert successor is not None and overlap is False
+    monkeypatch.setattr(sentientosd, "load_continuity_auto_derivation", lambda _p: {"successor_adoption_config_path":"successor.json"})
+    monkeypatch.setattr(sentientosd, "MaintenanceAuthorityContinuityAutoDerivationOwner", AutoOwner)
+    owner, health = sentientosd._start_maintenance_continuity_auto_derivation("auto.json", "successor.json", successor, overlap)
+    assert owner is None and AutoOwner.starts == 0
+    assert health["reason"] == "exact_successor_adoption_owner_not_running"
+
+def test_sentientosd_starts_auto_after_exact_successor_owner_is_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Successor:
+        def __init__(self, _config: object) -> None: pass
+        def start(self) -> bool: return True
+    class AutoOwner:
+        def __init__(self, config: dict[str, object]) -> None: self.config=config
+        def start(self) -> bool: return True
+        def health(self) -> dict[str, object]: return {"status":"running","read_only":True}
+    monkeypatch.setattr(sentientosd, "load_successor_adoption", lambda _p: {"enabled":True})
+    monkeypatch.setattr(sentientosd, "MaintenanceSuccessorGenerationOwner", Successor)
+    _, _, successor, overlap = sentientosd._start_maintenance_daemon_owners(None, None, "successor.json")
+    monkeypatch.setattr(sentientosd, "load_continuity_auto_derivation", lambda _p: {"successor_adoption_config_path":"successor.json"})
+    monkeypatch.setattr(sentientosd, "MaintenanceAuthorityContinuityAutoDerivationOwner", AutoOwner)
+    owner, health = sentientosd._start_maintenance_continuity_auto_derivation("auto.json", "successor.json", successor, overlap)
+    assert owner is not None and health["status"] == "running"
+
+def test_journal_replay_rejects_changed_authority_binding(tmp_path: Path) -> None:
+    cfg = auto.validate_config(disabled_config(tmp_path))
+    identity = {"lineage_id":"line","adopted_ordinal":0,"adopted_generation_digest":"sha256:g",
+                "task_id":"task","closure_event_digest":"sha256:c","evaluation_time":"2030-01-01T00:00:00Z"}
+    auto._append(cfg, auto.PHASES[0], identity)
+    auto._append(cfg, auto.PHASES[1], identity, completion_adapter_digest="sha256:a", successor_adapter_digest="sha256:b")
+    auto._append(cfg, auto.PHASES[2], identity, completion_adapter_digest="sha256:changed", successor_adapter_digest="sha256:b")
+    # _append permits only syntactically valid append operations; replay owns
+    # cross-phase authority consistency and must reject the digest-valid fork.
+    with pytest.raises(ValueError, match="journal_branched"):
+        auto._events(cfg)

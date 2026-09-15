@@ -111,6 +111,14 @@ def _events(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
         first = rows[i - i % 4]
         if any(row.get(k) != first.get(k) for k in ("lineage_id", "adopted_ordinal", "adopted_generation_digest", "task_id", "closure_event_digest", "evaluation_time")):
             raise ValueError("auto_derivation_journal_branched")
+        # A later phase may add bindings, but it may never contradict a binding
+        # already made by an earlier phase of the same transaction.
+        for earlier in rows[i - i % 4:i]:
+            for key in ("completion_adapter_digest", "successor_adapter_digest",
+                        "continuity_generation_digest", "auto_receipt_path",
+                        "auto_receipt_digest"):
+                if key in earlier and key in row and earlier[key] != row[key]:
+                    raise ValueError("auto_derivation_journal_branched")
     return rows
 
 def _append(cfg: Mapping[str, Any], event_type: str, identity: Mapping[str, Any], **extra: Any) -> dict[str, Any]:
@@ -130,6 +138,11 @@ def _only(root: Path, directory: str, schema: str, task: str, link: tuple[str, s
         if value.get("schema_version") == schema and value.get("task_id") == task and (link is None or value.get(link[0]) == link[1]): matches.append((path.resolve(), value))
     if len(matches) != 1: raise ValueError("canonical_artifact_match_ambiguous" if matches else "canonical_artifact_missing")
     return matches[0]
+
+def _require_native_digest(value: Mapping[str, Any], key: str) -> None:
+    """Require the artifact's native closed-object digest during discovery."""
+    if not isinstance(value.get(key), str) or value[key] != publication._seal({**value, key: ""}, key):
+        raise ValueError("canonical_artifact_digest_invalid")
 
 def _watchdog_from_adoption(wake_adoption: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     wc = wake.load_config(wake_adoption["wake_config_path"])
@@ -153,11 +166,18 @@ def _discover(cfg: Mapping[str, Any], generation: Mapping[str, Any], wake_adopti
             commit_p, commit = _only(root, "maintenance_commit_results", publication.COMMIT_RESULT_SCHEMA, task, ("plan_digest", plan["plan_digest"]))
             request_p, request = _only(root, "maintenance_publication_requests", publication.PUBLICATION_REQUEST_SCHEMA, task, ("commit_result_digest", commit["commit_result_digest"]))
             result_p, result = _only(root, "maintenance_publication_results", publication.PUBLICATION_RESULT_SCHEMA, task, ("request_digest", request["publication_request_digest"]))
+            for value, key in ((lease,"lease_digest"),(val,"result_digest"),(plan,"plan_digest"),
+                               (commit,"commit_result_digest"),(request,"publication_request_digest"),
+                               (result,"publication_result_digest")):
+                _require_native_digest(value, key)
             if lease.get("grant_generation") != generation["generation_digest"] or lease.get("base_sha") != generation["base_sha"]: continue
             if val.get("terminal_status") != "validation_ready_for_commit" or result.get("terminal_status") != "publication_succeeded" or result.get("mode") != publication.LOCAL_FAST_FORWARD_MODE or result.get("parent_sha") != generation["base_sha"]: continue
             sources = {"journal_path": str((root/"maintenance_tasks"/f"{task}.jsonl").resolve()), "lease_path":str(lease_p), "validation_result_path":str(val_p), "commit_plan_path":str(plan_p), "commit_result_path":str(commit_p), "publication_request_path":str(request_p), "landing_result_path":str(result_p)}
             candidates.append((task, snap, {"lease":lease,"validation":val,"plan":plan,"commit":commit,"request":request,"result":result,"paths":sources,"state_root":root}))
-        except ValueError: continue
+        except (KeyError, ValueError) as exc:
+            # Once the journal claims terminal successful publication, its
+            # authority-bearing custody is mandatory, not another waiting case.
+            raise ValueError(f"canonical_successful_closure_custody_broken:{task}:{exc}") from exc
     if len(candidates) > 1: raise ValueError("ambiguous_completed_maintenance_transition")
     if candidates: return candidates[0]
     if any(i.get("snapshot", {}).get("base_sha") == generation["base_sha"] and i.get("snapshot", {}).get("publication_state") == "succeeded" for i in snapshots):
@@ -168,14 +188,27 @@ def derive_once(config: Mapping[str, Any], *, evaluation_time: str | None = None
     cfg = validate_config(config); effects: list[str] = []
     if not cfg["enabled"]: return {"schema_version":RESULT_SCHEMA,"status":"disabled","effect_count":0}
     bound = adoption.load_config(cfg["successor_adoption_config_path"]); adopted, wake_adoption = adoption.reconstruct_current(bound)
-    policy = continuity.validate_policy(_load(cfg["continuity_policy_path"])); current = continuity._current_generation(policy)
+    policy = continuity.validate_policy(_load(cfg["continuity_policy_path"]))
+    events = _events(cfg)
+    tail = events[len(events)-len(events)%4:] if len(events)%4 else []
+    # Pending recovery precedes strict current-generation reconstruction.  This
+    # narrow seam lets derive_next inspect an exact half-written N+1 pair while
+    # all ordinary continuity readers remain strict.
+    current = continuity._current_generation(policy, allow_exact_partial=bool(tail))
     if Path(cfg["stop_marker"]).exists() or Path(bound["stop_marker"]).exists() or Path(wake_adoption["stop_marker"]).exists(): return {"schema_version":RESULT_SCHEMA,"status":"paused","effect_count":0}
     _, wd = _watchdog_from_adoption(wake_adoption)
-    if Path(wd["stop_marker"]).exists(): return {"schema_version":RESULT_SCHEMA,"status":"paused","effect_count":0}
+    control = watchdog.inspect_control(wd)
+    paused = Path(wd["stop_marker"]).exists() or control.get("paused") or control.get("status") != "ready"
+    if paused:
+        # While paused, only seal custody whose continuity effect is already a
+        # complete N+1.  No normalization or derive_next invocation is allowed.
+        if not (tail and len(tail) == 3 and current["ordinal"] == adopted["ordinal"] + 1):
+            return {"schema_version":RESULT_SCHEMA,"status":"paused","effect_count":0}
     delta = current["ordinal"] - adopted["ordinal"]
-    if delta == 1:
+    if delta == 1 and not tail:
         return {"schema_version":RESULT_SCHEMA,"status":"waiting_for_successor_adoption","effect_count":0,"adopted_ordinal":adopted["ordinal"],"continuity_ordinal":current["ordinal"]}
-    if delta != 0 or current["generation_digest"] != adopted["generation_digest"]: raise ValueError("continuity_adoption_alignment_invalid")
+    if (delta != 0 or current["generation_digest"] != adopted["generation_digest"]) and not (tail and delta == 1):
+        raise ValueError("continuity_adoption_alignment_invalid")
     try: found = _discover(cfg, adopted, wake_adoption)
     except RuntimeError as exc: return {"schema_version":RESULT_SCHEMA,"status":str(exc),"effect_count":0}
     if found is None:
@@ -183,7 +216,6 @@ def derive_once(config: Mapping[str, Any], *, evaluation_time: str | None = None
         if head != adopted["base_sha"]: raise ValueError("unexplained_repository_advancement")
         return {"schema_version":RESULT_SCHEMA,"status":"waiting_for_maintenance_closure","effect_count":0}
     task, snap, source = found; now = evaluation_time or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    pending = _events(cfg); tail = pending[len(pending)-len(pending)%4:] if len(pending)%4 else []
     identity = {"lineage_id":adopted["lineage_id"],"adopted_ordinal":adopted["ordinal"],"adopted_generation_digest":adopted["generation_digest"],"task_id":task,"closure_event_digest":snap["last_event_digest"],"evaluation_time":now}
     if tail:
         identity = {k:tail[0][k] for k in identity}; now = identity["evaluation_time"]
@@ -198,7 +230,17 @@ def derive_once(config: Mapping[str, Any], *, evaluation_time: str | None = None
     cp,sp=out/"completion-v2.json",out/"successor-v2.json"; _write(cp,completion); _write(sp,successor)
     if phase == 1: _append(cfg,PHASES[1],identity,completion_adapter_digest=completion["evidence_digest"],successor_adapter_digest=successor["evidence_digest"]); phase=2
     if phase == 2: _append(cfg,PHASES[2],identity,completion_adapter_digest=completion["evidence_digest"],successor_adapter_digest=successor["evidence_digest"]); phase=3
-    result=continuity.derive_next(cfg["continuity_policy_path"],cp,sp,now)
+    if paused:
+        # The exact generation/receipt pair was already effected before pause.
+        # Reconstruct its result without invoking an authority-bearing writer.
+        derived_receipt = continuity._closed(continuity._load(continuity._receipt_path(policy, current["ordinal"])), continuity.RECEIPT_SCHEMA, continuity.RECEIPT_KEYS, "receipt_digest")
+        if (derived_receipt["predecessor_generation_digest"] != adopted["generation_digest"] or
+                derived_receipt["completion_evidence_digest"] != completion["evidence_digest"] or
+                derived_receipt["successor_evidence_digest"] != successor["evidence_digest"]):
+            raise ValueError("pending_derived_generation_binding_conflict")
+        result={"status":"successor_generation_ready","generation_digest":current["generation_digest"],"receipt_digest":derived_receipt["receipt_digest"]}
+    else:
+        result=continuity.derive_next(cfg["continuity_policy_path"],cp,sp,now)
     if result["status"] != "successor_generation_ready": raise ValueError("continuity_derivation_failed:"+",".join(result.get("reason_codes",[])))
     if phase == 3:
         receipt={"schema_version":RECEIPT_SCHEMA,"receipt_digest":"","config_digest":cfg["config_digest"],**identity,"completion_adapter_path":str(cp),"completion_adapter_digest":completion["evidence_digest"],"successor_adapter_path":str(sp),"successor_adapter_digest":successor["evidence_digest"],"successor_sha":successor["successor_sha"],"resulting_generation_ordinal":adopted["ordinal"]+1,"resulting_generation_digest":result["generation_digest"],"continuity_receipt_digest":result["receipt_digest"],"prior_auto_receipt_digest":next((r.get("auto_receipt_digest",ZERO_DIGEST) for r in reversed(_events(cfg)) if r["event_type"]==PHASES[3]),ZERO_DIGEST)}

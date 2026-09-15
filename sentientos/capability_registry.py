@@ -507,7 +507,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "tests/test_maintenance_authority_continuity_auto_derivation.py",
             ),
             proof_commands=(
-                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py tests/test_capability_registry.py",
+                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_auto_derivation.py tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py tests/test_sentientosd_runtime_closure.py tests/test_capability_registry.py",
             ),
             implemented_surfaces=(
                 "exact capability definition",
@@ -519,10 +519,12 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "persistent digest-bound auto-derivation posture",
                 "adopted generation reconstruction from completed handoffs",
                 "canonical closure discovery and hardened v2 normalization",
-                "immutable digest-chained transaction and receipt custody",
+                "pending-first crash recovery and exact partial-pair completion",
+                "broken-custody and watchdog control-pause fail-closed semantics",
+                "immutable digest-chained transaction and receipt custody with cross-phase bindings",
                 "exactly one successor derivation per iteration",
                 "bounded in-process owner and read-only health projection",
-                "sentientosd complementary-owner integration",
+                "sentientosd complementary-owner integration with explicit successor startup readiness",
             ),
             deferred_surfaces=(
                 "runtime-code adoption",
