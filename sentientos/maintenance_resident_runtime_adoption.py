@@ -93,6 +93,18 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
         if type(cfg[key]) not in (int, float) or cfg[key] <= 0: raise ValueError("invalid_resident_bound")
     if type(cfg["maximum_successful_transitions"]) is not int or cfg["maximum_successful_transitions"] < 1:
         raise ValueError("invalid_resident_bound")
+    # Disabled posture still names the custody that must be inspected before
+    # historical startup is allowed.  Keep that custody bounded to the sealed
+    # external state root without demanding enabled-only repository/topology
+    # proofs.
+    state = Path(str(cfg["state_root"])).resolve()
+    repository = Path(str(cfg["repository_root"])).resolve()
+    for key in ("transition_journal_path", "provenance_root", "receipt_root", "stop_marker"):
+        bound = Path(str(cfg[key])).resolve()
+        if bound != state and state not in bound.parents:
+            raise ValueError("resident_custody_outside_state_root")
+        if bound == repository or repository in bound.parents:
+            raise ValueError("resident_custody_inside_repository")
     if not cfg["enabled"]:
         return cfg
 
@@ -146,11 +158,6 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("resident_topology_environment_binding_mismatch")
     elif AUTO_CONFIG_ENV in required:
         raise ValueError("contradictory_automatic_continuity_environment_binding")
-    state = Path(cfg["state_root"]).resolve()
-    for key in ("transition_journal_path", "provenance_root", "receipt_root", "stop_marker"):
-        bound = Path(cfg[key]).resolve()
-        if bound != state and state not in bound.parents: raise ValueError("resident_custody_outside_state_root")
-        if bound == repo or repo in bound.parents: raise ValueError("resident_custody_inside_repository")
     configured_path = cfg["required_environment"].get(CONFIG_ENV)
     if configured_path and (not Path(configured_path).is_absolute() or str(Path(configured_path).resolve()) != configured_path):
         raise ValueError("resident_config_environment_binding_mismatch")
@@ -178,6 +185,8 @@ def _write_exact(path: Path, value: Mapping[str, Any]) -> None:
 def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["transition_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
     if not path.exists(): return rows
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("resident_transition_journal_corrupt")
     for line in path.read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
         if (row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
@@ -193,6 +202,32 @@ def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
                 if row.get(key) != first.get(key): raise ValueError("resident_transition_chain_branched")
         prior = row["event_digest"]; rows.append(row)
     return rows
+
+
+def inspect_transition_custody(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Return immutable journal posture without selecting or mutating a transition."""
+
+    cfg = validate_config(config)
+    try:
+        rows = _rows(cfg)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        return {"status": "corrupt_or_ambiguous", "reason": str(exc), "read_only": True}
+    if not rows:
+        return {"status": "no_resident_transactions", "read_only": True}
+    phase_count = len(rows) % len(PHASES)
+    if phase_count == 0:
+        return {
+            "status": "complete_resident_transactions_only",
+            "completed_transition_count": len(rows) // len(PHASES),
+            "read_only": True,
+        }
+    first = rows[len(rows) - phase_count]
+    return {
+        "status": "incomplete_resident_transaction",
+        "transition_id": first["transition_id"],
+        "completed_phase_count": phase_count,
+        "read_only": True,
+    }
 
 
 def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
