@@ -25,7 +25,7 @@ def _write(path: Path, value: dict[str, object]) -> Path:
     return path
 
 
-def canonical_lineage(tmp_path: Path) -> tuple[dict[str, object], dict[str, object], Path]:
+def canonical_lineage(tmp_path: Path, *, derive_successor: bool = True) -> tuple[dict[str, object], dict[str, object], Path]:
     """Build genuine generation zero, its full wake closure, and derived N1."""
     policy_path, generation_path, generation, root, repository = continuity_setup(tmp_path)
     manifest = profiles.validate_manifest(json.loads(Path(generation["manifest_path"]).read_text()))
@@ -58,12 +58,14 @@ def canonical_lineage(tmp_path: Path) -> tuple[dict[str, object], dict[str, obje
     adoption_path=root/"wake-adoption-0.json"
     activation.render_wake_daemon_adoption(adoption_path,wake_config_path=wake_path,cadence_state_root=cadence,enabled=True,cadence_interval_seconds=60,schedule_anchor_utc="2030-01-03T00:00:00Z",initial_run_posture="immediate",maximum_cycles=2,maximum_daemon_wall_clock_seconds=120,shutdown_timeout_seconds=1)
     initial=wake_daemon.load_adoption(adoption_path)
-    cp,sp,_,_=canonical_custody(tmp_path,repository,generation,0)
-    assert continuity.derive_next(policy_path,cp,sp,"2030-01-02T00:00:00Z")["status"] == "successor_generation_ready"
+    if derive_successor:
+        cp,sp,_,_=canonical_custody(tmp_path,repository,generation,0)
+        assert continuity.derive_next(policy_path,cp,sp,"2030-01-02T00:00:00Z")["status"] == "successor_generation_ready"
     (repository/".git/info/exclude").write_text("scripts/\ntests/\n")
     (repository/"scripts").mkdir(); (repository/"scripts/run_tests.py").write_text("")
     (repository/"tests").mkdir(); (repository/"tests/fake.py").write_text("def test_fake():\n    pass\n")
-    successor=continuity.validate_generation(json.loads((root/"generation-1.json").read_text()),continuity.validate_policy(json.loads(policy_path.read_text())))
+    successor = (continuity.validate_generation(json.loads((root/"generation-1.json").read_text()),continuity.validate_policy(json.loads(policy_path.read_text())))
+                 if derive_successor else generation)
     cfg={"schema_version":adoption.CONFIG_SCHEMA,"enabled":True,"continuity_policy_path":str(policy_path),"continuity_policy_digest":json.loads(policy_path.read_text())["policy_digest"],"initial_generation_path":str(generation_path),"initial_generation_digest":generation["generation_digest"],"initial_wake_adoption_path":str(adoption_path),"initial_wake_adoption_digest":initial["adoption_config_digest"],"repository_identity":"repo","repository_root":str(repository),"state_root":str(tmp_path/"adoption-state"),"successor_configuration_root":str(tmp_path/"successor-output"),"handoff_journal_path":str(tmp_path/"adoption-state"/"handoffs.jsonl"),"stop_marker":str(tmp_path/"adoption-state"/"STOP"),"observation_delay_seconds":1,"maximum_handoffs":2,"maximum_wall_clock_seconds":60,"shutdown_timeout_seconds":1}
     for path in (Path(cfg["state_root"]),Path(cfg["successor_configuration_root"])): path.mkdir(mode=0o700)
     cfg["config_digest"]=adoption.digest(cfg)

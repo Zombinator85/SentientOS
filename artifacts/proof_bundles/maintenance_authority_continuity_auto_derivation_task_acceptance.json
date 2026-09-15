@@ -1,17 +1,55 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "ecbfd3f2b29182a4748b568a7fb2af7d87c4af29",
-  "test_provenance_path": "/tmp/maintenance_authority_continuity_auto_derivation_test_provenance.json",
+  "repository_sha": "e1b3fd93be5501d38b61ab59f3743d05d0f70c24",
+  "test_provenance_path": "/tmp/maintenance_auto_final_provenance.json",
   "required_nodes": [
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_disabled_configuration_has_no_owner_or_effect","rationale":"disabled posture is zero effect"},
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_configuration_is_closed_and_digest_bound","rationale":"configuration remains closed and digest bound"},
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_controller_has_no_handoff_or_resident_code_surface","rationale":"negative authority surface remains absent"},
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_journal_replay_rejects_changed_authority_binding","rationale":"cross-phase recovery identity conflicts block"},
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_sentientosd_starts_auto_only_after_successor_owner_reports_started","rationale":"failed successor startup leaves auto derivation inert"},
-    {"node_id":"tests/test_maintenance_authority_continuity_auto_derivation.py::test_sentientosd_starts_auto_after_exact_successor_owner_is_running","rationale":"production startup requires explicit exact successor readiness"}
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_disabled_configuration_has_no_owner_or_effect",
+      "rationale": "disabled posture is zero effect"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_configuration_is_closed_and_digest_bound",
+      "rationale": "configuration remains closed and digest bound"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_controller_has_no_handoff_or_resident_code_surface",
+      "rationale": "negative authority surface remains absent"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_journal_replay_rejects_changed_authority_binding",
+      "rationale": "cross-phase recovery identity conflicts block"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_sentientosd_starts_auto_only_after_successor_owner_reports_started",
+      "rationale": "failed successor startup leaves auto derivation inert"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_sentientosd_starts_auto_after_exact_successor_owner_is_running",
+      "rationale": "production startup requires explicit exact successor readiness"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next",
+      "rationale": "real canonical two-transition recursion reaches continuity and adopted wake generation two without a manual derivation courier"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_receipt_only_partial_continuity_write",
+      "rationale": "auto-controller recovery repairs exact receipt-only continuity custody"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_generation_only_partial_continuity_write",
+      "rationale": "auto-controller recovery repairs exact generation-only continuity custody"
+    },
+    {
+      "node_id": "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_complete_successor_with_missing_auto_receipt",
+      "rationale": "auto-controller recovery seals missing automatic receipt after exact continuity completion"
+    }
   ],
   "successful_path_nodes": [
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_receipt_only_partial_continuity_write",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_generation_only_partial_continuity_write",
+    "tests/test_maintenance_authority_continuity_auto_derivation.py::test_auto_controller_recovers_complete_successor_with_missing_auto_receipt",
     "tests/test_maintenance_authority_continuity_auto_derivation.py::test_sentientosd_starts_auto_after_exact_successor_owner_is_running"
   ]
 }

@@ -82,6 +82,15 @@ posture through N0→N1 derivation, successor adoption, N1→N2 derivation, and 
 adoption to generation 2.  The test wraps the controller's call boundary to count one
 `derive_next` invocation per transition and never uses a manual evidence courier.
 
+```text
+canonical successful N0
+-> automatic derive N1
+-> automatic successor adoption N1
+-> canonical successful N1
+-> automatic derive N2
+-> automatic successor adoption N2
+```
+
 There is therefore no normal per-generation human `derive-next` courier in this
 authority/configuration loop.  The controller performs no maintenance work, wake
 handoff, Git mutation, network/provider activity, process restart, module reload, or

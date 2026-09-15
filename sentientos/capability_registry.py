@@ -507,7 +507,7 @@ def build_default_capability_registry() -> CapabilityRegistry:
                 "tests/test_maintenance_authority_continuity_auto_derivation.py",
             ),
             proof_commands=(
-                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_auto_derivation.py tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py tests/test_sentientosd_runtime_closure.py tests/test_capability_registry.py",
+                "python -m scripts.run_tests -q tests/test_maintenance_authority_continuity_auto_derivation.py::test_automatic_n0_to_n1_to_n2_recursion_without_manual_derive_next tests/test_maintenance_authority_continuity_auto_derivation.py tests/test_maintenance_authority_continuity_auto_derivation_capability_admission.py tests/test_sentientosd_runtime_closure.py tests/test_capability_registry.py",
             ),
             implemented_surfaces=(
                 "exact capability definition",
