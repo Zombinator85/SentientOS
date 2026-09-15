@@ -28,6 +28,7 @@ MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION = (
 MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
     "maintenance_successor_generation_adoption"
 )
+MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
 
 
 @dataclass(frozen=True)
@@ -438,6 +439,58 @@ AUTHORITY_DEFINITIONS = {
             "exact continuity receipt",
             "bounded wake owner handoff",
             "same lineage authority",
+        ),
+    ),
+    MAINTENANCE_RESIDENT_RUNTIME_ADOPTION: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_RESIDENT_RUNTIME_ADOPTION,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_resident_runtime_adoption_controller"}
+        ),
+        required_effects=frozenset(
+            {
+                "exact_successor_maintenance_authority_generation_read",
+                "exact_maintenance_authority_continuity_receipt_read",
+                "exact_maintenance_successor_generation_adoption_state_read",
+                "exact_successor_repository_state_read",
+                "exact_resident_runtime_adoption_configuration_read",
+                "exact_resident_runtime_launch_provenance_read",
+                "bounded_maintenance_runtime_quiescence",
+                "maintenance_resident_runtime_adoption_intent_write",
+                "bounded_exact_sentientosd_self_exec",
+                "exact_successor_resident_runtime_readiness_read",
+                "maintenance_resident_runtime_adoption_receipt_write",
+                "read_only_maintenance_resident_runtime_health_projection",
+            }
+        ),
+        forbidden_goal_phrases=(
+            "arbitrary service restart", "generic service restart",
+            "arbitrary process restart", "arbitrary process kill",
+            "arbitrary executable", "arbitrary command", "shell command",
+            "arbitrary argv", "arbitrary environment",
+            "caller-selected executable", "caller-selected commit",
+            "caller-selected generation", "newest commit", "newest generation",
+            "skip generation", "unverified successor", "non-consecutive successor",
+            "wake before resident readiness",
+            "successor maintenance before resident readiness",
+            "hot reload", "module reload", "sys.modules patching",
+            "dynamic code injection", "runtime monkeypatch adoption",
+            "automatic rollback to older code", "git checkout rollback",
+            "git mutation", "git fetch", "git pull", "git publication",
+            "provider invocation", "network authority", "credential management",
+            "os service manager", "systemd control", "windows service control",
+            "parent supervisor installation", "authority widening",
+            "extend authority expiry", "candidate admission", "lease issuance",
+            "maintenance implementation", "maintenance validation",
+        ),
+        required_goal_phrases=(
+            "verified successor maintenance generation",
+            "exact pending successor wake handoff",
+            "exact successor repository state",
+            "resident runtime launch provenance",
+            "bounded sentientosd self replacement",
+            "post replacement resident readiness",
+            "before successor wake effects",
         ),
     ),
 }
