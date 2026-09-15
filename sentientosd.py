@@ -829,6 +829,11 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
 
     try:
         while not shutdown_event.is_set():
+            if resident_blocked:
+                # Blocked enabled resident posture is terminal for this image.
+                # Health has already been projected; no maintenance effector may run.
+                shutdown_event.set()
+                continue
             if scheduler_owner is not None:
                 runtime_surfaces._feedback["surfaces"]["maintenance_scheduler_daemon_adoption"] = scheduler_owner.health()
             if wake_owner is not None:

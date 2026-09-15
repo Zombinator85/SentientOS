@@ -245,3 +245,71 @@ def test_transition_lock_contention_and_journal_mtime_is_not_authority(tmp_path:
         process_observer=lambda: _observer(cfg, 2))
     assert new.complete_post_exec(marker=transition["transition_id"])["status"] == "resident_ready"
     assert new.complete_post_exec(marker=transition["transition_id"])["status"] == "resident_ready"
+
+
+def _interrupt_pre_exec_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+    controller: resident.MaintenanceResidentRuntimeAdoptionController,
+    phase_index: int,
+) -> None:
+    original = resident._append
+
+    def interrupt_after_append(*args, **kwargs):  # type: ignore[no-untyped-def]
+        row = original(*args, **kwargs)
+        if row["phase"] == resident.PHASES[phase_index]:
+            raise RuntimeError("simulated_pre_exec_interruption")
+        return row
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(resident, "_append", interrupt_after_append)
+        with pytest.raises(RuntimeError, match="simulated_pre_exec_interruption"):
+            controller.request_replacement(quiesce=lambda _: True)
+
+
+@pytest.mark.parametrize("phase_index", (0, 1, 2))
+def test_same_process_pre_exec_prefix_continuation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase_index: int
+) -> None:
+    cfg, generation, _, _ = _fixture(tmp_path); calls: list[object] = []
+    controller = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg, 1), execve=lambda *args: calls.append(args))
+    controller.capture_baseline(); _advance(tmp_path, cfg, generation, 0); _pending_owner(cfg, controller)
+    _interrupt_pre_exec_prefix(monkeypatch, controller, phase_index)
+    before = len(Path(str(cfg["transition_journal_path"])).read_text().splitlines())
+    result = controller.request_replacement(quiesce=lambda _: True)
+    assert before == phase_index + 1
+    assert result["status"] == "self_exec_requested" and len(calls) == 1
+
+
+@pytest.mark.parametrize("phase_index", (0, 1, 2))
+def test_foreign_process_pre_exec_prefix_continuation_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase_index: int
+) -> None:
+    Owner.starts.clear(); cfg, generation, _, _ = _fixture(tmp_path); exec_calls: list[object] = []
+    predecessor = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg, 1), execve=lambda *args: exec_calls.append(args))
+    predecessor.capture_baseline(); _advance(tmp_path, cfg, generation, 0); _pending_owner(cfg, predecessor)
+    _interrupt_pre_exec_prefix(monkeypatch, predecessor, phase_index)
+    journal = Path(str(cfg["transition_journal_path"])); before = journal.read_bytes()
+    foreign = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg, 2), execve=lambda *args: exec_calls.append(args))
+    with pytest.raises(ValueError, match="foreign_predecessor_process_provenance"):
+        foreign.capture_baseline()
+    assert journal.read_bytes() == before
+    assert exec_calls == [] and 1 not in Owner.starts
+
+
+@pytest.mark.parametrize("phase_index", (0, 1, 2, 3))
+def test_no_marker_fresh_restart_with_incomplete_transition_is_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase_index: int
+) -> None:
+    cfg, generation, _, _ = _fixture(tmp_path)
+    predecessor = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg, 1), execve=lambda *_: None)
+    predecessor.capture_baseline(); _advance(tmp_path, cfg, generation, 0); _pending_owner(cfg, predecessor)
+    _interrupt_pre_exec_prefix(monkeypatch, predecessor, phase_index)
+    monkeypatch.delenv(resident.TRANSITION_ENV, raising=False)
+    restarted = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg, 2), execve=lambda *_: None)
+    with pytest.raises(ValueError, match="foreign_predecessor_process_provenance"):
+        sentientosd._prepare_resident_runtime_startup(restarted)

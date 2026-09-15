@@ -320,13 +320,29 @@ class MaintenanceResidentRuntimeAdoptionController:
                     observed_env.get(AUTO_CONFIG_ENV) != (self.config["automatic_continuity_config_path"] or None) or
                     observed_env.get(TRANSITION_ENV) != expected_transition_marker):
                 raise ValueError("resident_launch_environment_mismatch")
-        repository = self._repository(canonical); manifest = _load_object(canonical["manifest_path"], "generation_manifest_invalid")
+        manifest = _load_object(canonical["manifest_path"], "generation_manifest_invalid")
         projection = (dict(observed_env) if observed_env is not None else self._environment())
         env_digest = digest(projection)
         instance = digest({"pid": observation["pid"], "startup_timestamp": observation["startup_timestamp"],
                            "generation_digest": canonical["generation_digest"], "argv": expected_argv,
                            "python_executable": observation["python_executable"],
                            "daemon_entrypoint": observation["daemon_entrypoint"], "module_spec_origin": spec_origin})
+        if expected_transition_marker is None:
+            journal = _rows(self.config)
+            prefix = journal[len(journal) - len(journal) % len(PHASES):] if len(journal) % len(PHASES) else []
+            if prefix:
+                intent = prefix[0]
+                bound = _load_object(intent.get("predecessor_launch_provenance_path", ""),
+                                     "predecessor_launch_provenance_missing")
+                if (bound.get("provenance_digest") != digest(bound, "provenance_digest") or
+                        intent.get("predecessor_launch_provenance_digest") != bound.get("provenance_digest") or
+                        instance != bound.get("process_instance_id") or
+                        canonical.get("generation_digest") != bound.get("represented_generation_digest") or
+                        self.config.get("config_digest") != bound.get("config_digest")):
+                    self._health = {"status": "blocked", "reason": "foreign_predecessor_process_provenance",
+                                    "terminal": True, "read_only": True}
+                    raise ValueError("foreign_predecessor_process_provenance")
+        repository = self._repository(canonical)
         record = {"schema_version": PROVENANCE_SCHEMA, "config_digest": self.config["config_digest"],
             "repository_identity": self.config["repository_identity"], "repository_root": self.config["repository_root"],
             "lineage_id": canonical["lineage_id"], "represented_generation_ordinal": canonical["ordinal"],
@@ -342,9 +358,35 @@ class MaintenanceResidentRuntimeAdoptionController:
         path = Path(self.config["provenance_root"]) / f"generation-{canonical['ordinal']}" / name
         _write_exact(path, record); record["provenance_path"] = str(path)
         self._baseline = record
+        if expected_transition_marker is None:
+            self._verify_pre_exec_prefix_predecessor()
         self._health = {"status": "baseline_provenance_ready", "read_only": True,
                         "resident_ordinal": canonical["ordinal"], "resident_generation_digest": canonical["generation_digest"]}
         return record
+
+    def _verify_pre_exec_prefix_predecessor(self, rows: list[dict[str, Any]] | None = None) -> None:
+        """Bind every resumable pre-exec prefix to its creating process instance."""
+        journal = _rows(self.config) if rows is None else rows
+        prefix = journal[len(journal) - len(journal) % len(PHASES):] if len(journal) % len(PHASES) else []
+        if not prefix:
+            return
+        if len(prefix) > 4:
+            raise ValueError("resident_transition_marker_missing")
+        if self._baseline is None:
+            raise ValueError("predecessor_launch_provenance_missing")
+        intent = prefix[0]
+        bound = _load_object(intent.get("predecessor_launch_provenance_path", ""),
+                             "predecessor_launch_provenance_missing")
+        baseline = self._baseline
+        if (bound.get("provenance_digest") != digest(bound, "provenance_digest") or
+                intent.get("predecessor_launch_provenance_digest") != bound.get("provenance_digest") or
+                baseline.get("provenance_digest") != bound.get("provenance_digest") or
+                baseline.get("process_instance_id") != bound.get("process_instance_id") or
+                baseline.get("represented_generation_digest") != bound.get("represented_generation_digest") or
+                baseline.get("config_digest") != bound.get("config_digest")):
+            self._health = {"status": "blocked", "reason": "foreign_predecessor_process_provenance",
+                            "terminal": True, "read_only": True}
+            raise ValueError("foreign_predecessor_process_provenance")
 
     def _pending(self, asserted: Mapping[str, Any] | None = None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         cfg = successor.load_config(self.config["successor_adoption_config_path"]); handoff = successor.pending_handoff(cfg)
@@ -393,6 +435,7 @@ class MaintenanceResidentRuntimeAdoptionController:
             repository = self._repository(generation); tid = transition_id(self.config, handoff)
             rows = _rows(self.config); prefix = rows[len(rows) - len(rows) % len(PHASES):] if len(rows) % len(PHASES) else []
             if prefix and any(row["transition_id"] != tid for row in prefix): raise ValueError("resident_transition_already_in_flight")
+            self._verify_pre_exec_prefix_predecessor(rows)
             if len(prefix) < 1:
                 intent = _append(self.config, PHASES[0], tid, handoff, predecessor_ordinal=handoff["predecessor_ordinal"],
                     successor_ordinal=handoff["successor_ordinal"], predecessor_launch_provenance_path=self._baseline["provenance_path"],
