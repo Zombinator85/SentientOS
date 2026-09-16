@@ -1,0 +1,141 @@
+{
+  "confidence_ontology": [
+    "verified_fact",
+    "strong_inference",
+    "weak_hypothesis",
+    "unknown"
+  ],
+  "history_boundary": {
+    "confidence": "verified_fact",
+    "detail": "The locally available repository is shallow at f1e62799492e82ef677a9cb8b2128f1e924a7d7b and a85e3d47f6102853eea44d328e06ee384a169bd4. All three families are present at that boundary, so their original creation commits and any earlier branch-only history are unavailable locally. Dates below are first locally evidenced appearances, not claimed creation dates."
+  },
+  "non_conflation_conclusion": {
+    "confidence": "verified_fact",
+    "detail": "The three families are not one evidenced successor chain. council/ supplies dialogue primitives and a stub runner, council_adapters/ supplies deterministic Sentient Mesh voices, and sentientos/council/governance_council.py supplies persisted quorum decisions. No locally available history or source declares predecessor/successor relationships among them."
+  },
+  "schema": "sentientos.council_lineages:v1",
+  "surfaces": [
+    {
+      "authority_relationship": "The standalone runner is privilege-gated at import. Shared Bus, Message, and Referee primitives carry dialogue data but grant no capability or control-plane authority.",
+      "current_role": "Mixed preserved surface: deterministic provider-named stub dialogue runner plus shared message, bus, and referee primitives consumed by WDM.",
+      "disposition": "unknown_disposition",
+      "evidence_confidence": "verified_fact",
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "important_transitions": [],
+      "original_role": "The earliest locally visible tree already implements multi-agent answer/critique dialogue with provider-named deterministic adapters; pre-boundary origin is unavailable.",
+      "paths": [
+        "council/"
+      ],
+      "predecessor": null,
+      "present_consumers": [
+        "tests/test_council_smoke.py",
+        "wdm/runner.py",
+        "wdm/summarize.py"
+      ],
+      "provider_network_relationship": "council/adapters contains deterministic OpenAI, DeepSeek, and Mistral stubs and performs no provider call. WDM imports only council data/orchestration primitives and separately instantiates its own provider-named, deterministic no-network adapters.",
+      "runtime_reachability": {
+        "alternate_runtime": [
+          "wdm_cli.py -> wdm/runner.py",
+          "wdm_api.py -> wdm/runner.py"
+        ],
+        "canonical_daemon": false,
+        "capability_or_control_plane": false,
+        "operator_entry": [
+          "wdm_cli.py"
+        ]
+      },
+      "stable_identity": "legacy-dialogue-council",
+      "successor": null,
+      "unresolved_contradictions": [
+        "The directory combines a directly tested standalone stub runner with primitives still consumed by WDM, so available evidence does not establish a single terminal disposition for the whole directory.",
+        "History before the shallow boundary is unavailable, preventing proof of original adoption, replacement, or intentional retirement.",
+        "No evidence proves that council_adapters/ or the governance council replaced this family."
+      ]
+    },
+    {
+      "authority_relationship": "Voice exchanges influence trust inside Sentient Mesh, with advisory voices down-weighted. They do not create node capabilities or confer control-plane, RuntimeGovernor, host, network, maintenance, or runtime-adoption authority.",
+      "current_role": "Deterministic local and provider-branded voice abstraction used by the alternate Sentient Mesh/relay runtime.",
+      "disposition": "alternate_runtime",
+      "evidence_confidence": "verified_fact",
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "important_transitions": [],
+      "original_role": "The earliest locally visible tree identifies these classes as Sentient Mesh council voice adapters; pre-boundary creation history is unavailable.",
+      "paths": [
+        "council_adapters/"
+      ],
+      "predecessor": null,
+      "present_consumers": [
+        "sentient_mesh.py",
+        "relay_app.py",
+        "tests/test_council_adapters.py",
+        "tests/test_sentient_mesh_scheduler.py"
+      ],
+      "provider_network_relationship": "LocalVoice is always available. OpenAIVoice and DeepSeekVoice require environment keys for registration, but all current ask, critique, and vote outputs are locally deterministic and make no network or SDK call. Exchanges contain decision, confidence, advisory flag, hashes, signatures, and transcript context; they do not contain a runtime authority grant.",
+      "runtime_reachability": {
+        "alternate_runtime": [
+          "relay_app.py -> SentientMesh",
+          "sentient_autonomy.py -> SentientMesh"
+        ],
+        "canonical_daemon": false,
+        "capability_or_control_plane": false,
+        "operator_entry": [
+          "relay_app.py"
+        ]
+      },
+      "stable_identity": "mesh-runtime-voices",
+      "successor": null,
+      "unresolved_contradictions": [
+        "Original creation and adoption commits precede the locally available shallow boundary.",
+        "Provider-branded classes are key-gated but currently deterministic; history does not establish whether live provider calls ever existed."
+      ]
+    },
+    {
+      "authority_relationship": "Consumers use approved quorum results to gate reflex reinstatement and Cathedral amendment approval. The council does not itself apply amendments or directly actuate hosts, networks, providers, capabilities, or runtime adoption.",
+      "current_role": "Deterministic five-behavior quorum evaluator with JSONL vote and terminal-verdict persistence.",
+      "disposition": "canonical",
+      "evidence_confidence": "verified_fact",
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "important_transitions": [],
+      "original_role": "The earliest locally visible tree already provides deterministic governance voting for doctrine, symbol, conflict, and reflex proposals; pre-boundary creation history is unavailable.",
+      "paths": [
+        "sentientos/council/governance_council.py"
+      ],
+      "predecessor": null,
+      "present_consumers": [
+        "sentientos/reflex/reflex_petitioner.py",
+        "sentientos/cathedral/amendment_sentinel.py",
+        "tools/council_cli.py",
+        "tests/test_governance_council.py"
+      ],
+      "provider_network_relationship": "No model, provider SDK, prompt export, or network call is present. Default votes are deterministic functions of proposal type and summary text.",
+      "runtime_reachability": {
+        "canonical_governance_consumers": [
+          "ReflexPetitioner",
+          "AmendmentSentinel"
+        ],
+        "canonical_daemon_direct_import": false,
+        "operator_entry": [
+          "tools/council_cli.py"
+        ]
+      },
+      "stable_identity": "sentientos-governance-council",
+      "successor": null,
+      "unresolved_contradictions": [
+        "Original creation and adoption commits precede the locally available shallow boundary.",
+        "No source or available history establishes lineage with either dialogue/voice family."
+      ]
+    }
+  ]
+}
