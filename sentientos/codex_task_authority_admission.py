@@ -29,6 +29,7 @@ MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
     "maintenance_successor_generation_adoption"
 )
 MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
+MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
 
 
 @dataclass(frozen=True)
@@ -491,6 +492,55 @@ AUTHORITY_DEFINITIONS = {
             "bounded sentientosd self replacement",
             "post replacement resident readiness",
             "before successor wake effects",
+        ),
+    ),
+    MAINTENANCE_RESIDENT_PARENT_SUPERVISION: TaskAuthorityDefinition(
+        capability_id=MAINTENANCE_RESIDENT_PARENT_SUPERVISION,
+        subsystem_kinds=frozenset({"maintenance"}),
+        principal_kinds=frozenset(
+            {"deterministic_maintenance_resident_parent_supervision_controller"}
+        ),
+        required_effects=frozenset({
+            "exact_sentientosd_parent_supervision_configuration_read",
+            "exact_sentientosd_child_specification_read",
+            "exact_resident_runtime_transition_custody_read",
+            "exact_resident_runtime_launch_provenance_read",
+            "exact_sentientosd_child_lifecycle_observation",
+            "bounded_exact_sentientosd_child_custody",
+            "bounded_exact_sentientosd_process_death_recovery",
+            "exact_post_restart_resident_readiness_read",
+            "maintenance_resident_parent_supervision_receipt_write",
+            "read_only_maintenance_resident_parent_supervision_health_projection",
+        }),
+        forbidden_goal_phrases=(
+            "generic service restart", "arbitrary service restart",
+            "generic process supervision", "arbitrary process restart",
+            "arbitrary process kill", "arbitrary pid", "caller-selected pid",
+            "arbitrary executable", "arbitrary command", "shell command",
+            "arbitrary argv", "arbitrary environment", "arbitrary cwd",
+            "caller-selected executable", "caller-selected repository",
+            "caller-selected commit", "caller-selected generation",
+            "newest commit", "newest generation", "latest branch",
+            "generation skipping", "non-consecutive generation recovery",
+            "bypass resident transaction custody", "bypass launch provenance",
+            "bypass resident readiness", "unlimited restart",
+            "unlimited self-healing", "restart loops", "hot reload",
+            "module reload", "dynamic code injection", "monkeypatch adoption",
+            "systemd", "generic os service-manager control",
+            "windows service control", "generic subprocess authority",
+            "generic runtimesupervisor widening", "generic real_service_restart",
+            "git mutation", "git fetch", "git pull", "git checkout",
+            "git publication", "repository mutation", "provider invocation",
+            "network authority", "credential management", "candidate admission",
+            "maintenance lease issuance", "authority widening",
+            "authority expiry extension", "automatic rollback",
+            "rollback to arbitrary", "rollback to older code",
+        ),
+        required_goal_phrases=(
+            "exact sentientosd child", "resident transaction custody",
+            "bounded parent supervision", "process-death recovery",
+            "exact resident launch provenance", "post-restart resident readiness",
+            "exact maintenance-lineage",
         ),
     ),
 }

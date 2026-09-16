@@ -1,0 +1,97 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "239cc13f9ef14999ccc5098791cffcf1866656d2",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_exact_capability_registration_and_effect_surface_admit",
+      "rationale": "exact registration"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_wrong_subsystem_and_principal_reject",
+      "rationale": "wrong authority denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_missing_extra_and_duplicate_effects_reject",
+      "rationale": "effect surface exact"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_required_goal_clause_is_required[exact sentientosd child]",
+      "rationale": "exact child required"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_negated_required_goal_clause_rejects[resident transaction custody]",
+      "rationale": "negated custody denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[generic service restart]",
+      "rationale": "generic service restart denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[arbitrary executable]",
+      "rationale": "arbitrary executable denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[arbitrary process restart]",
+      "rationale": "arbitrary process restart denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[arbitrary pid]",
+      "rationale": "arbitrary pid denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[unlimited restart]",
+      "rationale": "unlimited restart denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[systemd]",
+      "rationale": "systemd denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[bypass resident transaction custody]",
+      "rationale": "bypass resident transaction custody denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[git mutation]",
+      "rationale": "git mutation denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[network authority]",
+      "rationale": "network authority denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[provider invocation]",
+      "rationale": "provider invocation denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_every_forbidden_scope_phrase_rejects[automatic rollback]",
+      "rationale": "automatic rollback denies"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_canonical_future_implementation_goal_admits_non_granting_bootstrap",
+      "rationale": "future bootstrap non-granting"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_registry_truth_is_scaffolded_eligibility_only",
+      "rationale": "registry non-granting"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_no_parent_runtime_implementation_or_control_path_exists",
+      "rationale": "no runtime"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_runtime_supervisor_and_generic_restart_truth_are_preserved",
+      "rationale": "generic boundaries preserved"
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_resident_and_maintenance_authority_definitions_are_preserved",
+      "rationale": "maintenance authorities preserved"
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_exact_capability_registration_and_effect_surface_admit",
+    "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_canonical_future_implementation_goal_admits_non_granting_bootstrap",
+    "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_registry_truth_is_scaffolded_eligibility_only"
+  ]
+}
