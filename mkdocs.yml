@@ -2,6 +2,7 @@ site_name: SentientOS
 nav:
   - Home: README.md
   - Current Architecture: docs/architecture/public_technical_overview.md
+  - Historical Surface Dispositions: docs/architecture/historical_surface_disposition_registry.md
   - Relationship to Established Terminology: docs/architecture/relationship_to_existing_terminology.md
   - Project Thesis and Maturity: docs/architecture/sentientos_project_thesis.md
   - Roadmap and Research Trajectory: docs/architecture/sentientos_trajectory_and_missing_organs.md

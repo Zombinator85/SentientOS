@@ -1,0 +1,20 @@
+{
+  "repository_sha": "57f4f8caea6c9c4d906d6b2a6d9fcce5b1026dec",
+  "required_nodes": [
+    {"node_id": "tests/test_historical_surface_disposition.py::test_seed_registry_validates_and_preserves_bounded_claims", "rationale": "Successful-path proof for the checked-in bounded registry."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_invalid_disposition_and_duplicate_ids_fail_deterministically", "rationale": "Invalid ontology and duplicate identity rejection."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_overlapping_classifications_fail", "rationale": "Conflicting path ownership rejection."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_supersession_requires_resolved_acyclic_successor", "rationale": "Supersession reference and cycle validation."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_missing_stale_unknown_and_unclassified_are_explicit", "rationale": "Explicit missing, stale, unknown, and unclassified reporting."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_report_bytes_are_stable_and_targets_are_never_imported", "rationale": "Deterministic report and import-inert inventory proof."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_cli_output_is_deterministic", "rationale": "Successful deterministic CLI behavior."},
+    {"node_id": "tests/test_historical_surface_disposition.py::test_registry_has_no_authority_fields_or_authority_module_dependencies", "rationale": "Capability, control-plane, and governor independence proof."}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_historical_surface_disposition.py::test_seed_registry_validates_and_preserves_bounded_claims",
+    "tests/test_historical_surface_disposition.py::test_cli_output_is_deterministic"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}

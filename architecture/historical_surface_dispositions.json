@@ -1,0 +1,68 @@
+{
+  "inventory_scope": [
+    "council/",
+    "council_adapters/",
+    "relay_app.py",
+    "sentient_mesh.py",
+    "sentientos/capability_registry.py",
+    "sentientos/control_plane_kernel.py",
+    "sentientos/council/governance_council.py",
+    "sentientos/runtime_governor.py",
+    "sentientos/world_state_board.py",
+    "sentientosd.py"
+  ],
+  "records": [
+    {
+      "disposition": "unknown_disposition",
+      "id": "legacy-dialogue-council",
+      "owner": null,
+      "paths": ["council/"],
+      "rationale": "Provider-adapter and dialogue-era files remain present, but current evidence does not establish a terminal architectural disposition.",
+      "references": ["council/runner.py", "tests/test_council_runner.py"],
+      "successor": null
+    },
+    {
+      "disposition": "alternate_runtime",
+      "id": "mesh-runtime",
+      "owner": "mesh",
+      "paths": ["sentient_mesh.py", "council_adapters/"],
+      "rationale": "The deterministic mesh scheduler and its voice adapters retain direct focused test coverage as a coexisting runtime surface.",
+      "references": ["tests/test_cycle_boundaries.py", "tests/test_council_adapters.py"],
+      "successor": null
+    },
+    {
+      "disposition": "alternate_runtime",
+      "id": "relay-runtime",
+      "owner": "relay",
+      "paths": ["relay_app.py"],
+      "rationale": "The Flask relay remains an independently invoked and tested runtime rather than the sentientosd daemon entry point.",
+      "references": ["tests/test_sentient_verifier_replay.py", "docs/TYPING_OFFENSIVE_AND_RATCHET_PROGRESS.md"],
+      "successor": null
+    },
+    {
+      "disposition": "canonical",
+      "id": "sentientos-governance-council",
+      "owner": "governance",
+      "paths": ["sentientos/council/governance_council.py"],
+      "rationale": "This deterministic quorum implementation is directly consumed by current reflex and Cathedral amendment machinery; it is not lineage evidence for the dialogue council.",
+      "references": ["sentientos/reflex/reflex_petitioner.py", "sentientos/cathedral/amendment_sentinel.py", "tests/test_governance_council.py"],
+      "successor": null
+    },
+    {
+      "disposition": "canonical",
+      "id": "sentientos-runtime-core",
+      "owner": "runtime-control-plane",
+      "paths": [
+        "sentientosd.py",
+        "sentientos/control_plane_kernel.py",
+        "sentientos/runtime_governor.py",
+        "sentientos/capability_registry.py",
+        "sentientos/world_state_board.py"
+      ],
+      "rationale": "The canonical daemon imports and exposes the control-plane and World-State surfaces, while current architecture and tests identify the governor and capability registry as present runtime truth surfaces.",
+      "references": ["sentientosd.py", "docs/architecture/public_technical_overview.md", "tests/test_sentientosd_runtime_closure.py", "tests/test_control_plane_kernel.py"],
+      "successor": null
+    }
+  ],
+  "schema": "sentientos.historical_surface_dispositions:v1"
+}
