@@ -186,6 +186,21 @@ boring.
   separate landing modes, and watchdog coordination. Explicitly configured
   `local_fast_forward_base_ref` landing can absorb the validated commit into the
   exact canonical local ref without network access.
+- Behaviorally closed maintenance recursion while the resident remains alive:
+  automatic authority continuity, successor-generation adoption, predecessor
+  quiescence, exact POSIX `sentientosd` process-image replacement, independent
+  successor readiness, and successor wake. Repository absorption and runtime
+  adoption remain distinct even though this bounded chain connects them.
+- Household Presence policy, inventory, zone/redaction, metadata, denial,
+  review, renewal, dry-run, continuation, and future-live custody. This does not
+  implement unrestricted live household-camera capture.
+
+### SCAFFOLDED / ELIGIBILITY-ONLY
+
+- `maintenance_resident_parent_supervision` admits an exact non-granting future
+  authority boundary. It does not implement a stable parent, child watcher,
+  process-death restart, or `sentientosd` integration; `real_service_restart`
+  remains blocked.
 
 Implemented means that source and tests establish a bounded mechanism. It does
 not mean every contract/readiness surface is deployed in an installation or
@@ -240,5 +255,6 @@ subjective feeling. These precise boundaries protect inquiry without pretending
 that today's mechanisms prove—or disprove—the cradle hypothesis.
 
 For current-system detail, see the [public technical overview](public_technical_overview.md),
+the [relationship to established terminology](relationship_to_existing_terminology.md),
 the [trajectory and missing-organs map](sentientos_trajectory_and_missing_organs.md),
 and the [reviewer release-readiness index](reviewer_release_readiness_index.md).

@@ -1,5 +1,304 @@
 # Public Technical Overview
 
+This is the canonical **present-tense** overview of SentientOS. The
+[capability registry](../../sentientos/capability_registry.py) remains the
+machine-readable authority for maturity and scope; subsystem contracts and
+behavioral tests remain authoritative for their surfaces. The [project
+thesis](sentientos_project_thesis.md) describes the research hypothesis, and the
+[trajectory map](sentientos_trajectory_and_missing_organs.md) separates future
+organs from current engineering.
+
+<!-- architecture-status:start -->
+## System and inference are different lifecycles
+
+**SentientOS is not identical to its currently active inference model.** The
+model is replaceable cognitive machinery inside a longer-lived, persistent,
+governed environment.
+
+A **system lifecycle** can retain or process durable state; selected, distilled,
+and developmental memory; context and reflection artifacts; perception,
+embodiment, household, and world-state evidence; runtime and host-resource
+state; authority and model-serving state; maintenance and software-generation
+history; and consequences, failures, and audit evidence outside any one
+inference operation. An **inference lifecycle** is episodic: one admitted model
+call receives selected context, computes, and emits output. It can reason,
+interpret, or contribute a proposal; it is neither the system's entire identity
+nor an authority source. System state does not cease to exist when token
+generation stops.
+
+That separation is an engineering architecture claim. It is not evidence of
+consciousness, phenomenal experience, demonstrated sentience, or moral
+patienthood.
+
+## Current-system anatomy
+
+```text
+persistent SentientOS environment
+|
++-- local model serving / replaceable inference machinery
++-- memory / distillation / context / reflection
++-- introspection / evidence / self-state
++-- perception / embodiment / Household Presence
++-- world-state / host-resource observation
++-- GUI / browser / bounded host interaction
++-- deterministic governance / authority / safety boundary
++-- maintenance / software evolution / generation adoption
++-- supervision / lifecycle / recovery substrate
+```
+
+These are conceptual groupings of current named repository surfaces, not newly
+invented implementation layers. Maturity vocabulary in this document means:
+
+- **CURRENT / IMPLEMENTED**: source plus behavioral proof exists.
+- **CURRENT / IMPLEMENTED BUT BOUNDED OR GOVERNED**: effect exists only inside
+  the stated authority and scope.
+- **PARTIAL**: some composition exists, but the whole conceptual organ does not.
+- **SCAFFOLDED / ELIGIBILITY-ONLY**: a non-granting authority or metadata
+  contract exists; the effectful runtime does not.
+- **DEFERRED**, **RESEARCH / TRAJECTORY**, and **BLOCKED** retain their ordinary
+  registry meanings.
+
+## Model serving and cognition
+
+**CURRENT / IMPLEMENTED BUT GOVERNED.** Catalog, acquisition, commissioning,
+activation, serving, and inference are deliberately separate. The production
+consumer authenticates current activation, rechecks it around bounded loading,
+and owns an opaque serving session. Every generation still requires independent
+`LOCAL_MODEL_INFERENCE` admission. Persistent governed conversation reconstructs
+bounded context and provenance. Model output does not grant tools, memory
+mutation, host effects, repository adoption, or policy authority. See the
+[`local_model_*` and conversation records](../../sentientos/capability_registry.py),
+[local-model authority map](../development/local_model_catalog_consumer_custody.md),
+and [conversation tests](../../tests/test_persistent_governed_conversation.py).
+
+## Perception and embodiment
+
+**CURRENT / PARTIAL.** The registry classifies `perception_audio`,
+`perception_screen`, and `perception_vision` as partial observation surfaces:
+audio ingress/egress adapters, screen OCR and normalized observations, and
+vision/perception telemetry APIs. A perception bus, sensory anchors,
+`embodiment_ingress`, `embodiment_fusion`, governance bridges, consent and
+retention paths compose evidence without granting device authority. Avatar and
+expression telemetry, host inventory, and read-only host-resource runtime
+observations add machine/body state. See [`sentientos/perception/`](../../sentientos/perception/),
+[`embodiment_ingress.py`](../../sentientos/embodiment_ingress.py),
+[`embodiment_fusion.py`](../../sentientos/embodiment_fusion.py), and
+[`host_resource_runtime.py`](../../sentientos/host_resource_runtime.py).
+
+Screen, microphone, camera-event, gaze, and facial/affect-related code must be
+read at its actual maturity. An observable expression, vocal/prosodic cue, or
+gaze estimate is not an inferred psychological state; an inference is not
+current truth; and neither is authority. Existing gaze/affect surfaces do not
+establish Theory of Mind or reliably reveal another person's inner state.
+
+## Household Presence
+
+**CURRENT / IMPLEMENTED POLICY AND METADATA CUSTODY; LIVE CAPTURE DEFERRED.**
+**Household Presence** is the canonical name for the composed household sensory
+and privacy surface. Current source provides sensor inventory reconciliation,
+camera event bridging, zone configuration and resolution, deadzone/masking and
+redaction policy, a camera policy chain, a host-inventory bridge, a local adapter
+shell, a no-hardware live-adapter stub, disabled-capture and dry-run adapters,
+capture review packets, denial and review-decision ledgers, operator trend and
+renewal/request machinery, a continuation gate, a future-live deferral registry,
+and review-chain summaries. These establish substantial doctrine, privacy,
+metadata flow, review, custody, denial, and future-live gating.
+
+They do **not** establish unrestricted live household-camera execution. The
+adapter shell and stub do not open hardware or retain raw media. Live camera
+hardware execution, live household microphone adapters, live Wi-Fi/CSI/RF
+environmental sensing or imaging, unrestricted speaker/talkback, and generic
+hardware/network/provider authority remain deferred or blocked. Start with the
+[camera policy chain](household_presence_camera_policy_chain.md), [dry-run
+adapter](household_presence_camera_dry_run_adapter.md), [capture review
+packet](household_presence_camera_capture_review_packet.md), [denial
+ledger](household_presence_camera_capture_denial_ledger.md), and [review-chain
+summary](household_presence_camera_review_chain_summary_packet.md).
+
+## Memory, context, reflection, and distillation
+
+**CURRENT / PARTIAL AND GOVERNED.** Memory is not “save chat messages and fetch
+them later.” Persistent governed conversation and `selective_conversation_memory`
+provide bounded reconstruction, read-only canonical retrieval, and independently
+admitted explicit user-turn retention. The selective-memory chain represents
+retain, distill, capsule, protect, merge, reject, and tomb-intent decisions;
+verifies tomb and receipt relationships; and carries provenance through governed
+writer, boundary-admission, commit-plan, operator-approval, readiness, dry-run,
+and interlock artifacts. Context hygiene and reflection surfaces qualify what is
+selected for cognition.
+
+Most of the distillation-to-live-commit chain is **metadata verification**, not
+real memory mutation. A tomb intent is not deletion; approval is not execution;
+a capsule is not truth or policy. The real live-memory executor, memory-root
+writes/deletes, live index mutation, capsule/summary persistence, and completed
+tombs remain deferred. This is belief-revision-oriented epistemic custody, not a
+formal Truth Maintenance System. See the [distillation
+contract](selective_memory_distillation_contract.md), [tomb
+verifier](selective_memory_tomb_receipt_verifier.md), [live boundary
+gate](live_memory_boundary_admission_gate.md), and [commit plan](memory_commit_plan_packet.md).
+
+```text
+memory != current truth
+```
+
+## Evidence-bound introspection and self-state
+
+**CURRENT / IMPLEMENTED BUT BOUNDED.** Deterministic records can establish exact
+machine facts—subject to freshness and provenance—about runtime health, active
+model identity, persistent configuration, capability/deferred status, authority
+posture, hardware/resources, maintenance outcomes and software changes, process
+and repository generations, failures/consequences, and memory/context custody.
+This supports an evidence-bound self-account rather than reliance on model
+intuition. It is not perfect self-knowledge or philosophical omniscience. See
+[`capability_registry.py`](../../sentientos/capability_registry.py),
+[`sentientosd.py`](../../sentientosd.py), and the [reviewer readiness
+index](reviewer_release_readiness_index.md).
+
+## World state and resource awareness
+
+**CURRENT / IMPLEMENTED BUT READ-ONLY.** `world_state_evidence_board` builds
+digest-bound snapshots with source-manifest, staleness, and contradiction
+postures and exposes inspected projections. It is evidence custody, not
+autonomous decision, admission, execution, or adoption authority, and should not
+be inflated into a complete cognitive world model. Host inventory and resource
+runtime surfaces observe compute, memory, storage, thermal/power, device, and
+service facts where adapters support them; observation does not grant fan, PWM,
+thermal, power-profile, or service-control effects. See
+[`world_state_board.py`](../../sentientos/world_state_board.py) and
+[`host_resource_governor.py`](../../sentientos/host_resource_governor.py).
+
+## Host interaction: bounded hands, not blanket control
+
+**CURRENT / PARTIAL AND BOUNDED.** Screen OCR, GUI input adapters, mouse/keyboard
+and browser automation surfaces, process/system and resource observation, and
+bounded workspace/file-effect pilots are real implementation surfaces. Their
+policy and custody restrictions do not make them fictitious. Equally, they do
+not amount to universal computer control: general filesystem, subprocess,
+hardware, service, power, package/driver, network, provider, and arbitrary
+process authority remain separately governed, deferred, or blocked. Review the
+[control-plane authority map](../control_plane_authority_map.md) and [host
+actuation safety gate](host_actuation_safety_gate_wing.md).
+
+## Governance is the reality boundary
+
+Stochastic cognition may reason, interpret, speculate, remember, propose,
+implement within custody, and be wrong. Deterministic machinery owns current
+authoritative state, admissibility, exact scope, authorization, execution
+custody, validation, adoption, provenance, denial, and bounded rollback only
+where explicitly admitted.
+
+```text
+state != authority
+memory != current truth
+proposal != authorization
+authorization != execution
+execution != validation
+validation != adoption
+publication != deployment
+repository absorption != runtime adoption
+```
+
+This architecture is capability-security-oriented, least-privilege-oriented,
+and runtime-assurance-like on mediated surfaces. The repository does not claim
+global complete mediation or tamper resistance, so it is not asserted to be a
+formal reference monitor; it also does not implement the canonical Simplex
+high-performance/safety-controller switch structure. See [governance
+doctrine](../GOVERNANCE_DOCTRINE.md) and the [authority map](../control_plane_authority_map.md).
+
+## Governed maintenance and runtime generations
+
+**CURRENT / IMPLEMENTED BUT BOUNDED.** While the resident process remains alive,
+the current behaviorally closed path is:
+
+```text
+observe current-system / improvement evidence
+-> form bounded maintenance work
+-> obtain and use exact maintenance authority
+-> implement through admitted implementation machinery
+-> validate and correct
+-> deterministically land / locally absorb repository state
+-> derive exact successor maintenance authority and configuration
+-> adopt exact successor wake configuration
+-> quiesce predecessor wake
+-> replace the resident POSIX sentientosd process image
+-> independently prove successor resident readiness
+-> permit successor wake
+-> continue under the new maintenance generation
+```
+
+Automatic authority continuity, successor-generation adoption, and
+`maintenance_resident_runtime_adoption` have source, `sentientosd` integration,
+and behavioral proof. Exact process-image replacement is not classic in-place
+DSU: it uses predecessor quiescence, `exec`, launch provenance, post-exec
+reconciliation, readiness, and wake handoff. The chain closes bounded
+self-maintenance and system/scaffold evolution, not unrestricted recursive
+self-improvement, autonomous model-weight improvement, or arbitrary repository
+mutation. See [automatic continuity](../development/maintenance_authority_continuity_auto_derivation.md),
+[successor adoption](../development/maintenance_successor_generation_adoption.md),
+and [resident runtime adoption](../development/maintenance_resident_runtime_adoption.md).
+
+## Parent-supervision admission and the remaining availability boundary
+
+**SCAFFOLDED / ELIGIBILITY-ONLY.** `maintenance_resident_parent_supervision` has
+category `runtime_supervision`, principal
+`deterministic_maintenance_resident_parent_supervision_controller`, status
+`scaffolded`, and authority `eligibility_only`. Its non-granting contract defines
+a future boundary for one exact `sentientosd` child, resident transaction
+custody, exact maintenance lineage, bounded parent supervision, process-death
+recovery, launch provenance, and post-restart readiness.
+
+No stable parent runtime is implemented. No child watcher/restart loop or
+runtime `sentientosd` integration exists for this capability. Unexpected child
+death alone does not authorize restart; ambiguous custody fails closed; generic
+`real_service_restart` remains **BLOCKED / none**. Stable parent execution,
+process-death recovery, post-restart integration, platform-specific semantics,
+Windows-native process replacement, parent self-update, OS-service
+installation/persistence, and automatic rollback remain deferred. See the
+[parent-supervision authority contract](../development/maintenance_resident_parent_supervision_authority.md),
+[registry record](../../sentientos/capability_registry.py), and [admission
+tests](../../tests/test_maintenance_resident_parent_supervision_capability_admission.py).
+
+## Relationship to established terminology
+
+The [relationship to existing terminology](relationship_to_existing_terminology.md)
+performs the detailed comparison. In brief, SentientOS is an **agent-operating
+environment related to Agent Operating System and cognitive-architecture
+literature**, not merely a model-facing harness. Its maintained evidence and
+change surfaces relate to computational reflection, self-aware computing,
+autonomic/self-adaptive systems, and MAPE-K without claiming exact canonical
+conformance. Its sensory code has subsystem-level relationships to social signal
+processing, affective computing, context-aware computing, and machine
+interoception. Its epistemic custody is related to memory consolidation and
+belief revision but is not a formal TMS/ATMS. Its mediated authority is
+reference-monitor-like and runtime-assurance-like only on bounded surfaces. Its
+governed process-image replacement is related to live software evolution, not
+classic DSU equivalence.
+
+Event sourcing, active inference, autopoiesis, Gödel-machine, Theory-of-Mind,
+AGI, formal Simplex, formal global reference-monitor, personal-knowledge-graph,
+and consciousness claims are not currently justified. Wi-Fi/RF sensing and
+passive/closed-loop BCI are **RESEARCH / TRAJECTORY**, not current capability.
+<!-- architecture-status:end -->
+
+## Reviewer path
+
+1. Inspect the [capability registry](../../sentientos/capability_registry.py).
+2. Follow the source, proof-test, implemented-surface, deferred-surface, and
+   forbidden-implication fields for the capability in question.
+3. Use the [release-readiness index](reviewer_release_readiness_index.md) for
+   proof commands and the [trajectory map](sentientos_trajectory_and_missing_organs.md)
+   for deferred work.
+4. Treat older phase/proof documents as historical evidence for their own
+   landing, not as the present-tense system summary.
+
+---
+
+## Subsystem proof catalogue (preserved navigation)
+
+The following established proof links retain subsystem and historical landing navigation. Status claims above are canonical when older wording differs.
+
+# Public Technical Overview
+
 This document describes the current technical system and points to reviewer
 proof. The canonical project purpose and maturity boundaries are in
 [SentientOS Project Thesis and Current System](sentientos_project_thesis.md).
@@ -146,7 +445,8 @@ Local absorption requires separate `repository_commit` and
 advances only the exact configured canonical local ref. The watchdog is external
 bounded developer-workflow machinery, not a scheduler and not a `sentientosd`
 service. Candidate collection, external scheduler invocation, hosted publication,
-and runtime restart/adoption remain separate.
+and runtime adoption were historically separate; the current bounded resident
+chain now connects them without collapsing their distinct authority stages.
 
 Reviewer entry points include `docs/development/maintenance_task_authority_lease.md`,
 `docs/development/maintenance_local_codex_foreman.md`,

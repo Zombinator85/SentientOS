@@ -1,5 +1,18 @@
 # SentientOS Documentation
 
+## Start with the current architecture
+
+- [Current Architecture](architecture/public_technical_overview.md) — canonical present-tense system anatomy and maturity boundaries.
+- [Relationship to Established Terminology](architecture/relationship_to_existing_terminology.md) — qualified comparisons to AOS, cognitive architecture, memory, embodiment, runtime assurance, and software-evolution literature.
+- [Project Thesis and Maturity](architecture/sentientos_project_thesis.md) — cradle hypothesis, philosophy, invariants, and current maturity.
+- [Roadmap and Research Trajectory](architecture/sentientos_trajectory_and_missing_organs.md) — deferred organs and research horizons.
+- [Reviewer Release Readiness](architecture/reviewer_release_readiness_index.md) — subsystem proof and historical landing evidence.
+
+Current architecture and terminology pages describe the integrated present. Subsystem
+contracts define bounded capability details; historical phase/proof documents preserve
+the status at their landing and must not be read as a newer CURRENT summary.
+
+
 SentientOS is a deterministic governance-and-audit runtime for
 operator-directed automation.
 

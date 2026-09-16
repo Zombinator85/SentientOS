@@ -1,9 +1,11 @@
 site_name: SentientOS
 nav:
   - Home: README.md
+  - Current Architecture: docs/architecture/public_technical_overview.md
+  - Relationship to Established Terminology: docs/architecture/relationship_to_existing_terminology.md
   - Project Thesis and Maturity: docs/architecture/sentientos_project_thesis.md
+  - Roadmap and Research Trajectory: docs/architecture/sentientos_trajectory_and_missing_organs.md
   - One Pager: one_pager.md
-  - Public Technical Overview: docs/architecture/public_technical_overview.md
   - Installation and Usage: docs/USAGE.md
   - Reviewer Readiness: docs/architecture/reviewer_release_readiness_index.md
   - Rituals: docs/rituals.md
