@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 from sentientos.historical_surface_disposition import (
+    InventoryReport,
     SCHEMA,
     build_inventory_report,
     dumps_report,
@@ -15,6 +16,7 @@ from sentientos.historical_surface_disposition import (
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "architecture" / "historical_surface_dispositions.json"
+COUNCIL_LINEAGES = ROOT / "architecture" / "council_lineages.json"
 
 
 def payload(*records: dict[str, object], scope: list[str] | None = None) -> dict[str, object]:
@@ -39,7 +41,7 @@ def record(
     }
 
 
-def report_for(tmp_path: Path, raw: dict[str, object]):
+def report_for(tmp_path: Path, raw: dict[str, object]) -> InventoryReport:
     (tmp_path / "present.py").write_text("raise RuntimeError('must not execute')\n", encoding="utf-8")
     registry, errors = parse_registry(raw)
     return build_inventory_report(registry, tmp_path, errors)
@@ -142,3 +144,47 @@ def test_registry_has_no_authority_fields_or_authority_module_dependencies() -> 
         "sentientos/runtime_governor.py",
     ):
         assert "historical_surface_disposition" not in (ROOT / path).read_text(encoding="utf-8")
+
+
+def test_council_lineage_evidence_is_bounded_and_matches_registry() -> None:
+    evidence = json.loads(COUNCIL_LINEAGES.read_text(encoding="utf-8"))
+    assert evidence["schema"] == "sentientos.council_lineages:v1"
+    assert evidence["confidence_ontology"] == [
+        "verified_fact",
+        "strong_inference",
+        "weak_hypothesis",
+        "unknown",
+    ]
+    assert "not one evidenced successor chain" in evidence["non_conflation_conclusion"]["detail"]
+
+    lineages = {item["stable_identity"]: item for item in evidence["surfaces"]}
+    assert set(lineages) == {
+        "legacy-dialogue-council",
+        "mesh-runtime-voices",
+        "sentientos-governance-council",
+    }
+    assert lineages["legacy-dialogue-council"]["disposition"] == "unknown_disposition"
+    assert lineages["mesh-runtime-voices"]["disposition"] == "alternate_runtime"
+    assert lineages["sentientos-governance-council"]["disposition"] == "canonical"
+    assert all(item["predecessor"] is None and item["successor"] is None for item in lineages.values())
+
+    registry, errors = load_registry(REGISTRY)
+    assert errors == ()
+    dispositions = {item.surface_id: item.disposition for item in registry.records}
+    assert dispositions["legacy-dialogue-council"] == lineages["legacy-dialogue-council"]["disposition"]
+    assert dispositions["mesh-runtime"] == lineages["mesh-runtime-voices"]["disposition"]
+    assert dispositions["sentientos-governance-council"] == lineages["sentientos-governance-council"]["disposition"]
+
+
+def test_council_archaeology_metadata_cannot_enter_runtime_authority() -> None:
+    runtime_authority_paths = (
+        "sentientos/capability_registry.py",
+        "sentientos/control_plane_kernel.py",
+        "sentientos/runtime_governor.py",
+        "sentientos/council/governance_council.py",
+        "sentient_mesh.py",
+    )
+    for path in runtime_authority_paths:
+        source = (ROOT / path).read_text(encoding="utf-8")
+        assert "council_lineages.json" not in source
+        assert "historical_surface_dispositions.json" not in source
