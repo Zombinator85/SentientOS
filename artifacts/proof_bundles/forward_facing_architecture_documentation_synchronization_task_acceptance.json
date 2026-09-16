@@ -1,0 +1,120 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "documentation_status_truth",
+  "repository_sha": "44a3790c103a2ebe48948cf555dc74a38cf536c1",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_readme_system_vs_model_lifecycle",
+      "rationale": "README distinguishes persistent system and episodic inference lifecycles."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_public_overview_current_system_anatomy",
+      "rationale": "Overview exposes the integrated current-system anatomy."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_perception_embodiment_is_source_backed",
+      "rationale": "Perception and embodiment prose binds to registry/source truth."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_household_presence_degree_of_closure_is_source_backed",
+      "rationale": "Household Presence closure and live-camera boundary bind to registry truth."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_memory_distillation_context_reflection_is_source_backed",
+      "rationale": "Memory distillation is represented as governed custody rather than chat storage."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_introspection_self_state_is_evidence_bound",
+      "rationale": "Introspection remains evidence-bound rather than omniscient."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_host_interaction_is_source_backed_and_bounded",
+      "rationale": "Host interaction remains implemented and bounded."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_maintenance_recursion_through_resident_adoption_is_current",
+      "rationale": "Maintenance recursion reaches implemented resident runtime adoption."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_parent_supervision_is_scaffolded_eligibility_only",
+      "rationale": "Parent supervision remains scaffolded and eligibility-only."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_parent_runtime_and_process_death_recovery_are_unimplemented",
+      "rationale": "Stable parent and death recovery remain unimplemented."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_generic_service_restart_remains_blocked",
+      "rationale": "Generic service restart remains blocked and authority-none."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_stale_pre_resident_maintenance_statement_is_absent",
+      "rationale": "Stale pre-resident current prose is absent."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_navigation_exposes_current_architecture",
+      "rationale": "Navigation exposes the current architecture."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_terminology_page_exists_and_is_linked",
+      "rationale": "Terminology mapping exists and is linked."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_aos_scaffold_and_cognitive_architecture_are_qualified",
+      "rationale": "AOS, scaffold, and cognitive-architecture relationships are qualified."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_social_signal_and_affective_terms_are_qualified",
+      "rationale": "Social/affective terminology does not infer hidden state or Theory of Mind."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_belief_revision_and_tms_terms_are_qualified",
+      "rationale": "Belief-revision language does not claim formal TMS/ATMS."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_runtime_assurance_and_reference_monitor_are_qualified",
+      "rationale": "Runtime-assurance language does not claim global reference-monitor or Simplex equivalence."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_software_evolution_and_dsu_are_qualified",
+      "rationale": "Software evolution is not inflated into classic DSU."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_wifi_rf_claims_remain_deferred",
+      "rationale": "Wi-Fi/RF sensing remains deferred/research."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_consciousness_and_sentience_remain_nonclaims",
+      "rationale": "Consciousness and sentience remain explicit non-claims."
+    },
+    {
+      "node_id": "tests/test_forward_facing_architecture_docs.py::test_capability_status_and_prose_drift_contract",
+      "rationale": "Capability truth and consequential denial phrases remain mechanically bound."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_forward_facing_architecture_docs.py::test_readme_system_vs_model_lifecycle",
+    "tests/test_forward_facing_architecture_docs.py::test_public_overview_current_system_anatomy",
+    "tests/test_forward_facing_architecture_docs.py::test_perception_embodiment_is_source_backed",
+    "tests/test_forward_facing_architecture_docs.py::test_household_presence_degree_of_closure_is_source_backed",
+    "tests/test_forward_facing_architecture_docs.py::test_memory_distillation_context_reflection_is_source_backed",
+    "tests/test_forward_facing_architecture_docs.py::test_introspection_self_state_is_evidence_bound",
+    "tests/test_forward_facing_architecture_docs.py::test_host_interaction_is_source_backed_and_bounded",
+    "tests/test_forward_facing_architecture_docs.py::test_maintenance_recursion_through_resident_adoption_is_current",
+    "tests/test_forward_facing_architecture_docs.py::test_parent_supervision_is_scaffolded_eligibility_only",
+    "tests/test_forward_facing_architecture_docs.py::test_parent_runtime_and_process_death_recovery_are_unimplemented",
+    "tests/test_forward_facing_architecture_docs.py::test_generic_service_restart_remains_blocked",
+    "tests/test_forward_facing_architecture_docs.py::test_stale_pre_resident_maintenance_statement_is_absent",
+    "tests/test_forward_facing_architecture_docs.py::test_navigation_exposes_current_architecture",
+    "tests/test_forward_facing_architecture_docs.py::test_terminology_page_exists_and_is_linked",
+    "tests/test_forward_facing_architecture_docs.py::test_aos_scaffold_and_cognitive_architecture_are_qualified",
+    "tests/test_forward_facing_architecture_docs.py::test_social_signal_and_affective_terms_are_qualified",
+    "tests/test_forward_facing_architecture_docs.py::test_belief_revision_and_tms_terms_are_qualified",
+    "tests/test_forward_facing_architecture_docs.py::test_runtime_assurance_and_reference_monitor_are_qualified",
+    "tests/test_forward_facing_architecture_docs.py::test_software_evolution_and_dsu_are_qualified",
+    "tests/test_forward_facing_architecture_docs.py::test_wifi_rf_claims_remain_deferred",
+    "tests/test_forward_facing_architecture_docs.py::test_consciousness_and_sentience_remain_nonclaims",
+    "tests/test_forward_facing_architecture_docs.py::test_capability_status_and_prose_drift_contract"
+  ]
+}

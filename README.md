@@ -29,6 +29,65 @@ Start with:
 - **Current supported installation:** [Installation](#-installation) and [`docs/USAGE.md`](docs/USAGE.md)
 - **Reviewer proof:** [`docs/architecture/reviewer_release_readiness_index.md`](docs/architecture/reviewer_release_readiness_index.md), or generate a metadata-only local bundle with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`
 
+<!-- architecture-status:start -->
+## The integrated system, not just its model
+
+**SentientOS is not identical to its currently active inference model.** It is a
+persistent, governed, sensorimotor, developmental, and self-maintaining software
+environment. A foundation or inference model is **replaceable cognitive
+machinery** operating inside that longer-lived environment.
+
+Two lifecycles therefore matter:
+
+- **System lifecycle.** Durable system state, selected and distilled memory,
+  developmental history, context and reflection artifacts, perception and
+  world-state evidence, embodiment and host-resource state, authority posture,
+  model/serving identity, maintenance state, software generations, failures,
+  consequences, and audit evidence can exist before, during, and after one
+  inference call.
+- **Inference lifecycle.** A call receives selected context, computes, and emits
+  output. It may contribute reasoning or a bounded proposal, but it does not
+  become the whole identity or lifetime of SentientOS. Persistent state does not
+  require token generation to continue existing.
+
+This lifecycle distinction is an engineering statement, not a claim of
+consciousness, sentience, subjective experience, or moral status.
+
+### Current architecture at a glance
+
+| Organ | Current posture |
+|---|---|
+| Local model serving and inference | **CURRENT / IMPLEMENTED BUT GOVERNED** — independently admitted local serving and inference; model output grants no authority. |
+| Memory, context, reflection, and distillation | **CURRENT / PARTIAL AND GOVERNED** — persistent conversation, bounded retrieval/retention, and metadata-only retain/distill/capsule/tomb and commit-review chains; real live-memory mutation remains deferred. |
+| Perception and embodiment | **CURRENT / PARTIAL** — audio, screen/OCR, vision telemetry, embodiment ingress/fusion/governance, avatar and host-resource observation exist at different bounded maturities. |
+| **Household Presence** | **CURRENT / IMPLEMENTED POLICY AND METADATA CUSTODY** — inventory, event, zone, redaction, dry-run, denial, review, renewal, continuation, and deferral surfaces exist; unrestricted live camera/microphone capture, Wi-Fi/RF sensing, and talkback do not. |
+| Introspection and world state | **CURRENT / IMPLEMENTED BUT EVIDENCE-BOUND** — exact machine facts and read-only `world_state_evidence_board` snapshots; neither is omniscience or decision authority. |
+| Host interaction | **CURRENT / BOUNDED** — screen, GUI/mouse/keyboard/browser adapters, observation, and narrow workspace/file-effect pilots; not blanket computer control. |
+| Maintenance recursion | **CURRENT / IMPLEMENTED BUT BOUNDED** — admitted work can be implemented, validated, locally absorbed, transformed into an exact successor generation, and adopted by governed POSIX `sentientosd` process-image replacement while the resident remains alive. |
+| Parent supervision | **SCAFFOLDED / ELIGIBILITY-ONLY** — `maintenance_resident_parent_supervision` defines a non-granting future boundary. No stable parent, watcher/restart loop, or process-death recovery runtime exists. |
+| Generic restart | **BLOCKED** — `real_service_restart` remains `blocked / none`. |
+
+Governance is the reality boundary:
+
+```text
+state != authority                 memory != current truth
+proposal != authorization          authorization != execution
+execution != validation            validation != adoption
+publication != deployment          repository absorption != runtime adoption
+```
+
+The bounded resident maintenance chain now reaches independently proven
+successor readiness and successor wake after exact process-image replacement.
+That is substantial loop closure, not unrestricted recursive self-improvement,
+arbitrary repository mutation, model-weight self-improvement, automatic
+rollback, or recovery after the resident process unexpectedly dies.
+
+Read the [present-tense technical overview](docs/architecture/public_technical_overview.md),
+the [relationship to established terminology](docs/architecture/relationship_to_existing_terminology.md),
+the [project thesis](docs/architecture/sentientos_project_thesis.md), and the
+[trajectory/deferred map](docs/architecture/sentientos_trajectory_and_missing_organs.md).
+<!-- architecture-status:end -->
+
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
 [![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)
@@ -215,25 +274,24 @@ canonical hardened authority path.
 
 ### Governed maintenance path
 
-The canonical maintenance path begins with an admitted, operator-authorized task and
-a scope-bound authority lease. Existing components can coordinate bounded local
-implementation, validation and same-thread correction, deterministic commit-object
-construction, and a separately selected landing mode. The landing modes are remote
-fast-forward, pull request, and explicitly configured offline
-`local_fast_forward_base_ref` absorption. Local absorption advances only the exact
-configured canonical local ref to the already validated commit and synchronizes its
-checkout under fail-closed recovery rules; it performs no network or remote
-publication operation.
+The current bounded chain can observe improvement evidence, form admitted work,
+use an exact maintenance lease, implement and validate/correct in custody, build
+and locally absorb the exact repository commit, derive the exact successor
+authority/configuration, adopt its wake configuration, quiesce predecessor wake,
+replace the resident POSIX `sentientosd` process image, prove successor resident
+readiness independently, and permit successor wake. Automatic-continuity and
+successor-generation adoption preserve exact lineage. Repository absorption and
+runtime adoption remain separate stages even though the pipeline now connects
+them. See the [current overview](docs/architecture/public_technical_overview.md#governed-maintenance-and-runtime-generations).
 
-The maintenance watchdog is an externally invoked bounded coordinator. It selects
-and dispatches one canonical transition per tick (or repeats only within explicit
-`run-bounded` limits); it is not a scheduler and is not integrated into
-`sentientosd`. With explicit operator authority and local landing configuration, the
-bounded path can carry an admitted task through implementation, validation,
-deterministic commit creation, and canonical local repository absorption entirely
-offline. Candidate intake, scheduler invocation, and runtime restart/adoption remain
-separate. Repository absorption changes files on disk; it does not silently install
-new authority or load the new code into a running process.
+Resident self-replacement is **CURRENT / IMPLEMENTED BUT BOUNDED**. The
+`maintenance_resident_parent_supervision` authority contract is only
+**SCAFFOLDED / ELIGIBILITY-ONLY**: no stable parent process, child watcher/restart
+loop, runtime integration, or process-death recovery is implemented. Unexpected
+death is not restart permission, ambiguous custody fails closed, and generic
+`real_service_restart` remains **BLOCKED**. Windows-native replacement, parent
+self-update, OS-service installation/persistence, and automatic rollback remain
+deferred.
 
 Historical `GenesisForge`, `SpecAmender`, `CodexHealer`, repository-handoff, and
 `updater.py` surfaces remain available where documented. They are proposal,

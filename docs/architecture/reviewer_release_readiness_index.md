@@ -166,8 +166,13 @@ commit; commit is not repository absorption/publication; and repository absorpti
 not runtime restart/adoption. Local absorption is a real bounded repository effect, not
 "automatic adoption": it requires explicit local authority and exact configuration,
 performs no remote publication, and does not install a scheduler. The scheduler remains bounded; `sentientosd` owns repeated lifetimes only after an
-operator explicitly binds one exact profile. This lifecycle integration neither creates
-candidates nor changes watchdog, lease, implementation, validation, or landing authority.
+operator explicitly binds one exact profile. Current automatic-continuity,
+successor-generation-adoption, and resident-runtime-adoption proofs extend this chain
+through exact successor configuration, predecessor quiescence, bounded POSIX process-image
+replacement, independent resident readiness, and successor wake. Repository absorption
+still differs from runtime adoption. `maintenance_resident_parent_supervision` is only a
+scaffolded/eligibility-only authority contract: no stable parent or process-death recovery
+runtime exists, and `real_service_restart` remains blocked.
 
 ### Test runner bootstrap reliability
 
