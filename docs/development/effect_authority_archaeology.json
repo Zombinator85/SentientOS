@@ -1,0 +1,57 @@
+{
+  "artifact_kind": "descriptive_effect_authority_archaeology",
+  "authority": "none",
+  "runtime_consumers": [],
+  "schema_version": 1,
+  "surfaces": [
+    {
+      "path": "sentientos/capability_registry.py",
+      "symbols": [
+        "CapabilityRegistry",
+        "CapabilityRecord",
+        "disable_capability"
+      ]
+    },
+    {
+      "path": "sentientos/control_plane_kernel.py",
+      "symbols": [
+        "ControlPlaneKernel.admit",
+        "ControlPlaneKernel.admit_and_execute"
+      ]
+    },
+    {
+      "path": "sentientos/runtime_governor.py",
+      "symbols": [
+        "RuntimeGovernor.admit_action"
+      ]
+    },
+    {
+      "path": "sentientos/governed_local_model_invocation.py",
+      "symbols": [
+        "GovernedLocalModelInvoker.invoke"
+      ]
+    },
+    {
+      "path": "api/actuator.py",
+      "symbols": [
+        "act",
+        "run_shell",
+        "http_fetch",
+        "file_write",
+        "send_email"
+      ]
+    },
+    {
+      "path": "sentientos/local_diagnostic_effect.py",
+      "symbols": [
+        "perform_local_diagnostic_effect"
+      ]
+    },
+    {
+      "path": "sentientos/workspace_change_set_execution.py",
+      "symbols": [
+        "execute_workspace_change_set"
+      ]
+    }
+  ]
+}
