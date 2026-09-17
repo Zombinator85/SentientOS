@@ -13,7 +13,7 @@
     "confidence": "verified_fact",
     "detail": "The dialogue family can now be decomposed without asserting succession: WDM is a reachable alternate runtime; council Bus/Message/Referee are its exercised dependencies; the separately tested standalone runner and its deterministic provider-named stubs remain smaller explicit unknowns. council_adapters/ and the governance council remain separate families, and no locally available history or source declares a predecessor/successor relationship among them."
   },
-  "schema": "sentientos.council_lineages:v2",
+  "schema": "sentientos.council_lineages:v3",
   "surfaces": [
     {
       "stable_identity": "wdm-runtime",
@@ -97,7 +97,17 @@
         "runtime_governor": false,
         "maintenance": false,
         "runtime_adoption": false
-      }
+      },
+      "independent_invocation": "Yes: CLI, FastAPI application, Cathedral GUI panel, and direct library calls are present; no canonical-daemon launch is present.",
+      "tests": [
+        "tests/test_wdm_cli.py",
+        "tests/test_wdm_smoke.py",
+        "tests/test_wdm_summary.py",
+        "tests/test_wdm_cheers.py",
+        "tests/test_presence_log.py",
+        "tests/test_presence_stream.py",
+        "tests/test_ledger.py"
+      ]
     },
     {
       "stable_identity": "wdm-council-primitives",
@@ -138,7 +148,25 @@
       "successor": null,
       "unresolved_contradictions": [
         "Pre-boundary origin and original ownership are unavailable."
-      ]
+      ],
+      "independent_invocation": "No standalone entry surface; these modules are imported by WDM and council.runner.",
+      "persistence": "Bus is in-memory unless a consumer calls Bus.dump_jsonl; WDM invokes that method for transcript and cheers outputs.",
+      "tests": [
+        "tests/test_wdm_smoke.py",
+        "tests/test_council_smoke.py"
+      ],
+      "effect_boundaries": {
+        "filesystem_writes": "consumer_requested_bus_dump_only",
+        "network": false,
+        "provider_invocation": false,
+        "subprocess": false,
+        "repository_mutation": false,
+        "capability_admission": false,
+        "control_plane_kernel": false,
+        "runtime_governor": false,
+        "maintenance": false,
+        "runtime_adoption": false
+      }
     },
     {
       "stable_identity": "legacy-council-runner",
@@ -174,7 +202,24 @@
       "unresolved_contradictions": [
         "A test and README scaffold description prove preservation, not whether its supported role is current runtime, compatibility, historical experiment, or another disposition.",
         "No available history proves retirement or succession."
-      ]
+      ],
+      "independent_invocation": "Importable library function only; no CLI, API, GUI, daemon, or repository-owned operator launch command was found.",
+      "persistence": "None in the runner; it returns the in-memory Bus history and does not call Bus.dump_jsonl.",
+      "tests": [
+        "tests/test_council_smoke.py"
+      ],
+      "effect_boundaries": {
+        "filesystem_writes": false,
+        "network": false,
+        "provider_invocation": false,
+        "subprocess": false,
+        "repository_mutation": false,
+        "capability_admission": false,
+        "control_plane_kernel": false,
+        "runtime_governor": false,
+        "maintenance": false,
+        "runtime_adoption": false
+      }
     },
     {
       "stable_identity": "legacy-council-provider-stubs",
@@ -210,7 +255,25 @@
       "unresolved_contradictions": [
         "Shallow history cannot establish whether live-provider behavior existed earlier.",
         "Current evidence does not affirm historical-experiment, compatibility-only, operator-legacy, retired, or superseded status."
-      ]
+      ],
+      "independent_invocation": "No standalone entry surface; classes are instantiated by council.runner and remain directly importable as library objects.",
+      "persistence": "None.",
+      "tests": [
+        "tests/test_council_smoke.py (indirect through council.runner)"
+      ],
+      "effect_boundaries": {
+        "filesystem_writes": false,
+        "network": false,
+        "provider_invocation": false,
+        "credential_reads": false,
+        "subprocess": false,
+        "repository_mutation": false,
+        "capability_admission": false,
+        "control_plane_kernel": false,
+        "runtime_governor": false,
+        "maintenance": false,
+        "runtime_adoption": false
+      }
     },
     {
       "authority_relationship": "Voice exchanges influence trust inside Sentient Mesh, with advisory voices down-weighted. They do not create node capabilities or confer control-plane, RuntimeGovernor, host, network, maintenance, or runtime-adoption authority.",
