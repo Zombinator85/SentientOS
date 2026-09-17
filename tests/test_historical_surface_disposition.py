@@ -153,7 +153,7 @@ def test_registry_has_no_authority_fields_or_authority_module_dependencies() -> 
 
 def test_council_lineage_evidence_is_bounded_and_matches_registry() -> None:
     evidence = json.loads(COUNCIL_LINEAGES.read_text(encoding="utf-8"))
-    assert evidence["schema"] == "sentientos.council_lineages:v2"
+    assert evidence["schema"] == "sentientos.council_lineages:v3"
     assert evidence["confidence_ontology"] == [
         "verified_fact",
         "strong_inference",
@@ -178,6 +178,26 @@ def test_council_lineage_evidence_is_bounded_and_matches_registry() -> None:
     assert lineages["mesh-runtime-voices"]["disposition"] == "alternate_runtime"
     assert lineages["sentientos-governance-council"]["disposition"] == "canonical"
     assert all(item["predecessor"] is None and item["successor"] is None for item in lineages.values())
+
+    for identity in (
+        "wdm-runtime",
+        "wdm-council-primitives",
+        "legacy-council-runner",
+        "legacy-council-provider-stubs",
+    ):
+        item = lineages[identity]
+        assert item["independent_invocation"]
+        assert item["tests"]
+    for identity in (
+        "wdm-council-primitives",
+        "legacy-council-runner",
+        "legacy-council-provider-stubs",
+    ):
+        item = lineages[identity]
+        assert item["persistence"]
+        assert item["effect_boundaries"]["capability_admission"] is False
+        assert item["effect_boundaries"]["control_plane_kernel"] is False
+        assert item["effect_boundaries"]["runtime_governor"] is False
 
     registry, errors = load_registry(REGISTRY)
     assert errors == ()
