@@ -1,0 +1,249 @@
+{
+  "schema": "sentientos.authoritative_state_evidence_custody:v1",
+  "authoritative_runtime_behavior": false,
+  "generated": false,
+  "confidence_ontology": [
+    "verified_fact",
+    "strong_inference",
+    "partial_evidence",
+    "unknown"
+  ],
+  "surfaces": [
+    {
+      "identity": "world_state_evidence_board",
+      "implementation": [
+        "sentientos/world_state_board.py:WorldStateBoardBuilder",
+        "sentientos/world_state_sources.py:load_manifest"
+      ],
+      "producer": "typed local evidence adapters",
+      "writer_or_admission_owner": "caller-supplied manifest loader and deterministic projection builder",
+      "consumer": "sentientosd maintenance projection and authenticated dashboard readers",
+      "persistence": "atomic per-tick projection under injected runtime-state root; reconstructible from source evidence",
+      "provenance": "source id, kind, schema, digest, subject, lifecycle stage, optional observed_at",
+      "freshness": "fresh/aging/stale/expired/undated; historical kinds are not_applicable",
+      "authority_class": "derived_read_only_projection",
+      "effect_relationship": "all authority flags false; no decision, admission, execution, adoption, or mutation",
+      "failure_posture": "unsupported kinds and unsafe manifests fail closed; digest mismatch, conflicts, and undated data remain explicit degraded evidence",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "records supplied directly to the builder bypass filesystem-manifest custody",
+        "last fact by stable sort is displayed as stage posture rather than reconciled truth"
+      ]
+    },
+    {
+      "identity": "canonical_conversation_memory",
+      "implementation": [
+        "sentientos/canonical_memory.py:CanonicalMemoryStore",
+        "sentientos/canonical_memory.py:ExplicitRetentionAdmissionGate",
+        "sentientos/canonical_memory.py:AdmittedRetentionWriter"
+      ],
+      "producer": "exact user conversation turn plus explicit retention candidate",
+      "writer_or_admission_owner": "deterministic explicit-retention gate; terminal writer revalidates candidate, receipt, and source turn",
+      "consumer": "chat context retrieval",
+      "persistence": "atomic replace of immutable operation-derived raw JSON fragments",
+      "provenance": "session, turn, request, operation, source-text digest, admission-receipt digest",
+      "freshness": "timestamp retained but retrieval has no world-fact freshness rule",
+      "authority_class": "authoritative_retention_record_not_world_truth",
+      "effect_relationship": "authorizes only exact retention; retrieved text is context, not effect admission",
+      "failure_posture": "default deny; mismatch or replay divergence raises; malformed stored files are skipped on read",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "malformed records degrade silently during retrieval",
+        "no contradiction reconciliation among retained claims"
+      ]
+    },
+    {
+      "identity": "legacy_memory_and_indexes",
+      "implementation": [
+        "memory_manager.py:append_memory",
+        "memory_manager.py:get_context",
+        "memory_manager.py:store_observation_summary",
+        "memory_manager.py:purge_memory"
+      ],
+      "producer": "many runtime, model, reflection, perception, operator, and compatibility callers",
+      "writer_or_admission_owner": "direct callers; no common truth-admission gate",
+      "consumer": "prompt assembly, councils, APIs, analytics, curiosity and reflection loops",
+      "persistence": "mutable raw JSON, derived vector index, distilled/topic/session/turn summaries, observation/reflection JSONL, and tomb JSONL",
+      "provenance": "free-form source/tags/timestamp/meta; uneven and optional",
+      "freshness": "retrieval decay uses last access and importance, not evidentiary currency; observations accept since filters",
+      "authority_class": "persistent_memory_and_derived_context_not_authoritative_world_state",
+      "effect_relationship": "can influence model prompts and autonomous candidates but is not accepted by control-plane or RuntimeGovernor as admission proof",
+      "failure_posture": "mixed: incognito bounds persistence; malformed records are often skipped; direct writes and rewrites can partially fail",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "model-authored memory is not uniformly labeled as interpretation",
+        "stale remembered claims can re-enter prompts without an external-evidence freshness comparison",
+        "legacy purge is not routed through the newer live-memory admission chain"
+      ]
+    },
+    {
+      "identity": "perception_observations_and_reasoner",
+      "implementation": [
+        "scripts/perception/screen_adapter.py:build_perception_payload",
+        "scripts/perception/audio_adapter.py:build_perception_payload",
+        "scripts/perception/vision_adapter.py:build_perception_payload",
+        "scripts/perception/gaze_adapter.py:build_perception_payload",
+        "perception_reasoner.py:PerceptionReasoner",
+        "memory_manager.py:store_observation"
+      ],
+      "producer": "local OS, microphone, camera, gaze pipelines, and deterministic aggregation",
+      "writer_or_admission_owner": "adapters append telemetry; legacy memory manager persists raw/summary records",
+      "consumer": "telemetry, perception APIs, prompt/reflection and curiosity machinery",
+      "persistence": "adapter JSONL and memory observation/transcript/screen JSONL; reasoned summaries also become raw memory fragments",
+      "provenance": "bus schema requires source, extractor id/version, time, confidence, privacy class and provenance; legacy aggregation preserves only summaries and counts unevenly",
+      "freshness": "event timestamps and query since filter; no global expiry/admission rule",
+      "authority_class": "observation_then_advisory_derived_interpretation",
+      "effect_relationship": "perception contract is non-privileged; curiosity goals are candidates, not control-plane authority",
+      "failure_posture": "bounded degradation in adapters; weak validation and malformed-time substitution in legacy aggregation can obscure uncertainty",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "reasoned summaries do not bind every source event identity/digest",
+        "schema requirements are not a universal runtime admission gate"
+      ]
+    },
+    {
+      "identity": "household_presence",
+      "implementation": [
+        "presence.py:run_loop",
+        "presence_ledger.py:log",
+        "sentientos/household_presence_layer.py:build_default_household_presence_layer"
+      ],
+      "producer": "wake-word microphone loop, explicit application callers, and static policy builder",
+      "writer_or_admission_owner": "telemetry callers append ledgers; household layer is deterministic metadata-only doctrine",
+      "consumer": "presence APIs, recaps, dashboards, compatibility integrations, and policy review tooling",
+      "persistence": "append-only JSONL telemetry; policy artifact when explicitly built",
+      "provenance": "wake word/text/time or user/event/note/bridge; no unified sensor-evidence identity",
+      "freshness": "policy requires temporal metadata conceptually, but legacy telemetry has no current-presence expiry or confidence calculation",
+      "authority_class": "historical_telemetry_and_metadata_policy_not_current_presence_truth",
+      "effect_relationship": "identity is explicitly not authority; telemetry does not grant privileges",
+      "failure_posture": "missing microphone degrades to unavailable; absent evidence is not converted to absence, but current presence remains undefined",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "no implemented authoritative current household occupancy state",
+        "contradictory or stale presence events are not reconciled"
+      ]
+    },
+    {
+      "identity": "host_resource_observation_runtime",
+      "implementation": [
+        "sentientos/host_resource_runtime.py:HostResourceRuntimeCoordinator",
+        "sentientos/host_resource_governor.py:evaluate_host_resource_pressure",
+        "sentientos/host_resource_policy.py:evaluate_host_resource_policy"
+      ],
+      "producer": "bounded read-only local collectors",
+      "writer_or_admission_owner": "ControlPlaneKernel admits observation; runtime sanitizes and validates collector results",
+      "consumer": "pressure evaluator, proposal-only policy, World-State projection, dashboard",
+      "persistence": "atomic JSON evidence bundle and latest pointer beneath runtime-state root",
+      "provenance": "plan/correlation/admission reference, collector identity/status/time, semantic digests and bundle digest",
+      "freshness": "same-tick observation time; downstream live authorization chains separately require current evidence",
+      "authority_class": "authoritative_observation_evidence_not_effect_authority",
+      "effect_relationship": "measurements may create proposals only; host mutations and fulfillment require separate gates",
+      "failure_posture": "required collector error/unavailability degrades and blocks automatic readiness; optional failures are explicit",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "latest pointer itself is mutable",
+        "resource proposal freshness is enforced by downstream chain rather than one universal evidence rule"
+      ]
+    },
+    {
+      "identity": "control_plane_and_runtime_governor",
+      "implementation": [
+        "sentientos/control_plane_kernel.py:ControlPlaneKernel",
+        "sentientos/runtime_governor.py:RuntimeGovernor"
+      ],
+      "producer": "deterministic policy, audit trust, pressure, lifecycle, budget, federation, and operator-scoped inputs",
+      "writer_or_admission_owner": "ControlPlaneKernel composes RuntimeGovernor and other gates",
+      "consumer": "sensitive runtime action callers and host observation runtime",
+      "persistence": "JSONL decisions/pressure/observability plus rollups; some dedupe, counters, windows and quarantine are process-local",
+      "provenance": "actor, action, subject/scope/origin, phase, correlation, reason hash, delegated outcomes, sample time",
+      "freshness": "live pressure samples, TTL/window budgets, and current audit trust; process-local windows reset on restart",
+      "authority_class": "authoritative_bounded_admission_decision",
+      "effect_relationship": "allow is admission for the exact requested class, not proof that execution or effect occurred",
+      "failure_posture": "invalid input quarantines; unavailable delegates defer/deny; persistence and restart continuity vary by substate",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "process-local admission dedupe and rate state disappear on restart",
+        "not every specialized authority state machine calls both layers"
+      ]
+    },
+    {
+      "identity": "local_authorization_and_fulfillment_custody",
+      "implementation": [
+        "sentientos/local_authorization_grant.py:LocalAuthorizationGrant",
+        "sentientos/fulfillment_authorization.py:FulfillmentAuthorization"
+      ],
+      "producer": "explicit operator/policy decisions and exact prerequisite evidence",
+      "writer_or_admission_owner": "dedicated deterministic issuance and consumption admission",
+      "consumer": "downstream readiness/executor gates",
+      "persistence": "append-only local grant and consumption ledgers",
+      "provenance": "principal, capability, scope/effect digests, validity, grant/lease and prerequisite references",
+      "freshness": "expiry and revocation are checked at consumption; current snapshot is reconstructed",
+      "authority_class": "authoritative_scoped_authority_record",
+      "effect_relationship": "grant or consumption alone still does not prove fulfillment or host effect",
+      "failure_posture": "missing, malformed, stale, revoked, contradictory or digest-mismatched evidence fails closed",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "issuance remains intentionally outside automatic daemon behavior"
+      ]
+    },
+    {
+      "identity": "audit_chain_and_trust",
+      "implementation": [
+        "audit_chain.py:append_entry",
+        "audit_chain.py:verify",
+        "sentientos/audit_trust_runtime.py:evaluate_audit_trust"
+      ],
+      "producer": "runtime actions and audit writers",
+      "writer_or_admission_owner": "schema-validating hash-chain appender; audit trust evaluator consumes current files",
+      "consumer": "RuntimeGovernor, verification, dashboards, operators",
+      "persistence": "hash-linked JSONL and derived trust artifacts",
+      "provenance": "timestamp, data, consent/emotion metadata, previous hash and rolling hash",
+      "freshness": "chain integrity is current at evaluation; no universal event expiry",
+      "authority_class": "historical_authoritative_evidence_and_authority_input",
+      "effect_relationship": "can tighten or block admission; a log entry never proves an external effect by itself",
+      "failure_posture": "append refuses a broken tail; malformed lines are skipped by legacy reader, while strict audit/trust evaluation reports degradation",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "legacy permissive reading and strict trust evaluation have different corruption semantics"
+      ]
+    },
+    {
+      "identity": "event_streams_and_process_local_state",
+      "implementation": [
+        "sentientos/event_stream.py:record",
+        "sentientos/event_stream.py:record_forge_event",
+        "sentientos/streams/audit_stream.py:tail_audit_entries"
+      ],
+      "producer": "boot/forge/audit emitters",
+      "writer_or_admission_owner": "direct event callers",
+      "consumer": "logging, SSE/dashboard and operator inspection",
+      "persistence": "boot history is a bounded in-memory deque; forge/audit streams are JSONL",
+      "provenance": "time/message/level or underlying audit metadata",
+      "freshness": "stream position and current process only; no truth reconciliation",
+      "authority_class": "cache_and_historical_evidence",
+      "effect_relationship": "observation only",
+      "failure_posture": "restart loses in-memory history; malformed audit stream rows are omitted",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "stream omission is not surfaced as a first-class conflict to all readers"
+      ]
+    }
+  ],
+  "claims": {
+    "model_interpretation_cannot_manufacture_external_evidence": "supported_for_authority_gates_but_legacy_model_text_can_be_persisted_as_memory",
+    "model_summaries_do_not_automatically_become_authoritative_facts": "supported",
+    "memory_is_not_automatically_current_world_state": "supported",
+    "stale_evidence_cannot_silently_masquerade_as_fresh_evidence": "not_globally_supported",
+    "derived_state_preserves_enough_provenance_to_identify_sources": "partially_supported",
+    "authoritative_state_changes_pass_through_deterministic_machinery": "supported_for_traced_authority_surfaces",
+    "absence_of_evidence_is_not_automatically_evidence_of_absence": "supported_for_traced_surfaces",
+    "advisory_confidence_does_not_confer_authority": "supported"
+  },
+  "history": {
+    "repository_is_shallow": true,
+    "first_locally_evidenced_appearance": [
+      "ad4dfc1 2026-08-22: most inspected world-state, perception, presence, host, audit, and legacy-memory surfaces are present at the shallow boundary",
+      "304df9f 2026-09-01: governed canonical conversation retention first appears locally"
+    ]
+  }
+}
