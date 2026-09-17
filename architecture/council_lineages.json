@@ -11,49 +11,205 @@
   },
   "non_conflation_conclusion": {
     "confidence": "verified_fact",
-    "detail": "The three families are not one evidenced successor chain. council/ supplies dialogue primitives and a stub runner, council_adapters/ supplies deterministic Sentient Mesh voices, and sentientos/council/governance_council.py supplies persisted quorum decisions. No locally available history or source declares predecessor/successor relationships among them."
+    "detail": "The dialogue family can now be decomposed without asserting succession: WDM is a reachable alternate runtime; council Bus/Message/Referee are its exercised dependencies; the separately tested standalone runner and its deterministic provider-named stubs remain smaller explicit unknowns. council_adapters/ and the governance council remain separate families, and no locally available history or source declares a predecessor/successor relationship among them."
   },
-  "schema": "sentientos.council_lineages:v1",
+  "schema": "sentientos.council_lineages:v2",
   "surfaces": [
     {
-      "authority_relationship": "The standalone runner is privilege-gated at import. Shared Bus, Message, and Referee primitives carry dialogue data but grant no capability or control-plane authority.",
-      "current_role": "Mixed preserved surface: deterministic provider-named stub dialogue runner plus shared message, bus, and referee primitives consumed by WDM.",
-      "disposition": "unknown_disposition",
-      "evidence_confidence": "verified_fact",
+      "stable_identity": "wdm-runtime",
+      "paths": [
+        "wdm/",
+        "wdm_cli.py",
+        "wdm_api.py",
+        "gui/wdm_panel.py",
+        "config/wdm.yaml"
+      ],
+      "current_role": "Privilege-gated, one-shot respond/initiate dialogue orchestration reached through CLI, FastAPI, Cathedral GUI, direct library callers, and focused tests.",
+      "present_consumers": [
+        "wdm_cli.py",
+        "wdm_api.py",
+        "gui/wdm_panel.py",
+        "tests/test_wdm_*.py",
+        "tests/test_presence_log.py",
+        "tests/test_presence_stream.py",
+        "tests/test_ledger.py"
+      ],
       "first_evidenced_appearance": {
         "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
         "date": "2026-08-20T21:22:21-04:00",
         "qualification": "shallow_history_boundary"
       },
+      "original_role": "The earliest locally visible trees already contain the present WDM package, three entry surfaces, deterministic provider-named adapters, logging, and council imports; pre-boundary intent is unavailable.",
       "important_transitions": [],
-      "original_role": "The earliest locally visible tree already implements multi-agent answer/critique dialogue with provider-named deterministic adapters; pre-boundary origin is unavailable.",
-      "paths": [
-        "council/"
+      "entry_points": [
+        "python wdm_cli.py",
+        "ASGI application wdm_api:app POST /wdm/start",
+        "gui/cathedral_gui.py -> gui/wdm_panel.py -> run_wdm",
+        "direct wdm.runner.run_wdm callers"
       ],
-      "predecessor": null,
-      "present_consumers": [
-        "tests/test_council_smoke.py",
-        "wdm/runner.py",
-        "wdm/summarize.py"
-      ],
-      "provider_network_relationship": "council/adapters contains deterministic OpenAI, DeepSeek, and Mistral stubs and performs no provider call. WDM imports only council data/orchestration primitives and separately instantiates its own provider-named, deterministic no-network adapters.",
       "runtime_reachability": {
         "alternate_runtime": [
-          "wdm_cli.py -> wdm/runner.py",
-          "wdm_api.py -> wdm/runner.py"
+          "wdm_cli.py -> wdm.runner.run_wdm",
+          "wdm_api.py -> wdm.runner.run_wdm",
+          "gui/cathedral_gui.py -> gui/wdm_panel.py -> wdm.runner.run_wdm"
         ],
         "canonical_daemon": false,
         "capability_or_control_plane": false,
-        "operator_entry": [
-          "wdm_cli.py"
-        ]
+        "long_lived": false,
+        "one_shot": true
       },
-      "stable_identity": "legacy-dialogue-council",
+      "council_dependencies": [
+        "council.bus.Bus",
+        "council.schema.Message",
+        "council.referee.Referee"
+      ],
+      "provider_network_relationship": "WDM instantiates its own OpenAI-, DeepSeek-, and Mistral-named adapters. They read optional provider credential environment variables but return locally constructed deterministic strings for both missing and present keys; they import no provider SDK and make no HTTP or network call. The configured allowlist is loaded by no execution path.",
+      "authority_relationship": "Policy selects deny/respond/initiate as orchestration data. WDM cannot confer or satisfy capabilities, authorize host effects, mutate authoritative runtime state, participate in maintenance or adoption, or invoke ControlPlaneKernel/RuntimeGovernor. It writes configured local transcript, stream, summary, presence, cheers, and migration-ledger JSONL files; it launches no subprocess and performs no repository mutation by design.",
+      "persistence": "Allowed runs create parent directories and append/write dialogue JSONL, summary JSONL, presence JSONL, stream JSONL, optional cheers JSONL, and migration-ledger checksum records. Denied runs return before writes.",
+      "disposition": "alternate_runtime",
+      "evidence_confidence": "verified_fact",
+      "predecessor": null,
       "successor": null,
       "unresolved_contradictions": [
-        "The directory combines a directly tested standalone stub runner with primitives still consumed by WDM, so available evidence does not establish a single terminal disposition for the whole directory.",
-        "History before the shallow boundary is unavailable, preventing proof of original adoption, replacement, or intentional retirement.",
-        "No evidence proves that council_adapters/ or the governance council replaced this family."
+        "Original creation and adoption intent precede the local shallow boundary.",
+        "No current source establishes whether the provider-named adapters ever made live calls before the visible history.",
+        "The API module is documented but no repository-owned server launch wiring was found."
+      ],
+      "state_inputs": [
+        "seed string",
+        "context mapping",
+        "YAML/dict configuration",
+        "optional provider credential environment variables (presence only)"
+      ],
+      "state_outputs": [
+        "decision/round/log/summary/presence-path response mapping",
+        "local JSONL artifacts and migration-ledger receipts on allowed runs"
+      ],
+      "local_model_relationship": "No local-model runtime, model catalog, inference server, or local-model invocation is imported or called.",
+      "effect_boundaries": {
+        "filesystem_writes": true,
+        "network": false,
+        "provider_invocation": false,
+        "subprocess": false,
+        "repository_mutation": false,
+        "capability_admission": false,
+        "control_plane_kernel": false,
+        "runtime_governor": false,
+        "maintenance": false,
+        "runtime_adoption": false
+      }
+    },
+    {
+      "stable_identity": "wdm-council-primitives",
+      "paths": [
+        "council/__init__.py",
+        "council/bus.py",
+        "council/schema.py",
+        "council/referee.py"
+      ],
+      "current_role": "Privilege-gated in-memory Message schema, Bus transcript collector/JSONL dumper, and Referee convergence check required by WDM and reused by the standalone council runner.",
+      "present_consumers": [
+        "wdm/runner.py",
+        "wdm/summarize.py",
+        "council/runner.py"
+      ],
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "original_role": "Already shared between WDM and the standalone council runner at the shallow history boundary; earlier origin is unavailable.",
+      "important_transitions": [],
+      "runtime_reachability": {
+        "alternate_runtime": [
+          "WDM entry surfaces -> wdm/runner.py"
+        ],
+        "standalone_library": [
+          "tests/test_council_smoke.py -> council.runner.run"
+        ],
+        "canonical_daemon": false
+      },
+      "wdm_dependency_relationship": "Direct, exercised dependency: WDM publishes Message instances to Bus, asks Referee whether answer rounds are stable, serializes Bus history, and types summaries as Message iterables.",
+      "provider_network_relationship": "No provider SDK, credential read, HTTP, network, local-model, or subprocess behavior.",
+      "authority_relationship": "Carries dialogue data, chooses an early-stop condition, and writes JSONL only when Bus.dump_jsonl is called. It cannot grant capabilities or authorize host, maintenance, adoption, control-plane, or governor effects.",
+      "disposition": "alternate_runtime",
+      "evidence_confidence": "verified_fact",
+      "predecessor": null,
+      "successor": null,
+      "unresolved_contradictions": [
+        "Pre-boundary origin and original ownership are unavailable."
+      ]
+    },
+    {
+      "stable_identity": "legacy-council-runner",
+      "paths": [
+        "council/runner.py"
+      ],
+      "current_role": "Directly tested deterministic multi-adapter dialogue library function with no independent launch surface found.",
+      "present_consumers": [
+        "tests/test_council_smoke.py"
+      ],
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "original_role": "The shallow boundary already describes a minimal round-based multi-AI dialogue scaffold; earlier intent is unavailable.",
+      "important_transitions": [],
+      "runtime_reachability": {
+        "focused_test": [
+          "tests/test_council_smoke.py -> council.runner.run"
+        ],
+        "operator_entry": [],
+        "api_entry": [],
+        "canonical_daemon": false
+      },
+      "wdm_dependency_relationship": "None: WDM reimplements orchestration and imports only the shared Bus, Message, and Referee primitives.",
+      "provider_network_relationship": "Calls only the deterministic local adapters in council/adapters/.",
+      "authority_relationship": "Returns Message data and performs no persistence or effects itself. It has no capability, control-plane, governor, maintenance, adoption, provider, network, subprocess, or repository-mutation authority.",
+      "disposition": "unknown_disposition",
+      "evidence_confidence": "verified_fact",
+      "predecessor": null,
+      "successor": null,
+      "unresolved_contradictions": [
+        "A test and README scaffold description prove preservation, not whether its supported role is current runtime, compatibility, historical experiment, or another disposition.",
+        "No available history proves retirement or succession."
+      ]
+    },
+    {
+      "stable_identity": "legacy-council-provider-stubs",
+      "paths": [
+        "council/adapters/"
+      ],
+      "current_role": "Provider-named deterministic answer/critique implementations instantiated only by the standalone legacy council runner.",
+      "present_consumers": [
+        "council/runner.py",
+        "tests/test_council_smoke.py (indirect)"
+      ],
+      "first_evidenced_appearance": {
+        "commit": "f1e62799492e82ef677a9cb8b2128f1e924a7d7b",
+        "date": "2026-08-20T21:22:21-04:00",
+        "qualification": "shallow_history_boundary"
+      },
+      "original_role": "The earliest locally visible tree already contains deterministic OpenAI, DeepSeek, and Mistral stubs; pre-boundary behavior is unavailable.",
+      "important_transitions": [],
+      "runtime_reachability": {
+        "standalone_library": [
+          "council.runner.run"
+        ],
+        "wdm": false,
+        "canonical_daemon": false
+      },
+      "wdm_dependency_relationship": "None: WDM uses distinct classes under wdm/adapters/.",
+      "provider_network_relationship": "No provider SDK imports, environment credential reads, HTTP clients, sockets, or network calls; answer and critique methods interpolate their input into deterministic local strings. The smoke test depends on their provider-derived agent names.",
+      "authority_relationship": "Produces dialogue strings only; no capability, persistence, host effect, control-plane, governor, maintenance, adoption, subprocess, or repository-mutation authority.",
+      "disposition": "unknown_disposition",
+      "evidence_confidence": "verified_fact",
+      "predecessor": null,
+      "successor": null,
+      "unresolved_contradictions": [
+        "Shallow history cannot establish whether live-provider behavior existed earlier.",
+        "Current evidence does not affirm historical-experiment, compatibility-only, operator-legacy, retired, or superseded status."
       ]
     },
     {

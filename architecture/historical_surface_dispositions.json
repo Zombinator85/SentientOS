@@ -1,7 +1,14 @@
 {
   "inventory_scope": [
-    "council/",
+    "config/wdm.yaml",
+    "council/__init__.py",
+    "council/adapters/",
+    "council/bus.py",
+    "council/referee.py",
+    "council/runner.py",
+    "council/schema.py",
     "council_adapters/",
+    "gui/wdm_panel.py",
     "relay_app.py",
     "sentient_mesh.py",
     "sentientos/capability_registry.py",
@@ -9,43 +16,134 @@
     "sentientos/council/governance_council.py",
     "sentientos/runtime_governor.py",
     "sentientos/world_state_board.py",
-    "sentientosd.py"
+    "sentientosd.py",
+    "wdm/",
+    "wdm_api.py",
+    "wdm_cli.py"
   ],
   "records": [
     {
+      "disposition": "alternate_runtime",
+      "id": "wdm-runtime",
+      "owner": "wdm",
+      "paths": [
+        "wdm/",
+        "wdm_cli.py",
+        "wdm_api.py",
+        "gui/wdm_panel.py",
+        "config/wdm.yaml"
+      ],
+      "rationale": "WDM is a privilege-gated, one-shot deterministic dialogue orchestrator with documented and tested CLI, FastAPI, and Cathedral GUI entry surfaces. It persists transcripts, summaries, presence events, and migration-ledger receipts, but is not wired into the canonical daemon, control plane, RuntimeGovernor, capability admission, maintenance, or adoption paths.",
+      "references": [
+        "architecture/council_lineages.json",
+        "README.md",
+        "wdm/runner.py",
+        "wdm_cli.py",
+        "wdm_api.py",
+        "gui/wdm_panel.py",
+        "tests/test_wdm_cli.py",
+        "tests/test_wdm_smoke.py"
+      ],
+      "successor": null
+    },
+    {
+      "disposition": "alternate_runtime",
+      "id": "wdm-council-primitives",
+      "owner": "wdm",
+      "paths": [
+        "council/__init__.py",
+        "council/bus.py",
+        "council/schema.py",
+        "council/referee.py"
+      ],
+      "rationale": "These privilege-gated in-memory message, transcript, and convergence primitives are executed by the currently reachable WDM alternate runtime and by the standalone council runner. They influence dialogue data and stopping only; they confer no capability or host-effect authority.",
+      "references": [
+        "architecture/council_lineages.json",
+        "wdm/runner.py",
+        "wdm/summarize.py",
+        "council/runner.py",
+        "tests/test_wdm_smoke.py"
+      ],
+      "successor": null
+    },
+    {
       "disposition": "unknown_disposition",
-      "id": "legacy-dialogue-council",
+      "id": "legacy-council-runner",
       "owner": null,
-      "paths": ["council/"],
-      "rationale": "The directory mixes a tested deterministic stub runner with Bus, Message, and Referee primitives consumed by the separately entered WDM runtime. Locally available history starts after all were introduced and proves neither a single terminal role nor a successor, so unknown remains the strongest defensible directory-level disposition.",
-      "references": ["architecture/council_lineages.json", "council/runner.py", "tests/test_council_smoke.py", "wdm/runner.py"],
+      "paths": [
+        "council/runner.py"
+      ],
+      "rationale": "The deterministic standalone dialogue function remains directly tested and is described as a minimal scaffold, but has no independent CLI, daemon, API, GUI, or documented operator launch command. Available evidence proves neither current architectural membership nor compatibility, experimentation, retirement, or succession.",
+      "references": [
+        "architecture/council_lineages.json",
+        "README.md",
+        "council/runner.py",
+        "tests/test_council_smoke.py"
+      ],
+      "successor": null
+    },
+    {
+      "disposition": "unknown_disposition",
+      "id": "legacy-council-provider-stubs",
+      "owner": null,
+      "paths": [
+        "council/adapters/"
+      ],
+      "rationale": "The provider-named adapters are deterministic local answer/critique stubs used by the standalone tested runner. They import no provider SDK, read no credentials, and perform no network operation, but shallow history and current source do not prove whether their preserved role is experiment, compatibility, or another ontology value.",
+      "references": [
+        "architecture/council_lineages.json",
+        "council/adapters/openai_adapter.py",
+        "council/adapters/deepseek_adapter.py",
+        "council/adapters/mistral_adapter.py",
+        "council/runner.py",
+        "tests/test_council_smoke.py"
+      ],
       "successor": null
     },
     {
       "disposition": "alternate_runtime",
       "id": "mesh-runtime",
       "owner": "mesh",
-      "paths": ["sentient_mesh.py", "council_adapters/"],
+      "paths": [
+        "sentient_mesh.py",
+        "council_adapters/"
+      ],
       "rationale": "The deterministic mesh scheduler and its voice adapters retain direct focused test coverage as a coexisting runtime surface.",
-      "references": ["architecture/council_lineages.json", "tests/test_cycle_boundaries.py", "tests/test_council_adapters.py"],
+      "references": [
+        "architecture/council_lineages.json",
+        "tests/test_cycle_boundaries.py",
+        "tests/test_council_adapters.py"
+      ],
       "successor": null
     },
     {
       "disposition": "alternate_runtime",
       "id": "relay-runtime",
       "owner": "relay",
-      "paths": ["relay_app.py"],
+      "paths": [
+        "relay_app.py"
+      ],
       "rationale": "The Flask relay remains an independently invoked and tested runtime rather than the sentientosd daemon entry point.",
-      "references": ["tests/test_sentient_verifier_replay.py", "docs/TYPING_OFFENSIVE_AND_RATCHET_PROGRESS.md"],
+      "references": [
+        "tests/test_sentient_verifier_replay.py",
+        "docs/TYPING_OFFENSIVE_AND_RATCHET_PROGRESS.md"
+      ],
       "successor": null
     },
     {
       "disposition": "canonical",
       "id": "sentientos-governance-council",
       "owner": "governance",
-      "paths": ["sentientos/council/governance_council.py"],
+      "paths": [
+        "sentientos/council/governance_council.py"
+      ],
       "rationale": "This deterministic quorum implementation is directly consumed by current reflex and Cathedral amendment machinery; it is not lineage evidence for the dialogue council.",
-      "references": ["architecture/council_lineages.json", "sentientos/reflex/reflex_petitioner.py", "sentientos/cathedral/amendment_sentinel.py", "tests/test_governance_council.py"],
+      "references": [
+        "architecture/council_lineages.json",
+        "sentientos/reflex/reflex_petitioner.py",
+        "sentientos/cathedral/amendment_sentinel.py",
+        "tests/test_governance_council.py"
+      ],
       "successor": null
     },
     {
@@ -60,7 +158,12 @@
         "sentientos/world_state_board.py"
       ],
       "rationale": "The canonical daemon imports and exposes the control-plane and World-State surfaces, while current architecture and tests identify the governor and capability registry as present runtime truth surfaces.",
-      "references": ["sentientosd.py", "docs/architecture/public_technical_overview.md", "tests/test_sentientosd_runtime_closure.py", "tests/test_control_plane_kernel.py"],
+      "references": [
+        "sentientosd.py",
+        "docs/architecture/public_technical_overview.md",
+        "tests/test_sentientosd_runtime_closure.py",
+        "tests/test_control_plane_kernel.py"
+      ],
       "successor": null
     }
   ],

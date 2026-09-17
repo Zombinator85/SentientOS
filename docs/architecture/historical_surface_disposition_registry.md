@@ -46,6 +46,13 @@ absolute paths, and parent traversal are rejected. Ancestor/descendant claims be
 to different records overlap and fail validation. This prevents a broad directory claim
 from silently classifying future descendants under a different identity.
 
+A directory is not necessarily one architectural surface. The legacy `council/`
+directory demonstrates why: its `Bus`, `Message`, and `Referee` primitives are exercised
+dependencies of the WDM alternate runtime, while its standalone runner and provider-named
+deterministic stubs have no equally well-evidenced terminal role. The registry therefore
+uses exact file and bounded subdirectory records for those components instead of one
+`council/` claim. New files beneath that directory are not classified implicitly.
+
 `inventory_scope` is deliberately small in v1. A scoped path with no record is reported
 as unclassified; a record explicitly labeled `unknown_disposition` remains unknown.
 Targets that do not exist are reported as missing. Classified targets outside the

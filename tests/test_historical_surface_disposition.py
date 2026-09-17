@@ -54,7 +54,12 @@ def test_seed_registry_validates_and_preserves_bounded_claims() -> None:
     by_id = {item.surface_id: item for item in registry.records}
     assert by_id["sentientos-runtime-core"].disposition == "canonical"
     assert by_id["mesh-runtime"].disposition == "alternate_runtime"
-    assert by_id["legacy-dialogue-council"].disposition == "unknown_disposition"
+    assert by_id["wdm-runtime"].disposition == "alternate_runtime"
+    assert by_id["wdm-council-primitives"].disposition == "alternate_runtime"
+    assert by_id["legacy-council-runner"].disposition == "unknown_disposition"
+    assert by_id["legacy-council-provider-stubs"].disposition == "unknown_disposition"
+    assert "council/" not in report.classified_surfaces
+    assert report.unknown_surfaces == ("council/adapters/", "council/runner.py")
     assert report.unclassified_surfaces == ()
 
 
@@ -148,22 +153,28 @@ def test_registry_has_no_authority_fields_or_authority_module_dependencies() -> 
 
 def test_council_lineage_evidence_is_bounded_and_matches_registry() -> None:
     evidence = json.loads(COUNCIL_LINEAGES.read_text(encoding="utf-8"))
-    assert evidence["schema"] == "sentientos.council_lineages:v1"
+    assert evidence["schema"] == "sentientos.council_lineages:v2"
     assert evidence["confidence_ontology"] == [
         "verified_fact",
         "strong_inference",
         "weak_hypothesis",
         "unknown",
     ]
-    assert "not one evidenced successor chain" in evidence["non_conflation_conclusion"]["detail"]
+    assert "without asserting succession" in evidence["non_conflation_conclusion"]["detail"]
 
     lineages = {item["stable_identity"]: item for item in evidence["surfaces"]}
     assert set(lineages) == {
-        "legacy-dialogue-council",
+        "wdm-runtime",
+        "wdm-council-primitives",
+        "legacy-council-runner",
+        "legacy-council-provider-stubs",
         "mesh-runtime-voices",
         "sentientos-governance-council",
     }
-    assert lineages["legacy-dialogue-council"]["disposition"] == "unknown_disposition"
+    assert lineages["wdm-runtime"]["disposition"] == "alternate_runtime"
+    assert lineages["wdm-council-primitives"]["disposition"] == "alternate_runtime"
+    assert lineages["legacy-council-runner"]["disposition"] == "unknown_disposition"
+    assert lineages["legacy-council-provider-stubs"]["disposition"] == "unknown_disposition"
     assert lineages["mesh-runtime-voices"]["disposition"] == "alternate_runtime"
     assert lineages["sentientos-governance-council"]["disposition"] == "canonical"
     assert all(item["predecessor"] is None and item["successor"] is None for item in lineages.values())
@@ -171,7 +182,10 @@ def test_council_lineage_evidence_is_bounded_and_matches_registry() -> None:
     registry, errors = load_registry(REGISTRY)
     assert errors == ()
     dispositions = {item.surface_id: item.disposition for item in registry.records}
-    assert dispositions["legacy-dialogue-council"] == lineages["legacy-dialogue-council"]["disposition"]
+    assert dispositions["wdm-runtime"] == lineages["wdm-runtime"]["disposition"]
+    assert dispositions["wdm-council-primitives"] == lineages["wdm-council-primitives"]["disposition"]
+    assert dispositions["legacy-council-runner"] == lineages["legacy-council-runner"]["disposition"]
+    assert dispositions["legacy-council-provider-stubs"] == lineages["legacy-council-provider-stubs"]["disposition"]
     assert dispositions["mesh-runtime"] == lineages["mesh-runtime-voices"]["disposition"]
     assert dispositions["sentientos-governance-council"] == lineages["sentientos-governance-council"]["disposition"]
 
@@ -188,3 +202,36 @@ def test_council_archaeology_metadata_cannot_enter_runtime_authority() -> None:
         source = (ROOT / path).read_text(encoding="utf-8")
         assert "council_lineages.json" not in source
         assert "historical_surface_dispositions.json" not in source
+
+
+def test_wdm_and_council_decomposition_is_exact_non_overlapping_and_non_executing() -> None:
+    registry, errors = load_registry(REGISTRY)
+    report = build_inventory_report(registry, ROOT, errors)
+    assert report.valid, report.errors
+
+    by_id = {item.surface_id: item for item in registry.records}
+    primitive_paths = set(by_id["wdm-council-primitives"].paths)
+    preserved_unknown_paths = {
+        *by_id["legacy-council-runner"].paths,
+        *by_id["legacy-council-provider-stubs"].paths,
+    }
+    assert primitive_paths == {
+        "council/__init__.py",
+        "council/bus.py",
+        "council/referee.py",
+        "council/schema.py",
+    }
+    assert primitive_paths.isdisjoint(preserved_unknown_paths)
+    assert "council/" not in registry.inventory_scope
+
+    # Static registry scanning must not trigger privilege-gated target imports.
+    command = [
+        sys.executable,
+        "-c",
+        "import json; from pathlib import Path; "
+        "from sentientos.historical_surface_disposition import load_registry, build_inventory_report; "
+        "r,e=load_registry(Path('architecture/historical_surface_dispositions.json')); "
+        "print(json.dumps({'valid': build_inventory_report(r, Path('.'), e).valid}))",
+    ]
+    result = subprocess.run(command, cwd=ROOT, check=True, text=True, capture_output=True)
+    assert json.loads(result.stdout) == {"valid": True}
