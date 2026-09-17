@@ -1,0 +1,388 @@
+{
+  "schema": "sentientos.maintenance_runtime_adoption_chain:v1",
+  "authoritative_runtime_behavior": false,
+  "confidence_ontology": [
+    "verified_fact",
+    "strong_inference",
+    "weak_hypothesis",
+    "unknown"
+  ],
+  "provenance": {
+    "examined_head": "8784f023f114de43f76ccc847fbc228089cfeecd",
+    "history_depth": 199,
+    "history_is_shallow": true,
+    "qualification": "Current source is authoritative; historical dates are first locally evidenced appearances. This artifact grants no authority and is not consumed by runtime code."
+  },
+  "conclusion": {
+    "classification": "mixed_with_defined_authority_boundary",
+    "statement": "Stochastic cognition may author isolated candidate files under an active operator-derived lease. Deterministic code exclusively checks the lease and worktree, executes validation, creates and absorbs the commit, derives same-or-narrower continuity, performs handoff, and completes process-image adoption.",
+    "confidence": "verified_fact",
+    "qualification": "ControlPlaneKernel and RuntimeGovernor govern other daemon actions but are not called in this maintenance adoption chain; capability definitions constrain task admission and do not themselves perform runtime admission."
+  },
+  "stages": [
+    {
+      "stable_identity": "maintenance_candidate_proposal",
+      "implementation": [
+        "sentientos/maintenance_candidate.py:MaintenanceCandidate",
+        "sentientos/maintenance_candidate_selector.py:select_candidate",
+        "sentientos/maintenance_candidate_collector.py:collect_once"
+      ],
+      "producer": "governed signal, work-item intake, Genesis metadata, explicit candidate, or candidate collector",
+      "consumer": "deterministic candidate selector and lease admission",
+      "inputs": [
+        "source evidence",
+        "current base SHA",
+        "selector policy"
+      ],
+      "outputs_evidence": [
+        "canonical candidate set",
+        "selection_digest",
+        "ready_for_scope_admission selection"
+      ],
+      "authority_owner": "none; proposal and selection are non-authoritative",
+      "persistence": "collector receipt JSONL and candidate inbox where configured; selection may remain caller-held",
+      "effect_boundary": "metadata construction and selection only",
+      "failure_posture": "fail_closed for malformed/ineligible candidates; truthful idle when none qualify",
+      "previous_stage": null,
+      "next_stage": "maintenance_custody_lease",
+      "classification": "mixed_with_defined_authority_boundary",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "maintenance_custody_lease",
+      "implementation": [
+        "sentientos/maintenance_task_authority_lease.py:admit_selected_candidate",
+        "sentientos/maintenance_task_authority_lease.py:verify_action",
+        "sentientos/maintenance_task_authority_lease.py:revoke_lease"
+      ],
+      "producer": "deterministic lease admission consuming an explicit sealed operator grant",
+      "consumer": "implementation, validation, landing, and local absorption machinery",
+      "inputs": [
+        "integrity-checked candidate set",
+        "selected candidate",
+        "operator grant",
+        "evaluation time"
+      ],
+      "outputs_evidence": [
+        "immutable lease JSON",
+        "task_created event",
+        "authority_lease_bound event",
+        "journal snapshot"
+      ],
+      "authority_owner": "operator grant narrowed into one active task lease",
+      "persistence": "external maintenance_leases JSON plus tamper-evident task journal",
+      "effect_boundary": "admits named paths, authority classes, budgets, attempts, validation expectations, and time window",
+      "failure_posture": "fail_closed on invalid/expired grant, integrity, subset, conflict, concurrency, revocation, scope, or budget failure",
+      "previous_stage": "maintenance_candidate_proposal",
+      "next_stage": "candidate_implementation",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "candidate_implementation",
+      "implementation": [
+        "sentientos/maintenance_implementation_agent.py:execute_implementation_agent",
+        "sentientos/maintenance_local_codex_foreman.py:run_local_codex_session",
+        "sentientos/maintenance_commissioned_local_agent.py:CommissionedLocalDriver"
+      ],
+      "producer": "bounded local Codex CLI or governed local-model implementation driver",
+      "consumer": "maintenance validation controller",
+      "inputs": [
+        "active lease",
+        "sealed instruction request",
+        "isolated detached worktree",
+        "bounded driver configuration"
+      ],
+      "outputs_evidence": [
+        "immutable implementation result",
+        "changed-path manifest",
+        "session journal events"
+      ],
+      "authority_owner": "lease and deterministic foreman own filesystem scope; model output is candidate material",
+      "persistence": "external session/result JSON, worktree, and maintenance journal",
+      "effect_boundary": "writes only lease-admitted paths in an isolated worktree; no base-ref or resident mutation",
+      "failure_posture": "bounded_degradation for provider/model unavailability or crash; fail_closed for missing effect authority, scope escape, timeout, malformed output, or lease failure",
+      "previous_stage": "maintenance_custody_lease",
+      "next_stage": "deterministic_validation",
+      "classification": "mixed_with_defined_authority_boundary",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "deterministic_validation",
+      "implementation": [
+        "sentientos/maintenance_validation_controller.py:build_validation_plan",
+        "sentientos/maintenance_validation_controller.py:run_validation_plan",
+        "sentientos/maintenance_validation_controller.py:advance_validation_controller"
+      ],
+      "producer": "deterministic subprocess validation controller",
+      "consumer": "commit planner and maintenance task journal",
+      "inputs": [
+        "implementation_ready_for_validation result",
+        "lease expectations",
+        "independently reconstructed worktree manifest",
+        "validation policy"
+      ],
+      "outputs_evidence": [
+        "immutable validation plan",
+        "per-stage stdout/stderr digests and classifications",
+        "validation_ready_for_commit result",
+        "validation journal event"
+      ],
+      "authority_owner": "validation controller; candidate assertions are not proof",
+      "persistence": "external maintenance_validation_plans/results and task journal",
+      "effect_boundary": "runs fixed git diff, pytest, mypy, audit, and expectation-derived argv under sanitized environment and time bounds",
+      "failure_posture": "fail_closed for failed, missing, malformed, out-of-scope, or timed-out required proof; bounded corrective retry only within lease",
+      "previous_stage": "candidate_implementation",
+      "next_stage": "commit_candidate",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "commit_candidate",
+      "implementation": [
+        "sentientos/maintenance_commit_publication.py:build_commit_plan",
+        "sentientos/maintenance_commit_publication.py:create_commit_and_enqueue",
+        "sentientos/maintenance_commit_publication.py:verify_commit_tree"
+      ],
+      "producer": "deterministic landing controller",
+      "consumer": "local absorption or remote publication worker",
+      "inputs": [
+        "active lease",
+        "validation_ready_for_commit result",
+        "validated manifest",
+        "landing policy"
+      ],
+      "outputs_evidence": [
+        "immutable commit plan",
+        "detached commit object",
+        "commit result",
+        "publication request",
+        "journal bindings"
+      ],
+      "authority_owner": "lease-bound landing controller",
+      "persistence": "Git object database plus external immutable plan/result/request/body artifacts and task journal",
+      "effect_boundary": "creates commit object through an external index; does not move a branch or adopt runtime",
+      "failure_posture": "fail_closed on authority, evidence, tree, identity, parent, path, or journal mismatch",
+      "previous_stage": "deterministic_validation",
+      "next_stage": "local_repository_absorption",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "local_repository_absorption",
+      "implementation": [
+        "sentientos/maintenance_commit_publication.py:_local_absorption",
+        "sentientos/maintenance_commit_publication.py:publish_one_maintenance_request"
+      ],
+      "producer": "operator-authorized local-fast-forward publication worker",
+      "consumer": "task closure and authority-continuity evidence normalization",
+      "inputs": [
+        "active lease with repository_commit and local_repository_base_advance",
+        "bound commit/plan/request",
+        "clean exact canonical checkout"
+      ],
+      "outputs_evidence": [
+        "compare-and-swap base-ref observation",
+        "synchronized checkout",
+        "publication result",
+        "publication journal events"
+      ],
+      "authority_owner": "lease-bound publication worker",
+      "persistence": "canonical Git ref/index/worktree, immutable publication result, task journal",
+      "effect_boundary": "first authoritative repository-state mutation; explicitly performs no runtime adoption",
+      "failure_posture": "fail_closed on dirty/ambiguous checkout, expired lease, stale ref, evidence mismatch, persistence or postcondition failure; ref CAS may precede a blocked checkout recovery",
+      "previous_stage": "commit_candidate",
+      "next_stage": "authority_continuity_derivation",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": [
+        "A crash after ref CAS but before checkout synchronization requires deterministic replay/recovery; it does not roll the ref back automatically."
+      ]
+    },
+    {
+      "stable_identity": "authority_continuity_derivation",
+      "implementation": [
+        "sentientos/maintenance_authority_continuity.py:derive_next",
+        "sentientos/maintenance_authority_continuity.py:_verify_completion",
+        "sentientos/maintenance_authority_continuity.py:_verify_successor",
+        "sentientos/maintenance_authority_continuity_auto_derivation.py:MaintenanceAuthorityContinuityAutoDerivationOwner"
+      ],
+      "producer": "deterministic continuity controller",
+      "consumer": "successor-generation handoff controller",
+      "inputs": [
+        "current generation",
+        "canonical closed-task evidence",
+        "exact local absorption evidence",
+        "current Git state",
+        "prior authority manifest"
+      ],
+      "outputs_evidence": [
+        "successor generation descriptor",
+        "same-or-narrower manifest/profile bundle",
+        "digest-chained continuity receipt"
+      ],
+      "authority_owner": "deterministic continuity controller constrained to same-or-narrower authority",
+      "persistence": "external immutable generation, manifest, rendered profile, and receipt files",
+      "effect_boundary": "derives successor maintenance authority; performs no Git/network/runtime adoption",
+      "failure_posture": "fail_closed on absent/stale/malformed evidence, weak v1 assertions, generation mismatch, widening, partial pair, lock contention, or non-exact repository state",
+      "previous_stage": "local_repository_absorption",
+      "next_stage": "successor_wake_handoff",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "successor_wake_handoff",
+      "implementation": [
+        "sentientos/maintenance_successor_generation_adoption.py:MaintenanceSuccessorGenerationOwner.handoff_once",
+        "sentientos/maintenance_successor_generation_adoption.py:verified_successor",
+        "sentientos/maintenance_successor_generation_adoption.py:pending_handoff"
+      ],
+      "producer": "deterministic successor-generation owner",
+      "consumer": "resident-runtime adoption controller and next wake owner",
+      "inputs": [
+        "consecutive successor descriptor",
+        "continuity receipt",
+        "current wake adoption",
+        "owner-lock state"
+      ],
+      "outputs_evidence": [
+        "immutable successor component configuration",
+        "six-phase digest-chained handoff journal",
+        "successor wake adoption"
+      ],
+      "authority_owner": "successor-generation owner; inherited state alone grants nothing",
+      "persistence": "external configuration/state directories and handoff JSONL",
+      "effect_boundary": "quiesces predecessor wake owner and starts successor only after optional resident-readiness guard",
+      "failure_posture": "fail_closed on identity/receipt/lineage/lock mismatch; bounded shutdown/start failures degrade without completing handoff",
+      "previous_stage": "authority_continuity_derivation",
+      "next_stage": "resident_process_replacement",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "resident_process_replacement",
+      "implementation": [
+        "sentientos/maintenance_resident_runtime_adoption.py:MaintenanceResidentRuntimeAdoptionController.request_replacement",
+        "sentientosd.py:_drive_resident_runtime_transition"
+      ],
+      "producer": "deterministic resident adoption controller in canonical sentientosd",
+      "consumer": "successor sentientosd process image",
+      "inputs": [
+        "canonical pending handoff",
+        "continuity receipt",
+        "predecessor launch provenance",
+        "exact successor repository state",
+        "sealed interpreter/module/environment"
+      ],
+      "outputs_evidence": [
+        "pre-exec transition phases",
+        "transition marker environment",
+        "os.execve process-image replacement"
+      ],
+      "authority_owner": "deterministic resident adoption controller",
+      "persistence": "digest-chained transition JSONL and immutable predecessor provenance",
+      "effect_boundary": "quiescence then exact self-exec of configured Python -m sentientosd",
+      "failure_posture": "fail_closed and terminal on missing/mismatched evidence, timeout, foreign process, unsupported platform, stop marker, or exec failure",
+      "previous_stage": "successor_wake_handoff",
+      "next_stage": "resident_readiness_completion",
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    },
+    {
+      "stable_identity": "resident_readiness_completion",
+      "implementation": [
+        "sentientos/maintenance_resident_runtime_adoption.py:MaintenanceResidentRuntimeAdoptionController.complete_post_exec",
+        "sentientos/maintenance_resident_runtime_adoption.py:MaintenanceResidentRuntimeAdoptionController.readiness_guard",
+        "sentientosd.py:_prepare_resident_runtime_startup"
+      ],
+      "producer": "new sentientosd process image",
+      "consumer": "successor handoff guard, health projection, and future resident transitions",
+      "inputs": [
+        "exact transition marker",
+        "incomplete transition journal",
+        "successor generation and receipt",
+        "fresh launch provenance",
+        "readiness deadline"
+      ],
+      "outputs_evidence": [
+        "successor launch provenance",
+        "resident_ready receipt",
+        "successor_resident_readiness_recorded and resident_adoption_completed events"
+      ],
+      "authority_owner": "deterministic resident adoption controller",
+      "persistence": "immutable provenance and adoption receipt plus fsynced transition journal; restart durable",
+      "effect_boundary": "the final resident_adoption_completed phase makes the successor the recorded authoritative resident; exec establishes execution continuity earlier",
+      "failure_posture": "fail_closed and daemon-terminal on marker, time, provenance, receipt, journal, identity, or persistence mismatch",
+      "previous_stage": "resident_process_replacement",
+      "next_stage": null,
+      "classification": "deterministic_authoritative",
+      "confidence": "verified_fact",
+      "unresolved_questions": []
+    }
+  ],
+  "related_boundaries": {
+    "ControlPlaneKernel": "Canonical sentientosd uses it for lifecycle phase and other maintenance tick effects, but resident adoption methods do not call it.",
+    "RuntimeGovernor": "Deterministic governor for restart/repair/control-plane actions, but it is not a prerequisite or caller in the maintenance successor/resident adoption path.",
+    "capability_registry": "Declares implemented/deferred/forbidden implications and proof surfaces; it is inventory, not an adoption actuator.",
+    "codex_task_authority_admission": "Defines exact deterministic principals/effects for continuity, handoff, and resident adoption; admission metadata is not the persisted runtime transition proof.",
+    "world_state_board": "Projects adoption evidence but does not decide this chain."
+  },
+  "historical_lineage": [
+    {
+      "commit": "3acae26",
+      "date": "2026-08-21",
+      "event": "shallow boundary already contains earlier maintenance machinery",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "ca0dae7",
+      "date": "2026-09-14",
+      "event": "offline local absorption",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "938cf44",
+      "date": "2026-09-14",
+      "event": "bounded authority continuity",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "ab0fec4",
+      "date": "2026-09-14",
+      "event": "successor maintenance generation adoption",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "71a6735",
+      "date": "2026-09-15",
+      "event": "successor resident runtime adoption",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "22f58d9",
+      "date": "2026-09-15",
+      "event": "successor handoff closure",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "1ec5907",
+      "date": "2026-09-15",
+      "event": "automatic continuity derivation",
+      "confidence": "verified_fact"
+    },
+    {
+      "commit": "0efaeb4",
+      "date": "2026-09-16",
+      "event": "disabled resident posture safety",
+      "confidence": "verified_fact"
+    }
+  ]
+}
