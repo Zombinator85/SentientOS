@@ -6,12 +6,12 @@ require_admin_banner()
 require_lumos_approval()
 
 import json
-import sys
 import types
 from importlib import reload
 from pathlib import Path
 
 import emotion_pump as ep
+import pytest
 
 
 def _write_log(path: Path, model: str, emotion: str) -> None:
@@ -30,25 +30,21 @@ def test_emotion_pump_latest_vector(tmp_path: Path) -> None:
     assert len(vec) == len(ep.EMOTIONS)
 
 
-def test_emotion_pump_model_bridge_log_fields(tmp_path: Path, monkeypatch) -> None:
+def test_emotion_pump_model_bridge_log_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     log = tmp_path / "log.jsonl"
     monkeypatch.setenv("MODEL_BRIDGE_LOG", str(log))
-    monkeypatch.setenv("MODEL_SLUG", "openai/gpt-4o")
-    monkeypatch.setenv("MODEL_PROVIDER", "openai")
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o")
-    sys.modules.setdefault("dotenv", types.SimpleNamespace(load_dotenv=lambda: None))
-    stub = types.SimpleNamespace(
-        ChatCompletion=types.SimpleNamespace(
-            create=lambda model, messages: types.SimpleNamespace(
-                choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="ok"))]
-            )
-        )
-    )
-    monkeypatch.setitem(sys.modules, "openai", stub)
-    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=object))
+    monkeypatch.setenv("MODEL_PROVIDER", "llama_cpp")
     import model_bridge as mb
     reload(mb)
+    local = types.SimpleNamespace(
+        create_chat_completion=lambda *, messages: {
+            "choices": [{"message": {"content": "ok"}}]
+        }
+    )
+    monkeypatch.setattr(mb, "_initialise_llama", lambda: local)
     mb.send_message("hi", system_prompt="sys", emotion="Joy", emit=False)
     data = json.loads(log.read_text().splitlines()[-1])
-    assert data["model"] == "openai/gpt-4o"
+    assert data["model"] == "Mistral-7B Instruct v0.2 (GGUF)"
     assert "emotion" in data and "latency_ms" in data
