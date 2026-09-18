@@ -29,7 +29,8 @@ class AdmissionEvidence:
     principal_kind: str; effects: tuple[str, ...]; subject_id: str
     request_configuration_digest: str; issuer_id: str; provenance: str
     issued_sequence: int; valid_through_sequence: int; status: str = "active"
-    predecessor_admission_id: str | None = None; binding_digest: str = ""
+    predecessor_admission_id: str | None = None; originating_grant_id: str | None = None
+    originating_grant_digest: str | None = None; binding_digest: str = ""
 
 
 @dataclass(frozen=True)
@@ -80,12 +81,12 @@ class RuntimeAdmissionAuthority:
     def __init__(self, *, definitions: Mapping[str, TaskAuthorityDefinition], ledger: AdmissionLedger, issuer_id: str = ISSUER_ID) -> None:
         self._definitions, self._ledger, self._issuer_id = definitions, ledger, issuer_id
 
-    def issue(self, *, admission_id: str, capability_id: str, definition_version: int, subsystem_kind: str, principal_id: str, principal_kind: str, effects: tuple[str, ...], subject_id: str, request_configuration_digest: str, provenance: str, issued_sequence: int, valid_through_sequence: int, affirmative_preconditions: tuple[str, ...], predecessor_admission_id: str | None = None) -> AdmissionEvidence:
+    def issue(self, *, admission_id: str, capability_id: str, definition_version: int, subsystem_kind: str, principal_id: str, principal_kind: str, effects: tuple[str, ...], subject_id: str, request_configuration_digest: str, provenance: str, issued_sequence: int, valid_through_sequence: int, affirmative_preconditions: tuple[str, ...], predecessor_admission_id: str | None = None, originating_grant_id: str | None = None, originating_grant_digest: str | None = None) -> AdmissionEvidence:
         definition = self._definitions.get(capability_id)
         if definition is None: raise AdmissionError("unregistered_capability")
         if subsystem_kind not in definition.subsystem_kinds: raise AdmissionError("subsystem_not_admitted")
         if principal_kind not in definition.principal_kinds or not principal_id: raise AdmissionError("principal_not_admitted")
-        if frozenset(effects) != definition.required_effects or len(effects) != len(set(effects)): raise AdmissionError("effect_scope_mismatch")
+        if not effects or not frozenset(effects).issubset(definition.required_effects) or len(effects) != len(set(effects)): raise AdmissionError("effect_scope_mismatch")
         if affirmative_preconditions != definition.approval_requirements: raise AdmissionError("affirmative_preconditions_mismatch")
         if any(not x or "*" in x for x in (admission_id, subject_id, request_configuration_digest, provenance)) or definition_version < 1 or issued_sequence < 1 or valid_through_sequence < issued_sequence: raise AdmissionError("malformed_admission_request")
         scoped_text = f"{subject_id} {provenance}".casefold()
@@ -94,7 +95,7 @@ class RuntimeAdmissionAuthority:
         if any(x.admission_id == admission_id for x in admissions): raise AdmissionError("duplicate_admission_id")
         if issued_sequence in {x.issued_sequence for x in admissions} | {x.sequence for x in revocations}: raise AdmissionError("duplicate_evidence_sequence")
         if predecessor_admission_id and not any(x.admission_id == predecessor_admission_id for x in admissions): raise AdmissionError("unknown_predecessor")
-        item = AdmissionEvidence(admission_id, capability_id, authority_definition_digest(definition), definition_version, subsystem_kind, principal_id, principal_kind, tuple(sorted(effects)), subject_id, request_configuration_digest, self._issuer_id, provenance, issued_sequence, valid_through_sequence, predecessor_admission_id=predecessor_admission_id)
+        item = AdmissionEvidence(admission_id, capability_id, authority_definition_digest(definition), definition_version, subsystem_kind, principal_id, principal_kind, tuple(sorted(effects)), subject_id, request_configuration_digest, self._issuer_id, provenance, issued_sequence, valid_through_sequence, predecessor_admission_id=predecessor_admission_id, originating_grant_id=originating_grant_id, originating_grant_digest=originating_grant_digest)
         item = replace(item, binding_digest=_seal(item)); self._ledger.save((*admissions, item), revocations); return item
 
     def revoke(self, admission_id: str, *, sequence: int, reason_category: str, provenance: str) -> RevocationEvidence:

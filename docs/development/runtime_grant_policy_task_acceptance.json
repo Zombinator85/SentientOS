@@ -1,0 +1,31 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "549e466569bc7e567507b704bb26a7b96f6aeafa",
+  "test_provenance_path": "/tmp/runtime_grant_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_runtime_grant_policy.py::test_bounded_grant_policy_issues_digest_bound_admission",
+      "rationale": "Proves the successful definition-to-grant-to-policy-to-admission chain."
+    },
+    {
+      "node_id": "tests/test_runtime_grant_policy.py::test_revocation_blocks_new_issuance_but_existing_admission_retains_own_lifecycle",
+      "rationale": "Proves durable revocation and explicit existing-admission semantics."
+    },
+    {
+      "node_id": "tests/test_runtime_grant_policy.py::test_duplicate_and_corrupt_grant_state_fail_closed",
+      "rationale": "Proves duplicate and corruption closure."
+    },
+    {
+      "node_id": "tests/test_runtime_admission.py::test_external_consumer_uses_generic_verifier_but_cannot_mint",
+      "rationale": "Proves inert external consumer custody remains verifier-only with null transport."
+    },
+    {
+      "node_id": "tests/test_runtime_grant_policy.py::test_external_controller_consumes_full_inert_policy_chain_with_null_transport",
+      "rationale": "Proves the external-model consumer accepts authority from the complete inert chain while null transport performs no effect."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_runtime_grant_policy.py::test_bounded_grant_policy_issues_digest_bound_admission"
+  ]
+}
