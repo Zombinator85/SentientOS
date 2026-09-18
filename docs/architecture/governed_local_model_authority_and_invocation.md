@@ -11,7 +11,7 @@ The authority map grants no action by itself. Invocation receipts keep raw chat 
 
 Genesis model advice is an untrusted structured proposal-advice purpose. It is schema checked, bounded, and may only enter the existing proposal-only Genesis evaluation pipeline as candidate material; it cannot approve, execute, adopt, mutate source, or bypass IntegrityDaemon, router scoring, sandbox trial, SpecBinder, AdoptionRite, or repository mutation custody.
 
-Legacy `model_bridge.py` and `relay_server.py` remain noncanonical/operator-invoked compatibility surfaces. The governed local path does not import or route through them.
+Legacy `model_bridge.py` and `relay_server.py` remain noncanonical/operator-invoked compatibility surfaces. The governed local path does not import or route through them. Model execution in `model_bridge.py` is local/offline only: historical external-provider configuration is recognized solely to fail closed, without reading provider credentials or initiating transport. External model-service capability is not categorically forbidden, but real external transport requires a future explicitly governed authority path and is not supplied by `model_bridge.py`.
 
 ## Genesis proposal advice closure
 

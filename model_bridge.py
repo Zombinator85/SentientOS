@@ -8,6 +8,7 @@ require_lumos_approval()
 """Dynamic model bridge for routing prompts to LLM backends."""
 
 import json
+import importlib.util
 import logging
 import os
 import time
@@ -15,21 +16,14 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from dotenv import load_dotenv
-from llama_cpp import Llama
-
 from logging_config import get_log_path
 from sentientos.local_model import ModelLoadError
 
-_GUI_BUS: Any | None
-try:
-    from parliament_bus import bus as _GUI_BUS
-except Exception:  # pragma: no cover - optional dependency
-    _GUI_BUS = None
+_GUI_BUS: Any | None = None
+if importlib.util.find_spec("parliament_bus") is not None:  # pragma: no cover - optional dependency
+    from parliament_bus import bus as _PARLIAMENT_BUS
 
-try:
-    import openai
-except Exception:  # pragma: no cover - optional dependency
-    openai = None
+    _GUI_BUS = _PARLIAMENT_BUS
 
 _LOG_PATH = get_log_path("model_bridge_log.jsonl", "MODEL_BRIDGE_LOG")
 _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -45,17 +39,20 @@ _MODEL_POINTER = Path("C:/SentientOS/config/model_path.txt")
 _HARDWARE_PROFILE = Path("C:/SentientOS/config/hardware_profile.json")
 _DEFAULT_CONTEXT_LENGTH = 32768
 _DEFAULT_CHAT_TEMPLATE = "mistral-instruct"
+_REMOVED_EXTERNAL_PROVIDERS = frozenset({"openai", "huggingface"})
 
 _MODEL_SLUG = os.getenv("MODEL_SLUG", _DEFAULT_MODEL_NAME)
 _PROVIDER: str | None = None
 _WRAPPER: Callable[[List[Dict[str, str]]], str] | None = None
-_LLAMA: Llama | None = None
+_LLAMA: Any | None = None
 
 
 def _load_hardware_profile() -> dict[str, object]:
     if _HARDWARE_PROFILE.exists():
         try:
-            return json.loads(_HARDWARE_PROFILE.read_text(encoding="utf-8"))
+            loaded = json.loads(_HARDWARE_PROFILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                return loaded
         except Exception:  # pragma: no cover - resilience first
             pass
     profile = {
@@ -139,7 +136,9 @@ def _avx_supported() -> bool:
         return False
 
 
-def _initialise_llama() -> Llama:
+def _initialise_llama() -> Any:
+    from llama_cpp import Llama
+
     model_path = _detect_model_path()
     if not model_path.exists():
         _LOGGER.fatal("Required model missing: %s", model_path)
@@ -170,7 +169,12 @@ def _initialise_llama() -> Llama:
 
 
 def load_model() -> Callable[[List[Dict[str, str]]], str]:
-    """Return a callable to send prompts to the configured model."""
+    """Return a callable for the configured local model.
+
+    Historical external provider names are recognized only so old
+    configurations fail closed.  This compatibility surface never reads
+    provider credentials and has no external model transport.
+    """
 
     global _PROVIDER, _MODEL_SLUG, _WRAPPER, _LLAMA
 
@@ -181,39 +185,12 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
     provider = os.getenv("MODEL_PROVIDER", "llama_cpp").strip().lower()
     _PROVIDER = provider
 
-    if provider == "openai":
-        if openai is None:
-            raise RuntimeError("openai package not available")
-        openai.api_key = os.getenv("OPENAI_API_KEY", "")
-        model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        _MODEL_SLUG = f"openai/{model}"
-
-        def _call(msgs: List[Dict[str, str]]) -> str:
-            resp = openai.ChatCompletion.create(model=model, messages=msgs)
-            return str(resp.choices[0].message.content)
-
-    elif provider == "huggingface":
-        import requests
-
-        model = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
-        token = os.getenv("HF_API_TOKEN")
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        _MODEL_SLUG = f"huggingface/{model}"
-
-        def _call(msgs: List[Dict[str, str]]) -> str:
-            resp = requests.post(
-                f"https://api-inference.huggingface.co/models/{model}",
-                json={"inputs": msgs[-1]["content"]},
-                headers=headers,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, list) and data:
-                data = data[0]
-            if isinstance(data, dict) and "generated_text" in data:
-                return str(data["generated_text"])
-            return json.dumps(data)
+    if provider in _REMOVED_EXTERNAL_PROVIDERS:
+        _MODEL_SLUG = f"external/{provider} (disabled)"
+        raise RuntimeError(
+            f"External model provider '{provider}' is unavailable in model_bridge; "
+            "configure a local model backend"
+        )
 
     else:
         try:
