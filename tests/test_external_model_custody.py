@@ -76,7 +76,7 @@ def test_receipts_are_frozen_linked_synthetic_evidence():
     registry.validate_receipt(receipt, request, result)
     with pytest.raises(FrozenInstanceError):
         receipt.effect_occurred = True  # type: ignore[misc]
-    with pytest.raises(CustodyValidationError, match="real_effect"):
+    with pytest.raises(CustodyValidationError, match="effect_truth"):
         registry.validate_receipt(replace(receipt, synthetic=False, effect_occurred=True), request, result)
     linked = replace(receipt, previous_receipt_digest=receipt.receipt_digest)
     assert registry.validate_receipt(linked, request, result) != receipt.receipt_digest
