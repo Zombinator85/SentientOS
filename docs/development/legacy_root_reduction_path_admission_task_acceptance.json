@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "6e993858d19e4d720a7f8a5a5e8e69186e2cdb21",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[remove provider fallback]", "rationale": "A tracked root file is admitted for an explicit protected-effect reduction."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[provider inference is forbidden]", "rationale": "A tracked root file is admitted for an explicit protected-effect prohibition."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[enable provider inference]", "rationale": "Affirmative protected-effect intent remains blocked."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent[modify provider handling]", "rationale": "Ambiguous protected-effect intent remains blocked."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[missing.py]", "rationale": "A nonexistent root target cannot use the exception."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[untracked.py]", "rationale": "An untracked root target cannot use the exception."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target[legacy_dir]", "rationale": "A root directory cannot use the file exception."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_rejects_tracked_root_file_for_ordinary_or_authority_definition_task", "rationale": "Ordinary tasks and registered authority-definition requests retain normal root rejection."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_accepts_existing_api_actuator_as_implementation_target", "rationale": "Existing canonical production-root admission remains unchanged."},
+    {"node_id": "tests/test_codex_task_scaffold_path_planner.py::test_planner_distinguishes_prohibitions_from_authority_requests", "rationale": "The existing forbidden-authority classifier retains its behavior."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[remove provider fallback]",
+    "tests/test_codex_task_scaffold_path_planner.py::test_planner_admits_tracked_root_file_only_for_safe_authority_reduction[provider inference is forbidden]"
+  ]
+}
