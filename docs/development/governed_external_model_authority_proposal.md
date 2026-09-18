@@ -1,204 +1,324 @@
-# Governed External-Model Inference Authority Proposal
+# Governed External-Model Inference Authority Definition
 
-## Status and boundary
+## Status and non-authority boundary
 
-This document prepares **one** authority definition for operator review. It does
-not add the definition to `AUTHORITY_DEFINITIONS`, grant a capability, register
-a transport, approve an endpoint or credential, perform an invocation, or
-change runtime behavior. The proposal is **not registration-ready** because the
-repository currently has no positive, executable governance contracts for a
-real provider transport, an approved endpoint identity, or use of an approved
-credential reference.
+This document prepares exactly one current authority definition for operator
+review. It does **not** register the definition, record operator approval, issue
+a runtime operator grant, issue runtime admission, resolve a credential, select
+live transport, contact a service, or change runtime authority. Registration is
+governance metadata only and grants nothing.
 
-The proposed capability ID is `external_model_inference`. Its purpose is:
+The former definition digest
+`0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c`
+is superseded and invalid for approval. It is not a compatibility identity.
 
-> Permit later exact admission of deterministic runtime machinery to invoke
-> one approved external model service for one bounded request through
-> separately approved endpoint, credential-reference, and network-effect
-> controls, receive the response, and write invocation evidence without
-> granting transport, credential administration, provider administration, or
-> self-authorization.
-
-## Repository vocabulary findings
-
-The authority-definition registry admits an exact capability, subsystem,
-principal, and effect set. Registration requires exactly one definition and
-operator evidence bound to its digest and introducing task. Registration is
-definition-only and cannot request the capability or runtime mutation.
-
-Repository-native concepts reused unchanged are:
-
-- `exact_operator_approval_evidence_read`, from existing authority definitions;
-- the `exact_*_read`, `bounded_*`, and `*_receipt_write` effect naming forms;
-- `provider_invocation` and `network_egress` as recognized effect concepts;
-- deterministic controller principals; and
-- affirmative goal phrases plus explicit forbidden-goal phrases.
-
-No existing principal kind is narrow enough for external-model inference. The
-proposed `deterministic_external_model_inference_controller` is therefore a new
-principal kind, not an assertion that such a principal is implemented or
-admitted. Likewise, the repository's provider custody spine is deliberately
-null-only/no-secret/no-endpoint/no-client and its provider invocation readiness
-preflight is deliberately non-invocable. The new effect identifiers below make
-the missing positive semantics explicit; they do not claim those semantics are
-implemented.
-
-## A–G. Exact proposed definition
-
-### A. Capability ID
+## A. Proposed capability ID
 
 `external_model_inference`
 
-### B. Purpose
+The identifier remains stable and accurately names the one effect boundary.
+The execution-custody controller already uses it as `ADMISSION_KIND`; no second
+capability or generic provider/network capability is needed.
 
-The exact purpose is the single paragraph quoted in the status section.
+## B. Purpose
 
-### C. Subsystem kinds
+> Permit a separately granted and admitted deterministic external-model
+> inference controller to perform one configuration-bound invocation of an
+> enabled external-model service at its exact HTTPS endpoint for an allowed
+> model and bounded request, using its service-bound opaque credential
+> reference when configured, and to custody the result and durable invocation
+> receipt, without granting generic network, credential-administration,
+> provider-administration, cognition-trust, grant-issuance, or
+> admission-issuance authority.
+
+## C. Exact subsystem kinds
 
 `frozenset({"external_model_inference"})`
 
-This is a proposed new subsystem kind because no current subsystem kind denotes
-governed external inference without conflating it with local-model chat or
-model distribution.
+This is the narrow repository-native execution domain used by the controller's
+admission capability identity. It is not a generic network, provider, or model
+subsystem.
 
-### D. Principal kinds
+## D. Exact principal kinds
 
 `frozenset({"deterministic_external_model_inference_controller"})`
 
-The principal is deterministic runtime machinery. It is not a model, model
-output, prompt, provider, credential, configuration, response, or service
-availability signal.
+`PrincipalIdentity` and `ExternalModelInferenceController` implement this
+principal kind. The principal is not prompt content, model output, a service,
+credential, adapter, or response. The controller receives only a verifier; it
+does not hold `RuntimeGrantAuthority`, `RuntimeGrantPolicy`, or
+`RuntimeAdmissionAuthority`. It therefore cannot create or broaden a grant,
+issue admission, or alter an authority definition.
 
-### E. Required effects
+## E. Exact effect set
+
+`frozenset({"bounded_external_model_network_egress"})`
+
+This is the exact effect identity implemented by `RequiredEffectDescription`
+and consumed by `RuntimeAdmissionVerifier` immediately before the isolated
+transport boundary. It is intentionally the sole authority effect:
+
+* configured service, exact endpoint, allowed model, optional service-bound
+  credential reference, bounded request, and configuration digest are narrower
+  bindings of this effect, not independently executable effects;
+* result custody and hash-linked receipt persistence are mandatory controller
+  consequences and evidence, not extra authority grants; and
+* invented effect names from the superseded proposal are removed because the
+  current runtime does not consume them.
+
+The effect cannot authorize generic network access. The verifier requires the
+exact subject `service_id:endpoint_id` and the digest of the exact request
+binding plus exact configured-service digest. The service catalog independently
+requires HTTPS, forbids redirects and wildcard hosts/paths/models, and requires
+the selected endpoint, model, and credential-reference identity to equal the
+enabled configured entry.
+
+## F. Exact affirmative preconditions
+
+The definition's ordered `required_goal_phrases` are:
 
 ```text
-bounded_approved_external_model_network_egress
-bounded_external_model_inference_invoke
-exact_approved_external_model_credential_reference_use
-exact_approved_external_model_endpoint_identity_read
-exact_approved_external_model_service_identity_read
-exact_external_model_inference_request_read
-exact_operator_approval_evidence_read
-external_model_inference_effect_receipt_write
-external_model_inference_response_receive
-```
-
-`exact_operator_approval_evidence_read` is existing vocabulary. The other eight
-effect IDs are proposed vocabulary whose positive enforcement is presently
-absent. In particular, `bounded_outbound_transfer` is not reused: by itself it
-does not express an approved inference service, endpoint identity, request, or
-credential-reference binding and would make this proposal overbroad.
-
-### F. Required affirmative preconditions
-
-These are the exact `required_goal_phrases`, in order:
-
-```text
-explicit operator approval
-admitted external model inference definition
-admitted deterministic runtime principal
-approved external model service and endpoint identity
-approved credential reference when required
-bounded inference request
-separate network effect admission
+explicit operator approval of definition registration
+exact registered external model inference definition
+authenticated bounded operator runtime grant
+admitted deterministic external model inference controller
+enabled configured external model service
+exact service endpoint model request and configuration binding
+service bound opaque credential reference when configured
+valid runtime grant policy decision
+valid bounded runtime admission
 request provenance
-no secret disclosure
-invocation effect receipt
+durable hash linked invocation receipt
 ```
 
-The exact `approval_requirements`, in order, are:
+The definition's ordered `approval_requirements`, which must be supplied
+exactly as `RuntimeGrantRequest.affirmative_preconditions`, are:
 
 ```text
-exact operator approval evidence bound to definition digest and introducing task
-separately admitted deterministic runtime principal
-separately approved service, endpoint, credential-reference, request, and network-effect evidence
-immutable invocation effect receipt
+authenticated bounded operator runtime grant
+enabled configured external model service
+exact service endpoint model request and configuration binding
+service bound opaque credential reference when configured
+valid runtime grant policy decision
+valid bounded runtime admission
+request provenance
+durable hash linked invocation receipt
 ```
 
-These strings are admission vocabulary, not enforcement implementations. A
-future registration task must not proceed until the positive endpoint,
-credential-reference, transport, request, response, and receipt contracts can
-actually validate these preconditions.
+These phrases describe checks that exist in the current chain. Definition
+registration has separate digest-bound operator evidence. `RuntimeGrantAuthority`
+validates separately authenticated grant evidence and definition narrowing;
+`RuntimeGrantPolicy` validates grant lifetime, epoch, revocation, principal,
+effect, subject, request/configuration digest, and admission lifetime;
+`RuntimeAdmissionAuthority` issues evidence only after that policy path;
+`RuntimeAdmissionVerifier` validates exact stored evidence and its bindings;
+the catalog and custody registry validate configuration and request bindings;
+and the controller writes the correlated receipt before returning or reporting
+null-transport unavailability.
 
-### G. Forbidden goal phrases
+## G. Exact forbidden scope
+
+The ordered `forbidden_goal_phrases` are:
 
 ```text
+arbitrary network authority
 arbitrary internet access
 arbitrary host
 arbitrary url
 arbitrary endpoint
 credential creation
-credential mutation
+credential modification
+credential rotation
 credential inspection
 credential export
-credential rotation
 credential administration
 provider administration
 provider account administration
 billing administration
 account administration
+shell authority
 shell execution
+arbitrary subprocess authority
 arbitrary subprocess execution
-unrelated filesystem authority
+unrelated filesystem mutation
 repository mutation
-host actuation
 maintenance authority
 runtime adoption
-capability self-modification
-self-grant
+host actuation
+device actuation
+capability definition mutation
+capability self modification
+grant issuance
+admission issuance
 self grant
 model output authorization
-credential possession authorization
+cognition authorization
 configuration authorization
+credential possession authorization
 service availability authorization
+response receipt cognition trust
 ```
 
-## H–I. Canonical serialization and definition digest
+No field contains a wildcard. In addition to documenting the maximum scope,
+these phrases participate in the repository's forbidden-goal checks; runtime
+admission also rejects a forbidden phrase in its scoped subject/provenance.
+Configuration, credential-reference existence or availability, response
+receipt, and model output remain evidence/data and cannot authorize themselves.
 
-The registration workflow covers these fields: `capability_id`, sorted
-`subsystem_kinds`, sorted `principal_kinds`, sorted `required_effects`, ordered
-`required_goal_phrases`, ordered `forbidden_goal_phrases`, ordered
-`approval_requirements`, and `purpose`. It serializes that object with
-`json.dumps(payload, sort_keys=True, separators=(",", ":"))`, UTF-8 encodes the
-result, and takes SHA-256.
+## H. Definition, grant, admission, and execution narrowing
 
-The exact canonical serialized definition (one line, with no trailing newline
-included in the digest) is:
-
-```json
-{"approval_requirements":["exact operator approval evidence bound to definition digest and introducing task","separately admitted deterministic runtime principal","separately approved service, endpoint, credential-reference, request, and network-effect evidence","immutable invocation effect receipt"],"capability_id":"external_model_inference","forbidden_goal_phrases":["arbitrary internet access","arbitrary host","arbitrary url","arbitrary endpoint","credential creation","credential mutation","credential inspection","credential export","credential rotation","credential administration","provider administration","provider account administration","billing administration","account administration","shell execution","arbitrary subprocess execution","unrelated filesystem authority","repository mutation","host actuation","maintenance authority","runtime adoption","capability self-modification","self-grant","self grant","model output authorization","credential possession authorization","configuration authorization","service availability authorization"],"principal_kinds":["deterministic_external_model_inference_controller"],"purpose":"Permit later exact admission of deterministic runtime machinery to invoke one approved external model service for one bounded request through separately approved endpoint, credential-reference, and network-effect controls, receive the response, and write invocation evidence without granting transport, credential administration, provider administration, or self-authorization.","required_effects":["bounded_approved_external_model_network_egress","bounded_external_model_inference_invoke","exact_approved_external_model_credential_reference_use","exact_approved_external_model_endpoint_identity_read","exact_approved_external_model_service_identity_read","exact_external_model_inference_request_read","exact_operator_approval_evidence_read","external_model_inference_effect_receipt_write","external_model_inference_response_receive"],"required_goal_phrases":["explicit operator approval","admitted external model inference definition","admitted deterministic runtime principal","approved external model service and endpoint identity","approved credential reference when required","bounded inference request","separate network effect admission","request provenance","no secret disclosure","invocation effect receipt"],"subsystem_kinds":["external_model_inference"]}
-```
-
-Definition SHA-256:
+The implemented ladder is:
 
 ```text
-0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c
+registered definition (maximum kind/effect vocabulary; grants nothing)
+  -> authenticated RuntimeOperatorGrant (one definition digest/version,
+     subsystem, principal, effect subset, exact subjects, optional exact
+     request/configuration digests, epoch, and bounded sequence interval)
+  -> RuntimeGrantPolicy (fails closed on drift, expiry, revocation, unavailable
+     policy, or any attempted broadening)
+  -> RuntimeAdmissionAuthority (durable exact grant-bound admission)
+  -> RuntimeAdmissionVerifier (issuer, ledger, definition, principal, effect,
+     subject, request/configuration digest, lifetime, revocation and
+     supersession checks)
+  -> ExternalModelInferenceController (catalog/request/credential-handle checks)
+  -> ExternalModelTransport effect boundary
 ```
 
-Any field or ordering change requires a new digest and new operator approval.
+Thus **definition != grant**, **grant != admission**, **admission !=
+execution**, and **execution != success**. A grant is equal to or narrower than
+the definition; an admission is equal to or narrower than its grant. Grant
+revocation prevents later issuance. Issued admissions separately expire and
+can be revoked or superseded.
 
-## J. Exact operator-approval evidence template
+For an invocation, `subject_id` is exactly `service_id:endpoint_id` and
+`request_configuration_digest` is the digest of:
 
-The later introducing task name is fixed as
-`register_governed_external_model_inference_authority_definition`. The operator
-must replace both angle-bracket placeholders. After replacement,
-`evidence_digest` must be the lowercase SHA-256 of the canonical JSON object
-containing every other key below, sorted by key with compact separators. The
-placeholder is intentionally not approval and must not be submitted as one.
+```python
+{"request": request.binding_digest, "configuration": entry.configuration_digest}
+```
+
+The request binding includes service, endpoint, credential-reference identity,
+model, payload digest, generation parameters, provenance, principal, required
+effect, sequence, and schema. The configuration binding includes the exact
+service and HTTPS endpoint identity, permitted model set, configured opaque
+credential reference, enabled state, provenance, and version. Caller-supplied
+arbitrary endpoints therefore cannot become authorized merely by naming this
+capability.
+
+Credential-reference existence is not authority to use it. An admitted,
+configuration-bound invocation may carry only the matching opaque use handle;
+that use authority is not inspection, export, enumeration, creation,
+modification, rotation, or administration of secret material.
+
+Receipt fields separately record request admission, transport attempt,
+transport success, provider response, response digest, synthetic status, and
+whether an effect occurred. A received response is never marked trusted or
+accepted by cognition.
+
+## I. Remaining implementation prerequisites
+
+These prevent a live actuator, but do not make this non-granting definition
+structurally ambiguous:
+
+1. There is no sanctioned production `SecretResolutionPort`; live secret
+   resolution and safe secret injection remain unimplemented.
+2. `NullExternalModelTransport` is the sole production transport. An audited
+   adapter that enforces the already-bound exact HTTPS identity without
+   redirects or other egress is required before live invocation.
+3. The external-model path has no concrete `RuntimeGovernor` operational
+   feasibility predicate. `RuntimeGrantPolicy` only accepts a fail-closed
+   `policy_available` input; a real deployment must define and connect the
+   operational predicate before transport rather than treating authority as
+   feasibility.
+4. Response acceptance by cognition remains a separate, unimplemented trust
+   decision. A transport response or persisted digest must never imply it.
+
+`ControlPlaneKernel` has no implemented role in this effect path and is not
+included ceremonially. Runtime grant policy and admission authority own the
+authority decision; the controller/verifier/catalog own final binding checks;
+the future adapter must own enforcement at the transport boundary.
+
+Registration before those actuator pieces exist is responsible because
+registration grants nothing and the current production adapter cannot perform
+an effect. Runtime exercise would remain premature.
+
+## J. Registration-readiness judgment
+
+The definition is **structurally ready for operator review and possible
+definition-only registration**. It is **not actuator-ready** and is not approval
+or registration by itself.
+
+Readiness answers:
+
+1. **Real subsystem and principal?** Yes. The admission identity and controller
+   principal are implemented.
+2. **Exact non-wildcard effect?** Yes: one implemented effect identity.
+3. **Clean definition/grant/admission narrowing?** Yes.
+4. **Arbitrary internet egress?** No; exact subject, request/configuration
+   digest, catalog identity, HTTPS endpoint, and no-redirect checks constrain it.
+5. **Arbitrary credential administration?** No.
+6. **Can cognition/model output self-authorize?** No.
+7. **Can configuration self-authorize?** No.
+8. **Can credential possession self-authorize?** No.
+9. **Endpoint scope enforceable?** Yes, deterministically through endpoint,
+   catalog, subject, and digest checks. A future live adapter must preserve it.
+10. **Request/configuration binding enforceable?** Yes.
+11. **Can grants expire/revoke?** Yes.
+12. **Can admissions expire/revoke/supersede?** Yes.
+13. **Durable execution evidence?** Yes; receipts are atomic, correlated,
+   hash-linked, and restart-validated.
+14. **Response trust separate from transport success?** Yes; custody records no
+   cognition-acceptance claim.
+15. **Non-blocking missing pieces?** Live secret resolution, live transport, a
+   concrete external-model operational-feasibility predicate, and response
+   trust policy.
+16. **Definition-approval blockers?** None. The exact endpoint/effect/request
+   semantics required by the definition are representable and enforced before
+   the null transport boundary. The missing pieces block execution, not
+   definition registration.
+
+## K. Canonical serialized definition
+
+The registration algorithm sorts set-valued fields, preserves tuple ordering,
+then applies `json.dumps(payload, sort_keys=True, separators=(",", ":"))`
+without a trailing newline:
 
 ```json
-{"approval_status":"approved","approved_capability_id":"external_model_inference","approved_definition_digest":"0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c","approved_task_name":"register_governed_external_model_inference_authority_definition","evidence_digest":"<COMPUTE_AFTER_OPERATOR_VALUES_ARE_SUPPLIED>","evidence_id":"<OPERATOR_SUPPLIED_EVIDENCE_ID>","operator_identity_label":"<OPERATOR_SUPPLIED_IDENTITY_LABEL>","schema_version":"sentientos.authority_definition_operator_approval:v1"}
+{"approval_requirements":["authenticated bounded operator runtime grant","enabled configured external model service","exact service endpoint model request and configuration binding","service bound opaque credential reference when configured","valid runtime grant policy decision","valid bounded runtime admission","request provenance","durable hash linked invocation receipt"],"capability_id":"external_model_inference","forbidden_goal_phrases":["arbitrary network authority","arbitrary internet access","arbitrary host","arbitrary url","arbitrary endpoint","credential creation","credential modification","credential rotation","credential inspection","credential export","credential administration","provider administration","provider account administration","billing administration","account administration","shell authority","shell execution","arbitrary subprocess authority","arbitrary subprocess execution","unrelated filesystem mutation","repository mutation","maintenance authority","runtime adoption","host actuation","device actuation","capability definition mutation","capability self modification","grant issuance","admission issuance","self grant","model output authorization","cognition authorization","configuration authorization","credential possession authorization","service availability authorization","response receipt cognition trust"],"principal_kinds":["deterministic_external_model_inference_controller"],"purpose":"Permit a separately granted and admitted deterministic external-model inference controller to perform one configuration-bound invocation of an enabled external-model service at its exact HTTPS endpoint for an allowed model and bounded request, using its service-bound opaque credential reference when configured, and to custody the result and durable invocation receipt, without granting generic network, credential-administration, provider-administration, cognition-trust, grant-issuance, or admission-issuance authority.","required_effects":["bounded_external_model_network_egress"],"required_goal_phrases":["explicit operator approval of definition registration","exact registered external model inference definition","authenticated bounded operator runtime grant","admitted deterministic external model inference controller","enabled configured external model service","exact service endpoint model request and configuration binding","service bound opaque credential reference when configured","valid runtime grant policy decision","valid bounded runtime admission","request provenance","durable hash linked invocation receipt"],"subsystem_kinds":["external_model_inference"]}
 ```
 
-The approval binds only this exact definition and introducing task. It does not
-approve an endpoint, credential reference, request, transport implementation,
-invocation, or runtime grant.
+Any modification to any definition field or ordered phrase requires a new
+digest and new approval evidence.
 
-## K. Subsequent registration-task inputs
+## L. New SHA-256 definition digest
 
-Only after the missing contracts below exist and the operator independently
-supplies valid approval evidence should a later task submit this exact shape to
-`register_authority_definition`:
+```text
+539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c
+```
+
+This is a new digest; the old
+`0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c`
+digest is superseded and invalid for approval.
+
+## M. Exact operator-approval template
+
+The later introducing task identity is exactly
+`register_governed_external_model_inference_authority_definition`. The operator
+must supply both identified values and compute `evidence_digest` with
+`operator_approval_evidence_digest` after substitution. Placeholders are not
+approval.
+
+```json
+{"approval_status":"approved","approved_capability_id":"external_model_inference","approved_definition_digest":"539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c","approved_task_name":"register_governed_external_model_inference_authority_definition","evidence_digest":"<COMPUTE_AFTER_OPERATOR_VALUES_ARE_SUPPLIED>","evidence_id":"<OPERATOR_SUPPLIED_EVIDENCE_ID>","operator_identity_label":"<OPERATOR_SUPPLIED_IDENTITY_LABEL>","schema_version":"sentientos.authority_definition_operator_approval:v1"}
+```
+
+This evidence approves only definition registration. It is not a runtime grant,
+admission, endpoint approval, credential-use approval, or invocation approval.
+
+## N. Exact later registration inputs
+
+After genuine operator evidence is supplied, a separate task may pass this
+definition-only structure to `register_authority_definition`:
 
 ```python
 {
@@ -209,59 +329,62 @@ supplies valid approval evidence should a later task submit this exact shape to
             capability_id="external_model_inference",
             subsystem_kinds=frozenset({"external_model_inference"}),
             principal_kinds=frozenset({"deterministic_external_model_inference_controller"}),
-            required_effects=frozenset({
-                "bounded_approved_external_model_network_egress",
-                "bounded_external_model_inference_invoke",
-                "exact_approved_external_model_credential_reference_use",
-                "exact_approved_external_model_endpoint_identity_read",
-                "exact_approved_external_model_service_identity_read",
-                "exact_external_model_inference_request_read",
-                "exact_operator_approval_evidence_read",
-                "external_model_inference_effect_receipt_write",
-                "external_model_inference_response_receive",
-            }),
+            required_effects=frozenset({"bounded_external_model_network_egress"}),
             required_goal_phrases=(
-                "explicit operator approval",
-                "admitted external model inference definition",
-                "admitted deterministic runtime principal",
-                "approved external model service and endpoint identity",
-                "approved credential reference when required",
-                "bounded inference request",
-                "separate network effect admission",
+                "explicit operator approval of definition registration",
+                "exact registered external model inference definition",
+                "authenticated bounded operator runtime grant",
+                "admitted deterministic external model inference controller",
+                "enabled configured external model service",
+                "exact service endpoint model request and configuration binding",
+                "service bound opaque credential reference when configured",
+                "valid runtime grant policy decision",
+                "valid bounded runtime admission",
                 "request provenance",
-                "no secret disclosure",
-                "invocation effect receipt",
+                "durable hash linked invocation receipt",
             ),
             forbidden_goal_phrases=(
-                "arbitrary internet access", "arbitrary host", "arbitrary url",
-                "arbitrary endpoint", "credential creation", "credential mutation",
-                "credential inspection", "credential export", "credential rotation",
-                "credential administration", "provider administration",
-                "provider account administration", "billing administration",
-                "account administration", "shell execution",
-                "arbitrary subprocess execution", "unrelated filesystem authority",
-                "repository mutation", "host actuation", "maintenance authority",
-                "runtime adoption", "capability self-modification", "self-grant",
-                "self grant", "model output authorization",
-                "credential possession authorization", "configuration authorization",
+                "arbitrary network authority", "arbitrary internet access",
+                "arbitrary host", "arbitrary url", "arbitrary endpoint",
+                "credential creation", "credential modification",
+                "credential rotation", "credential inspection",
+                "credential export", "credential administration",
+                "provider administration", "provider account administration",
+                "billing administration", "account administration",
+                "shell authority", "shell execution",
+                "arbitrary subprocess authority",
+                "arbitrary subprocess execution",
+                "unrelated filesystem mutation", "repository mutation",
+                "maintenance authority", "runtime adoption", "host actuation",
+                "device actuation", "capability definition mutation",
+                "capability self modification", "grant issuance",
+                "admission issuance", "self grant",
+                "model output authorization", "cognition authorization",
+                "configuration authorization",
+                "credential possession authorization",
                 "service availability authorization",
+                "response receipt cognition trust",
             ),
             approval_requirements=(
-                "exact operator approval evidence bound to definition digest and introducing task",
-                "separately admitted deterministic runtime principal",
-                "separately approved service, endpoint, credential-reference, request, and network-effect evidence",
-                "immutable invocation effect receipt",
+                "authenticated bounded operator runtime grant",
+                "enabled configured external model service",
+                "exact service endpoint model request and configuration binding",
+                "service bound opaque credential reference when configured",
+                "valid runtime grant policy decision",
+                "valid bounded runtime admission",
+                "request provenance",
+                "durable hash linked invocation receipt",
             ),
-            purpose="Permit later exact admission of deterministic runtime machinery to invoke one approved external model service for one bounded request through separately approved endpoint, credential-reference, and network-effect controls, receive the response, and write invocation evidence without granting transport, credential administration, provider administration, or self-authorization.",
+            purpose="Permit a separately granted and admitted deterministic external-model inference controller to perform one configuration-bound invocation of an enabled external-model service at its exact HTTPS endpoint for an allowed model and bounded request, using its service-bound opaque credential reference when configured, and to custody the result and durable invocation receipt, without granting generic network, credential-administration, provider-administration, cognition-trust, grant-issuance, or admission-issuance authority.",
         )
     ],
-    "operator_approval": {  # exact completed object from section J
+    "operator_approval": {
         "schema_version": "sentientos.authority_definition_operator_approval:v1",
         "evidence_id": "<OPERATOR_SUPPLIED_EVIDENCE_ID>",
         "operator_identity_label": "<OPERATOR_SUPPLIED_IDENTITY_LABEL>",
         "approval_status": "approved",
         "approved_capability_id": "external_model_inference",
-        "approved_definition_digest": "0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c",
+        "approved_definition_digest": "539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c",
         "approved_task_name": "register_governed_external_model_inference_authority_definition",
         "evidence_digest": "<COMPUTE_AFTER_OPERATOR_VALUES_ARE_SUPPLIED>",
     },
@@ -276,51 +399,12 @@ supplies valid approval evidence should a later task submit this exact shape to
 }
 ```
 
-The definition digest submitted by that task must recompute to the digest in
-section I. Registration must remain separate from any later exact admission,
-grant, transport implementation, or invocation.
+The empty request/principal/effect fields are required registration guards, not
+runtime requests.
 
-## L. Readiness check and remaining prerequisites
+## Final non-authority confirmation
 
-1. **Is the principal adequately bounded?** Conceptually yes: one deterministic
-   controller kind. Mechanically not yet: that principal kind is not implemented
-   or admitted.
-2. **Is the effect set exact rather than wildcarded?** Yes.
-3. **Can arbitrary internet egress occur under this definition?** No by stated
-   scope; however, positive endpoint-bound enforcement does not yet exist.
-4. **Can arbitrary credential administration occur?** No; only use of an exact
-   approved reference is proposed, and all administration is forbidden.
-5. **Can model output self-authorize?** No.
-6. **Can credentials alone authorize invocation?** No.
-7. **Can configuration alone authorize invocation?** No.
-8. **Is endpoint identity governable?** Not positively today. Current endpoint
-   custody accepts no endpoints and forbids endpoint use.
-9. **Is credential use governable separately from credential administration?**
-   Not positively today. Current credential custody accepts no secret or
-   resolvable credential reference and forbids credential use.
-10. **Can successful invocation be distinguished from admission?** The proposed
-    invocation and response/receipt effects distinguish them, but no executable
-    external-invocation receipt contract exists yet.
-11. **Can effect evidence be produced?** Not for a real external invocation
-    today; only null/denial metadata exists. The proposed receipt effect requires
-    a future immutable receipt contract.
-12. **Does a required concept remain unrepresentable?** Yes. Positive governance
-    and enforcement are missing for approved service/endpoint identity,
-    credential-reference use without credential administration, real transport
-    registration, network-effect admission, bounded request/response custody,
-    the deterministic principal, and immutable external-invocation receipts.
-
-Therefore this definition is ready for operator **review**, but is explicitly
-not ready for operator approval or registration. Before registration, separate
-tasks must implement and validate those positive contracts while preserving the
-null adapter as the default and without treating metadata, availability,
-configuration, credentials, or model output as authority.
-
-## M. Non-authority confirmation
-
-- Nothing was registered.
-- No capability was granted.
-- No transport was implemented or selected.
-- No runtime authority or runtime behavior changed.
-- No endpoint, credential, request, or provider was accessed.
-
+Nothing was registered or approved. No capability or runtime grant was issued.
+No admission was issued. No live transport was installed or invoked. No remote
+service was contacted. No credential or secret was read. No runtime authority
+or runtime behavior changed.

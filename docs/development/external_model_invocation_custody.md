@@ -9,12 +9,12 @@ receipt evidence. Frozen records and canonical JSON/SHA-256 bindings make
 substitution and correlation failures reviewable. Secret-bearing keys are
 rejected; no prompt content or secret value is stored.
 
-The intended future chain is:
+The authority-aware chain is:
 
     cognition proposes
       -> deterministic request custody
       -> service / endpoint / credential-reference validation
-      -> FUTURE authority admission (not implemented here)
+      -> separately granted runtime authority and bounded admission
       -> FUTURE transport (not implemented here)
       -> response custody
       -> invocation evidence
@@ -32,7 +32,8 @@ following boundaries:
 * deterministic principal identified != principal empowered
 
 The earlier prepared `external_model_inference` definition predates these exact
-schemas. Its digest must be superseded and the definition re-prepared only after
-future authority admission, positive configuration custody, credential-store
-resolution without administration, transport isolation, and real immutable
-receipt persistence have separately been designed and approved.
+schemas and is superseded. The current non-granting definition proposal derives
+from the implemented custody, runtime-grant, and runtime-admission machinery in
+[`governed_external_model_authority_proposal.md`](governed_external_model_authority_proposal.md).
+Live credential resolution and transport remain unavailable; definition
+registration would grant neither.
