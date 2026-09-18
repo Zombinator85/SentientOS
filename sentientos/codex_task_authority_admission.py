@@ -6,8 +6,12 @@ capability, creates a lease, loads credentials, or performs an effect.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, Mapping
 
 
 MODEL_MIRROR_PUBLISH = "sentientos.model_mirror.publish"
@@ -40,6 +44,132 @@ class TaskAuthorityDefinition:
     required_effects: frozenset[str]
     forbidden_goal_phrases: tuple[str, ...]
     required_goal_phrases: tuple[str, ...] = ()
+    approval_requirements: tuple[str, ...] = ()
+    purpose: str = ""
+
+
+@dataclass(frozen=True)
+class AuthorityDefinitionRegistrationResult:
+    status: str
+    blocker_codes: tuple[str, ...]
+    task_name: str
+    capability_id: str
+    definition_digest: str
+    operator_approval_evidence_id: str
+    authority_definitions: Mapping[str, TaskAuthorityDefinition]
+    definition_registered: bool
+    capability_granted: bool = False
+    runtime_authority: None = None
+    effect_performed: bool = False
+    runtime_mutation_performed: bool = False
+
+
+AUTHORITY_DEFINITION_REGISTRATION = "authority_definition_registration"
+_IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
+_BROAD_VALUES = frozenset({"*", "all", "any", "all_current_and_future", "all current and future"})
+_REGISTRATION_ALLOWED_ROOTS = frozenset({"sentientos", "scripts", "tests", "docs", "artifacts", ".codex_task"})
+
+
+def authority_definition_digest(definition: TaskAuthorityDefinition) -> str:
+    payload = {
+        "capability_id": definition.capability_id,
+        "subsystem_kinds": sorted(definition.subsystem_kinds),
+        "principal_kinds": sorted(definition.principal_kinds),
+        "required_effects": sorted(definition.required_effects),
+        "required_goal_phrases": list(definition.required_goal_phrases),
+        "forbidden_goal_phrases": list(definition.forbidden_goal_phrases),
+        "approval_requirements": list(definition.approval_requirements),
+        "purpose": definition.purpose,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def operator_approval_evidence_digest(evidence: Mapping[str, Any]) -> str:
+    payload = {key: evidence[key] for key in sorted(evidence) if key != "evidence_digest"}
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _registration_definition_blockers(definition: object) -> list[str]:
+    if not isinstance(definition, TaskAuthorityDefinition):
+        return ["authority_definition_malformed"]
+    blockers: list[str] = []
+    collection_surfaces: tuple[tuple[str, Any], ...] = (
+        ("subsystem", definition.subsystem_kinds),
+        ("principal", definition.principal_kinds),
+        ("effect", definition.required_effects),
+    )
+    for label, values in collection_surfaces:
+        if not values:
+            blockers.append(f"authority_definition_{label}s_empty")
+        if any(not isinstance(value, str) or not _IDENTIFIER_RE.fullmatch(value) for value in values):
+            blockers.append(f"authority_definition_{label}_malformed")
+        if any(value.casefold() in _BROAD_VALUES for value in values):
+            blockers.append(f"authority_definition_{label}_wildcard")
+        if len(values) != len(set(values)):
+            blockers.append(f"authority_definition_{label}_duplicate")
+    if not _IDENTIFIER_RE.fullmatch(definition.capability_id):
+        blockers.append("authority_definition_capability_id_malformed")
+    for label, values in (("required_goal_phrases", definition.required_goal_phrases), ("forbidden_goal_phrases", definition.forbidden_goal_phrases), ("approval_requirements", definition.approval_requirements)):
+        if not values or any(not isinstance(value, str) or not value.strip() for value in values):
+            blockers.append(f"authority_definition_{label}_missing")
+        if len(values) != len(set(value.casefold() for value in values)):
+            blockers.append(f"authority_definition_{label}_duplicate")
+    if not definition.purpose.strip():
+        blockers.append("authority_definition_purpose_missing")
+    if {x.casefold() for x in definition.required_goal_phrases} & {x.casefold() for x in definition.forbidden_goal_phrases}:
+        blockers.append("authority_definition_contradictory_goal_semantics")
+    return blockers
+
+
+def register_authority_definition(artifact: Mapping[str, Any], *, authority_definitions: Mapping[str, TaskAuthorityDefinition] | None = None) -> AuthorityDefinitionRegistrationResult:
+    """Validate one governance-only registration and return a new catalog view.
+
+    Neither the canonical catalog nor a supplied catalog is mutated.  The new
+    view is eligible only for ordinary exact admission in a subsequent task.
+    """
+    catalog = AUTHORITY_DEFINITIONS if authority_definitions is None else authority_definitions
+    blockers: list[str] = []
+    task_name = artifact.get("task_name", "")
+    definitions = artifact.get("definitions")
+    if artifact.get("task_classification") != AUTHORITY_DEFINITION_REGISTRATION:
+        blockers.append("authority_definition_registration_classification_required")
+    if not isinstance(task_name, str) or not task_name.strip():
+        blockers.append("authority_definition_registration_task_missing")
+    if not isinstance(definitions, (list, tuple)) or len(definitions) != 1:
+        blockers.append("authority_definition_registration_requires_exactly_one_definition")
+    definition = definitions[0] if isinstance(definitions, (list, tuple)) and len(definitions) == 1 else None
+    blockers.extend(_registration_definition_blockers(definition))
+    capability_id = definition.capability_id if isinstance(definition, TaskAuthorityDefinition) else ""
+    digest = authority_definition_digest(definition) if isinstance(definition, TaskAuthorityDefinition) else ""
+    if capability_id in catalog:
+        blockers.append("authority_definition_capability_id_duplicate")
+    approval = artifact.get("operator_approval")
+    evidence_id = ""
+    if not isinstance(approval, Mapping):
+        blockers.append("authority_definition_operator_approval_missing")
+    else:
+        evidence_id = approval.get("evidence_id", "") if isinstance(approval.get("evidence_id"), str) else ""
+        bindings = {"schema_version": "sentientos.authority_definition_operator_approval:v1", "approval_status": "approved", "approved_capability_id": capability_id, "approved_definition_digest": digest, "approved_task_name": task_name}
+        if not evidence_id or not isinstance(approval.get("operator_identity_label"), str) or not approval.get("operator_identity_label", "").strip():
+            blockers.append("authority_definition_operator_approval_identity_missing")
+        if any(approval.get(key) != value for key, value in bindings.items()):
+            blockers.append("authority_definition_operator_approval_binding_mismatch")
+        if approval.get("evidence_digest") != operator_approval_evidence_digest(approval):
+            blockers.append("authority_definition_operator_approval_digest_invalid")
+    if artifact.get("requested_capability_id") or artifact.get("authority_principal") or artifact.get("requested_effects"):
+        blockers.append("authority_definition_registration_cannot_request_capability")
+    if artifact.get("runtime_mutations"):
+        blockers.append("authority_definition_registration_runtime_mutation_forbidden")
+    changed_paths = artifact.get("changed_paths", ())
+    if not isinstance(changed_paths, (list, tuple)) or any(not isinstance(path, str) or not path or path.startswith("/") or ".." in path.split("/") or path.split("/", 1)[0] not in _REGISTRATION_ALLOWED_ROOTS for path in changed_paths):
+        blockers.append("authority_definition_registration_changed_paths_malformed")
+    blocker_codes = tuple(sorted(set(blockers)))
+    updated = dict(catalog)
+    if not blocker_codes and isinstance(definition, TaskAuthorityDefinition):
+        updated[definition.capability_id] = definition
+    return AuthorityDefinitionRegistrationResult("authority_definition_registered" if not blocker_codes else "authority_definition_registration_blocked", blocker_codes, task_name if isinstance(task_name, str) else "", capability_id, digest, evidence_id, MappingProxyType(updated), not blocker_codes)
 
 
 AUTHORITY_DEFINITIONS = {
@@ -588,12 +718,14 @@ def _required_precondition_is_affirmative(task_goal: str, phrase: str) -> bool:
 def authority_admission_blockers(
     *, capability_id: str, subsystem_kind: str, principal_kind: str,
     requested_effects: tuple[str, ...], task_goal: str,
+    authority_definitions: Mapping[str, TaskAuthorityDefinition] | None = None,
 ) -> tuple[str, ...]:
     """Return deterministic blockers; an empty tuple means definition eligibility.
 
     Eligibility is not a grant and cannot be presented as effect authority.
     """
-    definition = AUTHORITY_DEFINITIONS.get(capability_id)
+    definitions = AUTHORITY_DEFINITIONS if authority_definitions is None else authority_definitions
+    definition = definitions.get(capability_id)
     if definition is None:
         return ("unregistered_authority_capability",)
     blockers: list[str] = []

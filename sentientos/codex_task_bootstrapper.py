@@ -121,6 +121,13 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
     if status == "ready" and warning_codes:
         status = "ready_with_warnings"
 
+    registration_boundaries: tuple[str, ...] = ()
+    if request.subsystem_kind == "authority_definition_registration":
+        registration_boundaries = (
+            "definition metadata mutation only",
+            "registration grants no capability or runtime authority",
+            "registered effect unavailable in registration task",
+        )
     return CodexTaskBootstrapResult(
         status=status,
         warning_codes=warning_codes,
@@ -154,7 +161,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
             "no codex invocation",
             "no provider/network/github/shell/subprocess/action-wing invocation",
             "no repo mutation except explicit output artifacts",
-        ),
+        ) + registration_boundaries,
     )
 
 

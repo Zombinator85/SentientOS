@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "240da87dfb88e3b58559060ff9d6488c92a8db37",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_operator_approved_registration_is_definition_only_and_visible_to_later_exact_admission",
+      "rationale": "Successful registration remains non-authority and feeds only later exact admission."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_missing_or_mismatched_operator_approval_fails_closed",
+      "rationale": "Missing or unbound operator evidence fails closed."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_duplicate_and_multiple_definitions_fail_closed",
+      "rationale": "Duplicate IDs and bulk registration fail closed."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_registration_cannot_self_authorize_or_exercise_new_definition",
+      "rationale": "Same-task authority requests and self-authorization fail closed."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_registration_rejects_runtime_mutations_and_bad_paths",
+      "rationale": "Runtime mutation and out-of-bound path declarations fail closed."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_existing_catalog_and_forbidden_authority_lexical_gate_are_unchanged",
+      "rationale": "Existing definitions and lexical authority denial remain intact."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_authority_definition_registration.py::test_operator_approved_registration_is_definition_only_and_visible_to_later_exact_admission"
+  ]
+}

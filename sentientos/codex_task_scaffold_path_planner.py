@@ -263,7 +263,10 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     commit_title = request.commit_title or commit_default
 
     admitted_authority = False
-    if request.authority_principal or request.requested_effects or request.capability_id in AUTHORITY_DEFINITIONS:
+    registration_task = request.subsystem_kind == "authority_definition_registration"
+    if registration_task and (request.capability_id or request.authority_principal or request.requested_effects):
+        blockers.append("authority_definition_registration_cannot_request_capability")
+    if not registration_task and (request.authority_principal or request.requested_effects or request.capability_id in AUTHORITY_DEFINITIONS):
         authority_blockers = authority_admission_blockers(
             capability_id=request.capability_id,
             subsystem_kind=request.subsystem_kind or request.preset_id,
