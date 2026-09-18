@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "task_id": "external_model_execution_custody",
+  "repository_sha": "d5f562eafac8c5c330dac76caf8f91ce18a9cfca",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_external_model_execution_custody.py::test_catalog_persists_and_resolves_exact_configuration", "rationale": "Successful path proves deterministic positive configuration and restart reconstruction."},
+    {"node_id": "tests/test_external_model_execution_custody.py::test_admission_required_and_all_bindings_and_freshness_are_consumed", "rationale": "Admission is externally supplied, exact-bound, and freshness checked."},
+    {"node_id": "tests/test_external_model_execution_custody.py::test_null_transport_records_not_attempted_then_fails_unavailable", "rationale": "Production null transport truthfully records zero effect and fails unavailable."},
+    {"node_id": "tests/test_external_model_execution_custody.py::test_synthetic_transport_proves_result_correlation_and_restart", "rationale": "Synthetic transport proves correlation and durable evidence without claiming a real effect."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_model_execution_custody.py::test_catalog_persists_and_resolves_exact_configuration",
+    "tests/test_external_model_execution_custody.py::test_synthetic_transport_proves_result_correlation_and_restart"
+  ]
+}

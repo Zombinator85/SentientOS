@@ -284,7 +284,7 @@ class CustodyRegistry:
             raise CustodyValidationError("malformed_receipt_binding")
         if (receipt.request_admitted, receipt.execution_attempted, receipt.execution_succeeded, receipt.response_payload_digest) != (result.request_admitted, result.execution_attempted, result.execution_succeeded, result.response_payload_digest):
             raise CustodyValidationError("receipt_result_mismatch")
-        if not receipt.synthetic or receipt.effect_occurred or receipt.sequence < 0:
-            raise CustodyValidationError("receipt_claims_real_effect")
+        if receipt.synthetic != result.synthetic or receipt.effect_occurred != (result.execution_attempted and not result.synthetic) or receipt.sequence < 0:
+            raise CustodyValidationError("receipt_effect_truth_mismatch")
         if receipt.previous_receipt_digest: _digest(receipt.previous_receipt_digest, "previous_receipt_digest")
         return receipt.receipt_digest
