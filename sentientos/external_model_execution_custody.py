@@ -16,6 +16,7 @@ from sentientos.external_model_custody import (
     ExternalModelServiceIdentity, InvocationReceipt, InvocationRequestEnvelope,
     InvocationResultEnvelope, canonical_bytes, digest,
 )
+from sentientos.runtime_admission import AdmissionEvidence, RuntimeAdmissionVerifier
 
 CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v1"
 RECEIPT_SCHEMA = "sentientos.external_model_invocation_receipts:v1"
@@ -194,10 +195,11 @@ class InvocationReceiptStore:
 
 class ExternalModelInferenceController:
     """Custody orchestrator.  It validates supplied admission; it cannot issue it."""
-    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport, receipts: InvocationReceiptStore) -> None:
+    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport, receipts: InvocationReceiptStore, admission_verifier: RuntimeAdmissionVerifier | None = None, admission_capability_id: str = ADMISSION_KIND) -> None:
         self.catalog, self.registry, self.transport, self.receipts = catalog, registry, transport, receipts
+        self.admission_verifier, self.admission_capability_id = admission_verifier, admission_capability_id
 
-    def execute(self, request: InvocationRequestEnvelope, *, credential_handle: OpaqueCredentialUseHandle | None, admission: ExternalAdmissionEvidence | None, current_sequence: int) -> InvocationReceipt:
+    def execute(self, request: InvocationRequestEnvelope, *, credential_handle: OpaqueCredentialUseHandle | None, admission: ExternalAdmissionEvidence | AdmissionEvidence | None, current_sequence: int) -> InvocationReceipt:
         entry = self.catalog.resolve(request)
         self.registry.validate_request(request)
         if entry.credential_ref is not None:
@@ -207,13 +209,23 @@ class ExternalModelInferenceController:
                 raise CustodyValidationError("credential_handle_service_mismatch")
         if admission is None:
             raise CustodyValidationError("external_admission_required")
-        expected = (request.principal.principal_id, request.service_id, request.endpoint_id, request.binding_digest, entry.configuration_digest)
-        actual = (admission.principal_id, admission.service_id, admission.endpoint_id, admission.request_binding_digest, admission.configuration_digest)
-        if not admission.admitted or admission.authority_identity != ADMISSION_KIND or actual != expected:
-            raise CustodyValidationError("admission_request_mismatch")
-        if admission.sequence > current_sequence or admission.valid_through_sequence < current_sequence:
-            raise CustodyValidationError("stale_or_malformed_admission")
-        invocation = AdmittedInvocation(request, entry.configuration_digest, credential_handle, admission.evidence_ref)
+        if isinstance(admission, AdmissionEvidence):
+            if self.admission_verifier is None:
+                raise CustodyValidationError("runtime_admission_verifier_required")
+            try:
+                self.admission_verifier.verify(admission, current_sequence=current_sequence, capability_id=self.admission_capability_id, principal_id=request.principal.principal_id, effect=request.required_effect.effect_kind, subject_id=f"{request.service_id}:{request.endpoint_id}", request_configuration_digest=digest({"request": request.binding_digest, "configuration": entry.configuration_digest}))
+            except ValueError as exc:
+                raise CustodyValidationError(str(exc)) from exc
+            evidence_ref = admission.admission_id
+        else:
+            expected = (request.principal.principal_id, request.service_id, request.endpoint_id, request.binding_digest, entry.configuration_digest)
+            actual = (admission.principal_id, admission.service_id, admission.endpoint_id, admission.request_binding_digest, admission.configuration_digest)
+            if not admission.admitted or admission.authority_identity != ADMISSION_KIND or actual != expected:
+                raise CustodyValidationError("admission_request_mismatch")
+            if admission.sequence > current_sequence or admission.valid_through_sequence < current_sequence:
+                raise CustodyValidationError("stale_or_malformed_admission")
+            evidence_ref = admission.evidence_ref
+        invocation = AdmittedInvocation(request, entry.configuration_digest, credential_handle, evidence_ref)
         evidence = self.transport.invoke(invocation)
         if evidence.request_binding_digest != request.binding_digest:
             raise CustodyValidationError("transport_request_correlation_mismatch")
@@ -221,9 +233,9 @@ class ExternalModelInferenceController:
             raise CustodyValidationError("malformed_transport_evidence")
         if evidence.provider_responded != bool(evidence.response_payload_digest):
             raise CustodyValidationError("malformed_transport_response")
-        result = InvocationResultEnvelope(request.request_id, request.binding_digest, request.service_id, request.endpoint_id, admission.evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.provider_responded, evidence.response_payload_digest, evidence.status_code, current_sequence if evidence.attempted else None, current_sequence if evidence.attempted else None, synthetic=evidence.synthetic_test_only or not evidence.attempted)
+        result = InvocationResultEnvelope(request.request_id, request.binding_digest, request.service_id, request.endpoint_id, evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.provider_responded, evidence.response_payload_digest, evidence.status_code, current_sequence if evidence.attempted else None, current_sequence if evidence.attempted else None, synthetic=evidence.synthetic_test_only or not evidence.attempted)
         prior = self.receipts.load()
-        receipt = InvocationReceipt(f"receipt-{request.request_id}-{len(prior)+1}", request.request_id, request.binding_digest, request.principal.principal_id, request.service_id, request.endpoint_id, request.credential_ref, admission.evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.response_payload_digest, digest(result.to_dict()), len(prior)+1, prior[-1].receipt_digest if prior else None, synthetic=evidence.synthetic_test_only or not evidence.attempted, effect_occurred=evidence.attempted and not evidence.synthetic_test_only)
+        receipt = InvocationReceipt(f"receipt-{request.request_id}-{len(prior)+1}", request.request_id, request.binding_digest, request.principal.principal_id, request.service_id, request.endpoint_id, request.credential_ref, evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.response_payload_digest, digest(result.to_dict()), len(prior)+1, prior[-1].receipt_digest if prior else None, synthetic=evidence.synthetic_test_only or not evidence.attempted, effect_occurred=evidence.attempted and not evidence.synthetic_test_only)
         self.registry.validate_receipt(receipt, request, result)
         self.receipts.append(receipt)
         if evidence.unavailable:
