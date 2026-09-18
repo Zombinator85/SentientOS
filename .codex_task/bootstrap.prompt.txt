@@ -1,6 +1,10 @@
 Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.
+Required sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. 3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. 5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. 7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. 8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.
 Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.
+Pre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.
+Before PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.
 Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.
 Do not create PR metadata before green final validation.
-Goal: Add a deterministic metadata-only verifier that compares proposed Codex PR metadata/body validation claims against supplied validation artifacts, especially the matrix JSON report, so PR bodies cannot merely contain required section markers without matching evidence.
-Subsystem: Codex PR Validation Evidence Verifier (developer_workflow_metadata).
+Also require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.
+Goal: Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.
+Subsystem: operator_authority_definition_registration_workflow (authority_definition_registration).

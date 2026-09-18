@@ -1,51 +1,46 @@
 {
+  "artifact_classification": "implementation_contract",
   "scaffold": {
     "artifact_references": [
       "json_scaffold",
       "prompt_text"
     ],
     "blocker_codes": [],
-    "commit_pr_title": "[codex:developer] add Codex PR validation evidence verifier",
+    "commit_pr_title": "[codex:authority] add operator-approved definition registration",
     "doctrine_references": [
       "AGENTS.md",
       "docs/development/codex_whole_system_task_template.md",
       "docs/development/codex_validation_and_landing_contract.md"
     ],
     "expected_docs": [
-      "docs/development/codex_pr_validation_evidence.md"
+      "docs/development/codex_task_bootstrapper.md"
     ],
     "expected_files": [
-      "scripts/codex_pr_validation_evidence.py",
-      "sentientos/codex_pr_validation_evidence.py"
+      "scripts/plan_operator_authority_definition_registration_workflow.py",
+      "sentientos/codex_task_authority_admission.py"
     ],
+    "expected_fixture_roots": [],
     "expected_tests": [
-      "tests/test_codex_pr_validation_evidence.py",
-      "tests/test_codex_pr_validation_evidence_script.py"
+      "tests/test_authority_definition_registration.py",
+      "tests/test_plan_operator_authority_definition_registration_workflow_script.py"
     ],
     "explicit_non_authority_boundaries": [
       "developer workflow scaffolding only",
       "no runtime authority expansion"
     ],
     "final_report_contract": [
-      "capability_proof_doc_integration",
-      "cli_summary",
-      "exact_files_changed",
-      "full_command_matrix_results",
-      "generator_integration_behavior",
-      "matrix_runner_integration",
-      "module_api_summary",
-      "preset_ids_and_behavior",
-      "unresolved_risks"
+      "exact files changed",
+      "full command matrix results",
+      "unresolved risks"
     ],
     "forbidden_surfaces": [
-      "action_wing_integration",
-      "github_mutation",
-      "network_egress",
-      "provider_calls",
-      "runtime_authority_expansion",
-      "subprocess_from_library"
+      "Do not call GitHub APIs.",
+      "Do not call OpenAI/provider APIs or use network egress.",
+      "Do not integrate an action wing.",
+      "Do not invoke Codex.",
+      "Do not invoke shell/subprocess from library code."
     ],
-    "generated_prompt": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nGoal: Add a deterministic metadata-only verifier that compares proposed Codex PR metadata/body validation claims against supplied validation artifacts, especially the matrix JSON report, so PR bodies cannot merely contain required section markers without matching evidence.\nSubsystem: Codex PR Validation Evidence Verifier (developer_workflow_metadata).",
+    "generated_prompt": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nRequired sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. 3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. 5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. 7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. 8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nPre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\nBefore PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nAlso require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\nGoal: Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.\nSubsystem: operator_authority_definition_registration_workflow (authority_definition_registration).",
     "prompt_mode": "whole_system",
     "required_integrations": [
       "capability_registry",
@@ -54,11 +49,11 @@
       "reviewer_proof_bundle",
       "safety_tests"
     ],
-    "scaffold_digest": "6fb1becf675d3ebcf3fb821e584c3c6494667ce8397376544e3cc80ae4004a9f",
-    "scaffold_id": "codex-task-scaffold-6fb1becf675d",
-    "subsystem_kind": "developer_workflow_metadata",
-    "task_goal": "Add a deterministic metadata-only verifier that compares proposed Codex PR metadata/body validation claims against supplied validation artifacts, especially the matrix JSON report, so PR bodies cannot merely contain required section markers without matching evidence.",
-    "task_name": "Codex PR Validation Evidence Verifier",
+    "scaffold_digest": "1e9528f5e497bc3b92befb26d81ccb0988067b26a8b9a19421e20f02ca17afe0",
+    "scaffold_id": "codex-task-scaffold-1e9528f5e497",
+    "subsystem_kind": "authority_definition_registration",
+    "task_goal": "Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.",
+    "task_name": "operator_authority_definition_registration_workflow",
     "validation_commands": [
       "python -m mypy sentientos/codex_task_scaffold.py scripts/build_codex_task_scaffold.py",
       "python -m scripts.run_tests -q tests/test_codex_task_scaffold.py tests/test_build_codex_task_scaffold_script.py"
