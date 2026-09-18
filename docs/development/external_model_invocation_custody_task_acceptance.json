@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2a4f22e12f65c982bdfb2d62497a6f6edc16d308",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_external_model_custody.py::test_valid_inert_identity_and_deterministic_bindings", "rationale": "Successful-path proof for inert identities and deterministic request, result, and receipt bindings."},
+    {"node_id": "tests/test_external_model_custody.py::test_endpoint_wildcard_substitution_and_service_mismatch_fail", "rationale": "Exact endpoint identity rejects wildcard and cross-service substitution."},
+    {"node_id": "tests/test_external_model_custody.py::test_credentials_are_opaque_service_bound_and_never_secret_bearing", "rationale": "Credential metadata is opaque and service-bound without secret fields."},
+    {"node_id": "tests/test_external_model_custody.py::test_payload_principal_and_effect_are_bound_but_never_authority", "rationale": "Payload, principal, and required effect are bound while all authority flags remain false."},
+    {"node_id": "tests/test_external_model_custody.py::test_result_correlation_and_admission_execution_are_distinct", "rationale": "Results correlate exactly and admission remains distinct from attempt and success."},
+    {"node_id": "tests/test_external_model_custody.py::test_receipts_are_frozen_linked_synthetic_evidence", "rationale": "Synthetic receipts are frozen, deterministic, linkable, and cannot claim real effects."},
+    {"node_id": "tests/test_external_model_custody.py::test_public_structures_reject_secret_keys", "rationale": "Public custody rejects secret-bearing parameter keys."},
+    {"node_id": "tests/test_external_model_custody.py::test_module_has_no_transport_or_environment_consumers", "rationale": "Static proof excludes transport, environment credential access, and authority admission dependencies."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_model_custody.py::test_valid_inert_identity_and_deterministic_bindings"
+  ]
+}
