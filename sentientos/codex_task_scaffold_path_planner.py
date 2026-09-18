@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from dataclasses import asdict, dataclass
 from enum import Enum
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from sentientos.codex_task_authority_admission import AUTHORITY_DEFINITIONS, authority_admission_blockers
@@ -81,6 +82,7 @@ class PlannerRequest:
     requested_effects: tuple[str, ...] = ()
     proof_bundle_artifact_kind: str = ""
     commit_title: str = ""
+    repository_root: str = "."
 
 
 @dataclass(frozen=True)
@@ -184,6 +186,57 @@ def _forbidden_authority_requested(text: str) -> bool:
     return False
 
 
+def _is_explicit_authority_reduction(request: PlannerRequest) -> bool:
+    """Return true only when every protected term is prohibited or reduced."""
+
+    intents = [
+        _authority_intent(text, match)
+        for text in (request.task_name, request.task_goal, request.preset_id, request.subsystem_kind)
+        for match in _FORBIDDEN_RE.finditer(text)
+    ]
+    return bool(intents) and all(
+        intent in {_AuthorityIntent.PROHIBITED, _AuthorityIntent.REDUCTION}
+        for intent in intents
+    )
+
+
+def _is_existing_tracked_root_file(path: str, repository_root: str) -> bool:
+    """Verify the narrow legacy-target exception against the worktree and Git index."""
+
+    relative = PurePosixPath(path)
+    if len(relative.parts) != 1 or relative.name in {"", ".", ".."}:
+        return False
+    root = Path(repository_root).resolve()
+    candidate = root / relative.name
+    if candidate.is_symlink() or not candidate.is_file():
+        return False
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", relative.name],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and result.stdout.splitlines() == [relative.name]
+
+
+def _legacy_root_reduction_target_allowed(request: PlannerRequest, path: str) -> bool:
+    authority_definition_requested = bool(
+        request.authority_principal
+        or request.requested_effects
+        or request.capability_id in AUTHORITY_DEFINITIONS
+    )
+    return (
+        not authority_definition_requested
+        and _is_explicit_authority_reduction(request)
+        and _is_existing_tracked_root_file(path, request.repository_root)
+    )
+
+
 def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     warnings: list[str] = []
     blockers: list[str] = []
@@ -231,7 +284,8 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
         if _bad_path(path):
             blockers.append("path_traversal_or_metacharacters")
             break
-        if not _ensure_root(path):
+        legacy_root_reduction = path == module_path and _legacy_root_reduction_target_allowed(request, path)
+        if not _ensure_root(path) and not legacy_root_reduction:
             blockers.append("path_outside_allowed_roots")
             break
 

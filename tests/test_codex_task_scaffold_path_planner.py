@@ -1,4 +1,5 @@
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -69,6 +70,107 @@ def test_planner_rejects_unsafe_or_noncanonical_roots(module_path: str) -> None:
     out = plan_codex_task_scaffold_paths(PlannerRequest(task_name="root classification", new_module=(module_path,)))
     assert out.status == "blocked"
     assert set(out.blocker_codes) & {"path_traversal_or_metacharacters", "path_outside_allowed_roots"}
+
+
+def _git_fixture(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=repo, check=True)
+    (repo / "legacy.py").write_text("legacy = True\n", encoding="utf-8")
+    (repo / "legacy_dir").mkdir()
+    subprocess.run(["git", "add", "legacy.py"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "fixture"], cwd=repo, check=True)
+    return repo
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    "goal",
+    ("remove provider fallback", "provider inference is forbidden"),
+)
+def test_planner_admits_tracked_root_file_only_for_safe_authority_reduction(
+    tmp_path: Path, goal: str
+) -> None:
+    repo = _git_fixture(tmp_path)
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="legacy bridge reduction",
+            task_goal=goal,
+            new_module=("legacy.py",),
+            repository_root=str(repo),
+        )
+    )
+    assert out.status in {"ready", "ready_with_warnings"}
+    assert "path_outside_allowed_roots" not in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    "goal",
+    ("enable provider inference", "modify provider handling"),
+)
+def test_planner_blocks_root_file_for_affirmative_or_ambiguous_authority_intent(
+    tmp_path: Path, goal: str
+) -> None:
+    repo = _git_fixture(tmp_path)
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="legacy bridge change",
+            task_goal=goal,
+            new_module=("legacy.py",),
+            repository_root=str(repo),
+        )
+    )
+    assert out.status == "blocked"
+    assert "forbidden_authority_surface_requested" in out.blocker_codes
+    assert "path_outside_allowed_roots" in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("target", ("missing.py", "untracked.py", "legacy_dir"))
+def test_planner_reduction_rejects_nonexistent_untracked_or_directory_root_target(
+    tmp_path: Path, target: str
+) -> None:
+    repo = _git_fixture(tmp_path)
+    (repo / "untracked.py").write_text("untracked = True\n", encoding="utf-8")
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="legacy bridge reduction",
+            task_goal="remove provider fallback",
+            new_module=(target,),
+            repository_root=str(repo),
+        )
+    )
+    assert out.status == "blocked"
+    assert "path_outside_allowed_roots" in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+def test_planner_rejects_tracked_root_file_for_ordinary_or_authority_definition_task(
+    tmp_path: Path,
+) -> None:
+    repo = _git_fixture(tmp_path)
+    ordinary = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="ordinary repair",
+            task_goal="update compatibility formatting",
+            new_module=("legacy.py",),
+            repository_root=str(repo),
+        )
+    )
+    authority_definition = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="legacy bridge reduction",
+            task_goal="remove provider fallback",
+            capability_id="sentientos.model_mirror.publish",
+            new_module=("legacy.py",),
+            repository_root=str(repo),
+        )
+    )
+    assert "path_outside_allowed_roots" in ordinary.blocker_codes
+    assert "path_outside_allowed_roots" in authority_definition.blocker_codes
 
 
 def _pyproject_packaged_roots(text: str) -> tuple[set[str], set[str]]:

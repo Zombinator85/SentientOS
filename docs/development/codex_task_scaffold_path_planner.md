@@ -31,6 +31,17 @@ roots, arbitrary root-level files, and unknown top-level directories remain reje
 Path validity only classifies a scaffold target; it grants no runtime or effect
 authority.
 
+One narrow legacy-reduction exception applies to the implementation-module target.
+An existing regular file directly under the repository root may be targeted only when
+`git ls-files --error-unmatch` confirms that exact path is tracked, every protected
+authority term across the task name, goal, preset, and subsystem is classified as an
+explicit reduction or prohibition, at least one such term is present, and the request
+does not ask for a registered authority definition. Missing, untracked, new, nested,
+directory, affirmative, ambiguous, ordinary, and authority-definition root targets
+remain rejected. The read-only Git check fails closed when Git is unavailable or the
+repository cannot be inspected. This exception grants no runtime capability and is not
+general root-level implementation admission.
+
 Authority terms are classified occurrence-by-occurrence within their local clause. An
 explicit prohibition is permitted. An explicit reduction is permitted only when the
 named capability is unambiguously being removed, eliminated, disabled, prohibited,
