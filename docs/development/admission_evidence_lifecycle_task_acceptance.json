@@ -1,0 +1,23 @@
+{
+  "repository_sha": "0476244e21a6a2528ddacfb492e84abef0a5a99a",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_runtime_admission.py::test_exact_registered_admission_verifies_and_unknown_cannot_issue",
+      "rationale": "Proves successful bounded issuance and verification."
+    },
+    {
+      "node_id": "tests/test_runtime_admission.py::test_revocation_and_supersession_survive_restart",
+      "rationale": "Proves durable invalidation."
+    },
+    {
+      "node_id": "tests/test_runtime_admission.py::test_external_consumer_uses_generic_verifier_but_cannot_mint",
+      "rationale": "Proves consumer-only integration."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_runtime_admission.py::test_exact_registered_admission_verifies_and_unknown_cannot_issue"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "/tmp/admission_test_provenance.json"
+}
