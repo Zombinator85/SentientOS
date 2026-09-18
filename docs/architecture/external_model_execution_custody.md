@@ -16,6 +16,19 @@ Receipts are canonical JSON, atomically persisted, deterministically ordered, an
 
 ## Capability readiness reassessment
 
-Positive service governance, exact endpoint enforcement, opaque credential-use custody, deterministic unempowered principal identity, bounded request and response custody, admission consumption without self-admission, an isolated transport port, and durable receipt persistence now exist. Actual live secret resolution and live transport do not exist.
+Positive service governance, exact endpoint enforcement, opaque credential-use
+custody, deterministic unempowered principal identity, bounded request and
+response custody, admission consumption without self-admission, an isolated
+transport port, and durable receipt persistence exist. Runtime grant policy and
+runtime admission now provide definition-to-grant-to-admission narrowing,
+expiry, revocation, supersession, and exact principal/effect/subject/request
+configuration bindings.
 
-Before `external_model_inference` can responsibly be prepared again, an operator-governed secret-use resolver (without administration/export), an independently owned authority definition and issuer integrated with current admission machinery, freshness/revocation policy, an audited isolated real transport adapter, response trust policy, production failure/rollback and monitoring, and operator approval are still required. The superseded proposal must bind the configured-service/configuration digest, exact endpoint, principal, request digest, opaque credential-use identity, freshness/revocation semantics, transport evidence, and durable receipt chain; it must not treat configuration, credential availability, validation, or transport availability as authority. This document neither regenerates nor approves that definition.
+The current non-granting `external_model_inference` definition is prepared in
+[`governed_external_model_authority_proposal.md`](../development/governed_external_model_authority_proposal.md).
+Actual live secret resolution, live transport, an external-model operational
+feasibility predicate, and response trust policy remain unimplemented actuator
+prerequisites. Their absence does not make definition-only registration an
+effect or a grant; it does make live invocation unavailable. Configuration,
+credential availability, validation, admission, and transport availability
+must never be treated as interchangeable authority or success claims.
