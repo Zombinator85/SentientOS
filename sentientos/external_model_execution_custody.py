@@ -20,7 +20,7 @@ from sentientos.runtime_admission import AdmissionEvidence, RuntimeAdmissionVeri
 
 CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v1"
 RECEIPT_SCHEMA = "sentientos.external_model_invocation_receipts:v1"
-ADMISSION_KIND = "external_model_inference"  # identity only; never registered here
+ADMISSION_KIND = "external_model_inference"  # identity only; definition registration grants nothing
 
 
 @dataclass(frozen=True)

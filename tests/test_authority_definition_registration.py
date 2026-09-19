@@ -7,6 +7,9 @@ import pytest
 from sentientos.codex_task_authority_admission import (
     AUTHORITY_DEFINITIONS,
     AUTHORITY_DEFINITION_REGISTRATION,
+    EXTERNAL_MODEL_INFERENCE,
+    EXTERNAL_MODEL_INFERENCE_DEFINITION,
+    EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL,
     MODEL_MIRROR_PUBLISH,
     TaskAuthorityDefinition,
     authority_admission_blockers,
@@ -18,6 +21,10 @@ from sentientos.codex_task_scaffold_path_planner import PlannerRequest, plan_cod
 
 
 TASK = "inert_fixture_authority_definition_registration"
+EXTERNAL_MODEL_TASK = "register_governed_external_model_inference_authority_definition"
+EXTERNAL_MODEL_DIGEST = "539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c"
+SUPERSEDED_EXTERNAL_MODEL_DIGEST = "0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c"
+EXTERNAL_MODEL_APPROVAL_DIGEST = "a2e33b07a3ed411fefaa5d4f9dbcd05a12ef951eae5fa405bb209ea33203f028"
 
 
 def definition(**changes: object) -> TaskAuthorityDefinition:
@@ -61,6 +68,93 @@ def artifact(item: object | None = None, **changes: object) -> dict[str, object]
     }
     value.update(changes)
     return value
+
+
+def external_model_artifact(**changes: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "task_classification": AUTHORITY_DEFINITION_REGISTRATION,
+        "task_name": EXTERNAL_MODEL_TASK,
+        "definitions": [EXTERNAL_MODEL_INFERENCE_DEFINITION],
+        "operator_approval": dict(EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL),
+        "requested_capability_id": "",
+        "authority_principal": "",
+        "requested_effects": (),
+        "runtime_mutations": (),
+        "changed_paths": (
+            "sentientos/codex_task_authority_admission.py",
+            "tests/test_authority_definition_registration.py",
+            "docs/development/governed_external_model_authority_proposal.md",
+        ),
+    }
+    value.update(changes)
+    return value
+
+
+@pytest.mark.no_legacy_skip
+def test_approved_external_model_definition_is_registered_without_runtime_authority() -> None:
+    assert authority_definition_digest(EXTERNAL_MODEL_INFERENCE_DEFINITION) == EXTERNAL_MODEL_DIGEST
+    approval = dict(EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL)
+    assert approval == {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "approval:external_model_inference:539ff509bbea:001",
+        "operator_identity_label": "operator:primary",
+        "approval_status": "approved",
+        "approved_capability_id": EXTERNAL_MODEL_INFERENCE,
+        "approved_definition_digest": EXTERNAL_MODEL_DIGEST,
+        "approved_task_name": EXTERNAL_MODEL_TASK,
+        "evidence_digest": EXTERNAL_MODEL_APPROVAL_DIGEST,
+    }
+    assert operator_approval_evidence_digest(approval) == EXTERNAL_MODEL_APPROVAL_DIGEST
+
+    catalog_without_definition = {
+        key: value for key, value in AUTHORITY_DEFINITIONS.items()
+        if key != EXTERNAL_MODEL_INFERENCE
+    }
+    result = register_authority_definition(
+        external_model_artifact(), authority_definitions=catalog_without_definition
+    )
+
+    assert result.status == "authority_definition_registered"
+    assert result.definition_registered is True
+    assert result.capability_id == EXTERNAL_MODEL_INFERENCE
+    assert result.definition_digest == EXTERNAL_MODEL_DIGEST
+    assert result.operator_approval_evidence_id == approval["evidence_id"]
+    assert result.authority_definitions[EXTERNAL_MODEL_INFERENCE] == EXTERNAL_MODEL_INFERENCE_DEFINITION
+    assert result.capability_granted is False
+    assert result.runtime_authority is None
+    assert result.effect_performed is result.runtime_mutation_performed is False
+    assert "RuntimeGrantAuthority" not in register_authority_definition.__code__.co_names
+    assert "RuntimeAdmissionAuthority" not in register_authority_definition.__code__.co_names
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    "approval_change",
+    (
+        {"approved_definition_digest": SUPERSEDED_EXTERNAL_MODEL_DIGEST},
+        {"approved_definition_digest": "f" * 64},
+        {"approved_capability_id": "external_model_inference_changed"},
+        {"approved_task_name": "other_registration_task"},
+        {"operator_identity_label": "operator:other"},
+        {"evidence_id": "approval:other"},
+    ),
+)
+def test_external_model_registration_rejects_changed_or_superseded_approval(
+    approval_change: dict[str, str],
+) -> None:
+    approval = {**EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL, **approval_change}
+    artifact_value = external_model_artifact(operator_approval=approval)
+    catalog_without_definition = {
+        key: value for key, value in AUTHORITY_DEFINITIONS.items()
+        if key != EXTERNAL_MODEL_INFERENCE
+    }
+    result = register_authority_definition(
+        artifact_value, authority_definitions=catalog_without_definition
+    )
+    assert result.status == "authority_definition_registration_blocked"
+    assert "authority_definition_operator_approval_digest_invalid" in result.blocker_codes
+    if "approved_" in next(iter(approval_change)):
+        assert "authority_definition_operator_approval_binding_mismatch" in result.blocker_codes
 
 
 @pytest.mark.no_legacy_skip

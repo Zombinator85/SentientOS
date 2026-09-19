@@ -34,6 +34,7 @@ MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
 )
 MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
 MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
+EXTERNAL_MODEL_INFERENCE = "external_model_inference"
 
 
 @dataclass(frozen=True)
@@ -172,7 +173,76 @@ def register_authority_definition(artifact: Mapping[str, Any], *, authority_defi
     return AuthorityDefinitionRegistrationResult("authority_definition_registered" if not blocker_codes else "authority_definition_registration_blocked", blocker_codes, task_name if isinstance(task_name, str) else "", capability_id, digest, evidence_id, MappingProxyType(updated), not blocker_codes)
 
 
+EXTERNAL_MODEL_INFERENCE_DEFINITION = TaskAuthorityDefinition(
+    capability_id=EXTERNAL_MODEL_INFERENCE,
+    subsystem_kinds=frozenset({"external_model_inference"}),
+    principal_kinds=frozenset({"deterministic_external_model_inference_controller"}),
+    required_effects=frozenset({"bounded_external_model_network_egress"}),
+    required_goal_phrases=(
+        "explicit operator approval of definition registration",
+        "exact registered external model inference definition",
+        "authenticated bounded operator runtime grant",
+        "admitted deterministic external model inference controller",
+        "enabled configured external model service",
+        "exact service endpoint model request and configuration binding",
+        "service bound opaque credential reference when configured",
+        "valid runtime grant policy decision",
+        "valid bounded runtime admission",
+        "request provenance",
+        "durable hash linked invocation receipt",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary network authority", "arbitrary internet access",
+        "arbitrary host", "arbitrary url", "arbitrary endpoint",
+        "credential creation", "credential modification", "credential rotation",
+        "credential inspection", "credential export", "credential administration",
+        "provider administration", "provider account administration",
+        "billing administration", "account administration", "shell authority",
+        "shell execution", "arbitrary subprocess authority",
+        "arbitrary subprocess execution", "unrelated filesystem mutation",
+        "repository mutation", "maintenance authority", "runtime adoption",
+        "host actuation", "device actuation", "capability definition mutation",
+        "capability self modification", "grant issuance", "admission issuance",
+        "self grant", "model output authorization", "cognition authorization",
+        "configuration authorization", "credential possession authorization",
+        "service availability authorization", "response receipt cognition trust",
+    ),
+    approval_requirements=(
+        "authenticated bounded operator runtime grant",
+        "enabled configured external model service",
+        "exact service endpoint model request and configuration binding",
+        "service bound opaque credential reference when configured",
+        "valid runtime grant policy decision",
+        "valid bounded runtime admission",
+        "request provenance",
+        "durable hash linked invocation receipt",
+    ),
+    purpose=(
+        "Permit a separately granted and admitted deterministic external-model "
+        "inference controller to perform one configuration-bound invocation of an "
+        "enabled external-model service at its exact HTTPS endpoint for an allowed "
+        "model and bounded request, using its service-bound opaque credential "
+        "reference when configured, and to custody the result and durable invocation "
+        "receipt, without granting generic network, credential-administration, "
+        "provider-administration, cognition-trust, grant-issuance, or "
+        "admission-issuance authority."
+    ),
+)
+
+EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:external_model_inference:539ff509bbea:001",
+    "operator_identity_label": "operator:primary",
+    "approval_status": "approved",
+    "approved_capability_id": EXTERNAL_MODEL_INFERENCE,
+    "approved_definition_digest": "539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c",
+    "approved_task_name": "register_governed_external_model_inference_authority_definition",
+    "evidence_digest": "a2e33b07a3ed411fefaa5d4f9dbcd05a12ef951eae5fa405bb209ea33203f028",
+})
+
+
 AUTHORITY_DEFINITIONS = {
+    EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),
