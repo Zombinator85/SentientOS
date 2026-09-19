@@ -1130,7 +1130,7 @@ def main(argv: list[str] | None = None) -> int:
         "exhaustive_matrix_digest": None if a.validation_profile == "solo" else payload.get("workspace_binding", {}).get("matrix_digest"),
         "overall_status": decision_status,
     })
-    payload["landing_validation_plan"] = prior_solo_plan or validation_plan
+    payload["landing_validation_plan"] = validation_plan
     payload["landing_validation_plan_reuse"] = {
         "status": "exact_precommit_plan_reused" if prior_solo_plan else "not_applicable",
         "artifact_digest": prior_solo_plan.get("artifact_digest") if prior_solo_plan else None,

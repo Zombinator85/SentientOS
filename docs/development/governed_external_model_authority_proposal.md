@@ -2,11 +2,17 @@
 
 ## Status and non-authority boundary
 
-This document prepares exactly one current authority definition for operator
-review. It does **not** register the definition, record operator approval, issue
-a runtime operator grant, issue runtime admission, resolve a credential, select
-live transport, contact a service, or change runtime authority. Registration is
-governance metadata only and grants nothing.
+This document preserves the exact operator-approved authority definition now
+registered in the canonical task-authority catalog. Registration is governance
+metadata only: it does **not** issue a runtime operator grant, issue runtime
+admission, resolve a credential, select live transport, contact a service, or
+change runtime authority.
+
+The registered definition digest is
+`539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c` and its
+operator approval evidence ID is
+`approval:external_model_inference:539ff509bbea:001`. The definition is not
+enabled, granted, active, transport-ready, credential-ready, or production-ready.
 
 The former definition digest
 `0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c`
@@ -242,11 +248,11 @@ Registration before those actuator pieces exist is responsible because
 registration grants nothing and the current production adapter cannot perform
 an effect. Runtime exercise would remain premature.
 
-## J. Registration-readiness judgment
+## J. Registration judgment
 
-The definition is **structurally ready for operator review and possible
-definition-only registration**. It is **not actuator-ready** and is not approval
-or registration by itself.
+The definition is **registered as definition-only governance metadata**. It is
+**not actuator-ready**, and its registration is neither a runtime grant nor a
+runtime admission.
 
 Readiness answers:
 
@@ -404,7 +410,10 @@ runtime requests.
 
 ## Final non-authority confirmation
 
-Nothing was registered or approved. No capability or runtime grant was issued.
-No admission was issued. No live transport was installed or invoked. No remote
-service was contacted. No credential or secret was read. No runtime authority
-or runtime behavior changed.
+Exactly one definition, `external_model_inference`, was registered with digest
+`539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c` under
+operator approval evidence
+`approval:external_model_inference:539ff509bbea:001`. No capability or runtime
+grant was issued. No admission was issued. No live transport was installed or
+invoked. No remote service was contacted. No credential or secret was read. No
+runtime authority or runtime behavior changed.
