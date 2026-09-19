@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, replace
 import json
 import os
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol, TypeVar, runtime_checkable
 
 from sentientos.external_model_custody import (
     CustodyRegistry, CustodyValidationError, EndpointIdentity,
@@ -112,9 +112,87 @@ class OpaqueCredentialUseHandle:
     available: bool = False
 
 
-class SecretResolutionPort(Protocol):
-    """Future narrow boundary.  No production implementation is provided."""
-    def use_for_transport(self, handle: OpaqueCredentialUseHandle) -> object: ...
+class CredentialBackend(Protocol):
+    """Read one exact service-scoped secret; deliberately has no admin surface."""
+    def read_exact(self, *, service_id: str, credential_ref: str) -> bytearray: ...
+
+
+class CredentialResolutionError(CustodyValidationError):
+    """A fail-closed error which never incorporates backend or secret text."""
+
+
+_CredentialResult = TypeVar("_CredentialResult")
+
+
+class GovernedCredentialResolver:
+    """Resolve only the credential bound to an exactly admitted invocation."""
+    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry,
+                 admission_verifier: RuntimeAdmissionVerifier, backend: CredentialBackend,
+                 admission_capability_id: str = ADMISSION_KIND) -> None:
+        self._catalog, self._registry = catalog, registry
+        self._admission_verifier, self._backend = admission_verifier, backend
+        self._admission_capability_id = admission_capability_id
+
+    def use_for_invocation(self, *, request: InvocationRequestEnvelope,
+                           credential_handle: OpaqueCredentialUseHandle | None,
+                           admission: AdmissionEvidence | None, current_sequence: int,
+                           consumer: Callable[[memoryview], _CredentialResult]) -> _CredentialResult:
+        """Expose a short-lived read-only view only while ``consumer`` executes."""
+        try:
+            entry = self._catalog.resolve(request)
+            self._registry.validate_request(request)
+        except CustodyValidationError as exc:
+            raise CredentialResolutionError(str(exc)) from exc
+        if admission is None:
+            raise CredentialResolutionError("credential_resolution_admission_required")
+        if entry.credential_ref is None or credential_handle is None:
+            raise CredentialResolutionError("credential_resolution_not_configured")
+        if (credential_handle.credential_ref != entry.credential_ref
+                or credential_handle.service_id != entry.service.service_id
+                or credential_handle.usage_class != "external_model_inference_authentication"):
+            raise CredentialResolutionError("credential_resolution_binding_mismatch")
+        try:
+            self._admission_verifier.verify(
+                admission, current_sequence=current_sequence,
+                capability_id=self._admission_capability_id,
+                principal_id=request.principal.principal_id,
+                effect=request.required_effect.effect_kind,
+                subject_id=f"{request.service_id}:{request.endpoint_id}",
+                request_configuration_digest=digest({"request": request.binding_digest, "configuration": entry.configuration_digest}),
+            )
+        except ValueError as exc:
+            raise CredentialResolutionError(str(exc)) from exc
+        try:
+            secret = self._backend.read_exact(service_id=entry.service.service_id, credential_ref=entry.credential_ref)
+        except CredentialResolutionError:
+            raise
+        except Exception as exc:
+            raise CredentialResolutionError("credential_backend_unavailable") from exc
+        if not isinstance(secret, bytearray):
+            raise CredentialResolutionError("corrupt_credential_material")
+        if not secret:
+            raise CredentialResolutionError("credential_secret_missing")
+        try:
+            return consumer(memoryview(secret).toreadonly())
+        finally:
+            secret[:] = b"\x00" * len(secret)
+
+
+class OSKeyringCredentialBackend:
+    """Read-only production backend using an operator-provisioned OS keyring."""
+    _NAMESPACE = "sentientos.external_model"
+
+    def read_exact(self, *, service_id: str, credential_ref: str) -> bytearray:
+        import keyring
+        try:
+            value = keyring.get_password(f"{self._NAMESPACE}.{service_id}", credential_ref)
+        except Exception as exc:
+            raise CredentialResolutionError("credential_backend_unavailable") from exc
+        if value is None:
+            raise CredentialResolutionError("credential_secret_missing")
+        if not isinstance(value, str) or not value:
+            raise CredentialResolutionError("corrupt_credential_material")
+        return bytearray(value, "utf-8")
 
 
 @dataclass(frozen=True)
@@ -157,6 +235,12 @@ class ExternalModelTransport(Protocol):
     def invoke(self, invocation: AdmittedInvocation) -> TransportEvidence: ...
 
 
+@runtime_checkable
+class CredentialedExternalModelTransport(Protocol):
+    """Future transport seam; no production implementation exists."""
+    def invoke_with_credential(self, invocation: AdmittedInvocation, credential: memoryview) -> TransportEvidence: ...
+
+
 class NullExternalModelTransport:
     """Production transport: reports unavailability without attempting an effect."""
     def invoke(self, invocation: AdmittedInvocation) -> TransportEvidence:
@@ -195,9 +279,10 @@ class InvocationReceiptStore:
 
 class ExternalModelInferenceController:
     """Custody orchestrator.  It validates supplied admission; it cannot issue it."""
-    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport, receipts: InvocationReceiptStore, admission_verifier: RuntimeAdmissionVerifier | None = None, admission_capability_id: str = ADMISSION_KIND) -> None:
+    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport | CredentialedExternalModelTransport, receipts: InvocationReceiptStore, admission_verifier: RuntimeAdmissionVerifier | None = None, admission_capability_id: str = ADMISSION_KIND, credential_resolver: GovernedCredentialResolver | None = None) -> None:
         self.catalog, self.registry, self.transport, self.receipts = catalog, registry, transport, receipts
         self.admission_verifier, self.admission_capability_id = admission_verifier, admission_capability_id
+        self.credential_resolver = credential_resolver
 
     def execute(self, request: InvocationRequestEnvelope, *, credential_handle: OpaqueCredentialUseHandle | None, admission: ExternalAdmissionEvidence | AdmissionEvidence | None, current_sequence: int) -> InvocationReceipt:
         entry = self.catalog.resolve(request)
@@ -226,7 +311,17 @@ class ExternalModelInferenceController:
                 raise CustodyValidationError("stale_or_malformed_admission")
             evidence_ref = admission.evidence_ref
         invocation = AdmittedInvocation(request, entry.configuration_digest, credential_handle, evidence_ref)
-        evidence = self.transport.invoke(invocation)
+        if isinstance(self.transport, CredentialedExternalModelTransport):
+            if self.credential_resolver is None or not isinstance(admission, AdmissionEvidence):
+                raise CustodyValidationError("governed_credential_resolver_required")
+            credentialed_transport: CredentialedExternalModelTransport = self.transport
+            evidence = self.credential_resolver.use_for_invocation(
+                request=request, credential_handle=credential_handle, admission=admission,
+                current_sequence=current_sequence,
+                consumer=lambda secret: credentialed_transport.invoke_with_credential(invocation, secret),
+            )
+        else:
+            evidence = self.transport.invoke(invocation)
         if evidence.request_binding_digest != request.binding_digest:
             raise CustodyValidationError("transport_request_correlation_mismatch")
         if evidence.succeeded and not evidence.attempted or evidence.provider_responded and not evidence.attempted:
