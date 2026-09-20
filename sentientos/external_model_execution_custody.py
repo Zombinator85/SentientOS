@@ -5,7 +5,7 @@ transport is deliberately unavailable and performs no credential or network I/O.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 import json
 import os
 from pathlib import Path
@@ -17,6 +17,9 @@ from sentientos.external_model_custody import (
     InvocationResultEnvelope, canonical_bytes, digest,
 )
 from sentientos.runtime_admission import AdmissionEvidence, RuntimeAdmissionVerifier
+from sentientos.external_model_material import (
+    GovernedRequestMaterialResolver, ResponseConsumer, verify_and_handoff_response,
+)
 
 CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v1"
 RECEIPT_SCHEMA = "sentientos.external_model_invocation_receipts:v1"
@@ -231,6 +234,13 @@ class TransportEvidence:
     unavailable: bool = False
 
 
+@dataclass(frozen=True)
+class MaterialTransportResult:
+    """Transient response bytes paired with transport evidence for verification."""
+    evidence: TransportEvidence
+    response_material: bytearray | None = field(repr=False)
+
+
 class ExternalModelTransport(Protocol):
     def invoke(self, invocation: AdmittedInvocation) -> TransportEvidence: ...
 
@@ -239,6 +249,14 @@ class ExternalModelTransport(Protocol):
 class CredentialedExternalModelTransport(Protocol):
     """Future transport seam; no production implementation exists."""
     def invoke_with_credential(self, invocation: AdmittedInvocation, credential: memoryview) -> TransportEvidence: ...
+
+
+@runtime_checkable
+class MaterialExternalModelTransport(Protocol):
+    """Future provider-neutral seam; current production has no implementation."""
+    def invoke_with_material(self, invocation: AdmittedInvocation,
+                             request_material: memoryview,
+                             credential: memoryview | None) -> MaterialTransportResult: ...
 
 
 class NullExternalModelTransport:
@@ -279,12 +297,13 @@ class InvocationReceiptStore:
 
 class ExternalModelInferenceController:
     """Custody orchestrator.  It validates supplied admission; it cannot issue it."""
-    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport | CredentialedExternalModelTransport, receipts: InvocationReceiptStore, admission_verifier: RuntimeAdmissionVerifier | None = None, admission_capability_id: str = ADMISSION_KIND, credential_resolver: GovernedCredentialResolver | None = None) -> None:
+    def __init__(self, *, catalog: ExternalModelServiceCatalog, registry: CustodyRegistry, transport: ExternalModelTransport | CredentialedExternalModelTransport | MaterialExternalModelTransport, receipts: InvocationReceiptStore, admission_verifier: RuntimeAdmissionVerifier | None = None, admission_capability_id: str = ADMISSION_KIND, credential_resolver: GovernedCredentialResolver | None = None, request_material_resolver: GovernedRequestMaterialResolver | None = None) -> None:
         self.catalog, self.registry, self.transport, self.receipts = catalog, registry, transport, receipts
         self.admission_verifier, self.admission_capability_id = admission_verifier, admission_capability_id
         self.credential_resolver = credential_resolver
+        self.request_material_resolver = request_material_resolver
 
-    def execute(self, request: InvocationRequestEnvelope, *, credential_handle: OpaqueCredentialUseHandle | None, admission: ExternalAdmissionEvidence | AdmissionEvidence | None, current_sequence: int) -> InvocationReceipt:
+    def execute(self, request: InvocationRequestEnvelope, *, credential_handle: OpaqueCredentialUseHandle | None, admission: ExternalAdmissionEvidence | AdmissionEvidence | None, current_sequence: int, response_consumer: ResponseConsumer | None = None) -> InvocationReceipt:
         entry = self.catalog.resolve(request)
         self.registry.validate_request(request)
         if entry.credential_ref is not None:
@@ -311,7 +330,29 @@ class ExternalModelInferenceController:
                 raise CustodyValidationError("stale_or_malformed_admission")
             evidence_ref = admission.evidence_ref
         invocation = AdmittedInvocation(request, entry.configuration_digest, credential_handle, evidence_ref)
-        if isinstance(self.transport, CredentialedExternalModelTransport):
+        response_material: bytearray | None = None
+        if isinstance(self.transport, MaterialExternalModelTransport):
+            if self.request_material_resolver is None or not isinstance(admission, AdmissionEvidence):
+                raise CustodyValidationError("governed_request_material_resolver_required")
+            material_transport: MaterialExternalModelTransport = self.transport
+            def invoke_with_request(material: memoryview) -> MaterialTransportResult:
+                if entry.credential_ref is None:
+                    return material_transport.invoke_with_material(invocation, material, None)
+                if self.credential_resolver is None:
+                    raise CustodyValidationError("governed_credential_resolver_required")
+                return self.credential_resolver.use_for_invocation(
+                    request=request, credential_handle=credential_handle, admission=admission,
+                    current_sequence=current_sequence,
+                    consumer=lambda secret: material_transport.invoke_with_material(invocation, material, secret),
+                )
+            material_result = self.request_material_resolver.use_for_invocation(
+                request=request, admission=admission, current_sequence=current_sequence,
+                admission_evidence_ref=evidence_ref, consumer=invoke_with_request,
+            )
+            if not isinstance(material_result, MaterialTransportResult):
+                raise CustodyValidationError("malformed_material_transport_result")
+            evidence, response_material = material_result.evidence, material_result.response_material
+        elif isinstance(self.transport, CredentialedExternalModelTransport):
             if self.credential_resolver is None or not isinstance(admission, AdmissionEvidence):
                 raise CustodyValidationError("governed_credential_resolver_required")
             credentialed_transport: CredentialedExternalModelTransport = self.transport
@@ -322,12 +363,28 @@ class ExternalModelInferenceController:
             )
         else:
             evidence = self.transport.invoke(invocation)
-        if evidence.request_binding_digest != request.binding_digest:
-            raise CustodyValidationError("transport_request_correlation_mismatch")
-        if evidence.succeeded and not evidence.attempted or evidence.provider_responded and not evidence.attempted:
-            raise CustodyValidationError("malformed_transport_evidence")
-        if evidence.provider_responded != bool(evidence.response_payload_digest):
-            raise CustodyValidationError("malformed_transport_response")
+        try:
+            if evidence.request_binding_digest != request.binding_digest:
+                raise CustodyValidationError("transport_request_correlation_mismatch")
+            if evidence.succeeded and not evidence.attempted or evidence.provider_responded and not evidence.attempted:
+                raise CustodyValidationError("malformed_transport_evidence")
+            if evidence.provider_responded != bool(evidence.response_payload_digest):
+                raise CustodyValidationError("malformed_transport_response")
+            if response_material is not None:
+                if not evidence.attempted or not evidence.provider_responded:
+                    raise CustodyValidationError("malformed_transport_response_material")
+                verify_and_handoff_response(
+                    request=request, response_material=response_material,
+                    claimed_digest=evidence.response_payload_digest,
+                    synthetic_test_only=evidence.synthetic_test_only,
+                    consumer=response_consumer,
+                )
+            elif isinstance(self.transport, MaterialExternalModelTransport) and evidence.provider_responded:
+                raise CustodyValidationError("response_material_required")
+        except Exception:
+            if response_material is not None:
+                response_material[:] = b"\x00" * len(response_material)
+            raise
         result = InvocationResultEnvelope(request.request_id, request.binding_digest, request.service_id, request.endpoint_id, evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.provider_responded, evidence.response_payload_digest, evidence.status_code, current_sequence if evidence.attempted else None, current_sequence if evidence.attempted else None, synthetic=evidence.synthetic_test_only or not evidence.attempted)
         prior = self.receipts.load()
         receipt = InvocationReceipt(f"receipt-{request.request_id}-{len(prior)+1}", request.request_id, request.binding_digest, request.principal.principal_id, request.service_id, request.endpoint_id, request.credential_ref, evidence_ref, True, evidence.attempted, evidence.succeeded, evidence.response_payload_digest, digest(result.to_dict()), len(prior)+1, prior[-1].receipt_digest if prior else None, synthetic=evidence.synthetic_test_only or not evidence.attempted, effect_occurred=evidence.attempted and not evidence.synthetic_test_only)

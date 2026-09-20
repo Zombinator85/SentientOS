@@ -226,8 +226,9 @@ accepted by cognition.
 These prevent a live actuator, but do not make this non-granting definition
 structurally ambiguous:
 
-1. There is no sanctioned production `SecretResolutionPort`; live secret
-   resolution and safe secret injection remain unimplemented.
+1. Governed, read-only production credential resolution now exists through the
+   OS keyring backend and exact admitted-invocation resolver. Provider-specific
+   authentication framing and live transport remain unimplemented.
 2. `NullExternalModelTransport` is the sole production transport. An audited
    adapter that enforces the already-bound exact HTTPS identity without
    redirects or other egress is required before live invocation.
@@ -275,7 +276,7 @@ Readiness answers:
    hash-linked, and restart-validated.
 14. **Response trust separate from transport success?** Yes; custody records no
    cognition-acceptance claim.
-15. **Non-blocking missing pieces?** Live secret resolution, live transport, a
+15. **Non-blocking missing pieces?** Live transport, provider authentication framing, a
    concrete external-model operational-feasibility predicate, and response
    trust policy.
 16. **Definition-approval blockers?** None. The exact endpoint/effect/request

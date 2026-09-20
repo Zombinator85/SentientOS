@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "task_id": "external_model_material_custody",
+  "repository_sha": "64381f6a07843f9272512616faa203797e4938ca",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_external_model_material.py::test_exact_material_is_bound_verified_and_cleared", "rationale": "Exact binding, digest verification, and request-buffer cleanup."},
+    {"node_id": "tests/test_external_model_material.py::test_disabled_expired_revoked_and_admission_substitution_precede_read", "rationale": "Configuration and admission failures precede material access."},
+    {"node_id": "tests/test_external_model_material.py::test_material_transport_gets_governed_request_credential_and_untrusted_handoff", "rationale": "Successful synthetic request, credential, response correlation and untrusted handoff."},
+    {"node_id": "tests/test_external_model_material.py::test_response_digest_missing_material_contradiction_and_size_fail_closed", "rationale": "Response material contradictions, substitution, and bounds fail closed."},
+    {"node_id": "tests/test_external_model_material.py::test_null_transport_reads_neither_material_nor_credential", "rationale": "Null production transport remains inert and reads no sensitive material."},
+    {"node_id": "tests/test_external_model_material.py::test_material_is_non_authority_and_static_surface_is_non_networking", "rationale": "Authority digest and non-network production surface remain frozen."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_model_material.py::test_material_transport_gets_governed_request_credential_and_untrusted_handoff"
+  ]
+}
