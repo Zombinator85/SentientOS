@@ -1,0 +1,60 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "task_id": "governed_external_model_exact_https_transport",
+  "repository_sha": "c8a27ec3df9be4ee5d58b65090fb27c651797e38",
+  "test_provenance_path": "/tmp/external-model-https-provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_authority_digest_and_construction_create_no_authority",
+      "rationale": "Frozen authority identity and no self-authorization."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_profile_is_configuration_bound_and_legacy_is_not_live_ready",
+      "rationale": "Configuration-bound framing and deliberate legacy migration."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_exact_endpoint_tls_headers_and_body_are_fixed",
+      "rationale": "Exact endpoint, verified TLS, proxy independence, and byte-exact request."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_non_success_responses_are_truthful_and_never_redirected[301]",
+      "rationale": "Redirect is a non-success response and never followed."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_non_success_responses_are_truthful_and_never_redirected[400]",
+      "rationale": "Provider 4xx evidence remains truthful."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_non_success_responses_are_truthful_and_never_redirected[500]",
+      "rationale": "Provider 5xx evidence remains truthful."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_bounds_content_length_and_connection_failure_evidence",
+      "rationale": "Bounded responses and attempted/no-response evidence."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_authentication_modes_and_pre_network_failures_are_sanitized",
+      "rationale": "Closed authentication framing and material hygiene."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_unsafe_destinations_and_unverified_tls_fail_before_network",
+      "rationale": "Destination and TLS policy fail closed."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_readiness_is_structural_and_does_not_construct_connection",
+      "rationale": "Readiness performs no network effect."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_full_governed_material_and_credential_chain_uses_fake_network",
+      "rationale": "Full governed custody chain with socket-free fake backend."
+    },
+    {
+      "node_id": "tests/test_external_model_https_transport.py::test_static_surface_has_only_audited_standard_library_networking",
+      "rationale": "Static absence of generic/provider/insecure effect surfaces."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_model_https_transport.py::test_full_governed_material_and_credential_chain_uses_fake_network"
+  ]
+}
