@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from sentientos.codex_landing_evidence_binding import verify_commit_matches_workspace, head_sha, tree_sha, file_sha256
-from sentientos.landing_validation_plan import verify_validation_plan
+from sentientos.landing_validation_plan import verify_validation_plan_transition
 
 READY_STATUS = "pr_metadata_guard_ready"
 SOURCE_DOC_TEST_PREFIXES = ("sentientos/", "scripts/", "tests/", "docs/", "api/")
@@ -165,13 +165,14 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
     proof["matrix"] = {"path": request.matrix_json_path, "load_status": matrix_load, "status": str(matrix_payload.get("status", "")) if matrix_payload else "", "sha256": file_sha256(Path(request.matrix_json_path)) if matrix_payload is not None else "", "required_failure_count": matrix_payload.get("required_failure_count") if matrix_payload else None}
     pre_plan = pre_payload.get("landing_validation_plan") if pre_payload else None
     pr_plan = pr_payload.get("landing_validation_plan") if pr_payload else None
-    solo = isinstance(pre_plan, Mapping) and pre_plan.get("effective_profile") == "solo"
-    if solo and isinstance(pre_plan, Mapping):
-        valid, plan_reasons = verify_validation_plan(pre_plan)
-        if not valid:
-            reasons.extend(plan_reasons)
-        if pr_plan != pre_plan:
-            reasons.append("validation_profile_or_plan_mutated_between_phases")
+    solo = (
+        isinstance(pre_plan, Mapping) and pre_plan.get("effective_profile") == "solo"
+    ) or (
+        request.validation_only
+        and isinstance(pr_plan, Mapping)
+        and pr_plan.get("effective_profile") == "solo"
+    )
+    if solo:
         proof["validation_profile"] = "solo"
 
     if request.validation_only:
@@ -229,6 +230,14 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
             verification = verify_commit_matches_workspace(request.workspace_root, workspace_binding, commit_binding).to_dict()
             proof["binding_verification"] = verification
             reasons.extend(str(r) for r in verification.get("reasons", ()))
+            if isinstance(pre_plan, Mapping) and isinstance(pr_plan, Mapping):
+                _, transition_reasons, transition_proof = verify_validation_plan_transition(
+                    pre_plan, pr_plan, workspace_binding, commit_binding
+                )
+                proof["validation_plan_transition"] = transition_proof
+                reasons.extend(transition_reasons)
+            elif pre_plan is not None or pr_plan is not None:
+                reasons.append("validation_plan_transition_artifact_missing_or_invalid")
             if not solo and proof["matrix"].get("sha256") and commit_binding.get("matrix_digest") != proof["matrix"].get("sha256"):
                 reasons.append("matrix_digest_mismatch")
     if not solo and not _matrix_passed(matrix_payload):
