@@ -21,9 +21,27 @@ from sentientos.external_model_material import (
     GovernedRequestMaterialResolver, ResponseConsumer, verify_and_handoff_response,
 )
 
-CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v1"
+LEGACY_CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v1"
+CONFIG_SCHEMA = "sentientos.external_model_service_catalog:v2"
 RECEIPT_SCHEMA = "sentientos.external_model_invocation_receipts:v1"
 ADMISSION_KIND = "external_model_inference"  # identity only; definition registration grants nothing
+
+
+@dataclass(frozen=True)
+class ExactHTTPSTransportProfile:
+    """Configuration-bound, closed framing for one exact HTTPS endpoint."""
+    profile_version: int
+    method: str
+    media_type: str
+    authentication_mode: str
+
+    def validate(self) -> None:
+        if self.profile_version != 1 or self.method != "POST":
+            raise CustodyValidationError("invalid_live_transport_profile")
+        if self.media_type not in {"application/json"}:
+            raise CustodyValidationError("invalid_live_transport_media_type")
+        if self.authentication_mode not in {"none", "bearer", "x-api-key"}:
+            raise CustodyValidationError("invalid_live_transport_authentication")
 
 
 @dataclass(frozen=True)
@@ -35,6 +53,7 @@ class ConfiguredExternalModelService:
     enabled: bool
     provenance: str
     version: int
+    live_transport: ExactHTTPSTransportProfile | None = None
 
     def payload(self) -> dict[str, Any]:
         return asdict(self)
@@ -54,6 +73,11 @@ class ConfiguredExternalModelService:
             raise CustodyValidationError("unbounded_configured_model_scope")
         if self.version < 1 or not self.provenance.strip():
             raise CustodyValidationError("invalid_configuration_provenance")
+        if self.live_transport is not None:
+            self.live_transport.validate()
+            expects_credential = self.live_transport.authentication_mode != "none"
+            if expects_credential != (self.credential_ref is not None):
+                raise CustodyValidationError("live_transport_credential_binding_mismatch")
 
 
 class ExternalModelServiceCatalog:
@@ -90,7 +114,8 @@ class ExternalModelServiceCatalog:
     def load(cls, path: Path) -> "ExternalModelServiceCatalog":
         payload = _read_object(path, "corrupt_service_catalog")
         claimed = payload.pop("catalog_digest", None)
-        if payload.get("schema") != CONFIG_SCHEMA or claimed != digest(payload):
+        schema = payload.get("schema")
+        if schema not in {CONFIG_SCHEMA, LEGACY_CONFIG_SCHEMA} or claimed != digest(payload):
             raise CustodyValidationError("corrupt_service_catalog")
         entries: dict[str, ConfiguredExternalModelService] = {}
         try:
@@ -99,7 +124,16 @@ class ExternalModelServiceCatalog:
                 service_payload["endpoint_ids"] = tuple(service_payload["endpoint_ids"])
                 service = ExternalModelServiceIdentity(**service_payload)
                 endpoint = EndpointIdentity(**raw["endpoint"])
-                entry = ConfiguredExternalModelService(service, endpoint, tuple(raw["permitted_model_ids"]), raw["credential_ref"], raw["enabled"], raw["provenance"], raw["version"])
+                profile = None
+                if schema == CONFIG_SCHEMA:
+                    raw_profile = raw.get("live_transport")
+                    if raw_profile is not None:
+                        if not isinstance(raw_profile, dict) or set(raw_profile) != {"profile_version", "method", "media_type", "authentication_mode"}:
+                            raise ValueError
+                        profile = ExactHTTPSTransportProfile(**raw_profile)
+                elif "live_transport" in raw:
+                    raise ValueError
+                entry = ConfiguredExternalModelService(service, endpoint, tuple(raw["permitted_model_ids"]), raw["credential_ref"], raw["enabled"], raw["provenance"], raw["version"], profile)
                 entries[service.service_id] = entry
         except (KeyError, TypeError, ValueError) as exc:
             raise CustodyValidationError("corrupt_service_catalog") from exc
