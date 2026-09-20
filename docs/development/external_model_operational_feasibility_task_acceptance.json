@@ -1,0 +1,40 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "task_id": "governed_external_model_operational_feasibility",
+  "repository_sha": "69c51777dc6ac6d023106fd42f8f6c9b1697e875",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_current_production_defaults_fail_closed_without_reading_material_or_network",
+      "rationale": "Production defaults and no-effect behavior fail closed."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_exact_positive_synthetic_feasibility_is_deterministic_and_non_authoritative",
+      "rationale": "Exact synthetic positive decision and frozen authority digest."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_malformed_tampered_readiness_and_decision_fail_closed",
+      "rationale": "Readiness and decision binding detect substitution."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_configuration_subject_endpoint_and_governor_block_fail_closed",
+      "rationale": "Governor blocking posture rejects feasibility."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_grant_policy_refuses_missing_negative_stale_and_tampered_feasibility",
+      "rationale": "Grant policy requires exact positive feasibility."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_exact_grant_policy_feasibility_path_issues_admission_but_feasibility_cannot",
+      "rationale": "Existing authority alone issues admission after all gates."
+    },
+    {
+      "node_id": "tests/test_external_model_operational_feasibility.py::test_no_live_effect_surface",
+      "rationale": "Static proof excludes live effects."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_external_model_operational_feasibility.py::test_exact_grant_policy_feasibility_path_issues_admission_but_feasibility_cannot"
+  ]
+}

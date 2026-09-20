@@ -180,7 +180,7 @@ class RuntimeGrantPolicy:
     def __init__(self, *, definitions: Mapping[str, TaskAuthorityDefinition], ledger: RuntimeGrantLedger, admission_authority: RuntimeAdmissionAuthority) -> None:
         self._definitions, self._ledger, self.__admission_authority = definitions, ledger, admission_authority
 
-    def evaluate(self, grant_id: str, request: RuntimeGrantRequest, *, current_sequence: int, current_policy_epoch: int, policy_available: bool = True) -> RuntimeGrantDecision:
+    def evaluate(self, grant_id: str, request: RuntimeGrantRequest, *, current_sequence: int, current_policy_epoch: int, policy_available: bool = True, operational_feasibility: object | None = None) -> RuntimeGrantDecision:
         try: grants, revocations = self._ledger.load()
         except RuntimeGrantError: return RuntimeGrantDecision("invalid", "corrupt_grant_state", grant_id)
         grant = next((x for x in grants if x.grant_id == grant_id), None); definition = self._definitions.get(request.capability_id)
@@ -199,10 +199,20 @@ class RuntimeGrantPolicy:
         if request.subject_id not in grant.subject_ids: return RuntimeGrantDecision("denied", "wrong_subject", grant_id)
         if grant.request_configuration_digests and request.request_configuration_digest not in grant.request_configuration_digests: return RuntimeGrantDecision("denied", "request_configuration_mismatch", grant_id)
         if request.valid_through_sequence > grant.valid_through_sequence: return RuntimeGrantDecision("denied", "admission_outlives_grant", grant_id)
+        if request.capability_id == "external_model_inference":
+            from sentientos.external_model_operational_feasibility import verify_operational_feasibility
+            if not verify_operational_feasibility(
+                operational_feasibility, capability_id=request.capability_id,
+                principal_id=request.principal_id, principal_kind=request.principal_kind,
+                effects=request.effects, subject_id=request.subject_id,
+                request_configuration_digest=request.request_configuration_digest,
+                current_sequence=current_sequence, current_policy_epoch=current_policy_epoch,
+                definition_version=request.definition_version,
+            ): return RuntimeGrantDecision("denied", "operational_feasibility_required", grant_id)
         return RuntimeGrantDecision("allowed", "policy_satisfied", grant_id)
 
-    def issue(self, grant_id: str, request: RuntimeGrantRequest, *, current_sequence: int, current_policy_epoch: int, policy_available: bool = True) -> AdmissionEvidence:
-        decision = self.evaluate(grant_id, request, current_sequence=current_sequence, current_policy_epoch=current_policy_epoch, policy_available=policy_available)
+    def issue(self, grant_id: str, request: RuntimeGrantRequest, *, current_sequence: int, current_policy_epoch: int, policy_available: bool = True, operational_feasibility: object | None = None) -> AdmissionEvidence:
+        decision = self.evaluate(grant_id, request, current_sequence=current_sequence, current_policy_epoch=current_policy_epoch, policy_available=policy_available, operational_feasibility=operational_feasibility)
         if decision.status != "allowed": raise RuntimeGrantError(decision.reason)
         grant = next(x for x in self._ledger.load()[0] if x.grant_id == grant_id)
         return self.__admission_authority.issue(admission_id=request.admission_id, capability_id=request.capability_id, definition_version=request.definition_version, subsystem_kind=request.subsystem_kind, principal_id=request.principal_id, principal_kind=request.principal_kind, effects=request.effects, subject_id=request.subject_id, request_configuration_digest=request.request_configuration_digest, provenance=request.provenance, issued_sequence=request.issued_sequence, valid_through_sequence=request.valid_through_sequence, affirmative_preconditions=request.affirmative_preconditions, originating_grant_id=grant.grant_id, originating_grant_digest=grant.binding_digest)

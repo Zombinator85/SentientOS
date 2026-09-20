@@ -264,6 +264,10 @@ class NullExternalModelTransport:
     def invoke(self, invocation: AdmittedInvocation) -> TransportEvidence:
         return TransportEvidence(invocation.request.binding_digest, False, False, False, None, None, unavailable=True)
 
+    def operational_readiness(self) -> Any:
+        from sentientos.external_model_operational_feasibility import LocalReadiness, seal_local_readiness
+        return seal_local_readiness(LocalReadiness("transport", "null_external_model_transport:v1", False))
+
 
 class InvocationReceiptStore:
     """Atomic, hash-linked receipt persistence with strict restart validation."""

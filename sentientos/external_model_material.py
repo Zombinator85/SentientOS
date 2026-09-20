@@ -49,6 +49,10 @@ class UnavailableRequestMaterialSource:
     def read_for_invocation(self, binding: RequestMaterialBinding) -> bytearray:
         raise RequestMaterialError("request_material_source_unavailable")
 
+    def operational_readiness(self) -> object:
+        from sentientos.external_model_operational_feasibility import LocalReadiness, seal_local_readiness
+        return seal_local_readiness(LocalReadiness("request_material", "unavailable_request_material_source:v1", False))
+
 
 class ConfiguredService(Protocol):
     configuration_digest: str
