@@ -514,6 +514,8 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
     contract = matrix_contract(commands)
     binding = workspace_binding(commands, repo)
     results: list[MatrixResult] = []
+    recovery_labels = {"docs_bootstrap", "docs_check_deps_recheck"}
+    completed_command_count = 0
     if resume_from is not None:
         try:
             prior = json.loads(resume_from.read_text(encoding="utf-8"))
@@ -529,21 +531,27 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
             if prior.get("status") in {"matrix_timed_out", "matrix_interrupted"} and candidate and candidate[-1].get("proof_status") in {"timed-out", "interrupted"}:
                 candidate = candidate[:-1]
             labels = prior.get("completed_labels", [])
-            expected = [c.label for c in commands[:len(candidate)]]
-            if labels != expected or [r.get("label") for r in candidate] != expected or len(set(labels)) != len(labels):
+            base_labels = [str(r.get("label")) for r in candidate if r.get("label") not in recovery_labels]
+            expected = [c.label for c in commands[:len(base_labels)]]
+            if base_labels != expected or labels != [r.get("label") for r in candidate] or len(set(labels)) != len(labels):
                 reason = "completed_lane_order_invalid"
-            elif any(r.get("command") != list(commands[i].command) for i, r in enumerate(candidate)):
+            elif any(
+                r.get("command") != list(next(c for c in commands if c.label == r.get("label")).command)
+                for r in candidate if r.get("label") not in recovery_labels
+            ):
                 reason = "matrix_contract_changed"
             elif any(_is_required_failure(r) for r in candidate):
                 reason = "failed_lane_requires_rerun"
-            else: results = candidate
+            else:
+                results = candidate
+                completed_command_count = len(base_labels)
         if reason:
             report: MatrixReport = {"schema_version": MATRIX_SCHEMA, "status": "matrix_resume_blocked", "resume_block_reasons": [reason],
                 "matrix_contract": contract, "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": binding,
                 "results": [], "completed_labels": [], "next_lane_index": 0, "command_count": len(commands)}
             base = dict(report); report["checkpoint_digest"] = _digest(base)
             _atomic_json(checkpoint, report); return report
-        if prior.get("status") == "matrix_passed" and len(results) == len(commands):
+        if prior.get("status") == "matrix_passed" and completed_command_count == len(commands):
             if checkpoint != resume_from: _atomic_json(checkpoint, prior)
             return prior  # type: ignore[no-any-return]
 
@@ -556,13 +564,30 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
             "diagnostic_failure_count": len([r for r in results if r.get("diagnostic_only") and r.get("exit_code") != 0]),
             "nonproof_count": len([r for r in results if not r.get("proof_required", True)]), "results": results,
             "matrix_contract": contract, "matrix_contract_digest": contract["manifest_digest"], "workspace_binding": binding,
-            "completed_labels": [str(r["label"]) for r in results], "next_lane_index": len(results), "completion_status": status,
+            "completed_labels": [str(r["label"]) for r in results], "next_lane_index": completed_command_count, "completion_status": status,
             "active_lane": active_lane}
         payload["checkpoint_digest"] = _digest(dict(payload))
         _atomic_json(checkpoint, payload); return payload
 
     emit("matrix_in_progress")
-    for index, command in enumerate(commands[len(results):], start=len(results)):
+    for index, command in enumerate(commands[completed_command_count:], start=completed_command_count):
+        if command.label == "docs_build":
+            probe = next((item for item in results if item["label"] == "docs_check_deps"), None)
+            recovered = any(item["label"] == "docs_check_deps_recheck" for item in results)
+            if probe is not None and probe["exit_code"] != 0 and not recovered:
+                for recovery in (
+                    MatrixCommand("docs_bootstrap", ("python", "scripts/build_docs.py", "--bootstrap-docs")),
+                    MatrixCommand("docs_check_deps_recheck", ("python", "scripts/build_docs.py", "--check-deps")),
+                ):
+                    if progress: print(f"[matrix] docs recovery {recovery.label}", flush=True)
+                    completed, elapsed = _run_bounded(recovery.command, timeout_seconds=command_timeout_seconds, repo=repo)
+                    recovery_result = run_one(recovery, lambda _: completed)
+                    recovery_result["duration_seconds"] = round(elapsed, 3)
+                    results.append(recovery_result)
+                    emit("matrix_failed" if _is_required_failure(recovery_result) else "matrix_in_progress")
+                if any(_is_required_failure(item) for item in results if item["label"] in recovery_labels):
+                    completed_command_count = index
+                    return emit("matrix_failed")
         active_lane = {"label": command.label, "command": list(command.command), "lifecycle_state": "running",
                        "lane_index": index, "execution_deadline_seconds": command_timeout_seconds}
         emit("matrix_in_progress")
@@ -573,6 +598,7 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
             result = run_one(command, lambda _: completed)
             result["duration_seconds"] = round(elapsed, 3)
             results.append(result)
+            completed_command_count = index + 1
             active_lane = None
             state = "matrix_failed" if _is_required_failure(result) else "matrix_in_progress"
         except subprocess.TimeoutExpired as exc:
@@ -582,6 +608,7 @@ def run_resumable_matrix(*, commands: list[MatrixCommand], checkpoint: Path,
                 "nonexecution_allowed": command.nonexecution_allowed, "classification_reason": command.classification_reason,
                 "exit_code": 124, "duration_seconds": round(time.perf_counter() - started, 3), "output_tail": _tail(output),
                 "proof_status": "timed-out", "exit_reason": getattr(exc, "termination_reason", "execution_deadline_exceeded")})
+            completed_command_count = index
             active_lane = None
             if progress: print(f"[matrix] end {index + 1}/{len(commands)} {command.label} status=timed_out", flush=True)
             report = emit("matrix_timed_out")

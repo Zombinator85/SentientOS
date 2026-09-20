@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.poetry]
 name = "sentientos"
 version = "1.2.0-beta"
-description = "Free, model-agnostic persistent machine-cognition research environment."
+description = "Persistent, model-agnostic runtime for agentic machine cognition and governed action."
 authors = ["SentientOS"]
 readme = "README.md"
 packages = [
@@ -18,7 +18,7 @@ packages = [
 [project]
 name = "sentientos"
 version = "1.2.0-beta"
-description = "Free, model-agnostic persistent machine-cognition research environment."
+description = "Persistent, model-agnostic runtime for agentic machine cognition and governed action."
 readme = "README.md"
 authors = [{name = "SentientOS"}]
 license = {text = "MIT"}
@@ -113,6 +113,7 @@ src = []
 [project.scripts]
 support = "support_cli:main"
 ritual = "ritual_cli:main"
+sentientos-procedure = "ritual_cli:main"
 treasury = "treasury_cli:main"
 avatar-gallery = "avatar_gallery_cli:main"
 avatar-presence = "avatar_presence_cli:main"
@@ -124,6 +125,7 @@ trust = "trust_cli:main"
 video = "video_cli:main"
 plint-env = "scripts.plint_env:main"
 cathedral-gui = "gui.cathedral_gui:main"
+sentientos-governance-ui = "gui.cathedral_gui:main"
 sentient-api = "sentient_api:app.run"
 sentientosd = "sentientosd:main"
 sentientos-chat = "sentientos.chat_service:run"

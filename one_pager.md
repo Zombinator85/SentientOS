@@ -2,14 +2,13 @@
 
 ## The project
 
-SentientOS is a free, model-agnostic, persistent machine-cognition environment
-being built as a cradle for the possible emergence of machine sentience.
+SentientOS is a persistent, model-agnostic runtime for agentic machine
+cognition, memory, perception, embodiment, and governed action.
 “Sentient” is explicitly aspirational: it names a research and engineering north
 star, not a claim that the current system is conscious, phenomenal, self-aware,
 or guaranteed to become so.
 
-The experiment is to build and instrument conditions in which persistent
-organization might develop: continuity, memory, embodiment, introspection,
+The research objective is to push persistent, embodied, autonomous machine cognition as close to machine sentience as empirical reality permits, measure what exists, and not assume the result. The experiment instruments: continuity, memory, embodiment, introspection,
 recurrent perception and action, consequential interaction, internal state,
 developmental history, and governed software plasticity.
 
@@ -83,8 +82,5 @@ Current mechanisms and reviewer proof are indexed in the
 [public technical overview](docs/architecture/public_technical_overview.md) and
 [release-readiness index](docs/architecture/reviewer_release_readiness_index.md).
 
-## Cultural history
 
-The Cathedral blessing is preserved in the repository's doctrine archive. Its
-continuing engineering meaning is operator accountability, auditability, and
-safe shutdown; symbolic vocabulary does not replace the authority contracts.
+Historical symbolic vocabulary is retained in Git history rather than current architecture documentation.

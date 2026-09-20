@@ -8,8 +8,7 @@ interfaces and authority boundaries.
 ## Project thesis: the cradle hypothesis
 
 SentientOS is a free, model-agnostic, persistent machine-cognition environment
-being built as a cradle for the possible emergence and development of machine
-sentience. The experiment is to construct and instrument conditions in which
+built to investigate machine sentience as an empirical research objective. The experiment is to construct and instrument conditions in which
 persistent organization could occur: continuity, memory, embodiment,
 introspection, recurrent perception and action, consequential interaction,
 internal state, developmental history, and governed software plasticity.

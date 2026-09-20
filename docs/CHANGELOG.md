@@ -22,7 +22,7 @@
 ## 2025-12 Blessed Federation Beta
 - Living Audit Sprint repaired legacy logs and enabled rolling hashes
 - `MYPY_STATUS.md` introduced to track 219 type-check errors
-- Public launch announcement in `BLESSED_FEDERATION_LAUNCH.md`
+- Public launch announcement (historical artifact removed; retained in Git history)
 
 ## 2026-01 Technical Debt Clearance
 - Automated healing added in `log_json` for missing `timestamp` and `data`

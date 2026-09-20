@@ -67,7 +67,8 @@ def test_run_cycle_deterministic_with_stubs() -> None:
     assert first["pulse_updates"] == {"focus": "stub-focus", "cycles": 1}
     assert first["self_model_updates"] == {"generated": False, "cycles": 1}
     assert first["introspection_output"] == "introspection"
-    assert first["simulation_output"] == {"summary": "stable", "transcript": ["safe"]}
+    assert first["simulation_output"]["summary"] == "stable"
+    assert first["simulation_output"]["transcript"] == ["safe"]
 
 
 def test_no_pulse_bus_activity_without_kernel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -80,12 +81,11 @@ def test_no_pulse_bus_activity_without_kernel(monkeypatch: pytest.MonkeyPatch) -
 
     result = run_consciousness_cycle({})
 
-    assert result == {
-        "pulse_updates": None,
-        "self_model_updates": None,
-        "introspection_output": None,
-        "simulation_output": None,
-    }
+    assert result["pulse_updates"] is None
+    assert result["self_model_updates"] is None
+    assert result["introspection_output"] is None
+    assert result["simulation_output"] is None
+    assert "cognitive_state_snapshot" in result
     assert captured == []
 
 
@@ -116,5 +116,6 @@ def test_introspection_and_simulation_privacy() -> None:
 
     assert result["introspection_output"] == "private-reflection"
     assert "should-not-leak" not in str(result)
-    assert result["simulation_output"] == {"summary": "stable", "transcript": ["safe"]}
+    assert result["simulation_output"]["summary"] == "stable"
+    assert result["simulation_output"]["transcript"] == ["safe"]
     assert simulation.cycles == 1
