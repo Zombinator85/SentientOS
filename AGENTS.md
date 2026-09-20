@@ -1,10 +1,10 @@
 # SentientOS Repository Agent Map
 
-SentientOS prioritizes operator accountability, auditability, and safe shutdown. No presence, privilege, emotion, track, clip, blessing, or action goes unwitnessed.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown. Privileged actions and consequential effects require attributable evidence.
 
-## Canonical doctrine
+## Canonical governance
 
-The Cathedral blessing, agent taxonomy and ledger, presence and privilege contracts, federation rules, procedures, and witnessing law are preserved in [`docs/AGENTS_DOCTRINE_ARCHIVE.md`](docs/AGENTS_DOCTRINE_ARCHIVE.md). Public governance doctrine is indexed by [`docs/GOVERNANCE_DOCTRINE.md`](docs/GOVERNANCE_DOCTRINE.md). Changes to agent privilege must cite the blessed origin and update the canonical ledger. Invocations of `bless`, `animate`, or `reflect` must log to `/logs/privileges/`.
+Current agent taxonomy, privilege contracts, federation rules, procedures, and evidence requirements are indexed by [`docs/GOVERNANCE_DOCTRINE.md`](docs/GOVERNANCE_DOCTRINE.md). Changes to agent privilege must cite their authority source and update the canonical ledger. Compatibility invocations of `bless`, `animate`, or `reflect` continue to log to `/logs/privileges/`.
 
 ## Operator and authority boundaries
 

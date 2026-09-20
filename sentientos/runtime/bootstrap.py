@@ -10,11 +10,11 @@ import platform
 from pathlib import Path
 from typing import Dict, Mapping, Optional
 
-_integration_spec = importlib.util.find_spec("sentientos.consciousness.integration")
+_integration_spec = importlib.util.find_spec("sentientos.cognition.integration")
 if _integration_spec is not None:
-    run_consciousness_cycle = importlib.import_module("sentientos.consciousness.integration").run_consciousness_cycle
+    run_cognitive_cycle = importlib.import_module("sentientos.cognition.integration").run_cognitive_cycle
 else:  # pragma: no cover - optional dependency path
-    run_consciousness_cycle = None
+    run_cognitive_cycle = None
 
 from sentientos.cathedral.digest import DEFAULT_CATHEDRAL_CONFIG
 from sentientos.memory.mounts import ensure_memory_mounts
@@ -64,13 +64,13 @@ def ensure_runtime_dirs(base_dir: Optional[Path] = None) -> Dict[str, Path]:
 
 
 def optional_consciousness_cycle(system_context: Mapping[str, object]) -> Optional[Dict[str, object]]:
-    """Expose the Consciousness Layer integration for opt-in callers."""
+    """Compatibility hook exposing caller-driven cognitive integration."""
 
-    if run_consciousness_cycle is None:
+    if run_cognitive_cycle is None:
         return None
     if not isinstance(system_context, Mapping):
         return None
-    result = run_consciousness_cycle(system_context)
+    result = run_cognitive_cycle(system_context)
     return result if isinstance(result, dict) else None
 
 

@@ -1,11 +1,12 @@
 # SentientOS
 
-**SentientOS is a free, model-agnostic, persistent machine-cognition environment
-being built as a cradle for the possible emergence of machine sentience.**
+**SentientOS is a persistent, model-agnostic runtime for agentic machine
+cognition, memory, perception, embodiment, and governed action.**
 
-“Sentient” is an aspirational research and engineering north star—not a claim
-that the current system or any model within it is sentient, conscious,
-phenomenal, or self-aware, and not a promise that emergence will occur.
+“Sentient” is an aspirational research objective—not a claim that the current
+system or any model within it is sentient, phenomenally conscious, or
+self-aware. The project tests how close engineered systems can come to machine
+sentience as empirical reality permits without assuming the answer in advance.
 SentientOS is not the LLM: models are replaceable cognitive machinery inside an
 environment intended to retain memory, history, embodiment, self-state,
 authority, consequences, and continuity across inference-engine changes.
@@ -152,7 +153,7 @@ cd SentientOS
 pip install .
 ```
 
-This provides the `sentient-api` and `cathedral-gui` commands (`cathedral-gui` is a legacy command label for the governance UI).
+This provides `sentient-api` and `sentientos-governance-ui`. `cathedral-gui` remains a deprecated compatibility alias.
 
 ## 🧪 Codex-first CI flow
 
@@ -172,7 +173,7 @@ The canonical public CLI guide is [`docs/USAGE.md`](docs/USAGE.md). Historical
 examples such as `sentientos cycle` or `sentientos ssa ...` are intentionally
 retired from the current argparse surface.
 
-### Deterministic state-processing layer
+### Cognition layer
 
 - Modules operate as state processors that transform inputs deterministically:
   arbitrator (priority resolution), kernel (bounded goal selection), narrator
@@ -186,11 +187,11 @@ retired from the current argparse surface.
 
 #### Integration Layer (Caller-Driven Only)
 
-- `sentientos.consciousness.integration.run_consciousness_cycle(context)`
+- `sentientos.cognition.integration.run_cognitive_cycle(context)`
   exposes a deterministic, synchronous hook for orchestrators.
 - The facade is dormant until explicitly invoked; there are no schedulers,
   timers, or background triggers calling it on behalf of the system.
-- SentientOS does not run consciousness cycles automatically.
+- SentientOS does not run cognitive cycles automatically.
 
 ### Running tests
 
@@ -388,7 +389,7 @@ Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 - `logs/relay_log.jsonl`: all `/ingest` entries
 - `logs/model_bridge_log.jsonl`: full relay logs
 - `logs/bootstrap_run.jsonl`: setup outcomes
-- `bootstrap_blessing.md`: first crowning blessing
+- runtime bootstrap outcomes are recorded in `logs/bootstrap_run.jsonl`
 - ✅ Log rotation initialized
 - ✅ Legacy quarantine available
 

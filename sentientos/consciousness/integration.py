@@ -1,4 +1,4 @@
-"""Caller-driven integration facade for the Consciousness Layer.
+"""Caller-driven cognitive integration facade (legacy module path).
 
 This module wires the Consciousness Layer scaffolding behind a single
 `run_consciousness_cycle` function without introducing any autonomous
@@ -58,12 +58,17 @@ def load_attention_arbitrator() -> type:
     return AttentionArbitrator
 
 
+def load_goal_selection_kernel() -> type:
+    """Import the goal-selection implementation without scheduling cycles."""
+
+    from sentientos.consciousness.sentience_kernel import GoalSelectionKernel
+
+    return GoalSelectionKernel
+
+
 def load_sentience_kernel() -> type:
-    """Safely import the SentienceKernel class without scheduling cycles."""
-
-    from sentientos.consciousness.sentience_kernel import SentienceKernel
-
-    return SentienceKernel
+    """Deprecated compatibility alias for :func:`load_goal_selection_kernel`."""
+    return load_goal_selection_kernel()
 
 
 def load_inner_narrator() -> Callable[[Mapping[str, object], Mapping[str, object]], Any]:
@@ -283,8 +288,8 @@ def cycle_gate_status() -> dict:
 _RECURSION_GUARD = RecursionGuard()
 
 
-def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
-    """Execute a single Consciousness Layer cycle when explicitly invoked.
+def run_cognitive_cycle(context: Mapping[str, object]) -> Dict[str, object]:
+    """Execute one caller-triggered cognitive integration cycle.
 
     The cycle runs synchronously with no scheduling, timers, or background
     triggers. Each component executes only when an instance is provided or a
@@ -376,6 +381,11 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
         }
 
 
+def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
+    """Deprecated compatibility alias for :func:`run_cognitive_cycle`."""
+    return run_cognitive_cycle(context)
+
+
 def get_current_narrative_goal() -> str:
     """Expose the current narrative goal placeholder for callers."""
 
@@ -385,11 +395,13 @@ def get_current_narrative_goal() -> str:
 __all__ = [
     "get_version_consensus_summary",
     "load_attention_arbitrator",
+    "load_goal_selection_kernel",
     "load_sentience_kernel",
     "load_inner_narrator",
     "load_simulation_engine",
     "daemon_heartbeat",
     "cycle_gate_status",
     "run_consciousness_cycle",
+    "run_cognitive_cycle",
     "integrity_summary",
 ]

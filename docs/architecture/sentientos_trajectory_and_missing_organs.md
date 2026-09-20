@@ -27,7 +27,7 @@ Reviewers can generate the local non-mutating host-embodiment proof archive with
 ## What SentientOS is becoming
 
 SentientOS is becoming a free, model-agnostic persistent machine-cognition
-environment: a cradle for investigating possible emergence and development,
+environment: an empirical environment for investigating persistent machine cognition,
 not a claim that emergence has occurred. It currently runs above Windows,
 macOS, or Linux and organizes installer/bootstrap flow, first boot,
 shell/dashboard affordances, local model runtime, memory/context/reflection,

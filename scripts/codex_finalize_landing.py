@@ -1145,7 +1145,19 @@ def main(argv: list[str] | None = None) -> int:
         if not semantic_status_paths and not a.changed_file:
             task_paths = ()
         if a.phase.replace("_", "-") == "pre-commit" and task_paths:
-            binding_obj = create_workspace_binding(a.workspace_root, intended_paths=task_paths, intended_commit_title=a.intended_commit_title or a.title or "", focused_test_commands=tuple(a.focused_test_command), targeted_mypy_commands=tuple(a.targeted_mypy_command), matrix_json_path=a.matrix_json_path if a.validation_profile == "exhaustive" else None).to_dict()
+            deleted_paths = tuple(
+                line[3:].split(" -> ")[-1]
+                for line in subprocess.run(
+                    ["git", "status", "--porcelain=v1"],
+                    cwd=a.workspace_root,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                ).stdout.splitlines()
+                if "D" in line[:2]
+            )
+            live_task_paths = tuple(path for path in task_paths if path not in deleted_paths)
+            binding_obj = create_workspace_binding(a.workspace_root, intended_paths=live_task_paths, deleted_paths=deleted_paths, intended_commit_title=a.intended_commit_title or a.title or "", focused_test_commands=tuple(a.focused_test_command), targeted_mypy_commands=tuple(a.targeted_mypy_command), matrix_json_path=a.matrix_json_path if a.validation_profile == "exhaustive" else None).to_dict()
             payload["workspace_binding"] = binding_obj
         elif a.pre_commit_finalizer_json:
             pre_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))

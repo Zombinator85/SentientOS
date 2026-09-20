@@ -10,6 +10,6 @@ This living schedule outlines the journey to full audit health across the federa
 | Complete audit health | 2026-03 | All known integrity issues healed and versioned |
 
 Each milestone may shift as new integrity issues surface. Stewards update this file monthly.
-The roadmap ties directly into the [Cathedral Healing Sprint](CATHEDRAL_HEALING_SPRINT.md) announced for the final beta.
+This legacy roadmap is superseded by current audit migration and integrity-repair procedures.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.

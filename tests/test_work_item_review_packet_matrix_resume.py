@@ -9,6 +9,7 @@ import time
 import pytest
 
 from scripts.run_work_item_review_packet_matrix import MatrixCommand, _run_bounded, run_resumable_matrix
+from sentientos.codex_validation_matrix_lane_contract import verify_lane_contract
 pytestmark = pytest.mark.no_legacy_skip
 
 
@@ -108,6 +109,60 @@ def test_failed_required_lane_cannot_be_relabelled_passed(tmp_path: Path) -> Non
     commands = [MatrixCommand("bad", (sys.executable, "-c", "raise SystemExit(1)"))]
     checkpoint = tmp_path / "c.json"; assert run_resumable_matrix(commands=commands, checkpoint=checkpoint)["status"] == "matrix_failed"
     assert run_resumable_matrix(commands=commands, checkpoint=tmp_path / "out", resume_from=checkpoint)["status"] == "matrix_resume_blocked"
+
+
+def _docs_commands() -> list[MatrixCommand]:
+    return [
+        MatrixCommand("docs_check_deps", ("docs", "check"), required=False),
+        MatrixCommand("docs_build", ("docs", "build")),
+    ]
+
+
+def test_resumable_docs_present_satisfies_lane_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "scripts.run_work_item_review_packet_matrix._run_bounded",
+        lambda command, **_: (__import__("subprocess").CompletedProcess(command, 0, "", ""), 0.01),
+    )
+    report = run_resumable_matrix(commands=_docs_commands(), checkpoint=tmp_path / "c.json")
+    assert [row["label"] for row in report["results"]] == ["docs_check_deps", "docs_build"]
+    assert report["status"] == "matrix_passed"
+
+
+def test_resumable_docs_recovery_records_truthful_sequence_and_satisfies_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def run(command: tuple[str, ...], **_: object):
+        code = 1 if command == ("docs", "check") else 0
+        return __import__("subprocess").CompletedProcess(command, code, "", ""), 0.01
+
+    monkeypatch.setattr("scripts.run_work_item_review_packet_matrix._run_bounded", run)
+    report = run_resumable_matrix(commands=_docs_commands(), checkpoint=tmp_path / "c.json")
+    assert [row["label"] for row in report["results"]] == [
+        "docs_check_deps", "docs_bootstrap", "docs_check_deps_recheck", "docs_build"
+    ]
+    assert report["status"] == "matrix_passed" and report["required_failure_count"] == 0
+    report["results"].extend(  # isolate the docs branch while satisfying other required lane groups
+        {"label": label, "exit_code": 0}
+        for label in ("targeted_tests", "targeted_mypy", "mypy_baseline", "prompt_boundaries", "strict_audits", "audit_immutability")
+    )
+    findings = verify_lane_contract(report).findings
+    assert not any(item.code in {"docs_contract_not_satisfied", "required_failure_count_mismatch"} for item in findings)
+
+
+@pytest.mark.parametrize("failed_label", ["docs_bootstrap", "docs_check_deps_recheck"])
+def test_resumable_docs_failed_recovery_remains_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_label: str
+) -> None:
+    def run(command: tuple[str, ...], **_: object):
+        label = "docs_bootstrap" if "--bootstrap-docs" in command else "docs_check_deps_recheck" if command[0] == "python" else "docs_check_deps"
+        code = 1 if label in {"docs_check_deps", failed_label} else 0
+        return __import__("subprocess").CompletedProcess(command, code, "", ""), 0.01
+
+    monkeypatch.setattr("scripts.run_work_item_review_packet_matrix._run_bounded", run)
+    report = run_resumable_matrix(commands=_docs_commands(), checkpoint=tmp_path / "c.json")
+    assert report["status"] == "matrix_failed"
+    assert report["required_failure_count"] >= 1
+    assert any(item.code == "docs_contract_not_satisfied" for item in verify_lane_contract(report).findings)
 
 
 def test_canonical_matrix_artifact_rewrite_does_not_change_semantic_binding(tmp_path: Path) -> None:

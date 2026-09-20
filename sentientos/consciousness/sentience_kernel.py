@@ -3,7 +3,7 @@
 # It does not perform autonomous execution.
 # All operations must be driven by explicit orchestrator calls.
 # Guardrails and covenant autoalignment remain authoritative.
-"""Goal-selection scaffolding for the Consciousness Layer.
+"""Goal-selection scaffolding (legacy module path).
 
 The kernel keeps goals minimal, auditable, and covenant-aligned, exposing a
 ``run_cycle`` hook for kernel orchestration. See
@@ -36,8 +36,8 @@ class KernelProposal:
     confidence: float = 0.5
 
 
-class SentienceKernel:
-    """Autonomous goal generator with covenant guardrails."""
+class GoalSelectionKernel:
+    """Bounded goal proposal and selection with integrity guardrails."""
 
     def __init__(self, *, emitter: PulseEmitter | None = None, self_path: Optional[str] = None) -> None:
         self.proposals: List[KernelProposal] = []
@@ -160,6 +160,8 @@ class SentienceKernel:
         covenant_autoalign.autoalign_before_cycle()
         self._last_cycle = datetime.now(timezone.utc)
         glow_state = load_self_state(path=self._self_path)
+        stored_attention = glow_state.get("attention_hint")
+        attention_hint = stored_attention if isinstance(stored_attention, str) else None
         should_generate, trigger = self._should_generate_goal(glow_state, pressure_snapshot=pressure_snapshot)
         report: Dict[str, object] = {
             "timestamp": self._last_cycle.isoformat(),
@@ -175,7 +177,7 @@ class SentienceKernel:
             self._update_self_model(
                 goal=None,
                 result=trigger,
-                attention_hint=glow_state.get("attention_hint"),
+                attention_hint=attention_hint,
                 novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
             )
             return report
@@ -194,13 +196,14 @@ class SentienceKernel:
             self._update_self_model(
                 goal=None,
                 result="misaligned",
-                attention_hint=glow_state.get("attention_hint"),
+                attention_hint=attention_hint,
                 novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
             )
             report["reason"] = "misaligned"
             return report
 
-        attention_hint = glow_state.get("last_focus") if isinstance(glow_state.get("last_focus"), str) else None
+        last_focus = glow_state.get("last_focus")
+        attention_hint = last_focus if isinstance(last_focus, str) else None
         emitted = False
         try:
             self.emit_goal_event(goal, attention_hint)
@@ -231,7 +234,11 @@ class SentienceKernel:
         return report
 
 
-_KERNEL = SentienceKernel()
+# Deprecated compatibility alias for existing imports.
+SentienceKernel = GoalSelectionKernel
+
+
+_KERNEL = GoalSelectionKernel()
 
 
 def run_cycle() -> Dict[str, object]:
@@ -240,4 +247,4 @@ def run_cycle() -> Dict[str, object]:
     return _KERNEL.run_cycle()
 
 
-__all__ = ["KernelProposal", "SentienceKernel", "run_cycle"]
+__all__ = ["GoalSelectionKernel", "KernelProposal", "SentienceKernel", "run_cycle"]
