@@ -1,6 +1,6 @@
 # Causal Resource Principal Architecture
 
-> **Posture — proposed, non-runtime, and non-authority.** This design records a future contract. It implements no principal, allocation, ledger, enforcement, effect, grant, admission, provider call, host actuation, or composition change. Possessing this document or any identifier described here confers nothing.
+> **Posture — root identity evidence implemented; wider architecture non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements only inert root evidence, verified-sponsorship deterministic minting, strict mapping, and deterministic verification. It implements no allocation, child, propagation, consumption, enforcement, authority, or composition. Possessing a principal confers nothing and allocates nothing.
 
 **Inspected revision:** `168fde46163676cb913887282088a3687d7d7bf4`  
 **Inspection time:** `2026-09-21T07:28:58Z`  
@@ -8,11 +8,19 @@
 
 ## 1. Executive decision
 
-SentientOS should introduce a **new, thin causal resource principal** in a later runtime task. It identifies one sponsored causal activity and its lineage; it contains no CPU, RAM, GPU, token, retry, deadline, priority, quota, capability, grant, or admission. Independent resource-specific allocators may bind allocations and consumption receipts to it. In short: **unify causal identity; do not unify resource semantics**.
+SentientOS now has the bounded root-evidence slice of a **new, thin causal resource principal**. It identifies one sponsored causal activity and its lineage; it contains no CPU, RAM, GPU, token, retry, deadline, priority, quota, capability, grant, or admission. Independent resource-specific allocators may bind allocations and consumption receipts to it. In short: **unify causal identity; do not unify resource semantics**.
 
 No current identity is sufficient. In particular, `work_item_id` is a useful correlation binding, not a trust root: intake is explicitly metadata-only, its ID is a 16-hex truncation of four caller-influenced metadata fields, and it carries neither issuer evidence, lineage, epoch/currentness nor allocator custody. Reusing effect admission would collapse authority into accounting; reusing a correlation ID would trust caller data. The deliberate choice is therefore option C: mint a separate deterministic principal and bind the external work item where present.
 
 The service rule is adopted: **work performed on behalf of a caller retains that verified causal attribution unless an explicit independent-sponsorship transition occurs**. The authority rule is equally strict: resource availability can block, defer, narrow, safely degrade, or terminate work; it can never broaden effect authority.
+
+## 1.1 Runtime implementation status
+
+**Implemented now:** canonical `sentientos.causal_resource_principal:v1` immutable root evidence, an injected operator-sponsorship verification boundary, deterministic issuer-derived identity and binding, strict mapping, and deterministic explicit-time verification. Roots have no parent and use an all-zero SHA-256 genesis predecessor.
+
+**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, proof-budget attribution, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
+
+The next smallest slice remains observation-only causal attribution in the proof-budget path, without entitlement or permission.
 
 ## 2. Current-state evidence
 
@@ -436,7 +444,7 @@ These are bounded implementation decisions, not reasons to reopen the architectu
 
 ## 22. Design contract summary
 
-A causal resource principal is an issuer-sealed, immutable, generation-aware identity for sponsored causal work. It follows ordinary on-behalf-of work unchanged, derives children only for meaningful subordinate lifetimes, and requires a fresh verified sponsorship transition for independent/detached work. It means neither effect authority nor resource entitlement. Resource-specific allocators bind independent allocations; trusted gates meter and emit separate consumption evidence. Enforcement binds at the resource gate and, for effectful work, independently beside a valid effect chain. This contract is the answer; its mechanism is explicitly deferred.
+A causal resource principal is an issuer-sealed, immutable, generation-aware identity for sponsored causal work. It follows ordinary on-behalf-of work unchanged, derives children only for meaningful subordinate lifetimes, and requires a fresh verified sponsorship transition for independent/detached work. It means neither effect authority nor resource entitlement. Resource-specific allocators bind independent allocations; trusted gates meter and emit separate consumption evidence. Enforcement binds at the resource gate and, for effectful work, independently beside a valid effect chain. Root evidence is implemented; child, allocation, propagation, consumption, and enforcement mechanisms remain deferred.
 
 ## 23. Repository-grounding boundary
 

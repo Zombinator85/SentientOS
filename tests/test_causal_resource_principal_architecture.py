@@ -12,7 +12,7 @@ pytestmark = pytest.mark.no_legacy_skip
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "architecture/causal_resource_principal_architecture.json"
 DOC_PATH = ROOT / "docs/architecture/causal_resource_principal_architecture.md"
-SCHEMA = "sentientos.causal_resource_principal_architecture:v1"
+SCHEMA = "sentientos.causal_resource_principal_architecture:v2"
 
 REQUIRED_KEYS = {
     "schema", "posture", "repository_sha", "decision", "alternatives",
@@ -21,7 +21,7 @@ REQUIRED_KEYS = {
     "authority_separation", "feasibility_admission_relationship",
     "durability_semantics", "retry_semantics", "shared_work_policy_boundary",
     "model_role", "security_invariants", "current_repository_crosswalk",
-    "implementation_boundaries", "open_questions", "non_goals",
+    "implementation_boundaries", "open_questions", "non_goals", "implementation_status",
 }
 REQUIRED_INVARIANTS = {
     "state != authority", "memory != current truth", "proposal != authorization",
@@ -65,11 +65,13 @@ def test_repository_sha_is_exact_full_hex_revision() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", str(contract()["repository_sha"]))
 
 
-def test_posture_is_explicitly_non_runtime_and_non_authority() -> None:
-    posture = contract()["posture"]
-    assert posture["kind"] == "non_runtime_non_authority_architecture_design"
-    assert posture["implemented"] is False
-    assert posture["claims_runtime_change"] is False
+def test_posture_precisely_records_partial_non_authority_implementation() -> None:
+    value = contract(); posture = value["posture"]; status = value["implementation_status"]
+    assert posture["kind"] == "partially_implemented_non_authority_architecture"
+    assert posture["implemented"] is False and posture["claims_runtime_change"] is True
+    assert status["status"] == "root_identity_evidence_only"
+    assert status["principal_grants_nothing"] is True and status["principal_allocates_nothing"] is True
+    assert (ROOT / status["runtime_module"]).is_file()
 
 
 def test_crosswalk_source_and_test_evidence_exists_and_rows_are_complete() -> None:
@@ -159,12 +161,12 @@ def test_shared_work_leaves_cost_policy_to_resource_subsystem() -> None:
     assert "No current precise" in shared["gpu_precision_claim"]
 
 
-def test_contract_claims_no_runtime_implementation() -> None:
-    value = contract()
+def test_contract_limits_runtime_implementation_to_root_identity_evidence() -> None:
+    value = contract(); status = value["implementation_status"]
     assert value["posture"]["implemented"] is False
     assert value["feasibility_admission_relationship"]["runtime_admission_change_in_this_task"] is False
-    assert "runtime principal class" in value["non_goals"]
-    assert "resource ledger" in value["non_goals"]
+    assert {"canonical inert root principal evidence schema", "verified-sponsorship deterministic root minting", "deterministic root verification", "strict canonical mapping"} == set(status["implemented_now"])
+    assert {"allocation ledgers", "child principals", "causal propagation", "resource enforcement", "proof-budget attribution"} <= set(value["non_goals"])
 
 
 def test_decision_and_recommendation_vocabularies_are_closed() -> None:
@@ -179,7 +181,7 @@ def test_decision_and_recommendation_vocabularies_are_closed() -> None:
 def test_forbidden_current_state_claims_are_explicitly_rejected() -> None:
     forbidden = set(contract()["implementation_boundaries"]["forbidden_current_claims"])
     assert {
-        "causal resource principal is implemented",
+        "the full causal resource principal architecture is implemented",
         "resource ledgers exist",
         "runtime admission allocates resources",
         "work_item_id is trusted entitlement",

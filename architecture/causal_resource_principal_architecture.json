@@ -73,7 +73,7 @@
       "question": "deferred"
     },
     {
-      "answer": "Define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only; no allocation ledger, propagation integration, or enforcement.",
+      "answer": "Carry verified root identity into proof-budget attribution in observation-only mode; do not create entitlement.",
       "question": "next_runtime_task"
     }
   ],
@@ -458,7 +458,7 @@
   },
   "implementation_boundaries": {
     "candidate_modules": [
-      "future sentientos/causal_resource_principal.py (schema/verifier only)",
+      "sentientos/causal_resource_principal.py (implemented root evidence only)",
       "future resource-specific adapters outside runtime_admission.py"
     ],
     "first_consumers": [
@@ -466,7 +466,7 @@
       "governed local-model invocation budget adapter after separate design/implementation approval"
     ],
     "forbidden_current_claims": [
-      "causal resource principal is implemented",
+      "the full causal resource principal architecture is implemented",
       "resource ledgers exist",
       "runtime admission allocates resources",
       "work_item_id is trusted entitlement",
@@ -480,6 +480,39 @@
       "host observation/proposal policy",
       "risk and Forge policy semantics",
       "maintenance scheduling cadence"
+    ]
+  },
+  "implementation_status": {
+    "implemented_now": [
+      "canonical inert root principal evidence schema",
+      "verified-sponsorship deterministic root minting",
+      "deterministic root verification",
+      "strict canonical mapping"
+    ],
+    "principal_allocates_nothing": true,
+    "principal_grants_nothing": true,
+    "runtime_module": "sentientos/causal_resource_principal.py",
+    "status": "root_identity_evidence_only",
+    "still_not_implemented": [
+      "resource allocations",
+      "allocation ledgers",
+      "child principals",
+      "delegation",
+      "causal propagation",
+      "async custody",
+      "consumption receipts",
+      "retries/accounting integration",
+      "resource enforcement",
+      "admission integration",
+      "proof-budget attribution",
+      "local-model budget binding",
+      "external-model quotas",
+      "provider billing",
+      "GPU accounting",
+      "host scheduling",
+      "resident composition",
+      "revocation registry",
+      "renewal generations"
     ]
   },
   "lineage_rules": {
@@ -541,21 +574,25 @@
     "resource receipt != effect receipt"
   ],
   "non_goals": [
-    "runtime principal class",
-    "resource ledger",
+    "resource allocations",
+    "allocation ledgers",
+    "child principals",
+    "delegation",
+    "causal propagation",
+    "async custody",
+    "consumption receipts",
+    "retries/accounting integration",
     "resource enforcement",
-    "admission changes",
-    "capability or grant changes",
-    "provider/network changes",
-    "credential changes",
-    "local inference changes",
-    "host scheduling or cgroups",
-    "GPU scheduler",
-    "proof/risk/Forge semantic changes",
-    "maintenance cadence changes",
-    "background loops",
-    "resident composition changes",
-    "universal cost-sharing or exactly-once guarantee"
+    "admission integration",
+    "proof-budget attribution",
+    "local-model budget binding",
+    "external-model quotas",
+    "provider billing",
+    "GPU accounting",
+    "host scheduling",
+    "resident composition",
+    "revocation registry",
+    "renewal generations"
   ],
   "open_questions": [
     "issuer key/custody and revocation store selection",
@@ -566,11 +603,11 @@
     "safe cancellation semantics per resource"
   ],
   "posture": {
-    "claims_runtime_change": false,
+    "claims_runtime_change": true,
     "implemented": false,
     "inspection_timestamp_utc": "2026-09-21T07:28:58Z",
-    "kind": "non_runtime_non_authority_architecture_design",
-    "statement": "Specification only: it creates no runtime principal, allocation, enforcement, grant, admission, effect, provider call, host actuation, or composition change."
+    "kind": "partially_implemented_non_authority_architecture",
+    "statement": "Only inert root identity schema, verified-sponsorship minting, strict mapping, and deterministic verification are implemented; the wider architecture remains unimplemented."
   },
   "principal_identity": {
     "binding_rules": "Canonical digest binds all semantic fields, exact sponsor evidence, optional work_item_id as correlation only, and generation predecessor. Caller-chosen IDs or JSON are never trusted evidence.",
@@ -804,7 +841,7 @@
     "stable_identity": "same principal and logical operation across attempts",
     "unique_attempts": "each attempt has unique attempt_id"
   },
-  "schema": "sentientos.causal_resource_principal_architecture:v1",
+  "schema": "sentientos.causal_resource_principal_architecture:v2",
   "security_invariants": [
     {
       "invariant_or_future_enforcement": "verify issuer seal and canonical binding; IDs alone have no meaning",
