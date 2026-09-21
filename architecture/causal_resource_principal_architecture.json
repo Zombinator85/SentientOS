@@ -73,7 +73,7 @@
       "question": "deferred"
     },
     {
-      "answer": "Carry verified root identity into proof-budget attribution in observation-only mode; do not create entitlement.",
+      "answer": "Design authenticated issuer provenance and custody for a real runtime root producer; canonical self-binding alone is not issuer authentication.",
       "question": "next_runtime_task"
     }
   ],
@@ -270,20 +270,21 @@
     {
       "allocation_owner": "governor configuration",
       "consumption_measurement": "route decisions and pressure metrics",
-      "cross_service_propagation": "none; explicit canonical root evidence may be observed at one control-plane boundary",
+      "cross_service_propagation": "none; explicit canonical root evidence may be carried from one GenesisForge invocation to the control-plane observer",
       "current_principal": "routing/governor pressure state",
       "current_runtime_composition": "Codex routing flow, not resident universal allocator",
-      "current_status": "deterministic component enforcement with durable pressure state; optional bounded observation-only attribution at the control-plane boundary",
+      "current_status": "deterministic component enforcement with durable pressure state; optional bounded observation-only attribution at the control-plane boundary; GenesisForge may explicitly supply an existing root for one invocation",
       "durable_state": "atomic hash-linked pressure state and recovery files",
       "mechanism": "proof budget governor",
       "parent_child_semantics": "none",
-      "proposed_relationship": "proof-budget arithmetic remains component-local and principal-independent; control-plane evidence may include bounded observation-only attribution to a canonically verified root identity",
+      "proposed_relationship": "proof-budget arithmetic and admission remain component-local and principal-independent; GenesisForge composition only supplies descriptive root evidence",
       "receipt_evidence": "budget decisions and pressure state",
       "recommendation": "adapt",
       "resource_bounded": "K/M proof-routing bounds",
       "source_paths": [
         "codex/proof_budget_governor.py",
-        "sentientos/control_plane_kernel.py"
+        "sentientos/control_plane_kernel.py",
+        "sentientos/genesis_forge.py"
       ],
       "test_paths": [
         "tests/test_proof_budget_governor.py",
@@ -433,7 +434,7 @@
     "existing_identity_sufficient": false,
     "identity_contains_quotas": false,
     "needs_first_class_principal": true,
-    "smallest_next_runtime_slice": "Define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only; no allocation ledger, propagation integration, or enforcement.",
+    "smallest_next_runtime_slice": "Design authenticated issuer provenance and custody for a real runtime root producer before resource allocation.",
     "status": "adopt_design",
     "summary": "Introduce a new thin causal resource principal bound to, but distinct from, existing identities; unify causal attribution and keep every resource semantic in an allocator-owned resource-specific record.",
     "work_item_identity_disposition": "retain_as_untrusted_external_correlation_and_bind_to_new_root"
@@ -461,11 +462,12 @@
   "implementation_boundaries": {
     "candidate_modules": [
       "sentientos/causal_resource_principal.py (implemented root evidence only)",
+      "sentientos/genesis_forge.py (implemented bounded explicit composition only)",
       "future resource-specific adapters outside runtime_admission.py"
     ],
     "first_consumers": [
-      "proof budget attribution in observation-only mode (implemented only at the explicit control-plane boundary)",
-      "bounded producer/composition path to supply root evidence to proof-budget observations (next candidate)",
+      "proof budget attribution in observation-only mode (implemented at the explicit control-plane boundary)",
+      "GenesisForge explicitly supplies an already-existing root for one invocation (implemented bounded composition)",
       "governed local-model invocation budget adapter after separate design/implementation approval"
     ],
     "forbidden_current_claims": [
@@ -491,7 +493,8 @@
       "verified-sponsorship deterministic root minting",
       "deterministic root verification",
       "strict canonical mapping",
-      "observation-only proof-budget causal attribution at the explicit control-plane boundary"
+      "observation-only proof-budget causal attribution at the explicit control-plane boundary",
+      "explicit GenesisForge invocation carries an already-existing root into proof-budget observation"
     ],
     "principal_allocates_nothing": true,
     "principal_grants_nothing": true,
@@ -610,7 +613,7 @@
     "implemented": false,
     "inspection_timestamp_utc": "2026-09-21T07:28:58Z",
     "kind": "partially_implemented_non_authority_architecture",
-    "statement": "Only inert root identity schema, verified-sponsorship minting, strict mapping, and deterministic verification are implemented; the wider architecture remains unimplemented."
+    "statement": "Inert root identity evidence, verified-sponsorship minting, strict mapping, deterministic verification, and one explicit GenesisForge-to-proof-budget observation composition path are implemented; the wider architecture remains unimplemented."
   },
   "principal_identity": {
     "binding_rules": "Canonical digest binds all semantic fields, exact sponsor evidence, optional work_item_id as correlation only, and generation predecessor. Caller-chosen IDs or JSON are never trusted evidence.",

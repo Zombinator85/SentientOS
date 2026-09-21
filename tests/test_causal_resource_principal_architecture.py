@@ -171,6 +171,7 @@ def test_contract_limits_runtime_implementation_to_root_identity_and_bounded_att
         "deterministic root verification",
         "strict canonical mapping",
         "observation-only proof-budget causal attribution at the explicit control-plane boundary",
+        "explicit GenesisForge invocation carries an already-existing root into proof-budget observation",
     } == set(status["implemented_now"])
     assert {"allocation ledgers", "child principals", "causal propagation", "resource enforcement"} <= set(value["non_goals"])
     assert "causal propagation" in status["still_not_implemented"]
@@ -182,6 +183,16 @@ def test_proof_budget_crosswalk_records_observation_without_allocation() -> None
     assert "observation-only attribution" in row["current_status"]
     assert "principal-independent" in row["proposed_relationship"]
     assert "sentientos/control_plane_kernel.py" in row["source_paths"]
+    assert "sentientos/genesis_forge.py" in row["source_paths"]
+    assert "principal-independent" in row["proposed_relationship"]
+
+
+def test_genesis_composition_is_explicit_and_never_mints_a_root() -> None:
+    source = Path("sentientos/genesis_forge.py").read_text(encoding="utf-8")
+    assert "causal_resource_principal: CausalResourcePrincipal | None = None" in source
+    assert "causal_resource_principal.to_dict()" in source
+    assert "RootPrincipalIssuer" not in source
+    assert "ContextVar" not in source
 
 
 def test_decision_and_recommendation_vocabularies_are_closed() -> None:

@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2bad43fd88b65c8e95d1ee473cac3ccd8351abd9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_genesis_forge.py::test_genesis_carries_existing_root_to_real_proof_budget_observation_without_policy_change",
+      "rationale": "The actual GenesisForge seam supplies an existing root only in the dedicated field, a real control plane verifies it, no-root remains valid, and proof policy and admission are unchanged."
+    },
+    {
+      "node_id": "tests/test_genesis_forge.py::test_genesis_reuses_one_supplied_root_for_multiple_needs",
+      "rationale": "One invocation carries the same root across multiple needs without contaminating run_context or deriving children."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_architecture.py::test_genesis_composition_is_explicit_and_never_mints_a_root",
+      "rationale": "The public input is the canonical principal type and GenesisForge contains no issuer or ambient propagation mechanism."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_genesis_forge.py::test_genesis_carries_existing_root_to_real_proof_budget_observation_without_policy_change",
+    "tests/test_genesis_forge.py::test_genesis_reuses_one_supplied_root_for_multiple_needs"
+  ]
+}
