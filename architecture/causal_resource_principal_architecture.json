@@ -1,0 +1,881 @@
+{
+  "acceptance_decisions": [
+    {
+      "answer": "yes: a new thin first-class causal resource principal",
+      "question": "first_class_principal"
+    },
+    {
+      "answer": "no; work_item_id remains external correlation and admissions/correlation IDs retain their own semantics",
+      "question": "existing_identity"
+    },
+    {
+      "answer": "immutable ID, root/parent lineage, sponsor and subject bindings, issuer, epoch/generation, validity, predecessor and binding digest",
+      "question": "minimum_content"
+    },
+    {
+      "answer": "only resource-specific allocator records contain bounds",
+      "question": "quota_location"
+    },
+    {
+      "answer": "deterministic issuer after verified explicit sponsor evidence",
+      "question": "root_creation"
+    },
+    {
+      "answer": "issuer derives a bound child; entitlement requires separate resource-specific delegation",
+      "question": "child_creation"
+    },
+    {
+      "answer": "ordinary on-behalf-of calls, retries and implementation details",
+      "question": "same_principal"
+    },
+    {
+      "answer": "fresh verified sponsor evidence and issuer-mediated new root transition",
+      "question": "independent_sponsorship"
+    },
+    {
+      "answer": "sealed durable context/reference plus revalidation",
+      "question": "async_lineage"
+    },
+    {
+      "answer": "issuer/epoch, expiry, revocation, predecessor and allocation sequence checks",
+      "question": "stale_detection"
+    },
+    {
+      "answer": "risk, Forge, proof, host, maintenance, local/external custody and authority ledgers retain their laws",
+      "question": "separate_mechanisms"
+    },
+    {
+      "answer": "observation-only proof attribution, then governed local-model budget adapter",
+      "question": "first_consumers"
+    },
+    {
+      "answer": "discrete delegated consumables and some reservations, only under resource-specific rules",
+      "question": "strict_conservation"
+    },
+    {
+      "answer": "capacity, temporal, environmental, shared/nonfungible and proxy epistemic cases",
+      "question": "non_strict_conservation"
+    },
+    {
+      "answer": "early checks may only narrow/block; never create feasibility or authority",
+      "question": "feasibility_intersection"
+    },
+    {
+      "answer": "after otherwise-valid effect admission and immediately before effect attempt, plus metering where required",
+      "question": "final_check"
+    },
+    {
+      "answer": "cross-linked but distinct resource and effect receipts",
+      "question": "receipt_relation"
+    },
+    {
+      "answer": "all runtime minting, ledgers, propagation, enforcement, billing, GPU accounting and cost sharing",
+      "question": "deferred"
+    },
+    {
+      "answer": "Define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only; no allocation ledger, propagation integration, or enforcement.",
+      "question": "next_runtime_task"
+    }
+  ],
+  "allocation_semantics": {
+    "delegation": "A resource-specific state transition on an allocation, not a standalone universal object; it names child, parent allocation, exact rule and remaining entitlement. Delegation never creates budget.",
+    "deterministic_owner": "resource-specific allocator/gate",
+    "identity_separate_from_allocation": true,
+    "records": [
+      "ResourceAllocation",
+      "ResourceConsumptionReceipt"
+    ],
+    "reservation_not_consumption": true,
+    "states": [
+      "allocation_issued",
+      "reservation_made",
+      "consumption_attempted",
+      "consumption_measured",
+      "effect_attempted",
+      "effect_outcome_known",
+      "resource_reconciliation_complete",
+      "allocation_released_expired_or_revoked"
+    ],
+    "universal_amount_law": false
+  },
+  "alternatives": [
+    {
+      "decision": "reject",
+      "id": "component_budgets_only",
+      "reason": "preserves local limits but cannot attribute causal work across services or durable queues"
+    },
+    {
+      "decision": "reject",
+      "id": "monolithic_task_resource_envelope",
+      "reason": "collapses nonfungible, temporal, capacity, rate, environmental, and consumable laws into unsafe universal arithmetic"
+    },
+    {
+      "decision": "adopt",
+      "id": "thin_principal_resource_specific_ledgers",
+      "reason": "adds shared causal identity without turning identity into entitlement or effect authority"
+    },
+    {
+      "decision": "reject",
+      "id": "extend_work_item_id",
+      "reason": "work_item_id is truncated metadata-derived correlation, caller-influenceable, has no issuer proof, epoch, lineage, currentness, or allocator binding"
+    },
+    {
+      "decision": "reject",
+      "id": "reuse_admission_or_correlation_identity",
+      "reason": "admission is effect authority and correlation IDs are caller data; reuse would collapse boundaries"
+    }
+  ],
+  "authority_separation": {
+    "admission_cannot_mint_allocation": true,
+    "effect_authority_statement": "this exact effect may occur",
+    "joint_check": "Effectful work may require both independently valid statements immediately before execution.",
+    "principal_possession_grants": [],
+    "resource_allocation_statement": "this bounded resource may be spent for this principal",
+    "resource_exhaustion_cannot_expand_authority": true,
+    "resource_exhaustion_effect": [
+      "block",
+      "defer",
+      "narrow",
+      "degrade_safely",
+      "terminate"
+    ]
+  },
+  "conceptual_records": [
+    {
+      "authority": "neither effect authority nor entitlement",
+      "durable": "required across process/persistence boundaries; optional for purely synchronous process-local work until boundary",
+      "existing_evidence_relationship": "binds evidence digests without replacing their verification",
+      "lifecycle": "issued, current, expired/revoked/superseded",
+      "mutation": "immutable; change creates a new generation",
+      "name": "CausalResourcePrincipal",
+      "owner": "resource-principal issuer",
+      "purpose": "immutable causal identity and lineage anchor",
+      "replay_staleness": "epoch, expiry, predecessor digest, issuer currentness and revocation lookup",
+      "required_fields": "principal_identity.required_fields"
+    },
+    {
+      "authority": "resource entitlement only; never effect authority",
+      "durable": "resource-specific; mandatory before irreversible/external spend",
+      "existing_evidence_relationship": "independently checked beside any effect admission",
+      "lifecycle": "issued, optionally reserved/delegated, consumed/reconciled, released/expired/revoked",
+      "mutation": "append state transitions or replacement record; never edit issued evidence",
+      "name": "ResourceAllocation",
+      "owner": "resource-class allocator",
+      "purpose": "resource-specific entitlement or reservation",
+      "replay_staleness": "allocator sequence/epoch, validity and current principal generation",
+      "required_fields": [
+        "allocation_id",
+        "principal_binding_digest",
+        "resource_kind",
+        "resource_specific_bounds",
+        "validity",
+        "allocator_id",
+        "epoch",
+        "policy_digest",
+        "allocation_digest"
+      ]
+    },
+    {
+      "authority": "evidence only",
+      "durable": "mandatory where crash/retry could double spend or external cost is irreversible; otherwise resource policy decides",
+      "existing_evidence_relationship": "separate from effect receipt; cross-links attempt/effect receipt when both exist",
+      "lifecycle": "attempted, measured, reconciled; corrective records append",
+      "mutation": "append-only",
+      "name": "ResourceConsumptionReceipt",
+      "owner": "trusted resource gate/meter",
+      "purpose": "record attempted/measured use and reconciliation",
+      "replay_staleness": "unique attempt id, sequence/hash link, allocation epoch",
+      "required_fields": [
+        "receipt_id",
+        "allocation_digest",
+        "principal_binding_digest",
+        "attempt_id",
+        "resource_specific_measurement",
+        "state",
+        "observed_at",
+        "previous_receipt_digest",
+        "receipt_digest"
+      ]
+    }
+  ],
+  "current_repository_crosswalk": [
+    {
+      "allocation_owner": "static runtime plan",
+      "consumption_measurement": "collector calls/timeouts and telemetry, not task consumption",
+      "cross_service_propagation": "correlation id deduplicates one coordinator process only",
+      "current_principal": "correlation-scoped observation epoch, not resource principal",
+      "current_runtime_composition": "resident composed in sentientosd",
+      "current_status": "live resident read-only observation plus proposal-only policy",
+      "durable_state": "evidence bundles may persist",
+      "mechanism": "host resource observation/governor/policy/runtime",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "future environmental/capacity observer; not allocator",
+      "receipt_evidence": "observation/proposal receipts explicitly non-authority",
+      "recommendation": "adapt",
+      "resource_bounded": "collector concurrency and deadlines; observed host pressure",
+      "source_paths": [
+        "sentientos/host_resource_governor.py",
+        "sentientos/host_resource_policy.py",
+        "sentientos/host_resource_runtime.py",
+        "sentientosd.py"
+      ],
+      "test_paths": [
+        "tests/test_host_resource_governor.py",
+        "tests/test_host_resource_policy.py",
+        "tests/test_host_resource_runtime.py"
+      ]
+    },
+    {
+      "allocation_owner": "deterministic posture derivation plus guarded environment override",
+      "consumption_measurement": "not per-task consumption",
+      "cross_service_propagation": "downstream values copied, not causal context",
+      "current_principal": "repository/runtime posture",
+      "current_runtime_composition": "used by Forge/autonomy surfaces, not universal runtime allocation",
+      "current_status": "component policy, persisted snapshot",
+      "durable_state": "glow JSON and pulse JSONL",
+      "mechanism": "risk budget",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "remain policy input; do not reinterpret as entitlement",
+      "receipt_evidence": "risk-budget snapshot/event",
+      "recommendation": "keep_separate",
+      "resource_bounded": "router and Forge policy ceilings",
+      "source_paths": [
+        "sentientos/risk_budget.py"
+      ],
+      "test_paths": [
+        "tests/test_autonomy_budgets.py"
+      ]
+    },
+    {
+      "allocation_owner": "environment-derived config",
+      "consumption_measurement": "loop counters",
+      "cross_service_propagation": "none",
+      "current_principal": "one Forge reclamation run",
+      "current_runtime_composition": "callable component",
+      "current_status": "component-local configured enforcement",
+      "durable_state": "process-local",
+      "mechanism": "Forge budget",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "possible later consumable counters keyed by principal",
+      "receipt_evidence": "none",
+      "recommendation": "adapt",
+      "resource_bounded": "iterations, fixes, files",
+      "source_paths": [
+        "sentientos/forge_budget.py"
+      ],
+      "test_paths": [
+        "tests/test_autonomy_budgets.py"
+      ]
+    },
+    {
+      "allocation_owner": "governor configuration",
+      "consumption_measurement": "route decisions and pressure metrics",
+      "cross_service_propagation": "none",
+      "current_principal": "routing/governor pressure state",
+      "current_runtime_composition": "Codex routing flow, not resident universal allocator",
+      "current_status": "deterministic component enforcement with durable pressure state",
+      "durable_state": "atomic hash-linked pressure state and recovery files",
+      "mechanism": "proof budget governor",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "plausible first read-only attribution consumer; retain arithmetic",
+      "receipt_evidence": "budget decisions and pressure state",
+      "recommendation": "adapt",
+      "resource_bounded": "K/M proof-routing bounds",
+      "source_paths": [
+        "codex/proof_budget_governor.py"
+      ],
+      "test_paths": [
+        "tests/test_proof_budget_governor.py"
+      ]
+    },
+    {
+      "allocation_owner": "operator-adopted configuration",
+      "consumption_measurement": "events, attempts, elapsed time",
+      "cross_service_propagation": "passes explicit run metadata only",
+      "current_principal": "adopted scheduler configuration/run sequence",
+      "current_runtime_composition": "configuration-selected maintenance owner",
+      "current_status": "configured bounded scheduling",
+      "durable_state": "external append-only event ledger with sequence/hash",
+      "mechanism": "maintenance scheduler bounds",
+      "parent_child_semantics": "no child budget",
+      "proposed_relationship": "maintenance roots require independent operator sponsorship",
+      "receipt_evidence": "scheduler events and receipts",
+      "recommendation": "keep_separate",
+      "resource_bounded": "cadence, run count, wall-clock duration",
+      "source_paths": [
+        "sentientos/maintenance_loop_scheduler.py"
+      ],
+      "test_paths": [
+        "tests/test_maintenance_loop_scheduler.py"
+      ]
+    },
+    {
+      "allocation_owner": "caller payload normalized by intake",
+      "consumption_measurement": "none",
+      "cross_service_propagation": "none",
+      "current_principal": "deterministic work_item_id over limited metadata",
+      "current_runtime_composition": "intake adapter, not trusted resource machinery",
+      "current_status": "metadata-only estimate/proposal",
+      "durable_state": "packet only when caller persists it",
+      "mechanism": "work-item estimates",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "bind a separately minted root to work_item_id; never reuse it as entitlement",
+      "receipt_evidence": "normalized packet/decision",
+      "recommendation": "keep_separate",
+      "resource_bounded": "estimated files, lines, implementation and validation seconds",
+      "source_paths": [
+        "sentientos/work_item_intake.py"
+      ],
+      "test_paths": [
+        "tests/test_work_item_intake.py"
+      ]
+    },
+    {
+      "allocation_owner": "request defaults plus model authority ceilings",
+      "consumption_measurement": "process-local call count, output size, timeout, latency",
+      "cross_service_propagation": "caller linkage is data, not entitlement proof",
+      "current_principal": "correlation id/request plus active serving lifetime",
+      "current_runtime_composition": "service-composed local inference path",
+      "current_status": "per-invoker deterministic checks and execution receipt",
+      "durable_state": "request/decision/receipt JSON for governed invoker",
+      "mechanism": "governed local-model invocation budget",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "plausible first allocation adapter; preserve independent inference admission",
+      "receipt_evidence": "local invocation receipt",
+      "recommendation": "adapt",
+      "resource_bounded": "input/output chars, new tokens, calls per correlation, timeout",
+      "source_paths": [
+        "sentientos/governed_local_model_invocation.py",
+        "sentientos/local_model_serving_inference.py"
+      ],
+      "test_paths": [
+        "tests/test_governed_local_model_invocation.py",
+        "tests/test_local_model_serving_inference.py"
+      ]
+    },
+    {
+      "allocation_owner": "definition/grant/feasibility/admission chain",
+      "consumption_measurement": "attempt/success response evidence, not billing",
+      "cross_service_propagation": "exact evidence bindings within custody chain",
+      "current_principal": "exact invocation principal/request/custody binding, not task resource principal",
+      "current_runtime_composition": "not resident-composed; configured external path",
+      "current_status": "operator-invoked effect custody, unavailable by default",
+      "durable_state": "atomic hash-linked invocation receipt store",
+      "mechanism": "external-model custody/configuration limits",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "later require independent provider allocation immediately before attempt",
+      "receipt_evidence": "effect invocation receipts",
+      "recommendation": "keep_separate",
+      "resource_bounded": "configuration/material/feasibility limits; no provider-spend ledger",
+      "source_paths": [
+        "sentientos/external_model_operational_feasibility.py",
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/external_model_material.py"
+      ],
+      "test_paths": [
+        "tests/test_external_model_operational_feasibility.py",
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_external_model_material.py"
+      ]
+    },
+    {
+      "allocation_owner": "operator grant and admission authorities",
+      "consumption_measurement": "authority decisions, not resource use",
+      "cross_service_propagation": "exact authority evidence only",
+      "current_principal": "operator grant/admission subject and capability",
+      "current_runtime_composition": "control-plane/effect paths",
+      "current_status": "effect-authority policy and ledger",
+      "durable_state": "grant/admission ledgers",
+      "mechanism": "runtime grants and admission",
+      "parent_child_semantics": "revocation/expiry, not resource lineage",
+      "proposed_relationship": "orthogonal input; must never mint allocations",
+      "receipt_evidence": "sealed grant/admission evidence",
+      "recommendation": "keep_separate",
+      "resource_bounded": "effect scope and validity, not resources",
+      "source_paths": [
+        "sentientos/runtime_grant_policy.py",
+        "sentientos/runtime_admission.py"
+      ],
+      "test_paths": [
+        "tests/test_runtime_grant_policy.py",
+        "tests/test_runtime_admission.py"
+      ]
+    },
+    {
+      "allocation_owner": "each component configuration",
+      "consumption_measurement": "component-local attempts/timeouts",
+      "cross_service_propagation": "none",
+      "current_principal": "component-specific run/correlation/epoch",
+      "current_runtime_composition": "multiple bounded current paths",
+      "current_status": "locally enforced, no shared causal accounting",
+      "durable_state": "mixed process-local and durable events/receipts",
+      "mechanism": "component retries/timeouts",
+      "parent_child_semantics": "none",
+      "proposed_relationship": "future attempt identity must retain prior consumption across retries",
+      "receipt_evidence": "component-specific",
+      "recommendation": "adapt",
+      "resource_bounded": "attempt counts and elapsed time",
+      "source_paths": [
+        "sentientos/maintenance_loop_scheduler.py",
+        "sentientos/governed_local_model_invocation.py",
+        "sentientos/host_resource_runtime.py"
+      ],
+      "test_paths": [
+        "tests/test_maintenance_loop_scheduler.py",
+        "tests/test_governed_local_model_invocation.py",
+        "tests/test_host_resource_runtime.py"
+      ]
+    }
+  ],
+  "decision": {
+    "existing_identity_sufficient": false,
+    "identity_contains_quotas": false,
+    "needs_first_class_principal": true,
+    "smallest_next_runtime_slice": "Define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only; no allocation ledger, propagation integration, or enforcement.",
+    "status": "adopt_design",
+    "summary": "Introduce a new thin causal resource principal bound to, but distinct from, existing identities; unify causal attribution and keep every resource semantic in an allocator-owned resource-specific record.",
+    "work_item_identity_disposition": "retain_as_untrusted_external_correlation_and_bind_to_new_root"
+  },
+  "durability_semantics": {
+    "effect_receipt_relationship": "Cross-link resource and effect receipts by attempt id/digests, but neither substitutes for the other.",
+    "exactly_once_claim": false,
+    "external_attempt_window": "Persist allocation/reservation and stable attempt id before provider attempt. On crash before receipt, mark indeterminate and conservatively charge/hold until resource-specific reconciliation; refund only on trusted contrary evidence.",
+    "reservation_crash_window": "Use expiring leases plus reconciliation; reclaim only after lease expiry and safe-use check."
+  },
+  "feasibility_admission_relationship": {
+    "non_effectful_work": "May require resource allocation without effect admission.",
+    "operational_feasibility": "Resource evidence may contribute only a blocking/narrowing condition and cannot make an otherwise infeasible effect feasible.",
+    "ordering": "resource-class-specific early feasibility may narrow planning; effect grant/feasibility/admission remain independent; final resource check occurs after effect admission and immediately before effect attempt, with in-flight metering where needed",
+    "runtime_admission_change_in_this_task": false
+  },
+  "identity_lifecycle": {
+    "child_creation": "Issuer derives a child for a separately cancellable/observable semantic sub-action, binding parent current generation and a resource-specific delegation if entitlement is transferred.",
+    "durability": "Seal before queue/process/restart boundaries.",
+    "generation": "Required to make renewal/revocation/currentness explicit; generation does not replenish allocations.",
+    "revocation_expiry": "Verifier rejects expired, revoked, superseded, broken-predecessor, or non-current issuer epochs. Cancellation normally cascades to descendants subject to safe resource cleanup.",
+    "root_creation": "Only a deterministic issuer may mint after validating explicit sponsor evidence (operator task, adopted maintenance configuration, or other future registered sponsor); bind work_item_id only as correlation.",
+    "same_principal_rule": "Propagate the same principal for ordinary service calls, implementation details, batching participation, and retries on behalf of the same activity."
+  },
+  "implementation_boundaries": {
+    "candidate_modules": [
+      "future sentientos/causal_resource_principal.py (schema/verifier only)",
+      "future resource-specific adapters outside runtime_admission.py"
+    ],
+    "first_consumers": [
+      "proof budget attribution in observation-only mode",
+      "governed local-model invocation budget adapter after separate design/implementation approval"
+    ],
+    "forbidden_current_claims": [
+      "causal resource principal is implemented",
+      "resource ledgers exist",
+      "runtime admission allocates resources",
+      "work_item_id is trusted entitlement",
+      "host governor enforces scheduling",
+      "external provider billing is accounted",
+      "GPU use is precisely task-accounted"
+    ],
+    "must_remain_separate": [
+      "runtime grant/admission authority",
+      "external-model custody/effect receipts",
+      "host observation/proposal policy",
+      "risk and Forge policy semantics",
+      "maintenance scheduling cadence"
+    ]
+  },
+  "lineage_rules": {
+    "child_budget": "Child creation creates no entitlement. Delegation cannot exceed/resource-incompatibly transform the parent allocation.",
+    "child_outlives_parent": "No by default. Only a pre-expiry independent-sponsorship transition creates a new root; historical attribution cross-links the old child without inheriting entitlement.",
+    "detached_work": "Cannot remain an escaping child. It either remains cancellation/revocation-bound to its parent or completes an explicit independent-sponsorship transition before detach.",
+    "independent_sponsorship": "A fresh root issued from fresh verified sponsor evidence with its own lifecycle and allocator decisions; relabeling, detaching, queueing, or choosing a new ID is insufficient.",
+    "parent_end": "Cancel/revoke/expire child eligibility and resource-specific allocations unless an allocator recorded a valid narrower survival rule; effect cleanup remains separately authorized.",
+    "shape": "tree_for_sponsorship; shared work records a participant set/DAG reference outside parentage",
+    "shared_work": "Do not create multiple parents. Record participant causal references and let the resource subsystem allocate cost."
+  },
+  "model_role": {
+    "deterministic_machinery": [
+      "owns capacity",
+      "evaluates policy",
+      "checks constraints",
+      "allocates",
+      "delegates",
+      "revokes",
+      "enforces",
+      "accounts",
+      "reconciles"
+    ],
+    "model_claims_with_authority": [],
+    "proposal_can_mint_allocation": false,
+    "stochastic_cognition": [
+      "estimate usefulness",
+      "estimate cost and uncertainty",
+      "propose allocation request",
+      "propose decomposition"
+    ]
+  },
+  "non_collapse_invariants": [
+    "state != authority",
+    "memory != current truth",
+    "proposal != authorization",
+    "authorization != execution",
+    "execution != validation",
+    "validation != adoption",
+    "capability definition != grant",
+    "grant != operational feasibility",
+    "operational feasibility != admission",
+    "admission != execution",
+    "resource identity != effect authority",
+    "authority != resource entitlement",
+    "resource entitlement != resource consumption",
+    "resource need estimate != resource allocation",
+    "resource allocation != enforcement",
+    "reservation != consumption",
+    "priority != authority",
+    "urgency != authority",
+    "criticality != authority",
+    "deadline != authority",
+    "resource scarcity != authorization failure",
+    "budget delegation != budget creation",
+    "child creation != entitlement creation",
+    "resource exhaustion != authority escalation",
+    "unused allocation != permission",
+    "resource receipt != effect receipt"
+  ],
+  "non_goals": [
+    "runtime principal class",
+    "resource ledger",
+    "resource enforcement",
+    "admission changes",
+    "capability or grant changes",
+    "provider/network changes",
+    "credential changes",
+    "local inference changes",
+    "host scheduling or cgroups",
+    "GPU scheduler",
+    "proof/risk/Forge semantic changes",
+    "maintenance cadence changes",
+    "background loops",
+    "resident composition changes",
+    "universal cost-sharing or exactly-once guarantee"
+  ],
+  "open_questions": [
+    "issuer key/custody and revocation store selection",
+    "which roots require durable persistence before first work",
+    "resource-specific borrowing policies",
+    "shared cache and batch cost policies",
+    "clock trust for temporal allocations",
+    "safe cancellation semantics per resource"
+  ],
+  "posture": {
+    "claims_runtime_change": false,
+    "implemented": false,
+    "inspection_timestamp_utc": "2026-09-21T07:28:58Z",
+    "kind": "non_runtime_non_authority_architecture_design",
+    "statement": "Specification only: it creates no runtime principal, allocation, enforcement, grant, admission, effect, provider call, host actuation, or composition change."
+  },
+  "principal_identity": {
+    "binding_rules": "Canonical digest binds all semantic fields, exact sponsor evidence, optional work_item_id as correlation only, and generation predecessor. Caller-chosen IDs or JSON are never trusted evidence.",
+    "carries_effect_authority": false,
+    "carries_resource_entitlement": false,
+    "existing_identity_assessment": {
+      "choice": "C",
+      "evidence": [
+        "sentientos/work_item_intake.py describes metadata-only normalization",
+        "work_item_id hashes only source_kind, source_ref, title, and requested_outcome then truncates to 16 hex characters",
+        "runtime admissions and correlation IDs have different authority/lifecycle meanings"
+      ]
+    },
+    "forbidden_fields": [
+      "capability",
+      "grant",
+      "admission",
+      "quota",
+      "amount",
+      "resource_limits",
+      "priority_authority"
+    ],
+    "issuer": "future deterministic resource-principal authority operating under explicit operator/system sponsorship",
+    "kind": "thin_immutable_causal_identity",
+    "monolithic_resource_envelope": false,
+    "name": "CausalResourcePrincipal",
+    "relationships": "May bind work-item, operator task, admission, invocation, or maintenance evidence by digest without inheriting their semantics.",
+    "required_fields": [
+      "schema",
+      "principal_id",
+      "root_principal_id",
+      "parent_principal_id",
+      "sponsor_evidence_digest",
+      "subject_binding_digest",
+      "epoch",
+      "issued_at",
+      "expires_at",
+      "issuer_id",
+      "previous_generation_digest",
+      "binding_digest"
+    ]
+  },
+  "propagation_rules": [
+    {
+      "rule": "propagate the same verified principal binding by trusted in-process context; derive child only for meaningful independent lifecycle",
+      "surface": "direct function/service invocation"
+    },
+    {
+      "rule": "bind verified principal to a future allocation adapter; keep local inference admission independent; caller_linkage/correlation_id are not proof",
+      "surface": "local model invocation"
+    },
+    {
+      "rule": "durably bind principal/allocation/attempt before transport; final pre-effect check requires current effect admission and current allocation",
+      "surface": "external model invocation"
+    },
+    {
+      "rule": "enqueue sealed principal evidence or a trusted reference plus issuer/epoch/currentness proof; arbitrary task metadata is insufficient",
+      "surface": "asynchronous tasks and queues"
+    },
+    {
+      "rule": "reuse causal principal and stable logical operation identity; each attempt is unique and prior consumption remains visible",
+      "surface": "retries"
+    },
+    {
+      "rule": "mint independently sponsored root from adopted operator configuration/run evidence, not from ambient resident status",
+      "surface": "maintenance work"
+    },
+    {
+      "rule": "same principal for implementation detail; child for separately cancellable subtask; allocation requires delegation",
+      "surface": "future sub-agents"
+    },
+    {
+      "rule": "reverify binding, sponsor, generation, expiry, revocation, allocation and attempt history before work",
+      "surface": "durable/replayed work"
+    },
+    {
+      "rule": "explicit issuer-mediated child-to-new-root transition bound to fresh sponsor evidence; never inferred from detachment",
+      "surface": "independent sponsorship transition"
+    }
+  ],
+  "propagation_trust": {
+    "boundary_requirement": "canonical sealed/durable evidence or trusted store reference verified for issuer, digest, generation, expiry and revocation",
+    "solely_insufficient": [
+      "caller-authored dictionaries",
+      "tracing baggage",
+      "prompt text",
+      "model output",
+      "correlation_id",
+      "work_item_id"
+    ]
+  },
+  "repository_sha": "168fde46163676cb913887282088a3687d7d7bf4",
+  "resource_classes": [
+    {
+      "class": "consumable",
+      "conservation_mode": "strict_for_delegated_units",
+      "current_enforcement_feasibility": "partial: local calls/proof attempts bounded; no unified ledger",
+      "examples": [
+        "provider calls",
+        "provider spend",
+        "search/tool calls",
+        "retries",
+        "proof attempts",
+        "token quota"
+      ],
+      "exhaustion_posture": "deny, narrow, or stop; never expand authority",
+      "measurement_posture": "exact for calls/retries; provider money/tokens depend on trusted receipts",
+      "reclaimability": "unspent units may be reclaimed",
+      "refundability": "unused units may be returned before expiry; spent units never reset",
+      "replenishment": "none",
+      "reservation_semantics": "optional preauthorization/hold"
+    },
+    {
+      "class": "replenishing_rate",
+      "conservation_mode": "window_scoped_conservation",
+      "current_enforcement_feasibility": "partial: bounded loops/timeouts exist; no causal rate ledger",
+      "examples": [
+        "CPU budget per period",
+        "request rate",
+        "bandwidth"
+      ],
+      "exhaustion_posture": "delay, queue, shed, or stop",
+      "measurement_posture": "rate/count exact when trusted gate owns attempts; CPU/bandwidth approximate",
+      "reclaimability": "future-window capacity may be reclaimed",
+      "refundability": "not a refund; later windows replenish",
+      "replenishment": "periodic_window",
+      "reservation_semantics": "token bucket/window reservation is resource-specific"
+    },
+    {
+      "class": "capacity",
+      "conservation_mode": "concurrent_capacity_not_spend_conservation",
+      "current_enforcement_feasibility": "observation feasible; causal enforcement absent",
+      "examples": [
+        "RAM",
+        "VRAM",
+        "disk occupancy"
+      ],
+      "exhaustion_posture": "block, evict only by explicit safe policy, or degrade",
+      "measurement_posture": "RAM/VRAM/disk attributable measurement is approximate or unavailable",
+      "reclaimability": "leases/allocations reclaimable subject to safe teardown",
+      "refundability": "release frees capacity",
+      "replenishment": "capacity changes with occupancy",
+      "reservation_semantics": "yes, occupancy lease"
+    },
+    {
+      "class": "reservation",
+      "conservation_mode": "exclusive_or_share_specific",
+      "current_enforcement_feasibility": "not currently implemented as causal allocation",
+      "examples": [
+        "CPU share",
+        "accelerator slice",
+        "model slot"
+      ],
+      "exhaustion_posture": "wait, reject, or release",
+      "measurement_posture": "reservation state exact; physical consumption may not be",
+      "reclaimability": "lease expiry/revocation where safe",
+      "refundability": "release returns the reserved share",
+      "replenishment": "none unless periodic share",
+      "reservation_semantics": "defining semantic"
+    },
+    {
+      "class": "temporal",
+      "conservation_mode": "deadline_monotonic_narrowing",
+      "current_enforcement_feasibility": "timeouts exist component-locally",
+      "examples": [
+        "deadline",
+        "maximum wall clock",
+        "expiry"
+      ],
+      "exhaustion_posture": "cancel, time out, or decline retry",
+      "measurement_posture": "timestamps exact within clock assumptions; work causality not automatic",
+      "reclaimability": "future time window may be cancelled",
+      "refundability": "no; elapsed time cannot be returned",
+      "replenishment": "wall-clock progression",
+      "reservation_semantics": "deadline/lease expiry rather than quantity reservation"
+    },
+    {
+      "class": "nonfungible",
+      "conservation_mode": "identity_and_exclusivity",
+      "current_enforcement_feasibility": "not implemented for causal principals",
+      "examples": [
+        "exclusive accelerator",
+        "device",
+        "future actuator reservation"
+      ],
+      "exhaustion_posture": "queue or reject; never substitute an actuator implicitly",
+      "measurement_posture": "ownership/lease state exact; utilization separate",
+      "reclaimability": "lease-based when safe",
+      "refundability": "release returns the same item, not fungible value",
+      "replenishment": "none",
+      "reservation_semantics": "exclusive lease required"
+    },
+    {
+      "class": "environmental",
+      "conservation_mode": "safety_policy_not_parent_sum",
+      "current_enforcement_feasibility": "read-only host telemetry; no actuation",
+      "examples": [
+        "thermal headroom",
+        "energy",
+        "battery",
+        "power"
+      ],
+      "exhaustion_posture": "throttle, defer, degrade, or stop safely",
+      "measurement_posture": "observed/estimated, not exactly attributable",
+      "reclaimability": "system may reclaim all headroom",
+      "refundability": "not caller-refundable",
+      "replenishment": "physical/environmental recovery",
+      "reservation_semantics": "safety reserve only; never promised as durable spend"
+    },
+    {
+      "class": "logical_epistemic",
+      "conservation_mode": "strict_counts_when_discrete_otherwise_policy_bounded",
+      "current_enforcement_feasibility": "proof budget governor exists; no causal binding",
+      "examples": [
+        "verification passes",
+        "model escalation allowance",
+        "research depth"
+      ],
+      "exhaustion_posture": "stop, require review, or return insufficient evidence; never skip mandatory verification",
+      "measurement_posture": "attempt counts exact; research depth/utility are proxies",
+      "reclaimability": "unstarted allowance reclaimable",
+      "refundability": "unused discrete attempts may return; completed verification cannot",
+      "replenishment": "policy-specific",
+      "reservation_semantics": "optional"
+    }
+  ],
+  "retry_semantics": {
+    "charging": "prior attempted/measured consumption remains; retry policy decides whether new allocation is required",
+    "history_reset_forbidden": true,
+    "idempotency": "use effect-specific idempotency keys where supported; do not promise generic exactly once",
+    "stable_identity": "same principal and logical operation across attempts",
+    "unique_attempts": "each attempt has unique attempt_id"
+  },
+  "schema": "sentientos.causal_resource_principal_architecture:v1",
+  "security_invariants": [
+    {
+      "invariant_or_future_enforcement": "verify issuer seal and canonical binding; IDs alone have no meaning",
+      "threat": "caller-forged resource identities"
+    },
+    {
+      "invariant_or_future_enforcement": "accept only allocator-owned sealed/current records",
+      "threat": "caller-forged allocation records"
+    },
+    {
+      "invariant_or_future_enforcement": "resource-specific delegation conserves or narrows parent bounds",
+      "threat": "child budget inflation"
+    },
+    {
+      "invariant_or_future_enforcement": "service work retains caller attribution unless explicit sponsorship",
+      "threat": "low-budget work laundering through a high-budget service"
+    },
+    {
+      "invariant_or_future_enforcement": "detach requires issuer-mediated independent sponsorship",
+      "threat": "detached async work escaping lineage"
+    },
+    {
+      "invariant_or_future_enforcement": "verify principal and allocation generations/currentness",
+      "threat": "stale allocation epochs"
+    },
+    {
+      "invariant_or_future_enforcement": "unique allocation/attempt IDs plus sequence/hash/revocation checks",
+      "threat": "replayed allocation evidence"
+    },
+    {
+      "invariant_or_future_enforcement": "retain logical-operation attempt history across retries",
+      "threat": "retries exceeding quota"
+    },
+    {
+      "invariant_or_future_enforcement": "mandatory verification cannot be waived by scarcity",
+      "threat": "resource exhaustion bypassing verification"
+    },
+    {
+      "invariant_or_future_enforcement": "fail closed or use separately authorized safe degradation only",
+      "threat": "resource exhaustion causing unsafe fallbacks"
+    },
+    {
+      "invariant_or_future_enforcement": "bound child count/depth and require delegation/allocation",
+      "threat": "recursive subtask explosion"
+    },
+    {
+      "invariant_or_future_enforcement": "priority is allocator policy data and never authority",
+      "threat": "priority inflation"
+    },
+    {
+      "invariant_or_future_enforcement": "cache access and charging use explicit resource policy with participant attribution",
+      "threat": "shared-cache abuse"
+    },
+    {
+      "invariant_or_future_enforcement": "record participants and use explicit proxy/policy; make no precision claim",
+      "threat": "batch-accounting ambiguity"
+    },
+    {
+      "invariant_or_future_enforcement": "allocators reserve protected capacity outside caller delegations",
+      "threat": "safety/maintenance reserve starvation"
+    },
+    {
+      "invariant_or_future_enforcement": "all effect gates verify independent authority; metadata never satisfies grant/admission",
+      "threat": "resource metadata accidentally becoming effect authority"
+    }
+  ],
+  "shared_work_policy_boundary": {
+    "allowed_strategies": "explicitly versioned per resource (sponsor-funded, marginal, proportional, cache policy, batch proxy)",
+    "causal_attribution": "record all participating principal bindings without manufacturing multiple-parent lineage",
+    "cost_allocation": "owned by each resource-specific subsystem",
+    "gpu_precision_claim": "No current precise per-task physical GPU accounting is claimed; tokens/calls may be future proxies.",
+    "universal_policy": false
+  }
+}
