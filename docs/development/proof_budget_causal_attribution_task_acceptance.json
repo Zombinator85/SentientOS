@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "bca14686add73651a1207b9be1894536183a0ea5",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_control_plane_kernel.py::test_valid_canonical_principal_emits_bounded_observation_only_attribution", "rationale": "A canonical root produces only the bounded descriptive projection."},
+    {"node_id": "tests/test_control_plane_kernel.py::test_causal_attribution_is_proof_budget_and_admission_non_interfering", "rationale": "Absent, valid, expired, and malformed evidence preserve policy and admission outcomes."},
+    {"node_id": "tests/test_control_plane_kernel.py::test_run_context_cannot_manufacture_causal_attribution[run_context2]", "rationale": "Principal-like run_context baggage cannot become trusted attribution."},
+    {"node_id": "tests/test_control_plane_kernel.py::test_unknown_principal_fields_are_bounded_rejections[quota]", "rationale": "Allocation-like smuggling is rejected without raw evidence echo."},
+    {"node_id": "tests/test_causal_resource_principal_architecture.py::test_proof_budget_crosswalk_records_observation_without_allocation", "rationale": "Architecture records only principal-independent observation."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_control_plane_kernel.py::test_valid_canonical_principal_emits_bounded_observation_only_attribution",
+    "tests/test_control_plane_kernel.py::test_causal_attribution_is_proof_budget_and_admission_non_interfering",
+    "tests/test_control_plane_kernel.py::test_run_context_cannot_manufacture_causal_attribution[run_context2]"
+  ]
+}

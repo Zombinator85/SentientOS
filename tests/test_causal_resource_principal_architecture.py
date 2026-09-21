@@ -69,7 +69,7 @@ def test_posture_precisely_records_partial_non_authority_implementation() -> Non
     value = contract(); posture = value["posture"]; status = value["implementation_status"]
     assert posture["kind"] == "partially_implemented_non_authority_architecture"
     assert posture["implemented"] is False and posture["claims_runtime_change"] is True
-    assert status["status"] == "root_identity_evidence_only"
+    assert status["status"] == "root_identity_with_observation_only_proof_budget_attribution"
     assert status["principal_grants_nothing"] is True and status["principal_allocates_nothing"] is True
     assert (ROOT / status["runtime_module"]).is_file()
 
@@ -161,12 +161,27 @@ def test_shared_work_leaves_cost_policy_to_resource_subsystem() -> None:
     assert "No current precise" in shared["gpu_precision_claim"]
 
 
-def test_contract_limits_runtime_implementation_to_root_identity_evidence() -> None:
+def test_contract_limits_runtime_implementation_to_root_identity_and_bounded_attribution() -> None:
     value = contract(); status = value["implementation_status"]
     assert value["posture"]["implemented"] is False
     assert value["feasibility_admission_relationship"]["runtime_admission_change_in_this_task"] is False
-    assert {"canonical inert root principal evidence schema", "verified-sponsorship deterministic root minting", "deterministic root verification", "strict canonical mapping"} == set(status["implemented_now"])
-    assert {"allocation ledgers", "child principals", "causal propagation", "resource enforcement", "proof-budget attribution"} <= set(value["non_goals"])
+    assert {
+        "canonical inert root principal evidence schema",
+        "verified-sponsorship deterministic root minting",
+        "deterministic root verification",
+        "strict canonical mapping",
+        "observation-only proof-budget causal attribution at the explicit control-plane boundary",
+    } == set(status["implemented_now"])
+    assert {"allocation ledgers", "child principals", "causal propagation", "resource enforcement"} <= set(value["non_goals"])
+    assert "causal propagation" in status["still_not_implemented"]
+    assert "cryptographic issuer authentication across untrusted transport" in status["still_not_implemented"]
+
+
+def test_proof_budget_crosswalk_records_observation_without_allocation() -> None:
+    row = next(row for row in contract()["current_repository_crosswalk"] if row["mechanism"] == "proof budget governor")
+    assert "observation-only attribution" in row["current_status"]
+    assert "principal-independent" in row["proposed_relationship"]
+    assert "sentientos/control_plane_kernel.py" in row["source_paths"]
 
 
 def test_decision_and_recommendation_vocabularies_are_closed() -> None:

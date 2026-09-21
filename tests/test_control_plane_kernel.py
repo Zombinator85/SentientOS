@@ -14,6 +14,10 @@ from sentientos.control_plane_kernel import (
     ControlPlaneKernel,
     LifecyclePhase,
 )
+from sentientos.causal_resource_principal import (
+    RootPrincipalIssuer,
+    VerifiedOperatorSponsorship,
+)
 from sentientos.runtime_governor import GovernorDecision, PressureSnapshot
 
 
@@ -75,6 +79,49 @@ class MutableClock:
 
     def advance(self, seconds: float) -> None:
         self.now += seconds
+
+
+class _Sponsor:
+    def verify(self, sponsorship_evidence: object) -> VerifiedOperatorSponsorship:
+        return VerifiedOperatorSponsorship("sha256:" + "1" * 64)
+
+
+def _root_principal(*, expires_at: str = "2026-09-21T09:00:00Z") -> dict[str, object]:
+    return RootPrincipalIssuer(issuer_id="test-root-issuer", sponsorship_verifier=_Sponsor()).mint_root(
+        sponsorship_evidence={"operator": "test"},
+        subject_binding_digest="sha256:" + "2" * 64,
+        epoch=1,
+        issued_at="2026-09-21T08:00:00Z",
+        expires_at=expires_at,
+    ).to_dict()
+
+
+def _proof_request(correlation_id: str, *, evidence: object = None, run_context: dict[str, object] | None = None) -> ControlActionRequest:
+    context: dict[str, object] = {
+        "config": GovernorConfig(
+            configured_k=3,
+            configured_m=2,
+            max_k=9,
+            escalation_enabled=True,
+            mode="normal",
+            admissible_collapse_runs=2,
+            min_m=1,
+            diagnostics_k=4,
+        ),
+        "pressure_state": PressureState(consecutive_no_admissible=0, recent_runs=[]),
+        "run_context": run_context or {"pipeline": "genesis", "router_attempt": 1},
+    }
+    if evidence is not None:
+        context["causal_resource_principal"] = evidence
+    return ControlActionRequest(
+        action_kind="proposal_eval",
+        authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+        actor="forge",
+        target_subsystem="capability-z",
+        requested_phase=LifecyclePhase.MAINTENANCE,
+        metadata={"correlation_id": correlation_id, "require_admissible": True},
+        proof_budget_context=context,
+    )
 
 
 def _restart_request(correlation_id: str, *, phase: LifecyclePhase = LifecyclePhase.RUNTIME) -> ControlActionRequest:
@@ -335,6 +382,86 @@ def test_proof_budget_diagnostics_mode_defers(tmp_path):
     reconciliation = authority.get("reconciliation")
     assert isinstance(reconciliation, dict)
     assert reconciliation.get("rule") == "proof_budget_diagnostics_only_authoritative_for_maintenance_admission"
+
+
+def _attribution_decision(tmp_path, name: str, *, evidence: object = None, run_context: dict[str, object] | None = None):
+    clock = MutableClock(datetime(2026, 9, 21, 8, 30, tzinfo=timezone.utc).timestamp())
+    kernel = ControlPlaneKernel(
+        runtime_governor=FakeRuntimeGovernor(),
+        decisions_path=tmp_path / f"{name}.jsonl",
+        phase=LifecyclePhase.MAINTENANCE,
+        clock=clock,
+    )
+    return kernel.admit(_proof_request(name, evidence=evidence, run_context=run_context))
+
+
+def test_valid_canonical_principal_emits_bounded_observation_only_attribution(tmp_path):
+    principal = _root_principal()
+    decision = _attribution_decision(tmp_path, "valid-attribution", evidence=principal)
+    attribution = decision.delegated_outcomes["proof_budget_context"]["causal_attribution"]
+
+    assert decision.outcome == AdmissionOutcome.ALLOW
+    assert attribution == {
+        "status": "canonical_root_binding_verified",
+        "principal_id": principal["principal_id"],
+        "root_principal_id": principal["root_principal_id"],
+        "principal_binding_digest": principal["binding_digest"],
+        "issuer_id": principal["issuer_id"],
+        "epoch": principal["epoch"],
+    }
+    assert not ({"quota", "allocation", "budget", "entitlement", "capability", "grant", "admission", "authority"} & attribution.keys())
+    assert "causal_attribution" not in decision.delegated_outcomes["authority_of_judgment"]
+
+
+def test_causal_attribution_is_proof_budget_and_admission_non_interfering(tmp_path):
+    valid = _root_principal()
+    expired = _root_principal(expires_at="2026-09-21T08:15:00Z")
+    malformed = valid | {"quota": "unlimited", "attacker": {"secret": "do-not-echo"}}
+    cases = {
+        "absent": None,
+        "valid": valid,
+        "expired": expired,
+        "malformed": malformed,
+    }
+    decisions = {name: _attribution_decision(tmp_path, name, evidence=evidence) for name, evidence in cases.items()}
+    policy_fields = ("mode", "k_effective", "m_effective", "allow_escalation", "decision_reasons")
+    policy = lambda decision: {key: decision.delegated_outcomes["proof_budget_governor"][key] for key in policy_fields}
+
+    assert all(policy(decision) == policy(decisions["absent"]) for decision in decisions.values())
+    assert all(decision.outcome == decisions["absent"].outcome for decision in decisions.values())
+    assert "causal_attribution" not in decisions["absent"].delegated_outcomes["proof_budget_context"]
+    for name in ("expired", "malformed"):
+        assert decisions[name].delegated_outcomes["proof_budget_context"]["causal_attribution"] == {
+            "status": "rejected",
+            "reason": "principal_verification_failed",
+        }
+        assert "secret" not in str(decisions[name].to_dict())
+
+
+@pytest.mark.parametrize(
+    "run_context",
+    [
+        {"principal_id": "crp-sha256:" + "a" * 64},
+        {"root_principal_id": "crp-sha256:" + "b" * 64},
+        {"causal_resource_principal": {"status": "caller-asserted"}},
+        {"resource_principal": _root_principal()},
+        {"work_item_id": "work-1", "correlation_id": "trace-1", "execution_attempt_id": "attempt-1"},
+    ],
+)
+def test_run_context_cannot_manufacture_causal_attribution(tmp_path, run_context):
+    decision = _attribution_decision(tmp_path, "forged-run-context", run_context=run_context)
+    assert "causal_attribution" not in decision.delegated_outcomes["proof_budget_context"]
+
+
+@pytest.mark.parametrize("field", ["capability", "grant", "admission", "quota", "resource_limits"])
+def test_unknown_principal_fields_are_bounded_rejections(tmp_path, field):
+    evidence = _root_principal() | {field: {"attacker": "value"}}
+    decision = _attribution_decision(tmp_path, f"unknown-{field}", evidence=evidence)
+    assert decision.delegated_outcomes["proof_budget_context"]["causal_attribution"] == {
+        "status": "rejected",
+        "reason": "principal_verification_failed",
+    }
+    assert "attacker" not in str(decision.to_dict())
 
 
 def test_maintenance_proof_authority_clears_when_diagnostics_only_clears(tmp_path):

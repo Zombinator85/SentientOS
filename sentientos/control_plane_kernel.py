@@ -13,6 +13,10 @@ from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from sentientos.authority_of_judgment_schema import build_authority_of_judgment
 from sentientos.codex_startup_guard import codex_runtime_mediation, codex_startup_state
+from sentientos.causal_resource_principal import (
+    CausalResourcePrincipalError,
+    CausalResourcePrincipalVerifier,
+)
 from sentientos.runtime_governor import GovernorDecision, RuntimeGovernor, get_runtime_governor
 
 if TYPE_CHECKING:
@@ -251,7 +255,7 @@ class ControlPlaneKernel:
             reasons.append(budget_error)
             return self._finalize(request, AdmissionOutcome.DEFER, reasons, delegated, correlation_id=correlation_id)
         if budget_decision is not None:
-            delegated["proof_budget_context"] = {
+            proof_budget_observation: dict[str, Any] = {
                 "pipeline": request.proof_budget_context.get("run_context", {}).get("pipeline")
                 if isinstance(request.proof_budget_context, Mapping)
                 else None,
@@ -259,6 +263,10 @@ class ControlPlaneKernel:
                 if isinstance(request.proof_budget_context, Mapping)
                 else None,
             }
+            causal_attribution = self._observe_causal_resource_principal(request, now=now)
+            if causal_attribution is not None:
+                proof_budget_observation["causal_attribution"] = causal_attribution
+            delegated["proof_budget_context"] = proof_budget_observation
             delegated["proof_budget_governor"] = {
                 "mode": budget_decision.mode,
                 "k_effective": budget_decision.k_effective,
@@ -527,6 +535,37 @@ class ControlPlaneKernel:
             return decide_budget(config=config, pressure_state=pressure_state, run_context=run_context), None
         except Exception:
             return None, "proof_budget_delegate_error"
+
+    @staticmethod
+    def _observe_causal_resource_principal(
+        request: ControlActionRequest,
+        *,
+        now: float,
+    ) -> dict[str, object] | None:
+        """Project explicit canonical root evidence as description, never policy.
+
+        Canonical self-binding verification is not issuer authentication.  This
+        observation grants no authority, admission, allocation, or entitlement.
+        Principal-like ``run_context`` metadata is deliberately ignored.
+        """
+
+        context = request.proof_budget_context
+        if not isinstance(context, Mapping) or "causal_resource_principal" not in context:
+            return None
+        evidence = context["causal_resource_principal"]
+        current_time = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        try:
+            principal = CausalResourcePrincipalVerifier().verify(evidence, current_time=current_time)
+        except (CausalResourcePrincipalError, TypeError, ValueError):
+            return {"status": "rejected", "reason": "principal_verification_failed"}
+        return {
+            "status": "canonical_root_binding_verified",
+            "principal_id": principal.principal_id,
+            "root_principal_id": principal.root_principal_id,
+            "principal_binding_digest": principal.binding_digest,
+            "issuer_id": principal.issuer_id,
+            "epoch": principal.epoch,
+        }
 
     def _finalize(
         self,
