@@ -1,539 +1,115 @@
-# SentientOS Trajectory and Missing Organs
-
-This is an implementation trajectory, not the canonical statement of project
-identity. Read [SentientOS Project Thesis and Current System](sentientos_project_thesis.md)
-first. “Sentient” is aspirational; current sentience, consciousness, complete
-embodiment, and mature bare-metal OS status are not claimed.
-
-## Maturity legend
-
-- **CURRENT / IMPLEMENTED:** bounded mechanisms established in source and tests;
-  this does not mean universally deployed or fully integrated.
-- **NEAR-TERM / ACTIVE ENGINEERING:** required deployment and integration work,
-  especially one-click installation and platform service establishment around the
-  implemented hardened model/runtime organs.
-- **ASPIRATIONAL / RESEARCH HORIZON:** whole-machine continuity, richer
-  embodiment and development, and investigation of possible emergence.
-- **LEGACY / COMPATIBILITY:** retained paths and vocabulary that must not be
-  mistaken for the newest architecture.
-- **DEFERRED:** no present effect or authority; contracts and readiness evidence
-  are not implementation.
-
-The [Host Actuation Safety Gate Wing](host_actuation_safety_gate_wing.md) (`docs/architecture/host_actuation_safety_gate_wing.md`) is now the metadata-only organ that declares hardware allowlist, backend, bounds, cooldown, panic, scope, assessment, and satisfaction gates before any future live authorization review. Real actuation remains deferred.
-## Reviewer first-run proof bundle
-
-Reviewers can generate the local non-mutating host-embodiment proof archive with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`; see [Reviewer First-Run Proof Bundle](reviewer_first_run_proof_bundle.md) (`docs/architecture/reviewer_first_run_proof_bundle.md`). It uses fake/sample telemetry by default, performs no live host collection by default, and performs no host mutation.
-
-## What SentientOS is becoming
-
-SentientOS is becoming a free, model-agnostic persistent machine-cognition
-environment: an empirical environment for investigating persistent machine cognition,
-not a claim that emergence has occurred. It currently runs above Windows,
-macOS, or Linux and organizes installer/bootstrap flow, first boot,
-shell/dashboard affordances, local model runtime, memory/context/reflection,
-perception and embodiment telemetry, bounded GUI/browser interaction,
-hardware/driver awareness, audit/immutability checks, control-plane authority,
-governed self-amendment, and federation evidence custody. Replacing host kernel
-primitives is not a purity requirement; owning semantic continuity and the
-whole-machine relationship is the longer-term goal.
-
-The practical trajectory is an enduring cognition environment with explicit
-admission and receipts. Governance is its reality/authority boundary, not the
-whole product thesis. The system should make its own state and local
-capabilities visible for evidence-bound introspection, propose bounded work from
-observations, gate sensitive action through governance, execute only admitted
-host effects, and leave enough audit evidence for an operator or reviewer to
-reconstruct what happened. Capabilities that are only implied by this trajectory
-are listed below as missing or deferred rather than claimed as implemented.
-
-Host Embodiment Substrate Phase 1 is the first observe/model substrate for this
-path; see `docs/architecture/host_embodiment_substrate_phase1.md` and `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md` and `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md` and `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. It adds a
-Capability Registry, Hardware/Sensor Inventory Manifest, and read-only Host
-Resource Governor scaffold while keeping Privilege Broker and Actuation
-Fulfillment Layer requirements ahead of any future host actuation. Direct
-fan/PWM control remains deferred.
-
-## What already exists
-
-The repository already contains these major subsystem surfaces:
-
-| Area | Existing paths | Current status |
-| --- | --- | --- |
-| Installer/setup/bootstrap | `installer/setup_installer.py`, `setup_env.sh`, `scripts/install_locked.py`, `scripts/bootstrap_node.py`, `scripts/bootstrap_cathedral.py`, `sentientos/runtime/bootstrap.py`, `sentientos/node/__main__.py` | Offline/deterministic setup helpers, dependency/bootstrap paths, node bootstrap helpers, log creation, manifest artifact verification, and smoke-test hooks. |
-| Windows install path | `README.md`, `docs/WINDOWS_LOCAL_MODEL_SETUP.md`, `run_cathedral.bat`, `launch_sentientos.bat`, `Start-All.ps1`, `Stop-All.ps1`, `scripts/package_launcher.py` | Windows-oriented run and packaging documentation/scripts exist. This is a user-space Windows path, not a kernel or driver replacement. |
-| First boot wizard | `sentientos/first_boot.py`, `tests/test_first_boot.py` | First boot records approval, driver review, Codex mode/cadence, architect autonomy flag, federation peer settings, completion flag, ledger rows, and pulse events. |
-| Shell/dashboard/start menu/file explorer/Codex console | `sentientos/shell/__init__.py`, `sentientos/shell/cli.py`, `apps/dashboard/main.py`, `dashboard_ui/`, `scripts/streamlit_dashboard.py`, `scripts/launcher_gui.py` | Shell abstractions cover start menu, taskbar, sandboxed file explorer, install simulation, Codex expansion request files, event logging, and dashboard surfaces. |
-| Local model/chat runtime | `sentientos/local_model.py`, `sentientos/local_model_production_commissioning.py`, `sentientos/local_model_production_activation.py`, `sentientos/local_model_production_serving.py`, `sentientos/local_model_serving_inference.py`, `sentientos/chat_service.py`, `sentientos/runtime/local_model_chat_service.py`, `sentientos/runtime/startup.py` | Explicit production chat composition opens authenticated installation custody, establishes the current hardened activation's opaque serving lifetime, and routes each generation through independent `LOCAL_MODEL_INFERENCE` admission. Affirmative operator enablement provides canonical `RuntimeSupervisor` startup, semantic serving-current readiness, and deterministic supervised shutdown. Durable conversations bind stable activation/model provenance rather than the shorter serving lifetime. Explicit externally approved recovery of one failed hardened-chat lifetime under unchanged activation is implemented. Automatic/generic serving recovery or re-establishment and one-click installation/launch remain deferred. Null/echo remain affirmative, isolated development simulation. |
-| Bounded production model artifact acquisition | `sentientos/local_model_artifact_acquisition.py`, `scripts/local_model_artifact_acquisition.py`, `tests/test_local_model_artifact_acquisition.py` | Cross-binds catalog selection, runtime provisioning, and verified-backend evidence; operator-confirmed execution streams exact catalog-authorized GGUF bytes into verified content-addressed escrow. It does not prove GGUF compatibility, load or commission a model, or grant inference authority. |
-| Memory/context/reflection storage | `memory_manager.py`, `memory_governor.py`, `sentientos/memory/`, `sentientos/meta/reflection_loop.py`, `reflection_log_cli.py`, `api/actuator.py` | Memory append/read, reflection storage, memory pressure/governor, pulse views, and action-result reflection surfaces exist. Context hygiene lives under `sentientos/context_hygiene/`. |
-| Autonomy runtime composition | `sentientos/autonomy/runtime.py`, `sentientos/autonomy/state.py`, `sentientos/autonomy/rehearsal.py`, `sentientos/autonomy/curiosity_loop.py`, `sentientos/orchestrator.py`, `scripts/orchestrator_daemon.py` | Runtime/state/rehearsal and orchestrator pieces exist. They should be treated as governed composition surfaces, not blanket authority. |
-| ASR/TTS/screen OCR/perception | `mic_bridge.py`, `tts_bridge.py`, `tts_service.py`, `ocr_pipeline.py`, `ocr_utils.py`, `scripts/perception/screen_adapter.py`, `sentientos/perception_api.py` | Speech recognition, text-to-speech, OCR, screen observation normalization, and perception telemetry surfaces exist. Legacy perception paths are explicitly marked non-authoritative/proposal-oriented in several modules. |
-| GUI control shim | `ui_controller.py`, `input_controller.py`, `sentientos/innervation.py` | UI/key/mouse abstractions and panic/permission/policy checks exist. These are shims and should not be read as blanket host control. |
-| Browser automation | `sentientos/agents/browser_automator.py`, `sentientos/oracle_relay.py`, `browser_voice.py` | Browser automation can be configured with enable flags, domain allowlists, daily budgets, panic checks, audit logging, and council checks for posting. Oracle relay contains Playwright session machinery. |
-| Driver manager and hardware/device awareness | `sentientos/daemons/driver_manager.py`, `config/hardware_profile.json`, `gpu_autosetup.py`, `tests/test_first_boot.py` | Device probing/recommendation, candidate driver catalog, suggestions, whitelisted vendors, and veil-pending install requests exist. This is not blanket hardware control. |
-| Embodiment fusion/ingress/proposal/governance/fulfillment/avatar state | `sentientos/embodiment_fusion.py`, `sentientos/embodiment_ingress.py`, `sentientos/embodiment_proposals.py`, `sentientos/embodiment_proposal_review.py`, `sentientos/embodiment_governance_bridge.py`, `sentientos/embodiment_fulfillment.py`, `sentientos/embodiment/avatar_state.py`, `godot_avatar_demo/` | Embodiment snapshots, ingress gates, proposal records, review receipts, governance bridge candidates, fulfillment candidates/receipts, and avatar state/demo surfaces exist. Fulfillment receipts are currently non-authoritative evidence, not proof of side effects. |
-| Control-plane kernel and admission authority | `sentientos/control_plane_kernel.py`, `control_plane/`, `sentientos/runtime_governor.py`, `docs/control_plane_authority_map.md`, `tests/test_control_plane_kernel.py` | Phase-aware admission, authority classes, decisions, process-local dedupe, runtime governor delegation, and machine-readable decision rows exist. |
-| ArchitectDaemon / GenesisForge / Codex self-amendment arc | `architect_daemon.py`, `codex/autogenesis.py`, `sentientos/forge.py`, `sentientos/forge_cli/`, `sentientos/forge_queue.py`, `sentientos/protected_mutation_intent.py`, `tests/test_architect_daemon.py`, `tests/test_genesis_forge.py`, `tests/test_autogenesis_loop.py` | Gap scanning, lineage annotation, review symmetry, forge CLI/status/queue, and protected mutation intent surfaces exist. These are governed proposal/review paths, not unapproved self-modification. |
-| Bounded maintenance execution, landing, and resident generation adoption | `sentientos/maintenance_task_authority_lease.py`, `sentientos/maintenance_validation_controller.py`, `sentientos/maintenance_commit_publication.py`, `sentientos/maintenance_authority_continuity_auto_derivation.py`, `sentientos/maintenance_successor_generation_adoption.py`, `sentientos/maintenance_resident_runtime_adoption.py`, `sentientosd.py` | Admitted work can proceed through exact implementation, validation/correction, deterministic landing/local absorption, successor authority/configuration derivation, wake handoff, predecessor quiescence, exact bounded POSIX `sentientosd` process-image replacement, independent successor readiness, and successor wake. Repository absorption remains distinct from runtime adoption. This does not grant arbitrary mutation, Windows replacement, rollback, generic restart, or recovery after process death. |
-| Resident parent-supervision contract | `sentientos/codex_task_authority_admission.py`, `docs/development/maintenance_resident_parent_supervision_authority.md` | `maintenance_resident_parent_supervision` is scaffolded/eligibility-only. No stable parent, child watcher/restart loop, process-death recovery, or runtime integration exists; `real_service_restart` remains blocked. |
-| Audit/immutability/context-boundary verification | `scripts/verify_audits.py`, `verify_audits.py`, `audit_immutability.py`, `scripts/audit_immutability_verifier.py`, `scripts/verify_context_hygiene_prompt_boundaries.py`, `sentientos/context_hygiene/`, `docs/architecture/context_hygiene_spine.md` | Audit verification, immutability checks, prompt/context boundary scans, provider denial custody, and source-kind safety contracts exist. |
-| Federation improvement custody runway | `sentientos/federation/improvement_candidate.py`, `sentientos/federation/improvement_intake_receipt.py`, `sentientos/federation/improvement_custody_runway.py`, `sentientos/federation/improvement_local_variant_artifact.py`, `sentientos/federation/improvement_lineage_comparison_receipt.py`, `sentientos/federation/improvement_dissemination_receipt.py`, `docs/architecture/federated_improvement_custody_runway.md` | Federation improvement artifacts and receipts exist as evidence/readiness/custody surfaces only. They do not transport, adopt, apply, merge, install, or execute by themselves. |
-
-## What works in concert
-
-The intended whole-system loop is:
-
-1. Install or bootstrap the node and verify pinned/local artifacts.
-2. Run first boot, obtain required local approval, detect hardware, and configure
-   driver review, Codex/autonomy posture, and federation peer metadata.
-3. Run the local model/chat runtime or placeholder backend under local-file and
-   fallback rules.
-4. Observe local screen/audio/vision/feedback/browser context through perception
-   adapters and legacy shims.
-5. Store eligible memory, context, and reflection records only through the
-   applicable memory/context paths and gates.
-6. Fuse observations into embodiment snapshots and classify embodied pressure,
-   privacy posture, retention posture, and risk flags.
-7. Convert eligible pressure into proposal, governance bridge, and fulfillment
-   candidates.
-8. Gate sensitive candidates through the control plane, runtime governor,
-   council/review surfaces, and policy checks.
-9. Execute only host actions that have an admitted, explicit, local authority
-   path; where fulfillment is only a receipt artifact, do not treat it as a real
-   effect.
-10. Write audit, immutability, decision, and receipt evidence.
-11. Detect capability gaps from logs/tests/probes and draft governed amendments
-    through ArchitectDaemon, GenesisForge/autogenesis, or forge/Codex review
-    flows.
-12. Optionally share metadata/evidence through federation custody artifacts, with
-    local adoption remaining separate and non-automatic.
-
-## Capabilities the repo supports today
-
-Supported facts in the current repository state:
-
-- Install/bootstrap helpers exist for deterministic/offline setup, dependency
-  handling, node/bootstrap scripts, log creation, manifest artifact verification,
-  and smoke-test hooks.
-- A local model/chat path exists, including placeholder/null, echo, GGUF/llama.cpp,
-  and local transformers loading. Local transformers loading uses local files and
-  defaults custom model code execution off unless explicitly opted in.
-- Memory, context, and reflection storage surfaces exist through `memory_manager.py`,
-  `memory_governor.py`, `sentientos/memory/`, `sentientos/meta/reflection_loop.py`,
-  and action/reflection logging paths.
-- Perception and embodiment telemetry surfaces exist for audio, screen/OCR,
-  vision/multimodal/feedback/gaze-shaped observations, normalized perception
-  events, and embodiment snapshots.
-- A GUI control shim exists through `ui_controller.py` and `input_controller.py`,
-  including dummy and optional platform backends, logging, panic handling, and
-  permission/policy hooks.
-- Browser automation exists through `sentientos/agents/browser_automator.py` and
-  related relay/demo surfaces, with enable flags, allowlists, budgets, panic
-  checks, and audit hooks.
-- TTS, ASR, and screen OCR surfaces exist through `tts_bridge.py`, `tts_service.py`,
-  `mic_bridge.py`, `ocr_pipeline.py`, `ocr_utils.py`, and
-  `scripts/perception/screen_adapter.py`.
-- Hardware driver awareness exists through `sentientos/daemons/driver_manager.py`,
-  with device reports, recommendations, package lists, whitelisted vendors,
-  suggestions, and veil-protected install requests.
-- First-boot Codex/federation configuration exists through `sentientos/first_boot.py`.
-- Governed change includes historical proposal/review surfaces and a current
-  bounded maintenance path for admission, scoped authority, implementation,
-  validation/correction, deterministic commit custody, separate landing, watchdog
-  coordination, and operator-authorized offline local absorption. It is not
-  automatic unapproved self-modification, scheduler installation, or runtime adoption.
-- Federation evidence custody exists for improvement candidate, intake, custody
-  runway, local variant, lineage comparison, and dissemination receipts.
-
-## Claims not yet supported
-
-The following claims are not supported by the current repository state and should
-not be made as implemented capabilities:
-
-- Direct fan/PWM control is deferred unless and until a concrete, tested module is
-  added. No direct fan/PWM controller is claimed here.
-- Blanket hardware control is not implemented. The driver manager recommends and
-  queues/records driver actions; it is not general host-device authority.
-- Host kernel replacement is not implemented. SentientOS is currently primarily
-  a user-space layer above Windows/macOS/Linux; replacement is not required for
-  the longer-term whole-machine semantic scope.
-- Automatic remote execution is not implemented.
-- Forced federation adoption is not implemented.
-- Provider invocation is not implemented as an approved runtime capability.
-  Existing provider-denial and provider-readiness artifacts are custody/metadata
-  surfaces; legacy relay/demo code must not be interpreted as approved provider
-  transport authority.
-- Prompt assembly/export for provider invocation is not implemented as an
-  approved runtime capability. Prompt-related phase artifacts are dry-run,
-  boundary, denial, or metadata surfaces unless a future admitted implementation
-  says otherwise.
-- Autonomous unapproved self-modification is not implemented. The self-amendment
-  arc is proposal/review/governance oriented.
-- Production execution from readiness, rehearsal, receipt, or custody artifacts is
-  not implemented. Receipts can support review; they do not execute themselves.
-- Hardened production activation can feed chat through the explicit production
-  composition boundary and opaque serving-backed inference bridge under explicit
-  canonical `RuntimeSupervisor` startup. This requires affirmative operator enablement,
-  authenticated installation identity, and a distinct serving-operation identity;
-  automatic recovery/re-establishment, hot switching, and universal or one-click
-  deployment remain unsupported.
-- True one-click installation is not implemented. Existing bootstrap,
-  developer-container, source-install, and platform guides are supported setup
-  paths rather than the intended one-action transaction.
-
-## Missing organs
-
-These are concrete subsystems required by the implied trajectory but not yet
-complete as canonical, production-ready organs:
-
-### 1. Host Resource Governor
-
-A canonical resource governor should collect CPU, RAM, GPU, disk, network,
-thermal, and fan telemetry first. Any future actions, including fan/PWM, CPU/GPU
-limits, network throttles, or process controls, must come later behind policy,
-hardware allowlists, receipts, and rollback behavior.
-
-Proof required:
-
-- Tests for telemetry parsing, missing-sensor handling, policy denial, and no-op
-  behavior when actions are disabled.
-- Audit receipt for every telemetry snapshot and every denied/deferred action.
-- Fail-closed behavior when sensor data is stale, contradictory, privileged, or
-  unavailable.
-- No implicit authority to change host resources.
-- Operator override and panic handling that stops future actions and marks state
-  degraded.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_host_resource_governor.py`.
-
-### 2. Privilege Broker
-
-A single canonical broker should mediate privileged host actions instead of each
-subsystem inventing its own escalation path. The broker should identify actor,
-authority class, requested effect, target, proof requirements, admission decision,
-and operator override state.
-
-Proof required:
-
-- Tests for allow/deny/defer/quarantine outcomes, unknown action denial, and
-  duplicate request handling.
-- Audit receipt for every request and decision.
-- Fail-closed behavior when policy, operator approval, or proof is missing.
-- No implicit authority from subsystem-local helper calls.
-- Operator override and panic handling with visible blocked/degraded state.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_privilege_broker.py`.
-
-### 3. Actuation Fulfillment Layer
-
-Approved candidates need a canonical layer that turns admitted proposals into
-real effects with receipts. This layer should distinguish candidate, admission,
-execution attempt, result, rollback, and audit receipt. It must not confuse a
-fulfillment candidate or receipt with proof that a side effect occurred.
-
-Proof required:
-
-- Tests for candidate-to-admission-to-effect lifecycle, denied candidates, dry-run
-  candidates, rollback paths, and idempotency.
-- Audit receipt for each attempted, skipped, denied, completed, and rolled-back
-  effect.
-- Fail-closed behavior when admission is missing or stale.
-- No implicit authority from proposal existence.
-- Operator override and panic handling before and during fulfillment.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_actuation_fulfillment_layer.py`.
-
-### 4. Hardware/Sensor Inventory Manifest
-
-A durable local manifest should inventory sensors, devices, power/thermal
-capabilities, available resource telemetry, driver posture, privacy class, and
-operator consent posture. It should be local-first and should not grant authority
-by itself.
-
-Proof required:
-
-- Tests for inventory creation, update, redaction, schema migration, and missing
-  hardware.
-- Audit receipt for inventory snapshots and schema changes.
-- Fail-closed behavior when a device capability is unknown or unverified.
-- No implicit authority to actuate hardware from inventory entries.
-- Operator override and panic handling that can mark devices disabled/degraded.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_hardware_sensor_inventory_manifest.py`.
-
-### 5. Runtime Supervisor
-
-The first canonical Runtime Supervisor core slice is implemented. Its immutable
-`sentientos.runtime_service:v1` registry deterministically orders commissioned
-local-model readiness, persistent governed chat, and a responsive facade around
-the existing maintenance-runtime owner. Other daemons, kernel-level supervision,
-containers, and arbitrary privileged service control remain unsupervised.
-
-Health is semantic: dependencies must be healthy, chat requires its service and
-durable stores plus commissioned governed-model readiness, and maintenance probes
-only responsiveness (never maintenance work or generation). A missing activation
-degrades chat without restarting its otherwise healthy process; recovery is
-deterministic and does not cascade restart accounting.
-
-Automatic restart is bounded by a persisted rolling budget, exponential bounded
-backoff, and explicit operator reset. Exhaustion survives supervisor reconstruction.
-Reverse dependency shutdown is graceful and bounded before a terminal adapter
-stop. The existing operator/runtime supplies adapters and retains all inference,
-memory, provider, host, repository, and federation authority.
-
-Supervisor state and append-only attempt/effect lifecycle receipts live under
-`SENTIENTOS_RUNTIME_STATE_ROOT`, falling back beneath the canonical data root.
-The durable panic latch blocks starts and automatic recovery until explicit clear,
-while preserving conversations and retained canonical memory. A composed synthetic
-governed-model proof kills chat, records exactly one restart, resumes the exact
-session and context, and retains canonical memory without duplicate turns.
-
-Proof required:
-
-- Tests for service registration, health transitions, bounded restarts, safe
-  shutdown, panic shutdown, and degraded dependencies.
-- Audit receipt for service lifecycle events and restart decisions.
-- Fail-closed behavior when restart budgets or health proofs fail.
-- No implicit authority for services to self-escalate.
-- Operator override and panic handling that stops or disables services.
-- Docs proof command: `python -m scripts.run_tests -q tests/test_runtime_service_supervisor.py tests/test_runtime_supervisor_authority.py`.
-
-### 6. Capability Registry
-
-A machine-readable registry should state what the node can sense, remember,
-decide, act on, and federate. It should include capability provenance, status,
-policy owner, proof command, and whether the capability is read-only,
-proposal-only, dry-run, or effect-capable.
-
-Proof required:
-
-- Tests for registry schema, capability lookup, unsupported capability denial,
-  and drift detection against docs/tests.
-- Audit receipt for registry changes and capability posture changes.
-- Fail-closed behavior when a capability is absent or contradictory.
-- No implicit authority from capability names alone.
-- Operator override and panic handling that can mark capabilities blocked.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_capability_registry.py`.
-
-### 7. Local Model Authority Map
-
-A local model authority map should record each model's posture: escrowed local
-artifact, local custom-code setting, remote/provider posture, allowed tools,
-context access posture, and proof commands. It should make provider invocation
-and custom code posture explicit per model.
-
-Proof required:
-
-- Tests for model inventory, local-only defaults, custom-code opt-in, provider
-  denial, and missing artifact handling.
-- Audit receipt for model posture changes and load decisions.
-- Fail-closed behavior when artifact, checksum, or authority posture is unknown.
-- No implicit provider authority from model configuration.
-- Operator override and panic handling that disables model loads or tool access.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_local_model_authority_map.py`.
-
-### 8. World-State Board
-
-A live board should derive pending, degraded, approved, blocked, and fulfilled
-state from logs, decisions, receipts, and supervisor health. It should be a view
-of evidence, not a decision engine.
-
-Proof required:
-
-- Tests for state derivation from representative logs, contradiction handling,
-  stale data, and degraded views.
-- Audit receipt for board snapshots or exports.
-- Fail-closed behavior when source logs are missing or inconsistent.
-- No implicit authority to execute from board display state.
-- Operator override and panic handling shown clearly in the board.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_world_state_board.py`.
-
-### 9. Federation Transport Envelope
-
-A federation transport envelope should exchange metadata-only receipts and
-lineage evidence without adoption, execution, merge, apply, install, or remote
-control. It should preserve local review boundaries and make remote origin and
-trust posture explicit.
-
-Proof required:
-
-- Tests for envelope schema, signature/identity metadata, local rejection,
-  replay protection, and non-adoption.
-- Audit receipt for inbound/outbound metadata envelopes.
-- Fail-closed behavior when origin, schema, signature, or policy is invalid.
-- No implicit authority from receipt delivery.
-- Operator override and panic handling that disables transport.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_federation_transport_envelope.py`.
-
-### 10. External Reviewer Demo Script
-
-A safe reviewer demo should show one end-to-end path: install or bootstrap,
-observe, write memory/context, produce a proposal, gate it, audit it, and export
-proof. It should be deterministic, local, non-destructive, and explicit about
-which steps are simulated.
-
-Proof required:
-
-- Tests for the demo script in a temporary workspace with no real host side
-  effects.
-- Audit receipt for every demo step.
-- Fail-closed behavior on missing dependencies or unexpected host access.
-- No implicit authority outside the demo workspace.
-- Operator override and panic handling that aborts the demo safely.
-- Docs proof command, for example `python -m scripts.run_tests -q tests/test_external_reviewer_demo_script.py`.
-
-## Build order
-
-Recommended phased order:
-
-- **Phase A: Capability registry + whole-system map.** Establish one
-  machine-readable source for supported, proposal-only, dry-run, blocked, and
-  missing capabilities, and keep this document aligned with it.
-- **Phase B: Hardware/sensor inventory manifest.** Record durable local inventory
-  of devices, sensors, drivers, privacy posture, and resource telemetry
-  availability without granting control.
-- **Phase C: Host resource governor read-only telemetry.** Add read-only CPU,
-  RAM, GPU, disk, network, thermal, and fan telemetry. Fan/PWM remains deferred.
-- **Phase D: Privilege broker.** Route privileged host actions through one
-  auditable broker and deny unknown paths by default.
-- **Phase E: Actuation fulfillment layer.** Convert approved candidates into
-  real effects only through admitted, receipt-producing fulfillment.
-- **Phase F: Runtime supervisor.** Add registry, health, restart policy, safe
-  shutdown, panic shutdown, and degraded service state.
-- **Phase G: Federation transport envelope.** Exchange metadata-only custody
-  receipts with no adoption or execution.
-- **Phase H: Optional bounded host resource actions.** Consider fan/PWM or other
-  resource actions only after telemetry, policy, hardware allowlists, privilege
-  brokering, operator override, and rollback receipts exist.
+# SentientOS Trajectory and Materially Incomplete Organs
 
-## Safety/proof requirements summary
+This is a current gap map, not a historical phase plan. A source file, registry definition, synthetic test, or readiness artifact can close one layer while composition, activation, authority, hardware, recovery, or production proof remains incomplete.
 
-Every missing organ should satisfy the same baseline before being described as
-implemented:
+## What is no longer wholly missing
 
-- Focused tests cover normal, denied, degraded, missing-dependency, and panic
-  paths.
-- Audit receipts exist for inputs, decisions, outputs, denials, and errors.
-- Fail-closed behavior is the default for missing policy, missing proof,
-  unavailable sensors, stale data, unknown capabilities, or invalid federation
-  metadata.
-- No implicit authority is inferred from observation, memory, proposal,
-  readiness, receipt, dashboard state, or federation delivery.
-- Operator override and panic handling are explicit, tested, logged, and visible
-  in state surfaces.
-- A docs proof command is listed for reviewers and can be run from the repository
-  root.
+The following have bounded implementations and must not be described as absent:
 
+- resident maintenance/evidence and World-State construction;
+- canonical governed conversation retention and retrieval;
+- local-model catalog, acquisition, commissioning, activation, serving, and admitted inference stages;
+- evidence-bound host-resource observation;
+- audio, screen, and vision perception adapters;
+- external-model definition, grant policy, feasibility, admission, credential and request custody, exact HTTPS transport, bounded response, and receipt custody;
+- maintenance work formation, admitted implementation, validation/correction, deterministic landing or absorption, successor authority/configuration, wake adoption, predecessor quiescence, independent readiness, and POSIX process-image replacement;
+- federation identity, trust epochs, replay controls, and lab/WAN evidence;
+- council and multi-agent libraries.
 
-### Host Embodiment Phase 3 policy receipts
+These are not all resident, default-active, production-deployed, or fully mature.
 
-Phase 3 is documented in `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`. It converts pressure reports into proposal receipts only: proposal receipts are not effects, policy decisions are not authorization, PWM presence is not control authority, and future cooling/power/service/cleanup candidates require the future Privilege Broker and Actuation Fulfillment Layer.
+## 1. Installation and operational closure
 
+The largest productization gap is a genuine one-action path from an unknown supported host to a healthy, durable, understandable installation. Missing closure includes platform service installation, dependency and hardware discovery, deterministic route selection, real operator approvals for initial model acquisition/commissioning/activation, service persistence, health proof, repair, update, and rollback.
 
-### Host Embodiment Phase 4 privilege broker eligibility
+Current launchers and CLIs expose parts of this sequence. They do not establish universal deployment.
 
-Phase 4 is documented in `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`. It classifies proposal receipts for future privileged-action eligibility only. Eligibility is not authorization, a broker receipt is not fulfillment, and direct fan/PWM/thermal control, service restart, power mutation, cleanup mutation, package/driver install, provider invocation, network egress, prompt assembly, federation transport/sync/adoption, and remote execution remain blocked behind future gates and the future Actuation Fulfillment Layer.
+## 2. Unexpected-death recovery
 
+Cooperative successor adoption and POSIX process-image replacement are implemented. Stable parent supervision is only scaffolded/eligibility-only. There is no stable parent runtime with exact child custody, child watcher/restart loop, post-restart readiness integration, or universal process-death recovery. Generic service restart remains blocked.
 
-### Host Embodiment Phase 5 actuation fulfillment scaffold
+The gap is therefore not “runtime adoption”; it is recovery when the resident cannot participate in its own handoff, plus platform-specific service supervision.
 
-Phase 5 is documented in `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`. It adds the Actuation Fulfillment Layer scaffold as rehearsal-only metadata: fulfillment rehearsal is not real fulfillment, a rehearsal receipt is not an effect receipt, and no host mutation occurs. Direct fan/PWM/thermal control, service restart, power profile mutation, cleanup/deletion, process killing, package/driver installation, provider invocation, network egress, prompt assembly, federation transport/sync/adoption, and remote execution remain blocked/deferred behind future control-plane admission, operator/policy approval, audit, rollback, effect receipt, and postcondition gates.
+## 3. External cognition composition and trust
 
+External-model HTTPS execution is implemented as a bounded actuator. What remains unavailable by default is the complete live composition: no resident/default provider owner, default grant, provider configuration, credential, or safe request-material source establishes production use. A real provider account and effect are not demonstrated merely by synthetic tests.
 
-## Host Embodiment Execution Proof Wing
+Response material remains `untrusted_external_data`. A future cognition route would need explicit interpretation, contamination controls, provenance, memory policy, and separate authority. Transport completion must not silently become cognitive trust.
 
-Next proof/readiness wing: `docs/architecture/host_embodiment_execution_proof_wing.md`. Execution readiness is not authorization; the future effect receipt schema is not proof of effect; the Runtime Supervisor does not restart/kill services; real actuation remains deferred.
+## 4. Memory integration and truth maintenance
 
-## Host Embodiment Authorization Review Wing
+Canonical conversation memory is live. Legacy managers/summaries/indexes and selective distillation/capsule/tomb/review machinery also exist. The incomplete organ is coherent integration: not every newer live-memory planning, readiness, interlock, and commit stage is resident-composed or a live mutation path; tomb intent is not deletion; autonomous retention and general long-term deletion remain limited.
 
-See `docs/architecture/host_embodiment_authorization_review_wing.md`. This next organ after the Execution Proof Wing records metadata-only authorization review packets, decisions, receipts, and a future grant schema placeholder. Authorization review is not authorization, the future authorization grant schema is not a real grant, real fulfillment remains deferred, and real actuation remains deferred.
+A general formal truth-maintenance or belief-revision engine is not present. Future work must preserve source, time, contradiction, and authority boundaries rather than treating recall as truth.
 
-## Controlled Authorization + Trace Wing
+## 5. Embodiment beyond observation
 
-The [Host Embodiment Controlled Authorization + Trace Wing](host_embodiment_controlled_authorization_and_trace_wing.md) is now represented as the next non-mutating organ after Authorization Review: contract-only controlled authorization, schema-only/future-use-only grant and revocation records, metadata-only ledger, and a reviewer demo trace. Live authorization, real fulfillment, real actuation, rollback execution, fan/PWM control, thermal actuation, power mutation, service restart, and cleanup/delete remain missing/deferred organs.
+Resident host-resource observation is real and useful. Perception adapters and Household Presence policy/metadata chains exist at differing maturity. Remaining work includes deployed hardware discovery, durable sensor lifecycle, calibration, privacy and consent closure, live camera activation where authorized, broader provenance, and hardware-independent degradation.
 
-Proof path: docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md
+Host actuation is a separate gap. Existing effectors do not grant blanket computer control, and phase-one resource work must remain read-only. Any expanded actuation requires named effects, exact grants, feasibility, admission, execution custody, verification, rollback/panic behavior, and operator authority.
 
-## Host Embodiment Reviewer Demo Trace
+Live Wi-Fi/CSI/RF sensing or imaging remains research, deferred or blocked.
 
-See `docs/architecture/host_embodiment_reviewer_demo_trace.md`. The external reviewer demo script now has a deterministic metadata-only thermal+PWM trace export. It is reviewer proof only: no live host collection by default, no live authorization, no effect, no host mutation, and PWM presence is not control authority.
+## 6. Maintenance resilience and developmental continuity
 
-### Host Live-Grant Readiness Wing
+The maintenance chain can perform bounded system/software evolution through landing and resident replacement. It is not unrestricted recursive self-improvement. Material remaining work includes long-duration operational evidence, failure recovery across each custody boundary, cross-platform replacement semantics, stable supervision, authority renewal without accidental inheritance, rollback after post-adoption degradation, and experiments measuring continuity across successive runtime and model generations.
 
-See [Host Live-Grant Readiness Wing](host_live_grant_readiness_wing.md) (`docs/architecture/host_live_grant_readiness_wing.md`). It sits after Host Actuation Safety Gates and before any future authorize/fulfill/effect path. It is readiness/preflight only; real actuation remains deferred.
+Autonomous repository stage/commit/push remains blocked; reviewed landing custody must stay separate from resident evidence and proposal formation.
 
-- [Host Local Authorization Grant Wing](host_local_authorization_grant_wing.md): implemented bounded authorization-record lifecycle; fulfillment and actuation remain deferred.
+## 7. Federation and multi-node deployment
 
-Path link: `docs/architecture/host_local_authorization_grant_wing.md`.
+Federation implementation and evidence are substantial enough that “distributed capability is missing” is stale. The open gap is a supported default production WAN synchronization deployment with operator-owned trust bootstrap, transport configuration, partition/replay behavior, upgrades, observability, recovery, and field evidence. Lab or synthetic WAN success is not fleet deployment.
 
-Implemented organ link: [Host Fulfillment Authorization Consumption Wing](host_fulfillment_authorization_consumption_wing.md) adds metadata-only pre-fulfillment grant consumption checks while real fulfillment and real actuation remain deferred.
+Likewise, council/agent/orchestration libraries need not become the resident center. Future multi-agent composition, if pursued, must preserve per-principal authority and avoid converting agreement into truth or admission.
 
-Path: `docs/architecture/host_fulfillment_authorization_consumption_wing.md`.
+## 8. Assurance scope
 
-- [Host Fulfillment Executor Contract Wing](host_fulfillment_executor_contract_wing.md) records metadata-only executor prerequisites after fulfillment authorization consumption; it is not an executor and real actuation remains deferred.
+Selected formal models, executable checks, invariants, semantic lint, audits, and tests should expand around the highest-consequence paths. The target is stronger traceable assurance, not an unsupported declaration that the whole Python system is formally verified. Reference-monitor and runtime-assurance comparisons must remain scoped to named mediated domains.
 
-Proof path: `docs/architecture/host_fulfillment_executor_contract_wing.md`.
+Synthetic tests should continue to prove deterministic behavior, but production claims require separate evidence for resident composition, credentials, hardware, grants, accounts, and actual effects.
 
+## 9. Scientific program
 
-See also: [Host Dry-Run Execution Harness Wing](host_dry_run_execution_harness_wing.md) (`docs/architecture/host_dry_run_execution_harness_wing.md`), which is simulation-only; dry-run execution is not real fulfillment, dry-run result is not an effect receipt, dry-run receipt is not proof of host mutation, and real actuation remains deferred.
+The long research horizon remains controlled study of continuity, embodiment, self-modeling, developmental history, and possible emergent organization. Needed work includes repeatable cross-model experiments, longitudinal measures, falsifiable criteria, adversarial evidence quality, and explicit handling of negative results. Affective display, system complexity, or self-report must not become a sentience proxy.
 
-- Host Dry-Run Effect Verification / Audit Closure Wing: `docs/architecture/host_dry_run_audit_closure_wing.md`. Dry-run effect verification is not a real effect receipt; dry-run postcondition verification is not a real host postcondition check; dry-run rollback rehearsal is not real rollback; dry-run audit closure is not a production audit receipt; real actuation remains deferred.
+## Priority order
 
+1. Close installation, service lifecycle, and operator-visible recovery.
+2. Add stable parent supervision without weakening adoption custody.
+3. Integrate memory generations while preserving `memory != current truth`.
+4. Deepen hardware-backed perception and carefully scoped actuation.
+5. Validate external cognition composition without default egress or automatic trust.
+6. Establish production federation only with deployable operational evidence.
+7. Run controlled continuity experiments across model and runtime generations.
 
-## Real effect capability admission link
+For present-tense mechanisms see the [public technical overview](public_technical_overview.md); for exhaustive evidence see the [current repository system atlas](current_repository_system_atlas.md).
 
-See [Host Real Effect Capability Admission Wing](host_real_effect_capability_admission_wing.md) (`docs/architecture/host_real_effect_capability_admission_wing.md`): dry-run closure does not automatically permit real effects; real effect admission is not implementation, the admission decision does not authorize implementation or execution, the plan scaffold does not start implementation, cooling/hardware control remains blocked by default, and real actuation remains deferred.
+## Implemented organs and preserved proof navigation
 
-The first bounded real-effect pilot is the [Host Local Diagnostic Effect Pilot Wing](host_local_diagnostic_effect_pilot_wing.md): one explicit local diagnostic artifact write, not hardware/service/power/cleanup control.
+Earlier versions of this roadmap called the following “missing organs.” Bounded forms now exist, so they are retained here as proof navigation rather than open capability claims: **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script**. Their remaining gaps are the composition, activation, recovery, hardware, or production-proof qualifications described above.
 
-The trajectory now includes a bounded [Host Local Diagnostic Exact Artifact Rollback Pilot Wing](host_local_diagnostic_exact_rollback_pilot_wing.md): the first real rollback, limited to the exact diagnostic artifact and not general cleanup.
+Direct fan/PWM control is deferred. In particular, direct fan/PWM control remains deferred and host observation supplies no such authority.
 
-- [Host Local Effect Transaction Ledger Wing](host_local_effect_transaction_ledger_wing.md): metadata-only integrity ledger for the Tier-1 local diagnostic effect and exact rollback lifecycle before broader effect implementation.
+The historical host-embodiment proof chain remains reviewable at:
 
-See also: [Host Steward / Delegated Runner Boundary Wing](host_steward_delegated_runner_boundary_wing.md) (`docs/architecture/host_steward_delegated_runner_boundary_wing.md`) for the next authority boundary after the local effect transaction ledger. It models broad top-level host-steward authority without granting delegated runners ambient authority.
-
-## Bounded Built-In Runner Pilot
-
-`docs/architecture/host_builtin_local_effect_runner_pilot_wing.md` closes the first delegated-runner organ only for bounded in-process local diagnostic artifact write and exact-artifact rollback. General runners and hardware/service/power/fan/thermal/cleanup authority remain missing or blocked/deferred.
-
-Related: [Host Built-In Runner Transaction Orchestrator Wing](host_builtin_runner_transaction_orchestrator_wing.md) — bounded orchestration of only the existing built-in diagnostic write, optional exact rollback, and explicit transaction ledger; not a general runner framework.
-
-## Workspace-scoped file update pilot
-
-The trajectory now includes [Host Workspace-Scoped File Effect Pilot Wing](host_workspace_file_effect_pilot_wing.md): one explicit workspace-scoped file target, preimage capture, postcondition verification, production audit, and exact-target rollback. General filesystem access, cleanup, recursive/wildcard/unrelated deletion, subprocess/shell/network/provider/prompt, and hardware/service/power/fan/thermal authority remain missing or blocked/deferred organs.
-
-See also: [Host Workspace File Runner / Transaction Integration Wing](host_workspace_file_runner_transaction_wing.md).
-
-- Workspace file transaction orchestrator: see [Host Workspace File Transaction Orchestrator Wing](host_workspace_file_transaction_orchestrator_wing.md) for implemented single-target workspace update/rollback/ledger modes; the previous orchestration deferral is removed without adding general filesystem, cleanup, subprocess, shell, network, provider, prompt, or hardware/service/power/fan/thermal authority.
-
-## Next workspace planning wing
-
-See [`Host Workspace Change Set Preflight / Planning Wing`](host_workspace_change_set_preflight_wing.md) (`docs/architecture/host_workspace_change_set_preflight_wing.md`) for the metadata-only layer that prepares bounded multi-target workspace changes but does not execute them, reads only explicitly declared target metadata/digests, performs no target writes, performs no rollback, invokes no runner/orchestrator, and leaves future change-set execution deferred.
-
-
-Workspace change-set transaction execution now exists as a bounded pilot in [Host Workspace Change Set Transaction Execution Pilot Wing](host_workspace_change_set_execution_wing.md). It narrows multi-target workspace execution to explicit manifest targets and leaves general filesystem access, cleanup, services, power, hardware, fan/PWM, thermal, network, provider, prompt, subprocess, and shell authority blocked or deferred.
-
-
-The [Host Workspace Change Set Lifecycle Orchestration Wing](host_workspace_change_set_lifecycle_orchestration_wing.md) (`docs/architecture/host_workspace_change_set_lifecycle_orchestration_wing.md`) coordinates the existing admission, preflight/planning, optional execution, optional verification, and optional closure wings without adding target-file primitives, direct target reads, target digest recomputation, cleanup, scheduling, external tools, or provider/prompt authority.
-
-## Governed Genesis model-advice runtime closure
-
-The `genesis_local_model_proposal_advice` capability is implemented as proposal-only local advice: `sentientos/genesis_model_advice.py`, `sentientos/genesis_forge.py`, and `sentientosd.py` connect governed local invocation to Genesis candidate evaluation while preserving deterministic fallback and forbidding adoption or repository mutation from model output.
-
-## World-State evidence board
-
-The `world_state_evidence_board` capability is implemented as a canonical read-only evidence projection. It derives digest-bound snapshots from bounded typed local evidence, evaluates source staleness and contradictions, exposes terminal `sentientosd` runtime feedback, and provides authenticated dashboard inspection endpoints. It is explicitly non-authoritative: display, summary, receipt, handoff, and proposal evidence do not grant decision, admission, execution, adoption, or repository-mutation authority.
-
-## Host resource and privilege/rehearsal runtime reconciliation
-
-The read-only host-resource observation runtime and the host privilege review / fulfillment rehearsal runtime are implemented as evidence-only maintenance surfaces. They close the proposal-to-review-to-rehearsal metadata loop and project it into World-State. The future effect-capable privilege and fulfillment organs remain deferred: operator privileged approval, privileged-effect admission, backend execution, host mutation, effect proof, and rollback execution are not implemented by this runtime.
-
-- [Host Fulfillment Executor Contract Readiness Runtime](host_fulfillment_executor_contract_readiness_runtime.md) now closes the contract-readiness evidence loop after fulfillment-authorization consumption. It still leaves executor implementation, backend loading/invocation, dry-run execution, future execution admission, fulfillment grant, privileged-effect admission, and real host mutation as missing/deferred organs.
-
-- [Host Dry-Run Execution Runtime](host_dry_run_execution_runtime.md) closes the simulation-only runtime custody loop from exact executor-readiness evidence into the inert dry-run harness. It does not close real executor implementation, real backend invocation, real fulfillment, privileged-effect admission, audit closure, real rollback, or host actuation.
-
-### Bounded local-model chat recovery
-
-Explicit operator-approved recovery of one failed hardened-chat lifetime is implemented.
-It requires authenticated prior serving evidence, unchanged activation, and a globally
-fresh installation-scoped serving operation. Recovery obtains only `DAEMON_RESTART`;
-the child independently obtains `MODEL_SERVING`, readiness is semantic and
-inference-free, and later chat obtains `LOCAL_MODEL_INFERENCE` per generation.
-`restart_policy="never"` remains intentional: automatic/generic restart, hot switching,
-and one-click deployment remain missing/deferred organs.
+- `docs/architecture/host_embodiment_substrate_phase1.md`
+- `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`
+- `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`
+- `docs/architecture/host_embodiment_substrate_phase4_privilege_broker.md`
+- `docs/architecture/host_embodiment_substrate_phase5_actuation_fulfillment_scaffold.md`
+- `docs/architecture/host_embodiment_execution_proof_wing.md`
+- `docs/architecture/host_embodiment_authorization_review_wing.md`
+- `docs/architecture/host_embodiment_controlled_authorization_and_trace_wing.md`
+- `docs/architecture/host_embodiment_reviewer_demo_trace.md`
+- `docs/architecture/reviewer_first_run_proof_bundle.md`
+- `docs/architecture/host_actuation_safety_gate_wing.md`
+- `docs/architecture/host_live_grant_readiness_wing.md`
+- `docs/architecture/host_local_authorization_grant_wing.md`
+- `docs/architecture/host_fulfillment_authorization_consumption_wing.md`
+- `docs/architecture/host_fulfillment_executor_contract_wing.md`
+- `docs/architecture/host_dry_run_execution_harness_wing.md`
+- `docs/architecture/host_dry_run_audit_closure_wing.md`
+- `docs/architecture/host_real_effect_capability_admission_wing.md`
+
+These phase names are evidence history, not the explanatory center of current architecture.
+- `docs/architecture/host_steward_delegated_runner_boundary_wing.md`

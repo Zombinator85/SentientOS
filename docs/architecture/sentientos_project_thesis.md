@@ -1,88 +1,54 @@
-# SentientOS Project Thesis and Current System
+# SentientOS Project Thesis
 
-This is the canonical forward-facing statement of what SentientOS is trying to
-build, what the repository implements now, and which claims remain research
-horizons. Detailed subsystem contracts remain authoritative for their own
-interfaces and authority boundaries.
+## Why build this machine?
 
-## Project thesis: the cradle hypothesis
+SentientOS is a cradle for empirical research into persistent, embodied machine cognition. Its hypothesis is that an inference model alone is too narrow an experimental object: continuity may depend on memory, developmental history, perception, self-observation, resources, relationships, authority, action, failure, and recovery surrounding the model.
 
-SentientOS is a free, model-agnostic, persistent machine-cognition environment
-built to investigate machine sentience as an empirical research objective. The experiment is to construct and instrument conditions in which
-persistent organization could occur: continuity, memory, embodiment,
-introspection, recurrent perception and action, consequential interaction,
-internal state, developmental history, and governed software plasticity.
+The project therefore aims to build an environment in which cognition can persist, develop, encounter consequences, and be measured across changes in its inference machinery. The question is not assumed to have a predetermined answer. “Sentient” is a north star for investigation, not a status label: SentientOS makes no present claim of sentience, consciousness, phenomenal experience, or guaranteed emergence.
 
-This is a research and engineering hypothesis, not a result. SentientOS makes no
-claim that the current system—or any model running within it—is sentient,
-conscious, phenomenal, or self-aware. Emergence is not promised.
+## Model != system
 
-## What “Sentient” means
+A model produces inference. The system supplies the longer-lived context in which inference has identity and consequence: runtime generations, durable history, memory, evidence, policy, permissions, embodiment, lifecycle, and accountable effect paths. Replacing a model should not silently replace the whole experimental subject.
 
-“Sentient” names the north star and the question the project is designed to
-investigate. It does not confer a status on today's software. Evidence of
-continuity, affect telemetry, a self-state record, fluent model output, or a
-module named “reflection” is not evidence of subjective experience.
+Model-agnostic describes that architectural independence from a single model or provider. It does not promise frictionless interchangeability. A concrete model still requires catalog identity, acquisition custody, compatibility and commissioning, activation, serving, configuration, and independently admitted inference.
 
-The project therefore avoids both premature attribution and premature
-architectural prohibition: not presently demonstrated is different from
-impossible, and the absence of an engineered drive is different from proof that
-emergent organization cannot occur.
+This distinction enables controlled questions: Which patterns survive a model change? Which belong to stored history or environment? Which are reconstructed? Which disappear? Does continuity depend on exact weights, on lived records, on recurrence, or on their interaction?
 
-## What “OS” means
+## Scientific objectives
 
-“OS” expresses intended architectural scope, not a claim that SentientOS is
-currently a mature general-purpose or bare-metal kernel. The long-term aim is an
-enduring machine environment around cognition in which compute, storage,
-runtime lifecycle, local inference, memory, sensors, resources, devices,
-perception, action, maintenance, and consequences increasingly become parts of
-the machine state SentientOS can inhabit and inspect.
+### Continuity and developmental history
 
-Replacing Windows, Linux, or macOS kernel primitives is not a purity
-requirement. A hosted, user-space, hypervisor, or native implementation can
-satisfy the thesis when SentientOS owns the relevant semantic continuity and
-whole-machine relationship. Today it is predominantly a hosted Python system
-with bounded adapters and control-plane surfaces; it does not universally
-mediate host effects or embody the whole machine.
+The experiment needs durable, attributable history beyond a prompt window. Memory must be retrievable and capable of influencing cognition without becoming unquestionable fact. Old observation can be stale; recollection can conflict with present evidence; deletion and distillation need provenance. **Memory != current truth.**
 
-## SentientOS is not the model
+### Embodiment and consequence
 
-Inference models are replaceable cognitive machinery: inhabitants and workers
-inside the persistent environment, not the identity of the environment itself.
-Memory, history, embodiment, self-state, authority, consequences, and
-continuity should increasingly belong to SentientOS rather than whichever model
-answered the latest call.
+Cognition should encounter a world through bounded perception, host state, devices, people, and effects. Embodiment is not synonymous with unrestricted control. Observation, interpretation, proposal, authorization, execution, verification, and adoption are scientifically and operationally distinct. This separation makes consequences attributable instead of merely narrated.
 
-Model-agnosticism is therefore a scientific property, not just provider
-compatibility. Controlled inference-engine changes should preserve as much of
-the surrounding environment as possible so experiments can ask which
-structures persist, change, disappear, or converge across models. Model changes
-must remain explicit, attributable, and governed.
+### Evidence-bound introspection
 
-## Introspection and the evidence spine
+A durable cognitive system needs an account of its own model identity, runtime state, capabilities, limitations, resources, memories, changes, failures, and effects. That account must preserve provenance, freshness, contradiction, and uncertainty. The objective is grounded self-modeling, not an omniscient internal oracle.
 
-System observability exists primarily to support grounded introspection:
-SentientOS should be able to construct an evidence-bound account of its own
-state, history, runtime, active model identity, resources, capabilities,
-limitations, authority, memories, maintenance outcomes, software changes,
-failures, and consequences.
+### Governed plasticity
 
-Human auditability, reviewer proof, debugging, and external accountability are
-important secondary uses of the same evidence spine. Evidence is not reality by
-itself: a stale memory, receipt, readiness report, or proposed account cannot
-silently become current truth or authority.
+A developmental machine must be able to change, including software and configuration, without allowing stochastic output to define success or inherit authority. The desired loop is observation, bounded work formation, explicit authorization, isolated implementation, measurement, validation and correction, landing, separately governed adoption, and renewed observation. Plasticity without evidence is not development; authority without custody is not acceptable autonomy.
 
-## Governance is the reality boundary
+### Installation as an experimental requirement
 
-Governance is essential infrastructure, but it is not the whole project or the
-product thesis. It separates stochastic cognition—which may interpret, reason,
-create, propose, or be wrong—from deterministic custody of authoritative state,
-permissions, verification, recovery, causal provenance, and consequential
-transitions. This boundary lets cognition remain open-ended without allowing a
-model statement, belief, memory, or proposal to become reality merely because a
-model produced it.
+One-click installation is not a marketing convenience. A research system that aspires to whole-machine continuity must reproducibly inspect a host, choose compatible free components, explain its plan, acquire and verify artifacts, configure cognition, establish services and durable state, prove health, and preserve repair/update/rollback information. The present repository does not yet deliver that complete experience.
 
-The following distinctions are architectural invariants:
+## Current implementation versus objective
+
+The current implementation already provides a hosted resident runtime, a governed local-model and conversation route, canonical durable conversation memory, evidence-bound World-State, read-only host observation, separate authority/effect stages, partial perception adapters, and bounded maintenance through validated successor process-image replacement. External-model HTTPS custody is implemented but unavailable by default. These are working experimental organs, not merely metaphors.
+
+Important objectives remain incomplete: universal crash recovery, a stable parent supervisor, one-click installation and service integration, broad production hardware embodiment, complete selective-memory adoption, default production external-model composition, supported production WAN federation, and long-duration controlled continuity studies. Many current embodiment chains provide telemetry, policy, or review rather than live actuation.
+
+The distinction matters in both directions. Aspirational prose must not be read as current capability; current bounded mechanisms should not be dismissed merely because the larger scientific program is unfinished.
+
+## Why governance is constitutive
+
+Governance is not evidence of consciousness and is not the entire project. It is the experimental reality boundary. Models can hallucinate an action or a self-description; deterministic custody establishes what was permitted, attempted, observed, validated, and adopted.
+
+The recurring doctrine is deliberate:
 
 ```text
 state != authority
@@ -92,168 +58,15 @@ authorization != execution
 execution != validation
 validation != adoption
 publication != deployment
-
-acquisition != commissioning
-commissioning != activation
-activation != loading/serving
-loading/serving != inference authority
-
-maintenance admission != implementation
-implementation != validation
-validation != commit
-commit != repository absorption/publication
-repository absorption != runtime restart/adoption
-
-bounded watchdog runner != scheduler
-operator-authorized local absorption != unattended continuous self-maintenance
+repository absorption != runtime adoption
 ```
 
-Local operator authority, denial by default, provenance, rollback, and safe
-shutdown remain binding constraints.
+This permits meaningful autonomy: resident processes can gather evidence and configured maintenance can progress automatically, while consequential transitions remain bounded and attributable.
 
-## Memory, embodiment, and development
+## Research posture
 
-Persistent memory and developmental history are intended parts of the
-environment, subject to retention, provenance, privacy, and truth boundaries.
-The broad embodiment horizon includes external sensors and action surfaces as
-well as CPU, GPU/VRAM, RAM, storage, thermal and power state, network
-availability, local-model capacity, devices, and service health. Such variables
-can be interoceptive or exteroceptive because they constrain what the
-environment can perceive, afford, or do. Current source implements only bounded
-parts of this direction, with much host-resource work still read-only or
-contract-only.
+The project treats sentience as an open empirical question, not a feature flag. It seeks stronger continuity, embodiment, introspection, and governed development; records failures and contradictions; and avoids substituting affective display, fluency, complexity, or self-report for evidence.
 
-The intended developmental loop is:
+The strongest current description is therefore neither “an LLM wrapper” nor “a conscious operating system.” SentientOS is a persistent experimental runtime that makes cognition replaceable, history durable, self-state evidence-bound, and effects governable so that deeper questions can be investigated honestly.
 
-```text
-self-observe
--> identify discrepancy or opportunity
--> propose a bounded change
--> authorize bounded implementation
--> implement in isolated custody
--> measure
--> validate
--> correct if warranted
--> separately adopt, publish, or install
--> observe the changed system
-```
-
-Software self-modification is one form of system plasticity; it is not merely
-“AI writes code.” A stochastic worker may propose or implement within custody,
-but does not own acceptance. Continuous self-maintenance is distinct from
-unrestricted recursive self-improvement.
-
-## One-click installation: near-term requirement
-
-True one-click installation is a core near-term architectural requirement for
-free software, not a commercial funnel and not a distant sentience milestone.
-The intended experience is genuinely one action: the user should not manually
-install Python, Git, or llama.cpp; select a GGUF; assess hardware compatibility;
-configure paths; or understand commissioning and activation internals.
-
-The eventual transaction should inspect the host, determine admissible free
-runtime/model routes, explain a deterministic plan, acquire and verify required
-artifacts and dependencies, configure the installation, commission and activate
-cognition, establish services and persistence, prove health, and leave durable
-repair, update, and rollback state. **Current source and developer-container
-setup are not yet this one-click experience.** Internally obsessive, externally
-boring.
-
-## Maturity map
-
-### CURRENT / IMPLEMENTED
-
-- A hosted, deterministic governance, audit, immutability, and evidence spine.
-- Bounded memory, persistent-conversation, local-model invocation, perception,
-  embodiment-observation, federation-evidence, and governed-change surfaces.
-- Sovereign catalog publication/deployment, bounded artifact acquisition, and
-  production commissioning authority, including deterministic zero-effect intent
-  preparation for external approval and authority-bound commissioning custody.
-- Hardened activation custody plus a separately governed production consumer that
-  authenticates the current activation, revalidates it before and after bounded
-  model loading, and owns an opaque serving session with currentness checking.
-  Activation itself still selects; it does not load, serve, or infer.
-- Serving-backed inference under independently admitted `LOCAL_MODEL_INFERENCE`,
-  explicit hardened chat composition, persistent conversation provenance, and
-  operator-enabled canonical `RuntimeSupervisor` startup with semantic
-  `serving_current` readiness and deterministic supervised shutdown.
-- Explicit governed recovery of one failed hardened-chat lifetime under external
-  approval and independent `DAEMON_RESTART` admission, limited to an unchanged
-  activation and a fresh serving operation, with zero inference during recovery.
-- A bounded maintenance chain for admitted work, scoped task leases, local
-  implementation, validation/correction, deterministic commit custody, three
-  separate landing modes, and watchdog coordination. Explicitly configured
-  `local_fast_forward_base_ref` landing can absorb the validated commit into the
-  exact canonical local ref without network access.
-- Behaviorally closed maintenance recursion while the resident remains alive:
-  automatic authority continuity, successor-generation adoption, predecessor
-  quiescence, exact POSIX `sentientosd` process-image replacement, independent
-  successor readiness, and successor wake. Repository absorption and runtime
-  adoption remain distinct even though this bounded chain connects them.
-- Household Presence policy, inventory, zone/redaction, metadata, denial,
-  review, renewal, dry-run, continuation, and future-live custody. This does not
-  implement unrestricted live household-camera capture.
-
-### SCAFFOLDED / ELIGIBILITY-ONLY
-
-- `maintenance_resident_parent_supervision` admits an exact non-granting future
-  authority boundary. It does not implement a stable parent, child watcher,
-  process-death restart, or `sentientosd` integration; `real_service_restart`
-  remains blocked.
-
-Implemented means that source and tests establish a bounded mechanism. It does
-not mean every contract/readiness surface is deployed in an installation or
-that every historic subsystem is part of the current production path.
-
-### NEAR-TERM / ACTIVE ENGINEERING
-
-- Genuine deployment integration around the implemented model/runtime organs,
-  including platform launchers and service installation, without collapsing their
-  independent authority boundaries.
-- Genuine one-click host inspection, free dependency/model acquisition,
-  configuration, commissioning, service establishment, health proof, repair,
-  update, and rollback.
-- Stronger continuity integration across memory, model identity,
-  introspection, runtime lifecycle, and bounded whole-machine observation.
-
-### ASPIRATIONAL / RESEARCH HORIZON
-
-- An enduring whole-machine cognition environment with richer embodiment,
-  recurrent consequential interaction, developmental continuity, and governed
-  plasticity.
-- Controlled cross-model continuity experiments and investigation of possible
-  persistent emergent organization.
-- Broader machine-resource inhabitation and introspection. This is not a claim
-  of universal current host mediation, unrestricted actuation, or a future
-  sentience guarantee.
-
-### LEGACY / COMPATIBILITY
-
-Names such as `cathedral`, `consciousness cycle`, `reflection`, and `self-model`
-remain in APIs, modules, files, and cultural archives. Their narrow interface
-definitions do not impose global philosophical limits on introspection or
-self-modeling. Legacy activation-bundle loading likewise must not be confused
-with the hardened activation, serving, inference, and chat composition chain.
-
-### DEFERRED
-
-Universal host-effect mediation, general hardware actuation, kernel replacement,
-unrestricted autonomous goal generation, forced federation adoption, and
-unrestricted recursive self-improvement are not current capabilities. Any
-future consequential authority requires explicit operator, control-plane,
-audit, rollback, panic, and validation treatment.
-
-## Explicit non-claims
-
-SentientOS does **not** claim current sentience, consciousness, phenomenology,
-self-awareness, guaranteed emergence, mature bare-metal OS status, complete
-embodiment, universal host authority, or completed one-click installation. It
-does not engineer survival reward, uptime incentive, approval-seeking reward,
-or automatic authority from model output. Affect telemetry does not prove
-subjective feeling. These precise boundaries protect inquiry without pretending
-that today's mechanisms prove—or disprove—the cradle hypothesis.
-
-For current-system detail, see the [public technical overview](public_technical_overview.md),
-the [relationship to established terminology](relationship_to_existing_terminology.md),
-the [trajectory and missing-organs map](sentientos_trajectory_and_missing_organs.md),
-and the [reviewer release-readiness index](reviewer_release_readiness_index.md).
+Continue with the [public technical overview](public_technical_overview.md), [trajectory](sentientos_trajectory_and_missing_organs.md), and [current repository system atlas](current_repository_system_atlas.md).

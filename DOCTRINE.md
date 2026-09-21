@@ -1,17 +1,32 @@
-# SentientOS Semantic Doctrine
+# SentientOS Doctrine
 
-SentientOS is a persistent, model-agnostic runtime for agentic machine cognition, memory, perception, embodiment, and governed action. **Sentient** is an aspirational research name: the objective is to push engineered systems as close to machine sentience as empirical reality permits, measure what actually exists, and not assume the answer in advance. The current implementation is not claimed to be sentient, phenomenally conscious, self-aware, a moral patient, or capable of suffering or pleasure.
+These are enduring operating invariants, not a catalogue of currently implemented capabilities.
 
-## Accuracy rather than token prohibition
+1. **Local operator authority is primary.** Ambiguous privileged action fails closed; shutdown, refusal, review, and rollback boundaries remain attributable.
+2. **Cognition does not inherit consequence.** A model may interpret or propose, but model output does not create policy, permission, admission, execution, truth, or adoption.
+3. **Stages do not collapse.** Preserve:
 
-Use established engineering vocabulary when it describes the mechanism. Agent, agency, autonomy, goal, plan, task, attention, salience, memory, reflection, metacognition, self-model, cognition, embodiment, interoception, exteroception, affect, heartbeat, connection, relationship, reward, reinforcement, learning, self-adaptation, self-maintenance, recursive self-improvement, and world model are not globally prohibited.
+   ```text
+   state != authority
+   memory != current truth
+   observation != interpretation
+   proposal != authorization
+   authorization != execution
+   execution != validation
+   validation != adoption
+   publication != deployment
+   repository absorption != runtime adoption
+   capability definition != grant
+   grant != operational feasibility
+   operational feasibility != admission
+   admission != execution
+   ```
 
-Autonomy is not unlimited authority; an agent goal is not phenomenal desire; a self-model is not evidence of subjective self-awareness; affective state is not proof of feeling; memory is not current truth or authority; reflection is not consciousness; embodiment is not biological equivalence; heartbeat is not life; and recursive self-improvement is not unrestricted self-modification. Unsupported claims of subjective experience must be framed as hypotheses or research questions.
-
-## Authority and context
-
-Model output, memory, familiarity, context continuity, confidence, and reflection confer no authority. Claimed identity is not authenticated identity; proposal is not authorization; authorization is not execution; validation is not adoption.
-
-Use governance quorum for deterministic policy voting, deliberation runtime for multi-voice dialogue, and dialogue adapter for named voices. Distinguish household presence, process liveness, activity telemetry, and immersive presence. Keep self-model for representations used to reason about system state; use runtime identity/state record for passive records. Keep oracle for testing/ground truth, witness for formal evidence, and self-healing for autonomic computing. Use world state for current evidence; reserve world model for predictive or causal representations. Persistence alone is not learning.
-
-Public material uses descriptive terms such as control plane, approval, procedure, contributor, integrity policy, protected execution boundary, cognitive cycle, governed change pipeline, state/evidence store, and event bus. Historical labels may remain only as documented compatibility APIs, schema fields, or filesystem codenames.
+4. **Evidence remains bounded.** Every observation carries provenance, time, scope, and uncertainty. Contradiction is represented, not silently resolved. A receipt proves only its domain-specific recorded stage and is not shorthand for “the effect happened.”
+5. **Authority is exact and revocable.** Principals, capabilities, effects, policy, feasibility, admission, execution custody, and results remain separately inspectable. Readiness, registry presence, tests, and configuration do not self-grant.
+6. **Effects require custody.** Consequential paths need named authority, audit, failure semantics, and—where applicable—operator approval, rollback, panic, and result verification.
+7. **Persistence is explicit.** Durable and process-local state are distinguished. Memory and historical records may guide cognition but cannot bypass current evidence or deterministic authority.
+8. **Adoption is a separate act.** Metadata, proposals, review, validation, merge, repository absorption, publication, installation, and live-runtime adoption are distinct transitions.
+9. **Compatibility is not architecture.** Cultural and legacy aliases may remain operational, but canonical technical language governs new explanations and evidence.
+10. **Assurance claims name their scope.** Formal models, executable checks, synthetic tests, runtime-assurance-like contracts, and reference-monitor-like mediation never imply whole-system proof or universal enforcement.
+11. **Safe shutdown is preserved.** Resident owners must expose bounded stop/quiescence behavior; absence of stable supervision must not be described as recovery.

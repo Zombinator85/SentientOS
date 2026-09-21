@@ -1,86 +1,35 @@
-# SentientOS One Pager
+# SentientOS: concise technical statement
 
-## The project
+SentientOS is a persistent, model-agnostic runtime for agentic machine cognition, memory, perception, embodiment, and governed action. It is a research machine for asking whether continuity, developmental history, grounded perception, self-observation, and consequential interaction can produce increasingly coherent machine organization. “Sentient” names that empirical objective; it is not a present sentience or consciousness claim.
 
-SentientOS is a persistent, model-agnostic runtime for agentic machine
-cognition, memory, perception, embodiment, and governed action.
-“Sentient” is explicitly aspirational: it names a research and engineering north
-star, not a claim that the current system is conscious, phenomenal, self-aware,
-or guaranteed to become so.
+## Thesis
 
-The research objective is to push persistent, embodied, autonomous machine cognition as close to machine sentience as empirical reality permits, measure what exists, and not assume the result. The experiment instruments: continuity, memory, embodiment, introspection,
-recurrent perception and action, consequential interaction, internal state,
-developmental history, and governed software plasticity.
+The model is not the system. Models are replaceable cognitive machinery. SentientOS holds the surrounding identity, history, evidence, memory, policy, authority, runtime lifecycle, and consequences stable enough to compare what changes across models and generations. Model-agnostic therefore means provider-independent system identity—not instant interchangeability without commissioning and configuration.
 
-SentientOS is not the LLM. Models are replaceable cognitive machinery inside the
-environment. The scientific aim is to preserve as much memory, history,
-self-state, authority, embodiment, and consequence as possible when an inference
-engine changes, then observe what persists, changes, disappears, or converges.
+Persistence extends beyond an inference call through domain-specific files, ledgers, atomic records, repository history, and adoption artifacts. Not all runtime state is durable. Canonical governed conversation retention and retrieval is live; legacy summaries/indexes coexist with selective distillation, capsule, tomb-intent, and review machinery, while newer live-memory planning and commit interlocks are not all resident mutation paths. Memory can shape cognition, but **memory != current truth**.
 
-## Why “OS,” introspection, and governance
+Introspection is evidence-bound. World-State projects sources, lineage, freshness, staleness, and contradiction without declaring conflicting claims true. It is read-only evidence, not omniscience, policy, admission, or effect authority.
 
-“OS” names the intended scope around cognition: compute, storage, runtime
-lifecycle, local inference, memory, sensors, resources, devices, perception,
-action, maintenance, and consequences. It does not claim that today's hosted
-Python system is a mature bare-metal kernel. A hosted, user-space, hypervisor,
-or native design can satisfy the thesis if it owns the relevant semantic
-continuity and whole-machine relationship.
+## Cognition and consequence
 
-The evidence spine exists first to make grounded introspection possible: an
-account of the system's own state, history, model identity, resources,
-capabilities, limitations, authority, memories, changes, failures, and
-consequences. Human auditability and debugging are important secondary benefits.
+Cognition proposes; deterministic machinery retains consequential custody. A typical path separates capability definition, grant, policy, operational feasibility, admission, execution custody, effect attempt, verification, and a domain-specific receipt. A receipt proves only the stage it records. Model output does not grant authority.
 
-Governance is the reality boundary, not the whole product. Models may interpret,
-reason, create, propose, or be wrong; deterministic machinery retains custody of
-authoritative state, permissions, provenance, recovery, and consequential
-transitions. Memory is not current truth, proposal is not authorization,
-authorization is not execution, validation is not adoption, publication is not deployment, and repository absorption is not runtime restart or adoption.
+This is why SentientOS is more than an agent framework: the central object is a persistent governed environment around cognition, with explicit state and effect boundaries, not merely an orchestration loop over prompts or agents. Council and multi-agent libraries exist but are not the default resident architecture.
 
-## Development and installation
+## Present system
 
-Software change is one form of system plasticity. The intended loop is to
-self-observe, identify a discrepancy, propose and authorize a bounded change,
-implement in isolation, measure, validate and correct, separately adopt or
-install, then observe the changed system. A stochastic worker does not own
-acceptance, and continuous self-maintenance is not unrestricted recursive
-self-improvement.
+`sentientosd` is a real resident background loop. It composes maintenance evidence, World-State, and read-only host observation; exact configuration may add bounded maintenance owners. `sentientos-chat` composes the strongest current local-model route. Catalog/acquisition, commissioning, activation, serving/loading, and inference authority remain separate.
 
-True one-click installation is a near-term architectural requirement for free
-software. Eventually one action should inspect the host, select admissible free
-runtime/model routes, explain a deterministic plan, acquire and verify artifacts,
-configure, commission and activate cognition, establish services and
-persistence, prove health, and leave repair/update/rollback state. Current setup
-is not yet one-click. Implemented mechanisms are not claims of universal deployment.
+The resident can observe host CPU, memory, disk, services, and thermal evidence. It does not therefore possess blanket host-control authority. Named GUI, filesystem, diagnostic, subprocess, service, and other effectors exist under separate custody; most are not resident defaults.
 
-## Maturity
+The external-model actuator is implemented through exact authority and grant machinery, policy, feasibility, admission, service/endpoint/model and credential custody, request material, HTTPS transport, bounded response custody, and receipts. It does not therefore imply a provider is contacted: the path is not resident/default composed and lacks default grants, provider configuration, credentials, and safe request material. Responses are `untrusted_external_data`, not automatically cognition, truth, memory, goals, or authority.
 
-- **CURRENT / IMPLEMENTED:** hosted governance, audit, immutability, memory,
-  conversation, bounded perception/embodiment observation, and model supply-chain
-  custody. The hardened production chain has separate bounded organs for
-  commissioning intent and custody, activation, authenticated loading/serving,
-  independently admitted inference, chat composition, operator-enabled runtime
-  startup/readiness/shutdown, conversation provenance, and explicit
-  unchanged-activation recovery. The bounded maintenance chain separately covers
-  admitted work, scoped leases, local implementation, validation/correction,
-  deterministic commit custody, three landing modes, watchdog coordination, and
-  explicitly authorized network-free local repository absorption.
-- **NEAR-TERM / ACTIVE ENGINEERING:** genuine one-click installation, platform
-  service/deployment integration, and stronger integration of continuity,
-  self-state, memory, model identity, and host observation.
-- **ASPIRATIONAL / RESEARCH HORIZON:** enduring whole-machine embodiment,
-  controlled cross-model continuity experiments, richer consequential
-  development, and investigation of possible emergent organization.
-- **NOT CLAIMED:** present sentience or consciousness, guaranteed emergence,
-  universal host mediation, mature bare-metal OS status, affect as proof of
-  feeling, engineered survival/approval rewards, or automatic authority from
-  model output.
+The maintenance chain is stronger than proposal-only. Under bounded custody it can collect evidence, form work, implement, validate and correct, land repository changes, configure a successor, adopt on wake, quiesce the predecessor, verify independent readiness, and replace the POSIX resident process image. It does not therefore perform unrestricted recursive self-improvement. Stable parent supervision and automatic unexpected-process-death recovery remain absent.
 
-The canonical statement is
-[`docs/architecture/sentientos_project_thesis.md`](docs/architecture/sentientos_project_thesis.md).
-Current mechanisms and reviewer proof are indexed in the
-[public technical overview](docs/architecture/public_technical_overview.md) and
-[release-readiness index](docs/architecture/reviewer_release_readiness_index.md).
+## Maturity and trajectory
 
+Current strengths are explicit authority/effect decomposition, durable provenance, governed local-model and conversation paths, evidence-bound self-state, host observation, and bounded maintenance/adoption. Important missing organs include one-click installation and service integration, universal crash recovery, production-default external-model composition, mature hardware embodiment, deeper continuity experiments, and a supported default production WAN federation deployment.
 
-Historical symbolic vocabulary is retained in Git history rather than current architecture documentation.
+Selected behaviors are formally modeled or executable-checked. The whole Python system is not formally verified. Synthetic proof establishes a code path, not production composition, credentials, hardware, a default grant, or a real-world effect.
+
+Read the [project thesis](docs/architecture/sentientos_project_thesis.md), [public technical overview](docs/architecture/public_technical_overview.md), and [current-system atlas](docs/architecture/current_repository_system_atlas.md).
