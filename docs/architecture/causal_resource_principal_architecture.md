@@ -1,6 +1,6 @@
 # Causal Resource Principal Architecture
 
-> **Posture — root identity evidence plus one observation-only consumer implemented; wider architecture remains non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements inert root evidence, and `sentientos/control_plane_kernel.py` may project explicitly supplied canonical root evidence into descriptive proof-budget context. Neither surface implements allocation, child propagation, consumption, enforcement, entitlement, or effect authority. Possessing or observing a principal confers nothing and allocates nothing.
+> **Posture — root identity evidence plus one bounded producer/consumer composition implemented; wider architecture remains non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements inert root evidence, and `sentientos/genesis_forge.py` may explicitly carry a caller-supplied existing root to `sentientos/control_plane_kernel.py`, which projects canonical evidence into descriptive proof-budget context. Neither surface implements allocation, child propagation, consumption, enforcement, entitlement, or effect authority. Possessing or observing a principal confers nothing and allocates nothing.
 
 **Inspected revision:** `168fde46163676cb913887282088a3687d7d7bf4`  
 **Inspection time:** `2026-09-21T07:28:58Z`  
@@ -20,7 +20,7 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 **Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
 
-The next smallest justified slice is a bounded producer/composition path that supplies already-existing root evidence to proof-budget observations. It must not mint at the consumer, establish generic propagation, or create entitlement.
+The bounded GenesisForge composition path is now implemented: one top-level invocation may explicitly reuse the same caller-supplied root for several needs, without child derivation, minting, generic propagation, allocation, admission influence, or proof-budget influence. The next smallest justified slice is authenticated issuer provenance and custody for a real runtime root producer; canonical self-binding alone is not issuer authentication.
 
 ### Canonical verification is not issuer authentication
 
@@ -389,9 +389,9 @@ This table refuses equivalence-by-name. “Current status” distinguishes obser
 
 ## 18. Candidate implementation boundaries
 
-Observation-only proof-budget attribution is implemented only at the explicit control-plane boundary. The next plausible integration is a bounded producer/composition path that supplies existing root evidence; a governed local-model budget adapter remains later work. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
+Observation-only proof-budget attribution is implemented at the explicit control-plane boundary, and GenesisForge now has one bounded explicit producer path that supplies an already-existing caller root for an invocation. A governed local-model budget adapter remains later work. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
 
-The **smallest next runtime slice** is: add a bounded producer/composition path that supplies already-existing root evidence to this observer without minting at the consumer or creating generic propagation. Stronger authenticated custody across untrusted boundaries remains a prerequisite before treating serialized evidence as issuer-authenticated.
+The **smallest next runtime slice** is: design authenticated issuer provenance and custody for a real runtime root producer. Canonical self-binding is not issuer authentication, so this prerequisite should be closed before any resource allocation slice.
 
 ## 19. Unresolved questions
 
@@ -444,7 +444,7 @@ These are bounded implementation decisions, not reasons to reopen the architectu
 | 16. `final_check` | after otherwise-valid effect admission and immediately before effect attempt, plus metering where required |
 | 17. `receipt_relation` | cross-linked but distinct resource and effect receipts |
 | 18. `deferred` | all runtime minting, ledgers, propagation, enforcement, billing, GPU accounting and cost sharing |
-| 19. `next_runtime_task` | Define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only; no allocation ledger, propagation integration, or enforcement. |
+| 19. `next_runtime_task` | Design authenticated issuer provenance and custody for a real runtime root producer; canonical self-binding alone is not issuer authentication. |
 
 ## 22. Design contract summary
 

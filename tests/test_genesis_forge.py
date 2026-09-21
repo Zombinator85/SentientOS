@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Mapping, cast
 
 import pytest
 
@@ -15,8 +17,11 @@ from sentientos.control_plane_kernel import (
     AdmissionOutcome,
     AuthorityClass,
     ControlActionDecision,
+    ControlActionRequest,
+    ControlPlaneKernel,
     LifecyclePhase,
 )
+from sentientos.causal_resource_principal import CausalResourcePrincipal, RootPrincipalIssuer, VerifiedOperatorSponsorship
 from sentientos.genesis_forge import (
     AdoptionRite,
     CovenantVow,
@@ -28,6 +33,7 @@ from sentientos.genesis_forge import (
     TelemetryStream,
     TrialRun,
 )
+from sentientos.runtime_governor import GovernorDecision, PressureSnapshot
 
 
 @pytest.fixture(autouse=True)
@@ -360,8 +366,8 @@ def test_genesis_forge_refuses_when_no_admissible_candidate(tmp_path: Path) -> N
     assert outcomes[0].status == "failed"
 
 
-def _build_forge(tmp_path: Path) -> GenesisForge:
-    kernel = _PermissiveKernel()
+def _build_forge(tmp_path: Path, kernel: object | None = None) -> GenesisForge:
+    kernel = kernel or _PermissiveKernel()
     return GenesisForge(
         need_seer=NeedSeer(),
         forge_engine=ForgeEngine(),
@@ -377,6 +383,109 @@ def _build_forge(tmp_path: Path) -> GenesisForge:
         router_factory=lambda: ConstitutionalMutationRouter(kernel_provider=lambda: kernel),
         kernel_provider=lambda: kernel,
     )
+
+
+class _Sponsor:
+    def verify(self, sponsorship_evidence: object) -> VerifiedOperatorSponsorship:
+        return VerifiedOperatorSponsorship("sha256:" + "1" * 64)
+
+
+class _AllowingRuntimeGovernor:
+    def admit_action(self, action_type: str, actor: str, correlation_id: str, metadata=None) -> GovernorDecision:  # noqa: ANN001
+        return GovernorDecision(
+            action_class=action_type,
+            allowed=True,
+            mode="enforce",
+            reason="allowed",
+            subject=str((metadata or {}).get("subject") or "subject"),
+            scope="local",
+            origin=actor,
+            sampled_pressure=PressureSnapshot(
+                cpu=0.1,
+                io=0.1,
+                thermal=0.1,
+                gpu=0.1,
+                composite=0.1,
+                sampled_at=datetime.now(timezone.utc).isoformat(),
+            ),
+            reason_hash="hash",
+            correlation_id=correlation_id,
+            action_priority=0,
+            action_family="control",
+        )
+
+
+class _RecordingKernel:
+    def __init__(self, kernel: ControlPlaneKernel) -> None:
+        self.kernel = kernel
+        self.requests: list[ControlActionRequest] = []
+        self.decisions: list[ControlActionDecision] = []
+
+    def admit(self, request: ControlActionRequest) -> ControlActionDecision:
+        self.requests.append(request)
+        decision = self.kernel.admit(request)
+        self.decisions.append(decision)
+        return decision
+
+
+def _root() -> CausalResourcePrincipal:
+    return RootPrincipalIssuer(issuer_id="test-root-issuer", sponsorship_verifier=_Sponsor()).mint_root(
+        sponsorship_evidence={"operator": "test"},
+        subject_binding_digest="sha256:" + "2" * 64,
+        epoch=1,
+        issued_at="2026-09-21T08:00:00Z",
+        expires_at="2026-09-21T09:00:00Z",
+    )
+
+
+def test_genesis_carries_existing_root_to_real_proof_budget_observation_without_policy_change(tmp_path: Path) -> None:
+    root = _root()
+    now = datetime(2026, 9, 21, 8, 30, tzinfo=timezone.utc).timestamp()
+    recording = _RecordingKernel(ControlPlaneKernel(runtime_governor=_AllowingRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl", phase=LifecyclePhase.MAINTENANCE, clock=lambda: now))  # type: ignore[arg-type]
+    forge = _build_forge(tmp_path, recording)
+    telemetry = [TelemetryStream("vision", "vision_input", "camera", frozenset())]
+    vows = [CovenantVow("vision_input", "camera vow")]
+
+    without_root = forge.propose_for_review(telemetry, vows)
+    with_root = forge.propose_for_review(telemetry, vows, causal_resource_principal=root)
+
+    absent_request, rooted_request = recording.requests
+    absent_decision, rooted_decision = recording.decisions
+    policy_fields = ("mode", "k_effective", "m_effective", "allow_escalation", "decision_reasons")
+    assert {key: absent_decision.delegated_outcomes["proof_budget_governor"][key] for key in policy_fields} == {
+        key: rooted_decision.delegated_outcomes["proof_budget_governor"][key] for key in policy_fields
+    }
+    assert absent_decision.outcome == rooted_decision.outcome == AdmissionOutcome.ALLOW
+    assert without_root[0].status == with_root[0].status == "proposal_ready_for_review"
+    assert "causal_resource_principal" not in absent_request.proof_budget_context
+    assert rooted_request.proof_budget_context["causal_resource_principal"] == root.to_dict()
+    run_context = cast(Mapping[str, object], rooted_request.proof_budget_context["run_context"])
+    assert all(key not in run_context for key in ("principal_id", "root_principal_id", "causal_resource_principal"))
+    assert rooted_decision.delegated_outcomes["proof_budget_context"]["causal_attribution"] == {
+        "status": "canonical_root_binding_verified",
+        "principal_id": root.principal_id,
+        "root_principal_id": root.root_principal_id,
+        "principal_binding_digest": root.binding_digest,
+        "issuer_id": root.issuer_id,
+        "epoch": root.epoch,
+    }
+
+
+def test_genesis_reuses_one_supplied_root_for_multiple_needs(tmp_path: Path) -> None:
+    root = _root()
+    recording = _RecordingKernel(_PermissiveKernel())  # type: ignore[arg-type]
+    forge = _build_forge(tmp_path, recording)
+    telemetry = [
+        TelemetryStream("vision", "vision_input", "camera", frozenset()),
+        TelemetryStream("audio", "audio_input", "microphone", frozenset()),
+    ]
+    vows = [CovenantVow("vision_input", "camera vow"), CovenantVow("audio_input", "audio vow")]
+
+    outcomes = forge.expand(telemetry, vows, causal_resource_principal=root)
+
+    assert len(outcomes) == len(recording.requests) == 2
+    assert all(request.proof_budget_context["causal_resource_principal"] == root.to_dict() for request in recording.requests)
+    assert all(request.proof_budget_context["run_context"].keys().isdisjoint({"principal_id", "root_principal_id", "causal_resource_principal"}) for request in recording.requests)
 
 
 def test_genesis_stage_b_proof_budget_is_capped_by_m(

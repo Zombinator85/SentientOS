@@ -48,6 +48,7 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
     get_control_plane_kernel,
 )
+from sentientos.causal_resource_principal import CausalResourcePrincipal
 from sentientos.protected_mutation_provenance import validate_admission_provenance
 from sentientos.constitutional_mutation_fabric import (
     CanonicalMutationExecutionError,
@@ -744,6 +745,8 @@ class GenesisForge:
         self,
         telemetry_streams: Sequence[TelemetryStream],
         vows: Sequence[CovenantVow],
+        *,
+        causal_resource_principal: CausalResourcePrincipal | None = None,
     ) -> list[GenesisOutcome]:
         """Draft reviewable Genesis proposals through the canonical evaluation pipeline."""
 
@@ -769,7 +772,10 @@ class GenesisForge:
                 continue
             attempt_id = self._next_execution_attempt_id(f"{need.capability}:{need.source}")
             kernel = self._kernel_provider()
-            budget_request = ControlActionRequest(action_kind="proof_budget", authority_class=AuthorityClass.PROPOSAL_EVALUATION, actor="genesis_forge", target_subsystem=need.capability, requested_phase=LifecyclePhase.MAINTENANCE, metadata={"correlation_id": f"genesis:{need.capability}:{attempt_id}:proof_budget", "require_admissible": False, "execution_attempt_id": attempt_id}, proof_budget_context={"config": governor_config, "pressure_state": pressure_state, "run_context": {"pipeline":"genesis", "capability":need.capability, "router_attempt":1, "execution_attempt_id":attempt_id}})
+            proof_budget_context: dict[str, object] = {"config": governor_config, "pressure_state": pressure_state, "run_context": {"pipeline":"genesis", "capability":need.capability, "router_attempt":1, "execution_attempt_id":attempt_id}}
+            if causal_resource_principal is not None:
+                proof_budget_context["causal_resource_principal"] = causal_resource_principal.to_dict()
+            budget_request = ControlActionRequest(action_kind="proof_budget", authority_class=AuthorityClass.PROPOSAL_EVALUATION, actor="genesis_forge", target_subsystem=need.capability, requested_phase=LifecyclePhase.MAINTENANCE, metadata={"correlation_id": f"genesis:{need.capability}:{attempt_id}:proof_budget", "require_admissible": False, "execution_attempt_id": attempt_id}, proof_budget_context=proof_budget_context)
             budget_gate = kernel.admit(budget_request)
             budget_payload = budget_gate.delegated_outcomes.get("proof_budget_governor", {})
             governor_decision = BudgetDecision(k_effective=int(budget_payload.get("k_effective", configured_k)), m_effective=int(budget_payload.get("m_effective", configured_m)), allow_escalation=bool(budget_payload.get("allow_escalation", True)), mode=str(budget_payload.get("mode", "normal")), decision_reasons=[str(item) for item in budget_payload.get("decision_reasons", [])])
@@ -791,6 +797,8 @@ class GenesisForge:
         self,
         telemetry_streams: Sequence[TelemetryStream],
         vows: Sequence[CovenantVow],
+        *,
+        causal_resource_principal: CausalResourcePrincipal | None = None,
     ) -> list[GenesisOutcome]:
         """Fail closed: raw Genesis expansion no longer performs adoption.
 
@@ -798,7 +806,11 @@ class GenesisForge:
         sentientos.genesis_reviewed_adoption with a sealed review packet, an
         explicit operator approval decision, and two control-plane admissions.
         """
-        outcomes = self.propose_for_review(telemetry_streams, vows)
+        outcomes = self.propose_for_review(
+            telemetry_streams,
+            vows,
+            causal_resource_principal=causal_resource_principal,
+        )
         sealed: list[GenesisOutcome] = []
         for outcome in outcomes:
             details = dict(outcome.details)
