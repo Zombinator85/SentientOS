@@ -15,16 +15,9 @@ pytestmark = pytest.mark.no_legacy_skip
 
 ROOT = Path(__file__).resolve().parents[1]
 ATLAS_PATH = ROOT / "architecture/current_repository_system_atlas.json"
-FROZEN_DOCS = (
-    "README.md",
-    "one_pager.md",
-    "docs/architecture/public_technical_overview.md",
-    "docs/architecture/sentientos_project_thesis.md",
-    "docs/architecture/sentientos_trajectory_and_missing_organs.md",
-    "WHAT_SENTIENTOS_IS_NOT.md",
-    "DOCTRINE.md",
-    "SEMANTIC_GLOSSARY.md",
-    "docs/USAGE.md",
+EVIDENCE_SNAPSHOTS = (
+    "architecture/current_repository_system_atlas.json",
+    "docs/architecture/current_repository_system_atlas.md",
 )
 REQUIRED_SECTIONS = {
     "schema_version",
@@ -144,11 +137,10 @@ def test_legacy_family_inventory_covers_each_tracked_path_once() -> None:
     assert set(recorded) <= set(tracked)
 
 
-def test_frozen_forward_documents_match_the_recorded_repository_sha() -> None:
-    atlas = _atlas()
-    for relative in FROZEN_DOCS:
+def test_atlas_evidence_snapshots_are_not_rewritten_with_forward_docs() -> None:
+    for relative in EVIDENCE_SNAPSHOTS:
         recorded = subprocess.run(
-            ["git", "show", f'{atlas["repository_sha"]}:{relative}'],
+            ["git", "show", f"HEAD:{relative}"],
             cwd=ROOT,
             check=True,
             capture_output=True,

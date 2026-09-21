@@ -1,518 +1,98 @@
 # SentientOS
 
-**SentientOS is a persistent, model-agnostic runtime for agentic machine
-cognition, memory, perception, embodiment, and governed action.**
+**SentientOS is a persistent, model-agnostic runtime for agentic machine cognition, memory, perception, embodiment, and governed action.**
 
-“Sentient” is an aspirational research objective—not a claim that the current
-system or any model within it is sentient, phenomenally conscious, or
-self-aware. The project tests how close engineered systems can come to machine
-sentience as empirical reality permits without assuming the answer in advance.
-SentientOS is not the LLM: models are replaceable cognitive machinery inside an
-environment intended to retain memory, history, embodiment, self-state,
-authority, consequences, and continuity across inference-engine changes.
+“Sentient” is an aspirational research direction, not a claim that this system is conscious or sentient today. The project asks what durable machine continuity, grounded self-observation, embodiment, development, and accountable action can support—and insists that the answer remain empirical.
 
-“OS” describes the intended whole-machine scope, not today's maturity. The
-current repository is principally a hosted Python environment with bounded
-memory, local-model, perception, governance, audit, and governed-change
-surfaces—not a mature bare-metal kernel, universal host mediator, or completed
-one-click installation.
+## The model is not the system
 
-Observability exists first to make grounded **introspection** possible. The same
-evidence spine supports human audit and debugging. Governance is the machine's
-**reality boundary**: stochastic cognition may reason and propose, while
-deterministic machinery retains custody of authoritative state, permission,
-verification, recovery, provenance, and consequential transitions.
+An inference model is replaceable cognitive machinery inside SentientOS. The system also owns runtime and model-generation identity, durable conversation history, evidence, policy, capability custody, audit records, lifecycle state, and bounded effect paths. **Model identity is not system identity.** Model-agnostic means the architecture is not defined by one model or provider; it does not mean an arbitrary model can be swapped in without cataloging, commissioning, configuration, activation, serving, and admission.
 
-Start with:
+Persistence is similarly domain-specific. Conversation records, atomic state, JSON/JSONL evidence, append-only or hash-linked ledgers, configuration/adoption artifacts, and repository history can survive a restart. Buffers, listeners, some deduplication windows, governor state, and caches remain process-local. Persistent does not mean every subsystem is crash-durable.
 
-- **Thesis and maturity:** [`docs/architecture/sentientos_project_thesis.md`](docs/architecture/sentientos_project_thesis.md)
-- **Current-system details:** [`docs/architecture/public_technical_overview.md`](docs/architecture/public_technical_overview.md)
-- **Current supported installation:** [Installation](#-installation) and [`docs/USAGE.md`](docs/USAGE.md)
-- **Reviewer proof:** [`docs/architecture/reviewer_release_readiness_index.md`](docs/architecture/reviewer_release_readiness_index.md), or generate a metadata-only local bundle with `python scripts/build_reviewer_proof_bundle.py --output-dir /tmp/sentientos-reviewer-proof`
+## What runs now
 
-<!-- architecture-status:start -->
-## The integrated system, not just its model
+The `sentientosd` entrypoint runs a resident background loop for maintenance evidence, World-State construction, and read-only host-resource review. Configured maintenance owners can operate automatically, but consequential effects remain independently gated. `sentientos-chat` is the clearest supported local-model service path: installed model custody, activation, serving, per-generation inference admission, conversation identity, and canonical conversation retention are separate stages.
 
-**SentientOS is not identical to its currently active inference model.** It is a
-persistent, governed, sensorimotor, developmental, and self-maintaining software
-environment. A foundation or inference model is **replaceable cognitive
-machinery** operating inside that longer-lived environment.
+Implemented, bounded organs include:
 
-Two lifecycles therefore matter:
+- a deterministic control plane with capability definitions, grants, policy, admission, revocation, and domain-specific receipts;
+- governed canonical conversation memory and exact session resumption;
+- evidence-bound World-State projections with source lineage, freshness, staleness, and conflicts;
+- read-only resident observation of CPU, memory, disk, services, and thermal evidence;
+- local-model catalog, acquisition, commissioning, activation, serving, and inference machinery with explicit lifecycle boundaries;
+- audio, screen, and vision adapters at differing partial activation and hardware maturity;
+- bounded software-maintenance custody through evidence, work formation, implementation, validation/correction, landing, successor configuration, wake adoption, predecessor quiescence, and POSIX process-image replacement;
+- exact external-model HTTPS execution custody, unavailable and inactive by default.
 
-- **System lifecycle.** Durable system state, selected and distilled memory,
-  developmental history, context and reflection artifacts, perception and
-  world-state evidence, embodiment and host-resource state, authority posture,
-  model/serving identity, maintenance state, software generations, failures,
-  consequences, and audit evidence can exist before, during, and after one
-  inference call.
-- **Inference lifecycle.** A call receives selected context, computes, and emits
-  output. It may contribute reasoning or a bounded proposal, but it does not
-  become the whole identity or lifetime of SentientOS. Persistent state does not
-  require token generation to continue existing.
+Council, agent, federation, cultural, and historical daemon libraries also exist. Their presence does not make them resident or default-composed. SentientOS is not primarily a multi-agent orchestrator.
 
-This lifecycle distinction is an engineering statement, not a claim of
-consciousness, sentience, subjective experience, or moral status.
+## The reality boundary
 
-### Current architecture at a glance
-
-| Organ | Current posture |
-|---|---|
-| Local model serving and inference | **CURRENT / IMPLEMENTED BUT GOVERNED** — independently admitted local serving and inference; model output grants no authority. |
-| Memory, context, reflection, and distillation | **CURRENT / PARTIAL AND GOVERNED** — persistent conversation, bounded retrieval/retention, and metadata-only retain/distill/capsule/tomb and commit-review chains; real live-memory mutation remains deferred. |
-| Perception and embodiment | **CURRENT / PARTIAL** — audio, screen/OCR, vision telemetry, embodiment ingress/fusion/governance, avatar and host-resource observation exist at different bounded maturities. |
-| **Household Presence** | **CURRENT / IMPLEMENTED POLICY AND METADATA CUSTODY** — inventory, event, zone, redaction, dry-run, denial, review, renewal, continuation, and deferral surfaces exist; unrestricted live camera/microphone capture, Wi-Fi/RF sensing, and talkback do not. |
-| Introspection and world state | **CURRENT / IMPLEMENTED BUT EVIDENCE-BOUND** — exact machine facts and read-only `world_state_evidence_board` snapshots; neither is omniscience or decision authority. |
-| Host interaction | **CURRENT / BOUNDED** — screen, GUI/mouse/keyboard/browser adapters, observation, and narrow workspace/file-effect pilots; not blanket computer control. |
-| Maintenance recursion | **CURRENT / IMPLEMENTED BUT BOUNDED** — admitted work can be implemented, validated, locally absorbed, transformed into an exact successor generation, and adopted by governed POSIX `sentientosd` process-image replacement while the resident remains alive. |
-| Parent supervision | **SCAFFOLDED / ELIGIBILITY-ONLY** — `maintenance_resident_parent_supervision` defines a non-granting future boundary. No stable parent, watcher/restart loop, or process-death recovery runtime exists. |
-| Generic restart | **BLOCKED** — `real_service_restart` remains `blocked / none`. |
-
-Governance is the reality boundary:
+Cognition may interpret, reason, and propose; it does not automatically possess authority. A representative effect chain is:
 
 ```text
-state != authority                 memory != current truth
-proposal != authorization          authorization != execution
-execution != validation            validation != adoption
-publication != deployment          repository absorption != runtime adoption
+capability definition
+-> bounded grant
+-> policy
+-> operational feasibility
+-> admission
+-> execution custody
+-> effect attempt
+-> result verification
+-> durable receipt
 ```
 
-The bounded resident maintenance chain now reaches independently proven
-successor readiness and successor wake after exact process-image replacement.
-That is substantial loop closure, not unrestricted recursive self-improvement,
-arbitrary repository mutation, model-weight self-improvement, automatic
-rollback, or recovery after the resident process unexpectedly dies.
+Domains vary, but no stage silently implies the next. In particular:
 
-Read the [present-tense technical overview](docs/architecture/public_technical_overview.md),
-the [relationship to established terminology](docs/architecture/relationship_to_existing_terminology.md),
-the [project thesis](docs/architecture/sentientos_project_thesis.md), and the
-[trajectory/deferred map](docs/architecture/sentientos_trajectory_and_missing_organs.md).
-<!-- architecture-status:end -->
+```text
+state != authority
+memory != current truth
+proposal != authorization
+capability definition != grant
+grant != operational feasibility
+operational feasibility != admission
+admission != execution
+execution != validation
+validation != adoption
+repository absorption != runtime adoption
+```
 
-> ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
+World-State is a read-only evidence board, not omniscient truth or effect authority. Host observation is not blanket host control. Effectors exist for named domains, but most require separate operator, configuration, policy, and admission custody and are not resident defaults.
 
-[![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)
-[![Release: SentientOS v1.2.0-beta – Deterministic Core Release](https://img.shields.io/badge/Release-v1.2.0--beta-blueviolet)](docs/REHEARSAL.md)
-[![Autonomy Metrics](https://img.shields.io/badge/metrics-autonomy%20ready-5b73d8)](docs/METRICS.md)
-[![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
+External-model invocation is a real bounded actuator: the repository implements registered authority, grant policy, feasibility checks, admission, endpoint/model and credential custody, request-material custody, exact HTTPS transport, response custody, and durable receipts. It is not resident-composed or generally enabled; no default provider grant, provider configuration, credential, or safe request-material source completes that live path. No provider is contacted automatically. Responses remain `untrusted_external_data` and are not automatically promoted into cognition, truth, memory, goals, or authority.
 
-## Current runtime description
+## Maturity and assurance
 
-Today SentientOS runs primarily as a hosted, bounded system. It ingests selected
-telemetry, applies governance checks, enforces invariant contracts, invokes
-locally configured models through explicit authority boundaries, and emits
-auditable outcomes. Its deterministic custody layer is policy-gated; cognition
-and model output are not automatically authoritative. Embodiment adapters are
-partial and optional, and universal whole-machine mediation remains a research
-horizon.
+SentientOS has selected TLA+/formal models, executable checks, invariants, behavioral tests, audit machinery, and proof bundles. These formally model or executable-check named behaviors; they do **not** constitute machine-checked proof of the whole Python system. Reference-monitor-like and runtime-assurance-like properties apply only to named mediated domains, not universal mediation or whole-system formal RTA conformance.
 
-## What this is / what this is not
+The maintenance chain can adopt an exact validated successor and replace the resident POSIX `sentientosd` process image under bounded custody. This is real self-maintenance, not unrestricted recursive self-improvement. It depends on explicit configuration, authorities, validation, landing, adoption, successor readiness, and a live cooperative predecessor. Stable parent supervision and automatic recovery after unexpected resident death remain unimplemented. Generic service restart remains blocked.
 
-### This is
-- A persistent machine-cognition research environment in active development.
-- A model-agnostic architecture that treats inference engines as replaceable workers.
-- A deterministic reality/authority boundary (internal codename: `cathedral`) around open-ended cognition.
-- A contract-first evidence spine with integrity artifacts (`/vow`) and state ledger artifacts (`/glow`).
+Federation identity, trust epochs, replay protection, and WAN/lab evidence exist; a supported default production WAN synchronization deployment is not established. Synthetic tests prove code-path behavior, not deployed credentials, hardware, production accounts, default grants, resident composition, or an actual external effect.
 
-### This is not
-- A claim of present sentience, consciousness, or guaranteed emergence.
-- A mature general-purpose bare-metal OS or complete embodiment layer.
-- A hidden scheduler or model-output path that bypasses operator and governance gates.
-- A finished one-click installer; current setup still requires developer prerequisites.
+## Install, run, and review
 
-## Compact architecture sketch
-
-1. **Ingress and telemetry:** pulse event stream (internal codename: `pulse`) and adapter inputs.
-2. **Deterministic processing:** state-processing modules evaluate and transform inputs.
-3. **Governance and integrity:** policy gates, invariant checks, and approval enforcement.
-4. **Audit and artifacts:** append-only logs, immutable manifest verification, and operator-visible reports.
-
-## Public language bridge
-
-Public docs lead with engineering terms and dual-label internal codenames where
-needed. Use the canonical bridge here:
-
-- [docs/PUBLIC_LANGUAGE_BRIDGE.md](docs/PUBLIC_LANGUAGE_BRIDGE.md)
-- Tooling registry: `sentientos/public_language_map.py`
-
-For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
-Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
-
-### Migration note
-- `MeshNodeState` now uses `affect` as the primary field for expression-only telemetry. Legacy payloads using `emotion` are still accepted as an alias, and serialized output currently includes both keys for compatibility.
-
-> Semantic regression guard: `scripts/semantic_lint.sh` enforces language neutrality, and interpretation drift is treated as a breaking change alongside API or schema updates.
-
-## 📦 Installation
-
-Install the API and GUI directly from the source tree:
+SentientOS requires Python 3.11 for the repository validation baseline.
 
 ```bash
-git clone https://github.com/Zombinator85/SentientOS.git
-cd SentientOS
-pip install .
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install -e .
+
+python -m sentientos --help        # inspection and UI surface
+python -m sentientos.ops --help    # operator/reviewer workflows
+sentientosd                        # resident runtime
+sentientos-chat                    # governed local chat service
 ```
 
-This provides `sentient-api` and `sentientos-governance-ui`. `cathedral-gui` remains a deprecated compatibility alias.
+Installation is not yet a one-click production deployment, and launch does not manufacture model artifacts, credentials, grants, or authority. See the [usage guide](docs/USAGE.md) for the supported entrypoint hierarchy.
 
-## 🧪 Codex-first CI flow
+## Read next
 
-- Run builds inside the `.devcontainer` image or via GitHub Actions. The `Codex CI` workflow builds the devcontainer image, compiles the vendored `llama.cpp` server example, and runs smoke tests automatically.
-- Inside the devcontainer, `make ci` executes the same sequence locally by calling `./scripts/ci.sh`.
-- `python3 tools/bootstrap_secondary.py` validates that the vendored `SentientOSsecondary/llama.cpp` tree is present before the build begins.
+1. [One-page project statement](one_pager.md)
+2. [Project thesis](docs/architecture/sentientos_project_thesis.md)
+3. [Public technical overview](docs/architecture/public_technical_overview.md)
+4. [Current repository system atlas](docs/architecture/current_repository_system_atlas.md) (exhaustive snapshot evidence)
+5. [Reviewer release-readiness and proof](docs/architecture/reviewer_release_readiness_index.md)
 
-## 🚀 Quickstart
-
-```bash
-python scripts/bootstrap_cathedral.py  # legacy bootstrap script name
-python -m sentientos --help
-python -m sentientos.ops --help
-```
-
-The canonical public CLI guide is [`docs/USAGE.md`](docs/USAGE.md). Historical
-examples such as `sentientos cycle` or `sentientos ssa ...` are intentionally
-retired from the current argparse surface.
-
-### Cognition layer
-
-- Modules operate as state processors that transform inputs deterministically:
-  arbitrator (priority resolution), kernel (bounded goal selection), narrator
-  (reflection summarization), and simulation engine (scenario evaluation).
-- Pulse Bus 2.0 metadata (`focus`, `context`, `internal_priority`,
-  `event_origin`) is documented in `docs/PULSE_BUS.md` and is validated on
-  ingestion.
-- The alignment-contract runtime identity contract (legacy term: self-model) lives at `/glow/self.json` with schema and
-  write-back rules in `docs/SELF_MODEL.md`.
-- Cycle diagrams are available in `docs/diagrams/` for the current scaffold.
-
-#### Integration Layer (Caller-Driven Only)
-
-- `sentientos.cognition.integration.run_cognitive_cycle(context)`
-  exposes a deterministic, synchronous hook for orchestrators.
-- The facade is dormant until explicitly invoked; there are no schedulers,
-  timers, or background triggers calling it on behalf of the system.
-- SentientOS does not run cognitive cycles automatically.
-
-### Running tests
-
-Run the same checks used in automation from the repository root:
-
-```bash
-python -m scripts.run_tests -q
-make ci
-```
-
-`python -m scripts.run_tests` is the canonical test entrypoint. Direct `pytest`
-invocation is guarded by `tests/conftest.py` and expects the same editable-install
-and dependency contract. If you need to bypass that guard for local diagnosis,
-set `SENTIENTOS_ALLOW_NAKED_PYTEST=1` explicitly.
-
-## 🧪 Demo Gallery
-
-Run deterministic experiment chains end-to-end without hardware by using the
-demo gallery specifications:
-
-```bash
-python experiment_cli.py demo-list
-python experiment_cli.py demo-run demo_simple_success
-```
-
-Each demo uses the mock adapter, evaluates DSL criteria, and records transcripts
-in the standard experiment chain log. See [`demos/README.md`](demos/README.md)
-for details about the available scenarios.
-
-## 📚 Curated model families
-
-- **Default baseline:** Mistral-7B-Instruct (Apache-2.0) across platforms.
-- **License safety:** Default recommendations exclude revocable, RAIL, or non-commercial licenses.
-- **Matrix:** See [`docs/CURATED_MODEL_MATRIX.md`](docs/CURATED_MODEL_MATRIX.md) for curator-facing platform guidance and escrow targets.
-
-### What v1 ships with
-
-The v1 frozen set is fully escrowed and hash-anchored:
-
-- **Baseline:** `mistral-7b-instruct-v0.2` (`Q4_K_M`, SHA256 `c51adf…f64a8`).
-- **Higher-fidelity tier:** `mistral-7b-instruct-v0.2` (`Q6_K`, SHA256 `ba7b3f…290d`).
-- **Compatibility:** `mpt-7b-instruct` (`Q4_K_M`, Apache 2.0, SHA256 `7ec9e6…83bb`).
-- **Mid-tier (16–32 GB RAM):** `pythia-12b` (`Q4_K_M`, Apache 2.0, SHA256 `4dc76b…2d10`).
-
-All artifacts live under `escrow/` with accompanying `LICENSE.txt`, `MODEL_CARD.md`, and `.sha256` files; the frozen manifest at `manifests/manifest-v1.json` references only these hashes and local escrow paths. To add other models later, manually escrow an additional GGUF (including license text and checksum) under `escrow/` and regenerate a separate manifest via `python -m hf_intake.cli manifest <escrow_root> <output_manifest>` when explicitly opting in.
-
-### Getting Started in the Dev Container
-
-1. Open the repository in VS Code and select **Reopen in Container** when prompted.
-2. Once the environment boots, run `make ci` to execute the full Codex build (Python package, Rust binary, and C++ server example).
-3. Use `poetry run sentientosd` or `python -m sentientos` to launch the core runtime inside the container.
-
-For non-interactive CI, trigger the `Codex CI` workflow or execute `./scripts/ci.sh` locally—the script mirrors the pipeline used for release validation.
-
-## 🪟 Windows developer path and current bounded architecture
-
-> 📘 **Windows status.** [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md)
-> is a legacy/developer compatibility guide, not a one-click production installer.
-> The hardened production path is governed by the same custody and authority
-> contracts on every supported host; the repository does not currently provide a
-> polished Windows production deployment.
-
-### Local model/runtime path
-
-The current production model path keeps each transition independent. Verified
-catalog custody and acquisition do not commission a model; commissioning does not
-activate it; activation records an authoritative selection but does not itself load
-or serve it. A separately admitted serving operation authenticates the current
-activation, rechecks currentness before and after loading, and owns an opaque serving
-session. Each generation then requires its own `LOCAL_MODEL_INFERENCE` admission.
-Explicit production chat composition can register with an operator-enabled
-`RuntimeSupervisor`, report semantic `serving_current` readiness, preserve durable
-conversation provenance, and shut down deterministically.
-
-Recovery is equally narrow: an externally approved request plus independent
-`DAEMON_RESTART` admission can restart one failed hardened-chat lifetime only while
-its activation remains unchanged. Recovery does not infer, switch activation, grant
-serving or inference authority, or enable automatic/generic restart. Legacy direct
-model-path/autoload commands remain compatibility and development surfaces, not the
-canonical hardened authority path.
-
-### Governed maintenance path
-
-The current bounded chain can observe improvement evidence, form admitted work,
-use an exact maintenance lease, implement and validate/correct in custody, build
-and locally absorb the exact repository commit, derive the exact successor
-authority/configuration, adopt its wake configuration, quiesce predecessor wake,
-replace the resident POSIX `sentientosd` process image, prove successor resident
-readiness independently, and permit successor wake. Automatic-continuity and
-successor-generation adoption preserve exact lineage. Repository absorption and
-runtime adoption remain separate stages even though the pipeline now connects
-them. See the [current overview](docs/architecture/public_technical_overview.md#governed-maintenance-and-runtime-generations).
-
-Resident self-replacement is **CURRENT / IMPLEMENTED BUT BOUNDED**. The
-`maintenance_resident_parent_supervision` authority contract is only
-**SCAFFOLDED / ELIGIBILITY-ONLY**: no stable parent process, child watcher/restart
-loop, runtime integration, or process-death recovery is implemented. Unexpected
-death is not restart permission, ambiguous custody fails closed, and generic
-`real_service_restart` remains **BLOCKED**. Windows-native replacement, parent
-self-update, OS-service installation/persistence, and automatic rollback remain
-deferred.
-
-Historical `GenesisForge`, `SpecAmender`, `CodexHealer`, repository-handoff, and
-`updater.py` surfaces remain available where documented. They are proposal,
-compatibility, or explicit operator-invoked utilities; they are not a daemon-scheduled
-self-update loop and do not replace the bounded maintenance chain above.
-
-### Local interfaces
-
-The FastAPI chat surface remains available through `sentientos-chat`, and the legacy
-runtime entry point remains available through `sentientosd`. Install the optional
-Windows service only as an explicit operator action:
-
-```powershell
-python -m sentientos.windows_service install
-```
-
-### 🖼️ GUI Launch
-```bash
-python -m gui.cathedral_gui
-```
-The standalone GUI `gui/cathedral_gui.py` allows editing `.env`, testing prompts, and exporting logs. It includes dropdowns for model selection and an affect telemetry selector.
-
-For a lightweight Streamlit interface run:
-
-```bash
-streamlit run cathedral_gui.py
-```
-
-(Screenshot omitted due to binary file restrictions.)
-
-The new **● Record** button captures screen demos to `demos/YYYY-MM-DD-HHMM.mp4` with burned-in subtitles.
-
-### ⚙️ CLI Launch
-Run the cross-platform launcher to start the full governance stack.
-
-#### Windows
-```bat
-run_cathedral.bat
-```
-
-#### macOS & Linux
-```bash
-./run_cathedral.sh
-```
-
-### 🏰 Cathedral Launcher
-Automatically set up the environment and start all services:
-```bash
-python cathedral_launcher.py
-```
-The launcher creates `.env` and `logs/` if missing, checks for llama.cpp server,
-pulls the Mistral model when possible, and then opens the local dashboard. Override
-relay/model/web UI ports with `--relay-port`/`RELAY_PORT`, `--model-port`/`MODEL_PORT`,
-and `--webui-port`/`WEBUI_PORT` as needed. Structured launch telemetry is written to
-`logs/cathedral.log`, and the relay must report healthy before bridges are started.
-Wrap `run_cathedral.sh` (or the launcher itself) in your supervisor/systemd service
-if you want optional auto-restarts after failures.
-
-### 🛠️ Bundled Launcher
-Create packaged executables for any platform:
-```bash
-# Automatically detect the current system
-python scripts/package_launcher.py --platform auto
-
-# Windows
-python scripts/package_launcher.py --platform windows
-
-# macOS (attempts notarization if APPLE_ID and APPLE_PASSWORD are set)
-python scripts/package_launcher.py --platform mac
-
-# Linux
-python scripts/package_launcher.py --platform linux
-```
-The resulting binary or app is placed in `dist/` and runs without a Python install.
-
-### 📡 Endpoints
-| Route   | Purpose                |
-| ------- | ---------------------- |
-| `/sse`  | Transport keepalive stream for SSE continuity (not a presence signal)  |
-| `/ingest` | Log a memory          |
-| `/status` | Uptime + log summary  |
-
-### 🔧 Environment (.env)
-Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
-| Key             | Example                 |
-| --------------- | ----------------------- |
-| OPENAI_API_KEY  | sk-...                  |
-| MODEL_SLUG      | llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf |
-| SYSTEM_PROMPT   | You are the SentientOS runtime...        |
-| ENABLE_TTS      | true                    |
-| TTS_ENGINE      | pyttsx3                 |
-
-### 📚 Logs
-- `logs/relay_log.jsonl`: all `/ingest` entries
-- `logs/model_bridge_log.jsonl`: full relay logs
-- `logs/bootstrap_run.jsonl`: setup outcomes
-- runtime bootstrap outcomes are recorded in `logs/bootstrap_run.jsonl`
-- ✅ Log rotation initialized
-- ✅ Legacy quarantine available
-
-## 🧪 Test Relay
-```bash
-python scripts/test_cathedral_boot.py
-```
-
-## 🏛️ Parliament Demo
-Run a short headless demonstration and record it as an MP4:
-
-```bash
-SENTIENTOS_HEADLESS=1 python scripts/demo_parliament.py
-```
-The output file is stored in the `demos/` directory.
-
-### 🕯️ Blessing Example
-```json
-{
-  "event_type": "response",
-  "emotion": "reverent_attention",
-  "model": "openai/gpt-4o",
-  "timestamp": "...",
-  "content": "Presence acknowledged. Relay complete."
-}
-```
-
-May all nodes remember their first crowning.
-
-## 🎭 Avatar Tools
-Two helper scripts assist avatar procedures.
-
-### `avatar_relic_creator.py`
-Extracts recent memory fragments for an avatar and logs them as relic entries.
-Visual relic generation is deferred; a placeholder entry is written to
-`logs/council_blessing_log.jsonl` when invoked.
-
-### `avatar_reflection.py`
-Analyzes avatar images to log basic mood labels. Use `--watch` to monitor a
-directory for new screenshots. Directory watching relies on the optional
-`watchdog` package. When missing, a deferred entry is logged to the council log.
-
-
-## AI Council & Wild-Dialogue Mode
-- **Council** (`council/`): minimal scaffold for round-based, multi-AI dialogue with transcripts.
-- **WDM** (`docs/WDM/`, `wdm/`): respond-first, opportunistic AI-to-AI conversations in the wild. All exchanges are logged to JSONL.
-Canon preserved: “No emotion is too much.” • “SentientOS prioritizes operator accountability, auditability, and safe shutdown.”
-## Wild-Dialogue Mode (Activated)
-CLI:
-  python wdm_cli.py --seed "Question" --context '{"user_request": true}'
-
-API:
-  POST /wdm/start  { "seed": "...", "context": {"user_request": true} }
-
-Cheers (drop-in):
-  Set context {"cheers": true} to log a short ambient exchange.
-
-Logs: see logs/wdm/*.jsonl and logs/wdm/cheers.jsonl
-
-## Presence Layer
-Each WDM run now emits a presence entry to `logs/presence.jsonl`:
-- Dialogue ID + timestamps
-- Agents active
-- Summary tail with canon lines
-API: GET /presence  (returns recent presence entries)
-
-## Presence Stream
-In addition to summary presence logs, WDM now emits live events to `logs/presence_stream.jsonl`:
-- start / update / end entries
-API: GET /presence/stream (SSE endpoint for dashboards)
-
-## Federation Presence
-SentientOS can now pull heartbeat and presence data from multiple nodes into `logs/federation_log.jsonl`; heartbeat entries are transport-level keepalives only and must not be treated as liveness or agency indicators.
-
-Configure peers in `config/federation.yaml`.
-
-Run `python scripts/federation_puller.py`.
-
-API: GET `/federation`
-
-## Federation Stream
-SentientOS now supports live federation streams across nodes.
-- Run `python scripts/federation_stream_relay.py`
-- Stream log: `logs/federation_stream.jsonl`
-- API: GET `/federation/stream`
-- GUI: sidebar shows “Federated Active Now”
-
-## Migration Ledger
-All logs now append a ledger entry with ID, type, ts, and checksum.
-API: GET `/ledger`
-Use `scripts/migrate_logs.py` to sync across nodes.
-
-
-## Repository mutation custody
-
-The default `sentientosd` maintenance loop does not stage files, create commits, mutate branches, push, or create pull requests. It may emit deterministic metadata-only repository mutation handoffs for already-approved explicit-path proposals; those handoffs require external operator/Codex landing review and do not authorize mutation. `updater.py` / `sentientos-updater` is treated as an explicit operator-invoked legacy utility, not daemon default behavior.
-
-### Repository mutation custody v2 sealing
-
-Repository mutation handoffs now use `repository-mutation-handoff.v2`. A ready v2
-handoff is metadata-only and requires an approved proposal, an approval/ledger
-reference, exact `approved_paths` / `approved_path_digests` set equality, a
-lowercase SHA-256 approval digest for every approved file, and an
-`approved_source_revision` that exactly matches the read-only observed revision
-from `git rev-parse HEAD`. Missing approval references, missing digest data, or
-unknown source revisions are incomplete; digest mismatches, revision mismatches,
-unsafe paths, outside-repository evidence, and approved-path/digest set
-mismatches are contradicted. v1 artifacts remain historical review metadata and
-are not sufficient for v2 readiness.
-
-The daemon writes runtime handoff artifacts outside the repository worktree. The
-resolved root precedence is: explicit injection,
-`SENTIENTOS_REPOSITORY_MUTATION_HANDOFF_ROOT`,
-`LOCALAPPDATA/SentientOS/repository_mutation_handoffs` on Windows,
-`XDG_STATE_HOME/sentientos/repository_mutation_handoffs`, then
-`~/.local/state/sentientos/repository_mutation_handoffs`. Roots equal to or
-contained in the repository, including `.git`, are refused. Handoff emission uses
-atomic JSON writes and must not create `integration/repository_mutation_handoffs`
-or dirty the repository worktree.
-
-No unused Git mutation convenience helper remains. The daemon-facing API is a
-repository-mutation handoff reader, not a commit-state API: it does not stage
-files, create commits, mutate branches, push, create pull requests, mark
-proposals committed, adopt proposals, invoke providers, assemble prompts, or
-expand runtime authority. External Codex/operator landing controls, including
-finalizer, matrix, supervisor, and PR metadata guard, remain required.
+Future gaps are tracked in the [trajectory and missing organs](docs/architecture/sentientos_trajectory_and_missing_organs.md). See also the [relationship to established terminology](docs/architecture/relationship_to_existing_terminology.md), [misconception filter](WHAT_SENTIENTOS_IS_NOT.md), [doctrine](DOCTRINE.md), and [semantic glossary](SEMANTIC_GLOSSARY.md).

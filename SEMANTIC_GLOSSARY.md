@@ -1,18 +1,25 @@
-# Semantic Glossary
+# SentientOS Semantic Glossary
 
-Words are not prohibited because they also have human meanings; each use must identify the implemented mechanism and avoid unsupported phenomenal claims.
-
-- **Agent, agency, autonomy:** goal-directed selection or execution within explicit authority, never unlimited permission or phenomenal desire.
-- **Goal, plan, task:** an objective, prospective step ordering, and bounded work unit. State their origin and authority.
-- **Reward and reinforcement:** implemented optimization or learning signals, not pleasure or punishment.
-- **Cognition, reflection, metacognition:** information processing about tasks or system operation; none proves consciousness.
-- **Memory and learning:** memory retains information; learning changes future behavioral potential. Persistence alone is not learning.
-- **Self-model:** a representation of the system's state, capabilities, resources, history, or behavior used for reasoning. A passive artifact is a runtime identity/state record. Neither proves self-awareness.
-- **Affect:** distinguish uncertain human affect inference, machine control metadata, and avatar expressive state. None proves felt emotion.
-- **Embodiment:** governed sensor, effector, resource, and consequence relationships. Interoception and exteroception do not imply biology.
-- **Presence and heartbeat:** presence may mean occupancy or immersive presence; use liveness for processes and activity telemetry for events. Heartbeat is a liveness signal, not life.
-- **Connection and relationship:** valid technical graph, data-link, or interaction concepts when the represented relation is named.
-- **Trust:** prefer identity assurance, reliability, confidence, provenance quality, authorization, integrity, or trustworthiness. Keep trust only for defined technical semantics.
-- **World state/model:** current evidence is world state; a world model represents predictive, causal, action-conditioned dynamics or planning simulation.
-- **Self-maintenance/recursive improvement:** current governed software evolution is bounded. Recursive self-improvement is a valid research horizon only when the improved object, mechanism, automated stages, and governance bounds are explicit.
-- **Agent interoperability:** identity, capability, discovery, agent card, task, message, artifact, context, session, provenance, and authorization are valid. Do not claim unimplemented protocol conformance. Memory and familiarity are not authorization.
+- **System identity** — continuity of the SentientOS environment across inference and runtime generations: its durable history, configuration, authority, evidence, and adoption lineage.
+- **Model identity** — exact identity of cognitive machinery used for a particular generation or inference; it is not system identity.
+- **Runtime generation** — a particular admitted resident software/configuration generation in the adoption lineage.
+- **Capability definition** — a registered description of eligible action and constraints. Definition is not a grant.
+- **Authority** — attributable, scoped permission held by an exact principal for an exact capability/effect under current policy. Authority is not cognition, feasibility, admission, or execution.
+- **Grant** — a bounded authority record. A grant neither proves operational feasibility nor admits or executes an effect.
+- **Policy** — deterministic rules evaluated for a named decision; policy text or a successful evaluation is not execution.
+- **Operational feasibility** — current evidence that required endpoint, material, configuration, credential reference, platform, or dependency conditions are satisfiable. Feasibility is neither a grant nor admission.
+- **Admission** — a deterministic control-plane decision permitting an exact principal/effect request under exact evidence. Admission is not execution.
+- **Execution custody** — the component that binds admitted authority to exact materials, performs or delegates the attempt, and records bounded outcomes without broadening authority.
+- **Effect** — a consequential change or externally observable attempt in a named domain, such as a network request, repository transition, process replacement, or host mutation.
+- **Receipt** — a durable, domain-specific record of a particular decision, custody step, attempt, observation, result, or transition. A receipt proves only what its schema and evidence establish; it never generically means “the intended effect happened.”
+- **Evidence** — attributable material supporting a bounded claim, with source, scope, time, integrity, and uncertainty. Evidence is not authority.
+- **Provenance** — lineage identifying where material came from and the transformations or custody transitions applied to it.
+- **Current truth** — a claim justified for the present decision by applicable current evidence and policy. No memory or observation is automatically current truth.
+- **Memory** — retained historical material available for bounded retrieval or cognition. Canonical conversation memory is a live durable path; other legacy, selective-distillation, and live-memory stages have different maturity. Memory != current truth.
+- **Observation** — source-bound evidence about a system or environment. Observation is not interpretation, policy, or effect authority.
+- **Interpretation** — a derived or cognitive reading of evidence. It may be useful and wrong; it is not automatically truth or authorization.
+- **Adoption** — an explicit transition making validated state authoritative for a domain, such as a runtime successor becoming current. Validation, merge, absorption, publication, and deployment do not imply adoption.
+- **Untrusted external data** — material received across an external boundary that retains provenance but has no automatic standing as cognition, truth, memory, instruction, goal, policy, or authority.
+- **World-State** — a read-only evidence projection with lineage, freshness/staleness, and conflict posture; not an omniscient world model or decision authority.
+- **Persistent** — durable for a named domain through a stated medium and recovery rule; not a claim that all in-process state survives failure.
+- **Default-active** — composed and exercised by the documented default runtime configuration. Implemented, effect-capable, configured, admitted, and default-active are separate properties.

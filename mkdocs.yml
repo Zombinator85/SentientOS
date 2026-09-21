@@ -1,14 +1,15 @@
 site_name: SentientOS
 nav:
   - Home: README.md
+  - One Pager: one_pager.md
+  - Project Thesis and Maturity: docs/architecture/sentientos_project_thesis.md
   - Current Architecture: docs/architecture/public_technical_overview.md
+  - Current-System Atlas: docs/architecture/current_repository_system_atlas.md
+  - Roadmap and Research Trajectory: docs/architecture/sentientos_trajectory_and_missing_organs.md
+  - Reviewer Readiness: docs/architecture/reviewer_release_readiness_index.md
   - Historical Surface Dispositions: docs/architecture/historical_surface_disposition_registry.md
   - Relationship to Established Terminology: docs/architecture/relationship_to_existing_terminology.md
-  - Project Thesis and Maturity: docs/architecture/sentientos_project_thesis.md
-  - Roadmap and Research Trajectory: docs/architecture/sentientos_trajectory_and_missing_organs.md
-  - One Pager: one_pager.md
   - Installation and Usage: docs/USAGE.md
-  - Reviewer Readiness: docs/architecture/reviewer_release_readiness_index.md
   - Rituals: docs/rituals.md
   - Audit Chain: audit_log/README.md
   - Agents: AGENTS.md

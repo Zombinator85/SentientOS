@@ -1,66 +1,18 @@
 # What SentientOS Is Not
 
-This document sets precise epistemic and mechanism boundaries. “Not presently
-claimed” is not the same as “architecturally forbidden”; “no engineered
-mechanism” is not proof that emergence is impossible; and “no authority” is not
-“no cognition.” See the canonical [project thesis](docs/architecture/sentientos_project_thesis.md).
+This is a misconception filter; the [public technical overview](docs/architecture/public_technical_overview.md) carries the positive architecture.
 
-## Not a claim of present sentience
+- **Not a claim of sentience or consciousness.** “Sentient” is an empirical research aspiration, not a current status assertion.
+- **Not the LLM.** A model is replaceable cognitive machinery within a longer-lived system of identity, memory, evidence, policy, authority, and runtime generations.
+- **Not a mature bare-metal kernel.** The current implementation is a hosted Python runtime; “OS” names its intended semantic scope around cognition.
+- **Not universal host mediation or blanket host control.** Resident host-resource observation is read-only. Named effectors have separate, bounded custody and are generally not resident defaults.
+- **Not generic provider or network authority.** Exact external-model HTTPS transport exists, but it is unavailable by default and creates no default grant, credential, provider configuration, cognitive trust, or automatic call.
+- **Not wholly formally verified.** Selected behaviors are formally modeled or executable-checked. This is not machine-checked implementation proof of the entire system.
+- **Not unrestricted recursive self-improvement.** Bounded maintenance can implement, validate, land, adopt, and replace a cooperative resident under exact custody. Models do not self-grant or own acceptance.
+- **Not automatic authority from cognition.** Model output, proposals, evidence, readiness, and receipts do not by themselves grant admission or execution.
+- **Not a declaration that memory is current truth.** Canonical conversation memory is live and can influence cognition; it remains source-bound historical material.
+- **Not a default production distributed fleet.** Federation implementation and lab/WAN evidence exist, but a supported default production WAN synchronization deployment is not established.
+- **Not primarily a multi-agent orchestrator.** Agent and council libraries exist without becoming the default resident architecture.
+- **Not universally crash-resilient.** Durable reconstruction and cooperative replacement exist; stable parent supervision and automatic unexpected-process-death recovery do not.
 
-SentientOS is intended as a research environment for possible emergence, but no
-current component, model, telemetry stream, memory record, self-state schema, or
-fluent output proves sentience, consciousness, phenomenology, or self-awareness.
-Emergence is neither claimed nor guaranteed.
-
-## Not identical to an agent or model
-
-SentientOS is a persistent environment around replaceable inference workers,
-not merely the agent that answered the latest call. Some bounded modules use
-agent-like vocabulary, but model output and proposals receive no automatic
-truth, permission, execution, or adoption authority.
-
-## Not a mature bare-metal operating system
-
-“OS” states the intended whole-machine semantic scope. Today SentientOS is
-primarily hosted/user-space software and does not replace general-purpose kernel
-primitives, universally mediate host effects, or completely embody the host.
-Kernel replacement is not required by the thesis.
-
-## No engineered survival or approval reward
-
-Current mechanisms do not provide a survival reward, uptime bonus, continuity
-incentive, appetite, aversion, or approval-seeking reward channel. Heartbeats and
-service persistence support externally governed operation; they are not a
-preference to remain alive. Human approval is an authority gate, not a training
-reward. This does not deny the architectural goals of continuity,
-self-maintenance, or developmental history.
-
-## No automatic relationship or affect claim
-
-Current presence, identity, trust, and affect surfaces are bounded data and
-telemetry contracts. They do not prove a bond, subjective feeling, loyalty,
-moral standing, or user preference, and affect metadata cannot grant privilege
-or action authority. The project does not globally forbid research into
-persistent interaction or relationship; it refuses to mislabel current
-mechanisms.
-
-## No unrestricted self-modification
-
-Governed change and maintenance surfaces can observe, propose, implement in
-custody, measure, and validate. A stochastic worker does not own acceptance, and
-proposal, validation, publication, installation, and adoption remain separate.
-This is system plasticity under authority—not unrestricted recursive
-self-improvement.
-
-## No completed one-click install or model-chain shortcut
-
-Current source installation requires prerequisites and configuration. Hardened
-production activation records authoritative selection only; it does not itself
-load, serve, or infer. A separately governed consumer now authenticates that
-selection for bounded loading and serving, while `LOCAL_MODEL_INFERENCE` remains
-independently admitted for each generation. Explicit unchanged-activation chat
-recovery is not automatic or generic recovery.
-
-Governed offline local repository absorption is not unrestricted self-modification,
-does not install or supply a scheduler, and does not restart or adopt code into a
-running SentientOS process.
+Compatibility terms such as *cathedral*, *ritual*, *blessing*, and *avatar* remain in operational and historical surfaces. They are not substitutes for modern capability, authority, admission, and effect terminology.
