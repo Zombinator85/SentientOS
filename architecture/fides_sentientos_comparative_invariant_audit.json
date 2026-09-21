@@ -1,0 +1,623 @@
+{
+  "approval_domains": [
+    {
+      "domain": "local authorization grants",
+      "semantics": "Reusable only within exact scope and validity until revoked/superseded; grant evidence is not effect proof."
+    },
+    {
+      "domain": "host fulfillment authorization consumption",
+      "semantics": "Domain-specific single-use consumption evidence; separate from fulfillment/effect proof."
+    },
+    {
+      "domain": "runtime admissions",
+      "semantics": "Exact principal/effect/subject/configuration binding and sequence lifetime; verifier is reusable and has no consumption ledger."
+    },
+    {
+      "domain": "external-model admissions",
+      "semantics": "The same exact valid AdmissionEvidence can be verified for multiple transport attempts; ambiguous design decision, not proven one-shot."
+    },
+    {
+      "domain": "memory approvals/admissions",
+      "semantics": "Canonical retention binds exact session/turn/request/operation/text; operation-derived identity supplies idempotency, not a generic FIDES approval."
+    },
+    {
+      "domain": "maintenance authorities/admissions",
+      "semantics": "Domain-specific leases, predecessor/generation and adoption bindings; revocation/supersession semantics are not reducible to session approval."
+    }
+  ],
+  "artifact_classification": "non_authority_architecture_research",
+  "changed_surface_allowlist": [
+    "docs/architecture/fides_sentientos_comparative_invariant_audit.md",
+    "architecture/fides_sentientos_comparative_invariant_audit.json",
+    "tests/test_fides_sentientos_comparative_invariant_audit.py"
+  ],
+  "crash_windows": [
+    {
+      "risk": "unused durable authority may remain valid until expiry/revocation",
+      "stage": "authority issued before consumption"
+    },
+    {
+      "risk": "one-shot authority may be lost without a durable recoverable intent",
+      "stage": "consumed before execution"
+    },
+    {
+      "risk": "duplicate-effect ambiguity after restart",
+      "stage": "execution begins before attempt recorded"
+    },
+    {
+      "risk": "effect may have occurred without a local result record",
+      "stage": "provider/backend responds before receipt construction"
+    },
+    {
+      "risk": "response known in process but absent after crash",
+      "stage": "receipt constructed before durable persistence"
+    },
+    {
+      "risk": "hash-linked custody supports reconstruction, subject to atomic writer guarantees",
+      "stage": "receipt persisted"
+    }
+  ],
+  "crosswalk": [
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No generic cross-domain content-integrity class or generic content-to-sink rule.",
+      "fides_mechanism": "Content integrity",
+      "fides_security_property": "Untrusted content cannot drive a sink that rejects it.",
+      "id": "content_integrity",
+      "implementation_recommendation": "unify_existing_invariant",
+      "important_differences": "SentientOS intentionally retains several axes instead of one trusted/untrusted bit.",
+      "semantic_equivalence": "genuinely orthogonal",
+      "sentientos_analogues": [
+        "audit trust",
+        "evidence strength",
+        "provenance",
+        "freshness",
+        "calibration",
+        "external-response epistemic status",
+        "authority eligibility"
+      ],
+      "source_paths": [
+        "sentientos/audit_trust_runtime.py",
+        "sentientos/world_state_board.py",
+        "sentientos/external_model_material.py",
+        "sentientos/runtime_admission.py"
+      ],
+      "test_paths": [
+        "tests/test_degraded_audit_trust_propagation.py",
+        "tests/test_world_state_board.py",
+        "tests/test_external_model_material.py",
+        "tests/test_runtime_admission.py"
+      ],
+      "transferable_lesson": "State a no-self-promotion law without flattening the existing axes."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "Cross-subsystem derived artifacts do not uniformly preserve a confidentiality restriction.",
+      "fides_mechanism": "Confidentiality",
+      "fides_security_property": "Public, private, and identity-scoped confidentiality constrain destinations.",
+      "id": "confidentiality",
+      "implementation_recommendation": "requires_design_decision",
+      "important_differences": "Protections are domain-local; no common confidentiality order propagates through every derivation and destination.",
+      "semantic_equivalence": "SentientOS narrower",
+      "sentientos_analogues": [
+        "perception privacy_class",
+        "memory retention/protection",
+        "credential custody",
+        "context hygiene",
+        "external-model material custody"
+      ],
+      "source_paths": [
+        "sentientos/perception_api.py",
+        "sentientos/canonical_memory.py",
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/external_model_material.py",
+        "sentientos/context_hygiene/prompt_constraint_verifier.py"
+      ],
+      "test_paths": [
+        "tests/test_phase41_perception_api.py",
+        "tests/test_persistent_governed_conversation.py",
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_external_model_material.py",
+        "tests/test_phase75_context_hygiene_prompt_boundary_guardrails.py"
+      ],
+      "transferable_lesson": "Study a small restriction-carrying envelope only at concrete cross-domain handoffs."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No general datum-recipient principal set, union-on-derivation rule, or destination subset check was found.",
+      "fides_mechanism": "Principal-set propagation",
+      "fides_security_property": "Identity content carries principal sets; combinations union them; destinations authorize every principal.",
+      "id": "principal_set_propagation",
+      "implementation_recommendation": "targeted_future_feature",
+      "important_differences": "Existing principals chiefly answer who may perform an effect, not who may receive derived data.",
+      "semantic_equivalence": "SentientOS narrower",
+      "sentientos_analogues": [
+        "effect-authority principal binding",
+        "session/user identity fields"
+      ],
+      "source_paths": [
+        "sentientos/runtime_admission.py",
+        "sentientos/runtime_grant_policy.py",
+        "sentientos/canonical_memory.py"
+      ],
+      "test_paths": [
+        "tests/test_runtime_admission.py",
+        "tests/test_runtime_grant_policy.py",
+        "tests/test_persistent_governed_conversation.py"
+      ],
+      "transferable_lesson": "Keep disclosure authority separate from effect authority; investigate only where an actual export consumer needs it."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "The invariant is piecemeal and weaker in legacy memory/perception context paths.",
+      "fides_mechanism": "Restriction-only remote labels",
+      "fides_security_property": "Remote claims may restrict but cannot self-promote trust, reduce confidentiality, or invent principal authority.",
+      "id": "restriction_only_remote_labels",
+      "implementation_recommendation": "unify_existing_invariant",
+      "important_differences": "SentientOS enforces non-promotion at hardened authority boundaries but lacks one content-label merge operator.",
+      "semantic_equivalence": "equivalent intent / different mechanism",
+      "sentientos_analogues": [
+        "external response untrusted metadata",
+        "provider response non-authority",
+        "exact local admission/configuration binding",
+        "model output cannot become authority evidence"
+      ],
+      "source_paths": [
+        "sentientos/external_model_material.py",
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/runtime_admission.py",
+        "sentientos/discernment_synthesis.py"
+      ],
+      "test_paths": [
+        "tests/test_external_model_material.py",
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_runtime_admission.py",
+        "tests/test_system_phase_authority.py"
+      ],
+      "transferable_lesson": "Document external material may constrain itself but needs independent local evidence to gain status."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No uniform tier-resolution algorithm spans tool/provider/perception outputs.",
+      "fides_mechanism": "Tiered result labeling",
+      "fides_security_property": "Per-item labels, source declarations, hidden-reference labels, and secure defaults have ordered authority.",
+      "id": "tiered_result_labeling",
+      "implementation_recommendation": "documentation_only",
+      "important_differences": "SentientOS has exact domain schemas rather than a generic label precedence tier.",
+      "semantic_equivalence": "SentientOS narrower",
+      "sentientos_analogues": [
+        "typed evidence records",
+        "local configuration custody",
+        "response metadata",
+        "World-State source manifests"
+      ],
+      "source_paths": [
+        "sentientos/world_state_board.py",
+        "sentientos/external_model_material.py",
+        "sentientos/external_model_custody.py"
+      ],
+      "test_paths": [
+        "tests/test_world_state_board.py",
+        "tests/test_external_model_material.py",
+        "tests/test_external_model_custody.py"
+      ],
+      "transferable_lesson": "Prefer explicit local fallback ownership and reject argument-shaped policy claims."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No universal derivation monotonicity contract.",
+      "fides_mechanism": "Conservative propagation",
+      "fides_security_property": "Transformations inherit or restrict source labels, commonly using most-restrictive propagation.",
+      "id": "propagation",
+      "implementation_recommendation": "unify_existing_invariant",
+      "important_differences": "Strong newer custody chains preserve exact inputs; legacy summaries can lose event identity and do not propagate privacy uniformly.",
+      "semantic_equivalence": "FIDES more formal/crisp",
+      "sentientos_analogues": [
+        "World-State lineage/conflict posture",
+        "memory provenance",
+        "custody digests",
+        "readiness artifact source bindings"
+      ],
+      "source_paths": [
+        "sentientos/world_state_board.py",
+        "sentientos/canonical_memory.py",
+        "sentientos/external_model_material.py",
+        "sentientos/reviewer_proof_bundle.py"
+      ],
+      "test_paths": [
+        "tests/test_world_state_board.py",
+        "tests/test_persistent_governed_conversation.py",
+        "tests/test_external_model_material.py",
+        "tests/test_reviewer_proof_bundle.py"
+      ],
+      "transferable_lesson": "Unify laws about authority, provenance loss, currentness, and confidentiality while leaving domains typed."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "There is no single default for arbitrary unlabeled content.",
+      "fides_mechanism": "Unlabeled tool output",
+      "fides_security_property": "Unknown output defaults to untrusted integrity.",
+      "id": "unlabeled_tool_output",
+      "implementation_recommendation": "documentation_only",
+      "important_differences": "SentientOS distinguishes unknown, untrusted, false, stale, and authority-ineligible.",
+      "semantic_equivalence": "genuinely orthogonal",
+      "sentientos_analogues": [
+        "unknown evidence",
+        "provenance-incomplete state",
+        "authority-ineligible external data",
+        "fail-closed admission"
+      ],
+      "source_paths": [
+        "sentientos/external_model_material.py",
+        "sentientos/world_state_board.py",
+        "sentientos/runtime_admission.py"
+      ],
+      "test_paths": [
+        "tests/test_external_model_material.py",
+        "tests/test_world_state_board.py",
+        "tests/test_runtime_admission.py"
+      ],
+      "transferable_lesson": "Default conservatively per consequence: unknown epistemically, ineligible for authority, and privacy-conservative where disclosure is possible."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "Data-disclosure constraints are less uniform than effect admission.",
+      "fides_mechanism": "Sink policy",
+      "fides_security_property": "Sensitive tools declare integrity, confidentiality, and principal constraints enforced before execution.",
+      "id": "sink_policy",
+      "implementation_recommendation": "no_change",
+      "important_differences": "SentientOS gates exact capability/effect/subject/configuration and operational state, but not a generic content confidentiality label.",
+      "semantic_equivalence": "SentientOS broader",
+      "sentientos_analogues": [
+        "ControlPlaneKernel",
+        "RuntimeGovernor",
+        "runtime grants/admissions",
+        "specialized execution custody"
+      ],
+      "source_paths": [
+        "sentientos/control_plane_kernel.py",
+        "sentientos/runtime_governor.py",
+        "sentientos/runtime_admission.py",
+        "sentientos/external_model_execution_custody.py"
+      ],
+      "test_paths": [
+        "tests/test_control_plane_kernel.py",
+        "tests/test_runtime_governor.py",
+        "tests/test_runtime_admission.py",
+        "tests/test_external_model_execution_custody.py"
+      ],
+      "transferable_lesson": "Continue exact domain admission; add no middleware merely for architectural resemblance."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No general adversarial-content reference facility for cognition.",
+      "fides_mechanism": "Variable indirection",
+      "fides_security_property": "Untrusted raw bytes may remain outside primary model context behind a reference.",
+      "id": "variable_indirection",
+      "implementation_recommendation": "targeted_future_feature",
+      "important_differences": "SentientOS indirection protects credentials/effect material from general cognition; it is not a generic untrusted-content variable store.",
+      "semantic_equivalence": "partially analogous",
+      "sentientos_analogues": [
+        "opaque credential handles",
+        "exact request-material source",
+        "artifact references",
+        "digest-bound effect custody"
+      ],
+      "source_paths": [
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/external_model_material.py",
+        "sentientos/repository_mutation_handoff.py"
+      ],
+      "test_paths": [
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_external_model_material.py",
+        "tests/test_repository_mutation_handoff.py"
+      ],
+      "transferable_lesson": "Opaque, owner-resolved handles are valuable where a named consumer can operate without model visibility."
+    },
+    {
+      "confidence": "medium",
+      "current_sentientos_gap": "FIDES-style cognitive quarantine is genuinely absent.",
+      "fides_mechanism": "Quarantined LLM",
+      "fides_security_property": "A separate tool-free model inspects hidden content; outputs retain restrictions and cannot declassify.",
+      "id": "quarantined_llm",
+      "implementation_recommendation": "targeted_future_feature",
+      "important_differences": "Existing quarantine controls admission/integrity or exposure selection; none is an isolated tool-free cognition worker whose output retains source restrictions.",
+      "semantic_equivalence": "no analogue found",
+      "sentientos_analogues": [
+        "runtime integrity quarantine",
+        "external material transient custody",
+        "selective memory/context hygiene"
+      ],
+      "source_paths": [
+        "sentientos/runtime_governor.py",
+        "sentientos/external_model_material.py",
+        "sentientos/context_hygiene/prompt_constraint_verifier.py",
+        "sentientos/selective_memory_distillation_contract.py"
+      ],
+      "test_paths": [
+        "tests/test_runtime_governor.py",
+        "tests/test_external_model_material.py",
+        "tests/test_phase75_context_hygiene_prompt_boundary_guardrails.py",
+        "tests/test_selective_memory_distillation_contract.py"
+      ],
+      "transferable_lesson": "Promising only for identified adversarial web/provider/perception paths; it is not universally necessary."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No general hidden-content forwarding path across arbitrary cognition tools.",
+      "fides_mechanism": "Blind forwarding",
+      "fides_security_property": "Hidden references cross permitted paths without revealing raw bytes to primary cognition.",
+      "id": "blind_forwarding",
+      "implementation_recommendation": "no_change",
+      "important_differences": "Effect custody can be stronger and more exact than FIDES generic hidden variables, but generic cognitive forwarding is absent.",
+      "semantic_equivalence": "SentientOS broader",
+      "sentientos_analogues": [
+        "opaque credential use",
+        "transient request-material handoff",
+        "digest-bound artifacts and file-effect custody"
+      ],
+      "source_paths": [
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/external_model_material.py",
+        "sentientos/builtin_local_effect_runner.py"
+      ],
+      "test_paths": [
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_external_model_material.py",
+        "tests/test_builtin_local_effect_runner.py"
+      ],
+      "transferable_lesson": "Preserve raw-byte separation where deterministic owners can resolve exact handles."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No gap on hardened traced paths; legacy approval-like records vary.",
+      "fides_mechanism": "Exact approval binding",
+      "fides_security_property": "Approval binds the exact resolved invocation in its owning session; edits require new approval.",
+      "id": "exact_approval_binding",
+      "implementation_recommendation": "documentation_only",
+      "important_differences": "SentientOS binding uses explicit domain identities and sequence validity rather than a single session invocation occurrence.",
+      "semantic_equivalence": "equivalent intent / different mechanism",
+      "sentientos_analogues": [
+        "request/configuration digest admission binding",
+        "principal/effect/subject binding",
+        "exact memory retention receipt"
+      ],
+      "source_paths": [
+        "sentientos/runtime_admission.py",
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/canonical_memory.py"
+      ],
+      "test_paths": [
+        "tests/test_runtime_admission.py",
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_persistent_governed_conversation.py"
+      ],
+      "transferable_lesson": "Keep exact resolved-content/configuration binding as a reusable invariant."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "External-model AdmissionEvidence can authorize repeated attempts for the same exact request/configuration within sequence lifetime; intent is ambiguous.",
+      "fides_mechanism": "One-shot approval",
+      "fides_security_property": "Invocation approval is consumed once.",
+      "id": "one_shot_approval",
+      "implementation_recommendation": "requires_design_decision",
+      "important_differences": "Fulfillment consumption is single-use in its domain; RuntimeAdmissionVerifier has no consumption ledger and permits repeat verification while valid.",
+      "semantic_equivalence": "unresolved",
+      "sentientos_analogues": [
+        "fulfillment authorization consumption",
+        "idempotency/replay controls",
+        "runtime admission validity windows"
+      ],
+      "source_paths": [
+        "sentientos/fulfillment_authorization.py",
+        "sentientos/runtime_admission.py",
+        "sentientos/external_model_execution_custody.py"
+      ],
+      "test_paths": [
+        "tests/test_fulfillment_authorization.py",
+        "tests/test_runtime_admission.py",
+        "tests/test_external_model_execution_custody.py"
+      ],
+      "transferable_lesson": "Decide reuse versus one-shot per effect and specify durable attempt/receipt recovery before changing semantics."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No missing universal session abstraction is established.",
+      "fides_mechanism": "Session security state",
+      "fides_security_property": "Labels, variables, audits, and approvals belong to an owning session.",
+      "id": "session_security_state",
+      "implementation_recommendation": "incompatible_or_not_useful",
+      "important_differences": "SentientOS scopes different security facts to precise domain identities rather than one universal session.",
+      "semantic_equivalence": "SentientOS broader",
+      "sentientos_analogues": [
+        "conversation/session identity",
+        "runtime generation",
+        "operator principal",
+        "admission sequence",
+        "provider invocation",
+        "resident lifetime"
+      ],
+      "source_paths": [
+        "sentientos/canonical_memory.py",
+        "sentientos/runtime_admission.py",
+        "sentientos/external_model_execution_custody.py",
+        "sentientos/maintenance_resident_runtime_adoption.py"
+      ],
+      "test_paths": [
+        "tests/test_persistent_governed_conversation.py",
+        "tests/test_runtime_admission.py",
+        "tests/test_external_model_execution_custody.py",
+        "tests/test_maintenance_resident_runtime_adoption.py"
+      ],
+      "transferable_lesson": "Do not collapse generation, principal, admission, conversation, and invocation identity."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "No distinct FIDES audit invariant is missing beyond consistent denial/attempt coverage.",
+      "fides_mechanism": "Audit",
+      "fides_security_property": "Blocked and approval-gated operations produce explicit audit state.",
+      "id": "audit",
+      "implementation_recommendation": "no_change",
+      "important_differences": "SentientOS audit integrity can itself constrain authority and has specialized durable receipts; coverage remains surface-specific.",
+      "semantic_equivalence": "SentientOS broader",
+      "sentientos_analogues": [
+        "hash-linked audit",
+        "audit-trust runtime",
+        "effect/denial receipts",
+        "grant/admission ledgers",
+        "World-State projections"
+      ],
+      "source_paths": [
+        "sentientos/audit/__init__.py",
+        "sentientos/audit_trust_runtime.py",
+        "sentientos/runtime_admission.py",
+        "sentientos/world_state_board.py"
+      ],
+      "test_paths": [
+        "sentientos/tests/test_audit_chain.py",
+        "tests/test_degraded_audit_trust_propagation.py",
+        "tests/test_runtime_admission.py",
+        "tests/test_world_state_board.py"
+      ],
+      "transferable_lesson": "Retain stage-specific receipts and make gaps explicit rather than adopting a simpler log."
+    },
+    {
+      "confidence": "high",
+      "current_sentientos_gap": "Response/material-level restrictions do not consistently survive derivation.",
+      "fides_mechanism": "Conservative-taint tradeoff",
+      "fides_security_property": "Whole-context taint is safe but can reduce utility; finer scoping/decay remains open.",
+      "id": "conservative_taint_tradeoff",
+      "implementation_recommendation": "requires_design_decision",
+      "important_differences": "SentientOS already uses domain-specific item granularity; it has no whole-context generic taint to decay.",
+      "semantic_equivalence": "SentientOS broader",
+      "sentientos_analogues": [
+        "fact/event/fragment/evidence granularity",
+        "selective memory",
+        "typed World-State facts"
+      ],
+      "source_paths": [
+        "sentientos/world_state_board.py",
+        "sentientos/perception_api.py",
+        "sentientos/selective_memory_distillation_contract.py",
+        "sentientos/canonical_memory.py"
+      ],
+      "test_paths": [
+        "tests/test_world_state_board.py",
+        "tests/test_phase41_perception_api.py",
+        "tests/test_selective_memory_distillation_contract.py",
+        "tests/test_persistent_governed_conversation.py"
+      ],
+      "transferable_lesson": "Use the smallest current consumer-owned unit: fact, event, memory fragment, response material, or claim/evidence\u2014not arbitrary JSONPath."
+    }
+  ],
+  "declared_comparison_set": [
+    "content_integrity",
+    "confidentiality",
+    "principal_set_propagation",
+    "restriction_only_remote_labels",
+    "tiered_result_labeling",
+    "propagation",
+    "unlabeled_tool_output",
+    "sink_policy",
+    "variable_indirection",
+    "quarantined_llm",
+    "blind_forwarding",
+    "exact_approval_binding",
+    "one_shot_approval",
+    "session_security_state",
+    "audit",
+    "conservative_taint_tradeoff"
+  ],
+  "derivation_laws": [
+    {
+      "classification": "true on hardened surfaces only",
+      "finding": "All traced authority gates demand independent typed admission; legacy text can influence candidates but not satisfy a gate.",
+      "law": "derivation cannot manufacture authority"
+    },
+    {
+      "classification": "true on hardened surfaces only",
+      "finding": "Digest-bound custody preserves sources; legacy perception aggregation and memory summaries can lose exact source identity.",
+      "law": "derivation cannot manufacture provenance"
+    },
+    {
+      "classification": "true on hardened surfaces only",
+      "finding": "World-State and host gates retain types; legacy narrative context is not uniformly labeled interpretation.",
+      "law": "interpretation cannot manufacture observation"
+    },
+    {
+      "classification": "desirable but unimplemented",
+      "finding": "Privacy and secrecy controls exist, but no cross-domain propagation contract was found.",
+      "law": "derivation cannot silently reduce confidentiality"
+    },
+    {
+      "classification": "true on hardened surfaces only",
+      "finding": "Freshness is explicit in newer gates; legacy timestamp coercion and relevance ranking are weaker.",
+      "law": "staleness cannot improve without new evidence"
+    },
+    {
+      "classification": "true on hardened surfaces only",
+      "finding": "External-model material is explicitly non-authoritative; no universal law covers every legacy ingress.",
+      "law": "untrusted external material cannot self-promote"
+    },
+    {
+      "classification": "false",
+      "finding": "Newer artifacts disclose sources, while legacy summaries need not enumerate source digests.",
+      "law": "lossy derivation must disclose provenance loss"
+    }
+  ],
+  "fides_snapshot": {
+    "agent_framework_commit": "53e98134c91127d040daf034e889e633af4218bc",
+    "network_research": "Microsoft Agent Framework public repository cloned successfully; Microsoft Research publication page retrieved; web search and guessed Microsoft Learn URL were unavailable, so no separate Learn page claim is made.",
+    "not_independently_verified": [
+      "A distinct current Microsoft Learn page titled Agent Security with FIDES was not located through the available endpoint; equivalent current Microsoft repository documentation was verified."
+    ],
+    "primary_sources": [
+      "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/python/samples/02-agents/security/FIDES_DEVELOPER_GUIDE.md",
+      "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/decisions/0024-prompt-injection-defense.md",
+      "https://github.com/microsoft/agent-framework/blob/53e98134c91127d040daf034e889e633af4218bc/docs/features/FIDES_IMPLEMENTATION_SUMMARY.md",
+      "https://www.microsoft.com/en-us/research/publication/securing-ai-agents-with-information-flow-control/",
+      "https://arxiv.org/abs/2505.23643"
+    ],
+    "retrieved_on": "2026-09-21"
+  },
+  "findings": {
+    "blind_forwarding": "Already strong for credentials and exact effect material, narrower for generic cognition.",
+    "external_model_admission": "One admission can authorize repeated exact attempts while valid; repository evidence does not establish whether this is intentional.",
+    "principal_confidentiality": "Effect principals are explicit and strong; general data-recipient principal sets and derivation union are absent.",
+    "quarantine": "FIDES-style cognitive quarantine is genuinely absent; runtime quarantine and transient material custody are only partial analogues.",
+    "restriction_only": "A strong non-promotion intent exists on hardened surfaces, but only piecemeal rather than as a repository-wide law.",
+    "runtime_admission": "Not one-shot by implementation; validity-window verification is repeatable.",
+    "unknown": "Unknown, untrusted, false, provenance-incomplete, authority-ineligible, and privacy-conservative remain distinct."
+  },
+  "non_conclusions": [
+    "No universal ContentLabel is recommended.",
+    "Trusted/untrusted is not imposed on all data.",
+    "Runtime admissions are not assumed one-shot.",
+    "Raw external material is not always required to be hidden.",
+    "Data confidentiality is not effect authority.",
+    "Most-restrictive-wins is not recommended globally.",
+    "FIDES middleware is not proposed for SentientOS."
+  ],
+  "required_sections": [
+    "Executive finding",
+    "Methodology and source discipline",
+    "FIDES mechanism summary",
+    "SentientOS existing semantics",
+    "Mechanism-by-mechanism crosswalk",
+    "Integrity analysis",
+    "Confidentiality and principal analysis",
+    "Provenance and derivation analysis",
+    "Quarantine and indirection analysis",
+    "Admission and approval consumption analysis",
+    "Crash-window analysis",
+    "Unknown and unlabeled semantics",
+    "What FIDES teaches SentientOS",
+    "What SentientOS should explicitly NOT copy",
+    "Design questions requiring operator/architect decision",
+    "Ranked-by-dependency future research questions",
+    "Evidence appendix"
+  ],
+  "schema": "sentientos.fides_comparative_invariant_audit.v1",
+  "sentientos_sha": "013a0eb282715e17e19da2d2d1826ce7b07b0190"
+}
