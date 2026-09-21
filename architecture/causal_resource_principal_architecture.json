@@ -270,22 +270,24 @@
     {
       "allocation_owner": "governor configuration",
       "consumption_measurement": "route decisions and pressure metrics",
-      "cross_service_propagation": "none",
+      "cross_service_propagation": "none; explicit canonical root evidence may be observed at one control-plane boundary",
       "current_principal": "routing/governor pressure state",
       "current_runtime_composition": "Codex routing flow, not resident universal allocator",
-      "current_status": "deterministic component enforcement with durable pressure state",
+      "current_status": "deterministic component enforcement with durable pressure state; optional bounded observation-only attribution at the control-plane boundary",
       "durable_state": "atomic hash-linked pressure state and recovery files",
       "mechanism": "proof budget governor",
       "parent_child_semantics": "none",
-      "proposed_relationship": "plausible first read-only attribution consumer; retain arithmetic",
+      "proposed_relationship": "proof-budget arithmetic remains component-local and principal-independent; control-plane evidence may include bounded observation-only attribution to a canonically verified root identity",
       "receipt_evidence": "budget decisions and pressure state",
       "recommendation": "adapt",
       "resource_bounded": "K/M proof-routing bounds",
       "source_paths": [
-        "codex/proof_budget_governor.py"
+        "codex/proof_budget_governor.py",
+        "sentientos/control_plane_kernel.py"
       ],
       "test_paths": [
-        "tests/test_proof_budget_governor.py"
+        "tests/test_proof_budget_governor.py",
+        "tests/test_control_plane_kernel.py"
       ]
     },
     {
@@ -462,7 +464,8 @@
       "future resource-specific adapters outside runtime_admission.py"
     ],
     "first_consumers": [
-      "proof budget attribution in observation-only mode",
+      "proof budget attribution in observation-only mode (implemented only at the explicit control-plane boundary)",
+      "bounded producer/composition path to supply root evidence to proof-budget observations (next candidate)",
       "governed local-model invocation budget adapter after separate design/implementation approval"
     ],
     "forbidden_current_claims": [
@@ -487,12 +490,13 @@
       "canonical inert root principal evidence schema",
       "verified-sponsorship deterministic root minting",
       "deterministic root verification",
-      "strict canonical mapping"
+      "strict canonical mapping",
+      "observation-only proof-budget causal attribution at the explicit control-plane boundary"
     ],
     "principal_allocates_nothing": true,
     "principal_grants_nothing": true,
     "runtime_module": "sentientos/causal_resource_principal.py",
-    "status": "root_identity_evidence_only",
+    "status": "root_identity_with_observation_only_proof_budget_attribution",
     "still_not_implemented": [
       "resource allocations",
       "allocation ledgers",
@@ -504,7 +508,6 @@
       "retries/accounting integration",
       "resource enforcement",
       "admission integration",
-      "proof-budget attribution",
       "local-model budget binding",
       "external-model quotas",
       "provider billing",
@@ -512,7 +515,8 @@
       "host scheduling",
       "resident composition",
       "revocation registry",
-      "renewal generations"
+      "renewal generations",
+      "cryptographic issuer authentication across untrusted transport"
     ]
   },
   "lineage_rules": {
@@ -584,7 +588,6 @@
     "retries/accounting integration",
     "resource enforcement",
     "admission integration",
-    "proof-budget attribution",
     "local-model budget binding",
     "external-model quotas",
     "provider billing",

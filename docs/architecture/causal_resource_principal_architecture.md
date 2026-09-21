@@ -1,6 +1,6 @@
 # Causal Resource Principal Architecture
 
-> **Posture — root identity evidence implemented; wider architecture non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements only inert root evidence, verified-sponsorship deterministic minting, strict mapping, and deterministic verification. It implements no allocation, child, propagation, consumption, enforcement, authority, or composition. Possessing a principal confers nothing and allocates nothing.
+> **Posture — root identity evidence plus one observation-only consumer implemented; wider architecture remains non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements inert root evidence, and `sentientos/control_plane_kernel.py` may project explicitly supplied canonical root evidence into descriptive proof-budget context. Neither surface implements allocation, child propagation, consumption, enforcement, entitlement, or effect authority. Possessing or observing a principal confers nothing and allocates nothing.
 
 **Inspected revision:** `168fde46163676cb913887282088a3687d7d7bf4`  
 **Inspection time:** `2026-09-21T07:28:58Z`  
@@ -16,11 +16,15 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 ## 1.1 Runtime implementation status
 
-**Implemented now:** canonical `sentientos.causal_resource_principal:v1` immutable root evidence, an injected operator-sponsorship verification boundary, deterministic issuer-derived identity and binding, strict mapping, and deterministic explicit-time verification. Roots have no parent and use an all-zero SHA-256 genesis predecessor.
+**Implemented now:** canonical `sentientos.causal_resource_principal:v1` immutable root evidence, an injected operator-sponsorship verification boundary, deterministic issuer-derived identity and binding, strict mapping, deterministic explicit-time verification, and bounded observation-only causal attribution at the explicit proof-budget control-plane boundary. Roots have no parent and use an all-zero SHA-256 genesis predecessor.
 
-**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, proof-budget attribution, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
+**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
 
-The next smallest slice remains observation-only causal attribution in the proof-budget path, without entitlement or permission.
+The next smallest justified slice is a bounded producer/composition path that supplies already-existing root evidence to proof-budget observations. It must not mint at the consumer, establish generic propagation, or create entitlement.
+
+### Canonical verification is not issuer authentication
+
+The control-plane projection uses the kernel-owned injected clock, rendered as canonical second-resolution UTC, and the existing `CausalResourcePrincipalVerifier`. A successful `canonical_root_binding_verified` status proves canonical root shape, identity/binding consistency, and current validity. Because the evidence is self-sealing rather than issuer-signed, it is **not** independent cryptographic proof that an untrusted serialized mapping originated from `RootPrincipalIssuer`. This bounded observation is safe only because it cannot grant, allocate, admit, or change proof-budget policy; caller `run_context` remains ordinary untrusted metadata. Invalid evidence is reduced to a closed rejection status and is never echoed.
 
 ## 2. Current-state evidence
 
@@ -275,10 +279,10 @@ This table refuses equivalence-by-name. “Current status” distinguishes obser
 - **Consumption Measurement:** route decisions and pressure metrics
 - **Durable State:** atomic hash-linked pressure state and recovery files
 - **Parent Child Semantics:** none
-- **Cross Service Propagation:** none
-- **Receipt Evidence:** budget decisions and pressure state
-- **Current Runtime Composition:** Codex routing flow, not resident universal allocator
-- **Proposed Relationship:** plausible first read-only attribution consumer; retain arithmetic
+- **Cross Service Propagation:** none; one explicit control-plane input can carry canonical root evidence
+- **Receipt Evidence:** budget decisions, pressure state, and optional bounded descriptive attribution
+- **Current Runtime Composition:** Codex routing flow plus observation-only control-plane projection, not a resident universal allocator
+- **Proposed Relationship:** arithmetic remains component-local and principal-independent; control-plane evidence may observe a canonically verified root identity
 - **Recommendation:** adapt
 
 ### maintenance scheduler bounds
@@ -385,9 +389,9 @@ This table refuses equivalence-by-name. “Current status” distinguishes obser
 
 ## 18. Candidate implementation boundaries
 
-The first plausible integrations are observation-only proof-budget attribution and, later, a governed local-model budget adapter. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
+Observation-only proof-budget attribution is implemented only at the explicit control-plane boundary. The next plausible integration is a bounded producer/composition path that supplies existing root evidence; a governed local-model budget adapter remains later work. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
 
-The **smallest next runtime slice** is: define and test an inert canonical principal evidence schema plus deterministic verifier/minting API for operator-sponsored roots only. It must add no allocation ledger, child propagation, enforcement, admission integration, or effect. That later task must choose issuer custody and durable revocation/currentness evidence before coding.
+The **smallest next runtime slice** is: add a bounded producer/composition path that supplies already-existing root evidence to this observer without minting at the consumer or creating generic propagation. Stronger authenticated custody across untrusted boundaries remains a prerequisite before treating serialized evidence as issuer-authenticated.
 
 ## 19. Unresolved questions
 
