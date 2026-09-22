@@ -1,7 +1,7 @@
 {
   "schema": "sentientos.causal_resource_principal_authentication_architecture:v2",
   "posture": "bounded_runtime_verification_boundary_non_authority",
-  "repository_sha": "6e07a74b4814f656aa211bfcabb90c15dc13698d",
+  "repository_sha": "83741287a44096b0284b05a28acb5177e7049a11",
   "current_gap": {
     "statement": "principal_self_binding_is_not_issuer_authentication",
     "serialized_risk": "Anyone who knows the v1 schema can construct a self-consistent principal with a syntactically valid issuer_id.",
@@ -39,7 +39,9 @@
     "nacl/signing.py",
     "pyproject.toml",
     "sentientos/causal_resource_principal_authentication.py",
-    "tests/test_causal_resource_principal_authentication.py"
+    "tests/test_causal_resource_principal_authentication.py",
+    "sentientos/causal_resource_principal_ed25519.py",
+    "tests/test_causal_resource_principal_ed25519.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -484,7 +486,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_authentication.py"
+      "sentientos/causal_resource_principal_ed25519.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -496,10 +498,11 @@
       "injected_signature_verification_protocol",
       "root_issuer_provenance_verifier",
       "process_local_authenticated_result",
-      "deterministic_test_only_backend"
+      "deterministic_test_only_backend",
+      "production_verification_only_ed25519_backend_using_cryptography_runtime_extra",
+      "real_verification_for_already_resolved_trusted_public_key_only"
     ],
     "deferred": [
-      "production_ed25519_backend",
       "production_signer",
       "private_key_custody",
       "persistent_trust_catalog",
@@ -510,7 +513,9 @@
       "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
       "resource_allocation",
-      "resource_entitlement_enforcement"
+      "resource_entitlement_enforcement",
+      "resource_admission",
+      "resource_effect_authority"
     ]
   },
   "forbidden_claims": [
@@ -544,7 +549,8 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "production_verification_only_ed25519_backend",
-    "scope": "Implement one injected production verification-only Ed25519 backend; do not add signing, private-key custody, trust persistence or mutation, producer/control-plane integration, admission, authority, or allocation."
+    "id": "production_read_only_trusted_issuer_public_key_catalog",
+    "scope": "Implement one production read-only trusted issuer/public-key catalog; do not add signing, private-key custody, trust mutation, producer/control-plane integration, admission, authority, or allocation.",
+    "selection_reason": "Real signature verification now exists, while production trusted public-key custody remains absent; signer custody and producer composition depend on a later authority decision, and allocation must wait for composed authenticated causal ownership."
   }
 }

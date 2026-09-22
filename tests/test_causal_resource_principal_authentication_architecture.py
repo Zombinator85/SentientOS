@@ -12,12 +12,12 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "6e07a74b4814f656aa211bfcabb90c15dc13698d"
+    assert CONTRACT["repository_sha"] == "83741287a44096b0284b05a28acb5177e7049a11"
     assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v2"
     assert CONTRACT["posture"] == "bounded_runtime_verification_boundary_non_authority"
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal_authentication.py"
+        "sentientos/causal_resource_principal_ed25519.py"
     ]
 
 
@@ -81,11 +81,11 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_verification_backend_task() -> None:
+def test_next_slice_is_one_bounded_read_only_trust_catalog_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "production_verification_only_ed25519_backend"
-    assert "verification-only Ed25519 backend" in next_slice["scope"]
+    assert next_slice["id"] == "production_read_only_trusted_issuer_public_key_catalog"
+    assert "read-only trusted issuer/public-key catalog" in next_slice["scope"]
     assert "do not add signing" in next_slice["scope"]
 
 
@@ -94,7 +94,9 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "root_issuer_provenance_verifier" in boundaries["implemented"]
     assert "process_local_authenticated_result" in boundaries["implemented"]
     assert "deterministic_test_only_backend" in boundaries["implemented"]
-    assert "production_ed25519_backend" in boundaries["deferred"]
+    assert "production_verification_only_ed25519_backend_using_cryptography_runtime_extra" in boundaries["implemented"]
+    assert "real_verification_for_already_resolved_trusted_public_key_only" in boundaries["implemented"]
+    assert "production_ed25519_backend" not in boundaries["deferred"]
     assert "production_signer" in boundaries["deferred"]
     assert "resource_allocation" in boundaries["deferred"]
     assert CONTRACT["algorithm_policy"]["claim_identifier"] == "ed25519"
