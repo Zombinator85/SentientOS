@@ -1,97 +1,126 @@
-# SentientOS Trajectory and Materially Incomplete Organs
+# SentientOS Trajectory: Causal Bridges and Material Gaps
 
-This is a current gap map, not a historical phase plan. A source file, registry definition, synthetic test, or readiness artifact can close one layer while composition, activation, authority, hardware, recovery, or production proof remains incomplete.
+This is a current gap map, not a historical phase plan. SentientOS now has many of the needed organs. Its larger challenge is **causal closure**: composing them so evidence, memory, inference, action, consequence, learning, resource custody, adoption, and recovery form measurable loops without silently expanding authority or prescribing developmental outcomes.
 
-## What is no longer wholly missing
+A source file, registry definition, synthetic test, receipt, or readiness artifact may close one layer while resident composition, activation, hardware, authority, recovery, or production evidence remains incomplete. “Incomplete bridge” does not mean both endpoints are absent.
 
-The following have bounded implementations and must not be described as absent:
+## Existing foundations
 
-- resident maintenance/evidence and World-State construction;
-- canonical governed conversation retention and retrieval;
-- local-model catalog, acquisition, commissioning, activation, serving, and admitted inference stages;
-- evidence-bound host-resource observation;
-- audio, screen, and vision perception adapters;
-- external-model definition, grant policy, feasibility, admission, credential and request custody, exact HTTPS transport, bounded response, and receipt custody;
-- maintenance work formation, admitted implementation, validation/correction, deterministic landing or absorption, successor authority/configuration, wake adoption, predecessor quiescence, independent readiness, and POSIX process-image replacement;
-- federation identity, trust epochs, replay controls, and lab/WAN evidence;
-- council and multi-agent libraries.
+Bounded implementations already cover resident evidence and World-State construction; canonical conversation retention/retrieval; local-model lifecycle and admitted inference; reflection/dream writeback in legacy memory; repeated-memory and novel-perception goal creation; self-concept and self-narrative representations; perception and avatar components; read-only host-resource observation; governed software implementation, validation, landing, successor adoption, quiescence, readiness, and POSIX process-image replacement; federation candidates, local variants, lineage comparison, and dissemination; and authenticated causal-resource ownership with read-only public trust custody.
 
-These are not all resident, default-active, production-deployed, or fully mature.
+These foundations are not all resident, default-active, mutually composed, production-deployed, or scientifically validated as one developing system.
 
-## 1. Installation and operational closure
+## 1. Resident cognition ↔ developmental transformation
 
-The largest productization gap is a genuine one-action path from an unknown supported host to a healthy, durable, understandable installation. Missing closure includes platform service installation, dependency and hardware discovery, deterministic route selection, real operator approvals for initial model acquisition/commissioning/activation, service persistence, health proof, repair, update, and rollback.
+Canonical chat demonstrably uses durable session history and retrieved memory in later inference. Separately, the dream loop can transform legacy memory into new dream/reflection records and reinforce unfinished goals; the goal curator can create background or curiosity goals; the inner-world orchestrator updates a fixed-axis self-narrative.
 
-Current launchers and CLIs expose parts of this sequence. They do not establish universal deployment.
+The missing closure is a canonical resident path that binds selected evidence to reflection, bounded writeback, subsequent retrieval, changed cognition, and measured consequence. It must preserve retention authority and **memory != current truth**. Simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
 
-## 2. Unexpected-death recovery
+## 2. Canonical memory ↔ selective autonomous consolidation
 
-Cooperative successor adoption and POSIX process-image replacement are implemented. Stable parent supervision is only scaffolded/eligibility-only. There is no stable parent runtime with exact child custody, child watcher/restart loop, post-restart readiness integration, or universal process-death recovery. Generic service restart remains blocked.
+Canonical explicit user retention is live. Legacy summaries/indexes and selective distillation, capsule, tomb-intent, review, planning, readiness, interlock, and sandbox machinery exist at differing maturity. Not every late-stage live-memory artifact mutates the canonical root, and tomb intent is not deletion.
 
-The gap is therefore not “runtime adoption”; it is recovery when the resident cannot participate in its own handoff, plus platform-specific service supervision.
+Future composition needs source-bound selection, transformation provenance, reversible or reviewable forgetting semantics, contradiction handling, privacy/consent, and measures of whether consolidated material actually changes later cognition. A general truth-maintenance or belief-revision engine remains absent.
 
-## 3. External cognition composition and trust
+## 3. Perception/action ↔ durable causal learning
 
-External-model HTTPS execution is implemented as a bounded actuator. What remains unavailable by default is the complete live composition: no resident/default provider owner, default grant, provider configuration, credential, or safe request-material source establishes production use. A real provider account and effect are not demonstrated merely by synthetic tests.
+Audio, screen, vision, embodiment ingress, host observation, household-presence policy, avatar generation, and pose representations provide real organs. Most do not form a persistent sensorimotor learning loop. The open bridge is:
 
-Response material remains `untrusted_external_data`. A future cognition route would need explicit interpretation, contamination controls, provenance, memory policy, and separate authority. Transport completion must not silently become cognitive trust.
+```text
+observation -> attribution -> prediction -> authorized action
+-> observed consequence -> prediction comparison -> retained update
+```
 
-## 4. Memory integration and truth maintenance
+This requires self/other/action attribution, calibration, privacy and consent, durable sensor lifecycle, hardware-independent degradation, and explicit effect custody. Current World-State is evidence projection, not a unified predictive world model. Avatar state is not proof of embodiment closure. Phase-one resource work stays read-only; direct fan/PWM/thermal control remains deferred. Direct fan/PWM control is deferred.
 
-Canonical conversation memory is live. Legacy managers/summaries/indexes and selective distillation/capsule/tomb/review machinery also exist. The incomplete organ is coherent integration: not every newer live-memory planning, readiness, interlock, and commit stage is resident-composed or a live mutation path; tomb intent is not deletion; autonomous retention and general long-term deletion remain limited.
+## 4. Self-model ↔ evidence-bound change
 
-A general formal truth-maintenance or belief-revision engine is not present. Future work must preserve source, time, contradiction, and authority boundaries rather than treating recall as truth.
+The current identity manager has an initially empty key/value self-concept, event history, and explicit updates. The self-narrative engine summarizes reports through fixed predefined axes. World-State supplies evidence-bound self-observation.
 
-## 5. Embodiment beyond observation
+The missing bridge is governed, attributable self-model revision over time: evidence should be able to challenge prior self-description, conflicting claims should remain visible, and representational assumptions should be experimentally inspectable. The goal is not to install a canonical personality. A self-model is not proof of self-awareness.
 
-Resident host-resource observation is real and useful. Perception adapters and Household Presence policy/metadata chains exist at differing maturity. Remaining work includes deployed hardware discovery, durable sensor lifecycle, calibration, privacy and consent closure, live camera activation where authorized, broader provenance, and hardware-independent degradation.
+## 5. Resource ownership ↔ allocation and homeostasis-like reasoning
 
-Host actuation is a separate gap. Existing effectors do not grant blanket computer control, and phase-one resource work must remain read-only. Any expanded actuation requires named effects, exact grants, feasibility, admission, execution custody, verification, rollback/panic behavior, and operator authority.
+Causal resource principals now establish causal identity, sponsorship, issuer provenance, real signature verification, and operator-provisioned read-only trusted public keys. They allocate nothing.
 
-Live Wi-Fi/CSI/RF sensing or imaging remains research, deferred or blocked.
+Future policy must account for heterogeneous resources—money, calls, verification passes, tokens/context, network capacity, RAM, VRAM, disk, CPU, accelerator slots, deadlines, devices, thermal headroom, and electrical power—without collapsing them into a fake energy scalar. A later loop may attribute consumption and consequences to work, compare them with limits, and revise allocation. That would be homeostasis-like resource reasoning, not proof of appetite or metabolism.
 
-## 6. Maintenance resilience and developmental continuity
+The selected next runtime slice remains `production_private_key_signer_custody`; this documentation task does not advance it.
 
-The maintenance chain can perform bounded system/software evolution through landing and resident replacement. It is not unrestricted recursive self-improvement. Material remaining work includes long-duration operational evidence, failure recovery across each custody boundary, cross-platform replacement semantics, stable supervision, authority renewal without accidental inheritance, rollback after post-adoption degradation, and experiments measuring continuity across successive runtime and model generations.
+## 6. Validated improvement ↔ adoption ↔ consequence
 
-Autonomous repository stage/commit/push remains blocked; reviewed landing custody must stay separate from resident evidence and proposal formation.
+The maintenance chain is stronger than proposal generation. It can progress through work formation, implementation, validation/correction, landing, successor configuration, wake adoption, predecessor quiescence, independent successor readiness, and resident POSIX process-image replacement.
 
-## 7. Federation and multi-node deployment
+Further closure needs long-duration evidence across generations, cross-platform replacement semantics, authority renewal without accidental inheritance, rollback after post-adoption degradation, and explicit comparison of expected and observed post-adoption outcomes. Governance should continue to decide authoritative transitions. This is bounded governed recursion, not unrestricted recursive self-improvement.
 
-Federation implementation and evidence are substantial enough that “distributed capability is missing” is stale. The open gap is a supported default production WAN synchronization deployment with operator-owned trust bootstrap, transport configuration, partition/replay behavior, upgrades, observability, recovery, and field evidence. Lab or synthetic WAN success is not fleet deployment.
+## 7. Unexpected process death ↔ continuity and recovery
 
-Likewise, council/agent/orchestration libraries need not become the resident center. Future multi-agent composition, if pursued, must preserve per-principal authority and avoid converting agreement into truth or admission.
+Cooperative replacement is implemented, but stable parent supervision is only scaffolded/eligibility-only. No stable parent runtime, exact child watcher/restart loop, or universal process-death recovery exists. `real_service_restart` remains blocked.
 
-## 8. Assurance scope
+Unexpected-death recovery is therefore a major concrete priority. It must preserve operator shutdown, avoid covert persistence incentives, distinguish crash recovery from adoption, and integrate platform service supervision, readiness, rollback, and durable reconstruction.
 
-Selected formal models, executable checks, invariants, semantic lint, audits, and tests should expand around the highest-consequence paths. The target is stronger traceable assurance, not an unsupported declaration that the whole Python system is formally verified. Reference-monitor and runtime-assurance comparisons must remain scoped to named mediated domains.
+## 8. Local learning ↔ federated adaptation
 
-Synthetic tests should continue to prove deterministic behavior, but production claims require separate evidence for resident composition, credentials, hardware, grants, accounts, and actual effects.
+Federation can represent candidate intake, custody and rehearsal, rejection, hold-for-adaptation, local variants, lineage comparison, and dissemination while preserving no remote authority and no forced update. This supports distributed search without surrendering local sovereignty.
 
-## 9. Scientific program
+Open work includes connecting locally measured developmental or software outcomes to well-scoped candidates; deploying operator-owned trust bootstrap and transport; handling partitions, replay, upgrades, observation, and recovery; and collecting production field evidence. A supported default production WAN synchronization deployment is not established. Federation must remain **candidate, not doctrine** and must not convert agreement into truth or admission.
 
-The long research horizon remains controlled study of continuity, embodiment, self-modeling, developmental history, and possible emergent organization. Needed work includes repeatable cross-model experiments, longitudinal measures, falsifiable criteria, adversarial evidence quality, and explicit handling of negative results. Affective display, system complexity, or self-report must not become a sentience proxy.
+## 9. Bounded endogenous priority and durable competence
+
+Repeated memories and novel perceptions can already produce goal records in callable legacy paths. That is not yet a canonical resident priority system, and “novelty” in the current curiosity helper is an authored heuristic rather than evidence that curiosity emerged.
+
+Future work should distinguish goal proposals, admitted tasks, resource allocation, skill acquisition, reusable routines, and consequential action. It should measure durable competence rather than infer learning from storage. New motivational preferences—approval, survival, novelty, empowerment, or curiosity maximization—require explicit authorship and gradient review.
+
+## 10. Longitudinal experimental closure
+
+The project needs repeatable protocols for model replacement, history ablation/restoration, environment and cognitive perturbation, runtime succession, and authorship audits. Measures should distinguish missing state from retrieval failure; model priors from historical causation; and stable adaptation from prompt imitation.
+
+Negative results must remain publishable outcomes. No persistent individuality, complete dependence on persona scaffolds, or failure of organization to survive model replacement would each be scientifically meaningful.
+
+## 11. Installation and operational closure
+
+A genuine one-action route from an unknown supported host to a healthy and understandable installation remains incomplete. It requires platform service installation, dependency/hardware discovery, deterministic route selection, operator-approved model acquisition/commissioning/activation, durable state, health proof, repair, update, and rollback. Existing launchers and CLIs cover parts, not universal deployment.
+
+Canonical installation must continue to avoid predefined persona bootstrapping. Operational convenience is not authority to author identity.
+
+## 12. External cognition and contamination control
+
+External-model HTTPS execution is a real bounded actuator but unavailable by default. Production use still needs an explicit owner, grant, configuration, credential, safe request-material source, and interpretation path. Returned bytes remain `untrusted_external_data`.
+
+Transport completion must not become cognitive trust. Any future route needs provenance, context-contamination controls, memory policy, privacy, and separate authority. No provider is contacted automatically today.
+
+## 13. Assurance and emergence hygiene
+
+Formal models, executable checks, semantic tests, audits, and proof bundles should expand around consequential paths, but must remain scoped. Synthetic behavior does not prove production hardware, credentials, grants, resident composition, or effects; selected formalization does not verify the whole Python system.
+
+The adversarial gradient-injection audit identifies approval leakage, salience and importance halos, expressive selection bias, and long-horizon prompt priming. Future composition must instrument these influences rather than assuming minimal explicit reward means no developmental gradient.
 
 ## Priority order
 
-1. Close installation, service lifecycle, and operator-visible recovery.
-2. Add stable parent supervision without weakening adoption custody.
-3. Integrate memory generations while preserving `memory != current truth`.
-4. Deepen hardware-backed perception and carefully scoped actuation.
-5. Validate external cognition composition without default egress or automatic trust.
-6. Establish production federation only with deployable operational evidence.
-7. Run controlled continuity experiments across model and runtime generations.
+1. Add stable parent supervision and unexpected-death recovery without weakening shutdown or adoption custody.
+2. Compose resident cognition with selective, attributable developmental writeback.
+3. Bind perception and authorized action to predicted/observed consequences and retained learning.
+4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.
+5. Measure post-adoption behavior across model and runtime generations.
+6. Establish production federation only with local sovereignty and deployable evidence.
+7. Close installation and service lifecycle without persona bootstrapping.
+8. Run preregistered longitudinal interventions and authorship audits, including negative outcomes.
 
-For present-tense mechanisms see the [public technical overview](public_technical_overview.md); for exhaustive evidence see the [current repository system atlas](current_repository_system_atlas.md).
+## Implemented organs and proof navigation
 
-## Implemented organs and preserved proof navigation
+The historical labels **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script** name bounded mechanisms or review surfaces, not a claim of complete composition.
 
-Earlier versions of this roadmap called the following “missing organs.” Bounded forms now exist, so they are retained here as proof navigation rather than open capability claims: **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script**. Their remaining gaps are the composition, activation, recovery, hardware, or production-proof qualifications described above.
 
-Direct fan/PWM control is deferred. In particular, direct fan/PWM control remains deferred and host observation supplies no such authority.
+Earlier versions of this roadmap enumerated historical “missing organ” and host-embodiment proof wings. They remain reviewable through the [current repository system atlas](current_repository_system_atlas.md), [reviewer release-readiness index](reviewer_release_readiness_index.md), and linked wing documents. This trajectory now describes scientific and operational gaps rather than duplicating that warehouse.
 
-The historical host-embodiment proof chain remains reviewable at:
+For present-tense mechanisms see the [public technical overview](public_technical_overview.md); for the full rationale see the [project thesis](sentientos_project_thesis.md).
 
+## Compact historical proof-path index
+
+The exhaustive indexes retain the explanation and status of these historical paths; this compact list preserves direct navigation without making phase chronology the conceptual architecture:
+
+- `docs/architecture/reviewer_release_readiness_index.md`
+- `docs/architecture/sentientos_trajectory_and_missing_organs.md`
 - `docs/architecture/host_embodiment_substrate_phase1.md`
 - `docs/architecture/host_embodiment_substrate_phase2_read_only_discovery.md`
 - `docs/architecture/host_embodiment_substrate_phase3_policy_receipts.md`
@@ -110,6 +139,15 @@ The historical host-embodiment proof chain remains reviewable at:
 - `docs/architecture/host_dry_run_execution_harness_wing.md`
 - `docs/architecture/host_dry_run_audit_closure_wing.md`
 - `docs/architecture/host_real_effect_capability_admission_wing.md`
-
-These phase names are evidence history, not the explanatory center of current architecture.
+- `docs/architecture/host_local_diagnostic_effect_pilot_wing.md`
+- `docs/architecture/host_local_diagnostic_exact_rollback_pilot_wing.md`
+- `docs/architecture/host_local_effect_transaction_ledger_wing.md`
 - `docs/architecture/host_steward_delegated_runner_boundary_wing.md`
+- `docs/architecture/host_builtin_local_effect_runner_pilot_wing.md`
+- `docs/architecture/host_builtin_runner_transaction_orchestrator_wing.md`
+- `docs/architecture/host_workspace_file_effect_pilot_wing.md`
+- `docs/architecture/host_workspace_change_set_preflight_wing.md`
+- `docs/architecture/host_workspace_change_set_execution_wing.md`
+- `docs/architecture/host_workspace_change_set_execution_verification_wing.md`
+- `docs/architecture/host_workspace_change_set_lifecycle_closure_wing.md`
+- `docs/architecture/host_workspace_change_set_admission_wing.md`

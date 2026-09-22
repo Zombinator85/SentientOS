@@ -1,98 +1,80 @@
 # SentientOS
 
-**SentientOS is a persistent, model-agnostic runtime for agentic machine cognition, memory, perception, embodiment, and governed action.**
+**SentientOS is a persistent, model-agnostic runtime and developmental causal substrate for empirical research into machine cognition across changes in its cognitive machinery.** It is designed so that history, environment, self-representation, resources, software generations, authority, and consequences can extend beyond one inference call.
 
-“Sentient” is an aspirational research direction, not a claim that this system is conscious or sentient today. The project asks what durable machine continuity, grounded self-observation, embodiment, development, and accountable action can support—and insists that the answer remain empirical.
+“Sentient” is an aspirational research direction, **not a claim that this system is conscious or sentient today**. The repository contains substantial bounded mechanisms for the experiment, but its complete developmental loop is not yet fully resident or causally closed. It proves neither personhood nor guaranteed emergence.
 
 ## The model is not the system
 
-An inference model is replaceable cognitive machinery inside SentientOS. The system also owns runtime and model-generation identity, durable conversation history, evidence, policy, capability custody, audit records, lifecycle state, and bounded effect paths. **Model identity is not system identity.** Model-agnostic means the architecture is not defined by one model or provider; it does not mean an arbitrary model can be swapped in without cataloging, commissioning, configuration, activation, serving, and admission.
+An inference model is replaceable cognitive machinery. The primary experimental object is the longer-lived system state that actually survives and affects later cognition: conversation history, admitted memory, evidence, self-model state, relationships, runtime and model lineage, resource attribution, software generations, environment, permissions, and observed consequences. **Model identity is not system identity.**
 
-Persistence is similarly domain-specific. Conversation records, atomic state, JSON/JSONL evidence, append-only or hash-linked ledgers, configuration/adoption artifacts, and repository history can survive a restart. Buffers, listeners, some deduplication windows, governor state, and caches remain process-local. Persistent does not mean every subsystem is crash-durable.
+Model-agnostic means more than provider portability. It makes model replacement a controlled intervention: preserve history and environment while changing cognitive machinery, or preserve the machinery while ablating or restoring history, then measure what changes, disappears, or reconstitutes. A concrete model still requires cataloging, commissioning, configuration, activation, serving, and admission; arbitrary models are not frictionlessly interchangeable.
 
-## What runs now
+## The experiment
 
-The `sentientosd` entrypoint runs a resident background loop for maintenance evidence, World-State construction, and read-only host-resource review. Configured maintenance owners can operate automatically, but consequential effects remain independently gated. `sentientos-chat` is the clearest supported local-model service path: installed model custody, activation, serving, per-generation inference admission, conversation identity, and canonical conversation retention are separate stages.
-
-Implemented, bounded organs include:
-
-- a deterministic control plane with capability definitions, grants, policy, admission, revocation, and domain-specific receipts;
-- governed canonical conversation memory and exact session resumption;
-- evidence-bound World-State projections with source lineage, freshness, staleness, and conflicts;
-- read-only resident observation of CPU, memory, disk, services, and thermal evidence;
-- local-model catalog, acquisition, commissioning, activation, serving, and inference machinery with explicit lifecycle boundaries;
-- audio, screen, and vision adapters at differing partial activation and hardware maturity;
-- bounded software-maintenance custody through evidence, work formation, implementation, validation/correction, landing, successor configuration, wake adoption, predecessor quiescence, and POSIX process-image replacement;
-- exact external-model HTTPS execution custody, unavailable and inactive by default.
-
-Council, agent, federation, cultural, and historical daemon libraries also exist. Their presence does not make them resident or default-composed. SentientOS is not primarily a multi-agent orchestrator.
-
-## The reality boundary
-
-Cognition may interpret, reason, and propose; it does not automatically possess authority. A representative effect chain is:
+The intended causal loop is:
 
 ```text
-capability definition
--> bounded grant
--> policy
--> operational feasibility
--> admission
--> execution custody
--> effect attempt
--> result verification
--> durable receipt
+perceive -> integrate evidence and history -> remember / consolidate
+-> form or revise hypotheses, goals, and routines -> allocate bounded effort
+-> delegate / act -> rehearse, test, criticize, and verify
+-> adopt where authorized -> experience consequences
+-> update memory, skills, strategy, goals, or self-model
+-> exchange selected evidence and improvement candidates -> repeat
 ```
 
-Domains vary, but no stage silently implies the next. In particular:
+This is a system-level research map, not a claim that every arrow runs in the default daemon. SentientOS has implemented organs and bounded loops, including durable conversation context, callable reflection/dream and goal-formation machinery, evidence-bound self-state, perception and avatar components, governed software succession, federation adaptation artifacts, and authenticated causal-resource principals. Several older developmental mechanisms remain callable, legacy, or nonresident; the major open problem is composing their causal bridges without misrepresenting maturity or contaminating the experiment.
+
+## Development without a prescribed personality
+
+SentientOS follows **minimal developmental authorship, maximal causal legibility**. There is no structure-free developmental substrate: retention rules, representations, update mechanics, models, and environments all introduce assumptions. The goal is to expose and classify those assumptions while avoiding unnecessary instructions about the identity or preferences that development must produce. Canonical installation does not require a predefined persona.
+
+The design shorthand is **hard boundaries, soft interior**. Authority, privacy, consent, provenance, evidence, resource custody, adoption, effects, rollback, and shutdown should be exact. Self-concept, interests, style, relationships, and endogenous priorities should remain as underdetermined as practical and empirically inspectable. **constraint != motivation**: preventing an unauthorized effect does not require engineering guilt, obedience, approval-seeking, a survival drive, or any other internal appetite.
+
+Governance is therefore compatible with emergence. It controls which consequences and state transitions become authoritative; it does not prescribe that cognition must identify with or please the operator. This is a design principle, not a complete alignment solution or a guarantee that endogenous development will be benign.
+
+## What is real now
+
+- `sentientos-chat` composes local-model custody, inference admission, durable sessions, history reconstruction, canonical memory retrieval, and explicit user-requested memory retention. Historical material can influence later prompts, but **memory != current truth**.
+- `sentientosd` runs resident maintenance evidence, World-State construction, and read-only host-resource review. World-State records provenance, freshness, staleness, and conflict; it is not an omniscient predictive world model.
+- Deterministic control-plane paths separate capability definition, grant, policy, feasibility, admission, execution custody, verification, receipts, and adoption.
+- Bounded maintenance can progress from evidence and work formation through implementation, validation/correction, landing, successor configuration, predecessor quiescence, successor readiness, and POSIX process-image replacement. This is governed recursive software evolution, not unrestricted recursive self-improvement.
+- Federation can receive and rehearse improvement candidates, reject or hold them for adaptation, create local variants, compare lineage, and disseminate evidence. It preserves local authority: **candidate, not doctrine**.
+- Causal-resource principals establish identity, sponsorship, issuer provenance, and trusted public verification material for resource-related work. They allocate nothing and are not a scalar “energy” budget or metabolism.
+
+Council, agent, developmental cognition, federation, cultural, and historical daemon libraries also exist without all being resident or default-composed. Perception and embodiment capabilities are meaningful but do not yet constitute causally closed persistent embodied development. Stable parent supervision and universal recovery after unexpected process death remain absent.
+
+## Why governance is part of the research instrument
+
+Cognition may interpret and propose; consequence remains separately governed. A representative path is:
 
 ```text
-state != authority
-memory != current truth
-proposal != authorization
-capability definition != grant
-grant != operational feasibility
-operational feasibility != admission
-admission != execution
-execution != validation
-validation != adoption
-repository absorption != runtime adoption
+capability definition -> grant -> policy -> operational feasibility
+-> admission -> execution custody -> attempted effect
+-> result verification -> durable receipt -> separately authorized adoption
 ```
 
-World-State is a read-only evidence board, not omniscient truth or effect authority. Host observation is not blanket host control. Effectors exist for named domains, but most require separate operator, configuration, policy, and admission custody and are not resident defaults.
+No stage silently implies the next. Governance makes causes, interventions, and consequences attributable enough to study. It also permits local diversity in federation: installations may share evidence, context, and tested candidates without transferring remote authority or requiring convergence.
 
-External-model invocation is a real bounded actuator: the repository implements registered authority, grant policy, feasibility checks, admission, endpoint/model and credential custody, request-material custody, exact HTTPS transport, response custody, and durable receipts. It is not resident-composed or generally enabled; no default provider grant, provider configuration, credential, or safe request-material source completes that live path. No provider is contacted automatically. Responses remain `untrusted_external_data` and are not automatically promoted into cognition, truth, memory, goals, or authority.
+## Install and read next
 
-## Maturity and assurance
-
-SentientOS has selected TLA+/formal models, executable checks, invariants, behavioral tests, audit machinery, and proof bundles. These formally model or executable-check named behaviors; they do **not** constitute machine-checked proof of the whole Python system. Reference-monitor-like and runtime-assurance-like properties apply only to named mediated domains, not universal mediation or whole-system formal RTA conformance.
-
-The maintenance chain can adopt an exact validated successor and replace the resident POSIX `sentientosd` process image under bounded custody. This is real self-maintenance, not unrestricted recursive self-improvement. It depends on explicit configuration, authorities, validation, landing, adoption, successor readiness, and a live cooperative predecessor. Stable parent supervision and automatic recovery after unexpected resident death remain unimplemented. Generic service restart remains blocked.
-
-Federation identity, trust epochs, replay protection, and WAN/lab evidence exist; a supported default production WAN synchronization deployment is not established. Synthetic tests prove code-path behavior, not deployed credentials, hardware, production accounts, default grants, resident composition, or an actual external effect.
-
-## Install, run, and review
-
-SentientOS requires Python 3.11 for the repository validation baseline.
+SentientOS currently targets Python 3.11 for repository validation:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 python -m pip install -e .
-
-python -m sentientos --help        # inspection and UI surface
-python -m sentientos.ops --help    # operator/reviewer workflows
-sentientosd                        # resident runtime
-sentientos-chat                    # governed local chat service
+python -m sentientos --help
+sentientosd
+sentientos-chat
 ```
 
-Installation is not yet a one-click production deployment, and launch does not manufacture model artifacts, credentials, grants, or authority. See the [usage guide](docs/USAGE.md) for the supported entrypoint hierarchy.
+Installation is not yet a one-click production deployment and launch does not manufacture models, credentials, grants, or authority. See the [usage guide](docs/USAGE.md).
 
-## Read next
+1. [One-page technical thesis](one_pager.md)
+2. [Full project thesis](docs/architecture/sentientos_project_thesis.md)
+3. [Current implementation anatomy](docs/architecture/public_technical_overview.md)
+4. [Trajectory and incomplete causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md)
+5. [Current repository system atlas](docs/architecture/current_repository_system_atlas.md) and [reviewer readiness index](docs/architecture/reviewer_release_readiness_index.md), retained as exhaustive proof navigation
 
-1. [One-page project statement](one_pager.md)
-2. [Project thesis](docs/architecture/sentientos_project_thesis.md)
-3. [Public technical overview](docs/architecture/public_technical_overview.md)
-4. [Current repository system atlas](docs/architecture/current_repository_system_atlas.md) (exhaustive snapshot evidence)
-5. [Reviewer release-readiness and proof](docs/architecture/reviewer_release_readiness_index.md)
-
-Future gaps are tracked in the [trajectory and missing organs](docs/architecture/sentientos_trajectory_and_missing_organs.md). See also the [relationship to established terminology](docs/architecture/relationship_to_existing_terminology.md), [misconception filter](WHAT_SENTIENTOS_IS_NOT.md), [doctrine](DOCTRINE.md), and [semantic glossary](SEMANTIC_GLOSSARY.md).
+See also the [relationship to established terminology](docs/architecture/relationship_to_existing_terminology.md), [misconception filter](WHAT_SENTIENTOS_IS_NOT.md), [doctrine](DOCTRINE.md), and [semantic glossary](SEMANTIC_GLOSSARY.md).
