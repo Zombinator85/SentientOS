@@ -2,7 +2,7 @@
 
 ## Posture and inspected base
 
-This is a **bounded runtime verification boundary and non-authority contract**. The immutable claim, canonical payload and digest, injected lookup/verification protocols, verifier, and process-local authenticated result are implemented. It implements no production signing or Ed25519 backend, key custody, root minting integration, allocation, GenesisForge composition, or control-plane status. The inspected clean repository SHA is `6e07a74b4814f656aa211bfcabb90c15dc13698d`.
+This is a **bounded runtime verification boundary and non-authority contract**. The immutable claim, canonical payload and digest, injected lookup/verification protocols, verifier, process-local authenticated result, and production verification-only Ed25519 backend are implemented. The backend uses the optional `cryptography` runtime dependency and establishes only real verification for an already-resolved trusted public key. It implements no production signing, private-key or trusted-key custody, root minting integration, allocation, GenesisForge composition, or control-plane status. The inspected clean repository SHA is `83741287a44096b0284b05a28acb5177e7049a11`.
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -156,13 +156,13 @@ Do not build custom cryptography, use repository-local fake NaCl as production s
 
 ## Implemented bounded runtime slice
 
-The repository now implements the immutable `RootPrincipalIssuerProvenance` claim, exact parsing, canonical payload builder, self-binding provenance digest, purpose-scoped signer protocol, lookup-only trust-store protocol, injected verification-only backend protocol, `RootIssuerProvenanceVerifier`, and process-local `AuthenticatedRootPrincipalEvidence`. Deterministic fake signing and verification exist only in tests and are explicitly not Ed25519 or production security. The closed claim algorithm identifier is `ed25519`.
+The repository now implements the immutable `RootPrincipalIssuerProvenance` claim, exact parsing, canonical payload builder, self-binding provenance digest, purpose-scoped signer protocol, lookup-only trust-store protocol, injected verification-only backend protocol, `RootIssuerProvenanceVerifier`, process-local `AuthenticatedRootPrincipalEvidence`, and one production verification-only Ed25519 backend using the `cryptography` runtime extra. The backend verifies exact canonical payload bytes under an already-resolved trusted raw public key; it neither chooses nor establishes trust. Deterministic fake signing and verification exist only in tests and are explicitly not Ed25519 or production security. The closed claim algorithm identifier is `ed25519`.
 
-Production Ed25519 verification and signing, private-key custody, persistent trust catalogs and mutation, rotation/revocation infrastructure, principal revocation, producer integration, GenesisForge forwarding, control-plane authenticated status, allocation, entitlement, and enforcement remain unimplemented. Authentication still grants nothing, allocates nothing, admits nothing, and executes nothing.
+Production signing, private-key custody, persistent trusted-key catalogs and trust mutation, key rotation/revocation infrastructure, principal revocation, root producer authentication composition, GenesisForge forwarding, control-plane authenticated status, `ResourceAllocation`, resource entitlement/enforcement, admission, and effect authority remain unimplemented. The backend signs nothing, owns or generates no private key, loads no secret, mutates no trust, chooses no trusted issuer, grants no authority, performs no admission, allocates no resource, and executes no effect.
 
 ## Smallest next implementation slice
 
-Implement **one bounded slice**: a production verification-only Ed25519 backend behind the existing injected protocol. Do not add signing, private-key custody, trust persistence or mutation, producer/control-plane integration, admission, authority, or allocation.
+Implement **one bounded slice**: a production read-only trusted issuer/public-key catalog. Real signature verification now exists, but production trusted public-key custody does not. This is smaller and prerequisite-focused compared with private-key signer custody, producer authentication composition, Genesis/control-plane flow, rotation/revocation machinery, principal revocation, or `ResourceAllocation`; authenticated causal ownership must be composed before allocation depends on it. Do not implement any of those later slices as part of the catalog slice.
 
 ## Unresolved questions
 

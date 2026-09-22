@@ -1,0 +1,52 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "83741287a44096b0284b05a28acb5177e7049a11",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_rfc8032_known_valid_ed25519_vector_verifies",
+      "rationale": "A fixed RFC 8032 vector proves real successful Ed25519 verification."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_changed_payload_and_signature_fail_without_backend_unavailability",
+      "rationale": "Payload and signature mismatches fail as verification failures."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_root_issuer_provenance_verifier_succeeds_with_real_ed25519",
+      "rationale": "The complete provenance verifier path returns exact authenticated evidence using real cryptography."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_noncanonical_base64url_material_fails_closed[=-public_key]",
+      "rationale": "Padded public material is rejected rather than normalized."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_noncanonical_base64url_material_fails_closed[+-signature]",
+      "rationale": "Ordinary base64 alphabet contamination is rejected."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_malformed_or_wrong_length_material_is_verification_failure[!-5VZDAMNgrHKQhuLMgG6CioSHfx645dl02HPgZSJJAVVfuIIVkKM7rMYeOXAc-bRr0lv18FlbviRlUUFDjnoQCw]",
+      "rationale": "Malformed or wrong-length material fails verification rather than becoming backend unavailability."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_backend_surface_has_no_signing_secret_custody_or_fallback",
+      "rationale": "The production source exposes no signer, key generation, secret lookup, or alternate cryptographic mechanism."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_core_authentication_import_surface_remains_crypto_independent",
+      "rationale": "Core authentication remains independent of the optional runtime backend."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_backend_unavailability_is_bounded_and_distinct",
+      "rationale": "Backend unavailability remains bounded and distinct from caller verification failure."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_ed25519.py::test_dependency_loading_seam_classifies_genuine_import_failure",
+      "rationale": "The optional dependency seam classifies genuine load failure without mocking cryptographic verification."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_ed25519.py::test_rfc8032_known_valid_ed25519_vector_verifies",
+    "tests/test_causal_resource_principal_ed25519.py::test_root_issuer_provenance_verifier_succeeds_with_real_ed25519"
+  ]
+}
