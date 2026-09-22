@@ -1,0 +1,205 @@
+{
+  "schema": "sentientos.local_cognitive_compute_substrate_architecture:v1",
+  "repository_sha": "6fdd67ecf6c5cee05f47eb24d4923df40a9fd12e",
+  "title": "Local Cognitive Compute Substrate",
+  "status": "architecture_only",
+  "central_answer": "SentientOS should own identity and evidence contracts around replaceable mature inference runtimes, plus a governed extension boundary for narrowly justified accelerator implementations; it should not presently own an independent inference runtime.",
+  "current_stack": [
+    {"order": 1, "layer": "cognitive_request", "current_owner": "SentientOS", "current_state": "bounded request purposes"},
+    {"order": 2, "layer": "governed_local_model_invocation", "current_owner": "SentientOS", "current_state": "independent LOCAL_MODEL_INFERENCE admission and digest-bound receipt"},
+    {"order": 3, "layer": "serving_lifetime_and_exact_model_identity", "current_owner": "SentientOS", "current_state": "activation, serving currentness, content-bound artifact, and opaque session custody"},
+    {"order": 4, "layer": "inference_runtime_identity", "current_owner": "SentientOS and third-party runtime", "current_state": "exact commissioned Python runtime and llama_cpp worker are bound; full backend build provenance is not yet a first-class compute identity"},
+    {"order": 5, "layer": "runtime_execution_plan", "current_owner": "mostly third-party runtime", "current_state": "SentientOS passes configuration including n_ctx and n_gpu_layers but does not own the detailed operation graph"},
+    {"order": 6, "layer": "accelerator_backend", "current_owner": "third parties", "current_state": "catalog routes distinguish cpu, cuda, rocm, and metal while hardware compatibility and runtime availability remain separate facts"},
+    {"order": 7, "layer": "low_level_execution_primitives", "current_owner": "third parties", "current_state": "no general-purpose SentientOS-owned accelerator kernel library"},
+    {"order": 8, "layer": "hardware_and_driver_stack", "current_owner": "operator, operating system, hardware vendor", "current_state": "observed as evidence, never inferred as runtime availability or authority"}
+  ],
+  "verified_current_reality": {
+    "artifact_identity": "model artifacts are streamed and content-bound by SHA-256 and byte size in hardened paths",
+    "selection": "deterministic, catalog- and host-evidence-based; selection performs no runtime availability check",
+    "routes": ["cpu", "cuda", "rocm", "metal"],
+    "custody_stages": ["acquisition", "commissioning", "activation", "serving", "inference"],
+    "stage_rule": "each stage is distinct and does not imply the next",
+    "production_serving": "binds current activation, exact artifact identity, runtime_id, authority map, and loaded identity",
+    "llama_cpp_worker_parameters": ["n_gpu_layers", "n_ctx"],
+    "transformers_cuda": "available through delegated Transformers and PyTorch behavior when device=cuda; it is not a SentientOS kernel",
+    "cuda_posture": "Docker and compatibility setup install or select third-party accelerated runtimes and libraries",
+    "custom_kernel_posture": "none owned as a general-purpose production substrate",
+    "availability_distinction": "hardware compatibility, driver presence, runtime/backend build availability, and successful load are separate observations"
+  },
+  "delegated_components": [
+    {"component": "llama.cpp / llama-cpp-python", "delegation": "GGUF graph execution, CPU/GPU offload, kernels, quantized operations, caching, sampling and most scheduling", "local_boundary": "artifact/runtime custody, n_ctx, n_gpu_layers, worker protocol and admission"},
+    {"component": "Transformers", "delegation": "model loading, model graph and generation orchestration", "local_boundary": "local-files-only configuration, model identity and governed invocation"},
+    {"component": "PyTorch", "delegation": "tensor execution, device dispatch, autograd-free inference operations and compiled vendor integration", "local_boundary": "selected device/configuration only"},
+    {"component": "CUDA libraries", "delegation": "NVIDIA device runtime and optimized primitives", "local_boundary": "version/build evidence is currently incomplete"},
+    {"component": "ROCm", "delegation": "AMD driver/runtime and optimized primitives", "local_boundary": "route selection only"},
+    {"component": "Metal", "delegation": "Apple device runtime and optimized primitives", "local_boundary": "route selection only"},
+    {"component": "operating system and drivers", "delegation": "process, memory, device and driver execution", "local_boundary": "observed hardware/runtime facts and fail-closed custody"}
+  ],
+  "terminology": {
+    "model_identity": "semantic identity used to name selected cognitive machinery; not a runtime, backend, or kernel",
+    "model_artifact": "exact content bytes, format, SHA-256 and size",
+    "quantization": "numeric representation encoded in or applied to an artifact; part of experimental configuration, not hardware identity",
+    "inference_runtime": "software that loads a model and orchestrates inference",
+    "runtime_build": "exact runtime source/version, build recipe, compiler, flags, dependencies and binary digest",
+    "accelerator_backend": "runtime adapter targeting CPU, CUDA, ROCm, Metal, or another execution family",
+    "execution_primitive": "bounded operation exposed to a runtime, such as matrix multiplication, attention, normalization, sampling, or transfer",
+    "kernel_artifact": "exact compiled or source implementation of an execution primitive with build and provenance identity",
+    "hardware": "physical CPU/accelerator and relevant capabilities",
+    "driver_runtime_stack": "OS driver, vendor runtime and libraries between backend and hardware",
+    "compute_profile": "complete model/runtime/backend/kernel/hardware/configuration identity for one measurement",
+    "performance_evidence": "attributable observations from a fixed compute profile; never correctness or adoption authority",
+    "control_plane_collision_rule": "Local Cognitive Compute Substrate does not rename or mean ControlPlaneKernel"
+  },
+  "identity_distinctions": {
+    "invariants": [
+      "model_identity != model_artifact",
+      "model_artifact != quantization",
+      "model_identity != inference_runtime",
+      "runtime_build != accelerator_backend",
+      "accelerator_backend != kernel_artifact",
+      "kernel_artifact != hardware",
+      "hardware != driver_runtime_stack",
+      "performance_profile != adoption_authority"
+    ],
+    "experimental_rule": "changing one identity axis while fixing the others is an explicit intervention; backend or kernel replacement must not silently mutate model identity"
+  },
+  "trust_and_authority_boundaries": [
+    "faster_kernel_grants_no_authority",
+    "benchmark_result_grants_no_authority",
+    "compiler_artifact_grants_no_authority",
+    "generated_optimization_grants_no_adoption",
+    "runtime_or_backend_availability_does_not_prove_hardware_suitability",
+    "compilation_loading_dynamic_linking_backend_replacement_and_native_execution_require_explicit_custody_admission_and_receipts",
+    "unreviewed_generated_CUDA_or_Triton_is_arbitrary_native_code_and_must_not_load",
+    "resource_principal_identity_is_attribution_not_entitlement_or_performance_policy"
+  ],
+  "correctness_equivalence_contract": {
+    "reference": "an exact admitted reference compute profile, normally CPU or an established upstream runtime, fixed by all identity axes",
+    "required_evidence": [
+      "exact output equality for deterministic integer or otherwise exactly specified primitives",
+      "declared absolute and relative tolerance by dtype and operation where bitwise equality is impractical",
+      "logit and token-distribution comparison with declared metrics and thresholds",
+      "deterministic fixture vectors covering shapes, boundaries, dtypes, masks, context positions and failure cases",
+      "fixed-seed prompt-to-token regression with tokenizer and sampling configuration identity",
+      "perplexity or task-level regression on locally owned versioned evaluation data where primitive-level comparison is insufficient",
+      "crash, timeout, device-loss, out-of-memory and malformed-input behavior",
+      "memory-safety, bounds, race and sanitizer evidence where the programming model permits"
+    ],
+    "admission_rule": "all applicable evidence classes and operation-specific thresholds must pass; approximately looks right is forbidden",
+    "variance_rule": "nondeterminism must be bounded statistically with sample count, seed policy and confidence rule declared before measurement",
+    "failure_rule": "missing evidence, undeclared tolerance, changed model/tokenizer/quantization, nonreproducible result, or unsafe fault behavior fails closed"
+  },
+  "performance_evidence_contract": {
+    "required_identity": ["model_id", "artifact_sha256", "artifact_size_bytes", "quantization", "runtime_id", "runtime_build_digest", "backend_id", "kernel_artifact_digests", "hardware_identity", "driver_version", "vendor_runtime_and_library_versions", "compiler_and_build_recipe_digest", "operating_system", "benchmark_fixture_digest"],
+    "required_configuration": ["context_length", "prompt_tokens", "generated_tokens", "batch_size", "concurrency", "n_gpu_layers_or_offload_plan", "warmup_policy", "sampling_configuration", "power_mode"],
+    "required_measurements": ["end_to_end_latency", "time_to_first_token", "inter_token_latency", "tokens_per_second", "throughput", "peak_vram", "peak_host_ram", "memory_bandwidth_pressure_when_available", "power_and_thermal_evidence_when_available", "crashes_faults_and_retries", "correctness_equivalence_result"],
+    "reproducibility": ["monotonic timestamps and repetition count", "raw samples plus aggregation method", "machine-readable units", "cold_and_warm_runs_separated", "environment_and_background_load_notes", "attributable principal_and_invocation_receipt_when_available"],
+    "authority": "performance evidence informs comparison only and cannot authorize adoption"
+  },
+  "candidate_lifecycle": [
+    "candidate_optimization",
+    "build_or_compile",
+    "functional_verification",
+    "numerical_or_equivalence_verification",
+    "performance_measurement",
+    "comparison",
+    "review_and_policy",
+    "adoption",
+    "post_adoption_measurement"
+  ],
+  "candidate_lifecycle_invariant": "no lifecycle stage implies or authorizes its successor",
+  "portability_posture": {
+    "families": ["cpu", "cuda", "rocm", "metal"],
+    "rules": ["model identity remains backend-independent", "backend optimization remains replaceable", "CPU or another independently specified reference remains available where practical", "backend-specific implementation never becomes SentientOS system identity", "a CUDA-first experiment may be evidence-based but may not redefine local cognition as NVIDIA-only"]
+  },
+  "capability_preservation_posture": {
+    "term": "durable compute competence",
+    "definition": "versioned, locally custodied knowledge and artifacts sufficient to understand, rebuild, test, compare and deliberately adopt a compute implementation without requiring the same external engineering assistant",
+    "preservable_artifacts": ["source_code", "tests", "benchmark_fixtures", "kernel_implementations", "compiler_and_build_recipes", "runtime_configuration", "performance_evidence", "model_independent_interfaces", "locally_owned_evaluation_datasets", "optimization_decisions_and_provenance"],
+    "exclusions": ["provider_internals", "proprietary_model_extraction", "unlicensed_weights", "claims_of_future_provider_unavailability"],
+    "priority_answer": "Front-load identity schemas, reproducible build manifests, equivalence fixtures and metrics, benchmark methodology, native-code custody, and replaceable backend interfaces. These require subtle cross-hardware reasoning and make later kernel work objectively testable. Do not front-load broad kernel implementation or an independent runtime before measured gaps exist."
+  },
+  "considered_ownership_models": [
+    {"id": "pure_delegation", "decision": "reject_as_complete_posture", "engineering_burden": "low", "portability": "high through upstreams", "performance_opportunity": "limited to configuration", "auditability": "low below runtime boundary", "model_coverage": "high", "numerical_risk": "outsourced", "long_term_independence": "low", "maintenance_cost": "low", "reason": "does not preserve attributable build, equivalence, or selective extension competence"},
+    {"id": "governed_extension", "decision": "select", "engineering_burden": "bounded", "portability": "preserved through replaceable implementations and references", "performance_opportunity": "targeted", "auditability": "high for owned extensions and manifests", "model_coverage": "retains mature upstream coverage", "numerical_risk": "bounded per operation by equivalence gates", "long_term_independence": "meaningfully improved without runtime fork", "maintenance_cost": "moderate and opt-in", "reason": "smallest posture that fills the evidence and substitution gap"},
+    {"id": "independent_runtime", "decision": "defer", "engineering_burden": "extreme", "portability": "expensive", "performance_opportunity": "broad but speculative", "auditability": "potentially high with a very large proof surface", "model_coverage": "initially low", "numerical_risk": "very high", "long_term_independence": "highest in theory", "maintenance_cost": "extreme", "reason": "duplicates mature runtimes without a demonstrated gap or sustainable maintenance basis"}
+  ],
+  "selected_architecture": {
+    "posture": "governed_extension",
+    "owned_above_runtime": ["governed_request_and_inference_admission", "model_and_artifact_identity", "catalog_selection_commissioning_activation_and_serving_custody", "runtime_build_and_compute_profile_contract", "correctness_and_performance_evidence", "review_adoption_and_rollback_records"],
+    "owned_below_runtime": ["replaceable_accelerator_implementation_identity", "bounded_extension_interface", "kernel_source_binary_and_build_custody_when_an_extension_is_justified", "reference_candidate_equivalence_and_fault_contract"],
+    "delegation_default": "continue using mature llama.cpp and PyTorch/Transformers implementations",
+    "extension_trigger": "a measured material gap, stable bounded operation, reproducible reference, objective acceptance thresholds, explicit maintenance owner, and a custody-safe loading path",
+    "independent_runtime_trigger": "only repeated strategic gaps that cannot be solved upstream or through bounded governed extensions and whose lifetime benefit exceeds portability and maintenance cost"
+  },
+  "candidate_domains": [
+    {"domain": "attention_and_flash_or_paged_attention", "current_owner": "llama.cpp/PyTorch/vendor libraries", "ownership_benefit": "possible context latency and memory gains", "difficulty": "extreme", "hardware_specificity": "high", "correctness_risk": "high", "portability_cost": "high", "advanced_assistance_dependency": "high", "decision": "use_upstream_unless_a_measured_stable_gap_exists"},
+    {"domain": "kv_cache_layout_and_movement", "current_owner": "inference runtime", "ownership_benefit": "context capacity and transfer control", "difficulty": "extreme", "hardware_specificity": "medium-high", "correctness_risk": "high", "portability_cost": "high", "advanced_assistance_dependency": "high", "decision": "defer_to_upstream"},
+    {"domain": "quantized_gemm_and_dequantization", "current_owner": "ggml/llama.cpp/PyTorch/vendor libraries", "ownership_benefit": "large hot-path potential", "difficulty": "extreme", "hardware_specificity": "very_high", "correctness_risk": "very_high", "portability_cost": "very_high", "advanced_assistance_dependency": "very_high", "decision": "do_not_duplicate_mature_upstream_without_compelling_measurement"},
+    {"domain": "fused_normalization_and_activation", "current_owner": "runtime/compiler/vendor libraries", "ownership_benefit": "bounded fusion experiment", "difficulty": "high", "hardware_specificity": "high", "correctness_risk": "medium-high", "portability_cost": "medium-high", "advanced_assistance_dependency": "high", "decision": "possible_later_bounded_extension"},
+    {"domain": "sampling", "current_owner": "runtime", "ownership_benefit": "auditability and deterministic semantics more than speed", "difficulty": "medium", "hardware_specificity": "low-medium", "correctness_risk": "high_behavioral", "portability_cost": "low-medium", "advanced_assistance_dependency": "medium", "decision": "prefer_reference_and_upstream"},
+    {"domain": "batching_scheduling_and_speculative_decoding", "current_owner": "runtime/serving layer", "ownership_benefit": "workload-level throughput", "difficulty": "high", "hardware_specificity": "medium", "correctness_risk": "medium-high", "portability_cost": "medium", "advanced_assistance_dependency": "high", "decision": "measure_runtime_level_gap_before_ownership"},
+    {"domain": "memory_transfer_and_tensor_layout", "current_owner": "runtime/backend", "ownership_benefit": "portable profiling can expose bottlenecks", "difficulty": "high", "hardware_specificity": "high", "correctness_risk": "high", "portability_cost": "high", "advanced_assistance_dependency": "high", "decision": "front_load_measurement_contract_not_implementation"},
+    {"domain": "graph_execution", "current_owner": "runtime/PyTorch compiler", "ownership_benefit": "broad control", "difficulty": "extreme", "hardware_specificity": "medium-high", "correctness_risk": "very_high", "portability_cost": "very_high", "advanced_assistance_dependency": "very_high", "decision": "do_not_build_independent_graph_runtime"},
+    {"domain": "multi_gpu_partitioning", "current_owner": "runtime", "ownership_benefit": "large-model capacity", "difficulty": "extreme", "hardware_specificity": "high", "correctness_risk": "high", "portability_cost": "very_high", "advanced_assistance_dependency": "very_high", "decision": "defer_to_upstream"},
+    {"domain": "cpu_gpu_offload", "current_owner": "llama.cpp/runtime", "ownership_benefit": "host-specific fit", "difficulty": "high", "hardware_specificity": "high", "correctness_risk": "medium-high", "portability_cost": "high", "advanced_assistance_dependency": "high", "decision": "retain_explicit_configuration_and_measure_upstream"}
+  ],
+  "custom_programming_model_decision": {
+    "current_justification": "none until identity, equivalence, benchmark, and native-code custody foundations exist and a measured upstream gap is demonstrated",
+    "cuda_cpp": "evaluate for an NVIDIA-specific operation only when vendor-library integration, low-level control, or stable deployment outweighs portability cost",
+    "triton": "evaluate first for a bounded tensor operation in an existing PyTorch path when rapid readable experimentation and objective cross-checking are more valuable than maximum low-level control",
+    "custom_pytorch_extension": "use only when the selected operation must integrate with PyTorch and the extension boundary can be narrowly custodied",
+    "llama_cpp_ggml_patch": "prefer upstream contribution; carry a local patch only with exact source/build custody and an upstream-unavailable strategic need",
+    "first_model_rule": "Triton is not automatically superior to CUDA C++; choose only after the operation, target hardware, integration runtime, portability requirement, profiling evidence, and maintenance owner are fixed"
+  },
+  "training_surface_classification": [
+    {"path": "sentientos/codex/self_training_daemon.py", "classification": "software_improvement_orchestration", "weight_training": false, "detail": "scores proposed code diffs, records failures, and invokes retraining dataset preparation"},
+    {"path": "codex_retraining_planner.py", "classification": "dataset_and_plan_preparation", "weight_training": false, "detail": "clusters failure records and writes JSONL examples plus a Markdown plan"},
+    {"path": "sentientos/codex/retraining_prep.py", "classification": "dataset_and_plan_preparation", "weight_training": false, "detail": "extracts failure patterns into JSONL and planning text; aspirational finetuning wording is not an executor"},
+    {"path": "sentientos/forge_merge_train.py", "classification": "software_merge_train", "weight_training": false, "detail": "queues, checks, rebases, holds, merges, and receipts pull requests"}
+  ],
+  "training_conclusion": "No inspected surface provides a production model-weight training path.",
+  "vendored_llama_cpp_inventory": {
+    "file_count": 7,
+    "scope": "partial examples/server snapshot only",
+    "present": ["server.cpp", "server CMake scripts", "three tiny public web assets"],
+    "absent": ["ggml core", "llama library sources and headers", "CUDA kernels", "ROCm kernels", "Metal kernels", "complete build tree", "upstream history and version lock"],
+    "conclusion": "SentientOSsecondary/llama.cpp is not a complete owned llama.cpp accelerator stack and cannot establish runtime or kernel custody."
+  },
+  "resource_principal_connection": {
+    "future_binding": ["exact_model_invocation", "exact_causal_resource_principal", "exact_runtime_and_backend", "exact_hardware", "exact_measured_consumption"],
+    "boundary": "attribution does not create ResourceAllocation, entitlement, scheduling priority, performance policy, or effect authority"
+  },
+  "threat_and_failure_model": [
+    "model_or_quantization_changed_during_backend_comparison",
+    "runtime_version_label_without_exact_build_identity",
+    "hardware_detected_but_required_backend_or_driver_unavailable",
+    "benchmark_cherry_picking_warmup_or_unit_ambiguity",
+    "numerical_drift_hidden_by_nondeterministic_sampling",
+    "out_of_bounds_race_use_after_free_or_device_fault_in_native_code",
+    "generated_source_or_binary substituted between review_build_and_load",
+    "dynamic_link_search_path_or_dependency_substitution",
+    "performance_result_treated_as_correctness_or_adoption",
+    "backend_specific_identity_silently_becoming_model_or_system_identity",
+    "upstream_or_driver_change_invalidating prior evidence",
+    "power_thermal_throttling_or_background_load_distorting comparison",
+    "benchmark_or_kernel_artifact granting authority by possession"
+  ],
+  "explicit_non_goals": ["CUDA_kernels", "Triton_kernels", "custom_attention_or_GEMM", "KV_cache_implementation", "quantization_algorithm", "model_training", "fine_tuning", "LoRA", "weight_updates", "runtime_replacement", "llama_cpp_modification", "PyTorch_modification", "model_download", "GPU_benchmark_execution", "autonomous_optimization", "ResourceAllocation", "production_purpose_scoped_root_issuer_provenance_signer"],
+  "orthogonal_roadmap": {
+    "resource_principal_next_runtime_slice": "production_purpose_scoped_root_issuer_provenance_signer",
+    "status": "deferred_not_cancelled_and_not_implemented_by_this_task",
+    "relationship": "local_compute_and_resource_principal_are_orthogonal_workstreams"
+  },
+  "next_implementation_slice": {
+    "count": 1,
+    "id": "exact_runtime_backend_build_identity_and_benchmark_manifest",
+    "scope": "Define and validate a metadata-only manifest binding the existing exact model and serving lineage to runtime source/version, interpreter and package artifacts, backend family, compiler/build recipe, linked vendor libraries, driver/runtime stack, hardware identity, inference configuration, benchmark fixture identity, measurements, and correctness-result references.",
+    "why_first": "The repository already binds model and Python runtime custody but lacks the comparable identity below it. This slice creates objective evidence and substitution leverage before any benchmark harness, registry, equivalence runner, or kernel experiment and duplicates no mature kernel implementation.",
+    "must_not": ["run_GPU_benchmarks", "compile_or_load_native_code", "select_or_adopt_a_backend", "implement_a_kernel", "grant_inference_or_resource_authority"]
+  },
+  "evidence_sources": [
+    "README.md", "one_pager.md", "docs/architecture/sentientos_project_thesis.md", "docs/architecture/sentientos_trajectory_and_missing_organs.md", "Dockerfile.cuda", "gpu_autosetup.py", "sentientos/local_model.py", "sentientos/local_model_selection.py", "sentientos/local_model_catalog.py", "sentientos/local_model_artifact_acquisition.py", "sentientos/local_model_commissioning.py", "sentientos/local_model_production_commissioning.py", "sentientos/local_model_production_activation.py", "sentientos/local_model_production_serving.py", "sentientos/local_model_runtime_worker.py", "sentientos/local_model_serving_inference.py", "sentientos/governed_local_model_invocation.py", "sentientos/local_model_authority.py", "docs/local_model_selection.md", "docs/local_model_commissioning.md", "docs/WINDOWS_LOCAL_MODEL_SETUP.md", "docs/architecture/governed_local_model_authority_and_invocation.md", "docs/development/local_model_catalog_deployment_architecture.md", "sentientos/codex/self_training_daemon.py", "codex_retraining_planner.py", "sentientos/codex/retraining_prep.py", "sentientos/forge_merge_train.py", "SentientOSsecondary/llama.cpp/examples/server/server.cpp"
+  ]
+}
