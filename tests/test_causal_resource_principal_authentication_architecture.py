@@ -12,12 +12,12 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "83741287a44096b0284b05a28acb5177e7049a11"
+    assert CONTRACT["repository_sha"] == "b0350b1451ecbac1a3b25dc260444e05380e6c5e"
     assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v2"
     assert CONTRACT["posture"] == "bounded_runtime_verification_boundary_non_authority"
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal_ed25519.py"
+        "sentientos/causal_resource_principal_trust_catalog.py"
     ]
 
 
@@ -81,12 +81,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_read_only_trust_catalog_task() -> None:
+def test_next_slice_is_one_bounded_private_key_custody_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "production_read_only_trusted_issuer_public_key_catalog"
-    assert "read-only trusted issuer/public-key catalog" in next_slice["scope"]
-    assert "do not add signing" in next_slice["scope"]
+    assert next_slice["id"] == "production_private_key_signer_custody"
+    assert "private-key custody" in next_slice["scope"]
+    assert "without yet composing a signer" in next_slice["scope"]
 
 
 def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
@@ -96,10 +96,29 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "deterministic_test_only_backend" in boundaries["implemented"]
     assert "production_verification_only_ed25519_backend_using_cryptography_runtime_extra" in boundaries["implemented"]
     assert "real_verification_for_already_resolved_trusted_public_key_only" in boundaries["implemented"]
+    assert "production_read_only_trusted_issuer_public_key_catalog" in boundaries["implemented"]
+    assert "operator_provisioned_digest_sealed_versioned_public_trust" in boundaries["implemented"]
+    assert "exact_fail_closed_trust_tuple_lookup" in boundaries["implemented"]
     assert "production_ed25519_backend" not in boundaries["deferred"]
     assert "production_signer" in boundaries["deferred"]
+    assert "private_key_custody" in boundaries["deferred"]
+    assert "catalog_enrollment" in boundaries["deferred"]
+    assert "catalog_writer_admin_cli" in boundaries["deferred"]
+    assert "live_revocation_distribution" in boundaries["deferred"]
     assert "resource_allocation" in boundaries["deferred"]
     assert CONTRACT["algorithm_policy"]["claim_identifier"] == "ed25519"
+
+
+def test_public_trust_catalog_posture_is_operator_bound_and_non_authority() -> None:
+    custody = CONTRACT["public_key_custody"]
+    assert custody["implementation"] == "production_read_only_trusted_issuer_public_key_catalog"
+    assert custody["loaded_representation"] == "immutable_in_memory_mapping"
+    assert custody["lookup"] == "exact_fail_closed_trust_tuple_lookup"
+    assert custody["catalog_digest_authenticates_operator"] is False
+    assert custody["staleness_rule"] == "operator_expected_catalog_version_and_digest_must_match"
+    assert custody["live_revocation_currentness"] == "deferred"
+    assert "catalog_self_consistent_digest != operator_trust" in CONTRACT["security_invariants"]
+    assert "catalog_grants_no_authority" in CONTRACT["security_invariants"]
 
 
 def test_all_evidence_sources_exist() -> None:
