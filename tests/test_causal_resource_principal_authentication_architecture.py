@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 import re
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "architecture/causal_resource_principal_authentication_architecture.json"
@@ -12,12 +16,12 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "b0350b1451ecbac1a3b25dc260444e05380e6c5e"
+    assert CONTRACT["repository_sha"] == "494f03e1aaf3d61fe2b98769b295517376824cb9"
     assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v2"
-    assert CONTRACT["posture"] == "bounded_runtime_verification_boundary_non_authority"
+    assert CONTRACT["posture"] == "bounded_runtime_verification_and_private_key_custody_boundary_non_authority"
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal_trust_catalog.py"
+        "sentientos/causal_resource_principal_signer_custody.py"
     ]
 
 
@@ -81,12 +85,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_private_key_custody_task() -> None:
+def test_next_slice_is_one_bounded_purpose_scoped_signer_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "production_private_key_signer_custody"
-    assert "private-key custody" in next_slice["scope"]
-    assert "without yet composing a signer" in next_slice["scope"]
+    assert next_slice["id"] == "production_purpose_scoped_root_issuer_provenance_signer"
+    assert "Consume exact private-key custody" in next_slice["scope"]
+    assert "without root issuance" in next_slice["scope"]
 
 
 def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
@@ -100,8 +104,11 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "operator_provisioned_digest_sealed_versioned_public_trust" in boundaries["implemented"]
     assert "exact_fail_closed_trust_tuple_lookup" in boundaries["implemented"]
     assert "production_ed25519_backend" not in boundaries["deferred"]
-    assert "production_signer" in boundaries["deferred"]
-    assert "private_key_custody" in boundaries["deferred"]
+    assert "production_RootIssuerProvenanceSigner" in boundaries["deferred"]
+    assert "private_key_custody" not in boundaries["deferred"]
+    assert "production_private_key_signer_custody" in boundaries["implemented"]
+    assert "short_lived_zeroized_private_seed_use" in boundaries["implemented"]
+    assert "private_seed_to_configured_key_id_consistency_check" in boundaries["implemented"]
     assert "catalog_enrollment" in boundaries["deferred"]
     assert "catalog_writer_admin_cli" in boundaries["deferred"]
     assert "live_revocation_distribution" in boundaries["deferred"]
