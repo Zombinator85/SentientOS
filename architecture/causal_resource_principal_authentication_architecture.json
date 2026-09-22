@@ -1,7 +1,7 @@
 {
   "schema": "sentientos.causal_resource_principal_authentication_architecture:v2",
   "posture": "bounded_runtime_verification_boundary_non_authority",
-  "repository_sha": "83741287a44096b0284b05a28acb5177e7049a11",
+  "repository_sha": "b0350b1451ecbac1a3b25dc260444e05380e6c5e",
   "current_gap": {
     "statement": "principal_self_binding_is_not_issuer_authentication",
     "serialized_risk": "Anyone who knows the v1 schema can construct a self-consistent principal with a syntactically valid issuer_id.",
@@ -41,7 +41,9 @@
     "sentientos/causal_resource_principal_authentication.py",
     "tests/test_causal_resource_principal_authentication.py",
     "sentientos/causal_resource_principal_ed25519.py",
-    "tests/test_causal_resource_principal_ed25519.py"
+    "tests/test_causal_resource_principal_ed25519.py",
+    "sentientos/causal_resource_principal_trust_catalog.py",
+    "tests/test_causal_resource_principal_trust_catalog.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -261,7 +263,19 @@
     "runtime_callers_can_add": false,
     "envelope_key_accepted": false,
     "unknown_pair": "fail_closed",
-    "mutation": "separate_operator_controlled_operation"
+    "mutation": "separate_operator_controlled_operation",
+    "implementation": "production_read_only_trusted_issuer_public_key_catalog",
+    "operator_binding": [
+      "exact_operator_configured_catalog_path",
+      "exact_expected_catalog_version",
+      "exact_expected_catalog_digest"
+    ],
+    "digest_scope": "canonical_schema_catalog_version_and_entries_excluding_catalog_digest",
+    "catalog_digest_authenticates_operator": false,
+    "loaded_representation": "immutable_in_memory_mapping",
+    "lookup": "exact_fail_closed_trust_tuple_lookup",
+    "staleness_rule": "operator_expected_catalog_version_and_digest_must_match",
+    "live_revocation_currentness": "deferred"
   },
   "trust_anchor_rules": [
     "signature_validity_is_not_trusted_issuer",
@@ -399,7 +413,10 @@
     "key_rotation != causal_identity_rotation",
     "resource_principal_epoch != signing_key_generation",
     "observation_only_canonical_attribution_may_be_weaker_than_entitlement_authentication",
-    "future_resource_allocation_must_not_rely_on_canonical_self_binding_alone"
+    "future_resource_allocation_must_not_rely_on_canonical_self_binding_alone",
+    "catalog_self_consistent_digest != operator_trust",
+    "catalog_contains_public_keys_only",
+    "catalog_grants_no_authority"
   ],
   "threat_model": [
     {
@@ -486,7 +503,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_ed25519.py"
+      "sentientos/causal_resource_principal_trust_catalog.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -500,12 +517,14 @@
       "process_local_authenticated_result",
       "deterministic_test_only_backend",
       "production_verification_only_ed25519_backend_using_cryptography_runtime_extra",
-      "real_verification_for_already_resolved_trusted_public_key_only"
+      "real_verification_for_already_resolved_trusted_public_key_only",
+      "production_read_only_trusted_issuer_public_key_catalog",
+      "operator_provisioned_digest_sealed_versioned_public_trust",
+      "exact_fail_closed_trust_tuple_lookup"
     ],
     "deferred": [
       "production_signer",
       "private_key_custody",
-      "persistent_trust_catalog",
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
       "principal_revocation_registry",
@@ -515,7 +534,10 @@
       "resource_allocation",
       "resource_entitlement_enforcement",
       "resource_admission",
-      "resource_effect_authority"
+      "resource_effect_authority",
+      "catalog_enrollment",
+      "catalog_writer_admin_cli",
+      "live_revocation_distribution"
     ]
   },
   "forbidden_claims": [
@@ -549,8 +571,8 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "production_read_only_trusted_issuer_public_key_catalog",
-    "scope": "Implement one production read-only trusted issuer/public-key catalog; do not add signing, private-key custody, trust mutation, producer/control-plane integration, admission, authority, or allocation.",
-    "selection_reason": "Real signature verification now exists, while production trusted public-key custody remains absent; signer custody and producer composition depend on a later authority decision, and allocation must wait for composed authenticated causal ownership."
+    "id": "production_private_key_signer_custody",
+    "scope": "Select and implement one purpose-scoped operator-provisioned private-key custody boundary without yet composing a signer, root producer, GenesisForge, control-plane status, admission, authority, or allocation.",
+    "selection_reason": "Production public trust custody and real Ed25519 verification now exist; the smallest missing prerequisite for a later production provenance signer is separately governed private-key custody, while producer composition and ResourceAllocation remain downstream."
   }
 }

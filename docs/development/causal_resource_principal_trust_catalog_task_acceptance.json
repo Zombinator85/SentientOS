@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b0350b1451ecbac1a3b25dc260444e05380e6c5e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_valid_catalog_loads_and_exact_lookup_succeeds", "rationale": "Valid operator-bound public trust loads and exact lookup returns the immutable record."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_unknown_exact_tuples_return_no_trust", "rationale": "Unknown issuer, key, and algorithm tuples return no trust."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_digest_corruption_fails_closed", "rationale": "Malformed and mismatched catalog digests fail closed."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_operator_expected_catalog_substitution_fails_closed", "rationale": "A self-consistent substitute cannot replace operator-expected identity or version."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_duplicate_exact_trust_tuple_fails_closed", "rationale": "Ambiguous exact trust tuples reject the complete catalog."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_canonical_ed25519_public_key_encoding_is_enforced[eA==]", "rationale": "Canonical unpadded Ed25519 public-key encoding is mandatory."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_derived_signing_key_id_is_enforced", "rationale": "Key identity must derive from the raw trusted public key."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_loaded_catalog_is_immutable_and_does_not_reload", "rationale": "Loaded trust is immutable and detached from later file changes."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_source_exposes_no_mutation_private_key_signing_secret_or_network_capability", "rationale": "Production source contains no trust mutation, signing, private-key, secret, or discovery capability."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_catalog_to_real_ed25519_verifier_returns_exact_authenticated_evidence", "rationale": "Catalog through real Ed25519 verification returns exact authenticated evidence."},
+    {"node_id": "tests/test_causal_resource_principal_trust_catalog.py::test_valid_signature_under_untrusted_key_is_trusted_key_not_found", "rationale": "A valid signature does not make an untrusted key trusted."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_trust_catalog.py::test_valid_catalog_loads_and_exact_lookup_succeeds",
+    "tests/test_causal_resource_principal_trust_catalog.py::test_catalog_to_real_ed25519_verifier_returns_exact_authenticated_evidence"
+  ]
+}
