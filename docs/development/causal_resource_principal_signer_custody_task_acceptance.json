@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "494f03e1aaf3d61fe2b98769b295517376824cb9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_exact_configured_tuple_exposes_readonly_32_byte_seed_then_zeroizes", "rationale": "Exact tuple, valid material, read-only bounded exposure, and success zeroization."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_each_use_reads_again_and_custody_does_not_cache_material", "rationale": "Every use retrieves anew and retains no secret."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_material_is_zeroized_when_consumer_raises", "rationale": "Consumer failure cannot bypass mutable-buffer zeroization."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_backend_failure_is_bounded_and_redacted", "rationale": "Backend failure is fail-closed and redacted."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_missing_secret_is_bounded", "rationale": "Missing material is a bounded failure without fallback."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_private_seed_must_derive_configured_key_id", "rationale": "Private seed public derivation must match the immutable configured key ID."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_mismatched_tuple_and_malformed_material_fail_closed", "rationale": "Unsupported tuple requests and malformed canonical material fail closed."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_production_keyring_backend_uses_only_dedicated_exact_reference", "rationale": "Production retrieval uses only the dedicated namespace and configured reference."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_production_keyring_missing_and_failure_are_bounded", "rationale": "Keyring absence and dependency failure remain bounded."},
+    {"node_id": "tests/test_causal_resource_principal_signer_custody.py::test_source_excludes_generation_admin_fallback_and_signer_capabilities", "rationale": "Structural proof excludes generation, trust/keyring admin, environment/file fallback, signing APIs, legacy keyring, and external-model namespace reuse."},
+    {"node_id": "tests/test_causal_resource_principal_authentication_architecture.py::test_next_slice_is_one_bounded_purpose_scoped_signer_task", "rationale": "Architecture selects exactly the next purpose-scoped signer slice without implementing it."},
+    {"node_id": "tests/test_causal_resource_principal_authentication_architecture.py::test_implemented_and_deferred_boundaries_are_exactly_separated", "rationale": "Custody is implemented while signer and authority integrations remain deferred."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_signer_custody.py::test_exact_configured_tuple_exposes_readonly_32_byte_seed_then_zeroizes",
+    "tests/test_causal_resource_principal_signer_custody.py::test_production_keyring_backend_uses_only_dedicated_exact_reference"
+  ]
+}

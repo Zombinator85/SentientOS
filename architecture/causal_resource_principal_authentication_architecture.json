@@ -1,7 +1,7 @@
 {
   "schema": "sentientos.causal_resource_principal_authentication_architecture:v2",
-  "posture": "bounded_runtime_verification_boundary_non_authority",
-  "repository_sha": "b0350b1451ecbac1a3b25dc260444e05380e6c5e",
+  "posture": "bounded_runtime_verification_and_private_key_custody_boundary_non_authority",
+  "repository_sha": "494f03e1aaf3d61fe2b98769b295517376824cb9",
   "current_gap": {
     "statement": "principal_self_binding_is_not_issuer_authentication",
     "serialized_risk": "Anyone who knows the v1 schema can construct a self-consistent principal with a syntactically valid issuer_id.",
@@ -43,7 +43,9 @@
     "sentientos/causal_resource_principal_ed25519.py",
     "tests/test_causal_resource_principal_ed25519.py",
     "sentientos/causal_resource_principal_trust_catalog.py",
-    "tests/test_causal_resource_principal_trust_catalog.py"
+    "tests/test_causal_resource_principal_trust_catalog.py",
+    "sentientos/causal_resource_principal_signer_custody.py",
+    "tests/test_causal_resource_principal_signer_custody.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -245,7 +247,18 @@
       "repository_file",
       "caller_selected_secret_name",
       "external_model_credential_namespace"
-    ]
+    ],
+    "implementation": "production_purpose_scoped_operator_provisioned_private_key_custody",
+    "configuration": "immutable_exact_issuer_id_signing_key_id_algorithm_and_key_reference",
+    "production_backend": "read_only_os_keyring_dedicated_namespace",
+    "dedicated_namespace": "sentientos.causal_resource_principal.root_issuer",
+    "stored_encoding": "canonical_base64url_no_padding_of_exactly_32_byte_raw_seed",
+    "exposure": "readonly_memoryview_for_bounded_callback_only",
+    "zeroization_claim": "python_owned_encoded_and_decoded_mutable_buffers_zeroized_in_finally",
+    "key_consistency": "private_seed_derived_public_key_must_equal_configured_signing_key_id",
+    "caching": false,
+    "signing": false,
+    "administration": false
   },
   "public_key_custody": {
     "selected_posture": "operator_provisioned_digest_sealed_versioned_trust_catalog",
@@ -503,7 +516,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_trust_catalog.py"
+      "sentientos/causal_resource_principal_signer_custody.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -520,11 +533,15 @@
       "real_verification_for_already_resolved_trusted_public_key_only",
       "production_read_only_trusted_issuer_public_key_catalog",
       "operator_provisioned_digest_sealed_versioned_public_trust",
-      "exact_fail_closed_trust_tuple_lookup"
+      "exact_fail_closed_trust_tuple_lookup",
+      "production_private_key_signer_custody",
+      "purpose_scoped_operator_provisioned_signing_key_reference",
+      "short_lived_zeroized_private_seed_use",
+      "private_seed_to_configured_key_id_consistency_check",
+      "production_read_only_dedicated_os_keyring_backend"
     ],
     "deferred": [
-      "production_signer",
-      "private_key_custody",
+      "production_RootIssuerProvenanceSigner",
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
       "principal_revocation_registry",
@@ -571,8 +588,20 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "production_private_key_signer_custody",
-    "scope": "Select and implement one purpose-scoped operator-provisioned private-key custody boundary without yet composing a signer, root producer, GenesisForge, control-plane status, admission, authority, or allocation.",
-    "selection_reason": "Production public trust custody and real Ed25519 verification now exist; the smallest missing prerequisite for a later production provenance signer is separately governed private-key custody, while producer composition and ResourceAllocation remain downstream."
+    "id": "production_purpose_scoped_root_issuer_provenance_signer",
+    "scope": "Consume exact private-key custody, construct the canonical provenance payload internally, sign only that semantic object, and emit RootPrincipalIssuerProvenance without root issuance, GenesisForge, or control-plane composition.",
+    "excluded": [
+      "root_principal_issuer_integration",
+      "GenesisForge_provenance_forwarding",
+      "control_plane_authenticated_status",
+      "trust_mutation",
+      "key_rotation_administration",
+      "live_revocation_distribution",
+      "principal_revocation_registry",
+      "resource_allocation",
+      "resource_entitlement",
+      "resource_admission",
+      "resource_effect_authority"
+    ]
   }
 }
