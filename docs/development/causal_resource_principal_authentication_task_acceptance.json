@@ -1,0 +1,39 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4d9a2d281a0482d9ecbf7b6e1e92bc03ca32f18d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_deterministic_full_provenance_verification_returns_authenticated_evidence",
+      "rationale": "The deterministic full success path returns bounded authenticated evidence and permits durable repeated verification."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_untrusted_wrong_or_unusable_key_cannot_authenticate",
+      "rationale": "Unknown, not-yet-valid, expired, and revoked trust entries fail closed."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_principal_key_and_issuer_substitution_fails",
+      "rationale": "Principal, issuer, and trusted-key substitutions cannot authenticate."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_serialized_verified_public_key_allocation_smuggling_fails[extra1]",
+      "rationale": "Serialized verified assertions cannot manufacture authenticated state."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_serialized_verified_public_key_allocation_smuggling_fails[extra2]",
+      "rationale": "Envelope-supplied public keys cannot become trust anchors."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_serialized_verified_public_key_allocation_smuggling_fails[extra6]",
+      "rationale": "Allocation fields cannot be smuggled into authentication evidence."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication.py::test_protocol_surfaces_and_runtime_have_no_forbidden_capabilities",
+      "rationale": "The production runtime contains neither a signer/key-custody implementation nor fake or production cryptography."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_authentication.py::test_deterministic_full_provenance_verification_returns_authenticated_evidence"
+  ]
+}

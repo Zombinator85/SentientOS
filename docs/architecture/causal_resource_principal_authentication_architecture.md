@@ -2,7 +2,7 @@
 
 ## Posture and inspected base
 
-This is a **design-only, non-runtime, non-authority contract**. It implements no signing, key access, root minting, verification, allocation, GenesisForge composition, or control-plane status. The inspected clean repository SHA is `6e07a74b4814f656aa211bfcabb90c15dc13698d`.
+This is a **bounded runtime verification boundary and non-authority contract**. The immutable claim, canonical payload and digest, injected lookup/verification protocols, verifier, and process-local authenticated result are implemented. It implements no production signing or Ed25519 backend, key custody, root minting integration, allocation, GenesisForge composition, or control-plane status. The inspected clean repository SHA is `6e07a74b4814f656aa211bfcabb90c15dc13698d`.
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -111,7 +111,7 @@ principal + envelope (serialized claims)
 
 The verified result is constructed only inside the verifier and is not accepted from serialized caller input. A caller can serialize claims, but `verified=true` or a caller-created wrapper never establishes verification.
 
-GenesisForge should eventually carry principal and provenance as separate untrusted claims. Verification occurs at the receiving control boundary, which may then construct a process-local typed bundle; a class name alone is not custody. Runtime changes are explicitly deferred.
+GenesisForge should eventually carry principal and provenance as separate untrusted claims. Verification occurs at the receiving control boundary, which may then construct a process-local typed bundle; a class name alone is not custody. Producer, GenesisForge, and control-plane runtime integrations remain explicitly deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
 
 The existing `canonical_root_binding_verified` remains self-consistency-only. A future `authenticated_root_issuer_provenance_verified` status is truthful only after canonical validation, exact binding, trusted catalog lookup, signature verification, and currentness checks all succeed.
 
@@ -154,9 +154,15 @@ Missing or malformed provenance, unknown issuer/key, unsupported algorithm, sign
 
 Do not build custom cryptography, use repository-local fake NaCl as production security, use production HMAC for independent verification, accept caller keys, store private keys in the repository/principal/envelope/environment, treat signatures or roots as authority/allocation, expose a universal arbitrary-byte signing service, bundle key generation/admin with issuance, silently fall back when crypto is unavailable, or automatically allocate resources after authentication.
 
+## Implemented bounded runtime slice
+
+The repository now implements the immutable `RootPrincipalIssuerProvenance` claim, exact parsing, canonical payload builder, self-binding provenance digest, purpose-scoped signer protocol, lookup-only trust-store protocol, injected verification-only backend protocol, `RootIssuerProvenanceVerifier`, and process-local `AuthenticatedRootPrincipalEvidence`. Deterministic fake signing and verification exist only in tests and are explicitly not Ed25519 or production security. The closed claim algorithm identifier is `ed25519`.
+
+Production Ed25519 verification and signing, private-key custody, persistent trust catalogs and mutation, rotation/revocation infrastructure, principal revocation, producer integration, GenesisForge forwarding, control-plane authenticated status, allocation, entitlement, and enforcement remain unimplemented. Authentication still grants nothing, allocates nothing, admits nothing, and executes nothing.
+
 ## Smallest next implementation slice
 
-Implement **one bounded slice**: the immutable `RootPrincipalIssuerProvenance` claim, canonical payload builder, purpose-scoped signer/verifier protocols, verifier-owned process-local result, and deterministic test-only backend. Keep production signing and key custody unavailable, and do not integrate the producer, GenesisForge, control plane, storage, rotation/revocation, or resource allocation.
+Implement **one bounded slice**: a production verification-only Ed25519 backend behind the existing injected protocol. Do not add signing, private-key custody, trust persistence or mutation, producer/control-plane integration, admission, authority, or allocation.
 
 ## Unresolved questions
 
