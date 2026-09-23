@@ -39,8 +39,12 @@ restored-vs-withheld and may report no observable difference, a stable
 history-presence-associated difference, instability/order sensitivity, or a
 mixed observation. Those are bounded associations only.
 
-The broader capability remains `partial`. Deferred work includes repeated
-long-duration production trials, statistical inference, model replacement and
-cross-model continuity, endogenous relevance, consequence learning, self-model
+The broader capability remains `partial`. The separate controlled
+[model-replacement experiment](developmental_model_replacement_experiment.md)
+now holds this current/history condition fixed across two pre-governed cognitive
+endpoints; it does not alter this intervention or production serving. Deferred
+work includes repeated long-duration production trials, statistical inference,
+real resident activation/serving transitions and cross-model cadence,
+endogenous relevance, consequence learning, self-model
 mutation, broad belief revision, forgetting policy, and resource-allocation
 learning.
