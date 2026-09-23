@@ -1,0 +1,25 @@
+{
+  "artifact_kind": "developmental_model_replacement_experiment",
+  "capability_id": "resident_developmental_writeback",
+  "status": "partial",
+  "authority_level": "bounded_state_transition",
+  "source_paths": [
+    "sentientos/developmental_model_replacement_experiment.py",
+    "docs/development/developmental_model_replacement_experiment.md"
+  ],
+  "proof_tests": ["tests/test_developmental_model_replacement_experiment.py"],
+  "implemented_surfaces": [
+    "frozen same-state dual-model substitution",
+    "separate source-bound model-development provenance",
+    "within-model history ablation and cross-model comparison",
+    "exact model-A restoration check",
+    "bounded observational classification"
+  ],
+  "deferred_surfaces": [
+    "production activation or serving transition",
+    "resident cadence continuation",
+    "long-duration statistical inference",
+    "semantic scoring or training",
+    "identity claims"
+  ]
+}

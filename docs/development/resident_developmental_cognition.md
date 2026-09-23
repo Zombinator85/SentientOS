@@ -1,5 +1,7 @@
 # Resident developmental cognition composition
 
+The optional [developmental cognitive-model replacement experiment](developmental_model_replacement_experiment.md) consumes frozen read-only projections and separately governed endpoints. It is not part of resident cadence and cannot mutate activation, serving, history, or canonical explicit-user retention.
+
 This surface is an explicitly configured, bounded bridge in the real
 `sentientosd` maintenance cadence. It does **not** close the broader
 developmental organism and does not activate the legacy dream, curiosity,

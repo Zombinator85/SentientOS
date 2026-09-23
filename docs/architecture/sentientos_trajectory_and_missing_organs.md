@@ -14,7 +14,7 @@ These foundations are not all resident, default-active, mutually composed, produ
 
 Canonical chat demonstrably uses durable session history and retrieved memory in later inference. Separately, the dream loop can transform legacy memory into new dream/reflection records and reinforce unfinished goals; the goal curator can create background or curiosity goals; the inner-world orchestrator updates a fixed-axis self-narrative.
 
-A bounded, explicitly configured resident path now binds the exact same-tick World-State object to deterministic selection, governed interpretation, separate exact admission, and durable developmental history. Only later ticks can retrieve that history for bounded cognition, with an opt-in with/withheld difference experiment and restart reconstruction. It preserves retention authority and **memory != current truth**. Default developmental policy, endogenous relevance, and longitudinal production/model-replacement causal experiments remain open; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
+A bounded, explicitly configured resident path now binds the exact same-tick World-State object to deterministic selection, governed interpretation, separate exact admission, and durable developmental history. Only later ticks can retrieve that history for bounded cognition, with an opt-in with/withheld difference experiment and restart reconstruction. It preserves retention authority and **memory != current truth**. A separate explicitly invoked five-condition instrument can freeze that state across two exact pre-governed cognitive models, measure each history effect, compare models, and verify exact A restoration without changing production activation or serving. Default developmental policy, endogenous relevance, longitudinal evidence, and real resident model transitions remain open; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
 
 ## 2. Canonical memory ↔ selective autonomous consolidation
 
@@ -98,7 +98,7 @@ The adversarial gradient-injection audit identifies approval leakage, salience a
 
 ## Priority order
 
-1. Accumulate controlled history-intervention and longitudinal evidence from the now-composed resident developmental path, then perform the stronger same-history model-replacement intervention.
+1. Accumulate repeated controlled history-intervention and same-history model-replacement evidence, then separately govern a real resident activation/serving transition experiment.
 2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
 3. Bind perception and authorized action to predicted/observed consequences and retained learning.
 4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.

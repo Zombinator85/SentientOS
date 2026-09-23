@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e7ba7a3e8dc2b39b50d81a5078b291273ae50bb2",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_preregistered_five_condition_model_replacement_experiment","rationale":"The immutable five-condition protocol precedes inference."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_exact_shared_current_and_history_state_across_models","rationale":"A and B consume exact shared frozen evidence."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_history_association_measured_independently_under_both_models","rationale":"Within-model and cross-model differences remain separate."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_exact_model_a_restoration","rationale":"Final A is exact and stable."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_provenance_claim_remains_source_bound_non_truth_metadata","rationale":"Lineage claims remain non-authoritative metadata."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_same_model_supplied_as_a_and_b_is_rejected","rationale":"The cognitive organs must be distinct."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_crossed_or_tampered_provenance_is_rejected","rationale":"Provenance subject and digest custody fail closed."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed","rationale":"Currentness drift and restoration mismatch invalidate."},
+    {"node_id":"tests/test_developmental_model_replacement_experiment.py::test_developmental_history_mutation_attempt_is_detected_before_inference","rationale":"Frozen history mutation cannot enter inference."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_model_replacement_experiment.py::test_preregistered_five_condition_model_replacement_experiment",
+    "tests/test_developmental_model_replacement_experiment.py::test_exact_shared_current_and_history_state_across_models",
+    "tests/test_developmental_model_replacement_experiment.py::test_history_association_measured_independently_under_both_models",
+    "tests/test_developmental_model_replacement_experiment.py::test_exact_model_a_restoration",
+    "tests/test_developmental_model_replacement_experiment.py::test_provenance_claim_remains_source_bound_non_truth_metadata"
+  ]
+}
