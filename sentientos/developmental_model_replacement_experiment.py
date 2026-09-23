@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence, cast
 
 from .local_model_authority import atomic_write_json, digest_payload
 
@@ -31,6 +31,8 @@ NON_CLAIMS = (
     "model_independent_identity", "persistent_individuality", "sentience",
     "consciousness", "selfhood", "learning", "causal_closure",
 )
+DEFAULT_TRIAL_ID = "single-trial"
+MAX_TRIAL_ID_LENGTH = 128
 EPISTEMIC_POSTURES = frozenset({
     "locally_observed_identity", "source_bound_reported_claim",
     "operator_attested_claim", "cryptographically_bound_attestation", "unknown",
@@ -42,7 +44,7 @@ class DevelopmentalModelReplacementError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + digest_payload(value)
+    return "sha256:" + cast(str, digest_payload(value))
 
 
 def _identity_payload(identity: "CognitiveModelIdentity") -> dict[str, Any]:
@@ -257,15 +259,16 @@ class ModelReplacementArtifactStore:
 
     @staticmethod
     def _write(path: Path, payload: Mapping[str, Any]) -> None:
+        normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
         if path.exists():
             try:
                 prior = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
                 raise DevelopmentalModelReplacementError("artifact_tampered") from exc
-            if prior != dict(payload):
+            if prior != normalized:
                 raise DevelopmentalModelReplacementError("artifact_identity_collision")
             return
-        atomic_write_json(path, payload)
+        atomic_write_json(path, normalized)
 
     def persist_provenance(self, manifest: ModelDevelopmentProvenance) -> None:
         self._write(self.provenance / f"{manifest.manifest_digest[7:]}.json", asdict(manifest))
@@ -285,6 +288,19 @@ class ModelReplacementArtifactStore:
         digest = _digest(payload); run_id = "model-replacement-run-" + digest[7:31]
         self._write(self.runs / f"{run_id}.json", {**payload, "run_id": run_id, "run_digest": digest})
         return run_id, digest
+
+    def load_verified_run(self, run_id: str, run_digest: str) -> dict[str, Any]:
+        path = self.runs / f"{run_id}.json"
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise DevelopmentalModelReplacementError("trial_run_artifact_unavailable") from exc
+        semantic = {key: item for key, item in value.items() if key not in {"run_id", "run_digest"}}
+        if (value.get("run_id") != run_id or value.get("run_digest") != run_digest
+                or _digest(semantic) != run_digest
+                or run_id != "model-replacement-run-" + run_digest[7:31]):
+            raise DevelopmentalModelReplacementError("trial_run_artifact_tampered")
+        return cast(dict[str, Any], value)
 
 
 class DevelopmentalModelReplacementExperiment:
@@ -315,12 +331,12 @@ class DevelopmentalModelReplacementExperiment:
 
     def _observe(self, condition: str, endpoint: GovernedCognitiveEndpoint,
                  expected: CognitiveModelIdentity, provenance_digest: str,
-                 with_history: bool) -> dict[str, Any]:
+                 with_history: bool, trial_id: str) -> dict[str, Any]:
         self.context.verify(); self.protocol.verify(); self.store.verify_protocol_bytes(self.protocol)
         if endpoint.current_identity() != expected:
             raise DevelopmentalModelReplacementError("model_identity_drift")
         prompt = self._prompt(with_history)
-        correlation = f"{self.protocol.protocol_id}:{condition}"
+        correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
         evidence = {"causal_context_id": self.context.context_id,
                     "causal_context_digest": self.context.context_digest,
                     "current_projection_id": self.context.current_projection_id,
@@ -342,7 +358,8 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_receipt_digest", "output_digest")
         if not all(receipt.get(key) for key in required):
             raise DevelopmentalModelReplacementError("inference_receipt_incomplete")
-        semantic = {"condition_id": condition, "protocol_id": self.protocol.protocol_id,
+        semantic = {"condition_id": condition, "trial_id": trial_id,
+                    "protocol_id": self.protocol.protocol_id,
                     "protocol_digest": self.protocol.protocol_digest,
                     "causal_context_id": self.context.context_id,
                     "causal_context_digest": self.context.context_digest,
@@ -359,13 +376,16 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_receipt_digest": receipt["inference_receipt_digest"],
                     "output_digest": receipt["output_digest"],
                     "actual_generation_parameters": dict(actual),
-                    "authority_map_digest": expected.authority_record_digest,
+                    "authority_record_digest": expected.authority_record_digest,
                     "correlation_id": correlation}
         digest = _digest(semantic)
         return {**semantic, "observation_id": "model-replacement-observation-" + digest[7:31],
                 "observation_digest": digest}
 
-    def run(self) -> dict[str, Any]:
+    def run(self, *, trial_id: str = DEFAULT_TRIAL_ID) -> dict[str, Any]:
+        if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
+                or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in trial_id)):
+            raise DevelopmentalModelReplacementError("trial_id_invalid")
         # All metadata and the complete immutable protocol exist before inference one.
         self.store.persist_provenance(self.provenance_a)
         self.store.persist_provenance(self.provenance_b)
@@ -380,7 +400,7 @@ class DevelopmentalModelReplacementExperiment:
                  self.provenance_b.manifest_digest, False),
                 (CONDITION_ORDER[4], self.model_a, self.protocol.model_a_identity,
                  self.provenance_a.manifest_digest, True))
-        observations = [self._observe(*item) for item in plan]
+        observations = [self._observe(*item, trial_id) for item in plan]
         outputs = [str(item["output_digest"]) for item in observations]
         differences = {"history_effect_model_a": outputs[0] != outputs[1],
                        "history_effect_model_b": outputs[2] != outputs[3],
@@ -397,7 +417,7 @@ class DevelopmentalModelReplacementExperiment:
             classification = "history_association_observed_model_b_only"
         else:
             classification = "no_observable_history_effect_either_model"
-        semantic = {"protocol": asdict(self.protocol), "observations": observations,
+        semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol), "observations": observations,
                     "differences": differences, "classification": classification,
                     "claims_posture": "bounded_digest_level_observed_association_only",
                     "non_claims": list(NON_CLAIMS), "validity": "valid_controlled_observation"}
