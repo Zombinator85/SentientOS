@@ -1,60 +1,61 @@
-# Relationship to Established Technical Terminology
+# Relationship to existing terminology
 
-SentientOS overlaps several established areas without claiming that every constitutive requirement of those fields is implemented. No unimplemented protocol conformance is claimed.
+SentientOS uses established terms as comparison points, not claims of formal equivalence. Its distinctive object is a persistent causal system above any one model, with governed interventions over developmental history and cognitive machinery, a consequence constitution, literal hosted/native OS forms, and a direction of semantic continuity toward physical enforcement.
+
+No unimplemented protocol conformance is claimed. Current world-state evidence is not a predictive world model. Autonomy is not authority.
 
 ## Cognitive architectures
 
-Goal selection, attention/arbitration, memory, reflection, simulation, self-modeling, cognitive reports, and context assembly resemble components of cognitive architectures. Their coexistence in the repository does not make them one canonical resident architecture; several are callable or legacy paths. SentientOS's distinctive emphasis is the longer-lived governed causal substrate around replaceable inference machinery.
+Like cognitive architectures, SentientOS composes memory, evidence, attention-like selection, goals, inference, action, and self/world representation. Its emphasis differs: components are organized around attributable longitudinal causation, replaceable cognitive machinery, authority, software succession, and consequence. A module inventory is not enough; the experiment concerns the arrows that make earlier experience alter later conduct.
 
-## Developmental robotics and developmental systems
+## Developmental systems and developmental robotics
 
-The project shares developmental robotics' interest in history-dependent change, embodiment, self/world coupling, and skills acquired through interaction. Current perception, avatar, and host-state organs do not yet form a closed persistent sensorimotor-development loop, so SentientOS should not be described as a mature developmental-robotics system.
+SentientOS shares the question of how organization changes through interaction over time. It adds explicit governance and intervention custody: history can be withheld/restored, models replaced under frozen context, and lineage separated. Current embodiment is partial and hosted; the project does not claim equivalence to biological development or mature developmental robotics.
 
 ## Continual and lifelong learning
 
-Durable conversation context and admitted memory can influence later inference, while reflection and goal machinery can write transformed records in older memory domains. This overlaps continual/lifelong learning at the system level. **Persistent memory is not learning by itself**: durable competence requires evidence that retained or adopted change alters later behavior and survives relevant perturbations.
-
-## Open-ended and autotelic learning
-
-Repeated-memory and novel-perception helpers can create bounded goals, and the architecture seeks endogenous priority formation. Yet current novelty thresholds and goal templates are authored heuristics, not proof of open-endedness or an intrinsic curiosity drive. The project does not claim mature autotelic learning, unrestricted goal expansion, or guaranteed emergent preferences.
+Continual-learning work often centers on parameter updates, replay, adaptation, or catastrophic forgetting. SentientOS uses a wider causal object: durable history, admitted memory, software generations, authority, environment, relationships, and consequences may affect later cognition even when model weights do not change. Developmental writeback enables study; it does not itself prove learning.
 
 ## Embodied and enactive cognition
 
-Audio, screen, vision, host-resource observation, embodiment ingress, avatar, and pose mechanisms create channels for situated experiments. Embodiment capability is not causally closed embodied development. Current world-state evidence is not a predictive world model, and representation of action or pose is not proof of learned sensorimotor contingency.
+The architecture treats environment, action, consequence, finite resources, and hardware as part of the eventual loop. Its semantic-to-physical direction is compatible with embodied/enactive questions. Current World-State, avatar, host observation, and action custody do not yet constitute causally closed embodiment.
 
-## Autonomic and self-maintaining systems
+## Autonomic computing
 
-Observation, diagnosis, work formation, validation/correction, adoption, quiescence, and resident process-image replacement overlap autonomic computing and self-maintenance. Causal-resource ownership may support future homeostasis-like allocation. It does not currently implement metabolism, desire, a scalar energy budget, stable unexpected-death recovery, or unrestricted self-preservation.
+Monitoring, supervised maintenance, succession, and future homeostasis-like resource reasoning overlap with autonomic-computing concerns. SentientOS does not infer biological appetite or survival drive from resource control, and current resource principals provide attribution rather than general allocation or kernel enforcement.
+
+## Agent systems
+
+SentientOS includes agent, council, delegation, and tool-related mechanisms, but it is not primarily an agent framework. The persistent experimental object spans agents and model replacements; effect authority, causal principals, resource sponsorship, lineage, and durable consequence remain system responsibilities.
+
+## AI-native operating systems and agent kernels
+
+SentientOS is literally intended to occupy operating-system responsibility in native form while also supporting hosted operation. The semantic/policy kernel, native OS/trusted-substrate kernel, and CUDA/GPU kernel are separate concepts. Unlike an “OS” used only as an orchestration metaphor, the native direction targets scheduling, isolation, resource/device custody, and enforcement without claiming those are complete today.
 
 ## Runtime assurance and reference monitors
 
-Deterministic control-plane paths separate definitions, grants, policy, feasibility, admission, execution custody, verification, receipts, and adoption. These are reference-monitor-like and runtime-assurance-like properties in named domains. They do not establish universal mediation, whole-system tamper resistance, or formal conformance of the complete runtime.
+Admission, execution custody, receipts, rollback, panic, and operator authority resemble runtime-assurance and reference-monitor patterns. In SentientOS these boundaries also make developmental evidence interpretable: proposal must remain distinguishable from authority, attempt from result, validation from adoption, and landed code from the running generation.
 
-## Multi-agent and federated learning concepts
+## Multi-agent and federated adaptation
 
-Federation identity, trust, replay controls, improvement candidates, intake/rehearsal, local variants, lineage comparison, and dissemination overlap multi-agent interoperability and federated adaptation. Unlike parameter-averaging federated learning, the documented pattern exchanges provenance-bearing evidence and candidates while preserving local rejection and adaptation. A remote candidate supplies no authority and convergence is not mandatory.
+Federation can exchange evidence, counterexamples, adaptations, candidates, and lineage while preserving local sovereignty. It does not imply consensus, transport authority, sync, merge, installation, or adoption. Candidate, not doctrine; remote agreement is not truth.
 
-SentientOS is not primarily a multi-agent orchestrator, and a supported default production WAN synchronization deployment is not established.
+## Iterated and cultural learning
 
-## Iterated learning and cultural transmission
+Cross-installation and cross-generation transmission can be studied as iterated or cultural processes when provenance and local adoption remain visible. Existing cultural/federation artifacts do not establish a production social organism, and received patterns may follow selection or authored priors rather than development.
 
-When outputs, summaries, strategies, or software improvements are retained and later become input locally or elsewhere, the system can support experiments related to iterated learning and cultural transmission. Transformation, selection, and context matter: a summary is not a neutral copy, and dissemination is not adoption. The project does not describe this as genetic evolution.
+## Recursive self-improvement
 
-## Canonical distinctions
+SentientOS has bounded governed software recursion: work formation can lead through implementation, validation, landing, quiescence, readiness, adoption, process replacement, and a later generation. The recursive object is the persistent causal system, not the checkpoint. This is operational closure, not unrestricted recursive self-improvement. Developmental closure remains partial, and constitutional autonomy closure remains future work.
 
-Autonomy is not authority. Current governed software evolution is not unrestricted recursive self-improvement.
+## Distinctive synthesis
 
+The project combines five commitments:
 
-```text
-persistent memory != learning by itself
-developmental persistence != phenomenal consciousness
-World-State != predictive world model
-affect inference != felt emotion
-self-model != proof of self-awareness
-autonomy != authority
-constraint != motivation
-governed software evolution != unrestricted recursive self-improvement
-federated candidate != remote doctrine or adoption
-```
+1. persistence and recursion belong to an attributable causal organization above the model;
+2. history and model replacement are controlled experimental interventions;
+3. governance is a consequence constitution and empirical instrument, not personality conditioning;
+4. “operating system” spans a current hosted form and intended literal native form;
+5. purpose, principal, authority, sponsorship, consumption, and consequence should survive delegation toward physical enforcement.
 
-SentientOS is therefore best treated as a developing cognitive architecture and governed developmental research substrate with overlaps across these fields, not as proof of membership in every school or proof that their strongest objectives have been achieved.
+Those commitments define a research program. They do not establish consciousness, identity continuity, learning, native maturity, or beneficial development in advance.

@@ -29,6 +29,29 @@ def test_script_outputs_and_summary(tmp_path: Path) -> None:
     assert payload["status"] == "ready"
 
 
+def test_script_supports_docs_only_bootstrap(tmp_path: Path) -> None:
+    summary = tmp_path / "summary.json"
+    code = main([
+        "--task-name", "docs reconciliation",
+        "--task-goal", "reconcile public documentation without runtime changes",
+        "--subsystem-kind", "documentation",
+        "--doc-path", "README.md",
+        "--doc-path", "docs/architecture/public_technical_overview.md",
+        "--commit-title", "[codex:docs] reconcile public architecture",
+        "--summary-output", str(summary),
+    ])
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert code == 0
+    assert payload["status"] == "ready"
+    scaffold = payload["generated_scaffold_json"]["scaffold"]
+    assert scaffold["expected_files"] == []
+    assert scaffold["expected_tests"] == []
+    assert scaffold["expected_docs"] == [
+        "README.md",
+        "docs/architecture/public_technical_overview.md",
+    ]
+
+
 def test_script_blocked_prompt_output_is_hard_stop(tmp_path: Path) -> None:
     prompt = tmp_path / "prompt.txt"
     summary = tmp_path / "summary.json"

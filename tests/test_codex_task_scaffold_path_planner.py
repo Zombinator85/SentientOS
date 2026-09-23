@@ -198,6 +198,31 @@ def test_scaffold_request_payload() -> None:
 
 
 @pytest.mark.no_legacy_skip
+def test_documentation_task_uses_only_declared_docs(tmp_path: Path) -> None:
+    repo = _git_fixture(tmp_path)
+    (repo / "README.md").write_text("# Read me\n", encoding="utf-8")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "architecture.md").write_text("# Architecture\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md", "docs/architecture.md"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "docs"], cwd=repo, check=True)
+    req = PlannerRequest(
+        task_name="reconcile docs",
+        subsystem_kind="documentation",
+        doc_path=("README.md", "docs/architecture.md"),
+        repository_root=str(repo),
+    )
+    out = plan_codex_task_scaffold_paths(req)
+    payload = build_scaffold_request_payload(req, out)
+    assert out.status == "ready"
+    assert out.module_path == out.cli_path == ""
+    assert out.api_test_path == out.cli_test_path == ""
+    assert payload["new_module_path"] == []
+    assert payload["new_cli_path"] == []
+    assert payload["expected_test_paths"] == []
+    assert payload["expected_doc_paths"] == ["README.md", "docs/architecture.md"]
+
+
+@pytest.mark.no_legacy_skip
 def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
     allowed = (
         "without provider inference",

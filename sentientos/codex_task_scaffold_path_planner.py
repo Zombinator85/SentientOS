@@ -254,11 +254,14 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     fixture_root_default = f"tests/fixtures/{cap_default}/" if (request.subsystem_kind or request.preset_id) == "metadata_verification" and cap_default else ""
     commit_default = f"[codex:{scope}] {action} {slug.replace('_', ' ')}"
 
-    module_path = _choose(request.new_module, module_default)
-    cli_path = _choose(request.new_cli, cli_default)
-    tests = request.test_path or (api_test_default, cli_test_default)
-    api_test_path = tests[0]
-    cli_test_path = tests[1] if len(tests) > 1 else cli_test_default
+    docs_only = request.subsystem_kind == "documentation" and bool(request.doc_path) and not (
+        request.new_module or request.new_cli or request.test_path
+    )
+    module_path = "" if docs_only else _choose(request.new_module, module_default)
+    cli_path = "" if docs_only else _choose(request.new_cli, cli_default)
+    tests = () if docs_only else request.test_path or (api_test_default, cli_test_default)
+    api_test_path = tests[0] if tests else ""
+    cli_test_path = tests[1] if len(tests) > 1 else ("" if docs_only else cli_test_default)
     dev_doc_path = _choose(request.doc_path, doc_default)
     commit_title = request.commit_title or commit_default
 
@@ -283,12 +286,14 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
                 blockers.append("forbidden_authority_surface_requested")
             break
 
-    for path in tuple(x for x in (module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, proof_filename_default, fixture_root_default) if x):
+    paths = tuple(x for x in (module_path, cli_path, api_test_path, cli_test_path, *request.doc_path, proof_filename_default, fixture_root_default) if x)
+    for path in paths:
         if _bad_path(path):
             blockers.append("path_traversal_or_metacharacters")
             break
         legacy_root_reduction = path == module_path and _legacy_root_reduction_target_allowed(request, path)
-        if not _ensure_root(path) and not legacy_root_reduction:
+        root_document = docs_only and path in request.doc_path and path.endswith(".md") and _is_existing_tracked_root_file(path, request.repository_root)
+        if not _ensure_root(path) and not legacy_root_reduction and not root_document:
             blockers.append("path_outside_allowed_roots")
             break
 
@@ -308,10 +313,10 @@ def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutp
         "task_name": request.task_name,
         "task_goal": request.task_goal,
         "subsystem_kind": request.subsystem_kind or request.preset_id,
-        "new_module_path": [planned.module_path],
-        "new_cli_path": [planned.cli_path],
-        "expected_test_paths": [planned.api_test_path, planned.cli_test_path],
-        "expected_doc_paths": [planned.dev_doc_path],
+        "new_module_path": [planned.module_path] if planned.module_path else [],
+        "new_cli_path": [planned.cli_path] if planned.cli_path else [],
+        "expected_test_paths": [path for path in (planned.api_test_path, planned.cli_test_path) if path],
+        "expected_doc_paths": list(request.doc_path) if request.doc_path else [planned.dev_doc_path],
         "expected_fixture_roots": [planned.fixture_root] if planned.fixture_root else [],
         "capability_id": planned.capability_id,
         "proof_bundle_artifact_kind": planned.proof_bundle_artifact_kind,

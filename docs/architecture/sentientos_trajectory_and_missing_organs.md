@@ -1,120 +1,108 @@
-# SentientOS Trajectory: Causal Bridges and Material Gaps
+# SentientOS trajectory: causal bridges and open closure
 
-This is a current gap map, not a historical phase plan. SentientOS now has many of the needed organs. Its larger challenge is **causal closure**: composing them so evidence, memory, inference, action, consequence, learning, resource custody, adoption, and recovery form measurable loops without silently expanding authority or prescribing developmental outcomes.
+SentientOS increasingly has the organs. The remaining work is increasingly the arrows between them. This document identifies open causal bridges without demoting what current main implements or promoting architecture into present capability.
 
-A source file, registry definition, synthetic test, receipt, or readiness artifact may close one layer while resident composition, activation, hardware, authority, recovery, or production evidence remains incomplete. “Incomplete bridge” does not mean both endpoints are absent.
+## Current baseline
 
-## Existing foundations
+Current main includes bounded maintenance resident parent supervision; resident developmental-writeback authority vocabulary and runtime; experience/current World-State at tick N flowing to a durable developmental record and later-tick retrieval/cognition; history present/withheld/restored intervention; same-frozen-state model A/model B replacement with separate operational identity and source-bound training provenance; and preregistered 2–32-trial replication campaigns with immutable custody and negative/unstable/interrupted results retained.
 
-Bounded implementations already cover resident evidence and World-State construction; canonical conversation retention/retrieval; local-model lifecycle and admitted inference; reflection/dream writeback in legacy memory; repeated-memory and novel-perception goal creation; self-concept and self-narrative representations; perception and avatar components; read-only host-resource observation; governed software implementation, validation, landing, successor adoption, quiescence, readiness, and POSIX process-image replacement; federation candidates, local variants, lineage comparison, and dissemination; and authenticated causal-resource ownership with read-only public trust custody.
+The developmental capability remains `partial` under `bounded_state_transition`. The complete developmental organism is not causally closed.
 
-These foundations are not all resident, default-active, mutually composed, production-deployed, or scientifically validated as one developing system.
+## Priority 1: use the instrument, then test real transition
 
-## 1. Resident cognition ↔ developmental transformation
+First obtain actual repeated **production evidence** with the existing replication instrument. Synthetic CI fixtures prove machinery and invariants; they are not production experimental evidence. Preserve null, negative, unstable, and interrupted outcomes rather than selecting for a preferred narrative.
 
-Canonical chat demonstrably uses durable session history and retrieved memory in later inference. Separately, the dream loop can transform legacy memory into new dream/reflection records and reinforce unfinished goals; the goal curator can create background or curiosity goals; the inner-world orchestrator updates a fixed-axis self-narrative.
+Then, as a separate governed experiment, conduct a real resident A→B serving/activation transition with exact model custody, authority, rollback, context/history binding, predecessor/successor observation, and consequence evidence. The existing frozen-state replacement instrument is not itself production resident cognitive-organ transition authority.
 
-A bounded, explicitly configured resident path now binds the exact same-tick World-State object to deterministic selection, governed interpretation, separate exact admission, and durable developmental history. Only later ticks can retrieve that history for bounded cognition, with an opt-in with/withheld difference experiment and restart reconstruction. It preserves retention authority and **memory != current truth**. A separate explicitly invoked five-condition instrument can freeze that state across two exact pre-governed cognitive models, measure each history effect, compare models, and verify exact A restoration without changing production activation or serving. Default developmental policy, endogenous relevance, longitudinal evidence, and real resident model transitions remain open; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
+## Bridge: writeback to longitudinal development
 
-## 2. Canonical memory ↔ selective autonomous consolidation
-
-Canonical explicit user retention is live. Legacy summaries/indexes and selective distillation, capsule, tomb-intent, review, planning, readiness, interlock, and sandbox machinery exist at differing maturity. Not every late-stage live-memory artifact mutates the canonical root, and tomb intent is not deletion.
-
-Future composition needs source-bound selection, transformation provenance, reversible or reviewable forgetting semantics, contradiction handling, privacy/consent, and measures of whether consolidated material actually changes later cognition. A general truth-maintenance or belief-revision engine remains absent.
-
-## 3. Perception/action ↔ durable causal learning
-
-Audio, screen, vision, embodiment ingress, host observation, household-presence policy, avatar generation, and pose representations provide real organs. Most do not form a persistent sensorimotor learning loop. The open bridge is:
+Current composition reaches admitted durable developmental history and bounded later cognition. Open work is longer-horizon attribution:
 
 ```text
-observation -> attribution -> prediction -> authorized action
--> observed consequence -> prediction comparison -> retained update
+experience -> retained interpretation -> later retrieval
+-> changed prediction / strategy / procedure / conduct
+-> observed consequence -> comparison -> further admitted change
 ```
 
-This requires self/other/action attribution, calibration, privacy and consent, durable sensor lifecycle, hardware-independent degradation, and explicit effect custody. Current World-State is evidence projection, not a unified predictive world model. Avatar state is not proof of embodiment closure. Phase-one resource work stays read-only; direct fan/PWM/thermal control remains deferred. Direct fan/PWM control is deferred.
+Required evidence includes history ablation/restoration, calibration, learned-procedure persistence, unfinished-commitment behavior, environment perturbation, authorship audits, and negative results. Retrieval and output difference are not sufficient.
 
-## 4. Self-model ↔ evidence-bound change
+## Bridge: model replacement to system continuity
 
-The current identity manager has an initially empty key/value self-concept, event history, and explicit updates. The self-narrative engine summarizes reports through fixed predefined axes. World-State supplies evidence-bound self-observation.
+Use the current intervention to separate effects following history, current model, training lineage, runtime generation, and environment. Extend from frozen context to governed temporal transitions without assuming the conclusion. System lineage, model lineage, model-development lineage, and software lineage must remain independently reconstructable.
 
-The missing bridge is governed, attributable self-model revision over time: evidence should be able to challenge prior self-description, conflicting claims should remain visible, and representational assumptions should be experimentally inspectable. The goal is not to install a canonical personality. A self-model is not proof of self-awareness.
+Meaningful continuity may fail, fragment, or prove model-dependent. Those are valid results.
 
-## 5. Resource ownership ↔ allocation and homeostasis-like reasoning
+## Bridge: governance to developmental consequence
 
-Causal resource principals now establish causal identity, sponsorship, issuer provenance, real signature verification, and operator-provisioned read-only trusted public keys. They allocate nothing.
+The intended loop is:
 
-Future policy must account for heterogeneous resources—money, calls, verification passes, tokens/context, network capacity, RAM, VRAM, disk, CPU, accelerator slots, deadlines, devices, thermal headroom, and electrical power—without collapsing them into a fake energy scalar. A later loop may attribute consumption and consequences to work, compare them with limits, and revise allocation. That would be homeostasis-like resource reasoning, not proof of appetite or metabolism.
+```text
+situation -> attention -> prediction -> proposal -> sponsorship -> authority
+-> action -> observation -> attribution -> prediction error
+-> learning proposal -> durable assimilation -> later conduct
+```
 
-Signer custody remains important infrastructure work, but it is not asserted as
-the single project-wide developmental priority.
+Current main implements bounded subsets. Open work must connect observed consequence back to retained change while preserving observation != interpretation, candidate != authority, execution != validation, and validation != adoption.
 
-## 6. Validated improvement ↔ adoption ↔ consequence
+## Bridge: causal resources to allocation and learning
 
-The maintenance chain is stronger than proposal generation. It can progress through work formation, implementation, validation/correction, landing, successor configuration, wake adoption, predecessor quiescence, independent successor readiness, and resident POSIX process-image replacement.
+Current causal-resource principals establish ownership, sponsorship, and provenance. The open chain is:
 
-Further closure needs long-duration evidence across generations, cross-platform replacement semantics, authority renewal without accidental inheritance, rollback after post-adoption degradation, and explicit comparison of expected and observed post-adoption outcomes. Governance should continue to decide authoritative transitions. This is bounded governed recursion, not unrestricted recursive self-improvement.
+```text
+resource ownership -> plural allocation -> enforcement
+-> measured consumption -> consequence -> future allocation learning
+```
 
-## 7. Unexpected process death ↔ continuity and recovery
+More completely:
 
-Cooperative replacement and bounded maintenance resident parent supervision are implemented, including the exact child watcher/restart loop. Generic service/process authority and universal platform process-death recovery remain absent; broader platform supervision is deferred, and `real_service_restart` remains blocked.
+```text
+need / goal -> priority -> causal principal -> resource sponsorship
+-> task resource envelope -> delegation -> execution context
+-> scheduler/device assignment -> physical consumption
+-> attribution receipt -> consequence evaluation -> future allocation policy
+```
 
-Unexpected-death recovery is therefore a major concrete priority. It must preserve operator shutdown, avoid covert persistence incentives, distinguish crash recovery from adoption, and integrate platform service supervision, readiness, rollback, and durable reconstruction.
+Current main does not provide general CPU, GPU, RAM/VRAM, token, energy, thermal, device, or deadline allocation; generalized task envelopes; or kernel enforcement. Resource classes must remain plural rather than reduced to a fictional universal scalar. Future homeostasis-like reasoning concerns finite embodied computation, not appetite, metabolism, hunger, or survival drive.
 
-## 8. Local learning ↔ federated adaptation
+## Bridge: hosted semantics to native enforcement
 
-Federation can represent candidate intake, custody and rehearsal, rejection, hold-for-adaptation, local variants, lineage comparison, and dissemination while preserving no remote authority and no forced update. This supports distributed search without surrendering local sovereignty.
+Hosted and native SentientOS are one architectural lineage. The concepts used above—principal, purpose, task, parent activity, authority, sponsorship, delegation, causal lineage, generation, evidence, effect, consequence—should lower into a native trusted substrate without semantic loss.
 
-Open work includes connecting locally measured developmental or software outcomes to well-scoped candidates; deploying operator-owned trust bootstrap and transport; handling partitions, replay, upgrades, observation, and recovery; and collecting production field evidence. A supported default production WAN synchronization deployment is not established. Federation must remain **candidate, not doctrine** and must not convert agreement into truth or admission.
+Traditional processes, threads, virtual memory, files, queues, devices, DMA/IOMMU, schedulers, and GPU contexts may remain. The open work is binding semantic work to those enforcement objects and retaining attribution through delegation. Current native paths are not mature production native OS behavior.
 
-## 9. Bounded endogenous priority and durable competence
+A constrained Linux compatibility/accelerator domain may supply NVIDIA/CUDA and mature inference runtimes. Native ownership does not require bespoke tensor code. Prefer coarse operations such as `infer(model=X, context=Y, resource_context=R)` so Linux/CUDA can own *how* while SentientOS retains *who, why, may, cost, and consequence*. This remains architectural direction.
 
-Repeated memories and novel perceptions can already produce goal records in callable legacy paths. That is not yet a canonical resident priority system, and “novelty” in the current curiosity helper is an authored heuristic rather than evidence that curiosity emerged.
+## Bridge: perception and embodiment to attributable consequence
 
-Future work should distinguish goal proposals, admitted tasks, resource allocation, skill acquisition, reusable routines, and consequential action. It should measure durable competence rather than infer learning from storage. New motivational preferences—approval, survival, novelty, empowerment, or curiosity maximization—require explicit authorship and gradient review.
+Perception, avatar, host observation, and effect paths exist, but not as closed embodied development. Open composition must bind prediction and intended effect to observed environment change, causal principal, resource consumption, self/other attribution, and later retained update. Environment perturbation is necessary to distinguish internal repetition from situated adaptation.
 
-## 10. Longitudinal experimental closure
+## Bridge: endogenous priorities without authored destination
 
-The project needs repeatable protocols for model replacement, history ablation/restoration, environment and cognitive perturbation, runtime succession, and authorship audits. Measures should distinguish missing state from retrieval failure; model priors from historical causation; and stable adaptation from prompt imitation.
+Goal and reflection mechanisms exist but do not establish mature endogenous priorities or a canonical resident dream life. Development should distinguish mechanics, representational priors, motivational priors, and constraints. The doctrine remains minimal developmental authorship, maximal causal legibility: hard boundaries, soft interior; constraint != motivation.
 
-Negative results must remain publishable outcomes. No persistent individuality, complete dependence on persona scaffolds, or failure of organization to survive model replacement would each be scientifically meaningful.
+## Bridge: bounded recursion to post-adoption measurement
 
-## 11. Installation and operational closure
+Current governed recursion can reach successor adoption and process-image replacement. Open work includes robust cross-generation reconstruction, measured post-adoption consequence, rollback evidence, and learning from unsuccessful changes. Operational closure does not entail developmental closure. Constitutional autonomy closure—standing authority for precisely bounded modification classes—remains future work and must retain governance.
 
-A genuine one-action route from an unknown supported host to a healthy and understandable installation remains incomplete. It requires platform service installation, dependency/hardware discovery, deterministic route selection, operator-approved model acquisition/commissioning/activation, durable state, health proof, repair, update, and rollback. Existing launchers and CLIs cover parts, not universal deployment.
+## Bridge: federation to comparative developmental science
 
-Canonical installation must continue to avoid predefined persona bootstrapping. Operational convenience is not authority to author identity.
+Federation may exchange evidence, counterexamples, candidates, adaptations, findings, and software lineage. Open work is comparative evidence under local sovereignty, not convergence by authority. Remote agreement != truth; remote readiness != authority; received improvement != adoption; candidate, not doctrine.
 
-## 12. External cognition and contamination control
+## Closure map
 
-External-model HTTPS execution is a real bounded actuator but unavailable by default. Production use still needs an explicit owner, grant, configuration, credential, safe request-material source, and interpretation path. Returned bytes remain `untrusted_external_data`.
+- **Operational closure:** bounded software improvement/adoption and continuation are implemented in part.
+- **Developmental closure:** bounded writeback and later cognition exist; sustained attributable development remains partial.
+- **Constitutional autonomy closure:** future, precisely bounded standing authority; not current.
+- **Native enforcement closure:** future; semantic lowering and resource/device enforcement remain incomplete.
+- **Embodied consequence closure:** future; current organs are not fully composed.
 
-Transport completion must not become cognitive trust. Any future route needs provenance, context-contamination controls, memory policy, privacy, and separate authority. No provider is contacted automatically today.
+## Maturity discipline
 
-## 13. Assurance and emergence hygiene
+Dream code != resident dream life. Goal curator != mature endogenous priorities. Avatar != closed embodiment. Federation != production social organism. Resource principals != allocation or metabolism. Native paths != mature native OS. Replacement experiment != resident organ transition. Replication != longitudinal proof. Developmental history != learning. Software recursion != unrestricted RSI.
 
-Formal models, executable checks, semantic tests, audits, and proof bundles should expand around consequential paths, but must remain scoped. Synthetic behavior does not prove production hardware, credentials, grants, resident composition, or effects; selected formalization does not verify the whole Python system.
+The trajectory is therefore not “add more named organs.” It is to complete falsifiable causal bridges, operate the instruments on real evidence, preserve negative results, and lower meaning toward consequence without silently acquiring authority.
 
-The adversarial gradient-injection audit identifies approval leakage, salience and importance halos, expressive selection bias, and long-horizon prompt priming. Future composition must instrument these influences rather than assuming minimal explicit reward means no developmental gradient.
-
-## Priority order
-
-1. Use the preregistered frozen-context replication instrument to obtain actual repeated production evidence; then separately govern a real resident activation/serving A→B transition, continuation, measurement, and A restoration experiment.
-2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
-3. Bind perception and authorized action to predicted/observed consequences and retained learning.
-4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.
-5. Measure post-adoption behavior across model and runtime generations.
-6. Establish production federation only with local sovereignty and deployable evidence.
-7. Close installation and service lifecycle without persona bootstrapping.
-8. Run preregistered longitudinal interventions and authorship audits, including negative outcomes.
-
-## Implemented organs and proof navigation
-
-The historical labels **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script** name bounded mechanisms or review surfaces, not a claim of complete composition.
-
-
-Earlier versions of this roadmap enumerated historical “missing organ” and host-embodiment proof wings. They remain reviewable through the [current repository system atlas](current_repository_system_atlas.md), [reviewer release-readiness index](reviewer_release_readiness_index.md), and linked wing documents. This trajectory now describes scientific and operational gaps rather than duplicating that warehouse.
-
-For present-tense mechanisms see the [public technical overview](public_technical_overview.md); for the full rationale see the [project thesis](sentientos_project_thesis.md).
+Phase-one resource work remains read-only. Direct fan/PWM control is deferred.
 
 ## Compact historical proof-path index
 
@@ -152,3 +140,5 @@ The exhaustive indexes retain the explanation and status of these historical pat
 - `docs/architecture/host_workspace_change_set_execution_verification_wing.md`
 - `docs/architecture/host_workspace_change_set_lifecycle_closure_wing.md`
 - `docs/architecture/host_workspace_change_set_admission_wing.md`
+
+Historical review vocabulary retained by the evidence indexes includes **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script**. These labels identify bounded mechanisms or proof surfaces, not composed maturity.

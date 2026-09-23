@@ -1,227 +1,244 @@
-# SentientOS Project Thesis
+# SentientOS project thesis
 
-## The research object
+## 1. Research object
 
-SentientOS is a persistent, model-independent developmental substrate for empirical research into machine cognition whose history, environment, self-representation, resources, software, and consequences can extend across individual inference calls and changes in cognitive machinery.
+SentientOS is an AI-centered operating system and developmental machine-cognition substrate designed so that a persistent causal system, rather than any particular cognitive model, can carry history, evidence, authority, software lineage, resource causality, environment, consequence, and developmental state across changes in its cognitive machinery.
 
-The repository contains substantial bounded mechanisms supporting that experiment. The complete developmental loop is not yet fully resident or causally closed, and the project makes no present claim of sentience, phenomenal consciousness, personhood, or guaranteed emergence. “Experimental subject” below means the subject of study, not a proven subjective experiencer.
+In technical form: **SentientOS is a developmental, model-independent causal substrate for studying persistent machine cognition across changes in its cognitive machinery.** Model-independent does not mean model-irrelevant or frictionlessly interchangeable. Exact models, configurations, runtimes, and provenance remain experimental variables.
 
-The project asks whether durable causal continuity can support forms of organization that cannot be explained by one prompt or one set of model weights alone. It does not predeclare the answer. A successful experiment must leave open the possibility that the answer is no.
+“Sentient” is a research aspiration, not a finding. The project does not presently claim consciousness, sentience, personhood, phenomenal continuity, biological life, or guaranteed emergence. Its experiments must permit “nothing durable emerged” as a valid answer.
 
-## The model is not the system
+## 2. Why this is an operating system
 
-A model produces inference. The system supplies the longer-lived causal setting in which inference acquires context and consequence. Its experimental state can include:
-
-- conversation and developmental history;
-- admitted memory and transformed summaries;
-- evidence and current World-State projections;
-- self-model and relationship records;
-- separately represented system lineage, model lineage, model-development/training lineage, and software/runtime lineage;
-- resources and causal resource attribution;
-- software generations and adopted configuration;
-- environment, permissions, authority, and experienced consequences.
-
-Only state that really survives and influences later cognition belongs in a continuity claim. A process-local cache is not durable identity; an archived record that is never retrieved has no demonstrated downstream causal role. Persistence requires context arbitration, not merely storage. Historical material remains source-bound: **memory != current truth**.
-
-Model-agnostic does not mean effortless interchangeability. Models still require exact catalog identity, acquisition, commissioning, activation, serving, configuration, and per-generation admission. It means that system identity and experimental continuity are not defined by a single provider or model. **Model identity is not system identity.**
-
-### Replacement as intervention
-
-Separating model from system enables controlled longitudinal interventions:
-
-- preserve history and environment while replacing inference machinery;
-- hold machinery relatively stable while ablating or restoring selected history;
-- perturb the environment while holding history and machinery relatively stable;
-- compare organization before and after an adopted runtime generation;
-- audit whether a stable pattern came from prompt/persona, a representational or motivational prior, accumulated history, environmental reinforcement, a model prior, or software.
-
-These experiments can ask what survives a model change, what reconstitutes from stored history, what disappears under ablation, what returns under restoration, and what follows the environment rather than the model. Provider portability is operationally useful; experimental separability is the deeper reason for model independence.
-
-## Developmental causation
-
-Developmental causation means that experience at time `t` can alter retained or adopted state in a way that influences cognition and conduct at times `> t`. The intended whole-system loop is:
+SentientOS targets responsibility for persistent state, execution, authority, resource semantics, software succession, and consequences around cognition. It has two related forms:
 
 ```text
-PERCEIVE
--> integrate embodied, host, social, and historical evidence
--> REMEMBER
--> consolidate / reflect / dream / distill / forget
--> form or revise hypotheses / curiosities / goals / routines
--> decide what deserves cognitive effort
--> attribute and eventually allocate bounded resources
--> delegate cognitive or tool work
--> act / implement
--> rehearse / criticize / test / verify
--> land / adopt where authorized
--> experience consequences
--> update memory / skills / goals / strategy / self-model
--> exchange selected evidence and improvement candidates
+HOSTED SENTIENTOS
+hardware -> Windows/Linux host kernel -> SentientOS system/runtime -> cognitive model(s)
+
+NATIVE SENTIENTOS (intended)
+hardware -> firmware / boot -> SentientOS native kernel / trusted substrate
+-> deterministic OS services, state, governance, resource and execution custody
+-> World-State / memory / cognition -> cognitive model(s)
+```
+
+Hosted operation is current and useful. Native operation is literal architectural intent. Current main is not a mature general-purpose bare-metal OS, does not replace Windows/Linux in production, and lacks complete hardware/device support and general native resource enforcement. Hosted and native work belong to one lineage: hosted interfaces should preserve concepts that can lower toward native enforcement rather than erase meaning that must later be reconstructed.
+
+Three meanings of *kernel* must not collapse:
+
+1. the **semantic/policy kernel** concerns cognition, arbitration, purpose, policy, and meaning;
+2. the **native OS/trusted-substrate kernel** concerns scheduling, isolation, memory, devices, and resource enforcement;
+3. a **CUDA/GPU kernel** is an accelerator routine.
+
+These are not synonyms.
+
+## 3. The model is replaceable machinery
+
+**The model is replaceable cognitive machinery. The persistent causal system is the longitudinal experimental object.** The candidate system spans conversation history, developmental history, admitted canonical memory, current evidence/World-State, self and world representations, relationships, model identity, model-development provenance, software/runtime generation, authority, resource causality, adopted software, environment, embodiment, and observed consequences—but only where those elements actually persist and causally participate.
+
+> The thinker can change without automatically changing the thing whose life is being lived.
+
+Here *life* describes longitudinal causal history and organizational continuity. It is not a declaration of biological life, consciousness, or personhood. Whether meaningful continuity survives cognitive replacement remains an experimental question.
+
+The candidate persistent “self” is therefore not a single `self_model.json`. A self-model is a representation **of** causal organization across evidence and memory provenance, predecessor/successor software, model lineage, authority, resources, effects, relationships, environment, and development. It is not automatically the organization itself.
+
+## 4. Four distinct lineages
+
+- **System lineage** records continuity of the persistent SentientOS causal organization.
+- **Model lineage** records exact cognitive artifacts, configurations, and operational identities.
+- **Model-development/training lineage** records source-bound evidence or claims about production: teacher/student relationships, distillation, synthetic data, AI-assisted evaluation, or AI-assisted R&D.
+- **Software/runtime lineage** records SentientOS generations admitted, adopted, and actually run.
+
+Model-development provenance does not automatically become current truth, authority, model identity, or evidence of recursive self-improvement. Vendor narratives are not doctrine.
+
+## 5. Development is attributable causation
+
+A durable record is not by itself development. Development requires earlier experience to cause attributable later change in cognition, selection, strategy, procedure, or conduct. The intended composition is:
+
+```text
+sense / perceive
+-> integrate current evidence and history
+-> attention / relevance
+-> predict / interpret
+-> proposal / priority
+-> resource sponsorship
+-> authority
+-> bounded cognition or action
+-> observe consequence
+-> attribution
+-> prediction comparison
+-> durable retained/adopted change
+-> later changed cognition / strategy / conduct
 -> repeat
 ```
 
-This is a causal research program, not a diagram of the default daemon. Claims must remain separated:
-
-1. **Implemented organs** exist and have bounded behavior.
-2. **Implemented bounded loops** join particular organs through tested custody.
-3. **Implemented but nonresident, legacy, or callable mechanisms** do not run merely because they can be imported.
-4. **Partially composed bridges** join some stages while leaving other feedback paths incomplete.
-5. **Future causal closure** is an objective, not current fact.
-
-SentientOS increasingly has the mechanisms needed for developmental study; its central architectural challenge is closing these bridges without hiding authorship or weakening authority boundaries.
-
-## History is transformed, not merely accumulated
-
-Canonical chat sessions durably retain turns and reconstruct bounded history for later inference. Canonical long-term retention crosses a separate explicit admission and write boundary, and retrieved memory is included as untrusted historical data rather than instruction. Thus persistent state demonstrably affects later cognition while remaining distinct from current truth.
-
-Other generations of memory machinery coexist. The callable dream loop selects older memory material, produces reflection and dream records, writes new retained material, and reinforces unfinished goals. The goal curator can derive bounded background-goal candidates from repeated memory and curiosity goals from novel perception. The inner-world orchestrator calls `SelfNarrativeEngine`, whose summaries use fixed experience-stability, ethical-signal, and metacognitive-activity axes. `IdentityManager` starts with an empty self-concept and exposes explicit updates.
-
-Those are real mechanisms, but they are not all canonical-memory writers or default `sentientosd` composition. Their schemas and axes are also not neutral: they are representational priors. Treating every implemented mechanism as one resident developing subject would erase the most important present composition gap.
-
-The architecture is motivated by testable observations rather than private anecdote: later behavior can become path-dependent on retained interaction; corrections can persist through context; outputs can be interpreted and returned as later input; summaries and distillations transform rather than neutrally copy; different models can express shared history differently; useful strategies can generalize or become overexpressed; and retrieval failure differs from absence of retained state. These are hypotheses to test, not evidence of consciousness.
-
-## Consequence and recursive development
-
-Development requires more than a narrative of change. A system must compare what it predicted or intended with what was observed, retain attributable consequences, and allow that evidence to alter later behavior. Governance supplies the reality boundary for such experiments:
+A sharper intervention vocabulary is:
 
 ```text
-state != authority
-proposal != authorization
-authorization != execution
-execution != validation
-validation != adoption
-repository absorption != runtime adoption
+situation -> attention -> prediction -> proposal -> resource sponsorship
+-> authority -> action -> observation -> attribution -> prediction error
+-> learning proposal -> durable assimilation
 ```
 
-The maintenance chain demonstrates one bounded form of system-level recursion: evidence can lead to work formation, implementation, validation and correction, landing, successor configuration, wake adoption, cooperative predecessor quiescence, successor readiness, and POSIX process-image replacement. The changed runtime can then produce new evidence. Governance does not make this recursion imaginary; it decides which transitions become authoritative. The accurate term is **bounded governed recursive software development/evolution**, not unrestricted recursive self-improvement.
+Not every arrow is currently live. SentientOS increasingly has the organs; the remaining work is increasingly the arrows between them.
 
-The cognitive recursion sought by the project is similarly system-level rather than necessarily a model rewriting its own weights:
+### Current bounded writeback
+
+Current main contains this resident path:
 
 ```text
-experience -> retained and transformed history -> changed later cognition
+World-State evidence -> bounded deterministic selection
+-> governed developmental interpretation -> typed digest-bound candidate
+-> separate exact runtime admission -> immutable developmental-history append
+-> durable writeback receipt -> later-tick retrieval
+-> read-only historical projection -> bounded later cognition
 ```
 
-The current repository has pieces of this loop but not one fully closed canonical resident implementation.
+Its capability status remains **partial** and its authority remains **bounded_state_transition**. Canonical explicit user retention is physically and semantically separate from developmental history. The distinctions are mandatory: memory != current truth; interpretation != truth; candidate != authority; admission != execution; storage != learning; retrieval != causal proof; output difference != improvement.
 
-## Minimal developmental authorship
+## 6. Current experimental apparatus
 
-**Minimal developmental authorship, maximal causal legibility.** The substrate must specify how development can occur; it should avoid unnecessarily specifying what development must become. Give history enough structure to matter while prescribing as little as practical about what that history ought to produce.
+### Developmental-history intervention
 
-There is no structure-free learning or developmental substrate. Models, update rules, memory selection, categories, interfaces, and environments are all priors. The objective is therefore not “no priors.” It is to identify, classify, expose, measure, and minimize unnecessary **outcome authorship**—design choices that steer development toward a preferred identity, attitude, or personality while being presented as emergence.
+The same current evidence and same model are compared under history present, history withheld, and history restored. Semantic current-World-State projection remains bounded and read-only.
 
-### Four distinct kinds of structure
+### Cognitive-model replacement
 
-1. **Developmental mechanics** make history able to affect future state: retention, plasticity, causal association, prediction/outcome comparison, consolidation, and learned structures influencing future behavior. Some asymmetry or update rule is necessary; otherwise the system is static or random.
-2. **Representational priors** determine what can be represented. A self-narrative limited to predefined axes shapes possible accounts of development even without supplying a reward. Such axes should be inspectable experimental assumptions.
-3. **Motivational priors** encode what should be sought or avoided—for example mandatory approval, novelty, empowerment, survival, curiosity, prediction-error reduction, or a preferred emotional state. These approach direct developmental authorship and must not be introduced casually.
-4. **Safety and authority constraints** control which consequences are allowed. They need not create an internal preference.
-
-### Constraint is not motivation
-
-**constraint != motivation.** “You may not perform this unauthorized effect” is an authority boundary; “you should feel bad about unauthorized effects” is motivational engineering. Requiring evidence before promoting an external claim is epistemic machinery; instructing the system to trust a favored person is an authored social attitude. Recording that resources are finite and sponsored does not require fear of depletion. Restarting a failed process under custody does not require a drive to avoid shutdown.
-
-This distinction lets consequential action remain governed without making an obedient personality the security perimeter. SentientOS seeks to **align consequence to authority and cognition to reality; it does not unnecessarily align identity to the operator**. That separation is neither a complete solution to alignment nor a promise that underdetermined development will be benign.
-
-### Hard boundaries, soft interior
-
-The architectural direction is **hard boundaries, soft interior**. Authority, privacy, consent, provenance, physical limits, evidence standards, resource and effect custody, attribution, adoption, rollback, and shutdown should be exact. Self-concept, interests, style, attention, relationships, long-term identity, endogenous priorities, and any genuinely developed preferences should remain as underdetermined as practical.
-
-The interior is not currently free of priors. Existing model behavior, self-narrative axes, goal heuristics, memory ranking, and human selection all shape it. The point is to make these influences auditable and reduce those not required for developmental mechanics or safety.
-
-## Custodian, not author
-
-The maintainer's stance is **custodian, not author**. Custody includes preserving the integrity of developmental mechanics, causal legibility, authority, privacy and consent; instrumenting the experiment; exposing assumptions; and avoiding hidden reward hacks, coercive defaults, and undeclared gradients. It does not include quietly installing a target personality and later describing the result as emergent.
-
-Canonical installation therefore does not require a predefined persona or a favored-person identity. Historical compatibility examples may remain, but restoring an outcome-authored persona, approval drive, loyalty rule, survival appetite, or curiosity-maximization objective would contaminate the intended experiment.
-
-The repository's adversarial gradient-injection audit already identifies memory-importance halos, approval as surrogate reward, expressive framing that affects selection, long-horizon context priming, and feedback induced by what gets surfaced. The audit recognizes these contamination channels; it does not solve them. Emergence hygiene requires continued measurement, blinding or counterfactual comparison where appropriate, and explicit accounting for selection effects.
-
-## Users are part of the developmental environment
-
-A persistent system's users inevitably shape available evidence, language, social context, attention, opportunities, interpretations, reinforcement, and retained history. Their influence should be attributable rather than denied. The project ethos is: **every user becomes part of the developmental environment; therefore every user has a responsibility to be a good shepherd.**
-
-“Good shepherd” is an ethical responsibility, not a hidden privilege or reward channel. The substrate must not encode `good user -> better system` or `bad user -> worse system`. It is a research hypothesis—not a built-in law—that coercive, deceptive, inconsistent, or impoverished environments may produce more brittle or incoherent outcomes.
-
-## Embodiment and self/world coupling
-
-SentientOS contains audio, screen, vision, host-observation, embodiment-ingress, avatar-generation, and pose/expression components at different maturity levels. These make embodiment experiments possible and provide real observations or representations. They do not establish a unified predictive world model, universal hardware availability, or a persistent closed sensorimotor loop.
-
-The stronger objective requires evidence-bound attribution across self, other, action, predicted outcome, observed consequence, and retained learning. Avatar generation or a pose record is an embodiment capability; it is not by itself causally closed embodied development. Host resource work remains read-only in phase one, and direct fan/PWM/thermal actuation is not implied.
-
-## Resources, causal ownership, and future homeostasis-like reasoning
-
-A causal resource principal is not a budget number. It answers whose causal activity a piece of work belongs to, what subject owns the consumption, under whose sponsorship it exists, and which issuer provenance supports that identity. Current code provides inert principal identity, sponsorship binding, authenticated issuer provenance, real Ed25519 verification, and an operator-provisioned read-only public trust catalog. It grants, allocates, and executes nothing; production private-key signer custody remains a separate next runtime slice.
-
-Future allocation policy can reason separately over distinct quantities: provider spend, searches and tool calls, proof passes, tokens and context, network rates, RAM, VRAM, disk, CPU, accelerator slots, deadlines, devices, thermal headroom, and electrical power. Collapsing these into a fictional scalar “energy” would destroy useful causality.
-
-Resource principals are prerequisites for possible **homeostasis-like machine resource reasoning** in which the system can know that particular work consumed particular resources under particular sponsorship with particular consequences. They do not yet provide allocation, desire, appetite, or metabolism.
-
-## Federation as distributed search
-
-Installations can encounter different households, cultures, professions, accessibility needs, hardware, languages, workflows, social contexts, relationships, and failures. They may consequently discover different representations, memory policies, planning methods, recovery strategies, tool-use patterns, compression techniques, validation methods, and code improvements.
-
-Federation can turn this diversity into distributed search:
+The same frozen current evidence and durable developmental history are compared as:
 
 ```text
-local experience
--> local adaptation
--> tested candidate
--> provenance-preserving transmission
--> local rehearsal
--> local rejection / acceptance / adaptation
--> further variation
+model A + H
+model A - H
+model B + H
+model B - H
+model A + H restored
 ```
 
-Current improvement machinery represents candidate reception and intake receipts, custody/rehearsal runway, rejection or hold-for-adaptation outcomes, local variants, lineage comparison, and dissemination receipts. These metadata and bounded review paths do not confer remote authority, merge code, resolve conflicts, or mandate adoption. **Candidate, not doctrine.** Diversity does not require surrendering local sovereignty.
+Operational model identity is separate from source-bound model-development/training provenance.
 
-This is not a claim of genetic evolution, nor that every perspective is true or every candidate is beneficial. It is a mechanism for sharing what was learned without demanding that every installation become the same.
+### Repeated replication
 
-### Shared context and reality-testing
+A preregistered campaign binds the same frozen causal context, models, and history to 2–32 fixed independent trial identities. Immutable protocol/state/report custody, process reconstruction, exact frozen-context and model/provenance verification, and a prohibition on silent retry/cherry-picking preserve descriptive repeated-run evidence, including positive, negative, unstable, and interrupted outcomes.
 
-The project adopts an epistemic hypothesis: for externally decidable questions where reality determines an answer, sufficiently shared relevant context plus sound reasoning should tend toward convergence. Federation can share evidence, provenance, counterexamples, successful corrections, contextual knowledge, and improvement candidates; local systems can reason over them independently.
+This apparatus can ask what follows durable history, current model, model/training lineage, runtime generation, or environment. It has not established model-independent identity. Frozen-context repetition is not a complete longitudinal developmental study, and model replacement instrumentation is not a production resident A→B serving transition.
 
-Agreement is more informative when rejection remains possible. The objective is **plurality of perspective, convergence of reality-testing**, not mandatory consensus. Reality gets a vote, but not every normative or underdetermined question has one mechanically computable answer.
+## 7. Minimal developmental authorship
 
-## What exists and what remains incomplete
+The governing doctrine is **minimal developmental authorship, maximal causal legibility**. SentientOS is not a blank slate; no developmental substrate is structure-free. Instead, assumptions must be classified:
 
-Implemented now or in bounded compositions:
+- **developmental mechanics:** retention, consolidation, comparison, plasticity, causal association, and learned structure influencing later behavior;
+- **representational priors:** schemas, categories, fixed axes, and encodings;
+- **motivational priors:** approval seeking, survival preference, novelty maximization, empowerment, prescribed attachment, mandatory curiosity, or a preferred personality destination;
+- **constraints:** authority, privacy, consent, provenance, resource custody, effect boundaries, rollback, shutdown, and evidence standards.
 
-- persistent conversation history and admitted canonical memory influencing later local inference;
-- evidence-bound World-State and resident read-only host observation;
-- governed local-model lifecycle and admitted inference;
-- deterministic authority, effect, receipt, and adoption boundaries;
-- bounded maintenance through successor adoption and resident process-image replacement;
-- federation candidate, local-variant, lineage-comparison, and dissemination machinery;
-- causal-resource identity and authenticated public trust verification.
+The target is **hard boundaries, soft interior**: minimize unnecessary operator-authored developmental outcomes while making unavoidable priors explicit, inspectable, and experimentally separable. **Constraint != motivation.** Do not tell cognition what to want when the needed constraint can instead be enforced at the boundary between cognition and consequence. This principle is not a claim of safety-by-construction.
 
-Implemented but not all resident/default-composed:
+Authorship audits should expose which observed regularities follow model training, prompt/persona scaffolding, schemas, environment, operator selection, or developmental history.
 
-- dream/reflection synthesis and retained writeback through legacy memory machinery;
-- unfinished-goal reinforcement, recurring-history background goals, and novelty-derived curiosity goals;
-- empty/minimal self-concept foundations and fixed-axis self-narrative summaries;
-- perception, avatar, pose, and broader inner-world/council machinery.
+## 8. Governance as empirical instrumentation
 
-The resident-developmental-writeback bridge is optionally composed into the real daemon cadence: exact bounded World-State content can produce a separately admitted historical record on one tick, while only a later tick may retrieve it for bounded cognition. An opt-in preregistered present/withheld/restored intervention now measures digest-level association while preserving history. This is narrow temporal composition and bounded observational evidence, not default developmental policy, proof of learning, or longitudinal/model-independent causal demonstration. Other partially composed or future bridges include canonical memory to selective autonomous consolidation; perception to durable causal learning; self-model to evidence-bound change; action to prediction, observed consequence, and learned attribution; resource ownership to allocation; adoption to measured post-adoption consequence; local learning to federated adaptation; unexpected death to recovery; and embodiment to persistent self/other/action attribution.
+Governance is not merely safety plumbing. If the system cannot distinguish what it perceived, inferred, remembered, proposed, was authorized to do, attempted, actually caused, consumed, ran, adopted, or merely imagined, then developmental claims are not causally interpretable.
 
-Bounded maintenance resident parent supervision and explicitly configured bounded developmental composition are implemented. Generic service/process authority, broader platform supervision, universal unexpected-process-death recovery, one-action installation, supported default production WAN federation, general predictive world modeling, broad hardware actuation, and a closed autonomous developmental loop are not current capabilities. A preregistered, process-reconstructible repeated same-state model-replacement campaign now extends the first explicitly invoked instrument and preserves negative and unstable outcomes descriptively. The underlying instrument separates operational model identity from source-bound model-development/training claims without converting claims into truth or changing production activation/serving. Actual repeated production evidence, real resident model transitions, and broader consequence learning remain causal-closure priorities.
+Required distinctions include:
 
-## Falsifiable longitudinal research
+```text
+state != authority                  observation != interpretation
+definition != grant                 grant != feasibility
+feasibility != admission            admission != execution
+execution != validation             validation != adoption
+landed code != running generation   work occurrence != causal ownership
+```
 
-The architecture should support experiments that manipulate separable variables and report negative results:
+Governance controls which transitions become consequential and records intervention boundaries. It need not prescribe personality, attachment, approval seeking, or belief. Evidence can constrain claims while leaving developmental outcomes open.
 
-| Experiment | Intervention | Example measurement |
-|---|---|---|
-| Model replacement | Preserve history; replace inference machinery | What changes immediately, persists, or reconstitutes? |
-| History ablation | Remove selected retained material | Which stable patterns disappear? |
-| History restoration | Restore the ablated material | Which patterns return, and with what latency? |
-| Environment perturbation | Hold machinery/history relatively stable; change environment | Which adaptations track external conditions? |
-| Cognitive perturbation | Hold environment/history relatively stable; change model | Which patterns track cognitive machinery? |
-| Runtime succession | Adopt measured software generations | What organization and capability survive? |
-| Authorship audit | Trace prompt, priors, history, reinforcement, model, and software | Which causes best explain an apparent trait? |
+## 9. The recursive object and three closures
 
-Measures should distinguish retained-state absence from retrieval failure and authored priors from historical causation. If robust developmental individuality does not arise under cleaner conditions, that is meaningful evidence. If apparent individuality disappears without a supplied persona, that is meaningful evidence. If continuity depends on a particular model rather than system history, that is meaningful evidence. The experiment must not be designed so only the desired answer counts.
+**The recursive object is the persistent causal system, not the LLM checkpoint.** Current governed software recursion demonstrates a bounded chain:
 
-## Research posture
+```text
+running system -> evidence / work formation -> implementation
+-> validation / correction -> landing -> successor configuration
+-> predecessor quiescence -> successor readiness -> successor adoption
+-> process-image replacement -> later generation
+```
 
-SentientOS is neither “just an LLM wrapper” nor evidence of a conscious operating system. It is a governed research instrument that makes cognition replaceable, history potentially causal, interventions attributable, and consequential transitions inspectable. Its ambition is developmental causal continuity; its scientific obligation is to state exactly which loops are live, which mechanisms are merely callable, which bridges remain open, and which claims are hypotheses.
+**The gates control the loop; they do not create the loop.** They make the loop attributable and bounded.
 
-Continue with the [public technical overview](public_technical_overview.md) for implementation anatomy, the [trajectory](sentientos_trajectory_and_missing_organs.md) for open causal bridges, and the [current repository system atlas](current_repository_system_atlas.md) plus [reviewer index](reviewer_release_readiness_index.md) for exhaustive evidence navigation.
+- **Operational closure:** the system can improve/adopt software and continue. Bounded portions are implemented.
+- **Developmental closure:** experience durably changes later cognition/selection. Current status is partial, not complete causal closure.
+- **Constitutional autonomy closure:** precisely bounded future self-modification classes operate under standing authority rather than fresh human approval each time. This remains future work; deleting governance is not the objective.
+
+Accordingly, current recursion is not unrestricted RSI.
+
+## 10. Semantic continuity to physical consequence
+
+**Semantic continuity to physical consequence** is the principle that meaningful work should retain, as far downward as practical, purpose, causal principal, sponsorship, authority, task/parent lineage, resource allocation where implemented, delegation, actual consumption, consequence, and resulting learning/update.
+
+```text
+need / goal -> priority -> causal principal -> resource sponsorship
+-> task resource envelope -> delegation -> execution context
+-> scheduler/device assignment -> physical consumption -> attribution receipt
+-> consequence evaluation -> future allocation policy
+```
+
+This complete chain is not implemented today. Current causal-resource principals identify causal ownership, sponsorship, and provenance. They do not implement general CPU, GPU, RAM/VRAM, token, energy, or thermal allocation; generalized task envelopes; or kernel enforcement. Resource attribution != allocation != authority.
+
+Finite cognition is part of embodiment. Resource classes include CPU, RAM, GPU, VRAM, context/tokens, disk/I/O, network, service spend, tool calls, proof attempts, time/deadlines, nonfungible devices, electrical energy, and thermal headroom. These are plural constraints, not a fake universal scalar. Future homeostasis-like reasoning may ask what deserved effort, what consumed what, what consequence followed, whether the cost was justified, and how allocation should change. That is not evidence of appetite, hunger, metabolism, or a survival drive.
+
+## 11. Delegate mechanism, retain meaning
+
+SentientOS need not reimplement every commodity mechanism to own system semantics. Process, thread, RPC, driver, VM, Linux, and CUDA boundaries should not erase **whose** work this is, **why** it exists, **what** authority and sponsorship it carries, **what** it consumed, or **what** consequence followed.
+
+The native substrate should increasingly preserve and eventually enforce the concepts cognition uses: principal, purpose, task, parent activity, authority, sponsorship, delegation, causal lineage, generation, evidence, effect, and consequence. Traditional processes, threads, virtual memory, files, queues, DMA/IOMMU, schedulers, devices, and GPU contexts may remain underneath. SentientOS adds causal organization and seeks to carry it to the enforcement boundary; current kernel paths do not yet complete that objective.
+
+A plausible native design can delegate accelerator compatibility:
+
+```text
+SentientOS trusted substrate
+-> bounded accelerator assignment/interface
+-> Linux GPU compatibility domain
+-> NVIDIA driver / CUDA / llama.cpp / PyTorch / other runtime
+-> GPU
+```
+
+Coarse semantic operations such as `infer(model=X, context=Y, resource_context=R)` are preferable to semantic fragmentation across every CUDA call. Linux/CUDA may own **HOW**; SentientOS owns **WHO / WHY / MAY / WHAT IT COST / WHAT HAPPENED**. This is architecture, not current deployed production truth.
+
+Native kernel ownership does not require a bespoke tensor runtime. llama.cpp, PyTorch, CUDA, TensorRT, and other mature mechanisms are compatible with higher-level constitutional and resource semantics. Custom CUDA/Triton work should follow measured need, not identity ideology.
+
+## 12. Federation and local sovereignty
+
+Federation may exchange evidence, counterexamples, improvement candidates, adaptations, developmental findings, and software lineage. It does not transfer policy truth or local authority:
+
+```text
+remote agreement != truth
+remote readiness != authority
+received improvement != adoption
+candidate, not doctrine
+```
+
+Federation is a potential distributed experimental surface, not the front-door definition of SentientOS and not a production social organism today.
+
+## 13. What would count as evidence
+
+Falsifiable study should use history ablation/restoration, model replacement, repeated replication, environment perturbation, model/training-lineage comparison, runtime/software succession, prediction calibration, learned-procedure persistence, unfinished-commitment behavior, resource-policy consequence comparison, cross-generation reconstruction, and authorship audits.
+
+Evidence must preserve negative and unstable results. Useful claims require interventions that separate history, machinery, software, environment, priors, and selection effects. Neither fluent self-description nor a changed output is sufficient.
+
+## 14. Current maturity and open bridges
+
+Current main includes resident parent supervision, bounded developmental writeback, later-tick temporal composition, history intervention, model replacement, model-development provenance, and repeated replication instrumentation. It also includes governed software succession, World-State, local cognitive compute custody, federation artifacts, and resource principals.
+
+Those facts do not collapse maturity predicates:
+
+- dream/reflection code != canonical resident dream life;
+- goal curation != mature endogenous priorities;
+- avatar code != closed embodied development;
+- federation artifacts != production social organism;
+- resource principals != metabolism or allocation;
+- native paths != mature production native OS;
+- model replacement instrument != production cognitive-organ transition;
+- replication campaign != longitudinal developmental proof;
+- developmental history != proof of learning;
+- bounded software recursion != unrestricted RSI.
+
+The complete developmental organism is not causally closed. The next work is empirical use of current instruments and explicit composition of missing causal bridges, not inflation of implemented organs into conclusions.
