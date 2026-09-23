@@ -106,19 +106,19 @@ def test_approval_mutation_or_definition_digest_mismatch_fails() -> None:
     assert register_authority_definition(registration(definitions=[changed]), authority_definitions=catalog).definition_registered is False
 
 
-def test_registry_truth_is_non_granting_scaffold() -> None:
+def test_registry_truth_is_bounded_runtime_and_still_non_granting() -> None:
     record = build_default_capability_registry().by_id()[RESIDENT_DEVELOPMENTAL_WRITEBACK]
-    assert (record.status, record.authority_level) == ("scaffolded", "eligibility_only")
+    assert (record.status, record.authority_level) == ("partial", "bounded_state_transition")
     assert record.requires_control_plane_admission and record.requires_audit_receipt
     assert not record.requires_operator_approval
 
 
-def test_no_runtime_writer_and_existing_boundaries_are_unchanged() -> None:
+def test_runtime_writer_exists_and_existing_boundaries_are_unchanged() -> None:
     import sentientos.canonical_memory as canonical_memory
     import sentientos.governed_local_model_invocation as local_model
     import sentientos.world_state_board as world_state
 
-    assert not __import__("pathlib").Path("sentientos/resident_developmental_writeback.py").exists()
+    assert __import__("pathlib").Path("sentientos/resident_developmental_writeback.py").exists()
     assert not hasattr(canonical_memory, "resident_developmental_writeback")
     assert not hasattr(local_model, "resident_developmental_writeback")
     assert not hasattr(world_state, "resident_developmental_writeback")

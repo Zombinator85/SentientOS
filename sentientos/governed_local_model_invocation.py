@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation"}
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:
@@ -118,8 +118,8 @@ class GovernedLocalModelInvoker:
         if record is None and self.authority_map.records and not production_identity:
             record = self.authority_map.records[0]
         if record is None: raise ValueError("exact_production_authority_record_required" if production_identity else "authority_map_has_no_records")
-        if structured_output_schema is not None and (purpose != "discernment_judgment" or expected_output_format != "json"):
-            raise ValueError("structured output is restricted to discernment JSON")
+        if structured_output_schema is not None and (purpose not in {"discernment_judgment", "resident_developmental_interpretation"} or expected_output_format != "json"):
+            raise ValueError("structured output is restricted to governed JSON purposes")
         return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=dict(structured_output_schema) if structured_output_schema is not None else None)
 
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
@@ -139,10 +139,11 @@ class GovernedLocalModelInvoker:
         if request.expected_output_format not in {"text", "json"}: reasons.append("expected_output_format_invalid")
         if request.structured_output_schema is not None:
             schema = request.structured_output_schema
-            if (request.purpose != "discernment_judgment" or request.expected_output_format != "json"
-                    or not isinstance(schema.get("oneOf"), list)):
+            if request.expected_output_format != "json":
                 reasons.append("structured_output_schema_invalid")
-            else:
+            elif request.purpose == "discernment_judgment":
+                if not isinstance(schema.get("oneOf"), list):
+                    reasons.append("structured_output_schema_invalid")
                 from .discernment_participant import judgment_output_schema
                 canonical_schema = judgment_output_schema(
                     proposition=str(request.linkage.get("proposition") or ""),
@@ -152,6 +153,8 @@ class GovernedLocalModelInvoker:
                 )
                 if dict(schema) != canonical_schema:
                     reasons.append("structured_output_schema_not_canonical")
+            elif request.purpose != "resident_developmental_interpretation":
+                reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":
             ev = dict(request.upstream_evidence.get("genesis_review") or {}) if isinstance(request.upstream_evidence, Mapping) else {}
             link = dict(request.linkage or {})

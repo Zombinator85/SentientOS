@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "af517a06e96e8f6964b639374cfa521427fe8c18",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart", "rationale": "Successful exact evidence through durable receipt, retrieval, and reconstruction path."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_snapshot_validation_membership_and_provenance_tampering_fail_closed", "rationale": "Snapshot, fact membership, and source provenance integrity boundary."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_malformed_or_authoritative_model_output_is_rejected[output3]", "rationale": "Model output cannot assert authoritative fields."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_missing_wrong_or_crossed_runtime_admission_is_rejected", "rationale": "Exact principal, effect, candidate, and operation admission binding."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_candidate_tamper_and_store_identity_collision_fail_closed", "rationale": "Candidate and immutable content identity integrity."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_controlled_changed_cognition_measurement_reports_difference_not_learning", "rationale": "Controlled causal comparison without learning or improvement claims."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_developmental_history_is_physically_separate_from_canonical_memory", "rationale": "Developmental history remains separate from explicit user retention."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart"
+  ]
+}
