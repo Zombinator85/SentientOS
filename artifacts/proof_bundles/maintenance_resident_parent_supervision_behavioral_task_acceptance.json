@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "6207aff261ebb46024d3c3deaa05b5794cbef949",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts", "rationale": "Exact launch, readiness gating, same-lineage death recovery, durable reconstruction, and linked receipts succeed."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_exact_child_spec_mismatch_fails_closed[argv]", "rationale": "A foreign argv cannot acquire child custody."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_corrupt_and_incomplete_transition_custody_deny_recovery", "rationale": "Corrupt and pending resident transition custody deny recovery."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_readiness_absence_never_resumes_maintenance", "rationale": "Process existence never substitutes for resident readiness."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_budget_panic_shutdown_and_reconstruction_prevent_resurrection", "rationale": "Budget exhaustion persists and panic or explicit shutdown prevents resurrection."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision.py::test_persisted_provenance_or_configuration_mismatch_fails_closed", "rationale": "Replayed or foreign persisted binding latches fail-closed panic."},
+    {"node_id": "tests/test_maintenance_resident_parent_supervision_capability_admission.py::test_runtime_supervisor_and_generic_restart_truth_are_preserved", "rationale": "The implementation does not widen generic real-service-restart authority."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_parent_supervision.py::test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts"
+  ]
+}

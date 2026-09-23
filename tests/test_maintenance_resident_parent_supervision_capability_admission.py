@@ -92,16 +92,16 @@ def test_canonical_future_implementation_goal_admits_non_granting_bootstrap() ->
     assert result.planner_result_summary["capability_granted"] is False
 
 
-def test_registry_truth_is_scaffolded_eligibility_only() -> None:
+def test_registry_truth_is_bounded_runtime_implementation() -> None:
     record = build_default_capability_registry().by_id()[MAINTENANCE_RESIDENT_PARENT_SUPERVISION]
-    assert (record.category, record.status, record.authority_level) == ("runtime_supervision", "scaffolded", "eligibility_only")
+    assert (record.category, record.status, record.authority_level) == ("runtime_supervision", "implemented", "bounded-orchestrator")
     assert record.requires_control_plane_admission and record.requires_operator_approval
     assert record.requires_panic_stop and record.requires_audit_receipt
     assert not record.requires_rollback_receipt
 
 
-def test_no_parent_runtime_implementation_or_control_path_exists() -> None:
-    assert not Path("sentientos/maintenance_resident_parent_supervision.py").exists()
+def test_exact_parent_runtime_exists_without_generic_cli_control_path() -> None:
+    assert Path("sentientos/maintenance_resident_parent_supervision.py").is_file()
     assert not Path("scripts/maintenance_resident_parent_supervision.py").exists()
     admission = Path("sentientos/codex_task_authority_admission.py").read_text()
     registry = Path("sentientos/capability_registry.py").read_text()
