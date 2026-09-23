@@ -202,7 +202,7 @@ Implemented but not all resident/default-composed:
 
 Partially composed or future bridges include resident cognition to developmental writeback; canonical memory to selective autonomous consolidation; perception to durable causal learning; self-model to evidence-bound change; action to prediction, observed consequence, and learned attribution; resource ownership to allocation; adoption to measured post-adoption consequence; local learning to federated adaptation; unexpected death to recovery; and embodiment to persistent self/other/action attribution.
 
-Stable parent supervision, universal unexpected-process-death recovery, one-action installation, supported default production WAN federation, general predictive world modeling, broad hardware actuation, and a closed autonomous developmental loop are not current capabilities.
+Bounded maintenance resident parent supervision is implemented. Generic service/process authority, broader platform supervision, universal unexpected-process-death recovery, one-action installation, supported default production WAN federation, general predictive world modeling, broad hardware actuation, and a closed autonomous developmental loop are not current capabilities. Resident developmental writeback is the next high-level causal-closure priority.
 
 ## Falsifiable longitudinal research
 

@@ -1,0 +1,33 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "903736134a378b1537b9c228748815d4daa03279",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_writeback_capability_admission.py::test_exact_definition_and_future_implementation_goal_are_eligible",
+      "rationale": "The exact definition and mechanically affirmative canonical future implementation goal are eligible for later admission."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_writeback_capability_admission.py::test_digest_bound_registration_is_definition_only",
+      "rationale": "Exact operator approval binds the canonical definition digest and registration grants no runtime authority or effect."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_writeback_capability_admission.py::test_approval_mutation_or_definition_digest_mismatch_fails",
+      "rationale": "Approval mutation and definition-digest drift fail closed."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_writeback_capability_admission.py::test_registry_truth_is_non_granting_scaffold",
+      "rationale": "The registry reports only scaffolded eligibility with later control-plane admission and audit receipts required."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_writeback_capability_admission.py::test_no_runtime_writer_and_existing_boundaries_are_unchanged",
+      "rationale": "No runtime writer exists and canonical memory, governed local inference, and World-State surfaces gain no writeback API."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_writeback_capability_admission.py::test_digest_bound_registration_is_definition_only",
+    "tests/test_resident_developmental_writeback_capability_admission.py::test_exact_definition_and_future_implementation_goal_are_eligible",
+    "tests/test_resident_developmental_writeback_capability_admission.py::test_registry_truth_is_non_granting_scaffold"
+  ]
+}

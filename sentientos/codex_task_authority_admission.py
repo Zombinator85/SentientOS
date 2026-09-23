@@ -34,6 +34,7 @@ MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
 )
 MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
 MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
+RESIDENT_DEVELOPMENTAL_WRITEBACK = "resident_developmental_writeback"
 EXTERNAL_MODEL_INFERENCE = "external_model_inference"
 
 
@@ -241,8 +242,69 @@ EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL = MappingProxyType({
 })
 
 
+RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION = TaskAuthorityDefinition(
+    capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK,
+    subsystem_kinds=frozenset({"memory_context_reflection"}),
+    principal_kinds=frozenset(
+        {"deterministic_resident_developmental_writeback_controller"}
+    ),
+    required_effects=frozenset({
+        "exact_world_state_evidence_snapshot_read",
+        "bounded_governed_local_developmental_inference_request",
+        "exact_resident_developmental_candidate_observation",
+        "bounded_resident_developmental_history_append",
+        "exact_resident_developmental_history_retrieval",
+        "exact_resident_developmental_source_provenance_read",
+        "resident_developmental_writeback_receipt_write",
+        "read_only_resident_developmental_history_projection",
+    }),
+    required_goal_phrases=(
+        "canonical resident path", "selected evidence",
+        "bounded developmental writeback", "source-bound transformation provenance",
+        "memory is not current truth", "subsequent retrieval",
+        "measured changed cognition", "preserve canonical explicit user retention",
+    ),
+    forbidden_goal_phrases=(
+        "automatic truth adoption", "belief overwrite", "arbitrary memory mutation",
+        "canonical user memory mutation", "automatic goal creation",
+        "automatic self-model update", "persona bootstrap", "identity prescription",
+        "autonomous host action", "generic service restart", "arbitrary process control",
+        "repository mutation", "git mutation", "provider invocation", "network authority",
+        "external disclosure", "resource allocation", "federation adoption",
+        "memory deletion", "tomb completion", "policy creation", "authority widening",
+        "consent inference", "survival objective", "novelty reward",
+        "unrestricted autonomous cognition",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "separate exact runtime control-plane admission",
+        "model output or observed evidence does not itself grant retention authority",
+        "runtime implementation requires a later separately admitted task",
+    ),
+    purpose=(
+        "Permit a future bounded resident path from selected evidence through governed "
+        "local interpretation to source-bound developmental-history append and later "
+        "provenance-preserving retrieval, while treating retained interpretations as "
+        "historical records rather than current truth and preserving the separate "
+        "authority of canonical explicit user retention."
+    ),
+)
+
+RESIDENT_DEVELOPMENTAL_WRITEBACK_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:resident_developmental_writeback:a263a62ee135:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": RESIDENT_DEVELOPMENTAL_WRITEBACK,
+    "approved_definition_digest": "a263a62ee13570a1dd11fc3d9bf25f3d28f8d5e75eadea6ea0dc4000c2252cd6",
+    "approved_task_name": "register_resident_developmental_writeback_authority",
+    "evidence_digest": "f7c14b9ea064a59026a23b05f2adb69c18171d77cc6c69f18129e334d2fe2281",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
+    RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),
