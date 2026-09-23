@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation"}
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:

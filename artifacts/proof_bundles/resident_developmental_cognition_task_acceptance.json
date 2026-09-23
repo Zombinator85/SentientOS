@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "625f7881c2a697b7ff8f6c7e775cb849bcb09e55",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded", "rationale": "Tick-N exact selected evidence is interpreted and durably written only after separate exact admission."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_same_tick_record_is_prohibited_from_retrieval", "rationale": "The temporal boundary prohibits same-tick retrieval and duplicate tick execution."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition", "rationale": "A reconstructed owner retrieves prior history and supplies its exact identity to later cognition."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only", "rationale": "Opt-in paired conditions differ only by historical projection and produce difference-only evidence."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_missing_or_crossed_admission_prevents_history_mutation", "rationale": "Missing admission prevents developmental-history mutation."},
+    {"node_id": "tests/test_resident_developmental_writeback.py::test_missing_wrong_or_crossed_runtime_admission_is_rejected", "rationale": "Crossed principal, effect, and configuration bindings fail closed."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded",
+    "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+    "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only"
+  ]
+}
