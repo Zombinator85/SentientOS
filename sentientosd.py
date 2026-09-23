@@ -8,6 +8,7 @@ import os
 import signal
 import time
 from contextlib import suppress
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -32,6 +33,11 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
+from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
@@ -208,7 +214,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -217,6 +223,35 @@ class RuntimeMaintenanceSurfaces:
         self._governed_local_invoker = governed_local_invoker
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
+        self._world_state_snapshot: WorldStateSnapshot | None = None
+        self._resident_developmental_owner = resident_developmental_owner
+        self._resident_developmental_configuration_error: str | None = None
+        if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
+            try:
+                config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
+                if config.enabled:
+                    ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
+                    definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+                    def current_admission_sequence() -> int:
+                        admissions, _ = ledger.load()
+                        return max((item.issued_sequence for item in admissions), default=1)
+                    def next_admission_sequence() -> int:
+                        admissions, revocations = ledger.load()
+                        return max([item.issued_sequence for item in admissions] + [item.sequence for item in revocations], default=0) + 1
+                    writeback = ResidentDevelopmentalWritebackController(
+                        history_root=config.history_root,
+                        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+                        current_sequence=current_admission_sequence,
+                    )
+                    self._resident_developmental_owner = ResidentDevelopmentalCognitionOwner(
+                        config=config, writeback=writeback,
+                        admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+                        invoker=governed_local_invoker, current_sequence=next_admission_sequence,
+                    ) if governed_local_invoker is not None else None
+                    if governed_local_invoker is None:
+                        self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"
+            except Exception as exc:
+                self._resident_developmental_configuration_error = f"{type(exc).__name__}:{exc}"
         self._host_resource_runtime = HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_privilege_review_runtime = HostPrivilegeReviewRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_execution_readiness_runtime = HostExecutionReadinessRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
@@ -354,6 +389,7 @@ class RuntimeMaintenanceSurfaces:
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
+        self._world_state_snapshot = snapshot
         out_dir = self._runtime_state_root / "world_state_board"
         out_dir.mkdir(parents=True, exist_ok=True)
         target = out_dir / "latest.json"
@@ -363,6 +399,34 @@ class RuntimeMaintenanceSurfaces:
         feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._world_state_snapshot_built_for_tick = tick_key
+        return feedback
+
+    @property
+    def current_world_state_snapshot(self) -> WorldStateSnapshot | None:
+        """Return the exact validated in-memory snapshot; never reconstruct authority from JSON."""
+        return self._world_state_snapshot
+
+    def run_resident_developmental_cognition(self, *, tick_id: str) -> dict[str, Any]:
+        """Run one configured cycle after the same-tick World-State snapshot exists."""
+        if self._resident_developmental_configuration_error is not None:
+            feedback = {"status": "degraded", "reason": self._resident_developmental_configuration_error,
+                        "write_performed": False, "model_invoked": False, "admission_issued": False}
+        elif self._resident_developmental_owner is None:
+            feedback = {"status": "disabled", "reason": "configuration_absent_or_disabled",
+                        "write_performed": False, "model_invoked": False, "admission_issued": False}
+        elif self._world_state_snapshot is None or self._world_state_snapshot_built_for_tick != tick_id:
+            feedback = {"status": "degraded", "reason": "same_tick_world_state_unavailable",
+                        "write_performed": False, "model_invoked": False, "admission_issued": False}
+        else:
+            try:
+                result = self._resident_developmental_owner.run_tick(snapshot=self._world_state_snapshot, tick_id=tick_id)
+                feedback = {**asdict(result), "snapshot_object_preserved": True,
+                            "memory_posture": "historical_interpretation_not_current_truth"}
+            except Exception as exc:
+                feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
+                            "write_performed": False}
+        self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
+        self._refresh_feedback()
         return feedback
 
     def expand(self) -> list[Any]:
@@ -721,6 +785,11 @@ def _run_maintenance_tick(
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
         if callable(build_board):
             build_board(tick_id=tick_id)
+        current_surface = "resident_developmental_cognition"
+        current_correlation_id = f"{tick_id}:resident_developmental_cognition"
+        run_developmental_cognition = getattr(runtime_surfaces, "run_resident_developmental_cognition", None)
+        if callable(run_developmental_cognition):
+            run_developmental_cognition(tick_id=tick_id)
         kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
         current_surface = "repository_mutation_handoff"

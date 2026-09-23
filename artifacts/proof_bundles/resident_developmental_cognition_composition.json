@@ -1,0 +1,19 @@
+{
+  "artifact_kind": "resident_developmental_cognition_composition",
+  "capability_id": "resident_developmental_writeback",
+  "status": "partial",
+  "authority_level": "bounded_state_transition",
+  "proof_statement": "An explicitly configured sentientosd tick composes exact World-State evidence through deterministic selection, governed interpretation, separate candidate-bound admission, durable history, and only-later-tick bounded cognition.",
+  "source_paths": [
+    "sentientos/resident_developmental_cognition.py",
+    "sentientos/resident_developmental_writeback.py",
+    "sentientosd.py"
+  ],
+  "proof_tests": ["tests/test_resident_developmental_cognition.py"],
+  "matrix_lane": "resident_developmental_cognition_tests",
+  "explicit_non_authority_boundaries": [
+    "developmental history is not current truth, policy, authority, a goal, or canonical explicit user retention",
+    "changed cognition is difference-only evidence, not improvement, learning, sentience, selfhood, or consciousness",
+    "the bounded resident bridge does not close the broader developmental organism"
+  ]
+}

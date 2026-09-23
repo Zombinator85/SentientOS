@@ -14,7 +14,7 @@ These foundations are not all resident, default-active, mutually composed, produ
 
 Canonical chat demonstrably uses durable session history and retrieved memory in later inference. Separately, the dream loop can transform legacy memory into new dream/reflection records and reinforce unfinished goals; the goal curator can create background or curiosity goals; the inner-world orchestrator updates a fixed-axis self-narrative.
 
-A bounded callable path now binds selected World-State evidence to governed interpretation, exact admission, separate durable developmental history, exact retrieval, and controlled changed-cognition difference measurement. It preserves retention authority and **memory != current truth**. The remaining closure is resident default composition plus longitudinal causal experiments; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
+A bounded, explicitly configured resident path now binds the exact same-tick World-State object to deterministic selection, governed interpretation, separate exact admission, and durable developmental history. Only later ticks can retrieve that history for bounded cognition, with an opt-in with/withheld difference experiment and restart reconstruction. It preserves retention authority and **memory != current truth**. Default developmental policy, endogenous relevance, and longitudinal production/model-replacement causal experiments remain open; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
 
 ## 2. Canonical memory ↔ selective autonomous consolidation
 

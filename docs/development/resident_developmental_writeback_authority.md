@@ -1,5 +1,10 @@
 # Resident developmental writeback authority
 
+The bounded runtime is now optionally composed into the resident cadence as
+documented in [resident developmental cognition](resident_developmental_cognition.md).
+Composition preserves separate candidate-specific control-plane admission and
+the rule that tick-N writes cannot be retrieved until a later completed tick.
+
 ## Why this shape exists
 
 SentientOS now has a callable canonical resident path that can turn selected evidence into bounded, attributable developmental history and later test whether retrieval changes cognition. The authority definition remains eligibility vocabulary rather than a grant: every append consumes a separately issued, exact runtime admission, and the controller never mints that admission. The runtime schedules no cognition, changes no prompt, and creates no goal or host/repository effect.
