@@ -27,3 +27,12 @@ The instrument compares A+H/A-H, B+H/B-H, A+H/B+H, A-H/B-H, and baseline A+H/res
 Classifications are limited to no observable history effect, A-only, B-only, both-model history association, restoration instability, or contamination. Digest equality/inequality is not semantic scoring. Even a stable both-model association does not prove learning, model-independent identity, persistent individuality, selfhood, sentience, consciousness, or causal closure.
 
 The resident developmental capability remains **partial** with `bounded_state_transition` authority. Real resident A→B→A activation, serving handoff, default-cadence continuation, long-duration repeated trials, statistics, semantic scoring, training, autonomous model choice/acquisition, and identity claims remain deferred.
+
+## Repeated trial identity
+
+`run(trial_id=...)` accepts a bounded explicit identifier. It is included in run,
+observation, and correlation identity only; corresponding semantic prompts and frozen
+evidence remain byte-equivalent. Observations truthfully name the endpoint custody
+field `authority_record_digest` (not the former misleading `authority_map_digest`).
+The separately documented campaign reuses this experiment rather than duplicating its
+five-condition logic.

@@ -1,0 +1,59 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a7fc5760f22671b4f9e43d949c57ea8eca8ab173",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_preregistered_multi_trial_campaign_and_prompt_isolation",
+      "rationale": "Preregistration and prompt-isolated trial identity."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_reconstruction_between_completed_trials",
+      "rationale": "Exact next-trial reconstruction."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_exact_descriptive_aggregation",
+      "rationale": "Verified exact descriptive aggregation."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_valid_negative_and_association_campaigns[False-False-no_observable_history_effect_either_model]",
+      "rationale": "Valid negative-result preservation."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_valid_negative_and_association_campaigns[True-True-history_association_observed_under_both_cognitive_models]",
+      "rationale": "Repeated both-model association."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_trial_inventory_is_fixed_and_bounded",
+      "rationale": "Trial-list mutation and bounds fail closed."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_interrupted_trial_is_not_replayed",
+      "rationale": "Interrupted trial cannot replay."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_context_model_and_provenance_drift_fail_closed",
+      "rationale": "Registered control drift fails closed."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_tampered_trial_artifact_is_rejected_by_aggregation",
+      "rationale": "Tampered trial evidence cannot aggregate."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_campaign_protocol_and_state_tampering_fail_closed[state]",
+      "rationale": "Campaign custody tampering fails closed."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_campaign.py::test_campaign_protocol_and_state_tampering_fail_closed[protocol]",
+      "rationale": "Campaign custody tampering fails closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_model_replacement_campaign.py::test_preregistered_multi_trial_campaign_and_prompt_isolation",
+    "tests/test_developmental_model_replacement_campaign.py::test_reconstruction_between_completed_trials",
+    "tests/test_developmental_model_replacement_campaign.py::test_exact_descriptive_aggregation",
+    "tests/test_developmental_model_replacement_campaign.py::test_valid_negative_and_association_campaigns[False-False-no_observable_history_effect_either_model]",
+    "tests/test_developmental_model_replacement_campaign.py::test_valid_negative_and_association_campaigns[True-True-history_association_observed_under_both_cognitive_models]"
+  ]
+}

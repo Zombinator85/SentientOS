@@ -98,7 +98,7 @@ The adversarial gradient-injection audit identifies approval leakage, salience a
 
 ## Priority order
 
-1. Accumulate repeated controlled history-intervention and same-history model-replacement evidence, then separately govern a real resident activation/serving transition experiment.
+1. Use the preregistered frozen-context replication instrument to obtain actual repeated production evidence; then separately govern a real resident activation/serving A→B transition, continuation, measurement, and A restoration experiment.
 2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
 3. Bind perception and authorized action to predicted/observed consequences and retained learning.
 4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.
