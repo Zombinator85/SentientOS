@@ -36,6 +36,10 @@ Canonical explicit user retention remains a separate authority. Developmental wr
 
 `sentientos/resident_developmental_writeback.py` implements explicit bounded World-State fact selection with source membership and digest validation; a strict structured governed-local-model request; a whitelist-parsed, content-addressed untrusted candidate; exact admission consumption bound to candidate, operation, principal, and the complete effect set; and an atomic, immutable developmental-history record and receipt store. Exact replay is idempotent, while digest or identity conflict fails closed.
 
+The separately governed intervention experiment only reads this store and
+withholds records from an ephemeral cognition projection. It grants no new
+writeback authority and cannot delete, tomb, rewrite, or repair a record.
+
 Retrieval is exact-ID, bounded, and read-only. Its projection carries explicit false fields for current truth, authority, policy, and canonical explicit user retention. A new controller constructed over the same root verifies and retrieves prior records. The deterministic measurement surface compares supplied with-record and withheld-record cognition observations and reports only whether their cognition digests differ; it does not infer improvement, learning, correctness, selfhood, or consciousness.
 
 The developmental-history root is distinct from canonical explicit user-retention storage. Historical disagreements are retained rather than overwritten, and selected conflicts and source provenance remain in the record. A record's existence proves durable retention only, not retrieval or causal influence.

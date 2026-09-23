@@ -1,0 +1,20 @@
+{
+  "artifact_kind": "developmental_history_intervention_experiment",
+  "capability_id": "resident_developmental_writeback",
+  "status": "partial",
+  "authority_level": "bounded_state_transition",
+  "proof_statement": "Resident cognition receives bounded exact World-State content and can run a preregistered non-destructive present/withheld/restored history intervention.",
+  "source_paths": [
+    "sentientos/developmental_history_intervention_experiment.py",
+    "sentientos/resident_developmental_cognition.py",
+    "sentientos/governed_local_model_invocation.py"
+  ],
+  "proof_tests": ["tests/test_developmental_history_intervention_experiment.py"],
+  "matrix_lane": "resident_developmental_cognition_tests",
+  "explicit_non_authority_boundaries": [
+    "protocol and run evidence grant no authority",
+    "withholding is projection-only and never mutates developmental history",
+    "observed difference is not improvement, learning, selfhood, consciousness, sentience, or causal closure",
+    "model-independent persistence remains untested"
+  ]
+}

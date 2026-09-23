@@ -45,7 +45,8 @@ Causal resource principals now establish causal identity, sponsorship, issuer pr
 
 Future policy must account for heterogeneous resources—money, calls, verification passes, tokens/context, network capacity, RAM, VRAM, disk, CPU, accelerator slots, deadlines, devices, thermal headroom, and electrical power—without collapsing them into a fake energy scalar. A later loop may attribute consumption and consequences to work, compare them with limits, and revise allocation. That would be homeostasis-like resource reasoning, not proof of appetite or metabolism.
 
-The selected next runtime slice remains `production_private_key_signer_custody`; this documentation task does not advance it.
+Signer custody remains important infrastructure work, but it is not asserted as
+the single project-wide developmental priority.
 
 ## 6. Validated improvement ↔ adoption ↔ consequence
 
@@ -97,7 +98,7 @@ The adversarial gradient-injection audit identifies approval leakage, salience a
 
 ## Priority order
 
-1. Compose the bounded selective developmental-writeback runtime into resident cognition, then run controlled longitudinal causal experiments.
+1. Accumulate controlled history-intervention and longitudinal evidence from the now-composed resident developmental path, then perform the stronger same-history model-replacement intervention.
 2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
 3. Bind perception and authorized action to predicted/observed consequences and retained learning.
 4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.

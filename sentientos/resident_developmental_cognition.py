@@ -9,13 +9,17 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Mapping
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
+from .developmental_history_intervention_experiment import (
+    DevelopmentalExperimentStore, make_protocol, summarize,
+    PURPOSE as EXPERIMENT_PURPOSE,
+)
 from .local_model_authority import atomic_write_json, digest_payload
 from .resident_developmental_writeback import (
     EFFECTS,
@@ -34,6 +38,7 @@ SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
+CURRENT_PROJECTION_POLICY = "allowed_source_kind_then_source_id_then_fact_id:v1"
 MAX_FACTS = 16
 MAX_HISTORY = 16
 
@@ -43,7 +48,7 @@ class ResidentDevelopmentalCognitionError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + cast(str, digest_payload(value))
+    return "sha256:" + digest_payload(value)
 
 
 @dataclass(frozen=True)
@@ -71,8 +76,14 @@ class ResidentCognitionObservation:
     inference_receipt_id: str
     inference_receipt_digest: str
     output_digest: str
+    authority_map_digest: str
+    active_model_identity: Mapping[str, Any]
+    generation_config: Mapping[str, Any]
     current_snapshot_id: str
     current_snapshot_digest: str
+    current_projection_id: str
+    current_projection_digest: str
+    current_fact_ids: tuple[str, ...]
     retrieved_record_ids: tuple[str, ...]
     retrieved_record_digests: tuple[str, ...]
     developmental_projection_present: bool
@@ -81,6 +92,29 @@ class ResidentCognitionObservation:
     authority: bool = False
     policy: bool = False
     canonical_explicit_user_retention: bool = False
+
+
+@dataclass(frozen=True)
+class CurrentWorldStateCognitiveProjection:
+    snapshot_id: str
+    snapshot_digest: str
+    facts: tuple[Mapping[str, Any], ...]
+    sources: tuple[Mapping[str, Any], ...]
+    conflicts: tuple[Mapping[str, Any], ...]
+    fact_ids: tuple[str, ...]
+    selection_policy: str = CURRENT_PROJECTION_POLICY
+    read_only: bool = True
+    evidence_only: bool = True
+    current_truth: bool = False
+    authority: bool = False
+    policy: bool = False
+    goal: bool = False
+    canonical_explicit_user_retention: bool = False
+    projection_id: str = ""
+    projection_digest: str = ""
+
+    def semantic_payload(self) -> dict[str, Any]:
+        value = asdict(self); value.pop("projection_id"); value.pop("projection_digest"); return value
 
 
 @dataclass(frozen=True)
@@ -139,6 +173,7 @@ class ResidentDevelopmentalCognitionOwner:
         self.state_path = config.state_root / "composition_state.json"
         self.observations_root = config.state_root / "cognition_observations"
         self.measurements_root = config.state_root / "changed_cognition_measurements"
+        self.experiments = DevelopmentalExperimentStore(config.state_root)
 
     def _state(self) -> dict[str, Any]:
         if not self.state_path.exists():
@@ -183,40 +218,72 @@ class ResidentDevelopmentalCognitionOwner:
                 break
         return tuple(selected)
 
-    def _cognize(self, *, snapshot: WorldStateSnapshot, tick_id: str,
+    def _current_projection(self, snapshot: WorldStateSnapshot) -> CurrentWorldStateCognitiveProjection:
+        """Select current context independently of developmental-writeback deduplication."""
+        allowed = set(self.config.allowed_source_kinds)
+        source_kinds = {source.source_id: source.kind for source in snapshot.sources}
+        facts = sorted((fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
+                       key=lambda fact: (source_kinds[fact.source.source_id], fact.source.source_id, fact.fact_id))[:self.config.max_selected_facts]
+        selected = self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
+        raw = CurrentWorldStateCognitiveProjection(snapshot.snapshot_id, snapshot.digest, selected.facts,
+                                                    selected.sources, selected.conflicts,
+                                                    tuple(str(x["fact_id"]) for x in selected.facts))
+        digest = _digest(raw.semantic_payload())
+        return replace(raw, projection_id="current-world-state-" + digest[7:31], projection_digest=digest)
+
+    def _cognize(self, *, snapshot: WorldStateSnapshot, current: CurrentWorldStateCognitiveProjection, tick_id: str,
                   projection: DevelopmentalHistoryProjection, with_history: bool,
-                  condition_id: str) -> ResidentCognitionObservation:
+                  condition_id: str, purpose: str = COGNITION_PURPOSE,
+                  protocol: Any | None = None) -> ResidentCognitionObservation:
         records = projection.records if with_history else ()
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         context = {
             "instruction": "Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention.",
-            "current_evidence": {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest},
+            "current_evidence": current.semantic_payload(),
             "developmental_history": list(records),
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
         request = self.invoker.build_request(
-            purpose=COGNITION_PURPOSE, prompt=json.dumps(context, sort_keys=True), caller=PRINCIPAL,
+            purpose=purpose, prompt=json.dumps(context, sort_keys=True), caller=PRINCIPAL,
             correlation_id=correlation, expected_output_format="text",
             budget=LocalModelInvocationBudget(max_input_chars=16000, max_output_chars=4000, max_new_tokens=512,
                                               timeout_seconds=30, max_calls_per_correlation=1),
             upstream_evidence={"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+                               "current_projection_id": current.projection_id,
+                               "current_projection_digest": current.projection_digest,
+                               "current_fact_ids": list(current.fact_ids),
                                "record_ids": list(record_ids), "record_digests": list(record_digests)},
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
         )
+        if protocol is not None and (
+            request.model_id != protocol.model_id
+            or request.model_artifact_digest != protocol.model_artifact_digest
+            or str(getattr(request, "authority_map_digest", "test-authority-map")) != protocol.authority_map_digest
+            or dict(getattr(request, "active_model_identity", {})) != dict(protocol.active_model_identity)
+            or request.budget.to_dict() != dict(protocol.inference_budget)
+        ):
+            raise ResidentDevelopmentalCognitionError("experiment_control_drift")
         receipt = self.invoker.invoke(request, persist=True, include_output_in_receipt=False)
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.output_digest is None:
             raise ResidentDevelopmentalCognitionError("retrieval_cognition_not_completed")
+        if protocol is not None and dict(receipt.generation_config).get("actual_generation_parameters", {}).get("temperature") != 0:
+            raise ResidentDevelopmentalCognitionError("experiment_generation_configuration_drift")
         req = dict(receipt.request)
         semantic = {
             "condition_id": condition_id, "tick_id": tick_id, "correlation_id": correlation,
             "model_id": str(req["model_id"]), "model_artifact_digest": req.get("model_artifact_digest"),
             "request_id": str(req["request_id"]), "request_digest": str(req["request_digest"]),
             "inference_receipt_id": receipt.receipt_id, "inference_receipt_digest": receipt.receipt_digest,
-            "output_digest": receipt.output_digest, "current_snapshot_id": snapshot.snapshot_id,
-            "current_snapshot_digest": snapshot.digest, "retrieved_record_ids": record_ids,
+            "output_digest": receipt.output_digest,
+            "authority_map_digest":str(getattr(request, "authority_map_digest", "test-authority-map")),
+            "active_model_identity":dict(getattr(request, "active_model_identity", {})),
+            "generation_config":dict(receipt.generation_config), "current_snapshot_id": snapshot.snapshot_id,
+            "current_snapshot_digest": snapshot.digest, "current_projection_id":current.projection_id,
+            "current_projection_digest":current.projection_digest, "current_fact_ids":current.fact_ids,
+            "retrieved_record_ids": record_ids,
             "retrieved_record_digests": record_digests, "developmental_projection_present": with_history,
         }
         digest = _digest(semantic)
@@ -224,7 +291,10 @@ class ResidentDevelopmentalCognitionOwner:
             "devcog-" + digest[7:31], digest, condition_id, tick_id, correlation,
             str(req["model_id"]), req.get("model_artifact_digest"), str(req["request_id"]),
             str(req["request_digest"]), receipt.receipt_id, receipt.receipt_digest,
-            receipt.output_digest, snapshot.snapshot_id, snapshot.digest, record_ids,
+            receipt.output_digest, str(getattr(request, "authority_map_digest", "test-authority-map")),
+            dict(getattr(request, "active_model_identity", {})), dict(receipt.generation_config),
+            snapshot.snapshot_id, snapshot.digest, current.projection_id,
+            current.projection_digest, current.fact_ids, record_ids,
             record_digests, with_history,
         )
         atomic_write_json(self.observations_root / f"{observation.observation_id}.json", asdict(observation))
@@ -242,25 +312,49 @@ class ResidentDevelopmentalCognitionOwner:
 
         # Capture prior history before any candidate from this tick can exist.
         prior = self._prior_projection(state, tick_id)
+        current = self._current_projection(snapshot)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
         if prior.requested_record_ids:
-            with_record = self._cognize(snapshot=snapshot, tick_id=tick_id, projection=prior,
-                                        with_history=True, condition_id="with-history")
-            observations.append(with_record)
-            if self.config.comparison_enabled:
-                withheld = self._cognize(snapshot=snapshot, tick_id=tick_id, projection=prior,
-                                         with_history=False, condition_id="history-withheld")
-                observations.append(withheld)
-                measurement = measure_changed_cognition(
-                    with_record=CognitionObservation(with_record.condition_id, with_record.observation_id,
-                                                     with_record.output_digest, with_record.retrieved_record_ids),
-                    without_record=CognitionObservation(withheld.condition_id, withheld.observation_id,
-                                                        withheld.output_digest, ()),
-                    expected_record_ids=prior.requested_record_ids,
-                )
-                atomic_write_json(self.measurements_root / f"{measurement.measurement_id}.json", asdict(measurement))
-                measurement_id = measurement.measurement_id
+            if not self.config.comparison_enabled:
+                observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                                    projection=prior, with_history=True, condition_id="with-history"))
+            else:
+                records = tuple(self.writeback.store.get(rid) for rid in prior.requested_record_ids)
+                record_digests = tuple(r.record_digest for r in records)
+                record_set_digest = _digest({"record_ids":list(prior.requested_record_ids), "record_digests":list(record_digests)})
+                budget = LocalModelInvocationBudget(max_input_chars=16000, max_output_chars=4000,
+                    max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
+                probe = self.invoker.build_request(purpose=EXPERIMENT_PURPOSE, prompt="protocol-control-probe",
+                    caller=PRINCIPAL, correlation_id=f"{tick_id}:developmental-experiment:protocol",
+                    budget=budget, upstream_evidence={"control_probe":True}, linkage={"protocol_only":True})
+                protocol = make_protocol(snapshot_id=snapshot.snapshot_id, snapshot_digest=snapshot.digest,
+                    current_projection_id=current.projection_id, current_projection_digest=current.projection_digest,
+                    current_fact_ids=current.fact_ids, record_ids=prior.requested_record_ids,
+                    record_digests=record_digests, record_set_digest=record_set_digest, model_id=probe.model_id,
+                    model_artifact_digest=probe.model_artifact_digest,
+                    active_model_identity=dict(getattr(probe, "active_model_identity", {})),
+                    active_model_identity_digest=_digest(dict(getattr(probe, "active_model_identity", {}))),
+                    authority_map_digest=str(getattr(probe, "authority_map_digest", "test-authority-map")),
+                    inference_budget=budget.to_dict(), generation_posture={"temperature":0, "hardware_determinism_claimed":False},
+                    instruction_template_digest=_digest({"instruction":"Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention."}))
+                self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
+                present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
+                    with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
+                    with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
+                if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
+                    raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
+                restored_projection = self.writeback.retrieve(protocol.record_ids, limit=self.config.max_retrieved_records)
+                restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                    projection=restored_projection, with_history=True, condition_id="history_restored",
+                    purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                observations.extend((present, withheld, restored))
+                summary = summarize(protocol, observations)
+                measurement_id = self.experiments.persist_run({"protocol":asdict(protocol),
+                    "conditions":[asdict(x) for x in observations], "summary":summary,
+                    "validity":"valid_controlled_observation", "contamination_reasons":[]})
 
         fact_ids = self._select_fact_ids(snapshot, set(state["processed_selection_ids"]))
         record_id = receipt_id = None

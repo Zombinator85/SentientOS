@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "80396f436259fee64b9728f2c220ffc275b7dc5b",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup","rationale":"Actual bounded current evidence reaches cognition."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_formal_run_preregisters_then_withholds_without_mutating_and_restores_exactly","rationale":"Three conditions and durable restoration."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions","rationale":"Bounded stable-difference measurement."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_protocol_is_deterministic_preregistered_and_tamper_detecting","rationale":"Tampered protocols fail."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_missing_record_is_not_deliberate_withholding","rationale":"Missing history is distinct from withholding."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit","rationale":"Same-tick history remains excluded."},
+    {"node_id":"tests/test_developmental_history_intervention_experiment.py::test_active_model_drift_invalidates_before_later_condition","rationale":"Active model drift invalidates the controlled run."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_history_intervention_experiment.py::test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup",
+    "tests/test_developmental_history_intervention_experiment.py::test_formal_run_preregisters_then_withholds_without_mutating_and_restores_exactly",
+    "tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions"
+  ]
+}

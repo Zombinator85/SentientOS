@@ -9,7 +9,8 @@ from typing import Any, Callable, Mapping, cast
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
 
-SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition"}
+INTERVENTION_PURPOSE = "resident_developmental_history_intervention_experiment"
+SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 
 def _digest_text(payload: Any) -> str:
@@ -166,7 +167,7 @@ class GovernedLocalModelInvoker:
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
         production_identity = identity is not None and getattr(identity, "posture", None) == "production"
-        if production_identity or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation"}:
+        if production_identity or request.purpose in {"discernment_judgment", "local_model_commissioning_smoke", "maintenance_implementation", INTERVENTION_PURPOSE}:
             if identity is None:
                 reasons.append("active_model_identity_unavailable")
             elif identity.fallback or identity.posture != "production":
@@ -184,7 +185,7 @@ class GovernedLocalModelInvoker:
             else:
                 try:
                     self.invocation_counts[request.correlation_id] = self.invocation_counts.get(request.correlation_id, 0) + 1
-                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke"} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
+                    generation = {"max_new_tokens": min(request.budget.max_new_tokens, int(record.generation_ceilings.get("max_new_tokens", request.budget.max_new_tokens))) if record else request.budget.max_new_tokens, "temperature": 0 if request.purpose in {"genesis_proposal_advice", "discernment_judgment", "local_model_commissioning_smoke", INTERVENTION_PURPOSE} else None, "structured_output_schema": dict(request.structured_output_schema) if request.structured_output_schema is not None else None}
                     gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                     def _call_model() -> str:
                         if pre_effect_guard is not None:

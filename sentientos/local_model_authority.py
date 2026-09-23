@@ -233,6 +233,7 @@ def build_local_model_authority_map(config: ModelConfig | None = None, *, allowe
         purposes = ("local_user_chat",) if engine_l in SIMULATION_ENGINES else (
             "local_user_chat", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation",
             "resident_developmental_interpretation", "resident_developmental_retrieval_cognition",
+            "resident_developmental_history_intervention_experiment",
         )
         record_seed = {"engine": engine_l, "semantic_artifact_identity": semantic_artifact, "configuration_digest": cfg_digest, "sidecar_metadata_digest": sidecar_digest}
         model_id = "lma-" + digest_payload(record_seed)[:24]

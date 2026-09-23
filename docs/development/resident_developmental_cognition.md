@@ -45,17 +45,21 @@ A separate `RuntimeAdmissionAuthority` issues an exact candidate-bound,
 operation-bound, configuration-digest-bound, one-sequence admission only after
 the candidate exists. The model and World-State cannot choose admission fields.
 
-Later-tick cognition uses the local governed purpose
+Later-tick cognition uses an exact bounded current-evidence projection containing
+fact payloads, source provenance, and applicable conflicts, rather than snapshot
+identifiers alone. It uses the local governed purpose
 `resident_developmental_retrieval_cognition`. Its durable observation binds the
-model/artifact, request and receipt, current snapshot, tick/correlation, and
+model/artifact, request and receipt, current snapshot and projection identities,
+exact current fact IDs, tick/correlation, and
 exact retrieved record IDs/digests without retaining the raw prompt. It is an
 observation only: no effect, goal, policy, authority, action, self-model, or
 canonical memory mutation follows.
 
-When `comparison_enabled` is true and prior history exists, a second request
-uses the same current snapshot and condition group while withholding the
-developmental projection. Existing `measure_changed_cognition()` reports only
-an observable output-digest difference. Difference is not improvement,
+When `comparison_enabled` is true and prior history exists, a protocol is
+persisted before three fixed-order calls: history present, history withheld by
+projection only, and exact history restored after durable re-read and digest
+verification. Existing `measure_changed_cognition()` reports only observable
+output-digest differences and restoration stability. Difference is not improvement,
 correctness, learning, sentience, selfhood, or consciousness. Comparison is
 off by default.
 
