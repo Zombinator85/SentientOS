@@ -1,37 +1,36 @@
 # Maintenance Resident Parent Supervision Authority
 
-`maintenance_resident_parent_supervision` is a scaffolded, eligibility-only contract;
-no parent supervisor runs today. The existing resident-adoption path replaces a live
-`sentientosd` image through bounded self-exec. It cannot recover when that process has
-actually died. A future stable parent may close that distinct availability boundary,
-but only for one exact child and only through a separately admitted implementation.
+`maintenance_resident_parent_supervision` is an implemented, bounded runtime contract.
+The controller owns only the exact `sentientosd` launch contract derived from the
+validated resident-runtime adoption configuration. The cooperative resident-adoption
+path still owns live process-image replacement; parent supervision is the distinct,
+narrow recovery path for an unexpectedly dead child.
 
-The future controller must derive one closed child specification from approved
-configuration and preserve exact resident transaction custody and launch provenance.
-It is not a second maintenance authority, does not select a generation, and cannot
-interpret process death as permission. Recovery is bounded, remains within the same
-maintenance lineage, and must prove post-restart resident readiness before maintenance
-effects resume. Process existence alone is not readiness.
+The controller binds the executable, fixed `-m sentientosd` argv, working directory,
+closed environment projection, resident configuration digest, and the exact canonical
+maintenance generation reconstructed by successor custody. It never selects the newest
+generation and never derives authority from process death. Before a launch or recovery,
+it uses the resident transition-custody inspector and accepts only no-transition or
+fully completed transition history. Incomplete, corrupt, contradictory, ambiguous,
+foreign, or changed-lineage custody fails closed with durable evidence.
 
-Recovery must distinguish ordinary startup, completed transition history, a valid
-pending transition, successful successor readiness, and corrupt, contradictory,
-ambiguous, or foreign-process custody. Ambiguous custody, foreign transition markers,
-or an unprovable recovery identity fail closed with durable evidence. There is no
-mtime/newest-record selection, Git mutation, or automatic rollback.
+Each launch has digest-bound provenance. Process existence is not readiness: the child
+remains maintenance-ineligible until the supplied canonical resident-readiness guard
+accepts that exact launch provenance. Unexpected death causes a new custody and lineage
+check, then at most a budgeted same-lineage replay. Restart history, exhaustion, panic,
+explicit shutdown, current lineage, and launch evidence persist across controller
+reconstruction. Lifecycle receipts are evidence and grant no authority.
 
-`RuntimeSupervisor` and `ChildProcessServiceAdapter` contain reusable lifecycle
-primitives, not authority. This admission does not integrate or widen them. Generic
-`real_service_restart` remains blocked, and no arbitrary PID, executable, argv,
-environment, signal, subprocess, service-manager, Git, network, or provider authority
-is admitted.
+`RuntimeSupervisor` and `ChildProcessServiceAdapter` remain generic lifecycle
+primitives, not maintenance authority. Generic `real_service_restart` remains blocked.
+This capability grants no arbitrary PID, executable, argv, environment, signal,
+subprocess, service-manager, Git, network, provider, generation-selection, adoption,
+or rollback authority.
 
-The future goal must affirm an **exact sentientosd child**, **resident transaction
-custody**, **bounded parent supervision**, **process-death recovery**, **exact resident
-launch provenance**, **post-restart resident readiness**, and an **exact
-maintenance-lineage**. Its canonical form is:
+The exact admitted goal is:
 
 > Implement bounded parent supervision of an exact sentientosd child under resident transaction custody, permitting only exact maintenance-lineage process-death recovery, requiring exact resident launch provenance and post-restart resident readiness before maintenance effects resume.
 
-This task adds metadata, tests, and this document only. Stable-parent execution, child
-custody, restart transactions, readiness integration, platform process semantics,
-parent self-update, and OS service installation remain separately gated future work.
+Platform service installation, generic process management, automatic rollback, generic
+service restart, parent self-update, and broader platform-specific supervision remain
+deferred.
