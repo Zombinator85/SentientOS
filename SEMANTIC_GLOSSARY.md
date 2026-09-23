@@ -1,35 +1,28 @@
 # SentientOS Semantic Glossary
 
-- **System identity** — continuity of the SentientOS environment across inference and runtime generations: its durable history, configuration, authority, evidence, and adoption lineage.
-- **Model identity** — exact identity of cognitive machinery used for a particular generation or inference; it is not system identity.
-- **Runtime generation** — a particular admitted resident software/configuration generation in the adoption lineage.
-- **Capability definition** — a registered description of eligible action and constraints. Definition is not a grant.
-- **Authority** — attributable, scoped permission held by an exact principal for an exact capability/effect under current policy. Authority is not cognition, feasibility, admission, or execution.
-- **Grant** — a bounded authority record. A grant neither proves operational feasibility nor admits or executes an effect.
-- **Policy** — deterministic rules evaluated for a named decision; policy text or a successful evaluation is not execution.
-- **Operational feasibility** — current evidence that required endpoint, material, configuration, credential reference, platform, or dependency conditions are satisfiable. Feasibility is neither a grant nor admission.
-- **Admission** — a deterministic control-plane decision permitting an exact principal/effect request under exact evidence. Admission is not execution.
-- **Execution custody** — the component that binds admitted authority to exact materials, performs or delegates the attempt, and records bounded outcomes without broadening authority.
-- **Effect** — a consequential change or externally observable attempt in a named domain, such as a network request, repository transition, process replacement, or host mutation.
-- **Receipt** — a durable, domain-specific record of a particular decision, custody step, attempt, observation, result, or transition. A receipt proves only what its schema and evidence establish; it never generically means “the intended effect happened.”
-- **Evidence** — attributable material supporting a bounded claim, with source, scope, time, integrity, and uncertainty. Evidence is not authority.
-- **Provenance** — lineage identifying where material came from and the transformations or custody transitions applied to it.
-- **Current truth** — a claim justified for the present decision by applicable current evidence and policy. No memory or observation is automatically current truth.
-- **Memory** — retained historical material available for bounded retrieval or cognition. Canonical conversation memory is a live durable path; other legacy, selective-distillation, and live-memory stages have different maturity. Memory != current truth.
-- **Observation** — source-bound evidence about a system or environment. Observation is not interpretation, policy, or effect authority.
-- **Interpretation** — a derived or cognitive reading of evidence. It may be useful and wrong; it is not automatically truth or authorization.
-- **Adoption** — an explicit transition making validated state authoritative for a domain, such as a runtime successor becoming current. Validation, merge, absorption, publication, and deployment do not imply adoption.
-- **Untrusted external data** — material received across an external boundary that retains provenance but has no automatic standing as cognition, truth, memory, instruction, goal, policy, or authority.
-- **World-State** — a read-only evidence projection with lineage, freshness/staleness, and conflict posture; not an omniscient world model or decision authority.
-- **Persistent** — durable for a named domain through a stated medium and recovery rule; not a claim that all in-process state survives failure.
-- **Default-active** — composed and exercised by the documented default runtime configuration. Implemented, effect-capable, configured, admitted, and default-active are separate properties.
-- **Developmental history** — retained, transformed, and attributable prior interaction or system state that is available to influence later cognition or conduct. Storage alone does not demonstrate influence, and developmental history is not automatically current truth.
-- **Developmental mechanics** — inspectable mechanisms by which history can affect later state, such as retention, plasticity, causal association, prediction/outcome comparison, consolidation, and learned structure influencing later behavior. Mechanics define how change can occur, not the outcome it must approach.
-- **Developmental causation** — a demonstrated chain in which experience or consequence changes retained/adopted state and that change measurably influences later cognition or conduct. Temporal sequence or persistent storage alone is insufficient.
-- **Developmental prior** — any built-in assumption that shapes possible developmental trajectories, including model, update, selection, representational, or motivational structure. No developmental substrate is prior-free.
-- **Representational prior** — a fixed category, schema, axis, or encoding that constrains what the system can represent or compare, even when it supplies no explicit reward.
-- **Motivational prior** — a built-in preference or optimization pressure specifying what should be sought, maintained, or avoided, such as approval, survival, novelty, empowerment, or mandatory curiosity. It is distinct from a safety/authority constraint.
-- **Outcome authorship** — a design choice that steers development toward a particular identity, attitude, preference, or behavioral endpoint rather than merely supplying necessary developmental mechanics or consequence boundaries.
-- **Local sovereignty** — an installation's retained authority to inspect, reject, adapt, or adopt received evidence and candidates under its own operator, policy, and custody. Federation does not transfer that authority.
-- **Improvement candidate** — provenance-bearing material proposed for local rehearsal, criticism, rejection, adaptation, or separately authorized adoption. A candidate is not doctrine, truth, consent, merge, execution, or remote authority.
-- **Causal resource principal** — an inert identity binding resource-related work to a subject, sponsorship, epoch, and issuer provenance. It is not a quantity, budget, allocation, grant, appetite, metabolism, or effect authority.
+- **Hosted SentientOS** — Current architecture in which SentientOS runs above a Windows or Linux host kernel while retaining its own state, governance, cognition, and causal semantics.
+- **Native SentientOS** — Intended architecture in which a SentientOS native kernel or trusted substrate owns deterministic OS services and resource/execution custody. It is literal intent, not current general-purpose production maturity.
+- **Persistent causal system** — The longitudinal organization whose attributable history, evidence, authority, lineage, resources, environment, effects, and consequences can persist across cognitive-model changes.
+- **Cognitive machinery / cognitive organ** — A replaceable model, inference runtime, or bounded cognitive component used by the persistent system; not the whole system or its identity.
+- **System lineage** — Continuity and succession of the persistent SentientOS causal organization.
+- **Model lineage** — The exact cognitive artifacts, configurations, and operational identities used.
+- **Model-development / training lineage** — Source-bound evidence or claims about how a model was produced, including teacher/student relations, distillation, synthetic data, evaluation, or AI-assisted R&D; not automatically truth, authority, or model identity.
+- **Software / runtime lineage** — The predecessor/successor chain of SentientOS generations that were validated, admitted, adopted, and actually run.
+- **Semantic continuity** — Preservation of purpose, principal, sponsorship, authority, task lineage, delegation, consumption, effect, consequence, and update across implementation boundaries and, eventually, toward physical enforcement.
+- **Resource sponsorship** — Attribution that a causal principal stands behind resource-related work. Current principals provide ownership/provenance, not general allocation.
+- **Task resource envelope** — A future bounded assignment of plural resources and constraints to a task; generalized envelopes are not implemented today.
+- **Causal resource propagation** — Carrying principal, sponsorship, task/parent lineage, and resource context through delegation and execution. Current support is partial and does not imply kernel enforcement.
+- **Developmental writeback** — The current bounded path from selected World-State evidence through governed interpretation, candidate/admission, immutable developmental-history append, receipt, later retrieval, read-only projection, and bounded later cognition.
+- **Developmental-history intervention** — A controlled current experiment comparing the same evidence/model with history present, withheld, and restored.
+- **Model-replacement intervention** — A controlled current experiment comparing models A and B with and without the same history under frozen causal context, then restoring A + history.
+- **Replication campaign** — A current preregistered 2–32-trial instrument with fixed identities and immutable protocol/state/report custody; frozen-context repetition is not a full longitudinal study.
+- **Operational closure** — Ability to improve/adopt software and continue through a bounded successor transition; partially demonstrated under governance.
+- **Developmental closure** — A loop in which experience durably and attributablely changes later cognition or selection; current status is partial (`bounded_state_transition`).
+- **Constitutional autonomy closure** — Future standing authority for precisely bounded classes of self-modification without fresh human approval for each instance; not current authority and not removal of governance.
+- **Native substrate** — Intended trusted lower layer for scheduling, isolation, memory, device, resource, and execution custody while preserving higher causal semantics.
+- **Compatibility / accelerator domain** — A constrained delegated environment, potentially Linux, providing mature driver/CUDA/runtime mechanisms without owning SentientOS identity or constitutional meaning; architectural, not deployed production truth.
+- **Semantic / policy kernel** — Cognition, arbitration, purpose, policy, and meaning. Not a synonym for an OS kernel.
+- **Native OS / trusted-substrate kernel** — Low-level scheduling, isolation, memory, device, and resource enforcement.
+- **CUDA / GPU kernel** — An accelerator-executable routine. It is neither the semantic kernel nor the native OS kernel.
+- **Minimal developmental authorship** — Minimization of unnecessary authored preferences or identity destinations while unavoidable priors remain explicit and separable.
+- **Causal organization** — The linked provenance and consequence structure a self-model may describe; the representation is not automatically the organization.

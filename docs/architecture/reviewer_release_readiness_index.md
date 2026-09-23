@@ -170,9 +170,10 @@ operator explicitly binds one exact profile. Current automatic-continuity,
 successor-generation-adoption, and resident-runtime-adoption proofs extend this chain
 through exact successor configuration, predecessor quiescence, bounded POSIX process-image
 replacement, independent resident readiness, and successor wake. Repository absorption
-still differs from runtime adoption. `maintenance_resident_parent_supervision` is only a
-scaffolded/eligibility-only authority contract: no stable parent or process-death recovery
-runtime exists, and `real_service_restart` remains blocked.
+still differs from runtime adoption. `maintenance_resident_parent_supervision` now has a
+bounded resident parent runtime under its exact authority and custody contracts. That
+does not provide universal process-death, kernel, hardware, or power-loss recovery, and
+`real_service_restart` remains separately blocked.
 
 ### Test runner bootstrap reliability
 

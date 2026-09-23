@@ -1,142 +1,130 @@
-# Public Technical Overview
+# Public technical overview: current main
 
-## Purpose and claim discipline
+This document answers what exists and runs in current main. The [project thesis](sentientos_project_thesis.md) explains why; the [system atlas](current_repository_system_atlas.md) and [reviewer index](reviewer_release_readiness_index.md) retain exhaustive source and proof archaeology.
 
-This page is the current implementation anatomy and bounded capability map for SentientOS. The [project thesis](sentientos_project_thesis.md) explains the developmental research program; the [current repository system atlas](current_repository_system_atlas.md) and [reviewer release-readiness index](reviewer_release_readiness_index.md) retain exhaustive source/proof archaeology. Historical proof-wing phase names remain there rather than defining this overview.
+## Architecture and maturity vocabulary
 
-SentientOS is a persistent, model-agnostic runtime and developmental causal substrate. Source existence, implementation, composition, enablement, automatic exercise, authority, effect capability, and production deployment are independent claims. “Sentient” is an empirical aspiration, not evidence of current consciousness, sentience, or personhood. The whole Python system is not formally verified.
+Current deployment is **hosted SentientOS**: hardware -> Windows/Linux host kernel -> SentientOS services/runtime -> cognitive model(s). The repository also contains native paths and a literal **native SentientOS** architecture, but current main is not a mature general-purpose native OS and does not provide complete hardware support or general native resource enforcement.
 
-## Composition at a glance
+Claims use separate predicates: implemented, callable, composed, resident, default-active, authorized, production-proven, and aspirational. One never implies the next.
 
-### Resident runtime
+## Resident surfaces
 
-`sentientosd:main` installs signal-driven shutdown and runs resident maintenance evidence, World-State construction, and read-only host-resource review. Exact mutually exclusive configuration may add maintenance scheduler, wake, successor-generation, authority-continuity, and resident-adoption owners.
+### Interactive cognition
 
-Importability is not residency. The cognitive cycle, inner-world orchestrator, dream loop, goal curator, councils, federation, cameras, avatars, and most effectors do not all start merely because `sentientosd` runs. Resident autonomous evidence and configured maintenance are real; this is neither zero autonomy nor universal autonomous composition.
+`sentientos-chat` composes local-model catalog/custody, invocation admission, durable conversation sessions, history reconstruction, canonical memory retrieval, and explicit user-requested retention. Model availability still depends on cataloging, commissioning, activation, serving, and authority. Memory supplies provenance-bearing context; it is not current truth.
 
-### Local conversation and model path
+### World-State and host observation
 
-`sentientos-chat` is the clearest supported cognitive service composition. Local models pass separately through catalog/acquisition, commissioning, activation, serving/loading, and per-generation inference admission. Explicit simulation is not silently mistaken for production inference. Automatic serving recovery, universal model discovery, hot switching, and provider fallback remain deferred.
+`sentientosd` constructs evidence-bound World-State and performs read-only host-resource review. Sources retain provenance, freshness, staleness, and conflict. Current semantic cognitive projection is bounded and read-only. World-State is evidence, not an omniscient predictive model, and Phase 1 resource work does not write fan, PWM, or thermal controls.
 
-**The model is not the system.** Models are replaceable cognitive machinery. System identity extends through durable history, evidence, configuration, authority, runtime/model lineage, and adopted software state. Model-agnostic means the architecture does not depend on one provider; it does not promise arbitrary swaps without compatibility, custody, and configuration.
+More exactly, World-State is a deterministic, digest-bound, read-only projection with provenance, freshness, staleness, and conflicts; it is not perfect self-knowledge or philosophical omniscience. Phase-one host-resource operation is read-only. `host_resource_runtime.py` and its observation surfaces do not amount to universal computer control: **observation != blanket host control**.
 
-## Developmental state and cognition
+### Bounded maintenance and succession
 
-### Conversation history and canonical memory
+Maintenance has bounded resident parent supervision. The governed path can form evidence/work, implement, validate and correct, land a successor, configure transition, quiesce the predecessor, verify readiness, adopt, and perform POSIX process-image replacement. This is cooperative, bounded operational closure—not universal crash recovery, unrestricted RSI, or autonomous authority to modify anything.
 
-`PersistentConversationService` reconstructs a bounded durable session history, retrieves a bounded canonical-memory snapshot, marks both as untrusted data rather than instructions, and supplies them to later inference. It then records the new turns. An explicitly requested user memory crosses a separate retention admission and canonical write boundary with source and operation binding.
+**Current / implemented but bounded:** exact adoption may replace the resident POSIX `sentientosd` process image. `maintenance_resident_parent_supervision` is likewise implemented under bounded-orchestrator authority, while `real_service_restart` remains **BLOCKED / none**. Parent supervision does not promise universal recovery.
 
-Four generations must not be flattened:
+### Memory generations
 
-1. **Canonical governed conversation memory is live.** Durable sessions, bounded reconstruction, explicit user-turn retention, canonical raw fragments, retrieval, and source-bound receipts are current paths.
-2. **Legacy memory managers**, summaries, indexes, and goal stores remain available under older semantics.
-3. **Selective distillation machinery** can describe retention, distillation, capsules, tomb intent, and review evidence. Tomb intent is not deletion, and this machinery is not a general formal truth-maintenance system.
-4. **Live-memory planning/readiness/interlocks** verify later stages; not every such artifact is resident composition or a real canonical-root mutation.
+Canonical governed conversation memory is live. Legacy memory managers and selective distillation machinery remain separately identifiable; selective-distillation and live-memory planning/readiness/interlocks do not silently become resident write authority. These generations must not be flattened into one maturity claim.
 
-Historical state can therefore affect later cognition. It is never automatically fact, policy, instruction, or authority: **memory != current truth**.
+### Perception and external inference
 
-### Reflection, goals, identity, and self-narrative
+Registry capabilities `perception_audio`, `perception_screen`, and `perception_vision` remain partial. `embodiment_ingress.py` and `host_resource_runtime.py` are real ingress/observation organs, not proof of closed embodiment.
 
-The top-level `dream_loop.py` implements an idle reflection cycle over legacy memory. It selects high-importance or unfinished-goal material, produces and writes dream/reflection records, and can write reinforced-goal material. `goal_curator.py` discovers repeated-memory patterns and can create bounded background goals; it can also create a curiosity goal from a sufficiently novel perception. These are actual write paths in their legacy memory domain.
+External-model execution is implemented, not hypothetical: an exact HTTPS transport and execution-custody path exist. It remains unavailable by default, no provider is contacted automatically, and returned material remains `untrusted_external_data`. Implementation does not grant invocation, egress, disclosure, or adoption authority.
 
-`IdentityManager` begins with an empty self-concept and offers event recording plus explicit key/value self-concept updates. `SelfNarrativeEngine`, called by `InnerWorldOrchestrator`, creates bounded chapters from cognitive reports using fixed experience-stability, ethical-signal, and metacognitive-activity axes.
+## Resident developmental writeback
 
-These mechanisms are **implemented but callable/legacy/nonresident**, not a single default developmental loop. Their fixed categories are representational priors. Their existence does not prove endogenous identity, learning, self-awareness, or phenomenal experience.
-
-### Evidence-bound self-state
-
-World-State is a deterministic, digest-bound, read-only projection of source evidence. It carries provenance and lineage, freshness, staleness, conflicts, and source status. It does not resolve contradiction into truth, invoke a model, grant admission, mutate a repository, or authorize effects. It supports grounded self-description, not perfect self-knowledge or philosophical omniscience.
-
-### Perception and embodiment
-
-`perception_audio`, `perception_screen`, and `perception_vision` are registry-classified `partial` capabilities. `embodiment_ingress.py` admits bounded observations, and `host_resource_runtime.py` supplies resident host evidence. Avatar generation and pose machinery can produce visual/pose artifacts and logs. Household Presence supplies substantial camera policy and metadata custody while live capture remains deferred.
-
-These are meaningful embodiment capabilities, but they do not amount to causally closed persistent embodied development. Hardware availability, calibration, privacy/consent closure, durable sensor lifecycle, action attribution, and learned sensorimotor consequence remain uneven or incomplete. Current world-state evidence is not a predictive world model.
-
-## Authority and consequential effects
-
-A representative modern path is:
+The current developmental capability is `partial` with `bounded_state_transition` authority. Its resident temporal composition is:
 
 ```text
-capability definition -> bounded grant -> policy -> operational feasibility
--> admission -> execution custody -> effect attempt
--> result verification -> durable receipt -> separate adoption where applicable
+World-State evidence at tick N
+-> bounded deterministic selection
+-> governed developmental interpretation
+-> typed digest-bound candidate
+-> separate exact runtime admission
+-> immutable developmental-history append
+-> durable writeback receipt
+-> retrieval at tick N+1+
+-> read-only historical projection
+-> bounded later cognition
 ```
 
-No earlier artifact silently establishes a later stage:
+Interpretation does not become truth; a candidate has no authority by itself; admission is not execution; durable storage does not prove learning; retrieval does not prove causation. Canonical explicit user-retention storage remains physically and semantically separate from developmental history.
+
+## Current developmental experiments
+
+### History intervention
+
+A preregistered intervention holds current evidence and model constant while durable developmental history is present, withheld, and restored. It tests whether an output difference follows admitted history under the bounded projection path. It does not label the difference improvement.
+
+### Same-frozen-state model replacement
+
+A controlled experiment preserves frozen current evidence and developmental history while executing:
 
 ```text
-state != authority
-proposal != authorization
-capability definition != grant
-grant != operational feasibility
-operational feasibility != admission
-admission != execution
-execution != validation
-validation != adoption
-repository absorption != runtime adoption
+model A + history
+model A - history
+model B + history
+model B - history
+model A + history restored
 ```
 
-A receipt proves only the decision, custody step, attempt, result, or transition encoded by its domain schema. Model output does not create authority.
+Exact operational model identity remains distinct from source-bound model-development/training provenance. Provenance claims do not become current fact, authority, or evidence of RSI.
 
-### Host observation and effects
+### Repeated replication campaigns
 
-Resident observation covers CPU, memory, disk, services, and thermal evidence. **Phase-one host-resource operation is read-only.** GUI, browser, filesystem, diagnostic, subprocess, service, and other effectors have domain-specific bounded implementations, but most require separate configuration, grants, admission, audit, and rollback or panic custody and are not resident defaults. They **do not amount to universal computer control**. Observation != blanket host control.
+The campaign instrument preregisters 2–32 fixed trial identities and binds immutable protocol, state, and report custody. It forbids silent retry and cherry-picking; reconstructs processes; verifies exact frozen context and repeated model/provenance; reports descriptive reproducibility; and preserves positive, negative, unstable, and interrupted outcomes.
 
-`real_service_restart` remains **BLOCKED / none**. Direct fan/PWM/thermal writes remain deferred. A capability definition, dry run, review packet, or executable class is not an active grant.
+This is repeated frozen-context evidence, not a production trial report unless actual production evidence is supplied and not a complete longitudinal developmental study. No current result establishes model-independent identity.
 
-### External models
+## Authority and consequence
 
-**External-model execution is implemented, not hypothetical.** Its bounded chain covers exact authority registration, grant policy, feasibility, runtime admission, endpoint/service/model and credential custody, request-material custody, exact HTTPS transport, response custody, and receipts.
+The control plane separates capability definition, grant, policy, operational feasibility, admission, execution custody, attempted effect, result verification, durable receipt, and separately authorized adoption. Cognition may interpret or propose; it does not silently acquire effect authority.
 
-It remains unavailable by default: no resident provider owner, default grant, provider configuration, credential, or safe request-material source completes the path. No provider is contacted automatically. Responses remain `untrusted_external_data` and gain no automatic status as cognition, truth, memory, goal, instruction, policy, or authority. Synthetic proof establishes code-path behavior, not a live account, credential, endpoint, default composition, or real external effect.
+capability definition != grant; grant != operational feasibility; operational feasibility != admission; admission != execution; proposal != authorization; repository absorption != runtime adoption.
 
-## Governed software recursion and runtime succession
+Governance is also experimental instrumentation: it distinguishes observed evidence from interpretation, proposed work from authorized work, attempted effect from actual effect, validation from adoption, and landed source from running generation.
 
-The maintenance path can collect evidence, form bounded work, acquire scoped authority, invoke implementation, validate and correct, land or absorb exact repository state, configure successor authority, adopt on wake, quiesce a cooperative predecessor, verify successor readiness, and replace the resident POSIX `sentientosd` process image.
+## Lineage custody
 
-This is **CURRENT / IMPLEMENTED BUT BOUNDED** recursive software development/evolution. Governance determines which feedback-loop changes become authoritative; it does not make the recursion fictional. The path depends on exact configuration, custody, authority, validation, landing, adoption, readiness, and a cooperative live predecessor. It is **not unrestricted recursive self-improvement**, and a model does not own acceptance.
+Current machinery can separately bind:
 
-Parent supervision is **SCAFFOLDED / ELIGIBILITY-ONLY**. No stable parent runtime is implemented. No child watcher/restart loop supplies universal process-death recovery. Cooperative process-image replacement is not generic service supervision.
+- persistent system and causal-history references;
+- exact operational model identity/configuration;
+- source-bound model-development/training provenance;
+- predecessor/successor software and runtime generation.
 
-## Federation and local adaptation
+These lineages answer different causal questions and are not interchangeable.
 
-Federation includes node identity, trust epochs, replay protection, and laboratory/WAN evidence. Improvement machinery additionally represents:
+## Resources
 
-- provenance-preserving candidate production and reception;
-- intake receipts and local custody/rehearsal runway;
-- rejection and hold-for-adaptation outcomes;
-- derived local variants;
-- lineage comparison; and
-- dissemination receipts that explicitly preserve non-adoption and no remote authority.
+Authenticated causal-resource principals establish identity, sponsorship, issuer provenance, and trusted public verification material. They answer whose work a resource-related event belongs to. They do **not** allocate CPU, GPU, RAM/VRAM, tokens, energy, thermal headroom, devices, or generalized task envelopes, and they confer no effect authority.
 
-This architecture exchanges candidates, evidence, and context without requiring convergence: **candidate, not doctrine**. Local acceptance or adaptation remains locally governed. Metadata, readiness, rehearsal, dissemination, or a remote signature is not synchronization, merge, conflict resolution, adoption, consent, or execution authority.
+Host-resource observation is read-only. Semantic continuity toward scheduler/device assignment, measured consumption, consequence, and future allocation learning remains architectural work.
 
-A supported default production WAN synchronization deployment is **UNKNOWN / NOT ESTABLISHED**. Lab and synthetic proof are not fleet deployment. Agent and council libraries likewise exist without making SentientOS primarily a multi-agent orchestrator.
+## Other implemented organs without false composition
 
-## Causal resource principals
+Callable reflection/dream, goal-formation, self-narrative, perception, avatar, council/agent, cultural, federation, and historical components exist at varied maturity. Their existence does not establish a canonical resident dream life, mature endogenous priorities, closed embodiment, or a production social organism.
 
-Current causal-resource-principal code creates and verifies inert root identities bound to operator sponsorship, subject, epoch, lifetime, and issuer. Authentication binds an exact principal to an issuer provenance claim. Production Ed25519 verification is implemented against exact trusted public material loaded from an operator-provisioned, read-only catalog with time and revocation status. Production public trust custody is therefore real; issuer-provenance presence alone is still not trust.
+Federation can receive, rehearse, reject, adapt, compare, and disseminate provenance-bearing candidates under local authority. Candidate != doctrine; remote readiness != authority; receipt != adoption.
 
-A principal grants nothing, allocates nothing, and performs no effect. It answers causal ownership questions—whose work this is and under whose sponsorship—not “how much energy remains.” Provider spend, tool calls, proof passes, context, bandwidth, RAM, VRAM, disk, CPU, accelerators, deadlines, devices, thermal headroom, battery, and power remain distinct future allocation dimensions. This is a prerequisite for future homeostasis-like resource reasoning, not current allocation, appetite, or metabolism. Production private-key signer custody remains the next separately selected runtime slice.
+This is not a supported default production WAN synchronization deployment. SentientOS is not primarily a multi-agent orchestrator.
 
-## Assurance scope
+## Native and local compute boundary
 
-Selected paths have TLA+/formal models, executable checks, invariants, audits, tests, and proof bundles. SentientOS is not wholly formally verified. Reference-monitor-like mediation and runtime-assurance-like contracts apply to named domains; the repository does not claim universal mediation, complete mediation, tamper-proof global enforcement, or whole-system formal RTA conformance.
+The repository's native direction seeks to preserve principal, purpose, task lineage, authority, sponsorship, delegation, generation, evidence, effect, and consequence at lower enforcement layers. Current native paths do not fully enforce this semantic set.
 
-The adversarial gradient-injection audit recognizes indirect contamination risks including memory-importance halos, approval traces becoming surrogate reward, expressive framing changing human selection, and long-horizon context priming. Recognition is not mitigation completeness.
+Local cognition can use mature inference machinery. Native SentientOS does not require a bespoke tensor runtime: llama.cpp, PyTorch, CUDA, TensorRT, or a constrained Linux accelerator domain may implement mechanism while SentientOS retains constitutional and causal meaning. That delegation pattern is architecture, not current production GPU custody.
 
-## Capability maturity summary
+## Current truthful bottom line
 
-| Area | Current status | What must not be inferred |
-|---|---|---|
-| Resident runtime | Maintenance evidence, World-State, read-only host review resident | All cognition/organs are resident |
-| Local chat | Durable session context, admitted local inference and explicit retention composed | Memory is current truth or every model is interchangeable |
-| Reflection/goals/self-narrative | Implemented and callable in older/inner-world paths | Canonical resident developmental closure |
-| Perception/embodiment | Partial adapters and representations | Unified predictive world model or closed sensorimotor learning |
-| Host effects | Named bounded effectors | Blanket host control or fan/PWM authority |
-| External HTTPS | Exact bounded actuator implemented | Default egress, cognitive trust, or automatic provider call |
-| Software succession | Validated adoption and POSIX replacement implemented | Unrestricted self-improvement or unexpected-death recovery |
+Current main has real bounded resident developmental writeback and controlled history/model/replication instruments, plus bounded resident maintenance supervision and software succession. The complete developmental organism remains causally open. Production repeated evidence, a governed real resident A→B activation transition, general resource allocation/enforcement, and mature native operation remain future work.
+
+SentientOS is not wholly formally verified. Its bounded authority/effect gates are reference-monitor-like, but the repository does not claim universal or complete mediation. Current succession is not unrestricted recursive self-improvement.
 | Federation adaptation | Candidates, local variants, lineage and dissemination implemented | Forced convergence, remote authority, or production fleet |
 | Resource principals | Causal identity/authentication/public trust implemented | Allocation, budget scalar, desire, or metabolism |
 

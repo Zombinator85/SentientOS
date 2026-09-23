@@ -35,10 +35,12 @@ def normalized(text: str) -> str:
 
 def test_front_door_defines_system_and_model_boundary() -> None:
     readme = normalized(DOCS["readme"])
-    assert "persistent, model-agnostic runtime" in readme
-    assert "model identity is not system identity" in readme
-    assert "model-agnostic means" in readme
-    assert "not a claim that this system is conscious or sentient today" in readme
+    assert "ai-centered operating system and developmental machine-cognition substrate" in readme
+    assert "model is replaceable cognitive machinery" in readme
+    assert "persistent causal system is the longitudinal experimental object" in readme
+    assert "not a present claim of consciousness" in readme
+    assert "hosted sentientos is real" in readme
+    assert "native sentientos is literal architectural intent" in readme
 
 
 def test_frozen_architectural_invariants_are_public() -> None:
@@ -106,13 +108,11 @@ def test_maintenance_replacement_is_current_and_bounded() -> None:
     assert "not unrestricted recursive self-improvement" in overview
 
 
-def test_parent_supervision_and_generic_restart_remain_unavailable() -> None:
+def test_parent_supervision_is_bounded_and_generic_restart_remains_unavailable() -> None:
     parent = RECORDS["maintenance_resident_parent_supervision"]
-    assert (parent.status, parent.authority_level) == ("scaffolded", "eligibility_only")
-    assert {"stable parent runtime implementation", "process-death recovery"} <= set(parent.deferred_surfaces)
-    assert "SCAFFOLDED / ELIGIBILITY-ONLY" in OVERVIEW
-    assert "No stable parent runtime is implemented" in OVERVIEW
-    assert "No child watcher/restart loop" in OVERVIEW
+    assert (parent.status, parent.authority_level) == ("implemented", "bounded-orchestrator")
+    assert "bounded resident parent supervision" in OVERVIEW
+    assert "does not promise universal recovery" in OVERVIEW
     restart = RECORDS["real_service_restart"]
     assert (restart.status, restart.authority_level) == ("blocked", "none")
     assert "`real_service_restart` remains **BLOCKED / none**" in OVERVIEW
