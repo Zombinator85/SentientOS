@@ -36,6 +36,7 @@ class FakeInvoker:
         request = type("Request", (), {})()
         for key, value in kwargs.items(): setattr(request, key, value)
         request.model_id = "model-a"; request.model_artifact_digest = "sha256:model"
+        request.authority_map_digest = "test-authority-map"; request.active_model_identity = {}
         semantic = {"purpose": kwargs["purpose"], "correlation_id": kwargs["correlation_id"],
                     "upstream_evidence": kwargs["upstream_evidence"], "linkage": kwargs["linkage"]}
         request.request_digest = digest_payload(semantic); request.request_id = "lmreq-" + request.request_digest[:24]
@@ -51,9 +52,10 @@ class FakeInvoker:
             text = "cognition-with-history" if request.linkage["history_present"] else "cognition-withheld"
         return LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status="admitted_completed",
             reason_codes=("completed",), output_text=text, output_digest=digest_payload({"output":text}),
-            output_size_bytes=len(text), generation_config={}, admission_decision_ref="local",
+            output_size_bytes=len(text), admission_decision_ref="local",
             purpose=request.purpose, latency_ms=1, output_truncated=False, fallback_occurred=False,
-            effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00")
+            effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
+            generation_config={"actual_generation_parameters":{"temperature":0}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None):
@@ -113,13 +115,13 @@ def test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference
     first, _ = owner(tmp_path); first.run_tick(snapshot=snapshot(), tick_id="tick-n")
     restarted, fake = owner(tmp_path, comparison=True)
     later = restarted.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
-    cognition = [r for r in fake.requests if r.purpose == "resident_developmental_retrieval_cognition"]
-    assert [r.linkage["history_present"] for r in cognition] == [True, False]
+    cognition = [r for r in fake.requests if r.purpose == "resident_developmental_history_intervention_experiment" and "history_present" in r.linkage]
+    assert [r.linkage["history_present"] for r in cognition] == [True, False, True]
     assert cognition[0].upstream_evidence["snapshot_digest"] == cognition[1].upstream_evidence["snapshot_digest"]
     assert later.changed_cognition_measurement_id
-    measured = json.loads((restarted.measurements_root / f"{later.changed_cognition_measurement_id}.json").read_text())
-    assert measured["observable_difference"] is True
-    assert measured["interpretation"] == "difference_only_not_improvement_learning_or_correctness"
+    measured = json.loads((restarted.experiments.runs / f"{later.changed_cognition_measurement_id}.json").read_text())
+    assert measured["summary"]["present_vs_withheld_difference_observed"] is True
+    assert measured["summary"]["classification"] == "history_presence_associated_stable_difference"
 
 
 def test_identical_processed_evidence_is_not_reinterpreted(tmp_path: Path) -> None:
