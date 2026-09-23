@@ -14,7 +14,7 @@ These foundations are not all resident, default-active, mutually composed, produ
 
 Canonical chat demonstrably uses durable session history and retrieved memory in later inference. Separately, the dream loop can transform legacy memory into new dream/reflection records and reinforce unfinished goals; the goal curator can create background or curiosity goals; the inner-world orchestrator updates a fixed-axis self-narrative.
 
-The missing closure is a canonical resident path that binds selected evidence to reflection, bounded writeback, subsequent retrieval, changed cognition, and measured consequence. It must preserve retention authority and **memory != current truth**. Simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
+A bounded callable path now binds selected World-State evidence to governed interpretation, exact admission, separate durable developmental history, exact retrieval, and controlled changed-cognition difference measurement. It preserves retention authority and **memory != current truth**. The remaining closure is resident default composition plus longitudinal causal experiments; simply scheduling every legacy loop would neither establish coherent development nor satisfy emergence hygiene.
 
 ## 2. Canonical memory ↔ selective autonomous consolidation
 
@@ -97,7 +97,7 @@ The adversarial gradient-injection audit identifies approval leakage, salience a
 
 ## Priority order
 
-1. Compose resident cognition with selective, attributable developmental writeback as the next high-level causal-closure priority.
+1. Compose the bounded selective developmental-writeback runtime into resident cognition, then run controlled longitudinal causal experiments.
 2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
 3. Bind perception and authorized action to predicted/observed consequences and retained learning.
 4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.

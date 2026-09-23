@@ -1,0 +1,39 @@
+{
+  "artifact_kind": "resident_developmental_writeback_runtime",
+  "authority_level": "bounded_state_transition",
+  "capability_id": "resident_developmental_writeback",
+  "category": "memory_context_reflection",
+  "docs_reference": "docs/development/resident_developmental_writeback_authority.md",
+  "metadata_only": false,
+  "proof_command": "python -m scripts.run_tests -q tests/test_resident_developmental_writeback.py tests/test_resident_developmental_writeback_capability_admission.py",
+  "proof_tests": [
+    "tests/test_resident_developmental_writeback.py",
+    "tests/test_resident_developmental_writeback_capability_admission.py"
+  ],
+  "implemented_surfaces": [
+    "exact selected World-State evidence",
+    "bounded governed local developmental interpretation",
+    "typed digest-bound developmental candidate",
+    "exact runtime admission consumption",
+    "separate immutable developmental-history append",
+    "durable writeback receipt",
+    "exact bounded read-only retrieval",
+    "restart reconstruction retrieval",
+    "controlled changed-cognition difference measurement"
+  ],
+  "deferred_surfaces": [
+    "resident default scheduling and composition",
+    "production longitudinal developmental experiments",
+    "model-replacement experiments",
+    "broad contradiction resolution",
+    "generalized forgetting and retention policy"
+  ],
+  "forbidden_implications": [
+    "memory is current truth",
+    "storage proves learning",
+    "difference proves improvement or correctness",
+    "model output grants persistence authority",
+    "developmental history is canonical explicit user retention"
+  ],
+  "status": "implemented_bounded_runtime"
+}
