@@ -55,7 +55,7 @@ Further closure needs long-duration evidence across generations, cross-platform 
 
 ## 7. Unexpected process death ↔ continuity and recovery
 
-Cooperative replacement is implemented, but stable parent supervision is only scaffolded/eligibility-only. No stable parent runtime, exact child watcher/restart loop, or universal process-death recovery exists. `real_service_restart` remains blocked.
+Cooperative replacement and bounded maintenance resident parent supervision are implemented, including the exact child watcher/restart loop. Generic service/process authority and universal platform process-death recovery remain absent; broader platform supervision is deferred, and `real_service_restart` remains blocked.
 
 Unexpected-death recovery is therefore a major concrete priority. It must preserve operator shutdown, avoid covert persistence incentives, distinguish crash recovery from adoption, and integrate platform service supervision, readiness, rollback, and durable reconstruction.
 
@@ -97,8 +97,8 @@ The adversarial gradient-injection audit identifies approval leakage, salience a
 
 ## Priority order
 
-1. Add stable parent supervision and unexpected-death recovery without weakening shutdown or adoption custody.
-2. Compose resident cognition with selective, attributable developmental writeback.
+1. Compose resident cognition with selective, attributable developmental writeback as the next high-level causal-closure priority.
+2. Extend unexpected-death recovery beyond bounded maintenance resident parent supervision without weakening shutdown or adoption custody.
 3. Bind perception and authorized action to predicted/observed consequences and retained learning.
 4. Connect resource ownership to plural, explicit allocation policy and consequence measurement.
 5. Measure post-adoption behavior across model and runtime generations.
