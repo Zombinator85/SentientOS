@@ -15,7 +15,7 @@ from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
-from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
+from .governed_local_model_invocation import LocalModelInvocationBudget, LocalModelInvoker
 from .developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, make_protocol, summarize,
     PURPOSE as EXPERIMENT_PURPOSE,
@@ -163,7 +163,7 @@ class ResidentDevelopmentalCognitionOwner:
     def __init__(self, *, config: ResidentDevelopmentalCognitionConfig,
                  writeback: ResidentDevelopmentalWritebackController,
                  admission_authority: RuntimeAdmissionAuthority,
-                 invoker: GovernedLocalModelInvoker,
+                 invoker: LocalModelInvoker,
                  current_sequence: Callable[[], int]) -> None:
         self.config = config
         self.writeback = writeback
