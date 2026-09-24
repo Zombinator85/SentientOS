@@ -84,6 +84,8 @@ Goal and reflection mechanisms exist but do not establish mature endogenous prio
 
 Current governed recursion can reach successor adoption and process-image replacement. Open work includes robust cross-generation reconstruction, measured post-adoption consequence, rollback evidence, and learning from unsuccessful changes. Operational closure does not entail developmental closure. Constitutional autonomy closure—standing authority for precisely bounded modification classes—remains future work and must retain governance.
 
+Resident cognition now has hardened canonical-activation serving and a synthetic rehearsal that proves activation drift invalidates serving without automatic rebind. A distinct governance-only `resident_cognitive_model_transition_experiment` authority definition is registered; runtime remains deferred. The bridge is registered authority -> preregistered explicit-stage controller -> synthetic A -> B -> A temporal rehearsal -> real production temporal evidence. Registration does not implement quiescence, activation, serving, inference, history mutation, transition, restoration, or continuity proof.
+
 ## Bridge: federation to comparative developmental science
 
 Federation may exchange evidence, counterexamples, candidates, adaptations, findings, and software lineage. Open work is comparative evidence under local sovereignty, not convergence by authority. Remote agreement != truth; remote readiness != authority; received improvement != adoption; candidate, not doctrine.
