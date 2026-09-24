@@ -1,0 +1,32 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "776ef30daacc13b0cca15136ce939c1bd29bf828",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_exact_definition_shape_and_future_goal_eligibility",
+      "rationale": "The exact eight-effect definition and affirmative future implementation goal are eligible for later admission."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_digest_bound_registration_is_definition_only",
+      "rationale": "Exact operator approval binds the definition digest and registration grants no runtime authority or effect."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_registration_has_no_runtime_effect_surface",
+      "rationale": "Registration has no runtime controller, model load, inference, activation, or production-serving effect surface."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_existing_authorities_and_production_serving_invariant_are_preserved",
+      "rationale": "Existing activation, serving, and writeback definitions and hardened-activation serving binding remain unchanged."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_known_governed_invoker_gap_remains_for_later_runtime_task",
+      "rationale": "The known governed-invoker purpose gap remains explicit and unrepaired for the later runtime task."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_exact_definition_shape_and_future_goal_eligibility",
+    "tests/test_developmental_model_replacement_experimental_serving_capability_admission.py::test_digest_bound_registration_is_definition_only"
+  ]
+}
