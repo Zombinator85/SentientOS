@@ -4,7 +4,7 @@ SentientOS increasingly has the organs. The remaining work is increasingly the a
 
 ## Current baseline
 
-Current main includes bounded maintenance resident parent supervision; resident developmental-writeback authority vocabulary and runtime; experience/current World-State at tick N flowing to a durable developmental record and later-tick retrieval/cognition; history present/withheld/restored intervention; same-frozen-state model A/model B replacement with separate operational identity and source-bound training provenance; and preregistered 2–32-trial replication campaigns with immutable custody and negative/unstable/interrupted results retained.
+Current main includes bounded maintenance resident parent supervision; resident developmental-writeback authority vocabulary and runtime; experience/current World-State at tick N flowing to a durable developmental record and later-tick retrieval/cognition; history present/withheld/restored intervention; same-frozen-state model A/model B replacement with separate operational identity and source-bound training provenance; preregistered 2–32-trial replication campaigns with immutable custody and negative/unstable/interrupted results retained; and an explicit one-invocation production composition for one next campaign trial using exact commissioned A/B experimental workers while preserving canonical activation, production serving, and developmental history.
 
 The developmental capability remains `partial` under `bounded_state_transition`. The complete developmental organism is not causally closed.
 
