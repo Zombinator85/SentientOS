@@ -10,9 +10,9 @@ The developmental capability remains `partial` under `bounded_state_transition`.
 
 ## Priority 1: use the instrument, then test real transition
 
-First obtain actual repeated **production evidence** with the existing replication instrument. Synthetic CI fixtures prove machinery and invariants; they are not production experimental evidence. Preserve null, negative, unstable, and interrupted outcomes rather than selecting for a preferred narrative.
+First obtain repeated **production evidence**, as available, with the existing replication instrument. Synthetic CI fixtures prove machinery and invariants; they are not production experimental evidence. Preserve null, negative, unstable, and interrupted outcomes rather than selecting for a preferred narrative.
 
-Then, as a separate governed experiment, conduct a real resident A→B serving/activation transition with exact model custody, authority, rollback, context/history binding, predecessor/successor observation, and consequence evidence. The existing frozen-state replacement instrument is not itself production resident cognitive-organ transition authority.
+Before a resident transition experiment, a later separately admitted runtime must bind the actual `sentientosd` resident cognition path to hardened canonical serving. Registration of `resident_cognitive_model_serving` is definition-only and does not implement that bridge. Only after the bridge exists may a separate governed experiment conduct a real resident A→B→A serving/activation transition with exact model custody, authority, rollback, context/history binding, predecessor/successor observation, and consequence evidence. The existing frozen-state replacement instrument is not itself production resident cognitive-organ transition authority.
 
 ## Bridge: writeback to longitudinal development
 

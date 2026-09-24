@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "aa254e86c15a7596867491dc95f92dab7dc50a43",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_cognitive_model_serving_capability_admission.py::test_exact_definition_and_future_admission", "rationale": "Exact future authority shape is eligible."},
+    {"node_id": "tests/test_resident_cognitive_model_serving_capability_admission.py::test_digest_bound_registration_grants_nothing", "rationale": "Digest-bound registration succeeds while granting nothing."},
+    {"node_id": "tests/test_resident_cognitive_model_serving_capability_admission.py::test_registration_does_not_claim_or_create_runtime_bridge", "rationale": "The current autoload gap remains truthful and no runtime is created."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_cognitive_model_serving_capability_admission.py::test_exact_definition_and_future_admission",
+    "tests/test_resident_cognitive_model_serving_capability_admission.py::test_digest_bound_registration_grants_nothing"
+  ]
+}
