@@ -212,11 +212,20 @@ class ExperimentalModelServingController:
 
 
 class ExperimentalCognitiveEndpoint:
-    __slots__ = ("_controller", "_worker", "_protocol", "_evidence", "_expected", "_intent", "_receipt", "_closed")
+    __slots__ = ("_controller", "_worker", "_protocol", "_evidence", "_expected", "_intent", "_receipt", "_closure", "_closed")
     def __init__(self, controller: ExperimentalModelServingController, worker: Any, protocol: ModelReplacementProtocol,
                  evidence: VerifiedCommissionedModel, expected: CognitiveModelIdentity, intent: Mapping[str, Any], receipt: Mapping[str, Any]):
         self._controller, self._worker, self._protocol, self._evidence = controller, worker, protocol, evidence
         self._expected, self._intent, self._receipt, self._closed = expected, intent, receipt, False
+        self._closure: Mapping[str, Any] | None = None
+
+    @property
+    def serving_receipt(self) -> Mapping[str, Any]:
+        return MappingProxyType(dict(self._receipt))
+
+    @property
+    def closure_receipt(self) -> Mapping[str, Any] | None:
+        return None if self._closure is None else MappingProxyType(dict(self._closure))
 
     def current_identity(self) -> CognitiveModelIdentity:
         self._current(); return self._expected
@@ -281,6 +290,7 @@ class ExperimentalCognitiveEndpoint:
             value["closure_id"] = "experimental-serving-closure-" + semantic_digest(value)[:24]
             value["closure_digest"] = semantic_digest(value)
             _create(self._controller._handle, f"local-model/developmental-model-replacement/experimental-serving/receipts/{value['closure_id']}.json", value)
+            self._closure = value
 
     def __enter__(self) -> "ExperimentalCognitiveEndpoint": return self
     def __exit__(self, *_: object) -> None: self.close()

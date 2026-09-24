@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "50ab05226036ce291c365f5bd582cc41c7a2504f",
+  "test_provenance_path": "/tmp/production_model_replacement_trial_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_developmental_model_replacement_production_trial.py::test_exact_real_production_posture_one_trial_composition", "rationale": "Exactly one existing campaign transition is composed without cadence."},
+    {"node_id": "tests/test_developmental_model_replacement_production_trial.py::test_preflight_and_dual_worker_order_and_cleanup_are_fixed", "rationale": "Preflight, separate A/B serving, execution, and reverse cleanup order are fixed."},
+    {"node_id": "tests/test_developmental_model_replacement_production_trial.py::test_canonical_and_history_snapshots_are_compared", "rationale": "Canonical activation, serving, resident default, and history preservation are explicit."},
+    {"node_id": "tests/test_developmental_model_replacement_production_trial.py::test_receipt_schema_and_tampering_detection", "rationale": "The orchestration receipt is digest-bound and tamper evident."},
+    {"node_id": "tests/test_developmental_model_replacement_campaign.py::test_interrupted_trial_is_not_replayed", "rationale": "Interrupted campaign trials remain invalid and cannot replay."},
+    {"node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_separate_inference_admission_and_temperature_zero", "rationale": "Every condition uses independently admitted local inference."},
+    {"node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_exact_loaded_identity_required_and_failure_cleanup", "rationale": "Wrong or stale loaded identity fails closed and unloads."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_model_replacement_production_trial.py::test_exact_real_production_posture_one_trial_composition",
+    "tests/test_developmental_model_replacement_production_trial.py::test_preflight_and_dual_worker_order_and_cleanup_are_fixed"
+  ]
+}
