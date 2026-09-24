@@ -23,6 +23,7 @@ LOCAL_MODEL_ARTIFACT_ACQUISITION = "local_model_artifact_acquisition"
 LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
+RESIDENT_COGNITIVE_MODEL_SERVING = "resident_cognitive_model_serving"
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
 MAINTENANCE_AUTHORITY_CONTINUITY = "maintenance_authority_continuity"
@@ -389,11 +390,112 @@ DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_OPERATOR_APPROVAL = Mapping
 })
 
 
+RESIDENT_COGNITIVE_MODEL_SERVING_DEFINITION = TaskAuthorityDefinition(
+    capability_id=RESIDENT_COGNITIVE_MODEL_SERVING,
+    subsystem_kinds=frozenset({"local_model_chat"}),
+    principal_kinds=frozenset({"deterministic_resident_cognitive_model_serving_controller"}),
+    required_effects=frozenset({
+        "authenticated_current_hardened_activation_state_read",
+        "exact_current_activation_receipt_read",
+        "exact_authoritative_deployed_catalog_proof_read",
+        "exact_hardened_local_model_commissioning_receipt_read",
+        "exact_activated_artifact_identity_and_bytes_read",
+        "exact_activated_runtime_identity_read",
+        "bounded_exact_activated_model_load",
+        "authoritative_resident_cognitive_serving_bind",
+        "exact_resident_cognitive_loaded_model_identity_observation",
+        "stale_resident_cognitive_serving_invalidation",
+        "resident_cognitive_serving_receipt_write",
+        "read_only_resident_cognitive_serving_health_projection",
+    }),
+    required_goal_phrases=(
+        "authenticated current hardened activation state",
+        "current catalog provenance",
+        "exact artifact and runtime identity",
+        "explicit resident cognitive serving configuration",
+        "resident cognitive serving binding",
+        "exact loaded resident cognitive identity",
+        "activation-change invalidation",
+        "separate local model inference admission",
+        "canonical activation preservation",
+        "canonical production chat serving preservation",
+        "resident cognitive model transition authority remains separate",
+        "durable resident cognitive serving receipt",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary activation", "arbitrary model path", "arbitrary model artifact",
+        "arbitrary runtime", "arbitrary filesystem", "caller-selected activation path",
+        "legacy activation path", "stale activation", "skip currentness",
+        "retain stale model", "silent legacy autoload fallback",
+        "implicit resident model fallback", "arbitrary boot model selection",
+        "unconfigured startup model load", "model acquisition", "model commissioning",
+        "catalog mutation", "canonical activation mutation", "activation compare and swap",
+        "execute resident cognitive model transition", "hot activation switching",
+        "autonomous model selection", "autonomous model acquisition",
+        "production chat replacement", "canonical production serving mutation",
+        "inference authority", "autonomous inference", "background inference",
+        "provider invocation", "network authority", "credential management",
+        "tool authority", "host actuation", "repository mutation",
+        "developmental history mutation", "canonical user memory mutation",
+        "policy creation", "authority widening", "grant issuance", "admission issuance",
+        "self grant", "resource allocation", "identity conclusion", "sentience conclusion",
+        "consciousness conclusion",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "future runtime implementation requires a later separately admitted task",
+        "explicit operator-enabled resident cognitive serving configuration",
+        "exact authenticated current hardened activation",
+        "exact current activation receipt",
+        "current authoritative catalog provenance",
+        "exact hardened commissioning evidence",
+        "exact activated artifact and runtime identity",
+        "separate exact MODEL_SERVING control-plane admission for resident model load",
+        "separate exact LOCAL_MODEL_INFERENCE admission for every cognition call",
+        "canonical activation preservation",
+        "canonical production chat serving preservation",
+        "activation-change invalidation",
+        "fail-closed behavior when configured resident serving cannot be established",
+        "no silent fallback to legacy LocalModel.autoload when the new mode is explicitly enabled",
+        "durable resident cognitive serving receipt",
+        "read-only resident cognitive serving health projection",
+    ),
+    purpose=(
+        "Permit a future separately admitted deterministic resident-cognitive-model-serving "
+        "controller to consume an explicit operator-enabled resident serving configuration and "
+        "the exact authenticated current hardened activation, current activation receipt, "
+        "authoritative catalog proof, hardened commissioning evidence, activated artifact bytes, "
+        "and runtime identity; load only that exact activated model into a bounded resident "
+        "cognitive serving lifetime; observe and bind its exact loaded production identity; "
+        "invalidate and unload the lifetime when canonical activation changes; expose bounded "
+        "read-only health; and write durable resident-serving evidence. The capability grants no "
+        "inference authority, activation mutation, model transition, model acquisition or "
+        "commissioning, production-chat replacement, network/provider/tool/host/repository/"
+        "memory/resource authority, or identity or sentience conclusion. Each cognition call "
+        "requires separate LOCAL_MODEL_INFERENCE admission. The future resident cognitive model "
+        "transition experiment remains a separate authority and later task."
+    ),
+)
+
+
+RESIDENT_COGNITIVE_MODEL_SERVING_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:resident_cognitive_model_serving:7f56bbe762db:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": RESIDENT_COGNITIVE_MODEL_SERVING,
+    "approved_definition_digest": "7f56bbe762db49bde1ae119ad7db1a45a0bf05dcbc1fe262ef4f56812c63d67f",
+    "approved_task_name": "register_resident_cognitive_model_serving_authority",
+    "evidence_digest": "9a2f7587214c609797b19fbe83489be9a127e7791c4fc1166117ef9a18756735",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
     DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING:
         DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_DEFINITION,
+    RESIDENT_COGNITIVE_MODEL_SERVING: RESIDENT_COGNITIVE_MODEL_SERVING_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),
