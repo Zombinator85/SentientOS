@@ -35,6 +35,9 @@ MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
 MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
 MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
 RESIDENT_DEVELOPMENTAL_WRITEBACK = "resident_developmental_writeback"
+DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING = (
+    "developmental_model_replacement_experimental_serving"
+)
 EXTERNAL_MODEL_INFERENCE = "external_model_inference"
 
 
@@ -302,9 +305,95 @@ RESIDENT_DEVELOPMENTAL_WRITEBACK_OPERATOR_APPROVAL = MappingProxyType({
 })
 
 
+DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_DEFINITION = TaskAuthorityDefinition(
+    capability_id=DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING,
+    subsystem_kinds=frozenset({"local_model_chat"}),
+    principal_kinds=frozenset({
+        "deterministic_developmental_model_replacement_experimental_serving_controller"
+    }),
+    required_effects=frozenset({
+        "exact_operator_approval_evidence_read",
+        "exact_preregistered_model_replacement_protocol_read",
+        "exact_hardened_model_commissioning_receipt_read",
+        "exact_model_artifact_identity_revalidation",
+        "bounded_exact_experimental_local_model_load",
+        "exact_experimental_loaded_model_identity_observation",
+        "bounded_exact_experimental_local_model_unload",
+        "experimental_model_serving_receipt_write",
+    }),
+    required_goal_phrases=(
+        "preregistered model replacement protocol",
+        "exact operator approval",
+        "hardened commissioning evidence",
+        "exact model artifact identity",
+        "experiment scoped model load",
+        "exact loaded model identity",
+        "separate local model inference admission",
+        "canonical activation preservation",
+        "canonical production serving preservation",
+        "bounded model unload",
+        "durable experimental serving receipt",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary model load", "arbitrary model path", "arbitrary model artifact",
+        "arbitrary runtime", "model acquisition", "model commissioning",
+        "catalog mutation", "canonical activation mutation",
+        "activation compare and swap", "hot activation switching",
+        "canonical production serving mutation", "production chat replacement",
+        "default resident model mutation", "autonomous model selection",
+        "autonomous model acquisition", "generic model serving",
+        "generic process execution", "inference authority", "background inference",
+        "provider invocation", "network authority", "tool authority",
+        "host actuation", "repository mutation", "developmental history mutation",
+        "canonical user memory mutation", "policy creation", "authority widening",
+        "grant issuance", "admission issuance", "self grant", "resource allocation",
+        "autonomous repetition", "identity conclusion", "sentience conclusion",
+        "consciousness conclusion",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "future runtime implementation requires a later separately admitted task",
+        "exact runtime operator approval bound to the preregistered experiment and exact model identities",
+        "exact non-synthetic hardened commissioning evidence for any claim of production experimental evidence",
+        "separate exact MODEL_SERVING control-plane admission for experimental model loading",
+        "separate exact LOCAL_MODEL_INFERENCE admission for every inference",
+        "canonical activation state preservation",
+        "canonical production serving state preservation",
+        "bounded model unload",
+        "durable experiment-scoped serving receipt",
+    ),
+    purpose=(
+        "Permit a future separately admitted deterministic developmental-model-replacement "
+        "experimental-serving controller to consume exact operator approval, a preregistered "
+        "model-replacement protocol, and exact hardened commissioning evidence; revalidate "
+        "the exact model artifact; load only the protocol-bound commissioned local model into "
+        "an experiment-scoped worker; observe and bind its exact production model identity; "
+        "and unload it with a durable experimental-serving receipt. The capability preserves "
+        "canonical activation and canonical production serving and grants no local-model "
+        "inference authority, model acquisition, model commissioning, provider or network "
+        "authority, memory mutation, host action, repository mutation, resource allocation, "
+        "or identity conclusion. This task registers that definition only."
+    ),
+)
+
+
+DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:developmental_model_replacement_experimental_serving:b48ad4ae9622:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING,
+    "approved_definition_digest": "b48ad4ae9622f31f5b49f926d9f295dbb5f0154a411204fe06040fef4a18638c",
+    "approved_task_name": "register_developmental_model_replacement_experimental_serving_authority",
+    "evidence_digest": "186fb04de307392072c40922e3defdde12dff32f2070244bf6d2175822d58950",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+    DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING:
+        DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),
