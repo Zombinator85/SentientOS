@@ -1,0 +1,20 @@
+{
+  "schema_version":"sentientos.task_acceptance:v1",
+  "task_classification":"behavior_adding",
+  "repository_sha":"bc74e83b71ac572f9879858ab2fcd047b2964b91",
+  "test_provenance_path":"glow/test_runs/test_run_provenance.json",
+  "required_nodes":[
+    {"node_id":"tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_cli_happy_uses_real_serving_bridge_and_cognition_owner","rationale":"Real activation, resident serving, governed inference, cognition, and writeback complete."},
+    {"node_id":"tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_activation_change_invalidates_without_successor_or_fallback","rationale":"Activation change closes A without B construction or fallback."},
+    {"node_id":"tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_production_chat_and_resident_custody_are_independent","rationale":"Production chat and resident serving have independent lifetimes and custody."},
+    {"node_id":"tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_synthetic_posture_cannot_serialize_as_production","rationale":"Synthetic rehearsal output is mechanically non-production."},
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_denial_prevents_construction","rationale":"Serving denial prevents construction."},
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_activation_change_invalidates_without_automatic_rebind","rationale":"Runtime activation drift invalidates without automatic rebind."},
+    {"node_id":"tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[deny]","rationale":"Inference denial withholds generation."}
+  ],
+  "successful_path_nodes":[
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_cli_happy_uses_real_serving_bridge_and_cognition_owner",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_activation_change_invalidates_without_successor_or_fallback",
+    "tests/e2e/test_resident_cognitive_model_serving_rehearsal.py::test_production_chat_and_resident_custody_are_independent"
+  ]
+}
