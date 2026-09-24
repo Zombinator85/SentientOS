@@ -16,7 +16,7 @@ from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from .governed_local_model_invocation import (
-    GovernedLocalModelInvoker,
+    LocalModelInvoker,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
 )
@@ -261,7 +261,7 @@ class ResidentDevelopmentalWritebackController:
         return replace(raw, selection_id=sid, selection_digest=digest)
 
     @staticmethod
-    def infer_candidate(selection: SelectedEvidence, *, invoker: GovernedLocalModelInvoker,
+    def infer_candidate(selection: SelectedEvidence, *, invoker: LocalModelInvoker,
                         correlation_id: str, budget: LocalModelInvocationBudget | None = None) -> DevelopmentalCandidate:
         bounded = budget or LocalModelInvocationBudget(max_input_chars=8000, max_output_chars=4000, max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
         if bounded.max_calls_per_correlation != 1 or bounded.max_input_chars > 8000 or bounded.max_output_chars > 4000 or bounded.max_new_tokens > 512 or bounded.timeout_seconds > 30:

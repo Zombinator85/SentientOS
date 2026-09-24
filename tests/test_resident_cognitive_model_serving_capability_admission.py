@@ -115,7 +115,7 @@ def test_existing_authority_definitions_remain_exact() -> None:
 
 def test_registration_does_not_claim_or_create_runtime_bridge() -> None:
     import sentientos.codex_task_authority_admission as admission
-    assert not Path("sentientos/resident_cognitive_model_serving.py").exists()
+    assert Path("sentientos/resident_cognitive_model_serving.py").is_file()
     assert not hasattr(admission, "resident_cognitive_model_serving_controller")
     names = register_authority_definition.__code__.co_names
     assert all(name not in names for name in ("LocalModel", "load_model", "infer", "ProductionServingController"))

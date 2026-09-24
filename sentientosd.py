@@ -33,6 +33,8 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, load_config as load_resident_serving_config)
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -214,7 +216,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -226,6 +228,7 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot: WorldStateSnapshot | None = None
         self._resident_developmental_owner = resident_developmental_owner
         self._resident_developmental_configuration_error: str | None = None
+        resident_invoker = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
             try:
                 config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
@@ -246,9 +249,9 @@ class RuntimeMaintenanceSurfaces:
                     self._resident_developmental_owner = ResidentDevelopmentalCognitionOwner(
                         config=config, writeback=writeback,
                         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-                        invoker=governed_local_invoker, current_sequence=next_admission_sequence,
-                    ) if governed_local_invoker is not None else None
-                    if governed_local_invoker is None:
+                        invoker=resident_invoker, current_sequence=next_admission_sequence,
+                    ) if resident_invoker is not None else None
+                    if resident_invoker is None:
                         self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"
             except Exception as exc:
                 self._resident_developmental_configuration_error = f"{type(exc).__name__}:{exc}"
@@ -846,6 +849,15 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     authority_map = build_local_model_authority_map()
     governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
     genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
+    resident_serving_controller = None
+    resident_serving_config = None
+    resident_serving_error = None
+    resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
+    if resident_serving_path:
+        try:
+            resident_serving_config = load_resident_serving_config(resident_serving_path)
+        except Exception as exc:
+            resident_serving_error = f"{type(exc).__name__}:{exc}"
     runtime_surfaces = RuntimeMaintenanceSurfaces(
         repo_root,
         improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
@@ -905,6 +917,30 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_health
     runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
+    if resident_serving_config is not None and resident_serving_config.enabled:
+        try:
+            assert resident_serving_config.installation_identity is not None
+            handle = InstallationStateRegistry.system().open(
+                InstallationIdentity.parse(resident_serving_config.installation_identity))
+            resident_serving_controller = ResidentCognitiveModelServingController(handle, kernel, config_digest=resident_serving_config.config_digest)
+            resident_serving_controller.establish(
+                operation_id=str(resident_serving_config.serving_operation_id),
+                expected_activation_state_digest=resident_serving_config.expected_activation_state_digest)
+            runtime_surfaces = RuntimeMaintenanceSurfaces(
+                repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
+                governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                resident_cognitive_invoker=ResidentCognitiveServingInvoker(resident_serving_controller))
+        except Exception as exc:
+            resident_serving_error = f"{type(exc).__name__}:{exc}"
+            if resident_serving_controller is not None:
+                resident_serving_controller.close()
+                resident_serving_controller = None
+            # Enabled mode is deliberately unavailable; never reconstruct with legacy invoker.
+            runtime_surfaces = RuntimeMaintenanceSurfaces(
+                repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
+                governed_local_invoker=None, genesis_advice_source=genesis_advice)
+    if resident_serving_error is not None:
+        runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     try:
@@ -951,6 +987,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             except asyncio.TimeoutError:
                 continue
     finally:
+        if resident_serving_controller is not None:
+            resident_serving_controller.close()
         if auto_derivation_owner is not None:
             auto_derivation_owner.stop()
         if scheduler_owner is not None:

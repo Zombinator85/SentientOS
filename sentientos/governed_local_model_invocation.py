@@ -4,10 +4,15 @@ import json, os, time, concurrent.futures
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Mapping, Protocol, cast
 
 from .control_plane_kernel import AuthorityClass, ControlActionRequest, ControlPlaneKernel, LifecyclePhase, get_control_plane_kernel
 from .local_model_authority import LocalModelAuthorityMap, LocalModelAuthorityRecord, atomic_write_json, digest_payload, validate_authority_map
+
+class LocalModelInvoker(Protocol):
+    def build_request(self, **kwargs: Any) -> Any: ...
+    def invoke(self, request: Any, **kwargs: Any) -> Any: ...
+
 
 INTERVENTION_PURPOSE = "resident_developmental_history_intervention_experiment"
 MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment"

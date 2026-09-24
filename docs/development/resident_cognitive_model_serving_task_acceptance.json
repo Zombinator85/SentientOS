@@ -1,0 +1,15 @@
+{
+  "schema_version":"sentientos.task_acceptance:v1",
+  "task_classification":"behavior_adding",
+  "repository_sha":"7143b796a062697918b99afcf847f9f235af184d",
+  "test_provenance_path":"glow/test_runs/test_run_provenance.json",
+  "required_nodes":[
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_exact_current_activation_establishes_separate_zero_inference_receipt","rationale":"Exact current activation establishes an inference-free resident lifetime."},
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_activation_change_invalidates_without_automatic_rebind","rationale":"Activation drift unloads without automatic successor load."},
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_denial_prevents_construction","rationale":"Denied serving authority prevents construction."},
+    {"node_id":"tests/test_resident_cognitive_model_serving.py::test_config_is_opt_in_and_never_selects_model","rationale":"Configuration rejects model-selection fields."},
+    {"node_id":"tests/test_sentientosd_resident_cognitive_serving.py::test_explicit_resident_invoker_is_independent","rationale":"Resident and unrelated invocation composition remain separate."},
+    {"node_id":"tests/test_sentientosd_resident_cognitive_serving.py::test_enabled_failure_never_substitutes_legacy_invoker","rationale":"Enabled failure never supplies the legacy invoker."}
+  ],
+  "successful_path_nodes":["tests/test_resident_cognitive_model_serving.py::test_exact_current_activation_establishes_separate_zero_inference_receipt","tests/test_sentientosd_resident_cognitive_serving.py::test_explicit_resident_invoker_is_independent"]
+}
