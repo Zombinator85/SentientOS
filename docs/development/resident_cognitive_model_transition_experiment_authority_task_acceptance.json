@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4d633bf1770ae1fbdaad150c58c1dfe854e8a734",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_exact_definition_shape_and_future_request_is_eligible", "rationale": "The exact future definition is eligible without runtime authority."},
+    {"node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_digest_bound_registration_succeeds_and_grants_nothing", "rationale": "Digest-bound registration succeeds while granting and performing nothing."},
+    {"node_id": "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_existing_authorities_runtime_and_startup_binding_are_unchanged", "rationale": "Separate authorities and startup activation binding remain intact."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_exact_definition_shape_and_future_request_is_eligible",
+    "tests/test_resident_cognitive_model_transition_experiment_capability_admission.py::test_digest_bound_registration_succeeds_and_grants_nothing"
+  ]
+}

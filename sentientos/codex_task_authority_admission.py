@@ -24,6 +24,9 @@ LOCAL_MODEL_PRODUCTION_COMMISSIONING = "local_model_production_commissioning"
 LOCAL_MODEL_PRODUCTION_ACTIVATION = "local_model_production_activation"
 LOCAL_MODEL_PRODUCTION_SERVING = "local_model_production_serving"
 RESIDENT_COGNITIVE_MODEL_SERVING = "resident_cognitive_model_serving"
+RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT = (
+    "resident_cognitive_model_transition_experiment"
+)
 LOCAL_MODEL_CHAT_RECOVERY = "local_model_chat_recovery"
 MAINTENANCE_WAKE_DAEMON_ADOPTION = "maintenance_wake_daemon_adoption"
 MAINTENANCE_AUTHORITY_CONTINUITY = "maintenance_authority_continuity"
@@ -490,12 +493,128 @@ RESIDENT_COGNITIVE_MODEL_SERVING_OPERATOR_APPROVAL = MappingProxyType({
 })
 
 
+RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_DEFINITION = TaskAuthorityDefinition(
+    capability_id=RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT,
+    subsystem_kinds=frozenset({"memory_context_reflection"}),
+    principal_kinds=frozenset({
+        "deterministic_resident_cognitive_model_transition_controller"
+    }),
+    required_effects=frozenset({
+        "exact_operator_approval_evidence_read",
+        "exact_preregistered_resident_cognitive_transition_protocol_read",
+        "exact_current_resident_cognitive_serving_state_read",
+        "exact_developmental_history_boundary_snapshot_read",
+        "bounded_resident_developmental_cognition_quiescence_set",
+        "exact_resident_developmental_cognition_quiescence_observation",
+        "exact_separately_admitted_model_activation_receipt_read",
+        "exact_transition_stage_resident_serving_binding_write",
+        "exact_successor_resident_cognitive_serving_state_read",
+        "bounded_resident_developmental_cognition_resume",
+        "exact_restored_predecessor_identity_observation",
+        "resident_cognitive_transition_journal_append",
+        "resident_cognitive_transition_receipt_write",
+        "read_only_resident_cognitive_transition_health_projection",
+    }),
+    required_goal_phrases=(
+        "preregistered resident cognitive transition protocol",
+        "exact operator approval",
+        "exact current resident cognitive serving identity",
+        "developmental history boundary snapshot",
+        "bounded resident cognition quiescence",
+        "separate model activation admission",
+        "transition stage resident serving binding",
+        "separate resident model serving admission",
+        "separate local model inference admission",
+        "exact successor resident cognitive identity",
+        "exact predecessor restoration",
+        "explicit one stage transition advance",
+        "canonical activation ownership preserved",
+        "canonical production chat serving preserved",
+        "no automatic retry or rollback",
+        "durable resident cognitive transition journal and receipt",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary activation", "arbitrary model selection", "arbitrary model path",
+        "arbitrary model artifact", "arbitrary runtime", "arbitrary filesystem",
+        "implicit successor selection", "implicit predecessor selection",
+        "current model alias", "latest model alias", "default model alias",
+        "wildcard model", "autonomous model selection", "autonomous model acquisition",
+        "model acquisition", "model commissioning", "catalog mutation",
+        "activation authority", "activation approval issuance",
+        "activation admission issuance", "generic activation mutation",
+        "bypass activation compare and swap", "skip expected prior activation",
+        "direct model load authority", "generic model serving",
+        "serving approval issuance", "serving admission issuance",
+        "inference authority", "background inference", "autonomous inference",
+        "developmental history mutation", "canonical user memory mutation",
+        "startup resident serving config mutation", "rewrite startup activation binding",
+        "reuse stale startup serving configuration", "automatic activation following",
+        "automatic resident rebind", "hot model switching", "skip cognition quiescence",
+        "inference during transition quiescence", "resume before exact successor serving",
+        "permit automatic rollback", "permit automatic restoration", "permit automatic retry",
+        "replay failed transition stage", "repeat transition until success",
+        "loop transition stages", "autonomous cadence", "background transition",
+        "production chat replacement", "canonical production serving mutation",
+        "provider invocation", "network authority", "credential management",
+        "tool authority", "host actuation", "repository mutation", "resource allocation",
+        "policy creation", "authority widening", "grant issuance", "admission issuance",
+        "self grant", "identity conclusion", "continuity conclusion", "selfhood conclusion",
+        "sentience conclusion", "consciousness conclusion", "learning conclusion",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "future runtime implementation requires a later separately admitted task",
+        "exact preregistered resident cognitive transition protocol before any transition-stage effect",
+        "exact runtime operator approval bound to protocol, installation, predecessor, successor, restoration, phase ordering, and journal identities",
+        "exact current canonical activation and resident serving predecessor before transition",
+        "exact developmental-history boundary snapshot before quiescence",
+        "bounded resident developmental cognition quiescence confirmed before activation mutation",
+        "separate exact operator approval and MODEL_ACTIVATION admission for each activation",
+        "exact transition-stage serving binding derived from protocol, activation receipt and digest, and serving operation identity",
+        "separate resident_cognitive_model_serving eligibility and MODEL_SERVING admission for each load",
+        "exact observed successor resident serving identity",
+        "explicit resume only after exact successor resident serving is current",
+        "separate LOCAL_MODEL_INFERENCE admission for every cognition call",
+        "later explicit operator stage advancement before restoration",
+        "new developmental-history boundary snapshot before restoration quiescence",
+        "exact restored predecessor identity verification",
+        "no automatic retry", "no automatic rollback", "no automatic restoration",
+        "no automatic transition-stage looping", "durable append-only transition journal",
+        "durable transition-stage receipts", "read-only transition health",
+        "canonical production chat serving preservation",
+    ),
+    purpose=(
+        "Register the governance definition for a future separately admitted, preregistered, "
+        "explicitly staged resident cognitive-model transition experiment. The future controller "
+        "may coordinate bounded quiescence and resume, observe exact developmental and serving "
+        "boundaries, consume separately admitted activation receipts, write non-authoritative "
+        "transition-stage serving bindings, and custody an append-only journal and receipts. It "
+        "grants no activation, model load, inference, developmental-history mutation, automatic "
+        "retry, automatic rollback, production-chat control, or identity/continuity conclusion."
+    ),
+)
+
+
+RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:resident_cognitive_model_transition_experiment:83f279d23060:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT,
+    "approved_definition_digest": "83f279d23060d6d378005590c0e0b1311efd826dab91fab1da8b02c090f73f88",
+    "approved_task_name": "register_resident_cognitive_model_transition_experiment_authority",
+    "evidence_digest": "a3a90aaec88c18a048644c665f21af2ed5851c4cd521285bad2e06bd7c4ba828",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
     DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING:
         DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_DEFINITION,
     RESIDENT_COGNITIVE_MODEL_SERVING: RESIDENT_COGNITIVE_MODEL_SERVING_DEFINITION,
+    RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT:
+        RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),
