@@ -135,7 +135,7 @@ def test_registration_has_no_runtime_effect_surface() -> None:
     import sentientos.codex_task_authority_admission as admission
     assert "RuntimeGrantAuthority" not in register_authority_definition.__code__.co_names
     assert "RuntimeAdmissionAuthority" not in register_authority_definition.__code__.co_names
-    assert not Path("sentientos/developmental_model_replacement_experimental_serving.py").exists()
+    assert Path("sentientos/developmental_model_replacement_experimental_serving.py").is_file()
     for name in ("load_model", "infer", "activate", "ProductionServingController"):
         assert name not in register_authority_definition.__code__.co_names
     assert not hasattr(admission, "developmental_model_replacement_experimental_serving_controller")
@@ -149,10 +149,10 @@ def test_existing_authorities_and_production_serving_invariant_are_preserved() -
     assert "current_hardened_activation_invalid" in source
 
 
-def test_known_governed_invoker_gap_remains_for_later_runtime_task() -> None:
+def test_governed_invoker_gap_is_closed_by_runtime_task() -> None:
     authority = Path("sentientos/local_model_authority.py").read_text(encoding="utf-8")
     invocation = Path("sentientos/governed_local_model_invocation.py").read_text(encoding="utf-8")
     purpose = "resident_developmental_model_replacement_experiment"
     assert purpose in authority
     supported = invocation.split("SUPPORTED_PURPOSES =", 1)[1].split("}", 1)[0]
-    assert purpose not in supported
+    assert purpose in supported

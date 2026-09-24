@@ -283,6 +283,28 @@ class ModelReplacementArtifactStore:
         if not path.is_file() or json.loads(path.read_text(encoding="utf-8")) != expected:
             raise DevelopmentalModelReplacementError("protocol_custody_changed")
 
+    def load_verified_protocol(self, protocol_id: str, protocol_digest: str) -> ModelReplacementProtocol:
+        """Load an already-persisted protocol; never construct or repair one."""
+        if (not protocol_id.startswith("model-replacement-protocol-") or "/" in protocol_id
+                or "\\" in protocol_id or not protocol_digest.startswith("sha256:")):
+            raise DevelopmentalModelReplacementError("protocol_identity_invalid")
+        path = self.protocols / f"{protocol_id}.json"
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            for role in ("model_a_identity", "model_b_identity"):
+                value[role] = CognitiveModelIdentity(**value[role])
+            value["condition_order"] = tuple(value["condition_order"])
+            value["planned_comparisons"] = tuple(value["planned_comparisons"])
+            value["non_claims"] = tuple(value["non_claims"])
+            protocol = ModelReplacementProtocol(**value)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise DevelopmentalModelReplacementError("preregistered_protocol_unavailable") from exc
+        if protocol.protocol_id != protocol_id or protocol.protocol_digest != protocol_digest:
+            raise DevelopmentalModelReplacementError("protocol_identity_mismatch")
+        protocol.verify()
+        self.verify_protocol_bytes(protocol)
+        return protocol
+
     def persist_run(self, semantic: Mapping[str, Any]) -> tuple[str, str]:
         payload = {**semantic, "schema_version": RUN_SCHEMA}
         digest = _digest(payload); run_id = "model-replacement-run-" + digest[7:31]

@@ -1,0 +1,48 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "47490fa9438084bdacf66a0da8c8c821f6042b44",
+  "test_provenance_path": "/tmp/model_replacement_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving.py::test_preregistration_before_load_verified_loader",
+      "rationale": "Existing exact protocol custody is required before load."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving.py::test_operator_approval_precedes_load_and_is_exact",
+      "rationale": "Digest-bound exact approval is verified before effects."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_model_serving_admission_precedes_construction",
+      "rationale": "MODEL_SERVING admission structurally precedes worker construction."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_exact_loaded_identity_required_and_failure_cleanup",
+      "rationale": "Loaded cognitive identity equality and cleanup are mandatory."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_separate_inference_admission_and_temperature_zero",
+      "rationale": "Inference remains separately governed and temperature zero."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_canonical_activation_and_serving_preservation",
+      "rationale": "Experimental custody has no canonical mutation path."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_deterministic_bounded_unload_and_double_close",
+      "rationale": "Close is idempotent and bounded."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving_inference.py::test_serving_transition_performs_zero_inference",
+      "rationale": "Serving transition grants and performs no inference."
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experimental_serving.py::test_synthetic_vs_production_evidence_posture",
+      "rationale": "Synthetic approval is rejected in production posture."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_developmental_model_replacement_experimental_serving.py::test_preregistration_before_load_verified_loader",
+    "tests/test_developmental_model_replacement_experimental_serving.py::test_operator_approval_precedes_load_and_is_exact"
+  ]
+}
