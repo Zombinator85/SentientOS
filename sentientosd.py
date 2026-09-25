@@ -34,7 +34,8 @@ from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
-from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, load_config as load_resident_serving_config)
+from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
+from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate)
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -216,7 +217,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -226,7 +227,8 @@ class RuntimeMaintenanceSurfaces:
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
-        self._resident_developmental_owner = resident_developmental_owner
+        self._resident_developmental_owner: Any | None = resident_developmental_owner
+        self._resident_cognition_gate = resident_cognition_gate
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
@@ -255,6 +257,9 @@ class RuntimeMaintenanceSurfaces:
                         self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"
             except Exception as exc:
                 self._resident_developmental_configuration_error = f"{type(exc).__name__}:{exc}"
+        if self._resident_developmental_owner is not None and self._resident_cognition_gate is not None:
+            self._resident_developmental_owner = QuiescedDevelopmentalCognitionOwner(
+                self._resident_developmental_owner, self._resident_cognition_gate)
         self._host_resource_runtime = HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_privilege_review_runtime = HostPrivilegeReviewRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_execution_readiness_runtime = HostExecutionReadinessRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
@@ -426,6 +431,13 @@ class RuntimeMaintenanceSurfaces:
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
                             "memory_posture": "historical_interpretation_not_current_truth"}
             except Exception as exc:
+                if getattr(exc, "code", "") == "resident_cognition_quiesced":
+                    feedback = {"status": "quiesced", "reason": "intentional_transition_quiescence",
+                                "write_performed": False, "model_invoked": False,
+                                "admission_issued": False}
+                    self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
+                    self._refresh_feedback()
+                    return feedback
                 feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}",
                             "write_performed": False}
         self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
@@ -850,6 +862,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
     genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
     resident_serving_controller = None
+    resident_serving_slot = None
     resident_serving_config = None
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
@@ -926,10 +939,13 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             resident_serving_controller.establish(
                 operation_id=str(resident_serving_config.serving_operation_id),
                 expected_activation_state_digest=resident_serving_config.expected_activation_state_digest)
+            resident_serving_slot = ResidentCognitiveServingSlot(resident_serving_controller)
+            resident_cognition_gate = ResidentCognitionQuiescenceGate()
             runtime_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
-                resident_cognitive_invoker=ResidentCognitiveServingInvoker(resident_serving_controller))
+                resident_cognitive_invoker=resident_serving_slot,
+                resident_cognition_gate=resident_cognition_gate)
         except Exception as exc:
             resident_serving_error = f"{type(exc).__name__}:{exc}"
             if resident_serving_controller is not None:
@@ -987,7 +1003,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             except asyncio.TimeoutError:
                 continue
     finally:
-        if resident_serving_controller is not None:
+        if resident_serving_slot is not None:
+            resident_serving_slot.close_current()
+        elif resident_serving_controller is not None:
             resident_serving_controller.close()
         if auto_derivation_owner is not None:
             auto_derivation_owner.stop()

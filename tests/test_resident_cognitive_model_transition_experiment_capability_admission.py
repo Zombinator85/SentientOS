@@ -119,7 +119,9 @@ def test_existing_authorities_runtime_and_startup_binding_are_unchanged() -> Non
         DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING: "b48ad4ae9622f31f5b49f926d9f295dbb5f0154a411204fe06040fef4a18638c",
     }
     assert {key: authority_definition_digest(AUTHORITY_DEFINITIONS[key]) for key in expected} == expected
-    assert not Path("sentientos/resident_cognitive_model_transition_experiment.py").exists()
+    # The separately admitted implementation task may add the runtime module; its
+    # presence does not mutate any of the pre-existing authority definitions.
+    assert Path("sentientos/resident_cognitive_model_transition_experiment.py").is_file()
     source = Path("sentientos/resident_cognitive_model_serving.py").read_text(encoding="utf-8")
     assert "expected_activation_state_digest" in source and "serving_operation_id" in source and "serving_config_digest" in source
     assert "exact_transition_stage_resident_serving_binding_write" in DEFINITION.required_effects

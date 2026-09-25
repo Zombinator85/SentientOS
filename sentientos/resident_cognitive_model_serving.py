@@ -430,3 +430,35 @@ class ResidentCognitiveServingInvoker:
         if receipt.admission_decision_ref == session.binding["model_serving_admission_ref"]:
             raise ResidentCognitiveModelServingError("inference_admission_not_independent")
         return receipt
+
+class ResidentCognitiveServingSlot:
+    """Stable, process-local invocation surface for an explicitly rebound controller.
+
+    The slot owns no authority: callers must establish and verify a controller before
+    binding it.  It never selects, loads, activates, or automatically rebinds a model.
+    """
+    def __init__(self, controller: ResidentCognitiveModelServingController) -> None:
+        self._lock = __import__("threading").RLock()
+        self._controller = controller
+
+    @property
+    def current_controller(self) -> ResidentCognitiveModelServingController:
+        with self._lock:
+            return self._controller
+
+    def bind_verified(self, controller: ResidentCognitiveModelServingController) -> ServingSession:
+        session = controller.current_session()
+        if session is None:
+            raise ResidentCognitiveModelServingError("replacement_serving_not_current")
+        with self._lock:
+            self._controller = controller
+        return session
+
+    def build_request(self, **kwargs: Any) -> Any:
+        return ResidentCognitiveServingInvoker(self.current_controller).build_request(**kwargs)
+
+    def invoke(self, request: Any, **kwargs: Any) -> Any:
+        return ResidentCognitiveServingInvoker(self.current_controller).invoke(request, **kwargs)
+
+    def close_current(self) -> None:
+        self.current_controller.close()
