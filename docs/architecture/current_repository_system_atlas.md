@@ -164,6 +164,14 @@ Screen/OCR, audio/speech, vision/gaze, sensor provenance, privacy and retention 
 
 The World-State Evidence Board projects sourced records, freshness and conflicts; it is not an omniscient or self-authorizing truth store. `ControlPlaneKernel` and `RuntimeGovernor` distinguish definition, grants, policy, feasibility, admission, revocation/supersession, execution custody, receipt, and adoption. Audit trust, pulse epochs, quarantine, privacy, evidence strength, calibration, and `untrusted_external_data` are real concepts but remain partly domain-specific rather than one universal ontology.
 
+The longitudinal self-model owner is a separate derived-evidence plane. It can
+reconcile an exact validated World-State snapshot into immutable claim generations
+with source digests, history, staleness, contradiction, withdrawal, and
+supersession, while carrying no action or admission authority. It is available for
+explicit composition after World-State but is not a default `sentientosd` writer
+or resident-cognition input. Legacy `/glow/self.json` remains mutable
+library/compatibility narrator and attention scratch state rather than this plane.
+
 ### Host observation and effects
 
 Resident host-resource code observes CPU/memory/disk/service/thermal evidence and produces proposals/review material. Phase-one observation does not grant fan/PWM/thermal writes. Real filesystem, local diagnostic, subprocess, GUI, service and other actuator classes are inventoried separately; most are operator/authority gated and not resident defaults.
@@ -216,6 +224,7 @@ Domain differences matter: external HTTPS requires a network execution custodian
 | revocations | authority invalidation | authoritative | control plane | append-only ledger | digest bound | current sequence |
 | fulfillment-consumption | single-use authority | authoritative | fulfillment custodian | append-only ledger | digest bound | consumed state |
 | world-state | evidence board snapshot | derived/advisory | WorldStateBoardBuilder | atomic file | source digests | explicit observed-at/conflicts |
+| longitudinal-self-model | evidence-bound historical claims | derived/non-authoritative | LongitudinalSelfModelOwner | append-only atomic reconciliation files | source/snapshot/chain digests | explicit fresh/stale/superseded/withdrawn/conflicted |
 | host-observations | host facts | observation | host runtime | atomic file | evidence digests | sample time |
 | model-state | activation/serving identity | authoritative for model route | model lifecycle controllers | atomic file | digest bound | generation/currentness |
 | external-receipts | network attempt/result | evidence | execution custody | append-only ledger | request/response digests | attempt time |

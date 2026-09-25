@@ -1,0 +1,32 @@
+{
+  "repository_sha": "a41da8273b02517786af9a28bc65c8c726bf9dd9",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_exact_source_binding_and_identical_replay_are_idempotent",
+      "rationale": "An exact validated World-State snapshot deterministically produces source-bound claims and exact replay adds no journal generation."
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims",
+      "rationale": "The controlled software/model A to B sequence preserves A as historical and binds B as current."
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_contradictory_evidence_is_preserved_without_latest_wins",
+      "rationale": "Contradictory source values remain explicit rather than being confidence- or order-resolved."
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_restart_reconstruction_detects_tamper_and_retains_superseded_history",
+      "rationale": "Restart reconstruction verifies journal custody and retains superseded claims."
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_authority_and_model_authored_claim_smuggling_is_rejected",
+      "rationale": "Unsupported stochastic assertion and authority fields fail closed without mutation."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_longitudinal_self_model.py::test_exact_source_binding_and_identical_replay_are_idempotent",
+    "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "/tmp/longitudinal_self_model_test_provenance.json"
+}

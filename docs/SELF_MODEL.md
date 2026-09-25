@@ -1,70 +1,85 @@
-# Self-Model Specification
+# Self-model surfaces
 
-The self-model persists deterministic, covenant-aligned state under
-`/glow/self.json`. Modules read from and write back to this store using validated
-contracts to keep cycles predictable and auditable.
+SentientOS has two deliberately separate families that have historically used the
+term “self-model.” They are not interchangeable.
 
-## Default Self-State
+## Legacy Glow self-state
 
-At initialization the self-model includes stable keys with conservative values:
+`sentientos/glow/self_state.py` owns the compatibility `/glow/self.json` file (or
+`$SENTIENTOS_DATA_DIR/glow/self.json`). It is a library-level mutable scratch
+state for mood, confidence, attention, generated-goal context, and narrator
+summaries. Its baseline/drift scripts fingerprint that implementation schema.
+It is not composed into the default `sentientosd` maintenance path, is not an
+evidence ledger, and carries no claim-level World-State provenance.
 
-- `identity`: descriptive string; defaults to `"sentientos-core"`.
-- `capabilities`: object of feature flags; defaults to `{"reflection": false, "simulation": false}`.
-- `safety_flag`: `"clear"` unless inherited from prior storage.
-- `introspection`: empty object reserved for narrator summaries.
-- `validation`: object capturing the last successful schema check, including
-  `timestamp` and `status`.
+Earlier versions of this page described `identity`, `capabilities`,
+`safety_flag`, `introspection`, `validation`, and `updated_at`. That description
+does not match the live `DEFAULT_SELF_STATE`; it was documentation drift, not an
+additional supported schema. The compatibility implementation and its tests
+remain unchanged rather than being silently modernized into a different trust
+contract.
 
-## Schema
+## Evidence-bound longitudinal self-model
 
-| Key | Type | Notes |
-| --- | --- | --- |
-| `identity` | string | Stable identifier, 1-128 chars, ASCII letters, numbers, underscores. |
-| `capabilities` | object | Boolean or enumerated strings describing available modules. |
-| `context` | object | Optional bounded hints used by the kernel; depth 2 max. |
-| `safety_flag` | string | One of `"clear"`, `"hold"`, `"escalate"`; persists until explicitly cleared. |
-| `introspection` | object | Narrator summaries and simulation notes; read-only to other modules. |
-| `validation` | object | `{ "status": "valid" | "invalid", "timestamp": <ISO-8601>, "details": <object> }`. |
-| `updated_at` | string | Normalized timestamp of last deterministic write. |
+`sentientos.longitudinal_self_model.LongitudinalSelfModelOwner` is the modern
+substrate for factual claims about the persistent causal system. It consumes an
+already validated `WorldStateSnapshot`; it does not invoke a model or accept
+free-form reflection. Each bounded claim records:
 
-## Validation Rules
+* a content-derived claim identity and stable subject/predicate key;
+* structured value, category, lifecycle stage, and temporal scope;
+* exact fact, source, source-digest, snapshot, and observation-time bindings;
+* freshness, contradiction, evidence strength, and current/historical/
+  withdrawn status;
+* first/last supported generation and tick;
+* supersession links; and
+* software generation, cognitive-model identity, and developmental-history
+  boundary when those values exist in authenticated source payloads.
 
-1. All required keys must exist before write-back.
-2. Unknown keys are rejected unless a migration allows them.
-3. Timestamps are normalized to `YYYY-MM-DDThh:mm:ssZ`.
-4. `safety_flag` escalations propagate forward automatically; de-escalation
-   requires a validated clearance event.
-5. `introspection` content must remain bounded: plain strings, numbers, and
-   booleans only.
+The initial deterministic vocabulary is intentionally narrow: lifecycle
+disposition plus explicit software/runtime generation, cognitive-model identity,
+developmental-history boundary, configuration/capability identity, and a proven
+observed consequence. An `observed_consequence` is projected only when the
+World-State fact says the effect was proven. Authority, permission, policy,
+goals, adoption, consciousness, sentience, identity continuity, learning,
+improvement, and model-authored/reflection claims are rejected rather than
+converted into facts.
 
-## Contract for Module Write-Back
+### Reconciliation and custody
 
-- Modules must read the current state, apply deterministic transformations, and
-  validate against the schema before persisting.
-- Partial updates merge into the stored object without removing unrelated keys.
-- `updated_at` is refreshed after successful validation.
-- When a module raises `safety_flag` from `"clear"` or `"hold"` to `"escalate"`,
-  the new value must not be lowered by subsequent modules in the same cycle
-  unless a clearance validator succeeds.
+Reconciliations are immutable, digest-bound JSON records in a generation-ordered
+journal. The writer uses the repository's atomic JSON writer. A repeated exact
+snapshot returns the existing reconciliation, while a snapshot identity reused
+with different bytes fails closed. Startup reconstructs and verifies the whole
+digest and parent chain before writing.
 
-## Timestamp Normalization
+A changed value supersedes the previously current value but retains it as a
+historical claim. Disappearing evidence becomes `withdrawn`/`stale`, not false.
+Old observations are historical rather than current. Simultaneous incompatible
+values and World-State conflict bindings remain explicit contradictions; neither
+confidence nor latest prose selects a winner. The source snapshot and its source
+artifacts are read-only inputs and are never rewritten by reconciliation.
 
-All timestamps in the self-model use UTC and include a trailing `Z`. Sub-second
-precision is allowed but optional.
+Every reconciliation and claim carries an all-false authority map. Projection is
+description, not admission, policy, permission, adoption, effect completion, or
+current truth by declaration.
 
-## Minimal JSON Example
+### Runtime and cognition boundary
 
-```json
-{
-  "identity": "sentientos-core",
-  "capabilities": {
-    "reflection": true,
-    "simulation": false
-  },
-  "context": {"pulse_domain": "internal"},
-  "safety_flag": "clear",
-  "introspection": {"last_cycle": "bounded review"},
-  "validation": {"status": "valid", "timestamp": "2025-09-12T18:30:00Z"},
-  "updated_at": "2025-09-12T18:30:00Z"
-}
-```
+The causal ordering is source proof/observation → World-State → longitudinal
+self-model → possible later developmental interpretation. The deterministic
+owner is implemented and can be explicitly composed after a same-tick
+World-State build. It is not yet enabled as a default `sentientosd` writer, and
+resident developmental cognition does not yet consume it. That conservative
+boundary avoids an unreviewed durable writer and same-tick recursive
+self-certification. A later composition task must define explicit configuration,
+storage custody, bounded claim selection, and prior-tick-only cognitive exposure.
+
+The journal survives replacement of the software or cognitive model interpreting
+it because its identities and verification depend on canonical evidence bytes,
+not narrator state. This establishes the causal substrate needed to ask what was
+represented, what changed, and what evidence followed. It does not establish
+calibrated autonomous self-reflection, causal explanation beyond cited evidence,
+psychological continuity, consciousness, learning, or improvement. Those require
+runtime composition plus independently scored calibration and production
+longitudinal trials.
