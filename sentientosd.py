@@ -11,7 +11,7 @@ from contextlib import suppress
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -35,7 +35,10 @@ from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
-from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate)
+from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary)
+from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
+from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
+from sentientos.local_model_production_activation import verify_current_activation
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -73,14 +76,15 @@ from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as R
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 
 LOGGER = logging.getLogger(__name__)
+RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
 
 
 def _prepare_resident_runtime_startup(controller: MaintenanceResidentRuntimeAdoptionController) -> dict[str, Any]:
     """Prove this image before any maintenance owner is allowed to start."""
     marker = os.environ.get(RESIDENT_TRANSITION_ENV)
     if marker:
-        return controller.complete_post_exec(marker=marker)
-    return controller.capture_baseline()
+        return cast(dict[str, Any], controller.complete_post_exec(marker=marker))
+    return cast(dict[str, Any], controller.capture_baseline())
 
 
 def _drive_resident_runtime_transition(
@@ -100,7 +104,7 @@ def _drive_resident_runtime_transition(
             return False
         return time.monotonic() - started <= timeout
 
-    return controller.request_replacement(quiesce=quiesce)
+    return cast(dict[str, Any] | None, controller.request_replacement(quiesce=quiesce))
 
 
 def _start_maintenance_daemon_owners(
@@ -230,6 +234,7 @@ class RuntimeMaintenanceSurfaces:
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
+        self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
@@ -447,7 +452,10 @@ class RuntimeMaintenanceSurfaces:
 
     def process_resident_cognitive_transition_request(self, *, tick_id: str) -> dict[str, Any]:
         """Process at most one operator packet, after ordinary cognition."""
-        if self._resident_transition_runtime is None:
+        if self._resident_transition_configuration_error is not None:
+            result = {"status": "blocked", "reason": self._resident_transition_configuration_error,
+                      "effect_performed": False, "interrupted": True}
+        elif self._resident_transition_runtime is None:
             result = {"status": "disabled", "effect_performed": False}
         else:
             result = self._resident_transition_runtime.process_one()
@@ -634,6 +642,83 @@ def _record_maintenance_degradation(*, kernel: Any, signal: dict[str, Any]) -> N
             )
 
 
+def _resident_developmental_owner(surfaces: RuntimeMaintenanceSurfaces) -> ResidentDevelopmentalCognitionOwner:
+    owner = surfaces._resident_developmental_owner
+    if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
+        owner = owner._owner
+    if not isinstance(owner, ResidentDevelopmentalCognitionOwner):
+        raise TransitionError("resident_developmental_history_owner_required")
+    return owner
+
+
+def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
+        kernel: Any, slot: ResidentCognitiveServingSlot, gate: ResidentCognitionQuiescenceGate,
+        developmental_owner: ResidentDevelopmentalCognitionOwner | None = None,
+        runtime_surfaces: RuntimeMaintenanceSurfaces | None = None,
+        allow_synthetic_evidence_for_tests: bool = False,
+        serving_controller_factory: Any = ResidentCognitiveModelServingController,
+        clock: Any = lambda: datetime.now(timezone.utc)) -> LiveTransitionOperatorRuntime | None:
+    """Compose the live ingress from the exact already-established resident objects."""
+    config = LiveTransitionConfig.load(Path(config_path))
+    if not config.enabled:
+        return None
+    if developmental_owner is None:
+        if runtime_surfaces is None:
+            raise TransitionError("resident_developmental_history_owner_required")
+        developmental_owner = _resident_developmental_owner(runtime_surfaces)
+    if config.installation_identity != installation_handle.identity.value:
+        raise TransitionError("live_transition_installation_identity_mismatch")
+    protocol = load_verified_protocol(installation_handle.root,
+        protocol_id=config.protocol_id, protocol_digest=config.protocol_digest)
+    if protocol.value.get("installation_identity") != installation_handle.identity.value:
+        raise TransitionError("transition_protocol_installation_identity_mismatch")
+    if config.journal_identity != resident_transition_journal_identity(protocol):
+        raise TransitionError("transition_journal_custody_identity_mismatch")
+    current = verify_current_activation(installation_handle,
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+    session = slot.current_controller.current_session()
+    if session is None:
+        raise TransitionError("hardened_resident_serving_required")
+    observed_identity = session.binding.get("observed_loaded_model_identity")
+    if observed_identity != protocol.value.get("predecessor_a"):
+        raise TransitionError("transition_protocol_predecessor_identity_mismatch")
+    initial = protocol.value.get("initial_activation", {})
+    active = current["active_state"]
+    if (initial.get("state_semantic_digest") != active.get("state_semantic_digest")
+            or initial.get("generation") != active.get("generation")):
+        raise TransitionError("transition_protocol_initial_activation_mismatch")
+
+    def boundary() -> Mapping[str, Any]:
+        verified = verify_current_activation(installation_handle,
+            allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+        current_session = slot.current_controller.current_session()
+        activation = {**dict(verified["active_state"]),
+            "receipt_id": verified["activation_receipt"]["receipt_id"],
+            "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"]}
+        return developmental_history_boundary(store=developmental_owner.writeback.store,
+            composition_state_path=developmental_owner.state_path,
+            activation=activation, session=current_session.to_dict() if current_session is not None else None)
+
+    journal = TransitionJournal(installation_handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+    if not journal.entries() and dict(boundary()) != dict(protocol.value.get("initial_history_boundary", {})):
+        raise TransitionError("transition_protocol_initial_history_boundary_mismatch")
+    operations = ResidentCognitiveTransitionStageOperations(
+        installation_handle=installation_handle, control_plane_kernel=kernel,
+        protocol=protocol, journal=journal, gate=gate, slot=slot,
+        serving_controller_factory=serving_controller_factory, clock=clock,
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+    controller = ResidentCognitiveModelTransitionController(protocol=protocol, journal=journal,
+        gate=gate, slot=slot, history_snapshot=boundary, operations=operations,
+        allow_synthetic_approval_for_tests=allow_synthetic_evidence_for_tests, clock=clock)
+    # Construction reconstructs journal and proves that any durable quiescence token is
+    # still the exact process-local token. A restarted quiesced experiment is blocked.
+    if controller.health()["status"] == "interrupted":
+        raise TransitionError("transition_journal_interrupted_or_unreconstructable")
+    return LiveTransitionOperatorRuntime(config=config,
+        installation_root=installation_handle.root, controller=controller, slot=slot, gate=gate,
+        clock=clock)
+
+
 def _run_maintenance_tick(
     *,
     kernel: Any,
@@ -811,16 +896,9 @@ def _run_maintenance_tick(
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
         if callable(build_board):
             build_board(tick_id=tick_id)
-        current_surface = "resident_developmental_cognition"
-        current_correlation_id = f"{tick_id}:resident_developmental_cognition"
-        run_developmental_cognition = getattr(runtime_surfaces, "run_resident_developmental_cognition", None)
-        if callable(run_developmental_cognition):
-            run_developmental_cognition(tick_id=tick_id)
-        current_surface = "resident_cognitive_transition_operator"
-        current_correlation_id = f"{tick_id}:resident_cognitive_transition_operator"
-        process_transition = getattr(runtime_surfaces, "process_resident_cognitive_transition_request", None)
-        if callable(process_transition):
-            process_transition(tick_id=tick_id)
+        current_surface = "resident_developmental_cognition_then_transition_operator"
+        current_correlation_id = f"{tick_id}:resident_developmental_cognition_then_transition_operator"
+        _run_resident_cognition_and_transition(runtime_surfaces, tick_id=tick_id)
         kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
         current_surface = "repository_mutation_handoff"
@@ -853,6 +931,16 @@ def _run_maintenance_tick(
         return
 
 
+def _run_resident_cognition_and_transition(runtime_surfaces: RuntimeMaintenanceSurfaces,
+        *, tick_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Preserve the daemon tail order: cognition, then at most one operator request."""
+    run_cognition = getattr(runtime_surfaces, "run_resident_developmental_cognition", None)
+    cognition = run_cognition(tick_id=tick_id) if callable(run_cognition) else None
+    process_transition = getattr(runtime_surfaces, "process_resident_cognitive_transition_request", None)
+    transition = process_transition(tick_id=tick_id) if callable(process_transition) else None
+    return cognition, transition
+
+
 async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) -> None:
     """Run the autonomous Codex maintenance loop."""
 
@@ -882,6 +970,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     resident_serving_config = None
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
+    resident_transition_live_path = os.environ.get(RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV)
     if resident_serving_path:
         try:
             resident_serving_config = load_resident_serving_config(resident_serving_path)
@@ -957,11 +1046,32 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 expected_activation_state_digest=resident_serving_config.expected_activation_state_digest)
             resident_serving_slot = ResidentCognitiveServingSlot(resident_serving_controller)
             resident_cognition_gate = ResidentCognitionQuiescenceGate()
-            runtime_surfaces = RuntimeMaintenanceSurfaces(
+            candidate_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
                 resident_cognitive_invoker=resident_serving_slot,
                 resident_cognition_gate=resident_cognition_gate)
+            resident_transition_runtime = None
+            resident_transition_error = None
+            if resident_transition_live_path:
+                try:
+                    resident_transition_runtime = _compose_live_resident_transition(
+                        config_path=resident_transition_live_path, installation_handle=handle,
+                        kernel=kernel, slot=resident_serving_slot, gate=resident_cognition_gate,
+                        runtime_surfaces=candidate_surfaces)
+                except Exception as exc:
+                    resident_transition_error = f"{type(exc).__name__}:{exc}"
+            if resident_transition_runtime is not None:
+                runtime_surfaces = RuntimeMaintenanceSurfaces(
+                    repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
+                    governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                    resident_developmental_owner=_resident_developmental_owner(candidate_surfaces),
+                    resident_cognitive_invoker=resident_serving_slot,
+                    resident_cognition_gate=resident_cognition_gate,
+                    resident_transition_runtime=resident_transition_runtime)
+            else:
+                runtime_surfaces = candidate_surfaces
+            runtime_surfaces._resident_transition_configuration_error = resident_transition_error
         except Exception as exc:
             resident_serving_error = f"{type(exc).__name__}:{exc}"
             if resident_serving_controller is not None:
@@ -973,6 +1083,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 governed_local_invoker=None, genesis_advice_source=genesis_advice)
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
+    if resident_transition_live_path and resident_serving_controller is None:
+        runtime_surfaces._resident_transition_configuration_error = (
+            runtime_surfaces._resident_transition_configuration_error
+            or "hardened_resident_serving_required")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     try:

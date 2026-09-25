@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "42a7be312f2f1bb55fde95228b744eb909f05309",
+  "test_provenance_path": "/tmp/sentientosd_resident_transition_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_actual_daemon_composition_helper_rehearsal_uses_same_live_objects",
+      "rationale": "The actual daemon composition helper loads fixed protocol custody, shares the resident objects, consumes immutable requests one stage at a time, preserves quiescence, and resumes without inference."
+    },
+    {
+      "node_id": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_fixed_protocol_custody_is_immutable_and_exactly_verified",
+      "rationale": "The daemon accepts only immutable fixed installation protocol custody with exact ID and digest equality."
+    },
+    {
+      "node_id": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_run_loop_regression_closes_previous_daemon_composition_gap",
+      "rationale": "The run-loop boundary loads explicit live configuration, invokes composition, injects the runtime, and preserves cognition-before-transition ordering."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token",
+      "rationale": "A process restart cannot reconstruct an old process-local live quiescence token."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_actual_daemon_composition_helper_rehearsal_uses_same_live_objects"
+  ]
+}

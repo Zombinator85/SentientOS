@@ -48,7 +48,7 @@ def activation_value(letter: str, generation: int):
 class Operations:
     def __init__(self, slot, *, fail=None, mismatch=False):
         self.slot, self.fail, self.mismatch = slot, fail, mismatch
-    def activate_successor(self):
+    def activate_successor(self, context=None):
         if self.fail == "b_activation": raise RuntimeError("denied")
         return {"activation": activation_value("b", 2)}
     def serve_successor(self, activation):
@@ -56,7 +56,7 @@ class Operations:
         identity = {"identity_digest": "wrong" if self.mismatch else "b"}
         self.slot.current_controller = Serving(Session("session-b", identity, activation, "b-op"))
         return {"session": self.slot.current_controller.session.to_dict()}
-    def activate_restored_predecessor(self):
+    def activate_restored_predecessor(self, context=None):
         if self.fail == "a_activation": raise RuntimeError("denied")
         return {"activation": activation_value("c", 3)}
     def serve_restored_predecessor(self, activation):

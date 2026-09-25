@@ -13,9 +13,12 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
 
-from .resident_cognitive_model_transition_experiment import PHASES, TransitionError, digest
+from .resident_cognitive_model_transition_experiment import (
+    PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
+)
 
 CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
 REQUEST_SCHEMA = "sentientos.resident_cognitive_transition_operator_request:v1"
@@ -23,6 +26,7 @@ RECEIPT_SCHEMA = "sentientos.resident_cognitive_transition_operator_request_rece
 REQUEST_CUSTODY = "state/resident-cognitive-transition/operator-requests"
 RECEIPT_CUSTODY = "state/resident-cognitive-transition/operator-request-receipts.jsonl"
 JOURNAL_CUSTODY = "state/resident-cognitive-transition/transition.journal.jsonl"
+PROTOCOL_CUSTODY = "state/resident-cognitive-transition/protocol.json"
 
 
 def _plain(value: Any) -> Any:
@@ -93,8 +97,10 @@ def build_request(*, installation_identity: str, protocol: Mapping[str, Any], re
         raise TransitionError("operator_request_stage_approval_invalid")
     subordinate_bindings = []
     for item in subordinate:
-        artifact_digest = str(item.get("approval_digest") or item.get("receipt_semantic_digest") or "")
-        artifact_id = str(item.get("approval_id") or item.get("receipt_id") or "")
+        artifact_digest = str(item.get("approval_digest") or item.get("approval_semantic_digest")
+                              or item.get("receipt_semantic_digest") or "")
+        artifact_id = str(item.get("approval_id") or item.get("approval_evidence_id")
+                          or item.get("receipt_id") or "")
         if not artifact_id or not artifact_digest:
             raise TransitionError("operator_request_subordinate_approval_invalid")
         subordinate_bindings.append({"approval_id": artifact_id, "approval_digest": artifact_digest})
@@ -127,6 +133,46 @@ def persist_request(installation_root: Path, request: Mapping[str, Any]) -> Path
     finally:
         os.close(descriptor)
     return target
+
+
+def persist_protocol(installation_root: Path, protocol: TransitionProtocol) -> Path:
+    """Install one immutable exact protocol at the sole daemon custody path."""
+    protocol.verify()
+    target = Path(installation_root) / PROTOCOL_CUSTODY
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = _canonical(protocol.value)
+    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
+    try:
+        os.write(descriptor, data)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    return target
+
+
+def load_verified_protocol(installation_root: Path, *, protocol_id: str,
+                           protocol_digest: str) -> TransitionProtocol:
+    """Load only the fixed installation protocol and verify its exact binding."""
+    path = Path(installation_root) / PROTOCOL_CUSTODY
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TransitionError("transition_protocol_missing_or_invalid") from exc
+    if not isinstance(value, dict):
+        raise TransitionError("transition_protocol_missing_or_invalid")
+    protocol = TransitionProtocol(MappingProxyType(value))
+    protocol.verify()
+    if value.get("protocol_id") != protocol_id or value.get("protocol_digest") != protocol_digest:
+        raise TransitionError("transition_protocol_config_binding_mismatch")
+    return protocol
+
+
+def journal_identity(protocol: TransitionProtocol) -> str:
+    return "resident-transition-journal-" + digest({
+        "protocol_id": protocol.value["protocol_id"],
+        "protocol_digest": protocol.value["protocol_digest"],
+        "journal_custody": JOURNAL_CUSTODY,
+    })[:24]
 
 
 class LiveTransitionOperatorRuntime:
@@ -205,8 +251,11 @@ class LiveTransitionOperatorRuntime:
                     if not isinstance(subordinate, list): raise TransitionError("operator_request_subordinate_approval_invalid")
                     if self.subordinate_verifier is not None:
                         self.subordinate_verifier(str(packet["requested_stage"]), subordinate)
+                    context = TransitionStageExecutionContext.create(
+                        str(packet["requested_stage"]), subordinate)
                     result = dict(self.controller.advance(approval=packet["stage_approval"],
-                                                          evidence=packet.get("stage_evidence", {})))
+                                                          evidence=packet.get("stage_evidence", {}),
+                                                          stage_execution_context=context))
                     receipt = self._append_receipt(request_id, "stage_advanced", result)
                     return {"status": "stage_advanced", "request_id": request_id,
                             "effect_performed": True, "stage_result": result,

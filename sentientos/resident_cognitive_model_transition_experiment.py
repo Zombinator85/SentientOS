@@ -275,10 +275,34 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
 
 
 class TransitionStageOperations(Protocol):
-    def activate_successor(self) -> Mapping[str, Any]: ...
+    def activate_successor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
     def serve_successor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
-    def activate_restored_predecessor(self) -> Mapping[str, Any]: ...
+    def activate_restored_predecessor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
     def serve_restored_predecessor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
+
+
+@dataclass(frozen=True)
+class TransitionStageExecutionContext:
+    """Immutable, request-local custody for subordinate approval artifacts."""
+
+    requested_stage: str
+    subordinate_approvals: tuple[Mapping[str, Any], ...]
+
+    @classmethod
+    def create(cls, requested_stage: str,
+               approvals: Sequence[Mapping[str, Any]]) -> "TransitionStageExecutionContext":
+        frozen = tuple(MappingProxyType(_plain(item)) for item in approvals)
+        return cls(requested_stage=requested_stage, subordinate_approvals=frozen)
+
+    def exact_activation_approval(self) -> Mapping[str, Any]:
+        if self.requested_stage not in {"b_activation_committed", "a_restoration_activation_committed"}:
+            raise TransitionError("activation_approval_requested_for_wrong_stage")
+        if len(self.subordinate_approvals) != 1:
+            raise TransitionError("exact_external_activation_approval_required")
+        approval = self.subordinate_approvals[0]
+        if not approval.get("approval_evidence_id") or not approval.get("approval_semantic_digest"):
+            raise TransitionError("exact_external_activation_approval_required")
+        return approval
 
 
 def make_stage_approval(*, protocol: TransitionProtocol, requested_stage: str, prior_phase: str,
@@ -406,7 +430,8 @@ class ResidentCognitiveModelTransitionController:
                 "correlation_id": approval.get("correlation_id"),
                 "operation_identity": approval.get("operation_identity")}
 
-    def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None,
+                stage_execution_context: TransitionStageExecutionContext | None = None) -> Mapping[str, Any]:
         self.protocol.verify()
         self._state = self._reconstruct()
         if self._state.blocked:
@@ -437,7 +462,7 @@ class ResidentCognitiveModelTransitionController:
                 supplied.update({"verified_session_id": session.session_id})
             elif target == "b_activation_committed":
                 if self.operations is None: raise TransitionError("transition_operations_required")
-                supplied.update(_plain(self.operations.activate_successor()))
+                supplied.update(_plain(self.operations.activate_successor(stage_execution_context)))
             elif target == "b_serving_bound":
                 if self.operations is None: raise TransitionError("transition_operations_required")
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
@@ -445,7 +470,7 @@ class ResidentCognitiveModelTransitionController:
                 supplied.update(_plain(self.operations.serve_successor(activation)))
             elif target == "a_restoration_activation_committed":
                 if self.operations is None: raise TransitionError("transition_operations_required")
-                supplied.update(_plain(self.operations.activate_restored_predecessor()))
+                supplied.update(_plain(self.operations.activate_restored_predecessor(stage_execution_context)))
             elif target == "restored_a_serving_bound":
                 if self.operations is None: raise TransitionError("transition_operations_required")
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
