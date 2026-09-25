@@ -39,10 +39,11 @@ class _Controller:
         return {"phase": self.phase, "journal_head": "GENESIS" if not self.calls else f"head-{self.calls}",
                 "status": "in_progress"}
 
-    def advance(self, *, approval, evidence=None):
+    def advance(self, *, approval, evidence=None, stage_execution_context=None):
         self.calls += 1
         prior = self.phase
         self.phase = PHASES[PHASES.index(self.phase) + 1]
+        assert stage_execution_context is not None
         return {"prior_phase": prior, "phase": self.phase, "journal_head": f"head-{self.calls}",
                 "advanced_one_stage": True}
 

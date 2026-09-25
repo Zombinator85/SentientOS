@@ -13,8 +13,9 @@ from .resident_cognitive_model_serving import (
     ResidentCognitiveModelServingController, ResidentCognitiveServingSlot,
 )
 from .resident_cognitive_model_serving_rehearsal import (
-    FIXED, _Worker, _activate, _fixture, _owner, _snapshot,
+    FIXED, _Worker, _activate, _approval, _fixture, _owner, _snapshot,
 )
+from .local_model_production_activation import prepare_activation_intent
 from .resident_cognitive_model_transition_experiment import (
     PHASES, QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate,
     ResidentCognitiveModelTransitionController, TransitionJournal, TransitionProtocol,
@@ -60,7 +61,7 @@ class _RealTransitionOperations:
         return {"stage_binding": dict(binding), "session": bound.to_dict(),
                 "serving_admission": bound.binding["model_serving_admission_ref"]}
 
-    def activate_successor(self) -> Mapping[str, Any]:
+    def activate_successor(self, context: Any | None = None) -> Mapping[str, Any]:
         current = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
         result = _activate(self.handle, self.receipts[1]["receipt_id"], self.kernel,
                            current["active_state"]["state_semantic_digest"], "transition-b")
@@ -71,7 +72,7 @@ class _RealTransitionOperations:
         return self._serve(identity=self.identities[1], activation=activation,
                            operation_id=str(self.protocol.value["b_serving_operation_id"]), stage="b_serving_bound")
 
-    def activate_restored_predecessor(self) -> Mapping[str, Any]:
+    def activate_restored_predecessor(self, context: Any | None = None) -> Mapping[str, Any]:
         current = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
         result = _activate(self.handle, self.receipts[0]["receipt_id"], self.kernel,
                            current["active_state"]["state_semantic_digest"], "transition-restored-a")
@@ -112,9 +113,9 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     def boundary() -> Mapping[str, Any]:
         verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=True)
         session = slot.current_controller.current_session()
-        return cast(Mapping[str, Any], developmental_history_boundary(store=cognition.writeback.store,
+        return developmental_history_boundary(store=cognition.writeback.store,
             composition_state_path=cognition.state_path,
-            activation=_activation(verified), session=session.to_dict() if session is not None else None))
+            activation=_activation(verified), session=session.to_dict() if session is not None else None)
 
     initial_boundary = boundary()
     protocol = TransitionProtocol.create(installation_identity=handle.identity.value,
@@ -131,20 +132,44 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     live_runtime = None
     live_surfaces = None
     live_requests: list[str] = []
+    transition_workers: list[_Worker] = []
+    resume_inference_deltas: list[int] = []
     if live_operator_ingress:
-        from sentientosd import RuntimeMaintenanceSurfaces
+        from sentientosd import (RuntimeMaintenanceSurfaces, _compose_live_resident_transition,
+                                 _run_resident_cognition_and_transition)
         from .resident_cognitive_transition_operator import (
             JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
-            LiveTransitionOperatorRuntime, build_request, persist_request,
+            build_request, journal_identity, persist_protocol, persist_request,
         )
-        live_runtime = LiveTransitionOperatorRuntime(config=LiveTransitionConfig(
+        persist_protocol(handle.root, protocol)
+        live_config = LiveTransitionConfig(
             True, handle.identity.value, str(protocol.value["protocol_id"]),
             str(protocol.value["protocol_digest"]), REQUEST_CUSTODY, JOURNAL_CUSTODY,
-            "synthetic-live-transition-journal"), installation_root=root,
-            controller=controller, slot=slot, gate=gate, clock=lambda: FIXED)
+            journal_identity(protocol))
+        config_path = root / "live-transition-config.json"
+        config_path.write_text(json.dumps({"schema_version": "sentientos.resident_cognitive_transition_live_config:v1",
+            **live_config.__dict__}, sort_keys=True), encoding="utf-8")
+
+        def transition_serving_factory(handle_arg: Any, kernel_arg: Any) -> ResidentCognitiveModelServingController:
+            active = verify_current_activation(handle_arg, allow_synthetic_evidence_for_tests=True)["active_state"]
+            identity = next(item for item in identities
+                            if item["model_content_sha256"] == active["artifact_sha256"])
+            def worker_factory(_state: Any, _receipt: Any) -> _Worker:
+                worker = _Worker(identity); transition_workers.append(worker); return worker
+            return ResidentCognitiveModelServingController(handle_arg, kernel_arg,
+                model_factory=worker_factory,
+                allow_synthetic_evidence_for_tests=True)
+
+        live_runtime = _compose_live_resident_transition(config_path=str(config_path),
+            installation_handle=handle, kernel=kernel, slot=slot, gate=gate,
+            developmental_owner=cognition, allow_synthetic_evidence_for_tests=True,
+            serving_controller_factory=transition_serving_factory, clock=lambda: FIXED)
+        assert live_runtime is not None
+        controller = live_runtime.controller
         live_surfaces = RuntimeMaintenanceSurfaces(root, resident_developmental_owner=cognition,
             resident_cognitive_invoker=slot, resident_cognition_gate=gate,
             resident_transition_runtime=live_runtime)
+        daemon_tail = _run_resident_cognition_and_transition
 
     def advance(*, evidence: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         target = PHASES[PHASES.index(controller.phase) + 1]
@@ -158,18 +183,40 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
             current_boundary=current_boundary, synthetic_test_approval=True,
             not_before="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00")
         if not live_operator_ingress:
-            return cast(Mapping[str, Any], controller.advance(approval=approval, evidence=evidence))
+            return controller.advance(approval=approval, evidence=evidence)
         assert live_surfaces is not None
+        subordinate: list[Mapping[str, Any]] = []
+        if target in {"b_activation_committed", "a_restoration_activation_committed"}:
+            receipt = receipts[1] if target == "b_activation_committed" else receipts[0]
+            activation_correlation = f"resident-rehearsal-live-activation:{target}"
+            verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=True)
+            intent = prepare_activation_intent(handle, commissioning_receipt_id=receipt["receipt_id"],
+                correlation_id=activation_correlation,
+                expected_prior_state=verified["active_state"]["state_semantic_digest"],
+                allow_synthetic_commissioning_for_tests=True)
+            subordinate.append(_approval(intent, target))
         request = build_request(installation_identity=handle.identity.value, protocol=protocol.value,
             requested_stage=target, expected_prior_phase=controller.phase,
             expected_journal_head=str(head), stage_approval=approval,
-            subordinate_approvals=[], operation_id=str(approval["operation_identity"]),
+            subordinate_approvals=subordinate, operation_id=str(approval["operation_identity"]),
             correlation_id=str(approval["correlation_id"]), operator_identity="synthetic-rehearsal-operator",
             operator_provenance={"posture": "synthetic_test_seam"},
             created_at="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00",
             stage_evidence=evidence)
-        persist_request(root, request); live_requests.append(str(request["request_id"]))
-        processed = live_surfaces.process_resident_cognitive_transition_request(tick_id=f"transition:{target}")
+        persist_request(handle.root, request); live_requests.append(str(request["request_id"]))
+        tick_id = f"transition:{target}"
+        if len(live_requests) == 1:
+            run_cognition = live_surfaces.run_resident_developmental_cognition
+            setattr(live_surfaces, "run_resident_developmental_cognition", lambda **_: {
+                "status": "synthetic_no_new_world_state", "model_invoked": False}
+            )
+            try:
+                _, processed = daemon_tail(live_surfaces, tick_id=tick_id)
+            finally:
+                setattr(live_surfaces, "run_resident_developmental_cognition", run_cognition)
+            assert processed is not None
+        else:
+            processed = live_surfaces.process_resident_cognitive_transition_request(tick_id=tick_id)
         if processed.get("status") != "stage_advanced":
             raise RuntimeError(f"live_operator_stage_failed:{processed}")
         return cast(Mapping[str, Any], processed["stage_result"])
@@ -185,7 +232,9 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     advance()  # real activate_production B
     advance()  # real resident serving B + transition slot binding
     b_session = slot.current_controller.current_session()
+    before_resume = sum(worker.calls for worker in initial_workers + transition_workers)
     advance()  # resume; transition itself performs no inference
+    resume_inference_deltas.append(sum(worker.calls for worker in initial_workers + transition_workers) - before_resume)
     b_cycle = owner.run_tick(snapshot=_snapshot(3), tick_id="transition-b-epoch")
     if b_cycle.written_record_id is None or b_cycle.writeback_receipt_id is None:
         raise RuntimeError("b_epoch_durable_writeback_missing")
@@ -200,7 +249,9 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     advance()  # real activate_production restored A
     advance()  # new real resident serving lifetime + transition slot binding
     restored_session = slot.current_controller.current_session()
+    before_resume = sum(worker.calls for worker in initial_workers + transition_workers)
     advance()  # resume
+    resume_inference_deltas.append(sum(worker.calls for worker in initial_workers + transition_workers) - before_resume)
     restored_cycle = owner.run_tick(snapshot=_snapshot(4), tick_id="transition-restored-a-epoch")
     observations = [json.loads(path.read_text(encoding="utf-8")) for path in
                     sorted(cognition.observations_root.glob("*.json"))]
@@ -247,6 +298,14 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         "restored_cycle_writeback_receipt_id": restored_cycle.writeback_receipt_id,
         "activation_serving_inference_authorities_separate": True,
         "live_operator_ingress": live_operator_ingress,
+        "actual_daemon_composition_helper_exercised": live_operator_ingress,
+        "fixed_protocol_custody_loaded": bool(live_operator_ingress and
+            (handle.root / "state/resident-cognitive-transition/protocol.json").exists()),
+        "daemon_transition_slot_is_resident_slot": bool(live_runtime and live_runtime.slot is slot),
+        "daemon_transition_gate_is_resident_gate": bool(live_runtime and live_runtime.gate is gate),
+        "daemon_transition_history_is_resident_history": bool(live_operator_ingress),
+        "daemon_transition_kernel_is_resident_kernel": bool(live_operator_ingress),
+        "resume_inference_deltas": resume_inference_deltas,
         "live_operator_request_ids": live_requests,
         "one_request_per_stage": len(live_requests) == len(PHASES) - 1 if live_operator_ingress else None,
         "quiesced_subsequent_tick_result": quiesced_tick_result,
