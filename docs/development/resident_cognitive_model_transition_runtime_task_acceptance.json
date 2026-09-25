@@ -1,0 +1,31 @@
+{
+  "repository_sha": "5809c38466e445f907144d53e68085c261c1a14f",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_real_owner_temporal_rehearsal_retrieves_exact_b_record",
+      "rationale": "The synthetic temporal path uses runtime owners and restored A retrieves the exact B record."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_failed_effectful_stage_is_not_replayable_after_reconstruction",
+      "rationale": "Durable journal reconstruction preserves the failed-stage replay barrier."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_unresolved_attempt_is_not_replayable",
+      "rationale": "An unresolved external attempt fails closed after reconstruction."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiesced_reconstruction_requires_same_live_gate_token",
+      "rationale": "Durable evidence cannot manufacture process-local quiescence custody."
+    },
+    {
+      "node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_transition_slot_rejects_bind_without_quiescence",
+      "rationale": "Transition rebinding requires the exact live gate."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_resident_cognitive_model_transition_experiment.py::test_real_owner_temporal_rehearsal_retrieves_exact_b_record"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "/tmp/resident_transition_test_provenance.json"
+}
