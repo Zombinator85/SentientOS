@@ -1,5 +1,13 @@
 # Resident developmental cognition composition
 
+Resident cognition may receive a separately keyed `prior_self_model` only under
+explicit longitudinal runtime configuration. It is never merged into
+`current_evidence` or `developmental_history`. The daemon runs cognition before
+same-tick reconciliation, and receipts bind the exact earlier projection and its
+claim/source identities. Current evidence controls current-condition reasoning;
+prior representation may be useful, stale, contradicted, incomplete, or
+irrelevant. Neither substrate grants authority.
+
 The optional [developmental cognitive-model replacement experiment](developmental_model_replacement_experiment.md) consumes frozen read-only projections and separately governed endpoints. It is not part of resident cadence and cannot mutate activation, serving, history, or canonical explicit-user retention.
 
 This surface is an explicitly configured, bounded bridge in the real

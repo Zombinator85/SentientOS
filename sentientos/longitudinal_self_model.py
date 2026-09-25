@@ -11,6 +11,10 @@ from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snap
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
+CONFIG_SCHEMA = "sentientos.longitudinal_self_model_runtime_config:v1"
+PROJECTION_SCHEMA = "sentientos.cognitive_self_model_projection:v1"
+PROJECTION_POLICY = "predicate_then_claim_id:v1"
+MAX_PROJECTION_CLAIMS = 32
 FALSE_AUTHORITY = {
     "decision_authority": False, "admission_authority": False,
     "execution_authority": False, "adoption_authority": False,
@@ -35,6 +39,70 @@ PAYLOAD_PREDICATES = {
 
 class LongitudinalSelfModelError(ValueError):
     """A fail-closed projection or custody violation."""
+
+
+@dataclass(frozen=True)
+class LongitudinalSelfModelRuntimeConfig:
+    enabled: bool
+    custody_root: Path
+    cognitive_consumption_enabled: bool
+    max_projection_claims: int
+    allowed_predicates: tuple[str, ...]
+    installation_id: str
+
+
+@dataclass(frozen=True)
+class CognitiveSelfModelProjection:
+    schema: str
+    projection_id: str
+    projection_digest: str
+    source_reconciliation_id: str
+    source_reconciliation_digest: str
+    source_reconciliation_generation: int
+    source_tick: str
+    selected_claims: tuple[Mapping[str, Any], ...]
+    selected_claim_ids: tuple[str, ...]
+    selected_claim_digests: tuple[str, ...]
+    software_generations: tuple[str, ...]
+    cognitive_model_identities: tuple[str, ...]
+    developmental_history_boundaries: tuple[str, ...]
+    projection_policy: str
+    authority: Mapping[str, bool]
+    read_only: bool = True
+    derived_evidence: bool = True
+    current_truth: bool = False
+    interpretation: bool = False
+
+    def semantic_payload(self) -> dict[str, Any]:
+        value = asdict(self)
+        value.pop("projection_id")
+        value.pop("projection_digest")
+        return value
+
+
+def load_runtime_config(path: str | Path) -> LongitudinalSelfModelRuntimeConfig:
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LongitudinalSelfModelError("runtime_configuration_unreadable") from exc
+    expected = {"schema", "enabled", "custody_root", "cognitive_consumption_enabled",
+                "max_projection_claims", "allowed_predicates", "installation_id"}
+    if not isinstance(payload, dict) or set(payload) != expected or payload.get("schema") != CONFIG_SCHEMA:
+        raise LongitudinalSelfModelError("runtime_configuration_shape_invalid")
+    allowed = payload["allowed_predicates"]
+    if (not isinstance(payload["enabled"], bool)
+            or not isinstance(payload["cognitive_consumption_enabled"], bool)
+            or not isinstance(payload["custody_root"], str) or not Path(payload["custody_root"]).is_absolute()
+            or not isinstance(payload["installation_id"], str) or not payload["installation_id"]
+            or not isinstance(payload["max_projection_claims"], int)
+            or not 1 <= payload["max_projection_claims"] <= MAX_PROJECTION_CLAIMS
+            or not isinstance(allowed, list) or not allowed
+            or any(not isinstance(item, str) or not item or item in FORBIDDEN_PREDICATES for item in allowed)
+            or len(allowed) != len(set(allowed))):
+        raise LongitudinalSelfModelError("runtime_configuration_values_invalid")
+    return LongitudinalSelfModelRuntimeConfig(
+        payload["enabled"], Path(payload["custody_root"]), payload["cognitive_consumption_enabled"],
+        payload["max_projection_claims"], tuple(sorted(allowed)), payload["installation_id"])
 
 
 def _digest(value: Any) -> str:
@@ -190,6 +258,50 @@ class LongitudinalSelfModelOwner:
             raise LongitudinalSelfModelError("generation_not_found")
         return history[generation - 1]
 
+    def cognitive_projection(self, *, before_tick: str, max_claims: int,
+                             allowed_predicates: Sequence[str]) -> CognitiveSelfModelProjection | None:
+        """Project only a reconciliation completed before ``before_tick``.
+
+        Tick identity equality is rejected mechanically.  The daemon captures this
+        projection before reconciling its current World-State, so the selected
+        generation cannot be affected by same-tick cognition or writeback.
+        """
+        if not before_tick or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS:
+            raise LongitudinalSelfModelError("invalid_cognitive_projection_boundary")
+        history = self._load()
+        eligible = [item for item in history if item.tick_id != before_tick]
+        if not eligible:
+            return None
+        source = eligible[-1]
+        allowed = set(allowed_predicates)
+        claims = sorted((claim for claim in source.claims if claim.predicate in allowed),
+                        key=lambda claim: (claim.predicate, claim.claim_id))[:max_claims]
+        selected: list[Mapping[str, Any]] = []
+        digests: list[str] = []
+        for claim in claims:
+            bounded = {
+                "claim_id": claim.claim_id, "semantic_digest": _digest(asdict(claim)),
+                "predicate": claim.predicate, "value": _bounded(claim.value),
+                "status": claim.status, "freshness": claim.freshness,
+                "contradiction_state": claim.contradiction_state,
+                "evidence_strength": claim.evidence_strength,
+                "source_evidence_ids": list(claim.source_evidence_ids),
+                "source_evidence_digests": list(claim.source_evidence_digests),
+                "software_generation": claim.software_generation,
+                "cognitive_model_identity": claim.cognitive_model_identity,
+                "developmental_history_boundary": claim.developmental_history_boundary,
+            }
+            selected.append(bounded); digests.append(str(bounded["semantic_digest"]))
+        raw = CognitiveSelfModelProjection(
+            PROJECTION_SCHEMA, "", "", source.reconciliation_id, source.reconciliation_digest,
+            source.generation, source.tick_id, tuple(selected), tuple(c.claim_id for c in claims),
+            tuple(digests), tuple(sorted({c.software_generation for c in claims if c.software_generation})),
+            tuple(sorted({c.cognitive_model_identity for c in claims if c.cognitive_model_identity})),
+            tuple(sorted({c.developmental_history_boundary for c in claims if c.developmental_history_boundary})),
+            PROJECTION_POLICY, dict(FALSE_AUTHORITY))
+        digest = _digest(raw.semantic_payload())
+        return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
+
     def reconcile(self, snapshot: WorldStateSnapshot, *, tick_id: str) -> SelfModelReconciliation:
         validation = validate_snapshot(snapshot)
         if not validation.valid or snapshot.validation_posture != "valid":
@@ -284,4 +396,6 @@ class LongitudinalSelfModelOwner:
         return result
 
 
-__all__ = ["FALSE_AUTHORITY", "LongitudinalSelfModelError", "LongitudinalSelfModelOwner", "SelfModelClaim", "SelfModelReconciliation"]
+__all__ = ["CONFIG_SCHEMA", "FALSE_AUTHORITY", "CognitiveSelfModelProjection",
+           "LongitudinalSelfModelError", "LongitudinalSelfModelOwner", "LongitudinalSelfModelRuntimeConfig",
+           "SelfModelClaim", "SelfModelReconciliation", "load_runtime_config"]

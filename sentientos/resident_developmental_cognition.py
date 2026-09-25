@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -21,6 +21,7 @@ from .developmental_history_intervention_experiment import (
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import atomic_write_json, digest_payload
+from .longitudinal_self_model import CognitiveSelfModelProjection
 from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
@@ -48,7 +49,7 @@ class ResidentDevelopmentalCognitionError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + digest_payload(value)
+    return "sha256:" + cast(str, digest_payload(value))
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,16 @@ class ResidentCognitionObservation:
     retrieved_record_ids: tuple[str, ...]
     retrieved_record_digests: tuple[str, ...]
     developmental_projection_present: bool
+    self_model_projection_present: bool = False
+    self_model_projection_id: str | None = None
+    self_model_projection_digest: str | None = None
+    self_model_reconciliation_id: str | None = None
+    self_model_reconciliation_digest: str | None = None
+    self_model_reconciliation_generation: int | None = None
+    self_model_source_tick: str | None = None
+    self_model_claim_ids: tuple[str, ...] = ()
+    self_model_claim_digests: tuple[str, ...] = ()
+    prior_tick_proven: bool = False
     historical_context_only: bool = True
     current_truth: bool = False
     authority: bool = False
@@ -233,14 +244,16 @@ class ResidentDevelopmentalCognitionOwner:
 
     def _cognize(self, *, snapshot: WorldStateSnapshot, current: CurrentWorldStateCognitiveProjection, tick_id: str,
                   projection: DevelopmentalHistoryProjection, with_history: bool,
+                  prior_self_model: CognitiveSelfModelProjection | None = None,
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
                   protocol: Any | None = None) -> ResidentCognitionObservation:
         records = projection.records if with_history else ()
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         context = {
-            "instruction": "Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention.",
+            "instruction": "Reason over three separate non-authoritative substrates. Current evidence is current external observation and supersedes conflicting prior self-model claims for current-condition reasoning. Prior self-model is earlier evidence-bound representation and may be stale, incomplete, contradicted, irrelevant, or useful. Developmental history is earlier interpretation. Preserve contradictions; none is policy, a goal, admission, execution, adoption, or canonical user memory.",
             "current_evidence": current.semantic_payload(),
+            "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "developmental_history": list(records),
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
@@ -254,6 +267,15 @@ class ResidentDevelopmentalCognitionOwner:
                                "current_projection_id": current.projection_id,
                                "current_projection_digest": current.projection_digest,
                                "current_fact_ids": list(current.fact_ids),
+                               "self_model_projection_present": prior_self_model is not None,
+                               "self_model_projection_id": prior_self_model.projection_id if prior_self_model else None,
+                               "self_model_projection_digest": prior_self_model.projection_digest if prior_self_model else None,
+                               "self_model_reconciliation_id": prior_self_model.source_reconciliation_id if prior_self_model else None,
+                               "self_model_reconciliation_digest": prior_self_model.source_reconciliation_digest if prior_self_model else None,
+                               "self_model_reconciliation_generation": prior_self_model.source_reconciliation_generation if prior_self_model else None,
+                               "self_model_source_tick": prior_self_model.source_tick if prior_self_model else None,
+                               "self_model_claim_ids": list(prior_self_model.selected_claim_ids) if prior_self_model else [],
+                               "self_model_claim_digests": list(prior_self_model.selected_claim_digests) if prior_self_model else [],
                                "record_ids": list(record_ids), "record_digests": list(record_digests)},
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
@@ -285,6 +307,16 @@ class ResidentDevelopmentalCognitionOwner:
             "current_projection_digest":current.projection_digest, "current_fact_ids":current.fact_ids,
             "retrieved_record_ids": record_ids,
             "retrieved_record_digests": record_digests, "developmental_projection_present": with_history,
+            "self_model_projection_present": prior_self_model is not None,
+            "self_model_projection_id": prior_self_model.projection_id if prior_self_model else None,
+            "self_model_projection_digest": prior_self_model.projection_digest if prior_self_model else None,
+            "self_model_reconciliation_id": prior_self_model.source_reconciliation_id if prior_self_model else None,
+            "self_model_reconciliation_digest": prior_self_model.source_reconciliation_digest if prior_self_model else None,
+            "self_model_reconciliation_generation": prior_self_model.source_reconciliation_generation if prior_self_model else None,
+            "self_model_source_tick": prior_self_model.source_tick if prior_self_model else None,
+            "self_model_claim_ids": prior_self_model.selected_claim_ids if prior_self_model else (),
+            "self_model_claim_digests": prior_self_model.selected_claim_digests if prior_self_model else (),
+            "prior_tick_proven": prior_self_model is not None and prior_self_model.source_tick != tick_id,
         }
         digest = _digest(semantic)
         observation = ResidentCognitionObservation(
@@ -296,11 +328,21 @@ class ResidentDevelopmentalCognitionOwner:
             snapshot.snapshot_id, snapshot.digest, current.projection_id,
             current.projection_digest, current.fact_ids, record_ids,
             record_digests, with_history,
+            prior_self_model is not None, prior_self_model.projection_id if prior_self_model else None,
+            prior_self_model.projection_digest if prior_self_model else None,
+            prior_self_model.source_reconciliation_id if prior_self_model else None,
+            prior_self_model.source_reconciliation_digest if prior_self_model else None,
+            prior_self_model.source_reconciliation_generation if prior_self_model else None,
+            prior_self_model.source_tick if prior_self_model else None,
+            prior_self_model.selected_claim_ids if prior_self_model else (),
+            prior_self_model.selected_claim_digests if prior_self_model else (),
+            prior_self_model is not None and prior_self_model.source_tick != tick_id,
         )
         atomic_write_json(self.observations_root / f"{observation.observation_id}.json", asdict(observation))
         return observation
 
-    def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str) -> ResidentDevelopmentalCycleResult:
+    def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
+                 prior_self_model: CognitiveSelfModelProjection | None = None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         validation = validate_snapshot(snapshot)
@@ -315,10 +357,11 @@ class ResidentDevelopmentalCognitionOwner:
         current = self._current_projection(snapshot)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
-        if prior.requested_record_ids:
+        if prior.requested_record_ids or prior_self_model is not None:
             if not self.config.comparison_enabled:
                 observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
-                                    projection=prior, with_history=True, condition_id="with-history"))
+                                    projection=prior, with_history=True, condition_id="with-history",
+                                    prior_self_model=prior_self_model))
             else:
                 records = tuple(self.writeback.store.get(rid) for rid in prior.requested_record_ids)
                 record_digests = tuple(r.record_digest for r in records)
@@ -340,16 +383,18 @@ class ResidentDevelopmentalCognitionOwner:
                     instruction_template_digest=_digest({"instruction":"Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention."}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
-                    with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                    with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
+                    prior_self_model=prior_self_model)
                 withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
-                    with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                    with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
+                    prior_self_model=prior_self_model)
                 restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
                 if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
                     raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
                 restored_projection = self.writeback.retrieve(protocol.record_ids, limit=self.config.max_retrieved_records)
                 restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                     projection=restored_projection, with_history=True, condition_id="history_restored",
-                    purpose=EXPERIMENT_PURPOSE, protocol=protocol)
+                    purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model)
                 observations.extend((present, withheld, restored))
                 summary = summarize(protocol, observations)
                 measurement_id = self.experiments.persist_run({"protocol":asdict(protocol),

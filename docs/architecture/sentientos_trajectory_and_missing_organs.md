@@ -1,5 +1,11 @@
 # SentientOS trajectory: causal bridges and open closure
 
+The bounded World-State → longitudinal self-model → prior-tick cognition bridge
+is now composed only under exact opt-in custody. A deterministic external scorer
+can measure evidence-grounded self-assessment under present/withheld/restored
+self-model conditions. This is instrumentation, not evidence that access helps:
+production calibration and commissioned nonsynthetic A→B→A evidence remain open.
+
 SentientOS increasingly has the organs. The remaining work is increasingly the arrows between them. This document identifies open causal bridges without demoting what current main implements or promoting architecture into present capability.
 
 ## Current baseline
