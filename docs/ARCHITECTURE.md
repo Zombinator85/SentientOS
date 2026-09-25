@@ -3,6 +3,13 @@
 This document summarizes the integrated SentientOS command and runtime surfaces.
 No new subsystem is introduced here; this is a stabilized view for engineers.
 
+For the evidence-grounded whole-system explanation—how memory, cognition,
+World-State, proof, governance, software succession, model replacement, resource
+attribution, and effect custody compose—see
+[SentientOS as a whole system](architecture/sentientos_architectural_telos.md).
+For the exhaustive current-state census and reachability map, see the
+[Current Repository System Atlas](architecture/current_repository_system_atlas.md).
+
 ## Path A: Integrity envelope
 
 - **Canonical integrity contract artifact digest** anchors immutable resources via
