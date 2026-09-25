@@ -3,6 +3,19 @@
 SentientOS has two deliberately separate families that have historically used the
 term “self-model.” They are not interchangeable.
 
+## Production experimental composition
+
+The operator-facing production self-reflection campaign composes the bounded
+prior-tick self-model projection and external deterministic scorer with the
+existing live resident A→B→A transition machinery. It preregisters exact model,
+state, assessment, transition, and campaign custody and fails closed with a
+machine-readable readiness artifact before effects. See
+[`development/production_self_reflection_campaign.md`](development/production_self_reflection_campaign.md)
+for the protocol, operator commands, evidence-posture derivation, and explicit
+non-claims. This capability does not itself establish that a real production
+trial occurred or support psychological, consciousness, sentience, learning, or
+improvement claims.
+
 ## Legacy Glow self-state
 
 `sentientos/glow/self_state.py` owns the compatibility `/glow/self.json` file (or
