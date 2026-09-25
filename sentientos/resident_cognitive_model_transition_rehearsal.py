@@ -84,7 +84,7 @@ class _RealTransitionOperations:
                            stage="restored_a_serving_bound")
 
 
-def run(root: Path) -> dict[str, Any]:
+def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     root = Path(root).resolve()
     if root.exists() and any(root.iterdir()):
         raise ValueError("rehearsal_root_not_empty")
@@ -112,9 +112,9 @@ def run(root: Path) -> dict[str, Any]:
     def boundary() -> Mapping[str, Any]:
         verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=True)
         session = slot.current_controller.current_session()
-        return developmental_history_boundary(store=cognition.writeback.store,
+        return cast(Mapping[str, Any], developmental_history_boundary(store=cognition.writeback.store,
             composition_state_path=cognition.state_path,
-            activation=_activation(verified), session=session.to_dict() if session is not None else None)
+            activation=_activation(verified), session=session.to_dict() if session is not None else None))
 
     initial_boundary = boundary()
     protocol = TransitionProtocol.create(installation_identity=handle.identity.value,
@@ -128,6 +128,24 @@ def run(root: Path) -> dict[str, Any]:
         gate=gate, slot=slot, history_snapshot=boundary, operations=operations,
         allow_synthetic_approval_for_tests=True, clock=lambda: FIXED)
 
+    live_runtime = None
+    live_surfaces = None
+    live_requests: list[str] = []
+    if live_operator_ingress:
+        from sentientosd import RuntimeMaintenanceSurfaces
+        from .resident_cognitive_transition_operator import (
+            JOURNAL_CUSTODY, REQUEST_CUSTODY, LiveTransitionConfig,
+            LiveTransitionOperatorRuntime, build_request, persist_request,
+        )
+        live_runtime = LiveTransitionOperatorRuntime(config=LiveTransitionConfig(
+            True, handle.identity.value, str(protocol.value["protocol_id"]),
+            str(protocol.value["protocol_digest"]), REQUEST_CUSTODY, JOURNAL_CUSTODY,
+            "synthetic-live-transition-journal"), installation_root=root,
+            controller=controller, slot=slot, gate=gate, clock=lambda: FIXED)
+        live_surfaces = RuntimeMaintenanceSurfaces(root, resident_developmental_owner=cognition,
+            resident_cognitive_invoker=slot, resident_cognition_gate=gate,
+            resident_transition_runtime=live_runtime)
+
     def advance(*, evidence: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         target = PHASES[PHASES.index(controller.phase) + 1]
         current_boundary = boundary()
@@ -139,10 +157,31 @@ def run(root: Path) -> dict[str, Any]:
             current_session=current_boundary["current_resident_serving_session"],
             current_boundary=current_boundary, synthetic_test_approval=True,
             not_before="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00")
-        return controller.advance(approval=approval, evidence=evidence)
+        if not live_operator_ingress:
+            return cast(Mapping[str, Any], controller.advance(approval=approval, evidence=evidence))
+        assert live_surfaces is not None
+        request = build_request(installation_identity=handle.identity.value, protocol=protocol.value,
+            requested_stage=target, expected_prior_phase=controller.phase,
+            expected_journal_head=str(head), stage_approval=approval,
+            subordinate_approvals=[], operation_id=str(approval["operation_identity"]),
+            correlation_id=str(approval["correlation_id"]), operator_identity="synthetic-rehearsal-operator",
+            operator_provenance={"posture": "synthetic_test_seam"},
+            created_at="2026-09-24T00:00:00+00:00", expires_at="2026-09-25T00:00:00+00:00",
+            stage_evidence=evidence)
+        persist_request(root, request); live_requests.append(str(request["request_id"]))
+        processed = live_surfaces.process_resident_cognitive_transition_request(tick_id=f"transition:{target}")
+        if processed.get("status") != "stage_advanced":
+            raise RuntimeError(f"live_operator_stage_failed:{processed}")
+        return cast(Mapping[str, Any], processed["stage_result"])
 
     advance()  # request A -> B
     advance(evidence={"timeout_seconds": 1})
+    quiesced_tick_result = None
+    if live_operator_ingress:
+        try:
+            owner.run_tick(snapshot=_snapshot(20), tick_id="transition-quiesced-proof")
+        except Exception as exc:
+            quiesced_tick_result = getattr(exc, "code", type(exc).__name__)
     advance()  # real activate_production B
     advance()  # real resident serving B + transition slot binding
     b_session = slot.current_controller.current_session()
@@ -179,6 +218,7 @@ def run(root: Path) -> dict[str, Any]:
                       "retrieved_record_ids": restored_observation["retrieved_record_ids"],
                       "retrieved_record_digests": restored_observation["retrieved_record_digests"]})
     final = advance()
+    duplicate_result = live_runtime.process_one() if live_runtime is not None else None
 
     result = {"schema_version": "sentientos.resident_cognitive_model_transition_rehearsal:v2",
         "status": "verified_complete", "synthetic_only": True,
@@ -206,6 +246,11 @@ def run(root: Path) -> dict[str, Any]:
         "b_cycle_cognition_observation_ids": list(b_cycle.cognition_observation_ids),
         "restored_cycle_writeback_receipt_id": restored_cycle.writeback_receipt_id,
         "activation_serving_inference_authorities_separate": True,
+        "live_operator_ingress": live_operator_ingress,
+        "live_operator_request_ids": live_requests,
+        "one_request_per_stage": len(live_requests) == len(PHASES) - 1 if live_operator_ingress else None,
+        "quiesced_subsequent_tick_result": quiesced_tick_result,
+        "duplicate_request_result": duplicate_result,
         "automatic_retry_performed": False, "automatic_rollback_performed": False,
         "nonclaims": ["personal_identity", "consciousness_continuity", "selfhood_continuity", "learning", "improvement"]}
     (root / "transition.summary.json").write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")

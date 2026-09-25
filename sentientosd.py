@@ -217,7 +217,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -229,6 +229,7 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot: WorldStateSnapshot | None = None
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
+        self._resident_transition_runtime = resident_transition_runtime
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
@@ -443,6 +444,16 @@ class RuntimeMaintenanceSurfaces:
         self._feedback.setdefault("surfaces", {})["resident_developmental_cognition"] = feedback
         self._refresh_feedback()
         return feedback
+
+    def process_resident_cognitive_transition_request(self, *, tick_id: str) -> dict[str, Any]:
+        """Process at most one operator packet, after ordinary cognition."""
+        if self._resident_transition_runtime is None:
+            result = {"status": "disabled", "effect_performed": False}
+        else:
+            result = self._resident_transition_runtime.process_one()
+            result["live_status"] = self._resident_transition_runtime.status()
+        self._feedback.setdefault("surfaces", {})["resident_cognitive_transition_operator"] = result
+        return result
 
     def expand(self) -> list[Any]:
         evaluation = getattr(self, "_current_signal_evaluation", evaluate_signal_plane((), repo_root=self._repo_root))
@@ -805,6 +816,11 @@ def _run_maintenance_tick(
         run_developmental_cognition = getattr(runtime_surfaces, "run_resident_developmental_cognition", None)
         if callable(run_developmental_cognition):
             run_developmental_cognition(tick_id=tick_id)
+        current_surface = "resident_cognitive_transition_operator"
+        current_correlation_id = f"{tick_id}:resident_cognitive_transition_operator"
+        process_transition = getattr(runtime_surfaces, "process_resident_cognitive_transition_request", None)
+        if callable(process_transition):
+            process_transition(tick_id=tick_id)
         kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
         current_surface = "repository_mutation_handoff"
