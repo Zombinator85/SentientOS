@@ -19,3 +19,13 @@ def test_enabled_failure_never_substitutes_legacy_invoker(monkeypatch,tmp_path):
     assert surfaces._resident_developmental_owner is None
     assert surfaces._resident_developmental_configuration_error=="governed_local_invoker_unavailable"
     assert surfaces._genesis_advice_source is not None
+
+def test_live_transition_surface_is_explicit_and_bounded(tmp_path):
+    class Runtime:
+        calls=0
+        def process_one(self): self.calls+=1; return {"status":"stage_advanced","effect_performed":True}
+        def status(self): return {"read_only":True}
+    runtime=Runtime()
+    surfaces=sentientosd.RuntimeMaintenanceSurfaces(Path.cwd(),resident_transition_runtime=runtime)
+    result=surfaces.process_resident_cognitive_transition_request(tick_id="tick-1")
+    assert runtime.calls==1 and result["live_status"]=={"read_only":True}

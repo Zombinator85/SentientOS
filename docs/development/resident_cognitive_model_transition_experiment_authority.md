@@ -40,4 +40,12 @@ Restoration can establish exact A artifact/configuration/runtime serving again, 
 
 The synthetic rehearsal now uses authenticated isolated installation custody, real `activate_production()`, real resident-serving controllers, the real stable serving slot, governed local inference, resident developmental cognition, and resident developmental writeback. Deterministic fake workers enter only through the established worker-factory seam. Restored-A ordinary cognition retrieves the exact durable record written during B; the transition runner never injects or appends history itself.
 
-The remaining bridge is real production temporal evidence and a deployed live-operator execution surface. Recovery after daemon/process death, autonomous cadence, automatic switching, and continuity/identity/consciousness/learning conclusions remain deferred.
+The daemon maintenance facade now accepts at most one immutable, installation-custodied
+operator request per explicit call after ordinary cognition.  Request presence grants no
+authority and receipt custody prevents duplicate replay.  The exact packet, configuration,
+status, and custody contracts are documented in
+`resident_cognitive_transition_live_operator_ingress.md`.
+
+The remaining bridge is real production temporal evidence using actual hardened
+commissioned models. Recovery after daemon/process death, autonomous cadence, automatic
+switching, and continuity/identity/consciousness/learning conclusions remain deferred.
