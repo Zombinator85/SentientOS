@@ -23,6 +23,7 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 EXACT_VERSION_RE = re.compile(r"^[0-9]+(?:[A-Za-z0-9._+-]*[A-Za-z0-9])?$")
 PYTHON_TAG_RE = re.compile(r"^(?:py3|cp(?P<major>[0-9])(?P<minor>[0-9]{2}))$")
 MANYLINUX_RE = re.compile(r"^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>x86_64)$")
+LEGACY_MANYLINUX_RE = re.compile(r"^manylinux(?P<year>2014)_(?P<arch>x86_64)$")
 MACOS_RE = re.compile(r"^macosx_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>arm64)$")
 
 
@@ -139,6 +140,35 @@ def _wheel_filename_fields(filename: str) -> tuple[str, str, str, str, str]:
     return tuple(parts)  # type: ignore[return-value]
 
 
+def _manylinux_floor(platform_tag: str) -> tuple[int, int, str] | None:
+    """Return the bounded glibc floor for one admitted manylinux tag."""
+    match = MANYLINUX_RE.fullmatch(platform_tag)
+    if match:
+        return int(match.group("major")), int(match.group("minor")), match.group("arch")
+    legacy = LEGACY_MANYLINUX_RE.fullmatch(platform_tag)
+    if legacy:
+        # PEP 599 defines manylinux2014 x86-64 as the glibc 2.17 policy.
+        return 2, 17, legacy.group("arch")
+    return None
+
+
+def _validate_platform_field(platform_field: str) -> tuple[str, ...]:
+    """Parse a bounded wheel platform field, including ordered compound tags."""
+    tags = tuple(platform_field.split("."))
+    if not tags or any(not tag for tag in tags) or len(tags) != len(set(tags)):
+        raise ValueError("unsupported_platform_tag")
+    for tag in tags:
+        if tag == "win_amd64" or MACOS_RE.fullmatch(tag) or _manylinux_floor(tag):
+            continue
+        raise ValueError("unsupported_platform_tag")
+    kinds = {"manylinux" if _manylinux_floor(tag) else "macos" if MACOS_RE.fullmatch(tag) else "windows" for tag in tags}
+    if len(kinds) != 1:
+        raise ValueError("mixed_platform_tags")
+    if "manylinux" in kinds and len({_manylinux_floor(tag) for tag in tags}) != 1:
+        raise ValueError("inconsistent_compound_platform_tags")
+    return tags
+
+
 def _validate_common(entry: dict[str, Any]) -> None:
     if entry["engine"] not in ENGINES or entry["backend_family"] not in BACKENDS:
         raise ValueError("unsupported_runtime_route")
@@ -210,6 +240,7 @@ def validate_runtime_catalog(catalog: Mapping[str, Any]) -> dict[str, Any]:
                 raise ValueError("wheel_version_mismatch")
             if (python_tag, abi_tag, platform_tag) != (entry["python_tag"], entry["abi_tag"], entry["platform_tag"]):
                 raise ValueError("wheel_tag_metadata_mismatch")
+            _validate_platform_field(platform_tag)
             entry["supported_python_versions"] = tuple(sorted(set(versions), key=lambda v: tuple(map(int, v.split(".")))))
         entries.append(entry)
     entries.sort(key=lambda item: item["runtime_id"])
@@ -249,21 +280,22 @@ def _v2_compatibility(entry: Mapping[str, Any], env: LocalRuntimeEnvironmentProf
     abi = entry["abi_tag"]
     if abi != "none" and abi != env.python_abi:
         reasons.append("python_abi_mismatch")
-    platform_tag = entry["platform_tag"]
+    platform_tags = _validate_platform_field(entry["platform_tag"])
     arch = normalize_architecture(env.architecture)
+    platform_tag = platform_tags[0]
     if platform_tag == "win_amd64":
         if env.os_family != "windows": reasons.append("wheel_os_mismatch")
         if arch != "x86_64": reasons.append("wheel_architecture_mismatch")
-    elif match := MANYLINUX_RE.fullmatch(platform_tag):
+    elif floor := _manylinux_floor(platform_tag):
         if env.os_family != "linux": reasons.append("wheel_os_mismatch")
-        if arch != match.group("arch"): reasons.append("wheel_architecture_mismatch")
+        if arch != floor[2]: reasons.append("wheel_architecture_mismatch")
         if not env.libc_family or not env.libc_version:
             reasons.append("libc_unknown")
         elif env.libc_family not in ("glibc", "gnu libc"):
             reasons.append("libc_family_mismatch")
         else:
             observed = _version_tuple(env.libc_version)
-            required = (int(match.group("major")), int(match.group("minor")))
+            required = floor[:2]
             if observed is None: reasons.append("libc_unknown")
             elif observed < required: reasons.append("glibc_too_old")
     elif match := MACOS_RE.fullmatch(platform_tag):

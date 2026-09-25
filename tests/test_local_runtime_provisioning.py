@@ -182,3 +182,36 @@ def test_end_to_end_v2_route_to_py3_none_runtime_plan() -> None:
     assert (plan["catalog_schema_version"], plan["runtime_id"], plan["python_tag"], plan["platform_tag"]) == (
         CATALOG_SCHEMA_VERSION_V2, "synthetic-v2", "py3", "win_amd64")
     assert plan["supported_python_versions"] == ("3.10", "3.11", "3.12")
+
+def test_compound_manylinux_aliases_select_linux_cpu_without_accelerator_inference() -> None:
+    tag = "manylinux2014_x86_64.manylinux_2_17_x86_64"
+    plan = plan_local_runtime_provisioning(selection("cpu"), v2_env(libc_family="glibc", libc_version="2.39"),
+                                            v2_catalog(v2_entry(tag)))
+    assert plan["status"] == "selected"
+    assert plan["backend_family"] == "cpu" and plan["backend_variant"] == "synthetic-cpu"
+    assert plan["external_prerequisite_codes"] == ()
+
+@pytest.mark.parametrize("tag", [
+    "manylinux2014_x86_64.",
+    "manylinux2014_x86_64.manylinux_2_17_arm64",
+    "manylinux2014_x86_64.win_amd64",
+    "manylinux2014_x86_64.manylinux_2_28_x86_64",
+])
+def test_compound_platform_tags_reject_malformed_mixed_or_inconsistent_values(tag: str) -> None:
+    with pytest.raises(ValueError, match="platform"):
+        validate_runtime_catalog(v2_catalog(v2_entry(tag)))
+
+def test_compound_manylinux_architecture_and_glibc_floor_fail_closed() -> None:
+    tag = "manylinux2014_x86_64.manylinux_2_17_x86_64"
+    runtime = v2_catalog(v2_entry(tag))
+    old = plan_local_runtime_provisioning(selection(), v2_env(libc_family="glibc", libc_version="2.16"), runtime)
+    wrong_arch = plan_local_runtime_provisioning(selection(), v2_env(architecture="arm64", libc_family="glibc", libc_version="2.39"), runtime)
+    assert "glibc_too_old" in old["reason_codes"]
+    assert "wheel_architecture_mismatch" in wrong_arch["reason_codes"]
+
+def test_compound_platform_filename_must_match_exact_catalog_field() -> None:
+    tag = "manylinux2014_x86_64.manylinux_2_17_x86_64"
+    runtime = v2_entry("manylinux_2_17_x86_64",
+                       artifact_filename=f"synthetic_runtime-1.2.3-py3-none-{tag}.whl")
+    with pytest.raises(ValueError, match="wheel_tag_metadata_mismatch"):
+        validate_runtime_catalog(v2_catalog(runtime))

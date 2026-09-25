@@ -1,0 +1,116 @@
+{
+  "schema_version": "sentientos.production_model_curator_package:v1",
+  "status": "candidate_frozen_mirror_publication_blocked",
+  "success_level": 1,
+  "candidate_selection": {
+    "selected_model_id": "phi-3-mini-4k-instruct-q4-k-m",
+    "rationale": "First-party Microsoft 3.8B general reasoning/instruction identity; immutable ungated MIT GGUF; Q4_K_M is practical for repeated CPU inference and scientifically distinct from coding-focused Qwen2.5-Coder."
+  },
+  "artifact": {
+    "sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "size_bytes": 2393231072,
+    "source_filename": "Phi-3-mini-4k-instruct-q4.gguf",
+    "production_filename": "phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+    "upstream_lfs_oid": "sha256:8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "gguf_magic_hex": "47475546",
+    "gguf_magic_verified": true,
+    "verified_by_streamed_local_hash": true,
+    "temporary_intake_only": true
+  },
+  "upstream": {
+    "organization": "microsoft",
+    "repository": "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+    "artifact_path": "Phi-3-mini-4k-instruct-q4.gguf",
+    "artifact_resolve_url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/a64113399c2f6b8ad3e11c394733a2ddadaa7f33/Phi-3-mini-4k-instruct-q4.gguf",
+    "repository_api_url": "https://huggingface.co/api/models/microsoft/Phi-3-mini-4k-instruct-gguf/revision/a64113399c2f6b8ad3e11c394733a2ddadaa7f33?blobs=true",
+    "private": false,
+    "gated": false,
+    "retrieved_at": "2026-09-25"
+  },
+  "evidence": {
+    "streamed_artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "streamed_artifact_size_bytes": 2393231072,
+    "upstream_lfs_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "upstream_lfs_size_bytes": 2393231072,
+    "model_card_sha256": "ed4125f0206ab1f622f6b95c6a02a1db1bda7ffa6721dbc9804c2f2b6cce742d",
+    "model_card_size_bytes": 13629,
+    "license_sha256": "fa8235e5b48faca34e3ca98cf4f694ef08bd216d28b58071a1f85b1d50cb814d",
+    "license_size_bytes": 1084,
+    "notice_sha256": "6ac541192c253d21cd16a597ce69c515868e031db3f32f75d996b993b5aca216",
+    "notice_size_bytes": 1772
+  },
+  "model_characteristics": {
+    "family": "Phi-3",
+    "architecture": "dense decoder-only Transformer",
+    "format": "GGUF",
+    "parameter_count": 3800000000,
+    "context_tokens": 4096,
+    "quantization": "Q4_K_M",
+    "runtime_engine": "llama_cpp"
+  },
+  "redistribution_posture": {
+    "license": "MIT",
+    "license_spdx": "MIT",
+    "legal_advice_claimed": false,
+    "mirror_publication_requires_operator_confirmation_of_notice_and_license_obligations": true
+  },
+  "catalog_preview": {
+    "schema_version": "sentientos.local_model_catalog:v1",
+    "models": [
+      {
+        "model_id": "phi-3-mini-4k-instruct-q4-k-m",
+        "priority": 2,
+        "license_id": "mit",
+        "source_repository": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "source_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "source_artifact_filename": "Phi-3-mini-4k-instruct-q4.gguf",
+        "artifact_filename": "phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+        "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "artifact_size_bytes": 2393231072,
+        "artifact_content_address": "sha256:8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "artifact_urls": [
+          "https://models.sentientos.org/phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf"
+        ],
+        "requirements": {
+          "architecture": "x86_64",
+          "ram_gb_min": 6,
+          "avx": false,
+          "avx2": true,
+          "avx512": false,
+          "quantization": "q4_k_m"
+        },
+        "execution_routes": [
+          {
+            "route_id": "phi3-mini-q4-cpu-linux-x86-64",
+            "engine": "llama_cpp",
+            "backend_family": "cpu",
+            "route_priority": 10,
+            "os_families": [
+              "linux"
+            ],
+            "architectures": [
+              "x86_64"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sovereign_mirror": {
+    "host": "models.sentientos.org",
+    "destination_url": "https://models.sentientos.org/phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+    "publication_status": "authority_unavailable",
+    "publication_actuator_status": "model_mirror_provider_configuration_required",
+    "upload_attempted": false,
+    "remote_object_verified": false,
+    "credentials_inspected": false
+  },
+  "non_authority": {
+    "sovereign_artifact_published": false,
+    "production_catalog_deployed": false,
+    "production_acquisition_authorized": false,
+    "downloaded_bytes_are_durable_custody": false
+  },
+  "curator_package_semantic_digest": "9d492dcbdd38defa84307b4f4b21fde813a04f9e8c80f758975f7156f824b26d"
+}

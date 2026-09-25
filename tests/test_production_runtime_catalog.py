@@ -49,7 +49,8 @@ def test_real_catalog_entry_planner_witness_is_exact_and_zero_effect(runtime_id:
 
 def test_backend_and_platform_coverage_and_readiness_are_derived() -> None:
     assert {item["backend_family"] for item in CATALOG["runtimes"]} == {"cpu", "cuda", "rocm", "metal"}
-    assert len(CATALOG["runtimes"]) == 7
+    assert len(CATALOG["runtimes"]) == 8
+    assert any(item["backend_family"] == "cpu" and item["platform_tag"] == "manylinux2014_x86_64.manylinux_2_17_x86_64" for item in CATALOG["runtimes"])
 
 def test_offline_production_verifier_passes_and_readiness_is_true() -> None:
     spec = importlib.util.spec_from_file_location("production_verifier", ROOT / "scripts/verify_production_runtime_catalog.py")

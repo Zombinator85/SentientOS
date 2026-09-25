@@ -1,0 +1,62 @@
+{
+  "schema_version": "sentientos.model_mirror_publication_intake:v1",
+  "status": "model_mirror_provider_configuration_required",
+  "provider_available": false,
+  "credentials_inspected": false,
+  "publication_performed": false,
+  "requests": [
+    {
+      "role": "A",
+      "request_identity": "linux-cpu-ab-a-509287f78cb4d4cf",
+      "curator_package_path": "docs/development/qwen25_coder_linux_cpu_production_curator_package.json",
+      "curator_package_sha256": "1e27b7191fb77988e822a26b7d0c618d66db084afb11eefd4d79913e78fc0140",
+      "model_id": "qwen2.5-coder-7b-instruct-q4-k-m",
+      "artifact_escrow_relative_path": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+      "artifact_size": 4683073536,
+      "artifact_sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+      "object_name": "qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+      "canonical_url": "https://models.sentientos.org/qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+      "authority_principal": "deterministic_publication_controller",
+      "capability_id": "sentientos.model_mirror.publish",
+      "correlation_id": "linux-cpu-ab-publication-a-509287f78cb4d4cf",
+      "required_external_bindings": [
+        "artifact_root",
+        "active_grant_id",
+        "active_lease_id"
+      ],
+      "required_effects": [
+        "bounded_outbound_transfer",
+        "canonical_sovereign_create_only_write",
+        "exact_curator_artifact_read",
+        "publication_receipt_write"
+      ]
+    },
+    {
+      "role": "B",
+      "request_identity": "linux-cpu-ab-b-8a83c7fb9049a9b2",
+      "curator_package_path": "docs/development/phi3_mini_production_model_curator_package.json",
+      "curator_package_sha256": "22522b2c29cfe46e942f8254bc4c6093581fe55e183ffff7b737f560de1025b6",
+      "model_id": "phi-3-mini-4k-instruct-q4-k-m",
+      "artifact_escrow_relative_path": "Phi-3-mini-4k-instruct-q4.gguf",
+      "artifact_size": 2393231072,
+      "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "object_name": "phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+      "canonical_url": "https://models.sentientos.org/phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+      "authority_principal": "deterministic_publication_controller",
+      "capability_id": "sentientos.model_mirror.publish",
+      "correlation_id": "linux-cpu-ab-publication-b-8a83c7fb9049a9b2",
+      "required_external_bindings": [
+        "artifact_root",
+        "active_grant_id",
+        "active_lease_id"
+      ],
+      "required_effects": [
+        "bounded_outbound_transfer",
+        "canonical_sovereign_create_only_write",
+        "exact_curator_artifact_read",
+        "publication_receipt_write"
+      ]
+    }
+  ],
+  "intake_semantic_digest": "0ea729cad3510fd675b375c53a6ab35172b46b28c0d73549c2fef1acf1e92878"
+}
