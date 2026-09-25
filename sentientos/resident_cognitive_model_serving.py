@@ -454,6 +454,31 @@ class ResidentCognitiveServingSlot:
             self._controller = controller
         return session
 
+    def bind_transition_verified(self, controller: ResidentCognitiveModelServingController, *,
+                                 gate: Any, quiescence: Mapping[str, Any],
+                                 stage_binding: Mapping[str, Any], protocol: Any,
+                                 stage: str) -> ServingSession:
+        """Rebind only under the exact live quiescence and durable stage contract.
+
+        This is deliberately separate from startup ``bind_verified``.  It grants no
+        serving or transition authority and performs no model load.
+        """
+        from .resident_cognitive_model_transition_experiment import (
+            TransitionError, verify_stage_serving_binding,
+        )
+        if not gate.verifies(quiescence):
+            raise ResidentCognitiveModelServingError("transition_bind_without_live_quiescence")
+        session = controller.current_session()
+        if session is None:
+            raise ResidentCognitiveModelServingError("replacement_serving_not_current")
+        try:
+            verify_stage_serving_binding(stage_binding, protocol=protocol, stage=stage, session=session)
+        except TransitionError as exc:
+            raise ResidentCognitiveModelServingError(exc.code) from exc
+        with self._lock:
+            self._controller = controller
+        return session
+
     def build_request(self, **kwargs: Any) -> Any:
         return ResidentCognitiveServingInvoker(self.current_controller).build_request(**kwargs)
 
