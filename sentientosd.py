@@ -44,6 +44,7 @@ from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_D
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
@@ -221,7 +222,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -231,6 +232,7 @@ class RuntimeMaintenanceSurfaces:
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
+        self._longitudinal_self_model_owner = longitudinal_self_model_owner
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
@@ -419,6 +421,25 @@ class RuntimeMaintenanceSurfaces:
     def current_world_state_snapshot(self) -> WorldStateSnapshot | None:
         """Return the exact validated in-memory snapshot; never reconstruct authority from JSON."""
         return self._world_state_snapshot
+
+    def reconcile_longitudinal_self_model(self, *, tick_id: str) -> dict[str, Any]:
+        """Project the same-tick board when an operator explicitly supplies an owner."""
+        if self._longitudinal_self_model_owner is None:
+            feedback = {"status": "disabled", "reason": "owner_not_explicitly_composed", "authority": False}
+        elif self._world_state_snapshot is None or self._world_state_snapshot_built_for_tick != tick_id:
+            feedback = {"status": "degraded", "reason": "same_tick_world_state_unavailable", "authority": False}
+        else:
+            try:
+                result = self._longitudinal_self_model_owner.reconcile(self._world_state_snapshot, tick_id=tick_id)
+                feedback = {"status": "ok", "reconciliation_id": result.reconciliation_id,
+                            "reconciliation_digest": result.reconciliation_digest,
+                            "generation": result.generation, "snapshot_id": result.snapshot_id,
+                            "claim_count": len(result.claims), "authority": False}
+            except Exception as exc:
+                feedback = {"status": "degraded", "reason": f"{type(exc).__name__}:{exc}", "authority": False}
+        self._feedback.setdefault("surfaces", {})["longitudinal_self_model"] = feedback
+        self._refresh_feedback()
+        return feedback
 
     def run_resident_developmental_cognition(self, *, tick_id: str) -> dict[str, Any]:
         """Run one configured cycle after the same-tick World-State snapshot exists."""
@@ -695,9 +716,9 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         activation = {**dict(verified["active_state"]),
             "receipt_id": verified["activation_receipt"]["receipt_id"],
             "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"]}
-        return developmental_history_boundary(store=developmental_owner.writeback.store,
+        return cast(Mapping[str, Any], developmental_history_boundary(store=developmental_owner.writeback.store,
             composition_state_path=developmental_owner.state_path,
-            activation=activation, session=current_session.to_dict() if current_session is not None else None)
+            activation=activation, session=current_session.to_dict() if current_session is not None else None))
 
     journal = TransitionJournal(installation_handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
     if not journal.entries() and dict(boundary()) != dict(protocol.value.get("initial_history_boundary", {})):
@@ -896,6 +917,11 @@ def _run_maintenance_tick(
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
         if callable(build_board):
             build_board(tick_id=tick_id)
+        current_surface = "longitudinal_self_model"
+        current_correlation_id = f"{tick_id}:longitudinal_self_model"
+        reconcile_self_model = getattr(runtime_surfaces, "reconcile_longitudinal_self_model", None)
+        if callable(reconcile_self_model):
+            reconcile_self_model(tick_id=tick_id)
         current_surface = "resident_developmental_cognition_then_transition_operator"
         current_correlation_id = f"{tick_id}:resident_developmental_cognition_then_transition_operator"
         _run_resident_cognition_and_transition(runtime_surfaces, tick_id=tick_id)

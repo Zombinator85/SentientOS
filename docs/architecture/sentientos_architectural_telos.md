@@ -218,8 +218,14 @@ model-replacement instrument freezes current World-State, developmental history,
 generation posture, budgets, and prompt construction while comparing two distinct
 pre-governed endpoints under history-present and history-withheld conditions,
 then restores model A. A campaign can repeat the same preregistered five-condition
-experiment. Production hot-swap, autonomous model choice/acquisition, and a real
-resident A→B→A serving transition are not established by these instruments.
+experiment. Under explicit configuration, the resident path now also has hardened
+serving, a stable slot and process-local quiescence gate, preregistered stages with
+exact stage and activation approvals, canonical activation and serving owners,
+transition-only rebinding, a durable installation-relative journal, explicit
+operator ingress, and actual `sentientosd` composition. Synthetic live temporal
+A→B→A evidence exercises the same slot, gate, control plane, and developmental
+history identity. It is not production evidence from commissioned nonsynthetic
+models, and autonomous model choice/acquisition remains unestablished.
 
 **Why it exists.** If cognitive machinery is replaceable, model changes can be
 treated as interventions rather than identity annihilation or silent upgrades.
@@ -233,11 +239,10 @@ from effects associated with the model artifact, software generation, current
 environment, or their interaction. Persistent organization becomes an experimental
 platform for cognitive succession rather than a wrapper around one permanent model.
 
-**Missing bridge.** Architectural and operational: admitted resident serving
-transition with exact A→B→A restoration, cadence continuation, state isolation,
-and post-transition proof. Empirical: replicated semantic outcome measures rather
-than output-digest difference alone. Constitutional: operator policy for selecting,
-commissioning, reverting, and retiring cognition.
+**Missing bridge.** Operational and empirical: production temporal resident
+transitions with commissioned nonsynthetic models, followed by replicated semantic
+outcome measures rather than output-digest difference alone. Constitutional:
+operator policy for selecting, commissioning, reverting, and retiring cognition.
 
 **Closure evidence.** Predeclared factorial trials independently varying model,
 history, software generation, and environment; exact endpoint and artifact custody;
@@ -248,10 +253,13 @@ hypothesis unless operationally defined and independently measured.
 ### 2.5 Reflection and self-judgment: trustworthy only when grounded outside the narrator
 
 **What exists — ESTABLISHED.** Callable cognition includes reflection/narration,
-simulation, and integration; a deterministic self-model schema exists; and the
-developmental path can record cognition bound to external evidence. These are not
-all one resident closed loop. Developmental observations explicitly perform no
-self-model mutation, goal creation, policy change, or action.
+simulation, and integration. A deterministic longitudinal self-model owner now
+projects a narrow factual vocabulary from validated World-State into immutable,
+digest-chained reconciliations with exact claim/source bindings, staleness,
+contradiction, withdrawal, and supersession semantics. The older Glow mutable
+self-state is compatibility scratch state, not this evidence plane. The new owner
+is not yet a default resident writer or cognitive input. Developmental observations
+explicitly perform no self-model mutation, goal creation, policy change, or action.
 
 **Why it exists.** Free-form reflection is useful for interpretation and proposal,
 but cannot be the sole measurement of a system participating in its own change.
@@ -264,10 +272,10 @@ uncertainty/conflict, remains distinguishable from current truth, and can be
 checked after both software and cognitive replacement. The trust belongs to the
 chain of custody, not to introspective eloquence.
 
-**Missing bridge.** Architectural: a typed, admitted route from World-State and
-proof into a longitudinal self-model, with claim-level provenance and independent
-reconciliation when evidence changes. Empirical: calibration tests comparing
-self-assessment with externally measured condition and outcome.
+**Missing bridge.** Architectural/operational: explicitly configured runtime
+composition after same-tick World-State, followed by bounded prior-tick cognitive
+consumption that cannot recursively certify itself. Empirical: calibration tests
+comparing self-assessment with externally measured condition and outcome.
 
 **Closure evidence.** Controlled blind faults and recoveries, preregistered
 expected observations, claim-level source bindings, measured false-positive and
@@ -453,8 +461,8 @@ kind, not just add a feature.
 1. **Present prerequisites — ESTABLISHED:** independent model identity/provenance,
    frozen current/history context, five-condition experiments, repeated campaigns,
    and local serving custody.
-2. **Missing bridge:** real governed resident A→B→A activation/serving transitions
-   and externally evaluated semantic outcomes.
+2. **Missing bridge:** production temporal resident A→B→A evidence using
+   commissioned nonsynthetic models, plus externally evaluated semantic outcomes.
 3. **After closure — IMPLIED:** model-, history-, software-, and environment-
    associated effects can be experimentally separated.
 4. **Still unproven:** a model-independent person, identity continuity, learning,
@@ -465,10 +473,11 @@ kind, not just add a feature.
 ### Phase change E — logs → longitudinal evidence-based self-model
 
 1. **Present prerequisites — ESTABLISHED:** durable ledgers, proof preservation,
-   World-State, developmental history, and a deterministic self-model schema.
-2. **Missing bridge:** typed claim-level ingestion and correction rules across
-   generations without allowing reflection to overwrite source evidence.
-3. **After closure — IMPLIED:** the system can maintain a revisable account of
+   World-State, developmental history, and deterministic claim-level ingestion and
+   reconciliation across generations without reflection overwriting source evidence.
+2. **Missing bridge:** configured runtime production after same-tick World-State,
+   bounded prior-tick cognitive consumption, and independent calibration trials.
+3. **After closure — IMPLIED:** the system can use its revisable account of
    what it was, what changed, why, and what followed.
 4. **Still unproven:** narrative coherence, psychological continuity, or correct
    causal explanation beyond the bound evidence.
