@@ -44,7 +44,8 @@ from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_D
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
-from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
+    LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
@@ -78,6 +79,7 @@ from sentientos.maintenance_resident_runtime_adoption import inspect_transition_
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
+LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
 
 
 def _prepare_resident_runtime_startup(controller: MaintenanceResidentRuntimeAdoptionController) -> dict[str, Any]:
@@ -233,6 +235,18 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
         self._longitudinal_self_model_owner = longitudinal_self_model_owner
+        self._longitudinal_self_model_config: LongitudinalSelfModelRuntimeConfig | None = None
+        self._longitudinal_self_model_configuration_error: str | None = None
+        if self._longitudinal_self_model_owner is None and os.environ.get(LONGITUDINAL_SELF_MODEL_CONFIG_ENV):
+            try:
+                self._longitudinal_self_model_config = load_longitudinal_self_model_config(
+                    os.environ[LONGITUDINAL_SELF_MODEL_CONFIG_ENV])
+                if self._longitudinal_self_model_config.enabled:
+                    self._longitudinal_self_model_owner = LongitudinalSelfModelOwner(
+                        self._longitudinal_self_model_config.custody_root)
+                    self._longitudinal_self_model_owner.history()  # verify the complete durable chain now
+            except Exception as exc:
+                self._longitudinal_self_model_configuration_error = f"{type(exc).__name__}:{exc}"
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
@@ -424,7 +438,10 @@ class RuntimeMaintenanceSurfaces:
 
     def reconcile_longitudinal_self_model(self, *, tick_id: str) -> dict[str, Any]:
         """Project the same-tick board when an operator explicitly supplies an owner."""
-        if self._longitudinal_self_model_owner is None:
+        if self._longitudinal_self_model_configuration_error is not None:
+            feedback = {"status": "degraded", "reason": self._longitudinal_self_model_configuration_error,
+                        "authority": False}
+        elif self._longitudinal_self_model_owner is None:
             feedback = {"status": "disabled", "reason": "owner_not_explicitly_composed", "authority": False}
         elif self._world_state_snapshot is None or self._world_state_snapshot_built_for_tick != tick_id:
             feedback = {"status": "degraded", "reason": "same_tick_world_state_unavailable", "authority": False}
@@ -454,7 +471,20 @@ class RuntimeMaintenanceSurfaces:
                         "write_performed": False, "model_invoked": False, "admission_issued": False}
         else:
             try:
-                result = self._resident_developmental_owner.run_tick(snapshot=self._world_state_snapshot, tick_id=tick_id)
+                prior_self_model = None
+                config = self._longitudinal_self_model_config
+                if (config is not None and config.cognitive_consumption_enabled
+                        and self._longitudinal_self_model_owner is not None):
+                    prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
+                        before_tick=tick_id, max_claims=config.max_projection_claims,
+                        allowed_predicates=config.allowed_predicates)
+                if prior_self_model is None:
+                    result = self._resident_developmental_owner.run_tick(
+                        snapshot=self._world_state_snapshot, tick_id=tick_id)
+                else:
+                    result = self._resident_developmental_owner.run_tick(
+                        snapshot=self._world_state_snapshot, tick_id=tick_id,
+                        prior_self_model=prior_self_model)
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
                             "memory_posture": "historical_interpretation_not_current_truth"}
             except Exception as exc:
@@ -917,14 +947,16 @@ def _run_maintenance_tick(
         build_board = getattr(runtime_surfaces, "build_world_state_board", None)
         if callable(build_board):
             build_board(tick_id=tick_id)
+        current_surface = "resident_developmental_cognition_then_transition_operator"
+        current_correlation_id = f"{tick_id}:resident_developmental_cognition_then_transition_operator"
+        _run_resident_cognition_and_transition(runtime_surfaces, tick_id=tick_id)
+        # Temporal firewall: cognition can inspect only custody that existed before
+        # this tick.  Current World-State reconciliation is deliberately later.
         current_surface = "longitudinal_self_model"
         current_correlation_id = f"{tick_id}:longitudinal_self_model"
         reconcile_self_model = getattr(runtime_surfaces, "reconcile_longitudinal_self_model", None)
         if callable(reconcile_self_model):
             reconcile_self_model(tick_id=tick_id)
-        current_surface = "resident_developmental_cognition_then_transition_operator"
-        current_correlation_id = f"{tick_id}:resident_developmental_cognition_then_transition_operator"
-        _run_resident_cognition_and_transition(runtime_surfaces, tick_id=tick_id)
         kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
 
         current_surface = "repository_mutation_handoff"

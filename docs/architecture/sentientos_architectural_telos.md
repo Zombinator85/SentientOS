@@ -1,5 +1,13 @@
 # SentientOS as a whole system
 
+**Prior factual self-context — ESTABLISHED, bounded and opt-in.** Resident
+developmental cognition can consume an exact bounded projection of a completed
+earlier longitudinal reconciliation, separately from current World-State and
+prior interpretation. Cognition precedes same-tick reconciliation so reflection
+or writeback cannot manufacture the factual substrate it consumes. Projection
+and assessment remain non-authoritative and establish no consciousness,
+continuity, learning, calibration, or improvement claim.
+
 > **Posture:** evidence-grounded architectural synthesis, not authority. This
 > document grants no capability and makes no claim of consciousness, sentience,
 > autonomous intent, or completed recursive self-improvement. **ESTABLISHED**

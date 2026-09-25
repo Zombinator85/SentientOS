@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "151c537fc19d5b890f35d6af5a319689051b0324",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_self_model_cognitive_consumption.py::test_runtime_config_reconstructs_exact_custody_and_rejects_tamper", "rationale": "Explicit configuration reconstructs exact custody and rejects tampering."},
+    {"node_id": "tests/test_self_model_cognitive_consumption.py::test_prior_tick_projection_is_bounded_exact_and_same_tick_excluded", "rationale": "Projection is bounded, provenance-bound, and excludes same-tick reconciliation."},
+    {"node_id": "tests/test_self_model_cognitive_consumption.py::test_resident_receipt_binds_exact_prior_projection", "rationale": "Cognition request and observation bind the exact earlier projection."},
+    {"node_id": "tests/test_self_model_cognitive_consumption.py::test_intervention_controls_and_external_scoring_reject_self_certification", "rationale": "Preregistered condition order and deterministic external scoring reject self-certification."},
+    {"node_id": "tests/test_longitudinal_self_model.py::test_authority_and_model_authored_claim_smuggling_is_rejected", "rationale": "Model-authored factual smuggling fails closed."},
+    {"node_id": "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims", "rationale": "Replacement history remains factual and separately attributable."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_self_model_cognitive_consumption.py::test_resident_receipt_binds_exact_prior_projection"
+  ]
+}

@@ -67,13 +67,33 @@ current truth by declaration.
 ### Runtime and cognition boundary
 
 The causal ordering is source proof/observation → World-State → longitudinal
-self-model → possible later developmental interpretation. The deterministic
-owner is implemented and can be explicitly composed after a same-tick
-World-State build. It is not yet enabled as a default `sentientosd` writer, and
-resident developmental cognition does not yet consume it. That conservative
-boundary avoids an unreviewed durable writer and same-tick recursive
-self-certification. A later composition task must define explicit configuration,
-storage custody, bounded claim selection, and prior-tick-only cognitive exposure.
+self-model → possible later developmental interpretation. `sentientosd` now has
+an opt-in `SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG` composition. Its exact v1
+configuration names an absolute custody root, enablement, cognitive-consumption
+enablement, a 1–32 claim limit, an exact allowed-predicate list, and installation
+identity. Absence remains inert. Explicit configuration reconstructs the entire
+journal at startup and fails closed rather than replacing corrupt custody.
+
+The cognitive projection is a deterministic read-only selection bound to one
+exact reconciliation. It carries claim semantic digests, status, freshness,
+contradiction, evidence strength, source identities, software/model/history
+context, and an all-false authority map. Current evidence, prior self-model, and
+developmental history remain three separate prompt objects: World-State is
+current external evidence; the longitudinal self-model is evidence-bound factual
+history; developmental history is prior interpretation; self-assessment is the
+current stochastic reasoning over them. None equals authority.
+
+Cognition for tick N runs before reconciliation of World-State N and can receive
+only a projection whose source tick differs from N. Receipts bind its exact
+reconciliation, generation, claims, current projection, history, model, and
+generation configuration. This temporal firewall prevents reflection from
+manufacturing the factual substrate it then cites as proof of itself.
+
+The bounded intervention protocol preregisters present/withheld/restored order
+without retries. Its external exact-key scorer measures supported correctness,
+unsupported assertion, abstention, provenance, contradiction, and stale/current
+handling. Output difference proves only changed output; negative and null results
+remain valid, and a model answer cannot certify its own score.
 
 The journal survives replacement of the software or cognitive model interpreting
 it because its identities and verification depend on canonical evidence bytes,
