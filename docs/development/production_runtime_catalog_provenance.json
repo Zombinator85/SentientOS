@@ -12,32 +12,45 @@
   },
   "entries": [
     {
-      "runtime_id": "llama-cpp-python-0.3.35-cpu-windows-x86_64",
+      "runtime_id": "llama-cpp-python-0.3.35-cpu-linux-x86_64",
       "source_repository": "abetlen/llama-cpp-python",
       "official_wheel_index_channel": "https://abetlen.github.io/llama-cpp-python/whl/cpu/",
       "source_release_tag": "v0.3.35",
-      "artifact_url": "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35/llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
-      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
-      "expected_artifact_size_bytes": 7086788,
-      "observed_artifact_size_bytes": 7086788,
-      "artifact_size_bytes": 7086788,
-      "expected_artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
-      "observed_artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
-      "artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
+      "artifact_url": "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35/llama_cpp_python-0.3.35-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+      "expected_artifact_size_bytes": 23912624,
+      "observed_artifact_size_bytes": 23912624,
+      "artifact_size_bytes": 23912624,
+      "expected_artifact_sha256": "d172f3d3c8cdd194c3c47c71cb077ed6e61354a2d0f939ceeac0c8fd29999596",
+      "observed_artifact_sha256": "d172f3d3c8cdd194c3c47c71cb077ed6e61354a2d0f939ceeac0c8fd29999596",
+      "artifact_sha256": "d172f3d3c8cdd194c3c47c71cb077ed6e61354a2d0f939ceeac0c8fd29999596",
       "wheel_tags": {
         "python_tag": "py3",
         "abi_tag": "none",
-        "platform_tag": "win_amd64"
+        "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64"
       },
+      "wheel_metadata_tags": [
+        "py3-none-manylinux_2_17_x86_64",
+        "py3-none-manylinux2014_x86_64"
+      ],
       "backend_variant": "cpu",
       "license_spdx": "MIT",
       "metadata_name": "llama_cpp_python",
       "metadata_version": "0.3.35",
-      "wheel_metadata_tag": "py3-none-win_amd64",
-      "verification_method": "recovery_download_sha256_and_size_match_recorded_anchor_and_official_github_release_asset_digest",
+      "metadata_requires_python": ">=3.8",
+      "metadata_python_classifiers": [
+        "3.10",
+        "3.11",
+        "3.12",
+        "3.13",
+        "3.14"
+      ],
+      "wheel_root_is_purelib": false,
+      "verification_method": "independent_download_sha256_size_and_wheel_metadata_match_official_github_release_asset_digest",
       "official_release_asset_digest_available": true,
-      "official_release_asset_digest": "sha256:31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
-      "independent_reproduction_status": "matched_recorded_custody_anchor"
+      "official_release_asset_digest": "sha256:d172f3d3c8cdd194c3c47c71cb077ed6e61354a2d0f939ceeac0c8fd29999596",
+      "independent_reproduction_status": "matched_recorded_custody_anchor",
+      "wheel_metadata_tag": "py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64"
     },
     {
       "runtime_id": "llama-cpp-python-0.3.35-cpu-macos-arm64",
@@ -65,6 +78,34 @@
       "verification_method": "recovery_download_sha256_and_size_match_recorded_anchor_and_official_github_release_asset_digest",
       "official_release_asset_digest_available": true,
       "official_release_asset_digest": "sha256:f16df6e77c2b9ced0ebe7b50de33a125b4d0463f758edf7b516e2b1296fbbcf5",
+      "independent_reproduction_status": "matched_recorded_custody_anchor"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-cpu-windows-x86_64",
+      "source_repository": "abetlen/llama-cpp-python",
+      "official_wheel_index_channel": "https://abetlen.github.io/llama-cpp-python/whl/cpu/",
+      "source_release_tag": "v0.3.35",
+      "artifact_url": "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35/llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-win_amd64.whl",
+      "expected_artifact_size_bytes": 7086788,
+      "observed_artifact_size_bytes": 7086788,
+      "artifact_size_bytes": 7086788,
+      "expected_artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
+      "observed_artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
+      "artifact_sha256": "31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
+      "wheel_tags": {
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "win_amd64"
+      },
+      "backend_variant": "cpu",
+      "license_spdx": "MIT",
+      "metadata_name": "llama_cpp_python",
+      "metadata_version": "0.3.35",
+      "wheel_metadata_tag": "py3-none-win_amd64",
+      "verification_method": "recovery_download_sha256_and_size_match_recorded_anchor_and_official_github_release_asset_digest",
+      "official_release_asset_digest_available": true,
+      "official_release_asset_digest": "sha256:31590ea000d5aff6f05f1e428048e72318a83709288159a5bd4dabec530080bb",
       "independent_reproduction_status": "matched_recorded_custody_anchor"
     },
     {
@@ -124,34 +165,6 @@
       "independent_reproduction_status": "matched_recorded_custody_anchor"
     },
     {
-      "runtime_id": "llama-cpp-python-0.3.35-rocm72-linux-x86_64",
-      "source_repository": "abetlen/llama-cpp-python",
-      "official_wheel_index_channel": "https://abetlen.github.io/llama-cpp-python/whl/rocm72/",
-      "source_release_tag": "v0.3.35-rocm72",
-      "artifact_url": "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-rocm72/llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
-      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
-      "expected_artifact_size_bytes": 858340921,
-      "observed_artifact_size_bytes": 858340921,
-      "artifact_size_bytes": 858340921,
-      "expected_artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
-      "observed_artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
-      "artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
-      "wheel_tags": {
-        "python_tag": "py3",
-        "abi_tag": "none",
-        "platform_tag": "manylinux_2_35_x86_64"
-      },
-      "backend_variant": "rocm72",
-      "license_spdx": "MIT",
-      "metadata_name": "llama_cpp_python",
-      "metadata_version": "0.3.35",
-      "wheel_metadata_tag": "py3-none-manylinux_2_35_x86_64",
-      "verification_method": "recovery_download_sha256_and_size_match_recorded_anchor_and_official_github_release_asset_digest",
-      "official_release_asset_digest_available": true,
-      "official_release_asset_digest": "sha256:dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
-      "independent_reproduction_status": "matched_recorded_custody_anchor"
-    },
-    {
       "runtime_id": "llama-cpp-python-0.3.35-hip-radeon-windows-x86_64",
       "source_repository": "abetlen/llama-cpp-python",
       "official_wheel_index_channel": "https://abetlen.github.io/llama-cpp-python/whl/hip-radeon/",
@@ -206,15 +219,43 @@
       "official_release_asset_digest_available": true,
       "official_release_asset_digest": "sha256:faf9a2b38df5cbf9427a074f974c00abbb799185753c474672fd461c198b7a0a",
       "independent_reproduction_status": "matched_recorded_custody_anchor"
+    },
+    {
+      "runtime_id": "llama-cpp-python-0.3.35-rocm72-linux-x86_64",
+      "source_repository": "abetlen/llama-cpp-python",
+      "official_wheel_index_channel": "https://abetlen.github.io/llama-cpp-python/whl/rocm72/",
+      "source_release_tag": "v0.3.35-rocm72",
+      "artifact_url": "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.35-rocm72/llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
+      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux_2_35_x86_64.whl",
+      "expected_artifact_size_bytes": 858340921,
+      "observed_artifact_size_bytes": 858340921,
+      "artifact_size_bytes": 858340921,
+      "expected_artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
+      "observed_artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
+      "artifact_sha256": "dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
+      "wheel_tags": {
+        "python_tag": "py3",
+        "abi_tag": "none",
+        "platform_tag": "manylinux_2_35_x86_64"
+      },
+      "backend_variant": "rocm72",
+      "license_spdx": "MIT",
+      "metadata_name": "llama_cpp_python",
+      "metadata_version": "0.3.35",
+      "wheel_metadata_tag": "py3-none-manylinux_2_35_x86_64",
+      "verification_method": "recovery_download_sha256_and_size_match_recorded_anchor_and_official_github_release_asset_digest",
+      "official_release_asset_digest_available": true,
+      "official_release_asset_digest": "sha256:dd8cd0a21ea79af63e035e8db18a0da1cf9a6b97cf68551c6c5930272648a5f7",
+      "independent_reproduction_status": "matched_recorded_custody_anchor"
     }
   ],
-  "omitted_matrix_cells": [
-    {
-      "backend_family": "cpu",
-      "platform": "linux-x86_64",
-      "reason_code": "unsupported_production_artifact_shape",
-      "artifact_filename": "llama_cpp_python-0.3.35-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-      "platform_tag": "manylinux2014_x86_64.manylinux_2_17_x86_64"
-    }
-  ]
+  "omitted_matrix_cells": [],
+  "linux_cpu_admission": {
+    "verified_at": "2026-09-25",
+    "github_release_api_evidence": "https://api.github.com/repos/abetlen/llama-cpp-python/releases/tags/v0.3.35",
+    "downloaded_size_bytes": 23912624,
+    "downloaded_sha256": "d172f3d3c8cdd194c3c47c71cb077ed6e61354a2d0f939ceeac0c8fd29999596",
+    "wheel_metadata_inspected": true,
+    "supported_python_policy": "3.10-3.12 retained; package metadata classifiers alone do not satisfy SentientOS native-runtime production compatibility evidence"
+  }
 }

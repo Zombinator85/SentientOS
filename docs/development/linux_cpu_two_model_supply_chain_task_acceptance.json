@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "linux_cpu_two_model_production_supply_chain",
+  "task_classification": "behavior_adding",
+  "repository_sha": "456ec6257852585b02a567bd7576245d3931cca5",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_compound_manylinux_aliases_select_linux_cpu_without_accelerator_inference", "rationale": "Compound official aliases select the CPU route without accelerator inference."},
+    {"node_id": "tests/test_local_runtime_provisioning.py::test_compound_manylinux_architecture_and_glibc_floor_fail_closed", "rationale": "Architecture and glibc compatibility remain fail closed."},
+    {"node_id": "tests/test_production_runtime_catalog.py::test_exact_upstream_custody_hash_size_tags_license_and_provenance", "rationale": "Production entry binds exact independently reproduced custody."},
+    {"node_id": "tests/test_linux_cpu_two_model_production_curation.py::test_two_frozen_packages_bind_real_linux_cpu_routes_and_evidence", "rationale": "Both real curator packages bind Linux CPU routes and frozen evidence."},
+    {"node_id": "tests/test_linux_cpu_two_model_production_curation.py::test_candidate_has_exactly_two_distinct_eligible_cpu_identities_on_primary_profile", "rationale": "Observed primary facts make both distinct CPU endpoints eligible without changing one-best selection."},
+    {"node_id": "tests/test_linux_cpu_two_model_production_curation.py::test_publication_intake_is_exact_but_contains_no_grant_or_provider_claim", "rationale": "Both publication requests are exact while external authority and provider custody remain absent."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_runtime_provisioning.py::test_compound_manylinux_aliases_select_linux_cpu_without_accelerator_inference",
+    "tests/test_linux_cpu_two_model_production_curation.py::test_candidate_has_exactly_two_distinct_eligible_cpu_identities_on_primary_profile"
+  ]
+}

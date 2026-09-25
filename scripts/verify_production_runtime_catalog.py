@@ -34,7 +34,12 @@ def verify() -> dict[str, object]:
         if record.get("independent_reproduction_status") != "matched_recorded_custody_anchor" or record.get("observed_artifact_sha256") != sha: raise ValueError("independent_verification_missing")
     if set(records) != {item["runtime_id"] for item in catalog["runtimes"]}: raise ValueError("orphan_provenance")
     families = sorted({item["backend_family"] for item in catalog["runtimes"]}); ready = families == EXPECTED_FAMILIES
-    return {"status": "production_runtime_catalog_verified", "production_runtime_catalog_ready": ready, "backend_families": families, "runtime_count": len(records), "catalog_digest": normalized["catalog_digest"]}
+    linux_cpu = [item["runtime_id"] for item in catalog["runtimes"] if item["backend_family"] == "cpu" and "manylinux" in item["platform_tag"]]
+    if linux_cpu != ["llama-cpp-python-0.3.35-cpu-linux-x86_64"]:
+        raise ValueError("linux_x86_64_cpu_coverage_missing")
+    return {"status": "production_runtime_catalog_verified", "production_runtime_catalog_ready": ready,
+            "linux_x86_64_cpu_coverage": True, "linux_x86_64_cpu_runtime_ids": linux_cpu,
+            "backend_families": families, "runtime_count": len(records), "catalog_digest": normalized["catalog_digest"]}
 
 def main() -> int:
     print(json.dumps(verify(), sort_keys=True)); return 0

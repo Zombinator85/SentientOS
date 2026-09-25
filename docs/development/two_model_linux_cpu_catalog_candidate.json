@@ -1,0 +1,148 @@
+{
+  "schema_version": "sentientos.local_model_catalog:v1",
+  "models": [
+    {
+      "artifact_content_address": "sha256:509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+      "artifact_filename": "qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf",
+      "artifact_sha256": "509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c",
+      "artifact_size_bytes": 4683073536,
+      "artifact_urls": [
+        "https://models.sentientos.org/qwen2.5-coder-7b-instruct-q4_k_m-509287f78cb4d4cf6b3843734733b914b2c158e43e22a7f4bf5e963800894d3c.gguf"
+      ],
+      "execution_routes": [
+        {
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "cpu",
+          "engine": "llama_cpp",
+          "os_families": [
+            "linux"
+          ],
+          "route_id": "qwen25-coder-q4-cpu-linux-x86-64",
+          "route_priority": 5
+        },
+        {
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "cpu",
+          "engine": "llama_cpp",
+          "os_families": [
+            "windows"
+          ],
+          "route_id": "qwen25-coder-q4-cpu-windows-x86-64",
+          "route_priority": 10
+        },
+        {
+          "accelerator_vendor": "nvidia",
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "cuda",
+          "engine": "llama_cpp",
+          "min_vram_bytes": 8589934592,
+          "os_families": [
+            "linux"
+          ],
+          "route_id": "qwen25-coder-q4-cuda-linux-x86-64",
+          "route_priority": 20
+        },
+        {
+          "accelerator_vendor": "nvidia",
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "cuda",
+          "engine": "llama_cpp",
+          "min_vram_bytes": 8589934592,
+          "os_families": [
+            "windows"
+          ],
+          "route_id": "qwen25-coder-q4-cuda-windows-x86-64",
+          "route_priority": 30
+        },
+        {
+          "accelerator_vendor": "amd",
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "rocm",
+          "engine": "llama_cpp",
+          "min_vram_bytes": 8589934592,
+          "os_families": [
+            "linux"
+          ],
+          "route_id": "qwen25-coder-q4-rocm-linux-x86-64",
+          "route_priority": 40
+        },
+        {
+          "accelerator_vendor": "amd",
+          "architectures": [
+            "x86_64"
+          ],
+          "backend_family": "rocm",
+          "engine": "llama_cpp",
+          "min_vram_bytes": 8589934592,
+          "os_families": [
+            "windows"
+          ],
+          "route_id": "qwen25-coder-q4-hip-windows-x86-64",
+          "route_priority": 50
+        }
+      ],
+      "license_id": "apache-2.0",
+      "model_id": "qwen2.5-coder-7b-instruct-q4-k-m",
+      "priority": 1,
+      "requirements": {
+        "architecture": "x86_64",
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "quantization": "q4",
+        "ram_gb_min": 9
+      },
+      "source_artifact_filename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+      "source_repository": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+      "source_revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a"
+    },
+    {
+      "model_id": "phi-3-mini-4k-instruct-q4-k-m",
+      "priority": 2,
+      "license_id": "mit",
+      "source_repository": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "source_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+      "source_artifact_filename": "Phi-3-mini-4k-instruct-q4.gguf",
+      "artifact_filename": "phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf",
+      "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "artifact_size_bytes": 2393231072,
+      "artifact_content_address": "sha256:8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "artifact_urls": [
+        "https://models.sentientos.org/phi-3-mini-4k-instruct-q4-8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef.gguf"
+      ],
+      "requirements": {
+        "architecture": "x86_64",
+        "ram_gb_min": 6,
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "quantization": "q4_k_m"
+      },
+      "execution_routes": [
+        {
+          "route_id": "phi3-mini-q4-cpu-linux-x86-64",
+          "engine": "llama_cpp",
+          "backend_family": "cpu",
+          "route_priority": 10,
+          "os_families": [
+            "linux"
+          ],
+          "architectures": [
+            "x86_64"
+          ]
+        }
+      ]
+    }
+  ],
+  "local_model_catalog_digest": "51301637129f20c5901d6da4fe9b67b95b13b25a1f68b937a80aa93c07b17021"
+}
