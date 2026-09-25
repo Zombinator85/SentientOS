@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "766fc5a40fe0df4e090f267f7b3a3ee7c5a51ba9",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_initialize_installation_state_script.py::test_initializer_uses_system_registry_and_independently_reopens",
+      "rationale": "The successful operator path uses canonical registry construction, creates through open(create=True), independently reopens, and reports no authority grant."
+    },
+    {
+      "node_id": "tests/test_initialize_installation_state_script.py::test_initializer_rejects_invalid_identity_without_opening_registry",
+      "rationale": "Ambiguous installation identity fails before canonical custody is opened or changed."
+    },
+    {
+      "node_id": "tests/test_initialize_installation_state_script.py::test_initializer_has_no_alternate_state_root_argument",
+      "rationale": "The operator surface refuses caller-selected custody roots."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_initialize_installation_state_script.py::test_initializer_uses_system_registry_and_independently_reopens"
+  ]
+}
