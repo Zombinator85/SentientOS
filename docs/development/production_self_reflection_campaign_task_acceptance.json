@@ -1,0 +1,14 @@
+{
+  "repository_sha": "ccdb44d16b45b9c2c4555a284538a2b03e1047bd",
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "required_nodes": [
+    {"node_id": "tests/test_production_self_reflection_campaign.py::test_production_readiness_success_and_synthetic_failure", "rationale": "Readiness succeeds only for genuine-style complete observations and synthetic seams fail specifically."},
+    {"node_id": "tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a", "rationale": "One trial binds exact phases, prior-tick projections, external scoring, and restored A."},
+    {"node_id": "tests/test_production_self_reflection_campaign.py::test_interrupted_campaign_is_no_retry", "rationale": "An in-progress trial is terminal on reconstruction."},
+    {"node_id": "tests/test_production_self_reflection_campaign.py::test_protocol_and_receipt_tamper_fail_reconstruction", "rationale": "Protocol and immutable receipt reconstruction reject tampering."},
+    {"node_id": "tests/test_production_self_reflection_campaign.py::test_missing_real_models_writes_precise_not_ready_artifact", "rationale": "Absent real models yield durable precise readiness evidence without effects."}
+  ],
+  "successful_path_nodes": ["tests/test_production_self_reflection_campaign.py::test_one_shot_exact_transition_firewall_external_scorer_and_restored_a"],
+  "test_provenance_path": "/tmp/production_self_reflection_test_provenance.json"
+}
