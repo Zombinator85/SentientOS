@@ -246,3 +246,7 @@ tests at current HEAD.
 10. Yes, with the precise qualification that models can perform lease-bounded
     candidate writes, while deterministic machinery owns all authoritative
     validation, repository adoption, authority continuity, and resident adoption.
+
+## Post-adoption measurement boundary
+
+Completed `resident_adoption_completed` evidence may qualify an exact preregistered maintenance evaluation. The evaluator additionally binds generation, commit, tree, continuity receipt, launch provenance, readiness receipt, predecessor baseline, and identical measurement laws. It preserves validation and runtime consequence separately and emits assessment evidence only. See [maintenance post-adoption evaluation](maintenance_post_adoption_evaluation.md).

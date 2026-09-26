@@ -282,7 +282,14 @@ class PersistentEpistemicStateOwner:
 
     def record_calibration(self, **kwargs: Any) -> EpistemicCalibrationEvent:
         raw=EpistemicCalibrationEvent("","",authority=dict(FALSE_AUTHORITY),**kwargs); self.proposition(raw.proposition_id)
-        if not any((self.root/"states").glob("*.json")): raise EpistemicStateError("calibration_state_missing")
+        states=[EpistemicState(**v) for v in self._read("states")]
+        forecast=next((s for s in states if s.state_digest == raw.forecast_state_digest),None)
+        if forecast is None: raise EpistemicStateError("calibration_forecast_state_missing")
+        if forecast.proposition_id != raw.proposition_id: raise EpistemicStateError("calibration_forecast_proposition_mismatch")
+        if raw.resolved_at <= forecast.updated_at: raise EpistemicStateError("calibration_outcome_not_after_forecast")
+        bindings={b.binding_id:b for b in self.bindings(raw.proposition_id)}
+        if not raw.source_binding_ids: raise EpistemicStateError("calibration_source_bindings_required")
+        if set(raw.source_binding_ids)-set(bindings): raise EpistemicStateError("calibration_source_binding_missing_or_foreign")
         cid,dg=_identity("epistemic-calibration",raw.payload()); value=replace(raw,calibration_id=cid,calibration_digest=dg)
         _write_new(self.root/"calibrations"/f"{cid}.json",asdict(value)); return value
 
@@ -313,6 +320,17 @@ class PersistentEpistemicStateOwner:
         for event in events:
             eid,edg=_identity("epistemic-update",event.identity_payload())
             if (eid,edg)!=(event.event_id,event.event_digest) or event.reason not in UPDATE_REASONS or dict(event.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_update_event_invalid")
+        state_by_digest={s.state_digest:s for s in states}
+        for raw in self._read("calibrations"):
+            calibration=EpistemicCalibrationEvent(**raw); forecast=state_by_digest.get(calibration.forecast_state_digest)
+            cid,cdg=_identity("epistemic-calibration",calibration.payload())
+            if ((cid,cdg)!=(calibration.calibration_id,calibration.calibration_digest) or
+                    calibration.proposition_id not in propositions or forecast is None or
+                    forecast.proposition_id != calibration.proposition_id or
+                    calibration.resolved_at <= forecast.updated_at or not calibration.source_binding_ids or
+                    any(binding_id not in bindings or bindings[binding_id].proposition_id != calibration.proposition_id
+                        for binding_id in calibration.source_binding_ids)):
+                raise EpistemicStateError("epistemic_calibration_invalid")
         return {"propositions":len(propositions),"bindings":len(bindings),"states":len(states),"updates":len(events),"calibrations":len(self._read("calibrations"))}
 
 

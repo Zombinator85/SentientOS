@@ -254,7 +254,7 @@ Those facts do not collapse maturity predicates:
 - developmental history != proof of learning;
 - bounded software recursion != unrestricted RSI.
 
-The complete developmental organism is not causally closed. The next work is empirical use of current instruments and explicit composition of missing causal bridges, not inflation of implemented organs into conclusions.
+The maintenance chain now includes a bounded recursive developmental feedback mechanism: observe a problem, propose a modification, preregister an expected consequence, capture the predecessor baseline, implement and validate, adopt the successor, measure the resident consequence, compare prediction with outcome, nominate an epistemic/developmental update, and inform a later proposal-only signal. Validation is not consequence, and this mechanism retains negative, mixed, null, and insufficient outcomes. It does not establish beneficial recursive self-improvement or monotonic progress. The next work is independently controlled repeated production observation and explicit composition of remaining causal bridges, not inflation of implemented organs into conclusions.
 
 ## Persistent epistemic state
 

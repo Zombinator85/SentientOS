@@ -82,3 +82,17 @@ def test_authority_and_fabricated_or_missing_evidence_fail_closed(tmp_path):
         make_evidence_binding(proposition_id=p.proposition_id,source_artifact_id="model-text",source_digest="sha256:x",source_schema="model.free_text:v1",source_class="model_text",observation_time="2026-01-01T00:00:00Z",evidence_relation="supports",dependency_kind="unknown_dependency",dependency_group=None,upstream_binding_ids=(),freshness="current",reliability_posture="unknown",authority={**FALSE_AUTHORITY,"permission":True})
     with pytest.raises(EpistemicStateError,match="not_found"):
         owner.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,stance="supported",reason="new_evidence",active_binding_ids=["missing"],correlation_id="x",tick=1,recorded_at="2026-01-01T00:00:00Z")
+
+
+def test_calibration_is_proposition_specific_and_temporally_bound(tmp_path):
+    owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"]); a=proposition(a=1); b=proposition(b=2)
+    owner.register_proposition(a); owner.register_proposition(b)
+    state_a,_=owner.commit_update(proposition_id=a.proposition_id,expected_predecessor_digest=None,stance="unknown",reason="initialization",active_binding_ids=[],correlation_id="a",tick=1,recorded_at="2026-01-01T00:00:00Z")
+    state_b,_=owner.commit_update(proposition_id=b.proposition_id,expected_predecessor_digest=None,stance="unknown",reason="initialization",active_binding_ids=[],correlation_id="b",tick=1,recorded_at="2026-01-01T00:00:00Z")
+    evidence=binding(a,"9"); owner.bind_evidence(evidence)
+    with pytest.raises(EpistemicStateError,match="proposition_mismatch"):
+        owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_b.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2026-01-01T00:01:00Z")
+    with pytest.raises(EpistemicStateError,match="not_after"):
+        owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2025-01-01T00:00:00Z")
+    event=owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2026-01-01T00:01:00Z")
+    assert event.proposition_id==a.proposition_id and owner.verify()["calibrations"]==1
