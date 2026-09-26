@@ -1,0 +1,14 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "fd3fbeefe880dfc06650afbdb3e6ec40d2450f2e",
+  "test_provenance_path": "/tmp/maintenance_post_adoption_attribution_campaign_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_repeated_satisfied_under_independent_matched_controls_is_noncausal", "rationale": "Repeated production-class observations under matched independent controls produce only the strongest supported noncausal association."},
+    {"node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_environment_change_is_confound_not_association", "rationale": "An out-of-envelope control deterministically prevents attribution and records confounding."},
+    {"node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_interrupted_trial_is_terminal_and_cannot_be_retried_or_omitted", "rationale": "Interrupted trials remain ordered terminal evidence and cannot be retried or selectively omitted."},
+    {"node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_tamper_fails_reconstruction_and_identity_is_stable", "rationale": "Restart preserves identity and tampering fails immutable reconstruction."},
+    {"node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_epistemic_and_developmental_adapters_preserve_lineage_without_state_mutation", "rationale": "Downstream adapters preserve exact lineage without interpretation or proposition mutation."}
+  ],
+  "successful_path_nodes": ["tests/test_maintenance_post_adoption_attribution_campaign.py::test_repeated_satisfied_under_independent_matched_controls_is_noncausal"]
+}
