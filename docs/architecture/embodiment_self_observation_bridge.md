@@ -1,5 +1,19 @@
 # Embodiment self-observation bridge
 
+## Consequence extension
+
+The modern evidence owner now has an adjacent exact consequence workcell. Action
+expectations, renderer reports, separately sourced observations, consequence
+attributions, and prediction comparisons project as `embodiment` evidence (or
+`fulfillment` only where qualifying effect proof exists). The factual self-model
+is not filled with developmental interpretations; consequence facts instead enter
+the existing bounded selection and governed developmental-writeback path.
+
+The synthetic renderer and synthetic independent observer are deliberately
+different instances and roles. Screen, vision, camera, and framebuffer sources
+remain adapter boundaries, not ambiently discovered devices. The old Godot demo
+does not become a production observer or renderer by this composition.
+
 ## Established boundary
 
 `sentientos.embodiment_self_observation:v1` is the modern, bounded,

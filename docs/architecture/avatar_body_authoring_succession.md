@@ -48,11 +48,22 @@ Only adoption produces the body-manifest observation projected to World-State;
 existing longitudinal predicates reconcile generation, asset, and rig. Renderer
 handoff is commanded output, neither renderer report nor independent observation.
 
-Established are bounded plans, fixture authoring, independent inspection and
-comparison, receipts, separate CAS adoption, rollback lineage, embodiment
-projection, and the configured Blender seam. Not established are Blender
-installation or real `.blend` authoring, Godot rendering, physical embodiment,
-autonomous or beneficial adaptation, closed embodied development, psychological
-ownership, consciousness, or sentience. The next bridge is a configured real
-Blender acceptance run followed by renderer report and independently observed
-consequence/evaluation. `neos_blender_bridge.py` is legacy compatibility only.
+The one-shot CLI now exposes `plan-validate`, `readiness`, `run-one`,
+`candidate-status`, `adopt`, `rollback`, `renderer-handoff`, and `lineage` over
+these owners. Every command requires exact paths and identities; none discovers
+plans, invokes an unconfigured Blender, adopts automatically, or establishes a
+resident cadence.
+
+`sentientos.embodied_consequence` adds a testable developmental causal bridge:
+body generation -> preregistered prediction -> action command -> renderer report
+-> independent observation -> deterministic attribution/comparison -> governed
+developmental interpretation -> controlled later strategy comparison. Renderer
+and observer are separate protocol roles. The Godot demo and UDP receiver remain
+legacy/demo surfaces and are not production evidence or trusted transport.
+
+Established are bounded plans, fixture authoring, inspection, separate CAS
+adoption and rollback, exact consequence evidence, World-State projection, and
+synthetic causal experiments. Not established are Blender/Godot installation,
+physical causation, beneficial adaptation, closed embodied development,
+psychological ownership, consciousness, or sentience. A changed strategy is not
+automatically an improvement. `neos_blender_bridge.py` remains legacy only.

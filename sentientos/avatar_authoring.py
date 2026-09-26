@@ -427,6 +427,7 @@ def adoption_observation(pointer: Mapping[str, Any], manifest: AvatarBodyManifes
     return EmbodimentObservation("body-adoption:"+pointer["adoption_receipt_digest"], ADOPTION_SCHEMA, pointer["adoption_receipt_digest"], observed_at, "adoption_receipt", "fresh", posture, "body_manifest", pointer["body_identity"], "adopted_avatar_body", payload)
 
 
-def renderer_handoff(pointer: Mapping[str, Any], *, renderer_interface_id: str, requested_pose: str, requested_expression: str, correlation_id: str) -> dict[str, Any]:
-    value={"schema_version":HANDOFF_SCHEMA,"body_generation":pointer["body_generation"],"artifact_sha256":pointer["artifact_sha256"],"body_manifest_digest":pointer["manifest_digest"],"renderer_interface_id":_name(renderer_interface_id),"requested_test_pose":_name(requested_pose),"requested_test_expression":_name(requested_expression),"correlation_id":_name(correlation_id),"evidence_class":"commanded_output","renderer_reported":False,"independently_observed":False,"authority":dict(FALSE_AUTHORITY)}
-    value["handoff_digest"]=digest(value); return value
+def renderer_handoff(pointer: Mapping[str, Any], *, renderer_interface_id: str, requested_pose: str,
+                     requested_expression: str, correlation_id: str, commanded_at: str | None = None) -> dict[str, Any]:
+    value={"schema_version":HANDOFF_SCHEMA,"body_generation":pointer["body_generation"],"artifact_sha256":pointer["artifact_sha256"],"body_manifest_digest":pointer["manifest_digest"],"renderer_interface_id":_name(renderer_interface_id),"requested_test_pose":_name(requested_pose),"requested_test_expression":_name(requested_expression),"correlation_id":_name(correlation_id),"commanded_at":commanded_at,"evidence_class":"commanded_output","renderer_reported":False,"independently_observed":False,"authority":dict(FALSE_AUTHORITY)}
+    semantic=digest(value); value["handoff_id"]="handoff:"+semantic[7:31]; value["handoff_digest"]=digest(value); return value
