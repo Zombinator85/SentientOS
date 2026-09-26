@@ -80,7 +80,16 @@ A constrained Linux compatibility/accelerator domain may supply NVIDIA/CUDA and 
 
 ## Bridge: perception and embodiment to attributable consequence
 
-Perception, avatar, host observation, and effect paths exist, but not as closed embodied development. Open composition must bind prediction and intended effect to observed environment change, causal principal, resource consumption, self/other attribution, and later retained update. Environment perturbation is necessary to distinguish internal repetition from situated adaptation.
+Perception, avatar, host observation, and effect paths now include a testable
+developmental causal bridge: an adopted generation and preregistered prediction
+bind to a handoff, renderer report, separate observation, deterministic consequence
+attribution and field comparison, selectable World-State evidence, governed
+developmental history, and a later present/withheld/restored strategy comparison.
+This is synthetic and bounded, not proof of successful development or physical
+causation. Open work is a configured real-renderer/observer experiment with
+qualifying effect evidence, followed by repeated longitudinal strategy trials and
+resource-consumption attribution. Environment perturbation remains necessary to
+distinguish internal repetition from situated adaptation.
 
 ## Bridge: endogenous priorities without authored destination
 

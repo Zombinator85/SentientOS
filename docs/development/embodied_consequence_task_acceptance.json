@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "c721175c1c49d3ccd57b0d205e05501067ca053f",
+  "test_provenance_path": "/tmp/embodied_consequence_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_embodied_consequence.py::test_synthetic_contradiction_projects_and_selects_for_developmental_writeback", "rationale": "The contradiction path keeps renderer report, independent observation, attribution, comparison, World-State, and developmental selection distinct."},
+    {"node_id": "tests/test_embodied_consequence.py::test_synthetic_satisfied_retains_causal_limit", "rationale": "The matched path reports satisfaction without inventing physical causal proof."},
+    {"node_id": "tests/test_embodied_consequence.py::test_present_withheld_restored_strategy_experiment_and_external_score", "rationale": "The controlled intervention varies only history availability and uses an external deterministic scorer."},
+    {"node_id": "tests/test_embodied_consequence.py::test_restart_reconstruction_and_tamper_detection", "rationale": "Durable consequence records reconstruct and digest tampering fails closed."},
+    {"node_id": "tests/test_avatar_authoring.py::test_end_to_end_author_adopt_world_state_self_model_and_rollback", "rationale": "The existing production workcell owners still exercise adoption, handoff, World-State, and rollback."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_embodied_consequence.py::test_synthetic_contradiction_projects_and_selects_for_developmental_writeback",
+    "tests/test_embodied_consequence.py::test_present_withheld_restored_strategy_experiment_and_external_score"
+  ]
+}

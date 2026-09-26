@@ -412,3 +412,13 @@ artifact custody, structured plans, independent inspection/comparison, explicit
 CAS adoption, rollback lineage, and an adopted-generation renderer handoff seam.
 It has no resident cadence and does not infer rendering from adoption. See
 `avatar_body_authoring_succession.md`; `neos_blender_bridge.py` remains legacy.
+
+The explicit `sentientos.embodied_consequence` workcell preregisters an action
+expectation, keeps renderer claim and independently observed state distinct,
+performs field-law comparison and bounded causal attribution, and projects the
+exact chain to World-State for selection by the existing developmental-writeback
+controller. Its present/withheld/restored structured-strategy experiment uses an
+external deterministic scorer and preserves unchanged, changed, unstable, and
+unsupported results without calling any result learning or improvement. Synthetic
+renderer and observer roles provide CI evidence; no renderer, camera, daemon, or
+resident actuation is enabled by default.

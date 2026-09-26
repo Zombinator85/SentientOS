@@ -96,6 +96,19 @@ World-State evidence -> bounded deterministic selection
 
 Its capability status remains **partial** and its authority remains **bounded_state_transition**. Canonical explicit user retention is physically and semantically separate from developmental history. The distinctions are mandatory: memory != current truth; interpretation != truth; candidate != authority; admission != execution; storage != learning; retrieval != causal proof; output difference != improvement.
 
+Embodiment now has a repository-testable instance of that distinction:
+
+```text
+body generation -> prediction -> action command -> renderer report
+-> independent observation -> consequence attribution -> prediction comparison
+-> admitted developmental interpretation -> later controlled strategy comparison
+```
+
+This machinery can test whether a later structured proposal depends on admitted
+history by withholding and restoring the exact record while fixed variables remain
+bound. It does not establish that a changed proposal improved, that retrieval is
+development, or that renderer testimony proves physical causation.
+
 ## 6. Current experimental apparatus
 
 ### Developmental-history intervention
