@@ -60,3 +60,9 @@ separate authenticated evidence envelopes; neither is inferred from a changed
 state file or a successful send. The canonical technical body description and
 resident bridge are documented in
 `docs/architecture/embodiment_self_observation_bridge.md`.
+
+Body artifact creation and current-generation changes use the separate governed
+workcell in `docs/architecture/avatar_body_authoring_succession.md`. Adoption can
+produce a renderer handoff command, but neither adoption nor command delivery is
+renderer-reported or independently observed state. `neos_blender_bridge.py`
+remains legacy compatibility and is not an authoring backend.

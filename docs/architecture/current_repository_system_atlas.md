@@ -406,3 +406,9 @@ the longitudinal owner reconciles a narrow embodiment vocabulary after cognition
 Only later ticks can consume those claims. Legacy kernel/avatar/demo surfaces are
 not promoted. Details and the next Blender boundary are in
 `embodiment_self_observation_bridge.md`.
+
+The avatar-body succession workcell (`sentientos/avatar_authoring.py`) adds exact
+artifact custody, structured plans, independent inspection/comparison, explicit
+CAS adoption, rollback lineage, and an adopted-generation renderer handoff seam.
+It has no resident cadence and does not infer rendering from adoption. See
+`avatar_body_authoring_succession.md`; `neos_blender_bridge.py` remains legacy.
