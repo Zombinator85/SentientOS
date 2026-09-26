@@ -17,3 +17,5 @@ SpecAmender runtime intake receives existing-spec failure signals from the same 
 Every normalized signal carries stable IDs, source kind, finding kind, severity, subject/spec/capability/telemetry target, artifact references, SHA-256 evidence binding, caller-supplied observation time, routing eligibility, reason codes, and explicit false authority/effect flags. Invalid paths, unknown sources, contradictions, and authority claims fail closed.
 
 Runtime artifacts are JSON/Markdown review evidence and pending proposals only. Evidence is not authority.
+
+`post_adoption_evaluation` is an explicit source class. Contradicted, regressive, mixed, null, or insufficient outcomes can become review/proposal candidates with lineage through protocol, baseline, adoption, observation, and evaluation. A satisfied outcome is retained by evaluation custody but does not automatically request another change. This adapter cannot select a patch or mutate/adopt repository state.

@@ -13,7 +13,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from codex.gap_seeker import CoverageReader, GapReporter, RepoScanner, GapSignal
 
-ALLOWED_SOURCES = {"run_tests","junit","coverage","mypy","covenant","telemetry","capability_gap","gap_seeker","model_observation"}
+ALLOWED_SOURCES = {"run_tests","junit","coverage","mypy","covenant","telemetry","capability_gap","gap_seeker","model_observation","post_adoption_evaluation"}
 GENESIS_KINDS = {"missing_capability","new_flow","uncovered_flow","capability_gap","telemetry_gap"}
 SPEC_KINDS = {"test_failure","mypy_error","type_error","recurring_failure","covenant_failure","typing_failure"}
 DIAGNOSTIC_KINDS = {"todo","fixme","unimplemented","coverage_gap","missing_tests","diagnostic"}

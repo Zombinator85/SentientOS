@@ -18,7 +18,7 @@ Update reasons include initialization, new evidence, withdrawal, contradiction, 
 
 Resident cognition receives four separately typed channels: current World-State evidence, prior self-model, prior epistemic state, and developmental history. The epistemic projection binds proposition/state identities, generations, and evidence-set digests. Its source tick must precede the cognition tick, preventing same-tick self-certification. Current evidence outranks a stale prior for current-condition reasoning while both remain visible.
 
-Embodied prediction comparisons and attributions can be adapted only through the explicit independent-observation adapter. Matching observations support and mismatches contradict; renderer self-report cannot masquerade as independent corroboration. Calibration records bind forecast state, observed outcome, comparison, and exact evidence without a universal score.
+Embodied prediction and maintenance post-adoption comparisons can be adapted only through explicit evidence adapters. Matching observations support and mismatches contradict; renderer/model self-report cannot masquerade as independent corroboration. Calibration custody resolves the exact forecast state, requires that it belongs to the same proposition and predates resolution, and requires proposition-owned source bindings. A foreign proposition's state or binding cannot be smuggled into calibration merely because it exists in custody.
 
 Runtime construction is inert unless `SENTIENTOS_EPISTEMIC_STATE_CONFIG` names an explicit custody root, namespace allowlist, projection bound, and cognition-consumption switch. Read-only queries are available through owner methods (`proposition`, `bindings`, `current_state`, and `verify`); mutation remains controller-only.
 

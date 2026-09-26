@@ -1,0 +1,14 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "939ab64e4751b81a19ba7eee694487476623cb27",
+  "test_provenance_path": "/tmp/maintenance_post_adoption_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_maintenance_post_adoption_evaluation.py::test_satisfied_reconstructs_and_is_not_causal_proof", "rationale": "Exact satisfied consequence survives restart without becoming causal proof."},
+    {"node_id": "tests/test_maintenance_post_adoption_evaluation.py::test_contradiction_routes_proposal_only_signal_with_lineage", "rationale": "A contradicted resident outcome reaches proposal-only routing with attempt lineage."},
+    {"node_id": "tests/test_maintenance_post_adoption_evaluation.py::test_protected_regression_wins_and_rollback_is_recommendation_only", "rationale": "Protected regression remains first-class and cannot execute rollback."},
+    {"node_id": "tests/test_maintenance_post_adoption_evaluation.py::test_temporal_identity_measurement_authority_and_replay_fail_closed", "rationale": "Temporal, identity, measurement, replay, and authority smuggling fail closed."},
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_calibration_is_proposition_specific_and_temporally_bound", "rationale": "Cross-proposition calibration smuggling and retroactive resolution fail closed."}
+  ],
+  "successful_path_nodes": ["tests/test_maintenance_post_adoption_evaluation.py::test_satisfied_reconstructs_and_is_not_causal_proof"]
+}
