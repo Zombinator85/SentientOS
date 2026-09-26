@@ -126,3 +126,7 @@ source identities, digest, freshness, contradiction, and supersession. They rema
 all-false authority and become cognitive context only through the existing
 prior-tick projection firewall. See
 `docs/architecture/embodiment_self_observation_bridge.md`.
+
+## Epistemic boundary
+
+The self-model represents system condition and is not persistent belief. Resident cognition receives it separately from current evidence, developmental history, and the prior epistemic projection; none confers authority. See [persistent epistemic state](architecture/persistent_epistemic_state.md).

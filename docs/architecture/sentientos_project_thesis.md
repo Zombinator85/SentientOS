@@ -255,3 +255,7 @@ Those facts do not collapse maturity predicates:
 - bounded software recursion != unrestricted RSI.
 
 The complete developmental organism is not causally closed. The next work is empirical use of current instruments and explicit composition of missing causal bridges, not inflation of implemented organs into conclusions.
+
+## Persistent epistemic state
+
+The longitudinal causal system, not a loaded cognitive worker, owns explicit proposition positions. Evidence, belief, truth, memory, self-model, developmental history, policy, and authority remain distinct. Every position delta requires an attributable update event; see [persistent epistemic state](persistent_epistemic_state.md).

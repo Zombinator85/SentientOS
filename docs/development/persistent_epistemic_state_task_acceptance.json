@@ -1,0 +1,13 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "631b31d742131692e08f6d1499865942d2a92a2a",
+  "test_provenance_path": "/tmp/persistent_epistemic_state_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_semantic_identity_ignores_display_wording_and_mutation_fails", "rationale": "Proposition identity is semantic and immutable."},
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper", "rationale": "Attributable updates, mixed evidence, correction, no-op, CAS, restart, and tamper closure share the real owner."},
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_refinement_preserves_old_evidence_and_temporal_firewall", "rationale": "Refinement preserves evidence and same-tick consumption fails closed."},
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_authority_and_fabricated_or_missing_evidence_fail_closed", "rationale": "Evidence and belief cannot smuggle authority or nonexistent provenance."}
+  ],
+  "successful_path_nodes": ["tests/test_persistent_epistemic_state.py::test_attributable_chain_cas_dependency_noop_restart_and_tamper"]
+}

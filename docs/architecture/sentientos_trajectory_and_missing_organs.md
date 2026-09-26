@@ -168,3 +168,7 @@ inspection, separate CAS adoption, and retained rollback lineage now supply the
 bounded middle. A configured real-Blender run followed by renderer and independent
 consequence evidence remains next. Physical embodiment, beneficial adaptation,
 and closed embodied development remain absent.
+
+## Epistemic organ landed
+
+The model-independent persistent epistemic owner now closes the repository-level evidence-to-prior chain. Objective-truth verification, Bayesian optimality, demonstrated learning, production sensor adapters, and real cross-model longitudinal benefit remain open; they are not implied by durable state changes.
