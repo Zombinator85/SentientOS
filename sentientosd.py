@@ -48,6 +48,7 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
@@ -224,7 +225,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -234,6 +235,7 @@ class RuntimeMaintenanceSurfaces:
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
+        self._embodiment_evidence_owner = embodiment_evidence_owner
         self._longitudinal_self_model_owner = longitudinal_self_model_owner
         self._longitudinal_self_model_config: LongitudinalSelfModelRuntimeConfig | None = None
         self._longitudinal_self_model_configuration_error: str | None = None
@@ -392,6 +394,9 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        if self._embodiment_evidence_owner is not None:
+            # Explicit injection only: no ambient discovery and no avatar daemon startup.
+            records.extend(self._embodiment_evidence_owner.world_state_records())
         signal = self._feedback.get("surfaces", {}).get("governed_improvement_signal_plane", {})
         if isinstance(signal, dict) and signal:
             records.append({"source_kind":"governed_improvement_signal_plane","source_id":"runtime:signal-plane","subject_id":"governed_improvement_signal_plane","subject_kind":"runtime_surface","stage":"proposal","disposition":"degraded" if signal.get("status") == "degraded" else "recorded","payload": {k:v for k,v in signal.items() if k != "runtime_artifacts"}, "observed_at": tick_key})

@@ -86,3 +86,12 @@ Tests: no legacy writes to protected sinks.
 - Privacy posture policy granularity may drift between modules.
 - Future admission APIs must avoid accidental “candidate == token” coupling.
 - Operator UX debt could hide blocked reasons if not consolidated in Wave G.
+# Current reconciliation
+
+The perception/fusion, proposal, review, handoff, governance-bridge, fulfillment,
+and action-ingress modules named by historical waves now exist; those waves must
+not be read as absent implementation. Their previously missing composition into
+the resident epistemic spine is supplied by the bounded embodiment
+self-observation bridge. Blender authoring remains deliberately unimplemented and
+is the next separately governed bridge. See
+`embodiment_self_observation_bridge.md` for current classifications and limits.

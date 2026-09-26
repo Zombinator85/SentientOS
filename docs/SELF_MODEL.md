@@ -116,3 +116,13 @@ calibrated autonomous self-reflection, causal explanation beyond cited evidence,
 psychological continuity, consciousness, learning, or improvement. Those require
 runtime composition plus independently scored calibration and production
 longitudinal trials.
+# Embodiment evidence
+
+The longitudinal owner now recognizes a bounded embodiment vocabulary for body,
+asset, rig and renderer identity; body generation; sensor presence/health;
+actuator availability; and separately commanded, renderer-reported, and
+independently observed pose/expression. These claims retain World-State fact and
+source identities, digest, freshness, contradiction, and supersession. They remain
+all-false authority and become cognitive context only through the existing
+prior-tick projection firewall. See
+`docs/architecture/embodiment_self_observation_bridge.md`.

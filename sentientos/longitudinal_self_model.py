@@ -34,6 +34,20 @@ PAYLOAD_PREDICATES = {
     "developmental_history_boundary": ("developmental_history_boundary",),
     "configuration_identity": ("configuration_id",),
     "capability_identity": ("capability_id",),
+    "embodiment.body_identity": ("installation_body_id",),
+    "embodiment.body_generation": ("body_generation",),
+    "embodiment.avatar_asset_identity": ("avatar_asset_id",),
+    "embodiment.rig_identity": ("rig_id",),
+    "embodiment.renderer_identity": ("renderer_identity", "renderer_interface_id"),
+    "embodiment.sensor_presence": ("present",),
+    "embodiment.sensor_health": ("healthy",),
+    "embodiment.actuator_availability": ("available",),
+    "embodiment.commanded_pose": ("commanded_pose",),
+    "embodiment.commanded_expression": ("commanded_expression",),
+    "embodiment.renderer_reported_pose": ("renderer_reported_pose",),
+    "embodiment.renderer_reported_expression": ("renderer_reported_expression",),
+    "embodiment.observed_pose": ("observed_pose",),
+    "embodiment.observed_expression": ("observed_expression",),
 }
 
 

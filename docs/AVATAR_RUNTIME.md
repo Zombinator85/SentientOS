@@ -52,3 +52,11 @@ Python-side file listeners.
   locomotion that could imply agency without consent.
 - When in shared or networked contexts, log downstream actions so they remain
   auditable alongside the SentientOS state trail.
+# Evidence posture
+
+Avatar state emitted by this compatibility runtime is **commanded output state**,
+not observed embodiment. Renderer feedback and independent observation require
+separate authenticated evidence envelopes; neither is inferred from a changed
+state file or a successful send. The canonical technical body description and
+resident bridge are documented in
+`docs/architecture/embodiment_self_observation_bridge.md`.
