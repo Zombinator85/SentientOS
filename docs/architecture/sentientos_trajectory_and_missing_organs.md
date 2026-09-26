@@ -154,7 +154,8 @@ Historical review vocabulary retained by the evidence indexes includes **Host Re
 
 Authenticated, explicitly injected embodiment evidence can now traverse
 World-State, bounded longitudinal reconciliation, and later-tick resident
-cognition without becoming authority. The remaining organ is not another avatar
-output feature: it is a governed authoring/adoption loop with independent
-inspection and renderer/physical feedback. Blender, physical embodiment, and
-closed embodied development remain absent.
+cognition without becoming authority. Structured authoring, independent
+inspection, separate CAS adoption, and retained rollback lineage now supply the
+bounded middle. A configured real-Blender run followed by renderer and independent
+consequence evidence remains next. Physical embodiment, beneficial adaptation,
+and closed embodied development remain absent.

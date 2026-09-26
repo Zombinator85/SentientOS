@@ -50,9 +50,9 @@ are checked. Structured answers are scored externally for supported correct and
 incorrect claims, unsupported assertions, abstentions, provenance, and
 command/observation handling. Model prose never determines success.
 
-## Blender authoring handoff
+## Avatar-body succession handoff
 
-A later workcell must consume an exact manifest and structured modification plan,
+The governed workcell now consumes an exact manifest and structured modification plan,
 operate only in a dedicated authoring workspace through an exact configured
 Blender binary and repository-owned bounded driver, and never execute arbitrary
 model-authored Python. It must inspect the source artifact; enumerate bounded
@@ -62,7 +62,8 @@ receipt; and require explicit adoption before advancing body generation. The
 receipt must bind predecessor/successor artifacts and manifests, tool identity,
 workspace, plan, inspection results, and rollback target. Renderer test feedback
 and independent observation remain later evidence, not consequences inferred from
-authoring success.
+authoring success. Its implemented contracts and remaining boundaries are in
+[`avatar_body_authoring_succession.md`](avatar_body_authoring_succession.md).
 
 ## Not established
 

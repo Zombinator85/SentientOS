@@ -1,0 +1,13 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "078e587632762601074099862ffdf39fef916a09",
+  "test_provenance_path": "/tmp/avatar_authoring_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_avatar_authoring.py::test_end_to_end_author_adopt_world_state_self_model_and_rollback", "rationale": "Successful authoring, inspection, adoption, projection, reconciliation, and rollback."},
+    {"node_id": "tests/test_avatar_authoring.py::test_artifact_workspace_and_adoption_fail_closed", "rationale": "Artifact and adoption custody fail closed."},
+    {"node_id": "tests/test_avatar_authoring.py::test_cas_missing_approval_and_unrequested_mutation", "rationale": "Adoption remains separately approved and CAS bound."},
+    {"node_id": "tests/test_avatar_authoring.py::test_blender_readiness_absent_is_precise_and_non_authoritative", "rationale": "Absent Blender is precise and non-authoritative."}
+  ],
+  "successful_path_nodes": ["tests/test_avatar_authoring.py::test_end_to_end_author_adopt_world_state_self_model_and_rollback"]
+}
