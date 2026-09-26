@@ -1,0 +1,23 @@
+{
+  "authority_or_effect_performed": false,
+  "available_prerequisites": [
+    "canonical_read_only_host_control_collectors"
+  ],
+  "missing_prerequisites": [
+    "resident_adoption_config_not_exposed",
+    "successor_adoption_config_not_exposed",
+    "qualified_predecessor_resident_not_available",
+    "sealed_successor_generation_not_available",
+    "continuity_custody_not_available",
+    "resident_adoption_completion_not_available",
+    "launch_provenance_not_available",
+    "resident_readiness_receipt_not_available",
+    "preregistered_production_target_source_not_available"
+  ],
+  "observed_at": "2026-09-26T21:30:24.819631+00:00",
+  "production_campaign_attempted": false,
+  "production_campaign_completed": false,
+  "schema_version": "sentientos.maintenance_production_post_adoption_environment_readiness:v1",
+  "status": "production_campaign_not_ready",
+  "synthetic_substitution_performed": false
+}
