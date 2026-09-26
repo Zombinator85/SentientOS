@@ -23,3 +23,7 @@ The board accepts generic authenticated `genesis_candidate` records emitted by
 preserve stage truth: review packet and operator decision are `review`, adoption
 plans and admissions are `admission`, receipts are `execution`, rollback receipts
 are `rollback`, and only validated adopted receipts produce an `adoption` fact.
+
+## Epistemic boundary
+
+World-State remains current sourced evidence. A persistent epistemic projection says only what position the system previously recorded; it is a separate cognition channel and never promotes a proposition to current-world truth. See [persistent epistemic state](persistent_epistemic_state.md).

@@ -42,6 +42,7 @@ from sentientos.local_model_production_activation import verify_current_activati
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
@@ -81,6 +82,25 @@ from sentientos.maintenance_resident_runtime_adoption import inspect_transition_
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
 LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
+EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
+
+
+def _load_epistemic_state_owner(config_path: str | None) -> tuple[PersistentEpistemicStateOwner | None, dict[str, Any]]:
+    """Compose custody only from explicit configuration; never scan ambient logs."""
+    if not config_path:
+        return None, {"status": "disabled", "cognitive_consumption_enabled": False}
+    payload = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    expected = {"schema", "custody_root", "allowed_proposition_namespaces", "max_cognitive_projection_count", "cognitive_consumption_enabled"}
+    if set(payload) != expected or payload["schema"] != "sentientos.epistemic_runtime_config:v1":
+        raise ValueError("epistemic_runtime_configuration_invalid")
+    namespaces = payload["allowed_proposition_namespaces"]; maximum = payload["max_cognitive_projection_count"]
+    if (not isinstance(namespaces, list) or not namespaces or any(not isinstance(x, str) or not x for x in namespaces)
+            or not isinstance(maximum, int) or not 1 <= maximum <= 128
+            or not isinstance(payload["cognitive_consumption_enabled"], bool)):
+        raise ValueError("epistemic_runtime_configuration_invalid")
+    owner = PersistentEpistemicStateOwner(payload["custody_root"], allowed_namespaces=namespaces)
+    return owner, {"status": "configured", "max_cognitive_projection_count": maximum,
+                   "cognitive_consumption_enabled": payload["cognitive_consumption_enabled"]}
 
 
 def _prepare_resident_runtime_startup(controller: MaintenanceResidentRuntimeAdoptionController) -> dict[str, Any]:

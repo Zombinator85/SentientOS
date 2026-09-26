@@ -77,3 +77,7 @@ Every projection and observation declares historical context to be read-only,
 non-authoritative, non-policy, non-current-truth, and outside canonical explicit
 user retention. Developmental history uses a physically separate configured
 root and does not widen canonical retention semantics.
+
+## Fourth substrate: prior epistemic state
+
+Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).

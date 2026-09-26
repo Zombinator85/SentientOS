@@ -422,3 +422,7 @@ external deterministic scorer and preserves unchanged, changed, unstable, and
 unsupported results without calling any result learning or improvement. Synthetic
 renderer and observer roles provide CI evidence; no renderer, camera, daemon, or
 resident actuation is enabled by default.
+
+## Persistent epistemic owner
+
+`sentientos/persistent_epistemic_state.py` supplies explicit-root immutable proposition, evidence, state, update, refinement, and calibration custody. Resident cognition consumes verified prior positions as a fourth typed substrate; no epistemic record becomes World-State truth or authority. See [the canonical architecture](persistent_epistemic_state.md).

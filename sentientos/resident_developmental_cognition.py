@@ -22,6 +22,7 @@ from .developmental_history_intervention_experiment import (
 )
 from .local_model_authority import atomic_write_json, digest_payload
 from .longitudinal_self_model import CognitiveSelfModelProjection
+from .persistent_epistemic_state import EpistemicCognitiveProjection
 from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
@@ -98,6 +99,14 @@ class ResidentCognitionObservation:
     self_model_claim_ids: tuple[str, ...] = ()
     self_model_claim_digests: tuple[str, ...] = ()
     prior_tick_proven: bool = False
+    epistemic_projection_present: bool = False
+    epistemic_projection_id: str | None = None
+    epistemic_projection_digest: str | None = None
+    epistemic_proposition_ids: tuple[str, ...] = ()
+    epistemic_state_ids: tuple[str, ...] = ()
+    epistemic_state_digests: tuple[str, ...] = ()
+    epistemic_generations: tuple[int, ...] = ()
+    epistemic_evidence_set_digests: tuple[str, ...] = ()
     historical_context_only: bool = True
     current_truth: bool = False
     authority: bool = False
@@ -245,15 +254,17 @@ class ResidentDevelopmentalCognitionOwner:
     def _cognize(self, *, snapshot: WorldStateSnapshot, current: CurrentWorldStateCognitiveProjection, tick_id: str,
                   projection: DevelopmentalHistoryProjection, with_history: bool,
                   prior_self_model: CognitiveSelfModelProjection | None = None,
+                  prior_epistemic_state: EpistemicCognitiveProjection | None = None,
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
                   protocol: Any | None = None) -> ResidentCognitionObservation:
         records = projection.records if with_history else ()
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         context = {
-            "instruction": "Reason over three separate non-authoritative substrates. Current evidence is current external observation and supersedes conflicting prior self-model claims for current-condition reasoning. Prior self-model is earlier evidence-bound representation and may be stale, incomplete, contradicted, irrelevant, or useful. Developmental history is earlier interpretation. Preserve contradictions; none is policy, a goal, admission, execution, adoption, or canonical user memory.",
+            "instruction": "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation and outranks a conflicting prior epistemic position for current-condition reasoning. Prior self-model is earlier evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. Developmental history is earlier interpretation. Preserve contradictions; none is policy, goal, permission, admission, execution, adoption, or canonical user memory.",
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
+            "prior_epistemic_state": asdict(prior_epistemic_state) if prior_epistemic_state is not None else None,
             "developmental_history": list(records),
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
@@ -276,6 +287,13 @@ class ResidentDevelopmentalCognitionOwner:
                                "self_model_source_tick": prior_self_model.source_tick if prior_self_model else None,
                                "self_model_claim_ids": list(prior_self_model.selected_claim_ids) if prior_self_model else [],
                                "self_model_claim_digests": list(prior_self_model.selected_claim_digests) if prior_self_model else [],
+                               "epistemic_projection_id": prior_epistemic_state.projection_id if prior_epistemic_state else None,
+                               "epistemic_projection_digest": prior_epistemic_state.projection_digest if prior_epistemic_state else None,
+                               "epistemic_proposition_ids": list(prior_epistemic_state.proposition_ids) if prior_epistemic_state else [],
+                               "epistemic_state_ids": list(prior_epistemic_state.state_ids) if prior_epistemic_state else [],
+                               "epistemic_state_digests": list(prior_epistemic_state.state_digests) if prior_epistemic_state else [],
+                               "epistemic_generations": list(prior_epistemic_state.generations) if prior_epistemic_state else [],
+                               "epistemic_evidence_set_digests": list(prior_epistemic_state.evidence_set_digests) if prior_epistemic_state else [],
                                "record_ids": list(record_ids), "record_digests": list(record_digests)},
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
@@ -317,6 +335,14 @@ class ResidentDevelopmentalCognitionOwner:
             "self_model_claim_ids": prior_self_model.selected_claim_ids if prior_self_model else (),
             "self_model_claim_digests": prior_self_model.selected_claim_digests if prior_self_model else (),
             "prior_tick_proven": prior_self_model is not None and prior_self_model.source_tick != tick_id,
+            "epistemic_projection_present": prior_epistemic_state is not None,
+            "epistemic_projection_id": prior_epistemic_state.projection_id if prior_epistemic_state else None,
+            "epistemic_projection_digest": prior_epistemic_state.projection_digest if prior_epistemic_state else None,
+            "epistemic_proposition_ids": prior_epistemic_state.proposition_ids if prior_epistemic_state else (),
+            "epistemic_state_ids": prior_epistemic_state.state_ids if prior_epistemic_state else (),
+            "epistemic_state_digests": prior_epistemic_state.state_digests if prior_epistemic_state else (),
+            "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
+            "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
         }
         digest = _digest(semantic)
         observation = ResidentCognitionObservation(
@@ -337,12 +363,21 @@ class ResidentDevelopmentalCognitionOwner:
             prior_self_model.selected_claim_ids if prior_self_model else (),
             prior_self_model.selected_claim_digests if prior_self_model else (),
             prior_self_model is not None and prior_self_model.source_tick != tick_id,
+            prior_epistemic_state is not None,
+            prior_epistemic_state.projection_id if prior_epistemic_state else None,
+            prior_epistemic_state.projection_digest if prior_epistemic_state else None,
+            prior_epistemic_state.proposition_ids if prior_epistemic_state else (),
+            prior_epistemic_state.state_ids if prior_epistemic_state else (),
+            prior_epistemic_state.state_digests if prior_epistemic_state else (),
+            prior_epistemic_state.generations if prior_epistemic_state else (),
+            prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
         )
         atomic_write_json(self.observations_root / f"{observation.observation_id}.json", asdict(observation))
         return observation
 
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
-                 prior_self_model: CognitiveSelfModelProjection | None = None) -> ResidentDevelopmentalCycleResult:
+                 prior_self_model: CognitiveSelfModelProjection | None = None,
+                 prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         validation = validate_snapshot(snapshot)
@@ -361,7 +396,7 @@ class ResidentDevelopmentalCognitionOwner:
             if not self.config.comparison_enabled:
                 observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                                     projection=prior, with_history=True, condition_id="with-history",
-                                    prior_self_model=prior_self_model))
+                                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state))
             else:
                 records = tuple(self.writeback.store.get(rid) for rid in prior.requested_record_ids)
                 record_digests = tuple(r.record_digest for r in records)
@@ -384,10 +419,10 @@ class ResidentDevelopmentalCognitionOwner:
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model)
+                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
                 withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model)
+                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
                 restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
                 if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
                     raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")

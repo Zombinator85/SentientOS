@@ -36,3 +36,7 @@ Perception and perception-derived affect are non-privileged:
 - cannot select or trigger actions,
 - cannot override policy gates,
 - may influence phrasing/telemetry only unless explicitly whitelisted in `/vow`.
+
+## Epistemic consequence adapter
+
+Independent embodied prediction outcomes are the first modern producer for persistent epistemic evidence. Matching and contradictory observations remain visible together; renderer reports alone are not independent evidence. Calibration binds the forecast-time state to the resolved observation without implying truth or a universal score.
