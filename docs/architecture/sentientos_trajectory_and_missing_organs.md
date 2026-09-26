@@ -150,3 +150,11 @@ The exhaustive indexes retain the explanation and status of these historical pat
 - `docs/architecture/host_workspace_change_set_admission_wing.md`
 
 Historical review vocabulary retained by the evidence indexes includes **Host Resource Governor**, **Privilege Broker**, **Actuation Fulfillment Layer**, **Hardware/Sensor Inventory Manifest**, **Runtime Supervisor**, **Capability Registry**, **Local Model Authority Map**, **World-State Board**, **Federation Transport Envelope**, and **External Reviewer Demo Script**. These labels identify bounded mechanisms or proof surfaces, not composed maturity.
+# Embodiment trajectory update
+
+Authenticated, explicitly injected embodiment evidence can now traverse
+World-State, bounded longitudinal reconciliation, and later-tick resident
+cognition without becoming authority. The remaining organ is not another avatar
+output feature: it is a governed authoring/adoption loop with independent
+inspection and renderer/physical feedback. Blender, physical embodiment, and
+closed embodied development remain absent.

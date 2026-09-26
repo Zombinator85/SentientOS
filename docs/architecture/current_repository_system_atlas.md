@@ -397,3 +397,12 @@ Primary composition and contract anchors:
 ### Method limits
 
 This analysis used the current repository and its executable/test/document evidence only. It did not contact providers, inspect live credentials, exercise live network effects, or use external comparator architectures. Static reachability and tests cannot establish every deployment or third-party caller. Such limits remain explicit rather than being resolved toward the more impressive interpretation.
+# Embodiment epistemic bridge
+
+The current serious spine includes the explicitly injected, non-authoritative
+`EmbodimentEvidenceOwner`: bounded embodiment and fulfillment records enter the
+World-State board, the existing resident cognition allowlist can select them, and
+the longitudinal owner reconciles a narrow embodiment vocabulary after cognition.
+Only later ticks can consume those claims. Legacy kernel/avatar/demo surfaces are
+not promoted. Details and the next Blender boundary are in
+`embodiment_self_observation_bridge.md`.

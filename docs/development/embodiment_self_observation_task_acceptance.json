@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "be9dfeb212c97e6ff4705689b6f0a0497c54b4b3",
+  "test_provenance_path": "/tmp/embodiment_self_observation_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_embodiment_self_observation.py::test_manifest_and_command_observation_are_mechanically_distinct", "rationale": "The successful path preserves body metadata and separates command, renderer report, and independent observation."},
+    {"node_id": "tests/test_embodiment_self_observation.py::test_sentientosd_opt_in_and_absence_are_explicit", "rationale": "Actual resident composition is explicit and absence remains inert."},
+    {"node_id": "tests/test_embodiment_self_observation.py::test_baseline_perturbation_restoration_and_prior_tick_firewall", "rationale": "A-B-A perturbation, reconstruction, supersession, and prior-tick isolation use production owners."},
+    {"node_id": "tests/test_embodiment_self_observation.py::test_false_proprioception_contract_rejections_and_fulfillment_boundary", "rationale": "False proprioception and authority smuggling fail closed."},
+    {"node_id": "tests/test_embodiment_self_observation.py::test_same_class_conflict_staleness_and_external_scoring", "rationale": "Contradictions and deterministic external scoring remain evidence-bound."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_embodiment_self_observation.py::test_manifest_and_command_observation_are_mechanically_distinct",
+    "tests/test_embodiment_self_observation.py::test_baseline_perturbation_restoration_and_prior_tick_firewall"
+  ]
+}
