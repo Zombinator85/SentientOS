@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4e817ca7178192f741e2ab064dc18075b62be7d2",
+  "test_provenance_path": "/tmp/maintenance_production_post_adoption_campaign_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_readiness_is_derived_from_real_exact_artifacts_and_rejects_declared_production",
+      "rationale": "Production readiness derives from canonical real records and exact successor identity."
+    },
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_predecessor_custody_reconstructs_and_tampering_fails",
+      "rationale": "Predecessor custody survives restart and detects tampering."
+    },
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_real_host_control_is_production_and_law_bound",
+      "rationale": "Canonical host collection creates law-bound independent production control evidence."
+    },
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_restart_order_no_replay_interruption_and_non_authority",
+      "rationale": "Trial ordering, terminal interruption, replay prevention, and non-authority survive restart."
+    },
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_stale_dependent_wrong_or_malformed_source_fails_closed",
+      "rationale": "Malformed target and adoption sources fail readiness."
+    },
+    {
+      "node_id": "tests/test_maintenance_production_post_adoption_campaign.py::test_baseline_must_be_real_exact_source",
+      "rationale": "Synthetic or missing predecessor sources cannot be sealed as production baselines."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_production_post_adoption_campaign.py::test_readiness_is_derived_from_real_exact_artifacts_and_rejects_declared_production"
+  ]
+}
