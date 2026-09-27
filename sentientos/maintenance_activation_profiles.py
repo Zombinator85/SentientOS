@@ -17,16 +17,20 @@ from typing import Any, Mapping, cast
 from sentientos import maintenance_candidate_selector as selector
 from sentientos import maintenance_commit_publication as landing
 from sentientos import maintenance_local_codex_foreman as foreman
+from sentientos import maintenance_workspace_custody as custody
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_validation_controller as validation
 
 MANIFEST_SCHEMA = "sentientos.maintenance_activation_profile_manifest:v1"
-INDEX_SCHEMA = "sentientos.maintenance_activation_profile_bundle_index:v1"
+BACKEND_MANIFEST_SCHEMA = "sentientos.maintenance_activation_profile_manifest:v2"
+LEGACY_MANIFEST_SCHEMA = MANIFEST_SCHEMA
+INDEX_SCHEMA = "sentientos.maintenance_activation_profile_bundle_index:v2"
 TEMPLATE_SCHEMA = "sentientos.maintenance_activation_profile_manifest_template:v1"
 FILENAMES = {
     "standing_grant": "standing_operator_grant.json",
     "selector_policy": "selector_policy.json",
     "foreman_policy": "local_codex_foreman_policy.json",
+    "workspace_custody_policy": "workspace_custody_policy.json",
     "validation_policy": "validation_policy.json",
     "landing_policy": "landing_policy.json",
 }
@@ -40,6 +44,7 @@ REQUIRED = {
     "publication_mode", "remote_name", "tracked_base_ref", "base_ref", "head_ref_prefix",
     "publication_client_executable", "commit_identity", "commit_title_policy", "output_directory",
 }
+V2_COMMON = REQUIRED - {"codex_home", "codex_executable"} | {"implementation_backend"}
 SECRET_WORDS = re.compile(r"(?:credential|secret|password|token|api[_-]?key|private[_-]?key)", re.I)
 PLACEHOLDER = re.compile(r"(?:REPLACE|PLACEHOLDER|CHOOSE)", re.I)
 
@@ -80,9 +85,23 @@ def _contains_secret_field(value: Any) -> bool:
 
 def validate_manifest(value: Mapping[str, Any], *, production: bool = True) -> dict[str, Any]:
     m = dict(value)
+    schema = m.get("schema_version")
+    required = REQUIRED if schema == LEGACY_MANIFEST_SCHEMA else V2_COMMON
     keys=set(m); optional_local={"publication_client_executable"} if m.get("publication_mode")==landing.LOCAL_FAST_FORWARD_MODE else set()
-    if keys-REQUIRED or REQUIRED-keys-optional_local or m.get("schema_version") != MANIFEST_SCHEMA:
+    backend = m.get("implementation_backend", "local_codex")
+    backend_fields = ({"codex_home", "codex_executable"} if backend == "local_codex" else {"commissioned_local_activation", "commissioned_local_activation_digest"}) if schema == BACKEND_MANIFEST_SCHEMA else set()
+    expected = required | backend_fields
+    if keys-expected or expected-keys-optional_local or schema not in {BACKEND_MANIFEST_SCHEMA, LEGACY_MANIFEST_SCHEMA}:
         raise ValueError("manifest_closed_schema_invalid")
+    if backend not in {"local_codex", "commissioned_local"}: raise ValueError("implementation_backend_invalid")
+    if schema == BACKEND_MANIFEST_SCHEMA:
+        activation_path=m.get("commissioned_local_activation"); activation_digest=m.get("commissioned_local_activation_digest")
+        if backend == "commissioned_local" and (not isinstance(activation_path,str) or not isinstance(activation_digest,str)): raise ValueError("commissioned_local_activation_required")
+        if backend == "commissioned_local":
+            assert isinstance(activation_path, str)
+            activation=Path(activation_path)
+            if activation.is_symlink() or not activation.is_absolute() or not activation.is_file(): raise ValueError("commissioned_local_activation_invalid")
+            if bytes_digest(activation.read_bytes()) != activation_digest: raise ValueError("commissioned_local_activation_digest_mismatch")
     if _contains_secret_field(m):
         raise ValueError("credential_or_secret_field_forbidden")
     if m.get("manifest_digest") != digest(m, "manifest_digest"):
@@ -120,7 +139,10 @@ def validate_manifest(value: Mapping[str, Any], *, production: bool = True) -> d
         raise ValueError("validation_bounds_invalid")
     if _timestamp(m["not_before"]) >= _timestamp(m["expires_at"]):
         raise ValueError("validity_window_invalid")
-    for key in ("repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "codex_home", "codex_executable", "git_executable", "python_executable", "output_directory"):
+    path_keys=["repository_root", "state_root", "workspace_root", "scratch_root", "inbox_root", "git_executable", "python_executable", "output_directory"]
+    if backend == "local_codex": path_keys += ["codex_home", "codex_executable"]
+    if backend == "commissioned_local": path_keys += ["commissioned_local_activation"]
+    for key in path_keys:
         if not Path(str(m[key])).is_absolute(): raise ValueError(key + "_must_be_absolute")
     if m.get("publication_client_executable") is not None and not Path(str(m["publication_client_executable"])).is_absolute(): raise ValueError("publication_client_executable_must_be_absolute")
     return m
@@ -171,12 +193,18 @@ def _artifacts(m: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     terms = {"schema_version": landing.LANDING_TERMS_SCHEMA, "publication_mode": m["publication_mode"], "remote_name": m["remote_name"], "base_ref": m["base_ref"], "head_ref_prefix": m["head_ref_prefix"], "required_authority_classes": sorted(required)}
     grant = authority.seal_grant({"grant_id": "activation_" + str(m["manifest_id"]), "operator_reference": m["operator_reference"], "approval_reference": m["approval_reference"], "repository_identity": m["repository_identity"], "allowed_base_sha": m["base_sha"], "allowed_base_sha_rule": "exact", "allowed_candidate_kinds": sorted(m["allowed_candidate_kinds"]), "allowed_path_prefixes": sorted(m["allowed_path_prefixes"]), "forbidden_path_patterns": sorted(m["forbidden_paths"]), "allowed_authority_classes": auths, **{k: b[k] for k in ("maximum_file_count", "maximum_changed_line_count", "maximum_implementation_seconds", "maximum_validation_seconds", "maximum_wall_clock_seconds", "maximum_attempts", "maximum_corrective_retries")}, "not_before": m["not_before"], "expires_at": m["expires_at"], "grant_generation": str(m["manifest_id"]), "explicit_constraints": ["operator_authored_manifest", "no_scope_widening"], "landing_terms": terms})
     sp = selector.build_policy({"repository_base_sha": m["base_sha"], "allowed_path_prefixes": m["allowed_path_prefixes"], "forbidden_path_patterns": m["forbidden_paths"], "available_authority_classes": auths, "maximum_file_count": b["maximum_file_count"], "maximum_estimated_changed_lines": b["maximum_changed_line_count"], "maximum_implementation_seconds": b["maximum_implementation_seconds"], "maximum_validation_seconds": b["maximum_validation_seconds"], "allowed_candidate_kinds": m["allowed_candidate_kinds"]}).to_dict()
-    fc = foreman.LocalCodexForemanConfig(configuration_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), repository_root=Path(m["repository_root"]), external_workspace_root=Path(m["workspace_root"]), external_state_root=Path(m["state_root"]), codex_executable=Path(m["codex_executable"]), git_executable=Path(m["git_executable"]), codex_home=Path(m["codex_home"]), process_timeout_seconds=float(b["maximum_implementation_seconds"]), maximum_same_session_recovery_count=b["maximum_corrective_retries"], configuration_constraints=tuple(["authority:" + a for a in auths])).to_dict()
+    wc = custody.WorkspaceCustodyConfig(configuration_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), repository_root=Path(m["repository_root"]), external_workspace_root=Path(m["workspace_root"]), external_state_root=Path(m["state_root"]), git_executable=Path(m["git_executable"]), maximum_instruction_bytes=65536, process_timeout_seconds=float(b["maximum_implementation_seconds"]), configuration_constraints=tuple(["authority:" + a for a in auths])).to_dict()
+    fc = None
+    if m.get("implementation_backend", "local_codex") == "local_codex":
+        fc = foreman.LocalCodexForemanConfig(configuration_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), repository_root=Path(m["repository_root"]), external_workspace_root=Path(m["workspace_root"]), external_state_root=Path(m["state_root"]), codex_executable=Path(m["codex_executable"]), git_executable=Path(m["git_executable"]), codex_home=Path(m["codex_home"]), process_timeout_seconds=float(b["maximum_implementation_seconds"]), maximum_same_session_recovery_count=b["maximum_corrective_retries"], configuration_constraints=tuple(["authority:" + a for a in auths])).to_dict()
     vb = m["validation_bounds"]
     vp = validation.ValidationPolicy(policy_id="activation_" + str(m["manifest_id"]), repository_identity=str(m["repository_identity"]), python_executable=str(m["python_executable"]), git_executable=str(m["git_executable"]), external_scratch_root=str(m["scratch_root"]), maximum_corrective_retries=b["maximum_corrective_retries"], **vb).to_dict()
     ci = m["commit_identity"]
     lp = landing.seal_landing_policy({"policy_id": "activation_" + str(m["manifest_id"]), "repository_identity": m["repository_identity"], "canonical_repository_root": m["repository_root"], "external_state_root": m["state_root"], "git_executable": m["git_executable"], "publication_client_executable": m.get("publication_client_executable"), "commit_author_name": ci["author_name"], "commit_author_email": ci["author_email"], "commit_committer_name": ci["committer_name"], "commit_committer_email": ci["committer_email"], "commit_identity_reference": ci["reference"], "maximum_publication_attempts": b["maximum_attempts"], "constraints": ["publication_mode:" + m["publication_mode"], "remote_name:" + m["remote_name"], "base_ref:" + m["base_ref"], "tracked_base_ref:" + m["tracked_base_ref"], "title_prefix:" + m["commit_title_policy"]["prefix"], *["authority:" + a for a in auths]]})
-    return {"standing_grant": grant, "selector_policy": sp, "foreman_policy": fc, "validation_policy": vp, "landing_policy": lp}
+    result={"standing_grant": grant, "selector_policy": sp, "validation_policy": vp, "landing_policy": lp}
+    if m["schema_version"] == BACKEND_MANIFEST_SCHEMA: result["workspace_custody_policy"]=wc
+    if fc is not None: result["foreman_policy"]=fc
+    return result
 
 
 def render_profile_bundle(manifest_path: str | Path) -> dict[str, Any]:
@@ -191,7 +219,8 @@ def render_profile_bundle(manifest_path: str | Path) -> dict[str, Any]:
         schema = artifacts[role]["schema_version"]
         identity = next((artifacts[role][k] for k in ("grant_id", "policy_id", "configuration_id") if k in artifacts[role]), None)
         entries.append({"role": role, "filename": FILENAMES[role], "schema_version": schema, "artifact_id": identity, "digest": bytes_digest(canonical_bytes(artifacts[role]) + b"\n")})
-    index = {"schema_version": INDEX_SCHEMA, "bundle_id": "profile_" + str(m["manifest_id"]), "manifest_id": m["manifest_id"], "manifest_digest": m["manifest_digest"], "artifacts": entries, "bundle_digest": ""}
+    index_schema=INDEX_SCHEMA if m["schema_version"] == BACKEND_MANIFEST_SCHEMA else "sentientos.maintenance_activation_profile_bundle_index:v1"
+    index = {"schema_version": index_schema, "bundle_id": "profile_" + str(m["manifest_id"]), "manifest_id": m["manifest_id"], "manifest_digest": m["manifest_digest"], "artifacts": entries, "bundle_digest": ""}
     index["bundle_digest"] = digest(index, "bundle_digest")
     statuses["bundle_index"] = _write(output / "bundle_index.json", index)
     return {"schema_version": "sentientos.maintenance_activation_profile_render:v1", "status": "profile_bundle_ready", "output_directory": str(output), "write_statuses": statuses, "bundle_digest": index["bundle_digest"]}
@@ -200,14 +229,19 @@ def render_profile_bundle(manifest_path: str | Path) -> dict[str, Any]:
 def _read_bundle(manifest_path: str | Path, evaluation_time: str) -> tuple[dict[str, Any], Path, dict[str, dict[str, Any]], dict[str, Any]]:
     m = validate_manifest(_load(manifest_path)); output = _safe_output(m); now = _timestamp(evaluation_time)
     if now < _timestamp(m["not_before"]) or now >= _timestamp(m["expires_at"]): raise ValueError("profile_outside_validity_window")
-    artifacts = {r: _load(output / f) for r, f in FILENAMES.items()}; index = _load(output / "bundle_index.json")
     expected = _artifacts(m)
+    artifacts = {r: _load(output / FILENAMES[r]) for r in expected}; index = _load(output / "bundle_index.json")
     if any(canonical_bytes(artifacts[r]) != canonical_bytes(expected[r]) for r in artifacts): raise ValueError("bundle_artifact_mismatch")
     if authority.verify_grant(artifacts["standing_grant"], evaluation_time=evaluation_time)["status"] != "grant_valid": raise ValueError("standing_grant_invalid")
-    selector.build_policy(artifacts["selector_policy"]); foreman.LocalCodexForemanConfig.from_mapping(artifacts["foreman_policy"]); validation.ValidationPolicy.from_mapping(artifacts["validation_policy"]); landing.seal_landing_policy(artifacts["landing_policy"])
-    if index.get("schema_version") != INDEX_SCHEMA or index.get("manifest_digest") != m["manifest_digest"] or index.get("bundle_digest") != digest(index, "bundle_digest"): raise ValueError("bundle_index_invalid")
+    selector.build_policy(artifacts["selector_policy"])
+    if "workspace_custody_policy" in artifacts: custody.WorkspaceCustodyConfig.from_mapping(artifacts["workspace_custody_policy"])
+    if "foreman_policy" in artifacts: foreman.LocalCodexForemanConfig.from_mapping(artifacts["foreman_policy"])
+    validation.ValidationPolicy.from_mapping(artifacts["validation_policy"]); landing.seal_landing_policy(artifacts["landing_policy"])
+    expected_index_schema=INDEX_SCHEMA if m["schema_version"] == BACKEND_MANIFEST_SCHEMA else "sentientos.maintenance_activation_profile_bundle_index:v1"
+    if index.get("schema_version") != expected_index_schema or index.get("manifest_digest") != m["manifest_digest"] or index.get("bundle_digest") != digest(index, "bundle_digest"): raise ValueError("bundle_index_invalid")
     entries = {e["role"]: e for e in index.get("artifacts", [])}
-    for role, filename in FILENAMES.items():
+    for role in artifacts:
+        filename=FILENAMES[role]
         if entries.get(role, {}).get("filename") != filename or entries[role].get("digest") != bytes_digest((output / filename).read_bytes()): raise ValueError("bundle_index_artifact_invalid")
     return m, output, artifacts, index
 

@@ -25,6 +25,8 @@ from sentientos import maintenance_wake_cycle as wake
 from sentientos import maintenance_wake_daemon_adoption as wake_daemon
 
 MANIFEST_SCHEMA = "sentientos.maintenance_initial_resident_genesis_provisioning_manifest:v1"
+BACKEND_MANIFEST_SCHEMA = "sentientos.maintenance_initial_resident_genesis_provisioning_manifest:v2"
+LEGACY_MANIFEST_SCHEMA = MANIFEST_SCHEMA
 TEMPLATE_SCHEMA = "sentientos.maintenance_initial_resident_genesis_provisioning_template:v1"
 RESULT_SCHEMA = "sentientos.maintenance_initial_resident_genesis_provisioning_result:v1"
 REMOTE_AUTHORITIES = {"remote_repository_read", "remote_ref_publish", "pull_request_publish", "remote_model_invocation"}
@@ -41,6 +43,7 @@ REQUIRED = {
     "commit_identity", "commit_title_policy", "implementation_backend", "maintenance_bounds",
     "collector", "health_probe", "autonomy", "wake", "wake_daemon", "commissioning",
 }
+COMMON_REQUIRED = REQUIRED - {"codex_executable", "codex_home"}
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -81,8 +84,20 @@ def _external(path: Any, repo: Path) -> Path:
 
 def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
     m = dict(value)
-    if set(m) != REQUIRED or m.get("schema_version") != MANIFEST_SCHEMA:
+    schema=m.get("schema_version"); backend=m.get("implementation_backend")
+    if schema==BACKEND_MANIFEST_SCHEMA and backend=="commissioned_local" and not {"commissioned_local_activation","commissioned_local_activation_digest"}.issubset(m):
+        raise ValueError("commissioned_local_activation_required")
+    expected=REQUIRED if schema==LEGACY_MANIFEST_SCHEMA else COMMON_REQUIRED | ({"codex_executable","codex_home"} if backend=="local_codex" else {"commissioned_local_activation","commissioned_local_activation_digest"})
+    if set(m) != expected or schema not in {BACKEND_MANIFEST_SCHEMA,LEGACY_MANIFEST_SCHEMA}:
         raise ValueError("provisioning_manifest_closed_schema_invalid")
+    if backend not in {"local_codex","commissioned_local"}: raise ValueError("implementation_backend_invalid")
+    if schema==BACKEND_MANIFEST_SCHEMA:
+        activation_path=m.get("commissioned_local_activation"); activation_digest=m.get("commissioned_local_activation_digest")
+        if backend=="commissioned_local":
+            if not isinstance(activation_path,str) or not isinstance(activation_digest,str): raise ValueError("commissioned_local_activation_required")
+            activation=Path(activation_path)
+            if activation.is_symlink() or not activation.is_absolute() or not activation.is_file(): raise ValueError("commissioned_local_activation_invalid")
+            if "sha256:"+hashlib.sha256(activation.read_bytes()).hexdigest()!=activation_digest: raise ValueError("commissioned_local_activation_digest_mismatch")
     if m.get("manifest_digest") != digest(m, "manifest_digest"):
         raise ValueError("provisioning_manifest_digest_invalid")
     if not isinstance(m["repository_identity"], str) or not m["repository_identity"].strip():
@@ -105,13 +120,15 @@ def validate_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
     except ValueError as exc: raise ValueError("selected_ref_mismatch") from exc
     if selected != m["base_sha"]: raise ValueError("selected_ref_mismatch")
     if _git(repo, git, "status", "--porcelain=v1", "--untracked-files=all"): raise ValueError("repository_dirty")
-    for key in ("python_executable", "git_executable", "codex_executable"):
+    executable_keys=["python_executable","git_executable"] + (["codex_executable"] if backend=="local_codex" else [])
+    for key in executable_keys:
         p = Path(str(m[key]));
         if not p.is_file() or str(p.resolve()) != str(p): raise ValueError(key + "_not_realpath")
     roots = [_external(m[k], repo) for k in (
         "provisioning_root", "profile_output_root", "state_root", "workspace_root", "scratch_root",
         "inbox_root", "collector_state_root", "autonomy_state_root", "wake_state_root",
-        "cadence_state_root", "health_state_root", "health_signal_root", "codex_home")]
+        "cadence_state_root", "health_state_root", "health_signal_root")]
+    if backend=="local_codex": roots.append(_external(m["codex_home"],repo))
     roots += [_external(x, repo) for k in ("governed_improvement_signal_source_roots", "normalized_work_item_source_roots") for x in m[k]]
     return m
 
@@ -157,35 +174,44 @@ def _paths(m: Mapping[str, Any]) -> dict[str, Path]:
 
 def render(value: Mapping[str, Any]) -> dict[str, Any]:
     m = validate_manifest(value); repo = Path(m["repository_root"]); paths = _paths(m)
-    root_keys = ("provisioning_root","profile_output_root","state_root","workspace_root","scratch_root","inbox_root",
-        "collector_state_root","autonomy_state_root","wake_state_root","cadence_state_root","health_state_root","health_signal_root","codex_home")
+    root_keys = ["provisioning_root","profile_output_root","state_root","workspace_root","scratch_root","inbox_root",
+        "collector_state_root","autonomy_state_root","wake_state_root","cadence_state_root","health_state_root","health_signal_root"]
+    if m["implementation_backend"]=="local_codex": root_keys.append("codex_home")
     for key in root_keys: _mkdir(Path(m[key]))
     for key in ("governed_improvement_signal_source_roots","normalized_work_item_source_roots"):
         for item in m[key]: _mkdir(Path(item))
-    profile = {"schema_version":profiles.MANIFEST_SCHEMA, "manifest_id":m["manifest_id"]+":profile",
+    profile_schema=profiles.BACKEND_MANIFEST_SCHEMA if m["schema_version"]==BACKEND_MANIFEST_SCHEMA else profiles.MANIFEST_SCHEMA
+    profile = {"schema_version":profile_schema, "manifest_id":m["manifest_id"]+":profile",
         "manifest_digest":"", "template_no_authority":False, "repository_identity":m["repository_identity"],
         "repository_root":str(repo), "base_sha":m["base_sha"], "allowed_candidate_kinds":m["candidate_kinds"],
         "allowed_path_prefixes":m["allowed_path_prefixes"], "forbidden_paths":m["forbidden_paths"],
         "authority_classes":m["authority_classes"], "budgets":m["budgets"], "operator_reference":m["operator_reference"],
         "approval_reference":m["approval_reference"], "not_before":m["not_before"], "expires_at":m["expires_at"],
         "state_root":m["state_root"], "workspace_root":m["workspace_root"], "scratch_root":m["scratch_root"],
-        "inbox_root":m["inbox_root"], "codex_home":m["codex_home"], "codex_executable":m["codex_executable"],
+        "inbox_root":m["inbox_root"],
         "git_executable":m["git_executable"], "python_executable":m["python_executable"],
         "validation_bounds":m["validation_bounds"], "publication_mode":m["publication_mode"],
         "remote_name":m["remote_name"], "tracked_base_ref":m["tracked_base_ref"], "base_ref":m["base_ref"],
         "head_ref_prefix":m["head_ref_prefix"], "publication_client_executable":m["publication_client_executable"],
         "commit_identity":m["commit_identity"], "commit_title_policy":m["commit_title_policy"],
         "output_directory":m["profile_output_root"]}
+    if m["schema_version"]==BACKEND_MANIFEST_SCHEMA:
+        profile["implementation_backend"]=m["implementation_backend"]
+        if m["implementation_backend"]=="commissioned_local":
+            profile["commissioned_local_activation"]=m["commissioned_local_activation"]
+            profile["commissioned_local_activation_digest"]=m["commissioned_local_activation_digest"]
+    if m["implementation_backend"]=="local_codex": profile.update(codex_home=m["codex_home"],codex_executable=m["codex_executable"])
     profile["manifest_digest"] = profiles.digest(profile, "manifest_digest"); profiles.validate_manifest(profile)
     _write(paths["profile"], profile); profiles.render_profile_bundle(paths["profile"])
     checked = profiles.verify_profile_bundle(paths["profile"], m["commissioning"]["created_at"])
     if checked["status"] != "profile_bundle_ready": raise ValueError("profile_bundle_not_ready")
     files = profiles.FILENAMES; out = Path(m["profile_output_root"]); bounds=m["maintenance_bounds"]
+    custody_policy=(out/files["workspace_custody_policy"] if m["schema_version"]==BACKEND_MANIFEST_SCHEMA else None)
     activation.render_config(paths["watchdog"], repository_root=repo, state_root=m["state_root"], workspace_root=m["workspace_root"],
         scratch_root=m["scratch_root"], inbox_root=m["inbox_root"], standing_grant=out/files["standing_grant"],
-        selector_policy=out/files["selector_policy"], foreman_policy=out/files["foreman_policy"], validation_policy=out/files["validation_policy"],
+        selector_policy=out/files["selector_policy"], foreman_policy=(out/files["foreman_policy"] if m["implementation_backend"]=="local_codex" else None), validation_policy=out/files["validation_policy"],
         landing_policy=out/files["landing_policy"], base_sha=m["base_sha"], tracked_base_ref=m["tracked_base_ref"],
-        implementation_backend=m["implementation_backend"], commissioned_local_activation=None,
+        implementation_backend=m["implementation_backend"], commissioned_local_activation=m.get("commissioned_local_activation"), workspace_custody_policy=custody_policy,
         maximum_actions=bounds["maximum_actions"], maximum_wall_clock_seconds=bounds["maximum_wall_clock_seconds"],
         publication_retry_backoff_seconds=bounds["publication_retry_backoff_seconds"], stop_marker=Path(m["state_root"])/"STOP",
         control_journal=Path(m["state_root"])/"control.jsonl", base_cursor_journal=Path(m["state_root"])/"base-cursor.jsonl")

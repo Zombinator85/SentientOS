@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos import maintenance_implementation_agent as mia
-from sentientos import maintenance_local_codex_foreman as custody
+from sentientos import maintenance_workspace_custody as custody
 from sentientos import maintenance_task_authority_lease as leases
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
 
@@ -116,7 +116,7 @@ class CommissionedLocalDriver:
         with self._lock:
             return sid in self._cancelled
 
-    def run(self, *, config: custody.LocalCodexForemanConfig, lease: Mapping[str, Any],
+    def run(self, *, config: custody.WorkspaceCustodyConfig, lease: Mapping[str, Any],
             request: Mapping[str, Any], session: Mapping[str, Any], artifact_root: Path,
             evaluation_time: str, validation_feedback: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
         req = mia.verify_request(request)
@@ -142,7 +142,7 @@ class CommissionedLocalDriver:
             worktree, identity.to_dict(), brief, self.bounds, validation_feedback=list(validation_feedback))
         return self._loop(config, lease, session, state, evaluation_time)
 
-    def execute(self, *, config: custody.LocalCodexForemanConfig, lease: Mapping[str, Any],
+    def execute(self, *, config: custody.WorkspaceCustodyConfig, lease: Mapping[str, Any],
             request: Mapping[str, Any], session: Mapping[str, Any], artifact_root: Path,
             evaluation_time: str, validation_feedback: Sequence[Mapping[str, Any]] = ()) -> Mapping[str, Any]:
         return self.run(config=config,lease=lease,request=request,session=session,
@@ -160,7 +160,7 @@ class CommissionedLocalDriver:
             raise ValueError("instruction_artifact_invalid")
         return raw.decode("utf-8")
 
-    def _loop(self, config: custody.LocalCodexForemanConfig, lease: Mapping[str, Any],
+    def _loop(self, config: custody.WorkspaceCustodyConfig, lease: Mapping[str, Any],
               descriptor: Mapping[str, Any], state: CommissionedLocalSession, evaluation_time: str) -> dict[str, Any]:
         while True:
             terminal = self._bounded_terminal(state)
@@ -237,7 +237,7 @@ class CommissionedLocalDriver:
             raise ValueError("path_outside_admitted_scope")
         return candidate
 
-    def _execute_tool(self, config: custody.LocalCodexForemanConfig, lease: Mapping[str, Any],
+    def _execute_tool(self, config: custody.WorkspaceCustodyConfig, lease: Mapping[str, Any],
                       state: CommissionedLocalSession, tool: str, args: Any, evaluation_time: str) -> dict[str, Any]:
         if self._is_cancelled(state.session_id): return {"ok": False, "error": "cancelled", "no_effect": True}
         live = leases.verify_lease(config.external_state_root, state.lease_id, evaluation_time=evaluation_time, repo_root=config.repository_root)
@@ -316,7 +316,7 @@ class CommissionedLocalDriver:
             "recent_observations":state.observations[-6:],"validation_feedback":state.validation_feedback[-2:]}
         return json.dumps(payload,sort_keys=True,separators=(",",":"))
 
-    def _finish(self, config: custody.LocalCodexForemanConfig, lease: Mapping[str, Any], descriptor: Mapping[str, Any], state: CommissionedLocalSession, status: str, reason: str) -> dict[str, Any]:
+    def _finish(self, config: custody.WorkspaceCustodyConfig, lease: Mapping[str, Any], descriptor: Mapping[str, Any], state: CommissionedLocalSession, status: str, reason: str) -> dict[str, Any]:
         state.terminal_state=status
         manifest=custody.changed_manifest(config,lease,state.worktree)
         if status=="implementation_ready_for_validation" and (not manifest["changed_paths"] or manifest["out_of_scope_paths"] or manifest["forbidden_paths"] or manifest["budget_findings"] or manifest["terminal_head"]!=lease["base_sha"]):
@@ -331,7 +331,7 @@ class CommissionedLocalDriver:
         result={"schema_version":RESULT_SCHEMA,"status":status,"reason_codes":[reason],"session_id":session.get("session_id"),"driver_id":self.driver_id,"driver_kind":"commissioned_local","effects":{"remote_model_invocation_performed":False,"codex_invocation_performed":False,"validation_performed":False,"git_commit_performed":False,"publication_performed":False},"result_digest":""}
         result["result_digest"]=_digest({k:v for k,v in result.items() if k!="result_digest"}); return result
 
-    def _audit(self, config: custody.LocalCodexForemanConfig, state: CommissionedLocalSession, event: Mapping[str, Any]) -> None:
+    def _audit(self, config: custody.WorkspaceCustodyConfig, state: CommissionedLocalSession, event: Mapping[str, Any]) -> None:
         root=config.external_state_root/"maintenance_commissioned_local_sessions"; root.mkdir(parents=True,exist_ok=True)
         path=root/(state.session_id+".jsonl")
         record={"session_id":state.session_id,"task_id":state.task_id,"lease_id":state.lease_id,"correlation_id":state.correlation_id,"model_identity":state.model_identity,"event":dict(event)}

@@ -25,10 +25,12 @@ from sentientos import maintenance_validation_controller as validation
 from sentientos import maintenance_implementation_agent as implementation_agent
 from sentientos import maintenance_local_codex_foreman as foreman
 from sentientos import maintenance_commissioned_local_agent as commissioned_agent
+from sentientos import maintenance_workspace_custody as workspace_custody
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
 from sentientos.local_model_production_commissioning import load_activation
 
-CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v1"
+CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v2"
+LEGACY_CONFIG_SCHEMA = "sentientos.maintenance_watchdog_config:v1"
 SCAN_SCHEMA = "sentientos.maintenance_watchdog_scan:v1"
 DECISION_SCHEMA = "sentientos.maintenance_watchdog_decision:v1"
 TICK_SCHEMA = "sentientos.maintenance_watchdog_tick_result:v1"
@@ -70,10 +72,12 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
                 "maximum_active_tasks", "maximum_actions",
                 "maximum_wall_clock_seconds", "publication_retry_backoff_seconds",
                 "base_sha", "tracked_base_ref"}
-    allowed = required | {"stop_marker", "control_journal", "base_cursor_journal",
+    if value.get("schema_version") == CONFIG_SCHEMA and "workspace_custody_policy" in value:
+        required.add("workspace_custody_policy")
+    allowed = required | {"workspace_custody_policy", "stop_marker", "control_journal", "base_cursor_journal",
                           "config_digest"}
     _closed(value, allowed, required)
-    if value["schema_version"] != CONFIG_SCHEMA or int(value["maximum_active_tasks"]) != 1:
+    if value["schema_version"] not in {CONFIG_SCHEMA, LEGACY_CONFIG_SCHEMA} or int(value["maximum_active_tasks"]) != 1:
         raise ValueError("invalid_watchdog_config")
     if value["implementation_backend"] not in {"local_codex", "commissioned_local"}:
         raise ValueError("implementation_backend_invalid")
@@ -83,6 +87,12 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("commissioned_local_activation_required")
     if value["implementation_backend"] == "local_codex" and (activation is not None or activation_digest is not None):
         raise ValueError("commissioned_local_activation_forbidden")
+    if value["schema_version"] == CONFIG_SCHEMA and value.get("workspace_custody_policy") is not None:
+        workspace_custody.WorkspaceCustodyConfig.from_mapping(_configured(value["workspace_custody_policy"]))
+        if value["implementation_backend"] == "local_codex" and value["foreman_policy"] is None:
+            raise ValueError("local_codex_foreman_policy_required")
+        if value["implementation_backend"] == "commissioned_local" and value["foreman_policy"] is not None:
+            raise ValueError("local_codex_foreman_policy_forbidden")
     if int(value["maximum_actions"]) < 1 or int(value["maximum_wall_clock_seconds"]) < 1:
         raise ValueError("invalid_watchdog_bounds")
     if int(value["publication_retry_backoff_seconds"]) < 0:
@@ -412,6 +422,17 @@ def _foreman_config(cfg: Mapping[str, Any]) -> foreman.LocalCodexForemanConfig:
     return result
 
 
+def _workspace_custody_config(cfg: Mapping[str, Any]) -> workspace_custody.WorkspaceCustodyConfig:
+    if cfg.get("workspace_custody_policy") is not None:
+        result = workspace_custody.WorkspaceCustodyConfig.from_mapping(_configured(cfg["workspace_custody_policy"]))
+    else:
+        # Historical v1 configs reconstruct custody from their immutable Codex policy.
+        result = _foreman_config(cfg).workspace_custody_config()
+    if result.repository_root != Path(cfg["repository_root"]) or result.external_state_root != Path(cfg["state_root"]) or result.external_workspace_root != Path(cfg["workspace_root"]):
+        raise ValueError("workspace_custody_configuration_mismatch")
+    return result
+
+
 def _commissioned_driver(cfg: Mapping[str, Any]) -> tuple[commissioned_agent.CommissionedLocalDriver, Any]:
     """Reconstruct only the immutable activation explicitly bound in config."""
     activation = Path(str(cfg["commissioned_local_activation"]))
@@ -448,7 +469,8 @@ def _observe_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], 
     request = _owned(scanned, implementation_agent.REQUEST_SCHEMA, task)[0]
     driver, model = _driver(cfg)
     try:
-        result = implementation_agent.execute_implementation_agent(driver, config=_foreman_config(cfg),
+        backend_config = _foreman_config(cfg) if cfg["implementation_backend"] == "local_codex" else _workspace_custody_config(cfg)
+        result = implementation_agent.execute_implementation_agent(driver, config=backend_config,
             lease=_lease_for(snapshot, cfg), request=request, session=session,
             artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time)
     finally:
@@ -476,7 +498,7 @@ def _recover_implementation(cfg: Mapping[str, Any], scanned: Mapping[str, Any], 
     if cfg["implementation_backend"] == "commissioned_local":
         driver, model = _driver(cfg)
         try:
-            return implementation_agent.execute_implementation_agent(driver, config=_foreman_config(cfg),
+            return implementation_agent.execute_implementation_agent(driver, config=_workspace_custody_config(cfg),
                 lease=_lease_for(snapshot, cfg), request=request, session=sessions[0],
                 artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time)
         finally:
@@ -535,7 +557,7 @@ def _validate(cfg: Mapping[str, Any], scanned: Mapping[str, Any], evaluation_tim
     if cfg["implementation_backend"] == "commissioned_local":
         driver, model = _driver(cfg)
         continuation = lambda envelope: implementation_agent.execute_implementation_agent(
-            driver, config=_foreman_config(cfg), lease=lease, request=request, session=session,
+            driver, config=_workspace_custody_config(cfg), lease=lease, request=request, session=session,
             artifact_root=Path(cfg["state_root"]), evaluation_time=evaluation_time,
             validation_feedback=(envelope,))
     try:

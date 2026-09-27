@@ -14,6 +14,8 @@ from typing import Any, Mapping, Sequence, Callable, cast
 from sentientos import maintenance_task_journal as journal
 from sentientos import maintenance_implementation_agent as mia
 from sentientos import maintenance_task_authority_lease as leases
+from sentientos import maintenance_workspace_custody as workspace_custody
+from sentientos.maintenance_workspace_custody import WorkspaceCustodyConfig
 
 CONFIG_SCHEMA="sentientos.maintenance_local_codex_foreman_config:v1"
 PROBE_SCHEMA="sentientos.maintenance_local_codex_cli_probe:v1"
@@ -76,6 +78,20 @@ class LocalCodexForemanConfig:
         d={"schema_version":CONFIG_SCHEMA, **{k:(str(v) if isinstance(v,Path) else list(v) if isinstance(v,tuple) else v) for k,v in self.__dict__.items()}, "configuration_digest":""}
         d["output_schema_digest"]=self.output_schema_digest or dig(final_message_schema())
         d["configuration_digest"]=seal(d,"configuration_digest"); return d
+    def workspace_custody_config(self)->WorkspaceCustodyConfig:
+        """Project only deterministic shared custody fields for backend-neutral use."""
+        return WorkspaceCustodyConfig(
+            configuration_id=self.configuration_id,
+            repository_identity=self.repository_identity,
+            repository_root=self.repository_root,
+            external_workspace_root=self.external_workspace_root,
+            external_state_root=self.external_state_root,
+            git_executable=self.git_executable,
+            git_executable_digest=self.git_executable_digest,
+            maximum_instruction_bytes=self.maximum_instruction_bytes,
+            process_timeout_seconds=self.process_timeout_seconds,
+            configuration_constraints=self.configuration_constraints,
+        )
 
 def final_message_schema()->dict[str,Any]:
     return {"schema_version":FINAL_SCHEMA,"type":"object","required":["status","summary","reported_changed_paths","reported_commands","reported_tests","blocker_codes","recommended_validation","continuation_note"],"properties":{"status":{"enum":["implemented","blocked","failed"]},"summary":{"type":"string"},"reported_changed_paths":{"type":"array","items":{"type":"string"}},"reported_commands":{"type":"array","items":{"type":"string"}},"reported_tests":{"type":"array","items":{"type":"string"}},"blocker_codes":{"type":"array","items":{"type":"string"}},"recommended_validation":{"type":"array","items":{"type":"string"}},"continuation_note":{"type":"string"}}}
@@ -102,27 +118,7 @@ def sanitize_environment(config:LocalCodexForemanConfig)->tuple[dict[str,str],di
     return env,meta
 
 def prepare_worktree(config:LocalCodexForemanConfig, lease:Mapping[str,Any], session_id:str, *, recovery:bool=False)->dict[str,Any]:
-    root=resolve(config.external_workspace_root)/str(lease["task_id"])/session_id
-    if config.repository_root in root.parents or config.external_state_root in root.parents or root.is_symlink(): raise ValueError("foreman_workspace_invalid")
-    descriptor=config.external_state_root/"maintenance_worktrees"/(session_id+".json")
-    if recovery and root.exists() and descriptor.exists():
-        prior=read_json(descriptor); head=run([str(config.git_executable),"rev-parse","HEAD"],cwd=root).stdout.strip()
-        if prior.get("worktree_root")!=str(root) or prior.get("base_sha")!=lease["base_sha"] or head!=lease["base_sha"]: raise ValueError("foreman_workspace_invalid")
-        return prior
-    argv=[str(config.git_executable),"worktree","add","--detach",str(root),str(lease["base_sha"])]
-    if root.exists():
-        if root.is_symlink(): raise ValueError("foreman_workspace_invalid")
-        head=run([str(config.git_executable),"rev-parse","HEAD"], cwd=root).stdout.strip(); clean=run([str(config.git_executable),"status","--porcelain=v1","--untracked-files=all"], cwd=root).stdout
-        if head!=lease["base_sha"] or clean: raise ValueError("foreman_workspace_invalid")
-        status="reused"
-    else:
-        root.parent.mkdir(parents=True, exist_ok=True); cp=run(argv, cwd=config.repository_root, timeout=30)
-        if cp.returncode: raise ValueError("foreman_workspace_invalid:"+cp.stderr[:200])
-        status="created"
-    head=run([str(config.git_executable),"rev-parse","HEAD"], cwd=root).stdout.strip(); clean=run([str(config.git_executable),"status","--porcelain=v1","--untracked-files=all"], cwd=root).stdout
-    files=run([str(config.git_executable),"ls-files"], cwd=root).stdout.splitlines()
-    d={"schema_version":WORKTREE_SCHEMA,"worktree_id":"mwt_"+hashlib.sha256(cj({"t":lease["task_id"],"s":session_id})).hexdigest()[:32],"worktree_digest":"","task_id":lease["task_id"],"lease_id":lease["lease_id"],"lease_digest":lease["lease_digest"],"session_id":session_id,"repository_identity":config.repository_identity,"source_repository_root":str(config.repository_root),"worktree_root":str(root),"workspace_root_identity":dig(str(config.external_workspace_root)),"base_sha":lease["base_sha"],"git_executable_identity":{"path":str(config.git_executable),"digest":path_digest(config.git_executable)},"creation_argv_digest":dig(argv),"initial_head":head,"initial_cleanliness_proof":{"porcelain":clean},"initial_tracked_file_manifest_digest":dig(files),"creation_status":status,"retained_for_validation":True}
-    d["worktree_digest"]=seal(d,"worktree_digest"); write_json(config.external_state_root/"maintenance_worktrees"/(session_id+".json"), d, immutable=False); return d
+    return workspace_custody.prepare_worktree(config.workspace_custody_config(),lease,session_id,recovery=recovery)
 
 def build_instruction_envelope(config:LocalCodexForemanConfig, lease:Mapping[str,Any], request:Mapping[str,Any], session:Mapping[str,Any], artifact_root:Path, recovery_ordinal:int=0)->tuple[dict[str,Any],bytes]:
     ref=str(request.get("external_instruction_artifact_reference") or "instruction.txt"); p=(artifact_root/ref).resolve(); root=artifact_root.resolve()
@@ -163,28 +159,7 @@ class JsonlObservationParser:
         d={"schema_version":OBS_SCHEMA,"thread_id":self.thread_id,"completed_turn_count":self.completed,"failed_turn_count":self.failed,"fatal_error_count":self.fatal,"unknown_events":self.unknown,"event_count":len(self.events),"command_summaries":self.commands,"agent_message_summaries":self.messages,"usage_metadata":self.usage,"observation_digest":""}; d["observation_digest"]=seal(d,"observation_digest"); return d
 
 def changed_manifest(config:LocalCodexForemanConfig, lease:Mapping[str,Any], worktree:Mapping[str,Any])->dict[str,Any]:
-    wt=Path(str(worktree["worktree_root"])); base=str(lease["base_sha"]); head=run([str(config.git_executable),"rev-parse","HEAD"],cwd=wt).stdout.strip()
-    status=run([str(config.git_executable),"status","--porcelain=v1","--untracked-files=all"],cwd=wt).stdout.splitlines(); paths=[]
-    for line in status:
-        if not line: continue
-        p=line[3:] if line.startswith("?? ") else line[3:]
-        paths.append(p)
-    stats=run([str(config.git_executable),"diff","--numstat","HEAD","--",*paths],cwd=wt).stdout.splitlines() if paths else []
-    add=dele=0
-    for line_stat in stats:
-        a_s,d_s,*_=line_stat.split("\t"); add+=int(a_s) if a_s.isdigit() else 0; dele+=int(d_s) if d_s.isdigit() else 0
-    entries=[]
-    for p in paths:
-        fp=(wt/p).resolve(); typ="missing" if not fp.exists() else "symlink" if fp.is_symlink() else "file" if fp.is_file() else "directory"
-        entries.append({"path":p,"status":"changed","tracked":not any(x.startswith("?? "+p) for x in status),"file_type":typ,"byte_size":fp.stat().st_size if fp.exists() and not fp.is_dir() else 0,"content_digest":path_digest(fp) if fp.exists() and fp.is_file() and not fp.is_symlink() and fp.stat().st_size<1_000_000 else None,"symlink_escapes_worktree": fp.is_symlink() and wt not in fp.resolve().parents})
-    admitted=list(lease["admitted_subject_paths"]); forb=list(lease.get("forbidden_path_patterns",()))
-    out=[p for p in paths if not any(p==a.rstrip('/') or p.startswith(a.rstrip('/')+'/') for a in admitted)]
-    budget=[]
-    if len(paths)>int(lease["maximum_file_count"]): budget.append("file_count_exceeded")
-    if add+dele>int(lease["maximum_changed_line_count"]): budget.append("changed_line_count_exceeded")
-    d={"schema_version":CHANGE_SCHEMA,"task_id":lease["task_id"],"session_id":worktree["session_id"],"worktree_id":worktree["worktree_id"],"initial_head":base,"terminal_head":head,"changed_paths":paths,"entries":entries,"aggregate_file_count":len(paths),"aggregate_changed_line_count":add+dele,"additions":add,"deletions":dele,"out_of_scope_paths":out,"forbidden_paths":[p for p in paths if any(__import__('fnmatch').fnmatch(p,pat) for pat in forb)],"budget_findings":budget,"manifest_digest":""}
-    d["manifest_digest"]=seal(d,"manifest_digest"); write_json(config.external_state_root/"maintenance_change_manifests"/(worktree["session_id"]+".json"),d, immutable=False); patch=run([str(config.git_executable),"diff","--binary","HEAD"],cwd=wt).stdout
-    pp=config.external_state_root/"maintenance_patches"/(worktree["session_id"]+".patch"); pp.parent.mkdir(parents=True,exist_ok=True); pp.write_text(patch); return d
+    return workspace_custody.changed_manifest(config.workspace_custody_config(),lease,worktree)
 
 class LocalCodexDriver:
     driver_id="local_codex_foreman"; driver_version="1"
