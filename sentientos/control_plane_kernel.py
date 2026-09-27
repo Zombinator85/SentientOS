@@ -56,6 +56,9 @@ class AuthorityClass(str, Enum):
     # Narrow schema identity for future loading and production serving-session
     # binding from current hardened activation. Declaration alone loads nothing.
     MODEL_SERVING = "model_serving"
+    # One exact, operator-approved generation-zero resident commissioning.
+    # This is deliberately distinct from restart and successor self-adoption.
+    INITIAL_RESIDENT_COMMISSIONING = "initial_resident_commissioning"
 
 
 class AdmissionOutcome(str, Enum):

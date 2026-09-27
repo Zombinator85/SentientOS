@@ -12,6 +12,7 @@ This map reflects the implemented kernel-mediated sensitive boundaries in the cu
 | `federated_control` | federation pulse ingestion (`pulse_federation`) | `runtime` | runtime governor (`federated_control`), federation origin + denial metadata checks | pulse federation handlers after admission | `glow/control_plane/kernel_decisions.jsonl` |
 | `spec_amendment` | `sentientosd` spec amender cycle | `maintenance` | runtime governor (`control_plane_task`) | `SpecAmender.cycle` | `glow/control_plane/kernel_decisions.jsonl` |
 | `privileged_operator_control` | operator quarantine-clear CLI | `maintenance` | runtime governor (`control_plane_task`) + explicit gate disposition | `scripts/quarantine_clear.py` post-check clear path | `glow/control_plane/kernel_decisions.jsonl` |
+| `initial_resident_commissioning` | externally operator-approved initial POSIX commissioner | `maintenance` | exact intent and approval metadata, kernel admission before custody mutation | `maintenance_initial_posix_resident_commissioning.commission` for generation zero and one bounded canonical launch only | `glow/control_plane/kernel_decisions.jsonl` plus external commissioning custody |
 
 Notes:
 - Kernel decisions emit normalized provenance fields (`actor_source`, `authority_class`, `lifecycle_phase`, `delegate_checks_consulted`, `final_disposition`, `reason_codes`, `correlation_id`).
