@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "register_model_mirror_publication_authorization_issuance_authority",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2719a5e63af7982348843260580f5d436eac3d5a",
+  "test_provenance_path": "/tmp/model_mirror_publication_authorization_capability_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization_capability_admission.py::test_exact_definition_registration_is_metadata_only",
+      "rationale": "The exact operator-approved definition registers without granting or exercising authority."
+    },
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization_capability_admission.py::test_issuer_and_publication_effect_surfaces_are_disjoint_and_exact",
+      "rationale": "Issuance effects remain machine-verifiably separate from publication effects."
+    },
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization_capability_admission.py::test_exact_later_implementation_is_definition_eligible_without_grant",
+      "rationale": "A later exact request is definition-eligible but receives no runtime grant."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_model_mirror_publication_authorization_capability_admission.py::test_exact_definition_registration_is_metadata_only"
+  ]
+}

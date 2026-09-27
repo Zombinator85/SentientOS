@@ -6,5 +6,5 @@ Before PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title
 Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.
 Do not create PR metadata before green final validation.
 Also require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.
-Goal: Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.
-Subsystem: operator_authority_definition_registration_workflow (authority_definition_registration).
+Goal: Register exactly one governance metadata definition for a future bounded model-mirror publication authorization issuer. Definition registration grants no authority, requests no runtime capability or effects, performs no publication or provider/network action, and leaves runtime implementation for a separately admitted later task.
+Subsystem: register-model-mirror-publication-authorization-issuance-authority (authority_definition_registration).

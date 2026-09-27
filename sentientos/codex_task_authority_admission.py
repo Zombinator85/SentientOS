@@ -15,6 +15,9 @@ from typing import Any, Mapping
 
 
 MODEL_MIRROR_PUBLISH = "sentientos.model_mirror.publish"
+MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE = (
+    "sentientos.model_mirror.publication_authorization.issue"
+)
 LOCAL_MODEL_CATALOG_DEPLOY = "sentientos.local_model_catalog.deploy"
 LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE = (
     "sentientos.local_model_catalog.deployment_authorization.issue"
@@ -691,6 +694,83 @@ MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING_OPERATOR_APPROVAL = MappingProx
 })
 
 
+MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_DEFINITION = TaskAuthorityDefinition(
+    capability_id=MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE,
+    subsystem_kinds=frozenset({"model_distribution"}),
+    principal_kinds=frozenset({
+        "deterministic_model_mirror_publication_authorization_controller"
+    }),
+    required_effects=frozenset({
+        "exact_operator_approval_evidence_read",
+        "exact_curator_publication_package_read",
+        "exact_model_mirror_publication_intent_read",
+        "bounded_model_mirror_publication_grant_issue",
+        "bounded_model_mirror_publication_lease_issue",
+        "model_mirror_publication_authorization_receipt_write",
+    }),
+    required_goal_phrases=(
+        "explicit operator approval",
+        "exact curator publication package",
+        "exact publication intent",
+        "bounded publication grant",
+        "bounded publication lease",
+        "separate publication effect authority",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary publication authority", "arbitrary publication target",
+        "arbitrary host", "arbitrary url", "mutable alias",
+        "provider administration", "credential management", "credential creation",
+        "credential modification", "credential rotation", "credential inspection",
+        "credential export", "generic network authority", "arbitrary network authority",
+        "arbitrary outbound transfer", "catalog deployment", "model acquisition",
+        "model commissioning", "activation", "inference", "git publication",
+        "repository mutation", "shell authority", "arbitrary filesystem authority",
+        "unbounded grant", "unbounded lease", "automatic authority renewal",
+        "silent authority renewal", "self-grant", "self grant",
+        "model output grants authority", "artifact possession grants authority",
+        "curator approval grants authority", "publication receipt grants authority",
+    ),
+    approval_requirements=(
+        "explicit independently supplied operator approval",
+        "exact curator publication package identity",
+        "exact immutable publication intent",
+        "exact target sentientos.model_mirror.publish capability",
+        "exact target deterministic_publication_controller",
+        "exact registered target publication effect set",
+        "bounded finite grant lifetime",
+        "lease no broader than grant",
+        "revocation verification",
+        "valid LOCAL_AUTHORIZATION_GRANT_ISSUANCE control-plane admission",
+        "no provider credential exposure",
+        "separate publication effect admission",
+        "durable issuance receipt",
+        "definition eligibility does not grant runtime authority",
+    ),
+    purpose=(
+        "Permit a future separately admitted deterministic model-mirror publication "
+        "authorization issuer to consume exact independent operator approval and an "
+        "immutable curator-bound publication intent, then issue a finite revocable "
+        "grant, narrower lease, and immutable authorization receipt targeting the "
+        "existing deterministic publication controller and the exact "
+        "sentientos.model_mirror.publish effect surface. The issuer itself receives "
+        "no publication, provider, credential, network-transfer, catalog-deployment, "
+        "acquisition, commissioning, activation, inference, Git, shell, "
+        "arbitrary-filesystem, or self-grant authority."
+    ),
+)
+
+MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:model_mirror_publication_authorization:dc4f1b40ec2c:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE,
+    "approved_definition_digest": "dc4f1b40ec2ceaeae0b9b1d94850fa66da65e163a10f78308bd954baf6b5ab91",
+    "approved_task_name": "register_model_mirror_publication_authorization_issuance_authority",
+    "evidence_digest": "e8e57be80308e22cf8579dab8697d67cb74b7bbf972930003eea4a056c8deee2",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
@@ -701,6 +781,8 @@ AUTHORITY_DEFINITIONS = {
         RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_DEFINITION,
     MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING:
         MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING_DEFINITION,
+    MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE:
+        MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),

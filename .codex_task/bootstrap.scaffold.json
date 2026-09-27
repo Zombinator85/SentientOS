@@ -6,23 +6,23 @@
       "prompt_text"
     ],
     "blocker_codes": [],
-    "commit_pr_title": "[codex:authority] add operator-approved definition registration",
+    "commit_pr_title": "[codex:model-distribution] register publication authorization issuer",
     "doctrine_references": [
       "AGENTS.md",
       "docs/development/codex_whole_system_task_template.md",
       "docs/development/codex_validation_and_landing_contract.md"
     ],
     "expected_docs": [
-      "docs/development/codex_task_bootstrapper.md"
+      "docs/development/model_mirror_publication_authorization_capability.md"
     ],
     "expected_files": [
-      "scripts/plan_operator_authority_definition_registration_workflow.py",
-      "sentientos/codex_task_authority_admission.py"
+      "scripts/plan_register_model_mirror_publication_authorization_issuance_authority.py",
+      "sentientos/register_model_mirror_publication_authorization_issuance_authority.py"
     ],
     "expected_fixture_roots": [],
     "expected_tests": [
-      "tests/test_authority_definition_registration.py",
-      "tests/test_plan_operator_authority_definition_registration_workflow_script.py"
+      "tests/test_model_mirror_publication_authorization_capability_admission.py",
+      "tests/test_plan_register_model_mirror_publication_authorization_issuance_authority_script.py"
     ],
     "explicit_non_authority_boundaries": [
       "developer workflow scaffolding only",
@@ -40,7 +40,7 @@
       "Do not invoke Codex.",
       "Do not invoke shell/subprocess from library code."
     ],
-    "generated_prompt": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nRequired sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. 3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. 5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. 7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. 8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nPre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\nBefore PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nAlso require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\nGoal: Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.\nSubsystem: operator_authority_definition_registration_workflow (authority_definition_registration).",
+    "generated_prompt": "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\nRequired sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. 3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. 5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. 7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. 8. Run PR metadata guard and require pr_metadata_guard_ready. 9. Bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\nCritical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\nPre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\nBefore PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\nDo not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\nDo not create PR metadata before green final validation.\nAlso require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\nGoal: Register exactly one governance metadata definition for a future bounded model-mirror publication authorization issuer. Definition registration grants no authority, requests no runtime capability or effects, performs no publication or provider/network action, and leaves runtime implementation for a separately admitted later task.\nSubsystem: register-model-mirror-publication-authorization-issuance-authority (authority_definition_registration).",
     "prompt_mode": "whole_system",
     "required_integrations": [
       "capability_registry",
@@ -49,11 +49,11 @@
       "reviewer_proof_bundle",
       "safety_tests"
     ],
-    "scaffold_digest": "1e9528f5e497bc3b92befb26d81ccb0988067b26a8b9a19421e20f02ca17afe0",
-    "scaffold_id": "codex-task-scaffold-1e9528f5e497",
+    "scaffold_digest": "0a591cb7b9233f1447ff13dd3d661d6be822596f1af61bbf3657eadde48722c2",
+    "scaffold_id": "codex-task-scaffold-0a591cb7b923",
     "subsystem_kind": "authority_definition_registration",
-    "task_goal": "Add a fail-closed operator-approved workflow for registering new authority definitions without granting runtime capability or effects.",
-    "task_name": "operator_authority_definition_registration_workflow",
+    "task_goal": "Register exactly one governance metadata definition for a future bounded model-mirror publication authorization issuer. Definition registration grants no authority, requests no runtime capability or effects, performs no publication or provider/network action, and leaves runtime implementation for a separately admitted later task.",
+    "task_name": "register-model-mirror-publication-authorization-issuance-authority",
     "validation_commands": [
       "python -m mypy sentientos/codex_task_scaffold.py scripts/build_codex_task_scaffold.py",
       "python -m scripts.run_tests -q tests/test_codex_task_scaffold.py tests/test_build_codex_task_scaffold_script.py"

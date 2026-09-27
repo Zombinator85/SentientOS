@@ -1,16 +1,16 @@
 {
-  "api_test_path": "tests/test_authority_definition_registration.py",
+  "api_test_path": "tests/test_model_mirror_publication_authorization_capability_admission.py",
   "authority_definition_eligibility_only": true,
   "authority_principal": "",
   "capability_granted": false,
-  "capability_id": "operator_authority_definition_registration_workflow",
-  "cli_path": "scripts/plan_operator_authority_definition_registration_workflow.py",
-  "cli_test_path": "tests/test_plan_operator_authority_definition_registration_workflow_script.py",
-  "dev_doc_path": "docs/development/codex_task_bootstrapper.md",
+  "capability_id": "register_model_mirror_publication_authorization_issuance_authority",
+  "cli_path": "scripts/plan_register_model_mirror_publication_authorization_issuance_authority.py",
+  "cli_test_path": "tests/test_plan_register_model_mirror_publication_authorization_issuance_authority_script.py",
+  "dev_doc_path": "docs/development/model_mirror_publication_authorization_capability.md",
   "fixture_root": "",
-  "module_path": "sentientos/codex_task_authority_admission.py",
-  "proof_bundle_filename": "artifacts/proof_bundles/operator_authority_definition_registration_workflow_capability.json",
+  "module_path": "sentientos/register_model_mirror_publication_authorization_issuance_authority.py",
+  "proof_bundle_filename": "artifacts/proof_bundles/register_model_mirror_publication_authorization_issuance_authority_capability.json",
   "requested_effects": [],
   "status": "ready",
-  "task_slug": "operator_authority_definition_registration_workflow"
+  "task_slug": "register_model_mirror_publication_authorization_issuance_authority"
 }
