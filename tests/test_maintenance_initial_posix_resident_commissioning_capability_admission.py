@@ -133,21 +133,16 @@ def test_each_forbidden_future_scope_is_rejected(phrase: str) -> None:
     )
 
 
-def test_registry_reports_contract_only_and_runtime_commissioning_deferred() -> None:
+def test_registry_reports_runtime_implemented_but_live_commissioning_deferred() -> None:
     record = build_default_capability_registry().by_id()[CAPABILITY]
-    assert record.status == "partial"
-    assert record.authority_level == "contract_only"
+    assert record.status == "implemented"
+    assert record.authority_level == "bounded-orchestrator"
     assert record.requires_control_plane_admission
     assert record.requires_operator_approval
     assert record.requires_audit_receipt
     assert "exact capability definition" in record.implemented_surfaces
-    for surface in (
-        "commissioning manifest implementation", "generation-zero creation",
-        "external custody creation", "continuity-policy creation",
-        "initial resident launch", "initial launch provenance",
-        "resident commissioning receipt", "live POSIX commissioning evidence",
-        "first real production post-adoption campaign",
-    ):
+    assert "content-addressed manifest and commissioning intent" in record.implemented_surfaces
+    for surface in ("live POSIX commissioning evidence", "first real production post-adoption campaign"):
         assert surface in record.deferred_surfaces
 
 
@@ -158,5 +153,4 @@ def test_existing_downstream_authority_definitions_remain_distinct() -> None:
     assert "bounded_exact_sentientosd_self_exec" in resident.required_effects
     assert "bounded_exact_initial_sentientosd_launch" not in resident.required_effects
     assert "bounded_exact_sentientosd_self_exec" not in DEFINITION.required_effects
-    assert not Path("sentientos/maintenance_initial_posix_resident_commissioning.py").exists()
-
+    assert Path("sentientos/maintenance_initial_posix_resident_commissioning.py").is_file()

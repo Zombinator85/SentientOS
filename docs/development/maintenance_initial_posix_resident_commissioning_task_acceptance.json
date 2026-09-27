@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "99f0c48c49018ea229da08f353ab6efda0ae6177",
+  "test_provenance_path": "/tmp/maintenance_initial_posix_resident_commissioning_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning.py::test_generation_configs_receipt_idempotence_and_boundaries",
+      "rationale": "Successful synthetic-boundary execution validates native generation/config custody and reconstructs without a second launch."
+    },
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning.py::test_missing_expired_and_denied_approval_are_pre_effect",
+      "rationale": "Approval or control-plane failure precedes every commissioning mutation."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_initial_posix_resident_commissioning.py::test_generation_configs_receipt_idempotence_and_boundaries"
+  ]
+}
