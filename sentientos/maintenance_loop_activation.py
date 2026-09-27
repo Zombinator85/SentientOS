@@ -96,17 +96,18 @@ def _artifact(value: str | Path | Mapping[str, Any]) -> str | dict[str, Any]:
 def render_config(output: str | Path, *, repository_root: str | Path, state_root: str | Path,
                   workspace_root: str | Path, scratch_root: str | Path, inbox_root: str | Path,
                   standing_grant: str | Path | Mapping[str, Any], selector_policy: str | Path | Mapping[str, Any],
-                  foreman_policy: str | Path | Mapping[str, Any], validation_policy: str | Path | Mapping[str, Any],
+                  foreman_policy: str | Path | Mapping[str, Any] | None, validation_policy: str | Path | Mapping[str, Any],
                   landing_policy: str | Path | Mapping[str, Any], base_sha: str, tracked_base_ref: str,
                   implementation_backend: str, commissioned_local_activation: str | Path | None,
                   maximum_actions: int, maximum_wall_clock_seconds: int,
                   publication_retry_backoff_seconds: int, stop_marker: str | Path | None = None,
-                  control_journal: str | Path | None = None, base_cursor_journal: str | Path | None = None) -> dict[str, Any]:
-    config: dict[str, Any] = {"schema_version": watchdog.CONFIG_SCHEMA,
+                  control_journal: str | Path | None = None, base_cursor_journal: str | Path | None = None,
+                  workspace_custody_policy: str | Path | Mapping[str, Any] | None = None) -> dict[str, Any]:
+    config: dict[str, Any] = {"schema_version": (watchdog.CONFIG_SCHEMA if workspace_custody_policy is not None else watchdog.LEGACY_CONFIG_SCHEMA),
         "repository_root": str(Path(repository_root).resolve(strict=True)), "state_root": str(Path(state_root).resolve(strict=True)),
         "workspace_root": str(Path(workspace_root).resolve(strict=True)), "scratch_root": str(Path(scratch_root).resolve(strict=True)),
         "candidate_inbox_roots": [str(Path(inbox_root).resolve(strict=True))], "standing_grant": _artifact(standing_grant),
-        "selector_policy": _artifact(selector_policy), "foreman_policy": _artifact(foreman_policy),
+        "selector_policy": _artifact(selector_policy), "foreman_policy": (_artifact(foreman_policy) if foreman_policy is not None else None),
         "validation_policy": _artifact(validation_policy), "landing_policy": _artifact(landing_policy),
         "implementation_backend": implementation_backend,
         "commissioned_local_activation": (str(Path(commissioned_local_activation).expanduser().resolve(strict=False)) if commissioned_local_activation else None),
@@ -115,6 +116,8 @@ def render_config(output: str | Path, *, repository_root: str | Path, state_root
         "maximum_wall_clock_seconds": maximum_wall_clock_seconds,
         "publication_retry_backoff_seconds": publication_retry_backoff_seconds,
         "base_sha": base_sha, "tracked_base_ref": tracked_base_ref}
+    if workspace_custody_policy is not None:
+        config["workspace_custody_policy"] = _artifact(workspace_custody_policy)
     for key, value in (("stop_marker", stop_marker), ("control_journal", control_journal), ("base_cursor_journal", base_cursor_journal)):
         if value is not None:
             config[key] = str(Path(value).expanduser().resolve(strict=False))

@@ -1,0 +1,23 @@
+{
+  "repository_sha": "bab824879f15ba37bda591588f87c455665ddf5c",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_workspace_custody.py::test_closed_config_contains_no_backend_transport_fields",
+      "rationale": "The shared custody contract is closed and contains no implementation-backend transport identity."
+    },
+    {
+      "node_id": "tests/test_maintenance_backend_polymorphism.py::test_commissioned_profile_has_no_codex_policy_or_codex_fields",
+      "rationale": "A commissioned-local profile renders shared custody without a Codex policy or Codex fields."
+    },
+    {
+      "node_id": "tests/test_maintenance_backend_polymorphism.py::test_commissioned_genesis_doctor_needs_activation_but_not_codex",
+      "rationale": "Backend-aware genesis requires exact activation-byte custody while omitting Codex executable and home."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_maintenance_backend_polymorphism.py::test_commissioned_profile_has_no_codex_policy_or_codex_fields"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
