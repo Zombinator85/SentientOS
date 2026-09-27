@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b184cb0f39d5368297f3ab8dedc4ba631cdb0837",
+  "test_provenance_path": "/tmp/maintenance_initial_resident_genesis_provisioning_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_initial_resident_genesis_provisioning.py::test_fresh_local_only_graph_reaches_commissioning_ready",
+      "rationale": "A real clean repository with only refs/heads/work and no remote renders the full native graph and reaches canonical commissioning doctor readiness without runtime effects."
+    },
+    {
+      "node_id": "tests/test_maintenance_initial_resident_genesis_provisioning.py::test_conflicting_rerender_and_bundle_tamper_fail_closed",
+      "rationale": "Immutable profile custody rejects conflicting rerender bytes after exact replay succeeds."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_initial_resident_genesis_provisioning.py::test_fresh_local_only_graph_reaches_commissioning_ready"
+  ]
+}
