@@ -1,5 +1,11 @@
 {
-  "preset": {},
+  "preset": {
+    "checked_preset_ids": [
+      "model_distribution"
+    ],
+    "errors": [],
+    "status": "codex_task_scaffold_preset_verifier_ready"
+  },
   "scaffold": {
     "forbidden_surface_coverage_ok": true,
     "missing_doctrine_clauses": [],
