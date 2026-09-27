@@ -78,6 +78,7 @@ from sentientos.maintenance_authority_continuity_auto_derivation import Maintena
 from sentientos.maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController, load_config as load_resident_adoption
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
+from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_GATE_ENV, await_initial_commissioning_gate
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
@@ -1027,6 +1028,44 @@ def _run_resident_cognition_and_transition(runtime_surfaces: RuntimeMaintenanceS
 async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) -> None:
     """Run the autonomous Codex maintenance loop."""
 
+    # Resolve and gate an exact initial resident before boot ceremony output,
+    # owner construction, or any maintenance-capable runtime initialization.
+    adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG")
+    wake_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_WAKE_ADOPTION_CONFIG")
+    successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
+    auto_derivation_path = os.environ.get("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG")
+    resident_path = os.environ.get("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG")
+    resident_controller = None
+    resident_health: dict[str, Any] = {"status": "disabled", "read_only": True}
+    if resident_path:
+        try:
+            resident_config = load_resident_adoption(resident_path)
+            if not resident_config["enabled"]:
+                if os.environ.get(RESIDENT_TRANSITION_ENV):
+                    raise ValueError("disabled_resident_posture_transition_marker_present")
+                custody = inspect_resident_transition_custody(resident_config)
+                if custody["status"] == "incomplete_resident_transaction":
+                    raise ValueError("disabled_resident_posture_incomplete_transition")
+                if custody["status"] == "corrupt_or_ambiguous":
+                    raise ValueError("disabled_resident_posture_custody_corrupt_or_ambiguous")
+                resident_health = {"status": "disabled", "custody_status": custody["status"], "read_only": True}
+            else:
+                if (not successor_adoption_path or
+                        Path(resident_config["successor_adoption_config_path"]).resolve() != Path(successor_adoption_path).resolve() or
+                        (resident_config["automatic_continuity_config_path"] and
+                         (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
+                    raise ValueError("resident_runtime_configuration_binding_mismatch")
+                resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
+                initial_provenance = _prepare_resident_runtime_startup(resident_controller)
+                await_initial_commissioning_gate(initial_provenance)
+                resident_health = resident_controller.health()
+        except Exception as exc:
+            resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
+            resident_controller = None
+    resident_blocked = bool(resident_path and resident_health["status"] == "blocked")
+    if resident_blocked and os.environ.get(STARTUP_GATE_ENV):
+        return
+
     emitter = EventEmitter(LOGGER)
     announcer = BootAnnouncer(emitter)
     ceremony = CeremonialScript(announcer)
@@ -1065,38 +1104,6 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         governed_local_invoker=governed_invoker,
         genesis_advice_source=genesis_advice,
     )
-    adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SCHEDULER_ADOPTION_CONFIG")
-    wake_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_WAKE_ADOPTION_CONFIG")
-    successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
-    auto_derivation_path = os.environ.get("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG")
-    resident_path = os.environ.get("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG")
-    resident_controller = None
-    resident_health: dict[str, Any] = {"status": "disabled", "read_only": True}
-    if resident_path:
-        try:
-            resident_config = load_resident_adoption(resident_path)
-            if not resident_config["enabled"]:
-                if os.environ.get(RESIDENT_TRANSITION_ENV):
-                    raise ValueError("disabled_resident_posture_transition_marker_present")
-                custody = inspect_resident_transition_custody(resident_config)
-                if custody["status"] == "incomplete_resident_transaction":
-                    raise ValueError("disabled_resident_posture_incomplete_transition")
-                if custody["status"] == "corrupt_or_ambiguous":
-                    raise ValueError("disabled_resident_posture_custody_corrupt_or_ambiguous")
-                resident_health = {"status": "disabled", "custody_status": custody["status"], "read_only": True}
-            else:
-                if (not successor_adoption_path or
-                        Path(resident_config["successor_adoption_config_path"]).resolve() != Path(successor_adoption_path).resolve() or
-                        (resident_config["automatic_continuity_config_path"] and
-                         (not auto_derivation_path or Path(resident_config["automatic_continuity_config_path"]).resolve() != Path(auto_derivation_path).resolve()))):
-                    raise ValueError("resident_runtime_configuration_binding_mismatch")
-                resident_controller = MaintenanceResidentRuntimeAdoptionController(resident_config)
-                _prepare_resident_runtime_startup(resident_controller)
-                resident_health = resident_controller.health()
-        except Exception as exc:
-            resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
-            resident_controller = None
-    resident_blocked = bool(resident_path and resident_health["status"] == "blocked")
     scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners_after_resident_decision(
         adoption_path, wake_adoption_path, successor_adoption_path,
         resident_controller if resident_path and not resident_blocked else None, resident_blocked=resident_blocked)

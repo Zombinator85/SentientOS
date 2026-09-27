@@ -12,6 +12,7 @@ import json
 import os
 import stat
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -33,6 +34,9 @@ MANIFEST_SCHEMA = "sentientos.maintenance_initial_posix_resident_commissioning_m
 INTENT_SCHEMA = "sentientos.maintenance_initial_posix_resident_commissioning_intent:v1"
 APPROVAL_SCHEMA = "sentientos.maintenance_initial_posix_resident_commissioning_approval:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_initial_posix_resident_commissioning_receipt:v1"
+STARTUP_SCHEMA = "sentientos.maintenance_initial_posix_resident_startup_ready:v1"
+STARTUP_GATE_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_INTENT"
+STARTUP_ROOT_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_CUSTODY"
 ZERO_DIGEST = "sha256:" + "0" * 64
 EFFECTS = tuple(sorted((
     "exact_initial_resident_repository_state_read", "exact_posix_resident_host_capability_read",
@@ -196,6 +200,14 @@ def verify_approval(approval: Mapping[str, Any], intent: Mapping[str, Any], *, n
         raise CommissioningError("runtime_operator_approval_invalid")
     if a["synthetic"] is True and not allow_synthetic_for_tests: raise CommissioningError("synthetic_runtime_approval_rejected")
     if a["synthetic"] not in ({False} if not allow_synthetic_for_tests else {False, True}): raise CommissioningError("runtime_operator_approval_invalid")
+    if not isinstance(a["approval_id"], str) or not a["approval_id"].strip():
+        raise CommissioningError("runtime_operator_approval_identity_invalid")
+    if not isinstance(a["operator_identity"], str) or not a["operator_identity"].strip():
+        raise CommissioningError("runtime_operator_identity_invalid")
+    provenance = a["operator_provenance"]
+    if (not isinstance(provenance, str) or not provenance.strip() or
+            (not allow_synthetic_for_tests and any(token in provenance.lower() for token in ("placeholder", "synthetic", "test fixture")))):
+        raise CommissioningError("runtime_operator_provenance_invalid")
     if a["bindings"] != approval_bindings(intent): raise CommissioningError("runtime_operator_approval_binding_mismatch")
     instant = now or datetime.now(timezone.utc)
     try:
@@ -277,7 +289,10 @@ def _verify_custody(root: Path, intent: Mapping[str, Any], *, require_complete: 
         if digest(decision) != receipt["control_plane_decision_digest"]:
             raise CommissioningError("control_plane_decision_tampered")
         marker = _load(root / "COMMISSIONED.json", "commissioning_marker_invalid")
-        if marker != {"receipt_digest": claimed, "status": "initial_resident_commissioned"}: raise CommissioningError("commissioning_marker_invalid")
+        if (marker.get("receipt_digest") != claimed or marker.get("status") != "initial_resident_commissioned" or
+                marker.get("intent_digest") != intent["intent_digest"] or
+                marker.get("process_instance_id") != receipt["launch_provenance"].get("process_instance_id")):
+            raise CommissioningError("commissioning_marker_invalid")
         provenance = _load(root / "launch-provenance.json", "initial_launch_provenance_invalid")
         if (provenance != receipt["launch_provenance"] or
                 provenance.get("provenance_digest") != resident.digest(provenance, "provenance_digest")):
@@ -293,20 +308,85 @@ def verify(value: Mapping[str, Any]) -> dict[str, Any]:
     return {"status": "initial_resident_commissioning_verified", **details, "read_only": True}
 
 
+def _environment(intent: Mapping[str, Any], resident_config: Mapping[str, Any]) -> dict[str, str]:
+    m = intent["manifest"]
+    env = {k: os.environ[k] for k in m["environment_allowlist"] if k in os.environ}
+    env.update(resident_config["required_environment"])
+    env[STARTUP_GATE_ENV] = intent["intent_digest"]
+    env[STARTUP_ROOT_ENV] = m["custody_root"]
+    env.pop("PYTHONPATH", None); env.pop("PYTHONHOME", None)
+    return env
+
+
+def _startup_environment_digest(env: Mapping[str, str]) -> str:
+    return digest(dict(sorted(env.items())))
+
+
+def await_initial_commissioning_gate(provenance: Mapping[str, Any]) -> None:
+    """Child-side, initial-launch-only gate; returns only after exact completion."""
+    intent_digest = os.environ.get(STARTUP_GATE_ENV); root_text = os.environ.get(STARTUP_ROOT_ENV)
+    if not intent_digest and not root_text:
+        return
+    if not intent_digest or not root_text:
+        raise CommissioningError("initial_commissioning_gate_context_incomplete")
+    root = Path(root_text)
+    intent = _load(root / "intent.json", "initial_commissioning_intent_missing")
+    manifest = validate_manifest(intent.get("manifest", {}))
+    if (intent.get("intent_digest") != intent_digest or root.resolve() != Path(manifest["custody_root"]).resolve()):
+        raise CommissioningError("initial_commissioning_gate_context_mismatch")
+    resident_config = resident.load_config(root / "resident-adoption.json")
+    bounded_env = {key: os.environ[key] for key in manifest["environment_allowlist"] if key in os.environ}
+    bounded_env.update({key: os.environ[key] for key in resident_config["required_environment"]})
+    bounded_env[STARTUP_GATE_ENV] = intent_digest; bounded_env[STARTUP_ROOT_ENV] = root_text
+    ready = {"schema_version": STARTUP_SCHEMA, "intent_digest": intent_digest,
+             "resident_config_digest": provenance.get("config_digest"),
+             "generation_ordinal": provenance.get("represented_generation_ordinal"),
+             "generation_digest": provenance.get("represented_generation_digest"),
+             "provenance_digest": provenance.get("provenance_digest"), "pid": os.getpid(),
+             "process_instance_id": provenance.get("process_instance_id"),
+             "environment_digest": _startup_environment_digest(bounded_env), "startup_ready_digest": ""}
+    ready["startup_ready_digest"] = digest(ready, "startup_ready_digest")
+    _write(root / "startup-ready.json", ready)
+    deadline = time.monotonic() + float(manifest["launch_timeout_seconds"])
+    while time.monotonic() < deadline:
+        marker_path = root / "COMMISSIONED.json"
+        if marker_path.is_file():
+            marker = _load(marker_path, "commissioning_marker_invalid")
+            receipt = _load(root / "commissioning-receipt.json", "commissioning_receipt_missing")
+            if (marker.get("status") == "initial_resident_commissioned" and
+                    marker.get("intent_digest") == intent_digest and
+                    marker.get("receipt_digest") == receipt.get("receipt_digest") and
+                    marker.get("process_instance_id") == provenance.get("process_instance_id") and
+                    receipt.get("launch_provenance_digest") == provenance.get("provenance_digest")):
+                return
+            raise CommissioningError("commissioning_marker_invalid")
+        time.sleep(0.05)
+    raise CommissioningError("initial_commissioning_gate_timeout")
+
+
 def commission(value: Mapping[str, Any], approval: Mapping[str, Any], *, kernel: ControlPlaneKernel,
                correlation_id: str, clock: Callable[[], datetime] | None = None,
                launch_runner: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
-               allow_synthetic_approval_for_tests: bool = False) -> dict[str, Any]:
+               allow_synthetic_approval_for_tests: bool = False,
+               approval_evidence_path: str | Path | None = None) -> dict[str, Any]:
     intent = prepare_intent(value); m = intent["manifest"]; root = Path(m["custody_root"])
     if (root / "COMMISSIONED.json").exists():
         details = _verify_custody(root, intent, require_complete=True)
         return {"status": "initial_resident_commissioning_reconstructed", **details, "initial_launch_performed": False}
     if intent["host_doctor"]["status"] != "initial_resident_commissioning_ready":
         raise CommissioningError("host_doctor_not_ready")
+    expected_approval_path = Path(m["approval_evidence_path"]).resolve()
+    if not allow_synthetic_approval_for_tests:
+        if approval_evidence_path is not None and Path(approval_evidence_path).resolve() != expected_approval_path:
+            raise CommissioningError("runtime_operator_approval_path_mismatch")
+        if expected_approval_path.is_symlink() or not expected_approval_path.is_file():
+            raise CommissioningError("runtime_operator_approval_path_invalid")
+        if _load(expected_approval_path, "runtime_operator_approval_path_invalid") != dict(approval):
+            raise CommissioningError("runtime_operator_approval_bytes_mismatch")
     approved = verify_approval(approval, intent, now=(clock or (lambda: datetime.now(timezone.utc)))(), allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
     metadata = {**approval_bindings(intent), "approval_id": approved["approval_id"], "approval_digest": approved["approval_digest"], "correlation_id": correlation_id}
     decision = kernel.admit(ControlActionRequest(ACTION, AuthorityClass.INITIAL_RESIDENT_COMMISSIONING, PRINCIPAL,
-        CAPABILITY, LifecyclePhase.MAINTENANCE, metadata))
+        CAPABILITY, LifecyclePhase.RUNTIME, metadata))
     if decision.outcome != AdmissionOutcome.ALLOW or decision.authority_class != AuthorityClass.INITIAL_RESIDENT_COMMISSIONING or decision.actor != PRINCIPAL:
         raise CommissioningError("initial_resident_control_plane_admission_denied")
     try:
@@ -327,16 +407,32 @@ def commission(value: Mapping[str, Any], approval: Mapping[str, Any], *, kernel:
         if not allow_synthetic_approval_for_tests: raise CommissioningError("test_launch_adapter_rejected_in_production")
         provenance = dict(launch_runner(artifacts["resident"]))
     else:
-        env = {k: os.environ[k] for k in m["environment_allowlist"] if k in os.environ}; env.update(artifacts["resident"]["required_environment"])
-        env.pop("PYTHONPATH", None); env.pop("PYTHONHOME", None)
-        try:
-            completed = subprocess.run(intent["launch_contract"]["argv"], cwd=m["repository_root"], env=env,
-                shell=False, timeout=float(m["launch_timeout_seconds"]), check=False)
-        except subprocess.TimeoutExpired as exc: raise CommissioningError("bounded_initial_launch_timeout") from exc
-        if completed.returncode: raise CommissioningError("bounded_initial_launch_failed")
-        candidates = sorted((root / "resident-state/provenance").glob("*.json"))
+        env = _environment(intent, artifacts["resident"])
+        child = subprocess.Popen(intent["launch_contract"]["argv"], cwd=m["repository_root"], env=env,
+            shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
+        deadline = time.monotonic() + float(m["launch_timeout_seconds"]); ready = None
+        while time.monotonic() < deadline:
+            if child.poll() is not None: raise CommissioningError("bounded_initial_launch_failed")
+            if (root / "startup-ready.json").is_file():
+                ready = _load(root / "startup-ready.json", "initial_startup_ready_invalid"); break
+            time.sleep(0.05)
+        if ready is None: raise CommissioningError("bounded_initial_launch_timeout")
+        candidates = sorted((root / "resident-state/provenance").glob("generation-0/*.json"))
         if len(candidates) != 1: raise CommissioningError("initial_launch_provenance_missing_or_ambiguous")
         provenance = _load(candidates[0], "initial_launch_provenance_invalid")
+        expected_ready = {"schema_version": STARTUP_SCHEMA, "intent_digest": intent["intent_digest"],
+            "resident_config_digest": artifacts["resident"]["config_digest"],
+            "generation_ordinal": 0, "generation_digest": artifacts["generation"]["generation_digest"],
+            "provenance_digest": provenance.get("provenance_digest"), "pid": child.pid,
+            "process_instance_id": provenance.get("process_instance_id"),
+            "environment_digest": _startup_environment_digest(env), "startup_ready_digest": ready.get("startup_ready_digest")}
+        if (ready != expected_ready or ready.get("startup_ready_digest") != digest(ready, "startup_ready_digest") or
+                provenance.get("pid") != child.pid or provenance.get("represented_generation_ordinal") != 0 or
+                provenance.get("represented_generation_digest") != artifacts["generation"]["generation_digest"] or
+                provenance.get("observed_commit_sha") != m["expected_commit"] or provenance.get("observed_tree_sha") != m["expected_tree"] or
+                provenance.get("config_digest") != artifacts["resident"]["config_digest"] or child.poll() is not None):
+            raise CommissioningError("initial_launch_provenance_binding_mismatch")
     provenance_digest = provenance.get("provenance_digest")
     if not isinstance(provenance_digest, str) or provenance_digest != resident.digest(provenance, "provenance_digest"):
         raise CommissioningError("initial_launch_provenance_invalid")
@@ -354,7 +450,8 @@ def commission(value: Mapping[str, Any], approval: Mapping[str, Any], *, kernel:
         "successor_generation_created": False, "successor_resident_replacement_performed": False,
         "git_mutation_or_publication_performed": False, "network_or_provider_operation_performed": False, "authority_widened": False}
     receipt["receipt_digest"] = digest(receipt, "receipt_digest"); _write(root / "commissioning-receipt.json", receipt)
-    _write(root / "COMMISSIONED.json", {"receipt_digest": receipt["receipt_digest"], "status": "initial_resident_commissioned"})
+    _write(root / "COMMISSIONED.json", {"receipt_digest": receipt["receipt_digest"], "status": "initial_resident_commissioned",
+        "intent_digest": intent["intent_digest"], "process_instance_id": provenance.get("process_instance_id")})
     (root / "INCOMPLETE.json").unlink()
     return {"status": "initial_resident_commissioned", "receipt_digest": receipt["receipt_digest"],
             "generation_digest": artifacts["generation"]["generation_digest"], "launch_provenance": provenance,

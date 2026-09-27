@@ -11,7 +11,8 @@ import pytest
 from sentientos import maintenance_activation_profiles as profiles
 from sentientos import maintenance_initial_posix_resident_commissioning as commissioning
 from sentientos import maintenance_resident_runtime_adoption as resident
-from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass, ControlActionDecision, LifecyclePhase
+from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionDecision,
+    ControlPlaneKernel, LifecyclePhase)
 from tests.test_maintenance_successor_generation_adoption import canonical_lineage
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -59,9 +60,15 @@ def approval(intent: dict[str, object], *, synthetic: bool = True, **changes: ob
     value: dict[str, object] = {"schema_version": commissioning.APPROVAL_SCHEMA, "approval_id": "approval-1",
         "approval_digest": "", "source": "external_operator", "synthetic": synthetic,
         "bindings": commissioning.approval_bindings(intent), "operator_identity": "test-operator",
-        "operator_provenance": "explicitly_synthetic_test_fixture", "not_before": "2030-01-01T00:00:00Z",
+        "operator_provenance": ("explicitly_synthetic_test_fixture" if synthetic else "operator-console-session:abc123"),
+        "not_before": "2030-01-01T00:00:00Z",
         "expires_at": "2030-02-01T00:00:00Z"}
     value.update(changes); value["approval_digest"] = commissioning.digest(value, "approval_digest"); return value
+
+
+def external_approval(manifest: dict[str, object], value: dict[str, object]) -> Path:
+    path = Path(str(manifest["approval_evidence_path"])); path.write_text(json.dumps(value, sort_keys=True))
+    return path
 
 
 def launch(cfg):
@@ -109,7 +116,7 @@ def test_invalid_profile_and_deterministic_intent(tmp_path: Path) -> None:
 def test_exact_external_approval_and_production_synthetic_rejection(tmp_path: Path) -> None:
     manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest); evidence = approval(intent)
     with pytest.raises(commissioning.CommissioningError, match="synthetic_runtime_approval_rejected"):
-        commissioning.commission(manifest, evidence, kernel=Kernel(), correlation_id="c", clock=lambda: NOW)
+        commissioning.verify_approval(evidence, intent, now=NOW)
     bad = approval(intent, synthetic=False); bad["bindings"] = {**bad["bindings"], "principal": "other"}; bad["approval_digest"] = commissioning.digest(bad, "approval_digest")
     with pytest.raises(commissioning.CommissioningError, match="binding_mismatch"):
         commissioning.verify_approval(bad, intent, now=NOW)
@@ -118,12 +125,16 @@ def test_exact_external_approval_and_production_synthetic_rejection(tmp_path: Pa
 def test_missing_expired_and_denied_approval_are_pre_effect(tmp_path: Path) -> None:
     manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest); root = Path(str(manifest["custody_root"]))
     expired = approval(intent, synthetic=False, expires_at="2029-01-01T00:00:00Z")
+    path = external_approval(manifest, expired)
     with pytest.raises(commissioning.CommissioningError, match="expired"):
-        commissioning.commission(manifest, expired, kernel=Kernel(), correlation_id="c", clock=lambda: NOW)
+        commissioning.commission(manifest, expired, kernel=Kernel(), correlation_id="c", clock=lambda: NOW,
+                                 approval_evidence_path=path)
     assert not root.exists()
     denied = Kernel(AdmissionOutcome.DENY)
+    valid = approval(intent, synthetic=False); external_approval(manifest, valid)
     with pytest.raises(commissioning.CommissioningError, match="admission_denied"):
-        commissioning.commission(manifest, approval(intent, synthetic=False), kernel=denied, correlation_id="c", clock=lambda: NOW)
+        commissioning.commission(manifest, valid, kernel=denied, correlation_id="c", clock=lambda: NOW,
+                                 approval_evidence_path=path)
     assert not root.exists() and denied.requests[0].authority_class is AuthorityClass.INITIAL_RESIDENT_COMMISSIONING
 
 
@@ -161,3 +172,46 @@ def test_launch_contract_and_authority_are_closed(tmp_path: Path) -> None:
     assert len(commissioning.EFFECTS) == 13 and "bounded_exact_sentientosd_self_exec" not in commissioning.EFFECTS
     source = Path(commissioning.__file__).read_text()
     assert "derive_next(" not in source and "os.exec" not in source and "requests" not in source
+
+
+@pytest.mark.parametrize("field", ["approval_id", "operator_identity", "operator_provenance"])
+def test_blank_operator_evidence_is_rejected(tmp_path: Path, field: str) -> None:
+    intent = commissioning.prepare_intent(fixture(tmp_path)); evidence = approval(intent, synthetic=False, **{field: " "})
+    with pytest.raises(commissioning.CommissioningError, match="invalid"):
+        commissioning.verify_approval(evidence, intent, now=NOW)
+
+
+def test_manifest_bound_approval_path_and_bytes(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False); expected = external_approval(manifest, evidence)
+    wrong = tmp_path / "wrong.json"; wrong.write_text(json.dumps(evidence))
+    with pytest.raises(commissioning.CommissioningError, match="path_mismatch"):
+        commissioning.commission(manifest, evidence, kernel=Kernel(), correlation_id="wrong", clock=lambda: NOW,
+                                 approval_evidence_path=wrong)
+    expected.write_text("{}")
+    with pytest.raises(commissioning.CommissioningError, match="bytes_mismatch"):
+        commissioning.commission(manifest, evidence, kernel=Kernel(), correlation_id="altered", clock=lambda: NOW,
+                                 approval_evidence_path=expected)
+
+
+def test_real_control_plane_runtime_admission_and_regressions(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path); intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False); path = external_approval(manifest, evidence)
+    kernel = ControlPlaneKernel(decisions_path=tmp_path / "decisions.jsonl")
+    calls: list[int] = []
+    result = commissioning.commission(manifest, evidence, kernel=kernel, correlation_id="real-runtime",
+        clock=lambda: NOW, launch_runner=lambda cfg: calls.append(1) or launch(cfg),
+        allow_synthetic_approval_for_tests=True, approval_evidence_path=path)
+    assert result["status"] == "initial_resident_commissioned" and calls == [1]
+    assert kernel.phase is LifecyclePhase.RUNTIME
+    request = kernel.admit(kernel_request := commissioning.ControlActionRequest(commissioning.ACTION,
+        AuthorityClass.INITIAL_RESIDENT_COMMISSIONING, commissioning.PRINCIPAL, commissioning.CAPABILITY,
+        LifecyclePhase.RUNTIME, {"correlation_id": "duplicate"}))
+    assert request.outcome is AdmissionOutcome.ALLOW
+    assert kernel.admit(kernel_request).outcome is AdmissionOutcome.DEFER
+    wrong_phase = commissioning.ControlActionRequest(commissioning.ACTION, AuthorityClass.INITIAL_RESIDENT_COMMISSIONING,
+        commissioning.PRINCIPAL, commissioning.CAPABILITY, LifecyclePhase.MAINTENANCE, {"correlation_id": "phase"})
+    assert kernel.admit(wrong_phase).outcome is AdmissionOutcome.DEFER
+    wrong_class = commissioning.ControlActionRequest(commissioning.ACTION, AuthorityClass.REPAIR,
+        commissioning.PRINCIPAL, commissioning.CAPABILITY, LifecyclePhase.RUNTIME, {"correlation_id": "class"})
+    assert kernel.admit(wrong_class).authority_class is AuthorityClass.REPAIR
