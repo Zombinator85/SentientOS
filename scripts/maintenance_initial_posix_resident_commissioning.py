@@ -26,8 +26,13 @@ def main(argv: list[str] | None = None) -> int:
             if not args.approval:
                 result = {"status": "initial_resident_commissioning_operator_approval_required"}
             else:
-                approval = json.loads(Path(args.approval).read_text(encoding="utf-8"))
-                result = commission(manifest, approval, kernel=get_control_plane_kernel(), correlation_id=args.correlation_id)
+                supplied = Path(args.approval)
+                expected = Path(manifest["approval_evidence_path"])
+                if supplied.resolve() != expected.resolve():
+                    raise CommissioningError("runtime_operator_approval_path_mismatch")
+                approval = json.loads(supplied.read_text(encoding="utf-8"))
+                result = commission(manifest, approval, kernel=get_control_plane_kernel(), correlation_id=args.correlation_id,
+                                    approval_evidence_path=supplied)
     except CommissioningError as exc:
         result = {"status": "initial_resident_commissioning_blocked", "reason_codes": [exc.code]}
     print(json.dumps(result, sort_keys=True)); return 0 if "blocked" not in str(result.get("status")) else 2
