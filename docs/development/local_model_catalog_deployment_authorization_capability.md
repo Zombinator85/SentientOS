@@ -39,6 +39,20 @@ authoritative state, and verified-publication-evidence identities; bounded valid
 separate grant and lease identities. It must preserve canonical expiry, revocation,
 panic, rollback, control-plane admission, and durable audit requirements.
 
+`authorization-record custody` and `target model-catalog custody` are deliberately
+different installation-scoped identities.  The former is the fixed
+`authorization/model-catalog-deployment/` location where evidence of delegated
+authority (grants, leases, issuance receipts, and revocations) is stored.  The latter
+is the canonical `ModelCatalogCustody` object that owns the authoritative catalog,
+deployment lock, transactions, and deployment receipts, and is the exact object the
+delegated authority may affect.  Every authorization request, external approval,
+grant, lease, issuance receipt, projected deployment authority, and deployment request
+binds the target model-catalog custody identity.  A grant is unusable unless that target
+identity equals `ModelCatalogCustody.for_installation(handle).custody_identity` for the
+authenticated installation; the authorization-record identity must never be
+substituted for it.  This clarifies the existing v1 target-custody semantics and does
+not require a schema revision.
+
 No stochastic or commissioned model, maintenance worker, curator, publication or
 deployment controller, acquisition fulfillment controller, or runtime activation
 controller is eligible to hold issuance authority. Publication authority, publication
