@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence
 
 from sentientos.codex_task_authority_admission import (
     AUTHORITY_DEFINITIONS, LOCAL_MODEL_CATALOG_DEPLOY,
@@ -21,6 +21,7 @@ from sentientos.installation_state import InstallationStateError, InstallationSt
 from sentientos.local_model_catalog import local_model_catalog_digest, validate_local_model_catalog
 from sentientos.local_model_catalog_deployment import CatalogDeploymentAuthority, verify_catalog_publication_evidence
 from sentientos.local_model_catalog_deployment_architecture import EXPECTED_ABSENT, semantic_digest
+from sentientos.model_catalog_custody import ModelCatalogCustody
 
 APPROVAL_SCHEMA = "sentientos.local_model_catalog_deployment_authorization_approval:v1"
 GRANT_SCHEMA = "sentientos.local_model_catalog_deployment_authorization_grant:v1"
@@ -141,7 +142,7 @@ class CatalogDeploymentAuthorizationCustody:
                    root.child("leases"), root.child("issuance-receipts"), root.child("revocations"))
 
     @property
-    def custody_identity(self) -> str:
+    def authorization_custody_identity(self) -> str:
         return f"sentientos-installation:model-catalog-deployment-authorization:{self.installation.identity.value}"
 
     def initialize(self) -> None:
@@ -164,7 +165,7 @@ def _instant(value: str) -> datetime:
 def _digest_record(value: Any) -> str:
     body = asdict(value) if not isinstance(value, Mapping) else dict(value)
     body.pop("semantic_digest", None)
-    return cast(str, semantic_digest(body))
+    return semantic_digest(body)
 
 
 def verify_approval_evidence(evidence: CatalogDeploymentApprovalEvidence, *, allow_synthetic_test_evidence: bool = False) -> None:
@@ -218,12 +219,14 @@ def issue_catalog_deployment_authorization(
     created_at: str, allow_synthetic_test_evidence: bool = False,
 ) -> CatalogDeploymentAuthorizationResult:
     """Issue exact records after independent evidence and control-plane checks."""
-    custody = CatalogDeploymentAuthorizationCustody.for_installation(handle)
+    authorization_custody = CatalogDeploymentAuthorizationCustody.for_installation(handle)
+    target_catalog_custody = ModelCatalogCustody.for_installation(handle)
     if request.issuer_principal != ISSUER_PRINCIPAL or request.issuance_capability_id != LOCAL_MODEL_CATALOG_DEPLOYMENT_AUTHORIZATION_ISSUE:
         raise CatalogDeploymentAuthorizationError("issuer_authority_denied")
     if not _exact_tuple(request.issuance_effects, ISSUANCE_EFFECTS):
         raise CatalogDeploymentAuthorizationError("issuance_effects_invalid")
-    if request.installation_identity != handle.identity.value or request.custody_identity != custody.custody_identity:
+    if (request.installation_identity != handle.identity.value
+            or request.custody_identity != target_catalog_custody.custody_identity):
         raise CatalogDeploymentAuthorizationError("installation_custody_mismatch")
     if not _valid_prior(request.expected_prior_state):
         raise CatalogDeploymentAuthorizationError("exact_prior_state_required")
@@ -295,11 +298,11 @@ def issue_catalog_deployment_authorization(
         request.installation_identity, request.custody_identity, candidate_digest, evidence_digest,
         request.expected_prior_state, request.lease_not_before, request.lease_expires_at,
         "issued", created_at, "", synthetic_test_authority=synthetic))
-    custody.initialize()
-    with handle.exclusive_lock(custody.lock):
-        replay = _create_or_verify(handle, custody.grants.child(grant.grant_id + ".json"), grant)
-        replay = _create_or_verify(handle, custody.leases.child(lease.lease_id + ".json"), lease) and replay
-        replay = _create_or_verify(handle, custody.receipts.child(receipt.receipt_id + ".json"), receipt) and replay
+    authorization_custody.initialize()
+    with handle.exclusive_lock(authorization_custody.lock):
+        replay = _create_or_verify(handle, authorization_custody.grants.child(grant.grant_id + ".json"), grant)
+        replay = _create_or_verify(handle, authorization_custody.leases.child(lease.lease_id + ".json"), lease) and replay
+        replay = _create_or_verify(handle, authorization_custody.receipts.child(receipt.receipt_id + ".json"), receipt) and replay
     return CatalogDeploymentAuthorizationResult("replayed" if replay else "issued", grant, lease, receipt)
 
 

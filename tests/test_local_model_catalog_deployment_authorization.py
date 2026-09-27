@@ -10,6 +10,7 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_model_catalog import local_model_catalog_digest
 from sentientos.local_model_catalog_deployment import verify_catalog_publication_evidence
 from sentientos.local_model_catalog_deployment_architecture import EFFECTS, EXPECTED_ABSENT
+from sentientos.model_catalog_custody import ModelCatalogCustody
 from sentientos.local_model_catalog_deployment_authorization import (
     APPROVAL_SCHEMA, ISSUANCE_EFFECTS, ISSUER_PRINCIPAL,
     CatalogDeploymentApprovalEvidence, CatalogDeploymentAuthorizationCustody,
@@ -41,11 +42,12 @@ def fixture(tmp_path: Path, *, synthetic: bool = True):
     candidate_digest = local_model_catalog_digest(candidate)
     evidence_digest = verify_catalog_publication_evidence(candidate["models"], receipts)["publication_evidence_set_semantic_digest"]
     custody = CatalogDeploymentAuthorizationCustody.for_installation(handle)
+    target_custody = ModelCatalogCustody.for_installation(handle)
     request = CatalogDeploymentAuthorizationRequest(ISSUER_PRINCIPAL,
         "sentientos.local_model_catalog.deployment_authorization.issue", ISSUANCE_EFFECTS, "corr", "fixture",
-        custody.custody_identity, candidate_digest, str(evidence_digest), EXPECTED_ABSENT, START, END, START, END)
+        target_custody.custody_identity, candidate_digest, str(evidence_digest), EXPECTED_ABSENT, START, END, START, END)
     approval = CatalogDeploymentApprovalEvidence("approval-1", "operator-alice", "approved",
-        request.issuance_capability_id, ISSUER_PRINCIPAL, "corr", "fixture", custody.custody_identity,
+        request.issuance_capability_id, ISSUER_PRINCIPAL, "corr", "fixture", target_custody.custody_identity,
         candidate_digest, EXPECTED_ABSENT, str(evidence_digest), START, END, START, START, "",
         APPROVAL_SCHEMA, synthetic)
     approval = replace(approval, semantic_digest=_digest_record(approval))
@@ -62,6 +64,7 @@ def test_exact_issuance_replay_and_projection_are_bounded(tmp_path: Path) -> Non
     authority = project_catalog_deployment_authority(first.grant, first.lease, first.receipt,
         observed_at=START, allow_synthetic_test_authority=True)
     assert authority.effects == EFFECTS and authority.synthetic_test_authority is True
+    assert custody.authorization_custody_identity != authority.custody_identity
     assert custody.root.path.parent.name == "authorization"
     assert not (handle.root / "model-catalog" / "grants").exists()
 
