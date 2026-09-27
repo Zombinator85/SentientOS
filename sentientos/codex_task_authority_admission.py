@@ -37,6 +37,9 @@ MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION = (
     "maintenance_successor_generation_adoption"
 )
 MAINTENANCE_RESIDENT_RUNTIME_ADOPTION = "maintenance_resident_runtime_adoption"
+MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING = (
+    "maintenance_initial_posix_resident_commissioning"
+)
 MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
 RESIDENT_DEVELOPMENTAL_WRITEBACK = "resident_developmental_writeback"
 DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING = (
@@ -607,6 +610,87 @@ RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_OPERATOR_APPROVAL = MappingProxyT
 })
 
 
+MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING_DEFINITION = TaskAuthorityDefinition(
+    capability_id=MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING,
+    subsystem_kinds=frozenset({"maintenance"}),
+    principal_kinds=frozenset({
+        "deterministic_maintenance_initial_posix_resident_commissioning_controller"
+    }),
+    required_effects=frozenset({
+        "exact_initial_resident_repository_state_read",
+        "exact_posix_resident_host_capability_read",
+        "exact_initial_maintenance_authority_profile_read",
+        "bounded_initial_resident_commissioning_custody_write",
+        "initial_maintenance_continuity_policy_write",
+        "initial_maintenance_authority_generation_write",
+        "initial_maintenance_wake_adoption_configuration_write",
+        "maintenance_successor_generation_adoption_configuration_write",
+        "maintenance_resident_runtime_adoption_configuration_write",
+        "bounded_exact_initial_sentientosd_launch",
+        "initial_resident_launch_provenance_write",
+        "maintenance_initial_resident_commissioning_receipt_write",
+        "read_only_maintenance_initial_resident_commissioning_health_projection",
+    }),
+    required_goal_phrases=(
+        "operator approved initial POSIX resident commissioning",
+        "exact initial repository state",
+        "exact POSIX resident host",
+        "explicit bounded initial maintenance authority",
+        "external resident commissioning custody",
+        "generation zero maintenance lineage",
+        "exact sentientosd launch contract",
+        "bounded initial sentientosd launch",
+        "separate successor adoption authority",
+    ),
+    forbidden_goal_phrases=(
+        "arbitrary process launch", "arbitrary process restart",
+        "generic service management", "arbitrary executable",
+        "arbitrary command", "shell command", "shell authority",
+        "arbitrary argv", "arbitrary environment",
+        "caller-selected repository", "caller-selected commit",
+        "newest commit", "latest commit", "arbitrary generation creation",
+        "generation skipping", "authority widening", "expiry extension",
+        "automatic successor adoption", "recurring autonomous adoption",
+        "automatic rollback", "git fetch", "git pull", "git push",
+        "git publication", "arbitrary repository mutation",
+        "provider invocation", "network authority", "credential management",
+        "os scheduler installation", "service installation", "systemd authority",
+        "windows service control", "windows resident replacement",
+        "candidate admission", "maintenance implementation",
+        "maintenance validation", "self-grant from model output",
+        "model output grants authority", "cognition-derived authorization",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "future effectful commissioning requires explicit operator approval",
+        "future runtime implementation requires a later separately admitted task",
+        "exact control-plane admission before every commissioning effect",
+        "durable immutable commissioning audit and receipt evidence",
+        "definition eligibility does not grant runtime authority",
+    ),
+    purpose=(
+        "Register the authority boundary for a future separately admitted controller "
+        "to establish one exact externally custodied POSIX resident generation-zero "
+        "lineage and perform at most one sealed initial sentientosd launch. Initial "
+        "commissioning grants no successor selection, generation advancement, resident "
+        "self-replacement, recurring adoption, rollback, Git, provider, network, "
+        "maintenance implementation, or maintenance validation authority."
+    ),
+)
+
+
+MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:maintenance_initial_posix_resident_commissioning:16c80cdde8de:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING,
+    "approved_definition_digest": "16c80cdde8deb00bb109a1254bc00f0434446cc00f9131160684b49d2fa06ec0",
+    "approved_task_name": "register_maintenance_initial_posix_resident_commissioning_authority",
+    "evidence_digest": "4743613341e99f3a31dc6fa73c6281310fc49d0c81ccc0ca0a98e165442054ca",
+})
+
+
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
@@ -615,6 +699,8 @@ AUTHORITY_DEFINITIONS = {
     RESIDENT_COGNITIVE_MODEL_SERVING: RESIDENT_COGNITIVE_MODEL_SERVING_DEFINITION,
     RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT:
         RESIDENT_COGNITIVE_MODEL_TRANSITION_EXPERIMENT_DEFINITION,
+    MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING:
+        MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING_DEFINITION,
     MODEL_MIRROR_PUBLISH: TaskAuthorityDefinition(
         capability_id=MODEL_MIRROR_PUBLISH,
         subsystem_kinds=frozenset({"model_distribution"}),

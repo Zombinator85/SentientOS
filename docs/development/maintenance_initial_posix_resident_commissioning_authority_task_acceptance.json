@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "a186562685557b88639f75dc1c370da2b92bb6c1",
+  "test_provenance_path": "/tmp/maintenance_initial_posix_resident_commissioning_authority_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning_capability_admission.py::test_digest_bound_registration_adds_exactly_one_definition_without_effect",
+      "rationale": "Exact registration adds only the approved definition and performs no grant, effect, or runtime mutation."
+    },
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning_capability_admission.py::test_future_admission_requires_exact_subsystem_principal_and_effect_set",
+      "rationale": "Future eligibility is restricted to the exact maintenance principal and effect surface."
+    },
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning_capability_admission.py::test_registration_cannot_request_the_capability_it_defines",
+      "rationale": "The registration task cannot exercise the authority it introduces."
+    },
+    {
+      "node_id": "tests/test_maintenance_initial_posix_resident_commissioning_capability_admission.py::test_registry_reports_contract_only_and_runtime_commissioning_deferred",
+      "rationale": "Registry maturity remains contract-only and truthfully defers all runtime commissioning."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_initial_posix_resident_commissioning_capability_admission.py::test_digest_bound_registration_adds_exactly_one_definition_without_effect"
+  ]
+}
