@@ -15,7 +15,8 @@ from sentientos.resident_developmental_cognition import (
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
-from sentientosd import RuntimeMaintenanceSurfaces
+from sentientosd import RuntimeMaintenanceSurfaces, _load_epistemic_state_owner
+from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner, make_proposition
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -161,7 +162,7 @@ def test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert(tmp_pat
 
     class Spy:
         seen = None
-        def run_tick(self, *, snapshot, tick_id):
+        def run_tick(self, *, snapshot, tick_id, **_kwargs):
             self.seen = snapshot
             return type("Result", (), {"__dataclass_fields__": {}, "status":"completed"})()
     spy = Spy()
@@ -174,3 +175,47 @@ def test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert(tmp_pat
     except TypeError:
         pass
     assert spy.seen is injected.current_world_state_snapshot
+
+
+def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("SENTIENTOS_EPISTEMIC_STATE_CONFIG", raising=False)
+    epistemic=PersistentEpistemicStateOwner(tmp_path/"epistemic",allowed_namespaces=["embodiment"])
+    p=make_proposition(namespace="embodiment",subject="body:g1",predicate="healthy",
+        object_value=True,polarity="positive",qualifiers={},temporal_scope={"kind":"prior"},
+        context_scope={},proposition_class="descriptive")
+    epistemic.register_proposition(p)
+    epistemic.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,
+        stance="unknown",reason="initialization",active_binding_ids=[],correlation_id="prior",tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    class Spy:
+        seen = None
+        def run_tick(self, **kwargs):
+            self.seen = kwargs
+            return type("Result", (), {"__dataclass_fields__": {}, "status":"completed"})()
+    spy=Spy()
+    surfaces=RuntimeMaintenanceSurfaces(tmp_path,runtime_state_root=tmp_path/"runtime-epistemic",
+        resident_developmental_owner=spy,epistemic_state_owner=epistemic,
+        epistemic_state_config={"status":"configured","max_cognitive_projection_count":1,
+                                "cognitive_consumption_enabled":True})  # type: ignore[arg-type]
+    tick="2026-01-03T00:00:00+00:00"
+    surfaces.build_world_state_board(tick_id=tick)
+    feedback=surfaces.run_resident_developmental_cognition(tick_id=tick)
+    projection=spy.seen["prior_epistemic_state"]
+    assert projection.proposition_ids == (p.proposition_id,)
+    assert feedback["epistemic_composition"]["status"] == "composed"
+    assert feedback["epistemic_composition"]["authority"] is False
+
+
+def test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled(tmp_path: Path) -> None:
+    assert _load_epistemic_state_owner(None) == (None, {"status":"disabled", "cognitive_consumption_enabled":False})
+    path=tmp_path/"epistemic-config.json"
+    payload={"schema":"sentientos.epistemic_runtime_config:v1","custody_root":str(tmp_path/"custody"),
+        "allowed_proposition_namespaces":["embodiment"],"max_cognitive_projection_count":2,
+        "cognitive_consumption_enabled":False}
+    path.write_text(json.dumps(payload))
+    configured, status=_load_epistemic_state_owner(str(path))
+    assert configured is not None and status == {"status":"configured","max_cognitive_projection_count":2,
+                                                  "cognitive_consumption_enabled":False}
+    path.write_text(json.dumps({**payload,"ambient_discovery":True}))
+    with pytest.raises(ValueError,match="configuration_invalid"):
+        _load_epistemic_state_owner(str(path))

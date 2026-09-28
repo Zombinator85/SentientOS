@@ -50,7 +50,7 @@ class ResidentDevelopmentalCognitionError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + cast(str, digest_payload(value))
+    return "sha256:" + str(digest_payload(value))
 
 
 @dataclass(frozen=True)
@@ -415,6 +415,10 @@ class ResidentDevelopmentalCognitionOwner:
                     active_model_identity_digest=_digest(dict(getattr(probe, "active_model_identity", {}))),
                     authority_map_digest=str(getattr(probe, "authority_map_digest", "test-authority-map")),
                     inference_budget=budget.to_dict(), generation_posture={"temperature":0, "hardware_determinism_claimed":False},
+                    epistemic_projection_id=prior_epistemic_state.projection_id if prior_epistemic_state else None,
+                    epistemic_projection_digest=prior_epistemic_state.projection_digest if prior_epistemic_state else None,
+                    epistemic_state_digests=prior_epistemic_state.state_digests if prior_epistemic_state else (),
+                    epistemic_evidence_set_digests=prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
                     instruction_template_digest=_digest({"instruction":"Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention."}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
@@ -429,7 +433,8 @@ class ResidentDevelopmentalCognitionOwner:
                 restored_projection = self.writeback.retrieve(protocol.record_ids, limit=self.config.max_retrieved_records)
                 restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                     projection=restored_projection, with_history=True, condition_id="history_restored",
-                    purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model)
+                    purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model,
+                    prior_epistemic_state=prior_epistemic_state)
                 observations.extend((present, withheld, restored))
                 summary = summarize(protocol, observations)
                 measurement_id = self.experiments.persist_run({"protocol":asdict(protocol),

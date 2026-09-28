@@ -27,7 +27,7 @@ Callable, resident, default-active, authorized, and effectful are additional ind
 | independent approval -> bounded initial POSIX commissioning -> startup gate | implemented and operator/daemon-composed; no production generation-zero event found |
 | evidence -> World-State | resident-composed; evidence board is not omniscient truth |
 | prior self-model -> cognition -> later reconciliation | configuration-composed with prior-tick ordering |
-| prior epistemic position -> resident cognition | implemented projection; **not composed** |
+| prior epistemic position -> resident cognition | **composed** through verified, bounded, prior-only projection; no authority or automatic writeback |
 | cognition -> proposal -> authority -> effect -> observation | composed only through named domain custodians; cognition cannot self-authorize |
 | consequence -> durable update -> later changed cognition | bounded developmental writeback is composed; generalized learning remains projected |
 | deficiency -> successor -> validation -> adoption -> replacement | bounded software succession is composed |
@@ -108,7 +108,7 @@ Projected mature introspection is not one omniscient narrator. It is **a topolog
 
 ## Exact remaining gaps
 
-1. Resident composition of prior-only persistent epistemic projection.
+1. Production observation adapters and longitudinal outcome evidence for the newly composed prior-only persistent epistemic projection.
 2. Genuine generation-zero commissioning evidence.
 3. A configured sovereign model provider and genuine publication, then separately authorized catalog deployment, acquisition, commissioning, activation, serving, and inference evidence.
 4. Repeated nonsynthetic cognitive succession with semantic outcome and recovery evidence.

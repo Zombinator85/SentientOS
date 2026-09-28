@@ -246,7 +246,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -270,12 +270,22 @@ class RuntimeMaintenanceSurfaces:
                     self._longitudinal_self_model_owner.history()  # verify the complete durable chain now
             except Exception as exc:
                 self._longitudinal_self_model_configuration_error = f"{type(exc).__name__}:{exc}"
+        self._epistemic_state_owner = epistemic_state_owner
+        self._epistemic_state_config = epistemic_state_config or {"status": "disabled", "cognitive_consumption_enabled": False}
+        self._epistemic_state_configuration_error = epistemic_state_configuration_error
+        if epistemic_state_owner is None and epistemic_state_config is None and epistemic_state_configuration_error is None:
+            try:
+                self._epistemic_state_owner, self._epistemic_state_config = _load_epistemic_state_owner(
+                    os.environ.get(EPISTEMIC_STATE_CONFIG_ENV))
+            except Exception as exc:
+                self._epistemic_state_configuration_error = f"{type(exc).__name__}:{exc}"
+                self._epistemic_state_config = {"status": "degraded", "cognitive_consumption_enabled": False}
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
-        resident_invoker = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
+        resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
             try:
                 config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
@@ -498,21 +508,36 @@ class RuntimeMaintenanceSurfaces:
         else:
             try:
                 prior_self_model = None
+                prior_epistemic_state = None
                 config = self._longitudinal_self_model_config
                 if (config is not None and config.cognitive_consumption_enabled
                         and self._longitudinal_self_model_owner is not None):
                     prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
                         before_tick=tick_id, max_claims=config.max_projection_claims,
                         allowed_predicates=config.allowed_predicates)
-                if prior_self_model is None:
-                    result = self._resident_developmental_owner.run_tick(
-                        snapshot=self._world_state_snapshot, tick_id=tick_id)
-                else:
-                    result = self._resident_developmental_owner.run_tick(
-                        snapshot=self._world_state_snapshot, tick_id=tick_id,
-                        prior_self_model=prior_self_model)
+                if self._epistemic_state_configuration_error is not None:
+                    raise ValueError(self._epistemic_state_configuration_error)
+                if (self._epistemic_state_owner is not None
+                        and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
+                    prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
+                        max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]))
+                result = self._resident_developmental_owner.run_tick(
+                    snapshot=self._world_state_snapshot, tick_id=tick_id,
+                    prior_self_model=prior_self_model,
+                    prior_epistemic_state=prior_epistemic_state)
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
-                            "memory_posture": "historical_interpretation_not_current_truth"}
+                            "memory_posture": "historical_interpretation_not_current_truth",
+                            "epistemic_composition": {
+                                "status": ("composed" if prior_epistemic_state is not None else
+                                    "configured-and-no-eligible-prior-state" if self._epistemic_state_owner is not None and self._epistemic_state_config.get("cognitive_consumption_enabled") else
+                                    "configured-but-consumption-disabled" if self._epistemic_state_owner is not None else "disabled"),
+                                "projection_present": prior_epistemic_state is not None,
+                                "projection_id": prior_epistemic_state.projection_id if prior_epistemic_state else None,
+                                "projection_digest": prior_epistemic_state.projection_digest if prior_epistemic_state else None,
+                                "proposition_count": len(prior_epistemic_state.proposition_ids) if prior_epistemic_state else 0,
+                                "cutoff_posture": "verified-custody-capture-before-inference",
+                                "authority": False,
+                            }}
             except Exception as exc:
                 if getattr(exc, "code", "") == "resident_cognition_quiesced":
                     feedback = {"status": "quiesced", "reason": "intentional_transition_quiescence",
@@ -1139,6 +1164,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             candidate_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
+                epistemic_state_config=runtime_surfaces._epistemic_state_config,
+                epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
                 resident_cognitive_invoker=resident_serving_slot,
                 resident_cognition_gate=resident_cognition_gate)
             resident_transition_runtime = None
@@ -1155,6 +1183,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 runtime_surfaces = RuntimeMaintenanceSurfaces(
                     repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                     governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                    epistemic_state_owner=candidate_surfaces._epistemic_state_owner,
+                    epistemic_state_config=candidate_surfaces._epistemic_state_config,
+                    epistemic_state_configuration_error=candidate_surfaces._epistemic_state_configuration_error,
                     resident_developmental_owner=_resident_developmental_owner(candidate_surfaces),
                     resident_cognitive_invoker=resident_serving_slot,
                     resident_cognition_gate=resident_cognition_gate,
@@ -1170,7 +1201,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             # Enabled mode is deliberately unavailable; never reconstruct with legacy invoker.
             runtime_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
-                governed_local_invoker=None, genesis_advice_source=genesis_advice)
+                governed_local_invoker=None, genesis_advice_source=genesis_advice,
+                epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
+                epistemic_state_config=runtime_surfaces._epistemic_state_config,
+                epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error)
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     if resident_transition_live_path and resident_serving_controller is None:

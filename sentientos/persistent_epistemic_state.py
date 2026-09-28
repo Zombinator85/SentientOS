@@ -249,6 +249,46 @@ class PersistentEpistemicStateOwner:
         states=[EpistemicState(**v) for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
 
+    def cognitive_projection(self, *, max_states: int) -> EpistemicCognitiveProjection | None:
+        """Capture a verified, bounded prior projection without changing custody.
+
+        The update files visible in the first inventory are the chronology boundary:
+        only their paired states are eligible.  A second inventory makes concurrent
+        custody advancement fail closed rather than accidentally becoming same-cycle
+        prior state.  Update ticks order generations *inside* that captured epoch;
+        daemon tick strings are deliberately not interpreted as epistemic time.
+        """
+        if not isinstance(max_states, int) or max_states < 1:
+            raise EpistemicStateError("epistemic_projection_bound_invalid")
+        self.verify()
+        update_paths = tuple(sorted((self.root / "updates").glob("*.json")))
+        state_paths = tuple(sorted((self.root / "states").glob("*.json")))
+        update_bytes = tuple((path.name, path.read_bytes()) for path in update_paths)
+        state_bytes = tuple((path.name, path.read_bytes()) for path in state_paths)
+        if (update_bytes != tuple((path.name, path.read_bytes()) for path in sorted((self.root / "updates").glob("*.json")))
+                or state_bytes != tuple((path.name, path.read_bytes()) for path in sorted((self.root / "states").glob("*.json")))):
+            raise EpistemicStateError("epistemic_projection_boundary_changed")
+        events = [EpistemicUpdateEvent(**json.loads(raw)) for _, raw in update_bytes]
+        states = [EpistemicState(**json.loads(raw)) for _, raw in state_bytes]
+        allowed_propositions = {item.proposition_id for item in
+            (EpistemicProposition(**raw) for raw in self._read("propositions"))
+            if item.namespace in self.allowed_namespaces}
+        paired = {event.successor_state_digest: event for event in events}
+        if len(paired) != len(events) or any(state.state_digest not in paired for state in states):
+            raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
+        latest: dict[str, EpistemicState] = {}
+        for state in states:
+            if state.proposition_id not in allowed_propositions:
+                continue
+            previous = latest.get(state.proposition_id)
+            if previous is None or state.generation > previous.generation:
+                latest[state.proposition_id] = state
+        selected = tuple(sorted(latest.values(), key=lambda item: item.proposition_id)[:max_states])
+        if not selected:
+            return None
+        source_tick = max(paired[state.state_digest].tick for state in selected)
+        return make_cognitive_projection(selected, source_tick=source_tick, current_tick=source_tick + 1)
+
     def commit_update(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
                       reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
                       removed_binding_ids: Sequence[str] = (), dependency_changes: Mapping[str,str] = {},
