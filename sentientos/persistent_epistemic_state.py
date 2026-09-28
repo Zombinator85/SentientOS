@@ -17,7 +17,8 @@ PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
 BINDING_SCHEMA = "sentientos.epistemic_evidence_binding:v1"
 STATE_SCHEMA = "sentientos.epistemic_state:v1"
 UPDATE_SCHEMA = "sentientos.epistemic_update_event:v1"
-CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v1"
+CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v2"
+LEGACY_CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v1"
 CALIBRATION_SCHEMA = "sentientos.epistemic_calibration_event:v1"
 PROPOSITION_CLASSES = frozenset({"descriptive", "predictive", "causal_hypothesis", "capability", "environmental", "relational", "system_hypothesis"})
 RELATIONS = frozenset({"refines", "narrows", "broadens", "supersedes", "contradicts", "related_to"})
@@ -159,7 +160,8 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
 class EpistemicUpdateCandidate:
     candidate_id: str; proposition_id: str; predecessor_state_digest: str | None; proposed_stance: str
     evidence_binding_ids: tuple[str, ...]; reason: str; rationale: str; uncertainty: str
-    model_id: str; authority: Mapping[str, bool]; schema_version: str = CANDIDATE_SCHEMA
+    model_id: str | None; authority: Mapping[str, bool]; schema_version: str = CANDIDATE_SCHEMA
+    proposer_kind: str | None = None; proposer_id: str | None = None
 
     def payload(self) -> dict[str, Any]:
         value = asdict(self); value.pop("candidate_id"); return value
@@ -168,12 +170,20 @@ class EpistemicUpdateCandidate:
 def make_epistemic_update_candidate(**kwargs: Any) -> EpistemicUpdateCandidate:
     """Construct a proposal identity without conferring runtime authority."""
     kwargs.setdefault("authority", dict(FALSE_AUTHORITY))
+    if "schema_version" not in kwargs and kwargs.get("model_id"):
+        kwargs["schema_version"] = LEGACY_CANDIDATE_SCHEMA
     raw = EpistemicUpdateCandidate("", **kwargs)
     if (raw.proposed_stance not in STANCES or raw.reason not in UPDATE_REASONS
             or raw.uncertainty not in {"low", "medium", "high", "unknown"}
             or not raw.rationale.strip() or len(raw.rationale) > 4000
-            or not raw.model_id.strip() or len(raw.model_id) > 256
+            or raw.schema_version not in {CANDIDATE_SCHEMA, LEGACY_CANDIDATE_SCHEMA}
             or len(raw.evidence_binding_ids) != len(set(raw.evidence_binding_ids))):
+        raise EpistemicStateError("epistemic_candidate_shape_invalid")
+    if raw.schema_version == LEGACY_CANDIDATE_SCHEMA:
+        if not raw.model_id or not raw.model_id.strip() or len(raw.model_id) > 256 or raw.proposer_kind or raw.proposer_id:
+            raise EpistemicStateError("epistemic_candidate_shape_invalid")
+    elif (raw.model_id is not None or raw.proposer_kind != "deterministic_rule"
+          or not raw.proposer_id or len(raw.proposer_id) > 256):
         raise EpistemicStateError("epistemic_candidate_shape_invalid")
     if raw.reason != "initialization" and not raw.evidence_binding_ids:
         raise EpistemicStateError("epistemic_candidate_evidence_required")
@@ -340,7 +350,7 @@ class PersistentEpistemicStateOwner:
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
         if stance not in STANCES or reason not in UPDATE_REASONS: raise EpistemicStateError("epistemic_update_vocabulary_invalid")
         if candidate:
-            expected_candidate = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items() if k not in {"candidate_id", "schema_version"}})
+            expected_candidate = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items() if k != "candidate_id"})
             if (candidate != expected_candidate or candidate.proposition_id != proposition_id or candidate.predecessor_state_digest != expected_predecessor_digest or candidate.proposed_stance != stance or candidate.reason != reason or dict(candidate.authority) != FALSE_AUTHORITY): raise EpistemicStateError("epistemic_candidate_validation_failed")
         known={b.binding_id:b for b in self.bindings(proposition_id)}
         if (set(active_binding_ids) | set(added_binding_ids) | set(removed_binding_ids)) - set(known): raise EpistemicStateError("epistemic_evidence_not_found")

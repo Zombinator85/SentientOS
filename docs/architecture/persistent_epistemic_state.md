@@ -1,5 +1,10 @@
 # Persistent epistemic state
 
+The bounded resident lifecycle is specified in
+[`resident_epistemic_development.md`](resident_epistemic_development.md): explicit
+World-State rules drive separately admitted evidence and CAS state stages, and
+resulting positions become cognitive context only on a later tick.
+
 SentientOS now distinguishes five longitudinal substrates: World-State is current sourced evidence; the self-model is an evidence-bound representation of system condition; developmental history is retained interpretation; canonical memory is retained experience/user/context under memory law; and epistemic state is a persistent system-owned position over an explicit proposition. Authority remains permission to decide or act. None substitutes for another.
 
 ## Invariant and custody
