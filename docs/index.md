@@ -59,3 +59,7 @@ path.
 
 SentientOS prioritizes operator accountability, auditability, and safe
 shutdown.
+
+The [causal introspection topology](architecture/causal_introspection_topology.md)
+documents bounded owner-local self-observation, immutable snapshot custody, and
+the next-tick World-State firewall.

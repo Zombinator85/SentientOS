@@ -19,7 +19,7 @@ LIFECYCLE_STAGES=("observation","proposal","review","admission","execution","rol
 FALSE_AUTHORITY={"decision_authority":False,"admission_authority":False,"execution_authority":False,"adoption_authority":False,"repository_mutation_authority":False}
 
 class WorldStateSourceKind(str, Enum):
-    CAPABILITY_REGISTRY="capability_registry"; CONTROL_PLANE_DECISION="control_plane_decision"; RUNTIME_SUPERVISOR="runtime_supervisor"; IMPROVEMENT_SIGNAL="governed_improvement_signal_plane"; LOCAL_MODEL_AUTHORITY="local_model_authority"; GENESIS_ADVICE="genesis_advice"; GENESIS_CANDIDATE="genesis_candidate"; SPEC_AMENDMENT="specification_amendment"; REPOSITORY_MUTATION_HANDOFF="repository_mutation_handoff"; AUDIT_TRUST="audit_trust"; QUARANTINE="quarantine"; PANIC="panic"; HOST_INVENTORY="host_inventory"; RESOURCE_GOVERNOR="resource_governor"; PRIVILEGE="privilege"; EMBODIMENT="embodiment"; FULFILLMENT="fulfillment"
+    CAPABILITY_REGISTRY="capability_registry"; CONTROL_PLANE_DECISION="control_plane_decision"; RUNTIME_SUPERVISOR="runtime_supervisor"; IMPROVEMENT_SIGNAL="governed_improvement_signal_plane"; LOCAL_MODEL_AUTHORITY="local_model_authority"; GENESIS_ADVICE="genesis_advice"; GENESIS_CANDIDATE="genesis_candidate"; SPEC_AMENDMENT="specification_amendment"; REPOSITORY_MUTATION_HANDOFF="repository_mutation_handoff"; AUDIT_TRUST="audit_trust"; QUARANTINE="quarantine"; PANIC="panic"; HOST_INVENTORY="host_inventory"; RESOURCE_GOVERNOR="resource_governor"; PRIVILEGE="privilege"; EMBODIMENT="embodiment"; FULFILLMENT="fulfillment"; OWNER_INTROSPECTION="owner_introspection"
 
 @dataclass(frozen=True)
 class WorldStateSubject: subject_id:str; subject_kind:str; labels:tuple[str,...]=()

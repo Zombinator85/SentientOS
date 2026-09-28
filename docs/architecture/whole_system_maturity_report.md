@@ -115,7 +115,10 @@ Projected mature introspection is not one omniscient narrator. It is **a topolog
 5. Repeated production software-attribution campaigns and stronger causal identification.
 6. Independently observed physical embodiment.
 7. Physical resource allocation, measurement, and scheduler/device/energy enforcement.
-8. Broader provenance-bearing owner introspection without a privileged narrator.
+8. Production breadth and independent validation for the bounded
+   [causal-introspection topology](causal_introspection_topology.md), including
+   physical/resource owners whose source enforcement is not implemented and
+   long-run stability across real software/model succession.
 9. An explicit authoritative release/version policy and independently observed hosted repository metadata.
 
 ## Claims deliberately not made
