@@ -1,110 +1,38 @@
 # Contributing to SentientOS
 
-SentientOS accepts contributions that preserve operator accountability,
-auditability, and safe shutdown. For public terminology conventions, see the
-[Public Language Bridge](docs/PUBLIC_LANGUAGE_BRIDGE.md).
+Contributions preserve local operator authority, attributable evidence, safe shutdown, immutable historical evidence, and fail-closed privileged action. [`AGENTS.md`](AGENTS.md) is repository law for automated work; the [validation and landing contract](docs/development/codex_validation_and_landing_contract.md) and [executable finalizer reference](docs/development/codex_finalize_landing.md) are canonical.
 
-## Contribution Contract (Engineering-First)
+## Contribution lifecycle
 
-When you add or modify runtime code, preserve these repository invariants:
+1. Bind to a clean, fresh current SHA and record it.
+2. Run the supported task bootstrap. Stop if its repository-defined decision is `blocked`; diagnostic scaffolds confer no implementation authority.
+3. Make one complete bounded change without expanding provider, network, host-actuation, or prompt-export authority.
+4. Supply versioned exact-node acceptance for behavior-adding work, including a successful-path node. Run focused behavioral proof, the applicable matrix, targeted mypy, documentation/prompt checks, strict audits, and immutability verification.
+5. Run the pre-commit finalizer and require `ready_to_commit`; commit exactly once.
+6. Run the post-commit finalizer and require `ready_for_pr_metadata`, then require `pr_metadata_guard_ready`.
+7. Generate the canonical PR body, bind its exact bytes, and seal `pr_publication_handoff_ready` before the one external PR publication call.
+8. Treat publication readiness and an actuator payload echo as non-proof. Only an independent exact hosted observation closes publication custody.
 
-- Declare privilege requirements with the Privilege Access Procedure
-  docstring.
-- Keep authorization gates explicit and auditable.
-- Route operational events through the logging helpers (no silent writes).
-- Keep audit-chain validation green in local checks and CI.
+Do not copy the complete machine ritual here; follow the linked canonical commands because they evolve.
 
-All new scripts must start with the Privilege Access Procedure docstring,
-followed by `require_admin_banner()` and `require_lumos_approval()`, before any
-imports. These calls are enforced by `privilege_lint.py`.
+## Engineering boundaries
 
-```python
-"""Privilege Access Procedure: Do not remove. See doctrine for details."""
-from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+- Capability definition, grant, feasibility, admission, execution, observation, receipt, and adoption are separate.
+- Tests, dry runs, proposals, synthetic providers, and metadata are not production effects.
+- Cognition consumes authority; it does not mint authority for itself.
+- Preserve prior atlases, dockets, release evidence, and compatibility identifiers required by protocols.
+- Never put `try`/`catch` around imports. Do not modify `prompt_assembler.py` without explicit authority.
+- Historical Lumos, First Wound, ritual, Cathedral, Council, and Oracle conventions are not the universal contribution contract. Retain them only where current compatibility law requires them.
+
+## Core checks
+
+```bash
+python -m scripts.run_tests -q
+python -m mypy scripts/ sentientos/
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py
+python verify_audits.py --strict
+python scripts/audit_immutability_verifier.py
 ```
 
-Use `scripts/templates/cli_skeleton.py` as the starting point for any new
-command-line interface. You can also run `python scripts/new_cli.py <name>` to
-copy the skeleton automatically.
-
-## Reviewer Checklist
-
-- [ ] Docstring `"Privilege Access Procedure: Do not remove. See doctrine for details."` present at the top
-- [ ] `require_admin_banner()` invoked before any other logic
-- [ ] `require_lumos_approval()` called immediately after `require_admin_banner()`
-- [ ] Logs created using `logging_config.get_log_path()`
-- [ ] `pre-commit run --all-files` passes (`privilege-lint`, `audit-verify`, `pytest-args`)
-
-Pull requests lacking these checks fail CI.
-
-CI runs `pre-commit run --all-files` before the test suite, then executes
-`python privilege_lint.py`. If any hook (`privilege-lint`, `audit-verify`, or
-`pytest-args`) fails, the job fails.
-
-Run `python privilege_lint.py` locally before submitting a pull request. You
-can also link `./.githooks/pre-commit` into `.git/hooks` to run lint and audit
-checks before each commit. The hook also runs
-`python verify_audits.py logs/` to ensure audit logs remain valid.
-
-First-time contributors can read
-[FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) and submit the
-**Share Your Contributor Story** issue when opening their pull request.
-
-## Internal-language note
-
-Internal doctrine may refer to privileged approval (internal codename:
-blessing), operator procedure (legacy term: ritual), or governance
-control plane (internal codename: cathedral). Public contributor guidance should
-lead with the engineering terms above.
-
-## Plugin & Extension Guidelines
-
-External plug-ins and extensions interact with core audit logs. To contribute
-one:
-
-- Provide a `register` function using `plugin_framework.register_plugin`.
-- Include a module-level docstring describing behavior and permissions.
-- Use trust-engine logging helpers; avoid direct file writes.
-- Document external dependencies in your pull request.
-
-## Documentation & Types
-
-Run `python scripts/build_docs.py` to build the documentation site. Ensure
-`mypy --strict` runs without errors.
-
-### MkDocs preview
-
-Use `mkdocs serve` to preview docs locally.
-
-### CI Workflow
-
-Every pull request runs these checks:
-
-```yaml
-- name: Privilege lint
-  run: python privilege_lint.py
-- name: Run tests
-  run: python -m scripts.run_tests
-- name: Type check
-  run: mypy --strict
-- name: Verify audits
-  run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
-```
-
-When running `verify_audits.py` manually, set `LUMOS_AUTO_APPROVE=1` or use
-`--no-input` to bypass the Lumos privileged approval prompt.
-
-### Test discovery & drift coverage
-
-Pytest discovery is allowlisted via `pytest.ini` under `testpaths`. Drift tests
-are listed there, so they run as part of the default suite. Default invocations
-are quiet because `pytest.ini` sets `addopts = -q`.
-
-Supported test commands:
-
-- `python -m scripts.run_tests` (default suite; quiet due to `addopts = -q`)
-- `python -m scripts.run_tests tests/test_drift_alerts_contract.py`
-- `python -m scripts.run_tests tests/test_dashboard_drift_api.py`
+Use targeted scope and the task-specific matrix/acceptance manifest exactly as the canonical contract requires; aggregate counts alone are not behavioral proof. Commit and PR titles use `[codex:<subsystem>] <intent summary>`.

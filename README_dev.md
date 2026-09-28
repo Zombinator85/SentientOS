@@ -1,5 +1,7 @@
 # Developer Guide
 
+> **Current workflow:** [`AGENTS.md`](AGENTS.md), the [validation and landing contract](docs/development/codex_validation_and_landing_contract.md), and [finalizer reference](docs/development/codex_finalize_landing.md) supersede older banner-first prose as the universal contribution contract. Historical privilege headers remain compatibility requirements only where current lint or API contracts require them.
+
 `privilege_lint_cli.py` enforces a strict header for every Python entrypoint.
 Add the banner, `from __future__ import annotations`, an optional docstring,
 and only then your other imports.
@@ -24,13 +26,13 @@ python -m scripts.run_tests -q
 
 Run mypy locally with: `mypy sentientos`
 
-Build docs locally:
+Build the canonical public MkDocs site locally:
 ```bash
-pip install -e .[dev]
-make docs
+pip install -e .[docs]
+python scripts/build_docs.py --check-deps
+python scripts/build_docs.py
 ```
-The Sphinx Awesome theme includes a search box. Open `docs/_build/html/index.html`
-in your browser and try it out.
+Open `site/index.html`. Sphinx is retained as a secondary API/reference renderer, not the canonical public or Pages build.
 
 Tests must keep 80 % coverage.
 

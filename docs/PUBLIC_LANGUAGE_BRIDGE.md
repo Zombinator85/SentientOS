@@ -2,6 +2,8 @@
 
 Public interfaces name mechanisms directly. Git retains obsolete cultural history. Historical labels remain only where current API, schema, serialized-event, or filesystem compatibility requires them.
 
+Active architecture uses **implemented**, **composed**, **production-evidenced**, and **projected**. A historical label's continued existence does not make it a current organism member or grant runtime authority.
+
 | Compatibility label | Canonical description | Boundary |
 |---|---|---|
 | `cathedral` | governance control plane / operator console | Deep imports and configuration |
@@ -15,5 +17,9 @@ Public interfaces name mechanisms directly. Git retains obsolete cultural histor
 | `/vow` | integrity policy store | Widely referenced filesystem/digest paths |
 | `/pulse` | event bus / telemetry stream | Widely referenced event and import paths |
 | `cathedral-gui` | governance UI | Deprecated command alias; use `sentientos-governance-ui` |
+| Lumos | compatibility approval name | Not the universal current control-plane or contributor contract |
+| First Wound | historical onboarding/release language | Historical evidence; not generation-zero commissioning |
+| HungryEyes | historical/compatibility perception name | Not current World-State or embodiment architecture |
+| persona / inner world | compatibility cognitive representation | Not system identity, consciousness, or authority |
 
 Do not globally translate council, presence, self-model, trust, oracle, witness, or healing. Their technical meanings depend on context. The name SentientOS is aspirational; current sentience or phenomenal consciousness is not claimed.

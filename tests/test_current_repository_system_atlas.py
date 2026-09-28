@@ -15,6 +15,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 ROOT = Path(__file__).resolve().parents[1]
 ATLAS_PATH = ROOT / "architecture/current_repository_system_atlas.json"
+CURRENT_ATLAS_PATH = ROOT / "architecture/repository_system_atlas_3116672d.json"
 EVIDENCE_SNAPSHOTS = (
     "architecture/current_repository_system_atlas.json",
     "docs/architecture/current_repository_system_atlas.md",
@@ -69,11 +70,18 @@ def test_atlas_schema_sha_and_required_sections() -> None:
     assert atlas["generated_at"].endswith("Z")
 
 
-def test_every_registry_capability_is_crosswalked_exactly_once() -> None:
+def test_historical_atlas_crosswalk_remains_internally_unique() -> None:
     atlas_ids = [row["capability_id"] for row in _atlas()["capability_crosswalk"]]
-    registry_ids = [row.capability_id for row in build_default_capability_registry().records]
-    assert Counter(atlas_ids) == Counter(registry_ids)
+    assert len(atlas_ids) == 355
     assert all(count == 1 for count in Counter(atlas_ids).values())
+
+
+def test_current_atlas_census_matches_current_registry() -> None:
+    current = cast(dict[str, Any], json.loads(CURRENT_ATLAS_PATH.read_text(encoding="utf-8")))
+    registry = build_default_capability_registry().records
+    assert current["bound_sha"] == "3116672d916faaab13a0c895c692dccc6917ae49"
+    assert current["capabilities"]["total"] == len(registry)
+    assert current["capabilities"]["status_census"] == dict(Counter(row.status for row in registry))
 
 
 def test_claimed_evidence_paths_exist_and_have_expected_kinds() -> None:

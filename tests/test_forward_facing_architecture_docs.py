@@ -153,10 +153,10 @@ def test_usage_accounts_for_packaged_and_module_entrypoints() -> None:
 
 def test_document_hierarchy_and_atlas_navigation() -> None:
     nav = Path("mkdocs.yml").read_text(encoding="utf-8")
-    assert nav.index("One Pager:") < nav.index("Current Architecture:")
-    assert "Current-System Atlas: docs/architecture/current_repository_system_atlas.md" in nav
-    assert "Reviewer Readiness: docs/architecture/reviewer_release_readiness_index.md" in nav
-    assert "current_repository_system_atlas.md" in DOCS["readme"]
+    assert nav.index("Project Thesis and Maturity:") < nav.index("Current Architecture:")
+    assert "Current-System Atlas: architecture/system_atlas_index.md" in nav
+    assert "Reviewer Readiness: architecture/reviewer_release_readiness_index.md" in nav
+    assert "system_atlas_index.md" in DOCS["readme"]
 
 
 def test_docket_closes_all_audited_findings() -> None:

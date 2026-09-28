@@ -2,6 +2,8 @@
 
 SentientOS is an AI-centered operating system and developmental, model-independent causal substrate for studying persistent machine cognition across changes in its cognitive machinery. Its experimental object is a persistent causal organization carrying attributable history, evidence, authority, lineage, environment, resources, effects, and consequences—not one LLM checkpoint.
 
+Claims use four levels: **implemented mechanism**, **composed behavior**, **production evidence**, and **projected closure**. Tests, synthetic experiments, or production-shaped composition may establish the first two without establishing the third.
+
 It has two architectural forms. Hosted SentientOS runs as `hardware -> Windows/Linux -> SentientOS runtime -> model(s)`. Intended native SentientOS runs as `hardware -> firmware/boot -> SentientOS native kernel or trusted substrate -> deterministic services, governance, resource/execution custody -> World-State, memory, cognition -> model(s)`. Hosted work is not disposable scaffolding: its semantic contracts are intended to lower toward native enforcement. Native maturity, complete device support, and general resource enforcement remain open.
 
 ## Persistent system, replaceable thinker
@@ -44,3 +46,5 @@ Governance makes those questions interpretable. State is not authority; observat
 Current causal-resource principals provide ownership, sponsorship, and provenance—not general CPU/GPU/RAM/VRAM/token/energy/thermal allocation, task envelopes, or kernel enforcement. Future plural-resource reasoning may compare cost with consequence without collapsing unlike resources into one scalar or claiming hunger, metabolism, or survival drive.
 
 Federation likewise preserves local sovereignty: evidence and candidates may move, but remote agreement is not truth, readiness is not authority, and receipt is not adoption—**candidate, not doctrine**.
+
+At the current frontier, prior-tick longitudinal self-model evidence is composed into configured resident cognition, but persistent epistemic projection is implemented and not composed into the daemon tick. Software and cognitive succession are composed; production benefit and nonsynthetic A -> B -> A evidence are not established. Model publication is composed only through a deterministic fake provider with zero production effects. Generation-zero commissioning, physical embodiment, physical resource allocation, and authoritative catalog deployment remain without qualifying production evidence.

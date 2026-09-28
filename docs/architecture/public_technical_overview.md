@@ -1,12 +1,38 @@
 # Public technical overview: current main
 
-This document answers what exists and runs in current main. The [project thesis](sentientos_project_thesis.md) explains why; the [system atlas](current_repository_system_atlas.md) and [reviewer index](reviewer_release_readiness_index.md) retain exhaustive source and proof archaeology.
+This document answers what exists and runs at the SHA selected by the [current atlas index](system_atlas_index.md). The [project thesis](sentientos_project_thesis.md) explains why; historical atlases and the [reviewer index](reviewer_release_readiness_index.md) retain source and proof archaeology.
 
 ## Architecture and maturity vocabulary
 
 Current deployment is **hosted SentientOS**: hardware -> Windows/Linux host kernel -> SentientOS services/runtime -> cognitive model(s). The repository also contains native paths and a literal **native SentientOS** architecture, but current main is not a mature general-purpose native OS and does not provide complete hardware support or general native resource enforcement.
 
-Claims use separate predicates: implemented, callable, composed, resident, default-active, authorized, production-proven, and aspirational. One never implies the next.
+Claims use four primary predicates: **implemented**, **composed**, **production-evidenced**, and **projected**. Finer predicates—callable, resident, default-active, authorized, and effectful—remain useful. One never implies the next.
+
+## Causal organization
+
+The persistent object is the causal organization, not the model. Current evidence, canonical memory, developmental history, longitudinal self-representation, retained epistemic position, authority, action, independent observation, and consequence remain separately owned so replacements stay attributable. Cognition may propose; it cannot mint authority for itself.
+
+The resident causal sequence is:
+
+```text
+host/environment/subsystem evidence -> World-State -> current evidence
+prior self-model + developmental history + canonical memory where selected
+-> bounded cognition -> interpretation/prediction/proposal -> sponsorship
+-> authority -> effect custody -> effect -> independent observation
+-> consequence -> separately admitted developmental or epistemic update
+```
+
+Not every arrow is composed. In particular, persistent epistemic state has an owner, durable generations, dependency correction, source calibration, and prior-only projection machinery, while `sentientosd.py` currently only defines a loader and does not pass that projection into `ResidentDevelopmentalCognitionOwner.run_tick`. It is **implemented but not composed into the live resident cognition path**.
+
+The longitudinal self-model does have an optional live path. Ordering is a temporal self-certification firewall:
+
+```text
+prior admitted self-model -> tick-N cognition
+-> tick-N World-State/self-model reconciliation afterward
+-> eligible only for later cognition
+```
+
+The projection is evidence-bound, read-only, and explicitly all-false for authority. It is neither consciousness, identity, self-authorship, nor a source of permission.
 
 ## Resident surfaces
 

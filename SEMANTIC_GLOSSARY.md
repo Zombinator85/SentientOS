@@ -1,5 +1,10 @@
 # SentientOS Semantic Glossary
 
+- **Implemented** — A bounded mechanism, schema, owner, controller, protocol, or proof fixture exists; this says nothing by itself about runtime wiring.
+- **Composed** — A mechanism is actually wired into an end-to-end runtime or operator path; this says nothing by itself about a nonsynthetic production event.
+- **Production-evidenced** — A qualifying real, nonsynthetic execution or independent observation exists and is bound to the claim.
+- **Projected closure** — Intended architecture, future composition, research hypothesis, or evidence not yet collected.
+
 - **Hosted SentientOS** — Current architecture in which SentientOS runs above a Windows or Linux host kernel while retaining its own state, governance, cognition, and causal semantics.
 - **Native SentientOS** — Intended architecture in which a SentientOS native kernel or trusted substrate owns deterministic OS services and resource/execution custody. It is literal intent, not current general-purpose production maturity.
 - **Persistent causal system** — The longitudinal organization whose attributable history, evidence, authority, lineage, resources, environment, effects, and consequences can persist across cognitive-model changes.
@@ -26,3 +31,12 @@
 - **CUDA / GPU kernel** — An accelerator-executable routine. It is neither the semantic kernel nor the native OS kernel.
 - **Minimal developmental authorship** — Minimization of unnecessary authored preferences or identity destinations while unavoidable priors remain explicit and separable.
 - **Causal organization** — The linked provenance and consequence structure a self-model may describe; the representation is not automatically the organization.
+- **Longitudinal self-model** — Immutable evidence-bound reconciliations and bounded read-only projections about the system. Current configured composition exposes only prior-tick material to cognition and carries no authority.
+- **Persistent epistemic state** — Model-independent proposition/evidence generations with source calibration and dependency correction. It is implemented at the current atlas SHA but not composed into the resident daemon tick.
+- **Publication authorization** — Finite scoped permission issued after independent approval and issuance admission; not publication-effect admission or publication success.
+- **Catalog deployment** — Establishment of exact authoritative installation catalog state after separate authorization; not publication, acquisition, commissioning, activation, serving, or inference.
+- **Acquisition** — Custody of artifact bytes; conveys no commissioning authority.
+- **Commissioning** — Qualification of an exact artifact/runtime under its protocol; does not select, load, serve, or invoke it.
+- **Activation** — Selection of an exact commissioned model identity; not loading or inference.
+- **Serving** — Bounded custody of a loaded model; not inference admission.
+- **Inference admission** — Separate permission for an exact generation-bound invocation; not implied by serving.

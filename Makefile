@@ -13,10 +13,10 @@ lock-install:
 	python -m scripts.lock install
 
 docs:
-	sphinx-build -b html docs docs/_build/html
+	python scripts/build_docs.py
 
 docs-live:
-	sphinx-autobuild docs docs/_build/html
+	python -m mkdocs serve
 
 rehearse: REHEARSE_ARGS := $(filter-out $@,$(MAKECMDGOALS))
 rehearse:

@@ -1,5 +1,7 @@
 # SentientOS trajectory: causal bridges and open closure
 
+> **Frontier correction at `3116672d`:** post-adoption consequence measurement, bounded initial POSIX commissioning, model-publication authorization issuance, separate publication-effect admission, and live cognitive-transition composition are implemented rather than missing organs. Their missing bridges are production evidence and later causal closure. Persistent epistemic projection remains implemented but not resident-composed. See the [whole-system maturity report](whole_system_maturity_report.md).
+
 The bounded World-State → longitudinal self-model → prior-tick cognition bridge
 is now composed only under exact opt-in custody. A deterministic external scorer
 can measure evidence-grounded self-assessment under present/withheld/restored

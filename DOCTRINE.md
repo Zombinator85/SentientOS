@@ -1,5 +1,11 @@
 # SentientOS Doctrine
 
+## Causal persistence and maturity
+
+The persistent object is the causal organization, not the model. Current evidence, retained interpretation, memory, self-representation, epistemic position, authority, effect, observation, consequence, and lineage remain separately owned so that change is attributable. Cognition may propose and consume admitted evidence; it cannot mint authority merely by narrating a need.
+
+All forward claims distinguish implemented mechanism, composed behavior, production evidence, and projected closure. No earlier maturity level implies a later one.
+
 - **Reality over fluency.** Observation, inference, memory, interpretation, and current truth remain distinct.
 - **The model is not the system.** Cognitive machinery is replaceable; the persistent causal system is the longitudinal and recursive object.
 - **Causal organization over file identity.** A `self_model.json` may represent organization; it is not automatically the organization itself. Continuity concerns provenance, history, lineage, authority, relationships, environment, effects, resources, and consequences.

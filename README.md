@@ -4,6 +4,10 @@
 
 “Sentient” names a research aspiration. It is not a present claim of consciousness, sentience, personhood, phenomenal continuity, biological life, or guaranteed emergence.
 
+More precisely, “Sentient” names the research horizon, not an ontological status declaration. Immersive or first-person machine narration, memory, affect, apparent relationship, and architectural sophistication are not evidence of consciousness, personhood, moral status, rights, or authority. SentientOS does not claim those open questions have been disproved.
+
+Every forward claim uses four public maturity levels: **implemented** (the mechanism exists), **composed** (it is wired into a real runtime or operator path), **production-evidenced** (a qualifying nonsynthetic execution or observation exists), and **projected** (intended closure or hypothesis). One level never implies the next.
+
 ## One architecture, two forms
 
 ```text
@@ -47,6 +51,17 @@ Not every arrow is live today. SentientOS increasingly has the organs; the remai
 - World-State, authority/effect decomposition, local-model custody, durable sessions, federation candidates, and causal-resource principals are implemented with explicit boundaries.
 
 These instruments do not prove consciousness, learning, improvement, or model-independent identity. Frozen-context replication is not a complete longitudinal developmental study. Resource principals identify causal ownership and sponsorship; they do not allocate CPU, GPU, memory, tokens, energy, thermal headroom, or kernel schedules.
+
+## Current frontier
+
+- The longitudinal self-model is configuration-composed into resident cognition with a temporal firewall: prior admitted self-model -> tick-N cognition -> tick-N reconciliation -> eligibility only for later cognition. Its projection carries no action or admission authority.
+- Persistent epistemic state is implemented, including durable generations and bounded projections, but current daemon source does not thread it into the resident tick. It is the concrete example of **implemented != composed**.
+- Software post-adoption evaluation and repeated attribution campaigns are implemented and have a production-capable operator path. The repository does not establish beneficial, monotonic, or causally identified production improvement.
+- Generation-zero provisioning, bounded initial POSIX commissioning, and the resident startup gate are distinct. The protocol is implemented; no genuine production commissioning event is claimed.
+- Model-mirror authorization issuance and the separately admitted publication controller are implemented. Their end-to-end composition is proven through a deterministic fake provider with zero production effects; no sovereign production publication or resulting authoritative catalog deployment is claimed.
+- Resident cognitive succession is composed, including quiescence, staged approval, serving rebinding, durable transition journal, and operator ingress. A synthetic A -> B -> A exercise proves machinery, not production succession, identity, learning, or improvement.
+
+See the [current atlas pointer](docs/architecture/system_atlas_index.md), [public technical overview](docs/architecture/public_technical_overview.md), and [maturity report](docs/architecture/whole_system_maturity_report.md).
 
 ## Governance makes the experiment legible
 
