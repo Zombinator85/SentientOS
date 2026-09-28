@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "08016c1061ff6aa68c49123b671eb0bb8cc31224",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_causal_introspection.py::test_common_projection_identity_and_reconstruction", "rationale": "Content identity, immutable generations, idempotence, and restart reconstruction."},
+    {"node_id": "tests/test_causal_introspection.py::test_explicit_body_domain_provider_coverage", "rationale": "The explicit body-domain coverage inventory preserves partial domains."},
+    {"node_id": "tests/test_causal_introspection.py::test_three_domain_live_capture_and_next_tick_world_state", "rationale": "Three independent owners cross the later World-State boundary without synthesis."},
+    {"node_id": "tests/test_causal_introspection.py::test_body_wide_causal_boundary_table[installation-provisioned-commissioned]", "rationale": "The parameterized causal non-collapse table preserves lifecycle and substrate boundaries."},
+    {"node_id": "tests/test_causal_introspection.py::test_conflict_is_preserved_without_winner", "rationale": "Conflicting owner values remain attributable without winner selection."},
+    {"node_id": "tests/test_causal_introspection.py::test_partial_capture_preserves_successful_projection", "rationale": "Provider failure degrades capture without fabricating or discarding successful reports."},
+    {"node_id": "tests/test_causal_introspection.py::test_memory_privacy_and_resource_unknown_are_preserved", "rationale": "Serialized custody excludes memory content and inferred allocations."},
+    {"node_id": "tests/test_causal_introspection.py::test_authority_truth_production_effect_and_credentials_rejected", "rationale": "Authority, truth, maturity, effect-proof, and credential collapses fail closed."},
+    {"node_id": "tests/test_causal_introspection.py::test_provider_purity_and_recursive_provider_rejected", "rationale": "Provider purity and the no-self-provider boundary are enforced."},
+    {"node_id": "tests/test_causal_introspection.py::test_tamper_and_same_tick_change_fail_closed", "rationale": "Changed same-tick content and altered immutable custody fail closed."}
+    ,{"node_id": "tests/test_causal_introspection.py::test_model_transition_preserves_introspection_chain", "rationale": "Model-specific references change while introspection custody remains predecessor-bound."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_introspection.py::test_three_domain_live_capture_and_next_tick_world_state"
+  ]
+}

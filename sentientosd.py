@@ -50,6 +50,7 @@ from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_D
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
+from sentientos.causal_introspection import CausalIntrospectionRuntime, CaptureContext
 from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
@@ -251,7 +252,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, causal_introspection_runtime: CausalIntrospectionRuntime | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -262,6 +263,7 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
         self._embodiment_evidence_owner = embodiment_evidence_owner
+        self._causal_introspection_runtime = causal_introspection_runtime
         self._longitudinal_self_model_owner = longitudinal_self_model_owner
         self._longitudinal_self_model_config: LongitudinalSelfModelRuntimeConfig | None = None
         self._longitudinal_self_model_configuration_error: str | None = None
@@ -455,6 +457,11 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        if self._causal_introspection_runtime is not None:
+            # Generation, not a parsed tick string, enforces the temporal firewall.
+            next_capture_generation = len(self._causal_introspection_runtime.reconstruct()) + 1
+            records.extend(self._causal_introspection_runtime.world_state_records(
+                before_generation=next_capture_generation))
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
             records.extend(self._embodiment_evidence_owner.world_state_records())
@@ -495,6 +502,19 @@ class RuntimeMaintenanceSurfaces:
         feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._world_state_snapshot_built_for_tick = tick_key
+        return feedback
+
+    def capture_causal_introspection(self, *, tick_id: str) -> dict[str, Any]:
+        """Capture after all same-tick owner closures; never invoke a model or owner mutation."""
+        if self._causal_introspection_runtime is None:
+            return {"status": "disabled", "authority": False, "current_truth": False}
+        snapshot = self._causal_introspection_runtime.capture(CaptureContext(
+            tick_id=tick_id, capture_posture="unknown"))
+        feedback = {"status": "degraded" if snapshot.completion_posture == "partial" else "ok",
+            "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.snapshot_digest,
+            "generation": snapshot.generation, "projection_count": len(snapshot.projections),
+            "conflict_count": len(snapshot.conflicts), "authority": False, "current_truth": False}
+        self._feedback.setdefault("surfaces", {})["causal_introspection"] = feedback
         return feedback
 
     @property
@@ -1067,6 +1087,11 @@ def _run_maintenance_tick(
         if plan:
             LOGGER.info("Codex amendment ready for repository mutation handoff review: %s", plan.message)
             runtime_surfaces.emit_repository_mutation_handoff(plan)
+        current_surface = "causal_introspection"
+        current_correlation_id = f"{tick_id}:causal_introspection"
+        capture_introspection = getattr(runtime_surfaces, "capture_causal_introspection", None)
+        if callable(capture_introspection):
+            capture_introspection(tick_id=tick_id)
     except Exception as exc:
         signal = _maintenance_degradation_signal(
             tick_id=tick_id,
