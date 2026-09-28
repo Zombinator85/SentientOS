@@ -45,6 +45,7 @@ MAINTENANCE_INITIAL_POSIX_RESIDENT_COMMISSIONING = (
 )
 MAINTENANCE_RESIDENT_PARENT_SUPERVISION = "maintenance_resident_parent_supervision"
 RESIDENT_DEVELOPMENTAL_WRITEBACK = "resident_developmental_writeback"
+RESIDENT_EPISTEMIC_STATE_MUTATION = "resident_epistemic_state_mutation"
 DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING = (
     "developmental_model_replacement_experimental_serving"
 )
@@ -312,6 +313,101 @@ RESIDENT_DEVELOPMENTAL_WRITEBACK_OPERATOR_APPROVAL = MappingProxyType({
     "approved_definition_digest": "a263a62ee13570a1dd11fc3d9bf25f3d28f8d5e75eadea6ea0dc4000c2252cd6",
     "approved_task_name": "register_resident_developmental_writeback_authority",
     "evidence_digest": "f7c14b9ea064a59026a23b05f2adb69c18171d77cc6c69f18129e334d2fe2281",
+})
+
+
+RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION = TaskAuthorityDefinition(
+    capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION,
+    subsystem_kinds=frozenset({"epistemics"}),
+    principal_kinds=frozenset({
+        "deterministic_resident_epistemic_state_controller"
+    }),
+    required_effects=frozenset({
+        "exact_epistemic_proposition_read",
+        "exact_epistemic_current_state_read",
+        "exact_epistemic_evidence_source_artifact_read",
+        "exact_epistemic_evidence_binding_validation",
+        "bounded_epistemic_evidence_binding_append",
+        "exact_epistemic_update_candidate_read",
+        "deterministic_epistemic_update_candidate_validation",
+        "exact_epistemic_predecessor_state_compare_and_swap",
+        "bounded_epistemic_state_generation_append",
+        "bounded_epistemic_update_event_append",
+        "epistemic_mutation_receipt_write",
+        "read_only_epistemic_post_mutation_verification",
+    }),
+    required_goal_phrases=(
+        "exact persistent epistemic proposition",
+        "exact source observation provenance",
+        "evidence binding is not truth",
+        "evidence binding is not epistemic position",
+        "exact predecessor epistemic state",
+        "candidate remains proposal-only",
+        "separate exact runtime admission",
+        "deterministic validation",
+        "compare-and-swap predecessor",
+        "append-only attributable state and update lineage",
+        "model output cannot confer mutation authority",
+        "preservation of World-State custody",
+        "later cognition consumes only prior epistemic position",
+    ),
+    forbidden_goal_phrases=(
+        "automatic truth adoption", "belief overwrite", "world-state overwrite",
+        "automatic proposition discovery", "unbounded belief revision",
+        "model decides truth", "model self-authorization",
+        "same-tick epistemic self-certification",
+        "automatic confidence inflation", "universal bayesian scoring",
+        "automatic policy creation", "automatic goal creation",
+        "automatic permission creation", "automatic action", "effect admission",
+        "adoption authority", "canonical user-memory mutation",
+        "canonical user memory mutation", "self-model mutation",
+        "developmental-history mutation", "developmental history mutation",
+        "identity prescription", "persona bootstrap", "survival objective",
+        "novelty reward", "unrestricted autonomous cognition",
+        "repository mutation", "git mutation", "provider invocation",
+        "network authority", "credential access", "host actuation",
+        "process control", "resource allocation", "federation authority",
+    ),
+    approval_requirements=(
+        "operator-approved capability-definition registration",
+        "future runtime implementation requires a later separately admitted task",
+        "exact existing proposition identity",
+        "exact source artifact identity and digest for evidence binding",
+        "explicit evidence adapter output rather than ambient discovery",
+        "evidence relation dependency freshness and reliability validation",
+        "separate exact runtime admission for evidence-binding append",
+        "exact current predecessor epistemic state digest",
+        "exact candidate binding to proposition predecessor evidence set reason proposed stance rationale uncertainty and model identity when applicable",
+        "candidate authority remains all false",
+        "separate exact runtime admission for epistemic state mutation",
+        "deterministic validation before commit",
+        "compare-and-swap predecessor check",
+        "immutable state and update custody",
+        "durable epistemic mutation receipt",
+        "post-write reconstruction verification",
+        "model output or observed evidence does not itself grant mutation authority",
+    ),
+    purpose=(
+        "Permit a future separately admitted deterministic resident epistemic-state "
+        "controller to perform two independently admitted custody stages: validate and "
+        "append an exact source-bound evidence binding, then validate a non-authoritative "
+        "update candidate and compare-and-swap append its exact state generation and paired "
+        "update event. Registration grants no runtime admission or mutation authority; "
+        "evidence is not truth or epistemic position, a candidate is not authority, and "
+        "the resulting position is only a prior for later cognition, never World-State, "
+        "memory, self-model, developmental history, policy, goal, permission, or action."
+    ),
+)
+
+RESIDENT_EPISTEMIC_STATE_MUTATION_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:resident_epistemic_state_mutation:5fef1ee39082:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": RESIDENT_EPISTEMIC_STATE_MUTATION,
+    "approved_definition_digest": "5fef1ee3908208659b6c72ec09bea38d7e1e4918f4b01e12df5b9726abf2392a",
+    "approved_task_name": "register_resident_epistemic_state_mutation_definition",
+    "evidence_digest": "674a9271dd3acf44ec5d2376375d34713d45eee1f6d11fbd47e41754630304b1",
 })
 
 
@@ -774,6 +870,8 @@ MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_OPERATOR_APPROVAL = MappingProxyTyp
 AUTHORITY_DEFINITIONS = {
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
     DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING:
         DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING_DEFINITION,
     RESIDENT_COGNITIVE_MODEL_SERVING: RESIDENT_COGNITIVE_MODEL_SERVING_DEFINITION,
