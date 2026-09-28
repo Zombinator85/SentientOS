@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "bfc15c58824443bf0186a324da1e62d98de63561",
+  "test_provenance_path": "/tmp/resident_epistemic_development_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_epistemic_development.py::test_one_tick_evidence_and_state_mutation_uses_distinct_admissions", "rationale": "One bounded cycle appends exact evidence and advances state with distinct stage admissions."},
+    {"node_id": "tests/test_resident_epistemic_development.py::test_two_tick_prior_firewall_and_contradiction_progression", "rationale": "A state is absent before tick-N development, becomes prior context later, and configured contradiction causes an attributable contested successor."},
+    {"node_id": "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues", "rationale": "Restart reconstruction deduplicates immutable evidence and uses a fresh state admission."},
+    {"node_id": "tests/test_resident_epistemic_development.py::test_configuration_identity_and_bounds_fail_before_mutation", "rationale": "Semantic identity and cadence bounds fail closed before mutation."},
+    {"node_id": "tests/test_resident_epistemic_development.py::test_snapshot_tamper_fails_before_admission", "rationale": "World-State custody tamper cannot create admission or evidence."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_epistemic_development.py::test_one_tick_evidence_and_state_mutation_uses_distinct_admissions",
+    "tests/test_resident_epistemic_development.py::test_two_tick_prior_firewall_and_contradiction_progression",
+    "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues"
+  ]
+}

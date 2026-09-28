@@ -196,7 +196,7 @@ class ResidentEpistemicStateMutationController:
         self.owner.verify(); self.owner.proposition(candidate.proposition_id)
         try:
             expected = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items()
-                                                           if k not in {"candidate_id","schema_version"}})
+                                                           if k != "candidate_id"})
         except EpistemicStateError as exc:
             raise EpistemicMutationError(f"candidate_invalid:{exc}") from exc
         if expected != candidate: raise EpistemicMutationError("candidate_identity_mismatch")

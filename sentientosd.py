@@ -39,10 +39,15 @@ from sentientos.resident_cognitive_model_transition_experiment import (QuiescedD
 from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 from sentientos.local_model_production_activation import verify_current_activation
-from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
+from sentientos.codex_task_authority_admission import (RESIDENT_DEVELOPMENTAL_WRITEBACK,
+    RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION, RESIDENT_EPISTEMIC_STATE_MUTATION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
 from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_DEVELOPMENT_CONFIG_ENV,
+    ResidentEpistemicDevelopmentRuntime, load_epistemic_development_config)
+from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
 from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
@@ -246,7 +251,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -273,6 +278,7 @@ class RuntimeMaintenanceSurfaces:
         self._epistemic_state_owner = epistemic_state_owner
         self._epistemic_state_config = epistemic_state_config or {"status": "disabled", "cognitive_consumption_enabled": False}
         self._epistemic_state_configuration_error = epistemic_state_configuration_error
+        self._epistemic_development_runtime = epistemic_development_runtime
         if epistemic_state_owner is None and epistemic_state_config is None and epistemic_state_configuration_error is None:
             try:
                 self._epistemic_state_owner, self._epistemic_state_config = _load_epistemic_state_owner(
@@ -280,6 +286,30 @@ class RuntimeMaintenanceSurfaces:
             except Exception as exc:
                 self._epistemic_state_configuration_error = f"{type(exc).__name__}:{exc}"
                 self._epistemic_state_config = {"status": "degraded", "cognitive_consumption_enabled": False}
+        if self._epistemic_development_runtime is None and os.environ.get(EPISTEMIC_DEVELOPMENT_CONFIG_ENV):
+            try:
+                if self._epistemic_state_owner is None:
+                    raise ValueError("epistemic_state_owner_required")
+                development_config = load_epistemic_development_config(
+                    os.environ[EPISTEMIC_DEVELOPMENT_CONFIG_ENV])
+                ledger = AdmissionLedger(self._runtime_state_root / "epistemic_development" / "runtime_admissions.json")
+                definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+                def current_epistemic_admission_sequence() -> int:
+                    admissions, revocations = ledger.load()
+                    return max([item.issued_sequence for item in admissions]
+                               + [item.sequence for item in revocations], default=1)
+                controller = ResidentEpistemicStateMutationController(
+                    owner=self._epistemic_state_owner,
+                    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+                    current_sequence=current_epistemic_admission_sequence,
+                    receipt_root=self._runtime_state_root / "epistemic_development")
+                self._epistemic_development_runtime = ResidentEpistemicDevelopmentRuntime(
+                    config=development_config, owner=self._epistemic_state_owner,
+                    mutation_controller=controller,
+                    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+                    admission_ledger=ledger)
+            except Exception as exc:
+                self._epistemic_state_configuration_error = f"{type(exc).__name__}:{exc}"
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
@@ -471,6 +501,22 @@ class RuntimeMaintenanceSurfaces:
     def current_world_state_snapshot(self) -> WorldStateSnapshot | None:
         """Return the exact validated in-memory snapshot; never reconstruct authority from JSON."""
         return self._world_state_snapshot
+
+    def run_epistemic_development(self, *, tick_id: str) -> dict[str, Any]:
+        """Run only after the cognition slot; its state is eligible next tick."""
+        if self._epistemic_development_runtime is None:
+            feedback = {"status": "disabled", "authority": False, "next_tick_only": True}
+        elif self._world_state_snapshot is None or self._world_state_snapshot_built_for_tick != tick_id:
+            feedback = {"status": "degraded", "reason": "same_tick_world_state_unavailable",
+                        "authority": False, "next_tick_only": True}
+        else:
+            instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
+            result = self._epistemic_development_runtime.process_snapshot(
+                self._world_state_snapshot, tick=int(instant.timestamp()), recorded_at=instant.isoformat())
+            feedback = asdict(result)
+        self._feedback.setdefault("surfaces", {})["resident_epistemic_development"] = feedback
+        self._refresh_feedback()
+        return feedback
 
     def reconcile_longitudinal_self_model(self, *, tick_id: str) -> dict[str, Any]:
         """Project the same-tick board when an operator explicitly supplies an owner."""
@@ -1003,6 +1049,11 @@ def _run_maintenance_tick(
         _run_resident_cognition_and_transition(runtime_surfaces, tick_id=tick_id)
         # Temporal firewall: cognition can inspect only custody that existed before
         # this tick.  Current World-State reconciliation is deliberately later.
+        current_surface = "resident_epistemic_development"
+        current_correlation_id = f"{tick_id}:resident_epistemic_development"
+        develop_epistemics = getattr(runtime_surfaces, "run_epistemic_development", None)
+        if callable(develop_epistemics):
+            develop_epistemics(tick_id=tick_id)
         current_surface = "longitudinal_self_model"
         current_correlation_id = f"{tick_id}:longitudinal_self_model"
         reconcile_self_model = getattr(runtime_surfaces, "reconcile_longitudinal_self_model", None)
@@ -1167,6 +1218,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
+                epistemic_development_runtime=runtime_surfaces._epistemic_development_runtime,
                 resident_cognitive_invoker=resident_serving_slot,
                 resident_cognition_gate=resident_cognition_gate)
             resident_transition_runtime = None
@@ -1186,6 +1238,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                     epistemic_state_owner=candidate_surfaces._epistemic_state_owner,
                     epistemic_state_config=candidate_surfaces._epistemic_state_config,
                     epistemic_state_configuration_error=candidate_surfaces._epistemic_state_configuration_error,
+                    epistemic_development_runtime=candidate_surfaces._epistemic_development_runtime,
                     resident_developmental_owner=_resident_developmental_owner(candidate_surfaces),
                     resident_cognitive_invoker=resident_serving_slot,
                     resident_cognition_gate=resident_cognition_gate,
@@ -1204,7 +1257,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 governed_local_invoker=None, genesis_advice_source=genesis_advice,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
-                epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error)
+                epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
+                epistemic_development_runtime=runtime_surfaces._epistemic_development_runtime)
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     if resident_transition_live_path and resident_serving_controller is None:
