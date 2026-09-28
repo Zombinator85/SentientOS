@@ -47,6 +47,9 @@ class AuthorityClass(str, Enum):
     # Narrow schema identity for a future separately admitted exact acquisition.
     # Declaration alone neither admits nor executes an artifact transfer.
     MODEL_ARTIFACT_ACQUISITION = "model_artifact_acquisition"
+    # Exact sovereign model-mirror publication effect.  Declaration is not a
+    # grant and remains separate from authorization issuance and acquisition.
+    MODEL_MIRROR_PUBLICATION = "model_mirror_publication"
     # Narrow schema identity for a future separately admitted commissioning
     # transition. Declaration alone performs no model construction or execution.
     MODEL_COMMISSIONING = "model_commissioning"
