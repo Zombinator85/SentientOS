@@ -392,10 +392,18 @@ class ResidentDevelopmentalCognitionOwner:
         current = self._current_projection(snapshot)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
-        if prior.requested_record_ids or prior_self_model is not None:
-            if not self.config.comparison_enabled:
+        has_developmental_history = bool(prior.requested_record_ids)
+        has_prior_self_model = prior_self_model is not None
+        has_prior_epistemic_state = prior_epistemic_state is not None
+        should_cognize = (has_developmental_history or has_prior_self_model
+                          or has_prior_epistemic_state)
+        should_run_history_comparison = (self.config.comparison_enabled
+                                         and has_developmental_history)
+        if should_cognize:
+            if not should_run_history_comparison:
                 observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
-                                    projection=prior, with_history=True, condition_id="with-history",
+                                    projection=prior, with_history=has_developmental_history,
+                                    condition_id="with-history" if has_developmental_history else "prior-context",
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state))
             else:
                 records = tuple(self.writeback.store.get(rid) for rid in prior.requested_record_ids)

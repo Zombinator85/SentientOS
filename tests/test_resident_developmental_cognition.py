@@ -77,6 +77,129 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
     return result, fake
 
 
+def epistemic_projection(root: Path):
+    epistemic = PersistentEpistemicStateOwner(root, allowed_namespaces=["embodiment"])
+    proposition = make_proposition(namespace="embodiment", subject="body:g1", predicate="healthy",
+        object_value=True, polarity="positive", qualifiers={}, temporal_scope={"kind":"prior"},
+        context_scope={}, proposition_class="descriptive")
+    epistemic.register_proposition(proposition)
+    state, _ = epistemic.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="prior", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    projection = epistemic.cognitive_projection(max_states=1)
+    assert projection is not None
+    return projection, proposition, state
+
+
+def self_model_projection(root: Path):
+    from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+    from tests.test_longitudinal_self_model import record, snapshot as self_model_snapshot
+
+    self_model = LongitudinalSelfModelOwner(root)
+    self_model.reconcile(self_model_snapshot(record()), tick_id="tick-1")
+    projection = self_model.cognitive_projection(before_tick="tick-2", max_claims=2,
+        allowed_predicates=("software_generation", "cognitive_model_identity"))
+    assert projection is not None
+    return projection
+
+
+def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path) -> None:
+    projection, proposition, state = epistemic_projection(tmp_path / "epistemic")
+    composition, fake = owner(tmp_path / "cognition")
+
+    result = composition.run_tick(snapshot=snapshot(), tick_id="tick-2",
+                                  prior_epistemic_state=projection)
+
+    cognition = [request for request in fake.requests
+                 if request.purpose == "resident_developmental_retrieval_cognition"]
+    assert len(cognition) == 1
+    assert result.cognition_observation_ids
+    request = cognition[0]
+    assert request.upstream_evidence["record_ids"] == []
+    assert request.upstream_evidence["self_model_projection_present"] is False
+    assert request.upstream_evidence["epistemic_projection_id"] == projection.projection_id
+    assert request.upstream_evidence["epistemic_projection_digest"] == projection.projection_digest
+    assert request.upstream_evidence["epistemic_proposition_ids"] == [proposition.proposition_id]
+    assert request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
+    assert request.upstream_evidence["epistemic_state_digests"] == [state.state_digest]
+    assert request.upstream_evidence["epistemic_generations"] == [state.generation]
+    assert request.upstream_evidence["epistemic_evidence_set_digests"] == [state.evidence_set_digest]
+    observation = json.loads((composition.observations_root /
+                              f"{result.cognition_observation_ids[0]}.json").read_text())
+    assert observation["epistemic_projection_present"] is True
+    assert observation["epistemic_projection_id"] == projection.projection_id
+    assert observation["epistemic_projection_digest"] == projection.projection_digest
+    assert observation["epistemic_proposition_ids"] == [proposition.proposition_id]
+    assert observation["epistemic_state_ids"] == [state.state_id]
+    assert observation["epistemic_state_digests"] == [state.state_digest]
+    assert observation["epistemic_generations"] == [state.generation]
+    assert observation["epistemic_evidence_set_digests"] == [state.evidence_set_digest]
+    assert observation["developmental_projection_present"] is False
+    assert observation["self_model_projection_present"] is False
+    assert observation["authority"] is False
+
+
+def test_self_model_and_epistemic_context_run_one_ordinary_condition(tmp_path: Path) -> None:
+    epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
+    self_model = self_model_projection(tmp_path / "self-model")
+    composition, fake = owner(tmp_path / "cognition", comparison=True)
+
+    result = composition.run_tick(snapshot=snapshot(), tick_id="tick-2",
+        prior_self_model=self_model, prior_epistemic_state=epistemic)
+
+    cognition = [request for request in fake.requests
+                 if request.purpose == "resident_developmental_retrieval_cognition"]
+    assert len(cognition) == 1
+    assert cognition[0].upstream_evidence["record_ids"] == []
+    assert cognition[0].upstream_evidence["self_model_projection_id"] == self_model.projection_id
+    assert cognition[0].upstream_evidence["epistemic_projection_id"] == epistemic.projection_id
+    assert result.changed_cognition_measurement_id is None
+    assert not list(composition.experiments.protocols.glob("*.json"))
+    assert not list(composition.experiments.runs.glob("*.json"))
+
+
+def test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled(tmp_path: Path) -> None:
+    first, _ = owner(tmp_path / "cognition")
+    written = first.run_tick(snapshot=snapshot(), tick_id="tick-1").written_record_id
+    epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
+    self_model = self_model_projection(tmp_path / "self-model")
+    restarted, fake = owner(tmp_path / "cognition")
+
+    result = restarted.run_tick(snapshot=snapshot(2), tick_id="tick-2",
+        prior_self_model=self_model, prior_epistemic_state=epistemic)
+
+    cognition = [request for request in fake.requests
+                 if request.purpose == "resident_developmental_retrieval_cognition"]
+    assert len(cognition) == 1
+    assert cognition[0].upstream_evidence["current_fact_ids"]
+    assert cognition[0].upstream_evidence["record_ids"] == [written]
+    assert cognition[0].upstream_evidence["self_model_projection_id"] == self_model.projection_id
+    assert cognition[0].upstream_evidence["epistemic_projection_id"] == epistemic.projection_id
+    assert result.changed_cognition_measurement_id is None
+
+
+def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp_path: Path) -> None:
+    first, _ = owner(tmp_path / "cognition")
+    first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
+    self_model = self_model_projection(tmp_path / "self-model")
+    restarted, fake = owner(tmp_path / "cognition", comparison=True)
+
+    result = restarted.run_tick(snapshot=snapshot(2), tick_id="tick-2",
+        prior_self_model=self_model, prior_epistemic_state=epistemic)
+
+    cognition = [request for request in fake.requests
+                 if request.purpose == "resident_developmental_history_intervention_experiment"
+                 and "history_present" in request.linkage]
+    assert [request.linkage["history_present"] for request in cognition] == [True, False, True]
+    assert {request.upstream_evidence["self_model_projection_digest"] for request in cognition} == {
+        self_model.projection_digest}
+    assert {request.upstream_evidence["epistemic_projection_digest"] for request in cognition} == {
+        epistemic.projection_digest}
+    assert result.changed_cognition_measurement_id is not None
+
+
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:
     composition, fake = owner(tmp_path)
     result = composition.run_tick(snapshot=snapshot(), tick_id="tick-n")

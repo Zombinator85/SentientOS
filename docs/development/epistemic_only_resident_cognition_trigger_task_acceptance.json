@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e48876504304041dc1e921b880fdb7295125c8ea",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_epistemic_only_prior_context_causes_real_owner_cognition", "rationale": "A verified epistemic projection independently causes one real-owner cognition call and is exactly bound into persisted evidence."},
+    {"node_id": "tests/test_self_model_cognitive_consumption.py::test_resident_receipt_binds_exact_prior_projection", "rationale": "Self-model-only cognition remains one ordinary real-owner path."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition", "rationale": "History-only cognition remains unchanged."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_self_model_and_epistemic_context_run_one_ordinary_condition", "rationale": "Self-model and epistemic context without history run once and create no history experiment."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled", "rationale": "Current evidence, history, self-model, and epistemic state all reach one ordinary cognition request."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant", "rationale": "A genuine history comparison retains identical self-model and epistemic bindings across all three conditions."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded", "rationale": "No prior substrate preserves the existing no-retrieval-cognition behavior."},
+    {"node_id": "tests/test_resident_cognitive_model_transition_experiment.py::test_quiescence_timeout_and_inference_denied_while_quiesced", "rationale": "Live model-transition quiescence continues to deny resident inference."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_cognition.py::test_epistemic_only_prior_context_causes_real_owner_cognition",
+    "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled"
+  ]
+}
