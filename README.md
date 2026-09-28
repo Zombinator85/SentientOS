@@ -55,7 +55,7 @@ These instruments do not prove consciousness, learning, improvement, or model-in
 ## Current frontier
 
 - The longitudinal self-model is configuration-composed into resident cognition with a temporal firewall: prior admitted self-model -> tick-N cognition -> tick-N reconciliation -> eligibility only for later cognition. Its projection carries no action or admission authority.
-- Persistent epistemic state is implemented, including durable generations and bounded projections, but current daemon source does not thread it into the resident tick. It is the concrete example of **implemented != composed**.
+- Persistent epistemic state is implemented and daemon-composed as an explicitly configured, verified, bounded prior-only resident-cognition input. Custody capture precedes inference and grants no truth, policy, goal, permission, effect, adoption, or retention authority.
 - Software post-adoption evaluation and repeated attribution campaigns are implemented and have a production-capable operator path. The repository does not establish beneficial, monotonic, or causally identified production improvement.
 - Generation-zero provisioning, bounded initial POSIX commissioning, and the resident startup gate are distinct. The protocol is implemented; no genuine production commissioning event is claimed.
 - Model-mirror authorization issuance and the separately admitted publication controller are implemented. Their end-to-end composition is proven through a deterministic fake provider with zero production effects; no sovereign production publication or resulting authoritative catalog deployment is claimed.

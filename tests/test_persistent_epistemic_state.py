@@ -76,6 +76,31 @@ def test_refinement_preserves_old_evidence_and_temporal_firewall(tmp_path):
     assert projection.current_truth is projection.authority is False
 
 
+def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp_path):
+    owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"])
+    assert owner.cognitive_projection(max_states=2) is None
+    propositions=[proposition(index=index) for index in range(3)]
+    for index,p in enumerate(reversed(propositions)):
+        owner.register_proposition(p)
+        first,_=owner.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,
+            stance="unknown",reason="initialization",active_binding_ids=[],correlation_id=f"a-{index}",tick=index+1,
+            recorded_at="2026-01-01T00:00:00Z")
+        if index == 0:
+            owner.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=first.state_digest,
+                stance="suspended",reason="operator_error_correction",active_binding_ids=[],correlation_id="later",
+                tick=9,recorded_at="2026-01-01T00:00:01Z")
+    projection=owner.cognitive_projection(max_states=2)
+    assert projection is not None
+    assert projection.proposition_ids == tuple(sorted(p.proposition_id for p in propositions)[:2])
+    assert len(projection.states) == 2
+    assert projection.current_truth is projection.authority is projection.policy is projection.goal is False
+    assert all(state["authority"] == FALSE_AUTHORITY for state in projection.states)
+
+    event_path=next((tmp_path/"updates").glob("*.json"))
+    event=json.loads(event_path.read_text()); event["tick"]=100; event_path.write_text(json.dumps(event))
+    with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
+
+
 def test_authority_and_fabricated_or_missing_evidence_fail_closed(tmp_path):
     owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"]); p=proposition(); owner.register_proposition(p)
     with pytest.raises(EpistemicStateError,match="authority"):

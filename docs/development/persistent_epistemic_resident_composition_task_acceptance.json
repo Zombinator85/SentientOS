@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "91db480cde7e50ba93a621379dfc704aa39d5279",
+  "test_provenance_path": "/tmp/86414_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_persistent_epistemic_state.py::test_owner_projection_is_verified_latest_bounded_deterministic_and_empty", "rationale": "The owner verifies custody and constructs a deterministic bounded all-false-authority projection."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_sentientosd_composes_explicit_prior_epistemic_projection", "rationale": "The live runtime surface supplies explicit persistent custody to the ordinary resident cognition call."},
+    {"node_id": "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only", "rationale": "History intervention remains a controlled resident-cognition experiment."},
+    {"node_id": "tests/test_sentientosd_resident_cognitive_transition_composition.py::test_run_loop_regression_closes_previous_daemon_composition_gap", "rationale": "Cognition, transition, and same-tick self-model ordering remains intact."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_developmental_cognition.py::test_sentientosd_composes_explicit_prior_epistemic_projection"
+  ]
+}

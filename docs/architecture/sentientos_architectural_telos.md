@@ -5,7 +5,7 @@
 ## Current frontier corrections
 
 - Longitudinal self-model reconciliation and prior-tick resident consumption are composed behind explicit configuration; same-tick reconciliation cannot certify same-tick cognition.
-- Persistent epistemic state exists but is not threaded into the resident cognition tick.
+- Persistent epistemic state is explicitly threaded into the resident cognition tick as a verified, bounded prior-only substrate; it remains non-authoritative and separately configured.
 - Post-adoption software consequence measurement and repeated attribution machinery exist; production benefit and experimental causation do not.
 - Initial POSIX generation-zero commissioning and its startup gate exist; no production commissioning event is asserted.
 - Sovereign publication authorization and distinct effect admission exist and compose through a deterministic fake provider; genuine provider publication and catalog deployment do not.

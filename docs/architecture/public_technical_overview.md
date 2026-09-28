@@ -22,7 +22,7 @@ prior self-model + developmental history + canonical memory where selected
 -> consequence -> separately admitted developmental or epistemic update
 ```
 
-Not every arrow is composed. In particular, persistent epistemic state has an owner, durable generations, dependency correction, source calibration, and prior-only projection machinery, while `sentientosd.py` currently only defines a loader and does not pass that projection into `ResidentDevelopmentalCognitionOwner.run_tick`. It is **implemented but not composed into the live resident cognition path**.
+Persistent epistemic state has an owner, durable generations, dependency correction, source calibration, and prior-only projection machinery. `sentientosd.py` now explicitly composes a verified, bounded projection into `ResidentDevelopmentalCognitionOwner.run_tick`; configuration remains independent from cognition enablement. This closes read composition only, not automatic epistemic writeback or production longitudinal evidence.
 
 The longitudinal self-model does have an optional live path. Ordering is a temporal self-certification firewall:
 

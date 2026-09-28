@@ -21,7 +21,7 @@ class DevelopmentalHistoryInterventionError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + digest_payload(value)
+    return "sha256:" + str(digest_payload(value))
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,10 @@ class DevelopmentalHistoryInterventionProtocol:
     instruction_template_digest: str
     planned_comparisons: tuple[str, ...]
     non_claims: tuple[str, ...]
+    epistemic_projection_id: str | None = None
+    epistemic_projection_digest: str | None = None
+    epistemic_state_digests: tuple[str, ...] = ()
+    epistemic_evidence_set_digests: tuple[str, ...] = ()
     grants_authority: bool = False
     schema_version: str = SCHEMA
 
@@ -88,7 +92,8 @@ class DevelopmentalExperimentStore:
         verify_protocol(protocol)
         self._write_immutable(self.protocols / f"{protocol.protocol_id}.json", asdict(protocol))
         payload = json.loads((self.protocols / f"{protocol.protocol_id}.json").read_text())
-        for key in ("current_fact_ids", "record_ids", "record_digests", "condition_order", "planned_comparisons", "non_claims"):
+        for key in ("current_fact_ids", "record_ids", "record_digests", "condition_order", "planned_comparisons", "non_claims",
+                    "epistemic_state_digests", "epistemic_evidence_set_digests"):
             payload[key] = tuple(payload[key])
         loaded = DevelopmentalHistoryInterventionProtocol(**payload)
         verify_protocol(loaded)
@@ -103,6 +108,12 @@ class DevelopmentalExperimentStore:
 def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: Sequence[Any]) -> dict[str, Any]:
     if tuple(x.condition_id for x in observations) != CONDITION_ORDER:
         raise DevelopmentalHistoryInterventionError("condition_order_violated")
+    for observation in observations:
+        if (getattr(observation, "epistemic_projection_id", None) != protocol.epistemic_projection_id
+                or getattr(observation, "epistemic_projection_digest", None) != protocol.epistemic_projection_digest
+                or tuple(getattr(observation, "epistemic_state_digests", ())) != protocol.epistemic_state_digests
+                or tuple(getattr(observation, "epistemic_evidence_set_digests", ())) != protocol.epistemic_evidence_set_digests):
+            raise DevelopmentalHistoryInterventionError("epistemic_experiment_control_changed")
     present, withheld, restored = observations
     first = measure_changed_cognition(with_record=CognitionObservation(present.condition_id, present.observation_id, present.output_digest, present.retrieved_record_ids), without_record=CognitionObservation(withheld.condition_id, withheld.observation_id, withheld.output_digest, ()), expected_record_ids=protocol.record_ids)
     second = measure_changed_cognition(with_record=CognitionObservation(restored.condition_id, restored.observation_id, restored.output_digest, restored.retrieved_record_ids), without_record=CognitionObservation(withheld.condition_id, withheld.observation_id, withheld.output_digest, ()), expected_record_ids=protocol.record_ids)
