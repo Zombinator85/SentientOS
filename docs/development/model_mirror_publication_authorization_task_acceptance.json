@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "implement_model_mirror_publication_authorization",
+  "test_provenance_path": "/tmp/model_mirror_publication_authorization_test_provenance.json",
+  "task_classification": "behavior_adding",
+  "repository_sha": "de5e8da281116aaafc48fdb85a950b6aca08be13",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization.py::test_finite_issuance_projection_and_create_only_replay",
+      "rationale": "Required bounded authorization-to-publication behavioral proof."
+    },
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization_to_publication.py::test_same_kernel_two_admissions_publish_and_reconstruct_eligibility",
+      "rationale": "Required bounded authorization-to-publication behavioral proof."
+    },
+    {
+      "node_id": "tests/test_model_mirror_publication_authorization_to_publication.py::test_reusing_issuance_correlation_defers_before_provider_access",
+      "rationale": "Required bounded authorization-to-publication behavioral proof."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_model_mirror_publication_authorization_to_publication.py::test_same_kernel_two_admissions_publish_and_reconstruct_eligibility"
+  ]
+}
