@@ -8,6 +8,10 @@ In technical form: **SentientOS is a developmental, model-independent causal sub
 
 “Sentient” is a research aspiration, not a finding. The project does not presently claim consciousness, sentience, personhood, phenomenal continuity, biological life, or guaranteed emergence. Its experiments must permit “nothing durable emerged” as a valid answer.
 
+The boundary also runs through first-person narration, memory, self-report, affect, apparent relationship, and architectural sophistication: none becomes evidence of consciousness, moral status, rights, identity, or authority merely by existing. The project does not claim those open questions have been disproved.
+
+Every present-tense claim should be readable at one of four levels: **implemented**, **composed**, **production-evidenced**, or **projected**. Finer operational predicates never erase those boundaries.
+
 ## 2. Why this is an operating system
 
 SentientOS targets responsibility for persistent state, execution, authority, resource semantics, software succession, and consequences around cognition. It has two related forms:

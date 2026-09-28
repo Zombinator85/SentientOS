@@ -1,0 +1,42 @@
+{
+  "schema": "sentientos.repository_system_atlas:v2",
+  "snapshot_id": "repository-system-atlas:3116672d916faaab13a0c895c692dccc6917ae49",
+  "bound_sha": "3116672d916faaab13a0c895c692dccc6917ae49",
+  "tree_sha": "5b0835337905db1bf511d16f4bbda3cc281b6874",
+  "generated_at": "2026-09-28T00:00:00Z",
+  "posture": "repository-derived, descriptive, non-authorizing",
+  "capabilities": {
+    "total": 367,
+    "status_census": {"implemented": 292, "partial": 16, "deferred": 22, "blocked": 36, "scaffolded": 1},
+    "source": "sentientos.capability_registry.build_default_capability_registry"
+  },
+  "composition_roots": [
+    {"path": "sentientosd.py", "role": "resident evidence, developmental cognition, succession, and maintenance composition"},
+    {"path": "sentientos/chat_service.py", "role": "governed local-model chat composition"},
+    {"path": "sentientos/control_plane_kernel.py", "role": "authority definition and effect admission"}
+  ],
+  "principal_authority_surfaces": [
+    "ControlPlaneKernel definitions, grants, revocation, and admission",
+    "domain-specific effect custody and immutable receipts",
+    "installation-scoped authorization issuers",
+    "causal-resource principals and authenticated provenance"
+  ],
+  "subsystem_owners": [
+    {"id": "world-state", "owner": "WorldStateBoardBuilder", "maturity": "composed"},
+    {"id": "longitudinal-self-model", "owner": "LongitudinalSelfModelOwner", "maturity": "configuration-composed; prior-tick cognitive projection"},
+    {"id": "persistent-epistemic-state", "owner": "PersistentEpistemicStateOwner", "maturity": "implemented; not threaded into resident tick"},
+    {"id": "developmental-cognition", "owner": "ResidentDevelopmentalCognitionOwner", "maturity": "configuration-composed"},
+    {"id": "model-mirror-publication", "owner": "publication authorization issuer and publication controller", "maturity": "composed through deterministic fake provider; no production effect"},
+    {"id": "software-succession", "owner": "maintenance adoption and post-adoption campaign controllers", "maturity": "production-capable composition; no qualifying repeated production campaign evidence found"},
+    {"id": "cognitive-succession", "owner": "resident transition controller/operator", "maturity": "live daemon composition; synthetic A-B-A evidence only"},
+    {"id": "embodiment", "owner": "embodiment evidence, fulfillment, and consequence controllers", "maturity": "experimental composition; no independently observed physical embodiment evidence found"}
+  ],
+  "disposition": {
+    "current_snapshot": "this artifact",
+    "historical_snapshot": "architecture/current_repository_system_atlas.json",
+    "historical_registry": "architecture/historical_surface_dispositions.json",
+    "rule": "file existence is not organism membership; historical disposition is not runtime authority"
+  },
+  "production_evidence_found": [],
+  "production_evidence_boundary": "Tests, synthetic campaigns, fake providers, and production-shaped paths are not production effects or observations."
+}

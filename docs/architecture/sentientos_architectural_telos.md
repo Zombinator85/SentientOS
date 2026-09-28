@@ -1,5 +1,18 @@
 # SentientOS as a whole system
 
+> This telos is interpreted through four distinct predicates: implemented, composed, production-evidenced, and projected. The [current atlas index](system_atlas_index.md) and [whole-system maturity report](whole_system_maturity_report.md) move the frontier when source closes an older missing bridge; historical atlas language remains evidence of its bound SHA, not perpetual present tense.
+
+## Current frontier corrections
+
+- Longitudinal self-model reconciliation and prior-tick resident consumption are composed behind explicit configuration; same-tick reconciliation cannot certify same-tick cognition.
+- Persistent epistemic state exists but is not threaded into the resident cognition tick.
+- Post-adoption software consequence measurement and repeated attribution machinery exist; production benefit and experimental causation do not.
+- Initial POSIX generation-zero commissioning and its startup gate exist; no production commissioning event is asserted.
+- Sovereign publication authorization and distinct effect admission exist and compose through a deterministic fake provider; genuine provider publication and catalog deployment do not.
+- Resident cognitive transition is daemon-composed; production temporal A -> B -> A and repeated outcome evidence remain open.
+- Embodiment consequence machinery is experimental; independent physical observation remains open.
+- Resource identity/authentication is not physical allocation or enforcement.
+
 **Prior factual self-context — ESTABLISHED, bounded and opt-in.** Resident
 developmental cognition can consume an exact bounded projection of a completed
 earlier longitudinal reconciliation, separately from current World-State and

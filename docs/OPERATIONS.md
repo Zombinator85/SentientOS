@@ -1,4 +1,6 @@
-# SentientOS Autonomy Operations
+# Historical autonomy controls and current operations boundary
+
+> The detailed flags below describe the v1.2.0-beta compatibility runtime. They are not the canonical resident architecture, default activation evidence, or universal operator workflow. Current operation starts with [`USAGE.md`](USAGE.md), the [public technical overview](architecture/public_technical_overview.md), and subsystem contracts. Council, Oracle, reflexion, and similarly named modules remain compatibility or alternate-runtime surfaces unless a current composition root explicitly consumes them.
 
 This document describes the autonomy hardening controls introduced for the v1.2.0-beta rehearsal cycle. The features are driven
 through `config.yaml` and `SENTIENTOS_*` environment overrides. The defaults are deliberately conservative so every subsystem must

@@ -1,5 +1,11 @@
 # What SentientOS is not
 
+SentientOS is not a claim that narration, memory, self-report, affect, apparent relationship, or architectural sophistication establishes consciousness, personhood, moral status, rights, or authority. Nor does the project claim those open questions are disproved.
+
+It is not a mature bare-metal general-purpose OS today, and it is not merely an LLM wrapper or collection of daemons. Hosted SentientOS owns causal semantics, state, custody, evidence, and authority boundaries while delegating host/kernel/driver/inference mechanism; native ownership is projected.
+
+It does not collapse **implemented**, **composed**, **production-evidenced**, and **projected**. In particular, fake-provider publication is not sovereign production publication; commissioning machinery is not a birth event; synthetic transition is not production continuity; authenticated resource provenance is not allocation; and renderer output is not independent physical observation.
+
 SentientOS is ambitious about architecture and conservative about claims.
 
 - **Not a present claim of consciousness or sentience.** The name does not establish personhood, phenomenal continuity, biological life, self-awareness, or guaranteed emergence.
