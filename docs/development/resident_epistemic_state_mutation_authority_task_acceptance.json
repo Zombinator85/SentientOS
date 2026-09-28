@@ -1,0 +1,28 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b7d373e082e0e8aa2cb1bc92626bd7cf9d14a03a",
+  "test_provenance_path": "/tmp/86416_test_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_exact_definition_and_future_admission_surface",
+      "rationale": "The definition has the exact principal and stage-separable effect surface."
+    },
+    {
+      "node_id": "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_digest_bound_registration_grants_and_performs_nothing",
+      "rationale": "Exact approval-bound registration succeeds while granting and performing nothing."
+    },
+    {
+      "node_id": "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_registration_request_cannot_request_or_exercise_definition",
+      "rationale": "Registration request fields cannot request capability or runtime mutation."
+    },
+    {
+      "node_id": "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_registration_creates_no_epistemic_custody_or_runtime_bridge",
+      "rationale": "Registration creates no custody records, admission, or controller."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_exact_definition_and_future_admission_surface",
+    "tests/test_resident_epistemic_state_mutation_capability_admission.py::test_digest_bound_registration_grants_and_performs_nothing"
+  ]
+}
