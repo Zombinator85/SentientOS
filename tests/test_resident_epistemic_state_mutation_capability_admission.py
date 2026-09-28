@@ -182,7 +182,9 @@ def test_registration_creates_no_epistemic_custody_or_runtime_bridge(tmp_path: P
     after = {kind: tuple((owner.root / kind).iterdir()) for kind in before}
     assert result.definition_registered and before == after
     assert all(not paths for paths in after.values())
-    assert not Path("sentientos/resident_epistemic_state_mutation.py").exists()
+    # Definition registration itself creates no runtime bridge.  The separately
+    # admitted implementation task may subsequently add the bounded controller.
+    assert Path("sentientos/resident_epistemic_state_mutation.py").is_file()
     assert "issue_runtime_admission" not in register_authority_definition.__code__.co_names
 
 
