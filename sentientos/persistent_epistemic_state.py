@@ -157,9 +157,29 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
 
 @dataclass(frozen=True)
 class EpistemicUpdateCandidate:
-    candidate_id: str; proposition_id: str; predecessor_state_digest: str; proposed_stance: str
+    candidate_id: str; proposition_id: str; predecessor_state_digest: str | None; proposed_stance: str
     evidence_binding_ids: tuple[str, ...]; reason: str; rationale: str; uncertainty: str
     model_id: str; authority: Mapping[str, bool]; schema_version: str = CANDIDATE_SCHEMA
+
+    def payload(self) -> dict[str, Any]:
+        value = asdict(self); value.pop("candidate_id"); return value
+
+
+def make_epistemic_update_candidate(**kwargs: Any) -> EpistemicUpdateCandidate:
+    """Construct a proposal identity without conferring runtime authority."""
+    kwargs.setdefault("authority", dict(FALSE_AUTHORITY))
+    raw = EpistemicUpdateCandidate("", **kwargs)
+    if (raw.proposed_stance not in STANCES or raw.reason not in UPDATE_REASONS
+            or raw.uncertainty not in {"low", "medium", "high", "unknown"}
+            or not raw.rationale.strip() or len(raw.rationale) > 4000
+            or not raw.model_id.strip() or len(raw.model_id) > 256
+            or len(raw.evidence_binding_ids) != len(set(raw.evidence_binding_ids))):
+        raise EpistemicStateError("epistemic_candidate_shape_invalid")
+    if raw.reason != "initialization" and not raw.evidence_binding_ids:
+        raise EpistemicStateError("epistemic_candidate_evidence_required")
+    _authority(raw.authority)
+    candidate_id, _ = _identity("epistemic-candidate", raw.payload())
+    return replace(raw, candidate_id=candidate_id)
 
 
 @dataclass(frozen=True)
@@ -243,11 +263,31 @@ class PersistentEpistemicStateOwner:
         _write_new(self.root/"bindings"/f"{binding.binding_id}.json", asdict(binding))
 
     def bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
-        return tuple(EvidenceBinding(**v) for v in self._read("bindings") if v["proposition_id"] == proposition_id)
+        return tuple(EvidenceBinding(**{**v, "upstream_binding_ids": tuple(v["upstream_binding_ids"])})
+                     for v in self._read("bindings") if v["proposition_id"] == proposition_id)
 
     def current_state(self, proposition_id: str) -> EpistemicState | None:
-        states=[EpistemicState(**v) for v in self._read("states") if v["proposition_id"] == proposition_id]
+        states=[EpistemicState(**{**v, "support_binding_ids": tuple(v["support_binding_ids"]),
+                "contradiction_binding_ids": tuple(v["contradiction_binding_ids"])})
+                for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
+
+    def update_events(self, proposition_id: str) -> tuple[EpistemicUpdateEvent, ...]:
+        return tuple(sorted((EpistemicUpdateEvent(**{**v,
+                            "added_binding_ids": tuple(v["added_binding_ids"]),
+                            "removed_binding_ids": tuple(v["removed_binding_ids"])}) for v in self._read("updates")
+                            if v["proposition_id"] == proposition_id), key=lambda item: item.generation))
+
+    def active_binding_ids(self, proposition_id: str) -> tuple[str, ...]:
+        """Reconstruct explicit membership from attributable add/remove lineage."""
+        active: set[str] = set()
+        for event in self.update_events(proposition_id):
+            active.difference_update(event.removed_binding_ids)
+            active.update(event.added_binding_ids)
+        state = self.current_state(proposition_id)
+        if state is not None and digest(sorted(active)) != state.evidence_set_digest:
+            raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
+        return tuple(sorted(active))
 
     def cognitive_projection(self, *, max_states: int) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
@@ -299,7 +339,9 @@ class PersistentEpistemicStateOwner:
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
         if stance not in STANCES or reason not in UPDATE_REASONS: raise EpistemicStateError("epistemic_update_vocabulary_invalid")
-        if candidate and (candidate.proposition_id != proposition_id or candidate.predecessor_state_digest != expected_predecessor_digest or candidate.proposed_stance != stance or candidate.reason != reason or dict(candidate.authority) != FALSE_AUTHORITY): raise EpistemicStateError("epistemic_candidate_validation_failed")
+        if candidate:
+            expected_candidate = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items() if k not in {"candidate_id", "schema_version"}})
+            if (candidate != expected_candidate or candidate.proposition_id != proposition_id or candidate.predecessor_state_digest != expected_predecessor_digest or candidate.proposed_stance != stance or candidate.reason != reason or dict(candidate.authority) != FALSE_AUTHORITY): raise EpistemicStateError("epistemic_candidate_validation_failed")
         known={b.binding_id:b for b in self.bindings(proposition_id)}
         if (set(active_binding_ids) | set(added_binding_ids) | set(removed_binding_ids)) - set(known): raise EpistemicStateError("epistemic_evidence_not_found")
         selected=[known[x] for x in active_binding_ids]
@@ -382,4 +424,4 @@ def embodied_prediction_binding(*, proposition_id: str, expectation: Any, compar
     return make_evidence_binding(proposition_id=proposition_id,source_artifact_id=observation.observation_id,source_digest=observation.observation_digest,source_schema=observation.schema_version,source_class=observation.observation_source_class,observation_time=observation.observed_at,evidence_relation=relation,dependency_kind="independently_sourced_observation",dependency_group=observation.observer_id,upstream_binding_ids=(),freshness="current",reliability_posture=relation)
 
 
-__all__ = [name for name in tuple(globals()) if name.startswith("Epistemic") or name in {"PersistentEpistemicStateOwner","PropositionRelation","EvidenceBinding","make_proposition","make_evidence_binding","evidence_posture","embodied_prediction_binding","FALSE_AUTHORITY"}]
+__all__ = [name for name in tuple(globals()) if name.startswith("Epistemic") or name in {"PersistentEpistemicStateOwner","PropositionRelation","EvidenceBinding","make_proposition","make_evidence_binding","make_epistemic_update_candidate","evidence_posture","embodied_prediction_binding","FALSE_AUTHORITY"}]

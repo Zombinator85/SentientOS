@@ -1,24 +1,24 @@
 # Resident epistemic-state mutation authority
 
-## Definition-only registration
+## Registered definition and separately admitted runtime
 
-`resident_epistemic_state_mutation` is an operator-approved, governance-only
-definition for a future, separately admitted
+`resident_epistemic_state_mutation` began as an operator-approved, governance-only
+definition for a separately admitted
 `deterministic_resident_epistemic_state_controller` in the `epistemics`
 subsystem. This source-level catalog registration grants no capability, runtime
-authority, admission, lease, or effect and constructs no controller.
+authority, admission, lease, or effect. The later bounded implementation is
+`ResidentEpistemicStateMutationController`; each of its two mutation stages still
+requires a separate exact runtime admission. See
+[`resident_epistemic_state_mutation_runtime.md`](resident_epistemic_state_mutation_runtime.md).
 
 ```text
 definition exists
 != runtime admission exists
-!= controller exists
 != epistemic mutation occurred
 ```
 
-The definition is an implemented governance prerequisite. It is not a composed
-epistemic updating path, production evidence, or a claim of beneficial learning.
-The existing owner primitives remain unchanged, and a later task must implement
-and separately admit any controller.
+The definition remains only a governance prerequisite. The implemented controller is
+not an automatic updating path, production evidence, or a claim of beneficial learning.
 
 ## Exact effect vocabulary
 
@@ -92,4 +92,3 @@ approved authority definition
 Later cognition may consume an admitted result only as a prior epistemic
 position. Epistemic position is not truth, World-State, memory, self-model,
 developmental history, policy, goal, permission, or action authority.
-

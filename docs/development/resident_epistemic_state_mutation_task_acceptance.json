@@ -1,0 +1,12 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "908de3f9d4186c8ec68609076b8fba244713b61f",
+  "test_provenance_path": "/tmp/resident_epistemic_state_mutation_test_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_resident_epistemic_state_mutation.py::test_separate_admissions_append_update_and_prior_only_projection", "rationale": "Different exact admissions append evidence, CAS state, persist receipts, and project only prior position."},
+    {"node_id": "tests/test_resident_epistemic_state_mutation.py::test_cross_stage_broad_revoked_and_tampered_evidence_fail_without_mutation", "rationale": "Cross-stage, broad, revoked, and tampered evidence requests fail before mutation."},
+    {"node_id": "tests/test_resident_epistemic_state_mutation.py::test_candidate_tamper_missing_evidence_authority_and_stale_cas_fail", "rationale": "Candidate tampering, widened authority, missing evidence, and stale predecessors fail closed."}
+  ],
+  "successful_path_nodes": ["tests/test_resident_epistemic_state_mutation.py::test_separate_admissions_append_update_and_prior_only_projection"]
+}
