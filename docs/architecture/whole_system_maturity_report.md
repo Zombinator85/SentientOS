@@ -1,6 +1,10 @@
 # Whole-system maturity report
 
-> Bound to commit `3116672d916faaab13a0c895c692dccc6917ae49` and atlas `repository-system-atlas:3116672d916faaab13a0c895c692dccc6917ae49`.
+> Current-facing synthesis based on the immutable atlas snapshot bound to source commit
+> `b7df2a07b67373e709ab43c09a4631eff1f064c4`. The documentation-only successor commit
+> selects and explains that parent/source snapshot; it is not itself the behavioral
+> snapshot. The prior `3116672d...` atlas remains available from the
+> [atlas index](system_atlas_index.md).
 
 ## Thesis and semantic boundary
 
@@ -27,7 +31,7 @@ Callable, resident, default-active, authorized, and effectful are additional ind
 | independent approval -> bounded initial POSIX commissioning -> startup gate | implemented and operator/daemon-composed; no production generation-zero event found |
 | evidence -> World-State | resident-composed; evidence board is not omniscient truth |
 | prior self-model -> cognition -> later reconciliation | configuration-composed with prior-tick ordering |
-| prior epistemic position -> resident cognition | **composed** through verified, bounded, prior-only projection; no authority or automatic writeback |
+| current World-State evidence -> epistemic evidence/state -> later cognition | **composed when explicitly configured** through separately admitted evidence append and deterministic qualitative candidate, separately admitted exact-predecessor CAS state mutation, and later-tick-only projection; no truth or unrestricted belief-revision claim |
 | cognition -> proposal -> authority -> effect -> observation | composed only through named domain custodians; cognition cannot self-authorize |
 | consequence -> durable update -> later changed cognition | bounded developmental writeback is composed; generalized learning remains projected |
 | deficiency -> successor -> validation -> adoption -> replacement | bounded software succession is composed |
@@ -98,7 +102,17 @@ The lowering objective is to preserve **WHO, WHY, MAY, WHAT EXECUTED, WHAT IT CO
 
 ## Introspective topology
 
-Projected mature introspection is not one omniscient narrator. It is **a topology of independently owned, provenance-bearing self-observation surfaces** for installation, model supply/serving/succession, software succession, maintenance, authority, effects, resources, embodiment, memory, epistemics, federation, and supervision. Later cognition may consume these accounts as evidence; consumption grants no mutation authority over their owners.
+Causal introspection is implemented and daemon-composed as a bounded topology, not one
+omniscient narrator. Registered installation, model, maintenance, authority,
+epistemics, self-model, developmental, embodiment, supervision, and other owners emit
+independently attributable projections. Deterministic validation and aggregation writes
+an immutable predecessor-bound generation; a same-tick firewall permits it to appear
+only as later `owner_introspection` World-State evidence and later ordinary cognition.
+Coverage remains partial. Missing information stays unknown/not observed, and
+aggregation is not synthesis. Observation is neither truth nor authority, health is not
+permission, and consumption grants no mutation authority over an observed owner. The
+topology records bounded dimensions of **WHO, WHY, MAY, WHAT EXECUTED, WHAT IT COST, and
+WHAT HAPPENED** where the supplying owner actually knows them.
 
 ## Documentation, release, and repository metadata decisions
 
@@ -108,7 +122,7 @@ Projected mature introspection is not one omniscient narrator. It is **a topolog
 
 ## Exact remaining gaps
 
-1. Production observation adapters and longitudinal outcome evidence for the newly composed prior-only persistent epistemic projection.
+1. Production observation adapters and longitudinal epistemic outcomes for the composed evidence-to-state-to-later-cognition path.
 2. Genuine generation-zero commissioning evidence.
 3. A configured sovereign model provider and genuine publication, then separately authorized catalog deployment, acquisition, commissioning, activation, serving, and inference evidence.
 4. Repeated nonsynthetic cognitive succession with semantic outcome and recovery evidence.

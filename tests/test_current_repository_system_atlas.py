@@ -15,7 +15,7 @@ pytestmark = pytest.mark.no_legacy_skip
 
 ROOT = Path(__file__).resolve().parents[1]
 ATLAS_PATH = ROOT / "architecture/current_repository_system_atlas.json"
-CURRENT_ATLAS_PATH = ROOT / "architecture/repository_system_atlas_3116672d.json"
+CURRENT_ATLAS_PATH = ROOT / "architecture/repository_system_atlas_b7df2a07.json"
 EVIDENCE_SNAPSHOTS = (
     "architecture/current_repository_system_atlas.json",
     "docs/architecture/current_repository_system_atlas.md",
@@ -79,7 +79,7 @@ def test_historical_atlas_crosswalk_remains_internally_unique() -> None:
 def test_current_atlas_census_matches_current_registry() -> None:
     current = cast(dict[str, Any], json.loads(CURRENT_ATLAS_PATH.read_text(encoding="utf-8")))
     registry = build_default_capability_registry().records
-    assert current["bound_sha"] == "3116672d916faaab13a0c895c692dccc6917ae49"
+    assert current["bound_sha"] == "b7df2a07b67373e709ab43c09a4631eff1f064c4"
     assert current["capabilities"]["total"] == len(registry)
     assert current["capabilities"]["status_census"] == dict(Counter(row.status for row in registry))
 
