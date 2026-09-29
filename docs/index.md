@@ -63,3 +63,17 @@ shutdown.
 The [causal introspection topology](architecture/causal_introspection_topology.md)
 documents bounded owner-local self-observation, immutable snapshot custody, and
 the next-tick World-State firewall.
+
+## Cold-start current-state path
+
+Read, in order: the repository [README](../README.md), [one-page thesis](../one_pager.md),
+[public technical overview](architecture/public_technical_overview.md), [project
+thesis](architecture/sentientos_project_thesis.md), [whole-system maturity
+report](architecture/whole_system_maturity_report.md), [trajectory and open
+bridges](architecture/sentientos_trajectory_and_missing_organs.md), and [current atlas
+index](architecture/system_atlas_index.md). Then inspect the capability registry,
+runtime source, tests, and fresh evidence for disputed claims. Forward-facing pages
+summarize the integrated present; SHA-bound atlases are snapshots; historical task,
+phase, and proof pages retain landing-time state and do not override a newer current
+summary. Task-number chronology is optional evidence archaeology, not an architectural
+prerequisite.

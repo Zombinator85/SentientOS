@@ -74,8 +74,15 @@ Current governed software recursion is real and bounded, not unrestricted recurs
 ## Read next
 
 1. [Concise technical thesis](one_pager.md)
-2. [Canonical project thesis](docs/architecture/sentientos_project_thesis.md)
-3. [What actually runs](docs/architecture/public_technical_overview.md)
-4. [Open causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md)
-5. [Misconception filter](WHAT_SENTIENTOS_IS_NOT.md), [doctrine](DOCTRINE.md), and [semantic glossary](SEMANTIC_GLOSSARY.md)
-6. [System atlas](docs/architecture/current_repository_system_atlas.md) and [reviewer index](docs/architecture/reviewer_release_readiness_index.md) for exhaustive evidence navigation
+2. [What actually runs](docs/architecture/public_technical_overview.md)
+3. [Canonical project thesis](docs/architecture/sentientos_project_thesis.md)
+4. [Current whole-system maturity](docs/architecture/whole_system_maturity_report.md)
+5. [Open causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md)
+6. [Current system-atlas pointer](docs/architecture/system_atlas_index.md)
+7. [Capability registry](sentientos/capability_registry.py), source, and tests for any claim requiring exact verification
+
+These forward-facing pages summarize the integrated present. SHA-bound atlases are
+evidence snapshots, while historical task, phase, and proof pages retain their
+landing-time claims. A historical page never overrides a newer current-state summary.
+Review the registry, runtime composition, source, tests, and fresh execution evidence
+when a claim needs stronger verification. No task-number chronology is prerequisite.

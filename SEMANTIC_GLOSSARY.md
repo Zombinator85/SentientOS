@@ -32,7 +32,12 @@
 - **Minimal developmental authorship** — Minimization of unnecessary authored preferences or identity destinations while unavoidable priors remain explicit and separable.
 - **Causal organization** — The linked provenance and consequence structure a self-model may describe; the representation is not automatically the organization.
 - **Longitudinal self-model** — Immutable evidence-bound reconciliations and bounded read-only projections about the system. Current configured composition exposes only prior-tick material to cognition and carries no authority.
-- **Persistent epistemic state** — Model-independent proposition/evidence generations with source calibration and dependency correction. It is implemented at the current atlas SHA but not composed into the resident daemon tick.
+- **Persistent epistemic state** — Model-independent immutable proposition, evidence, state, and update generations with source provenance, reliability/dependency treatment, and exact-predecessor CAS. When explicitly configured it supplies a verified prior-only cognition projection; a position is not truth.
+- **Epistemic development** — The bounded daemon-cadence path from an exact World-State observation and configured proposition/rule through evidence append, deterministic qualitative update candidacy, admitted state mutation, and later-tick cognitive availability. It is not unrestricted automatic belief revision or proof of learning.
+- **Epistemic mutation admission** — Separate runtime permission for the evidence stage or state stage of an exact epistemic mutation. A candidate is not authority, admission is not execution, and the two stages do not imply each other.
+- **Causal introspection** — Deterministic validation and aggregation of independently attributable owner projections into an immutable predecessor-bound generation. Aggregation is not synthesis, truth, authority, identity, or an omniscient narrator.
+- **Owner-introspection projection** — A read-only, provenance-bearing report emitted by one registered domain owner; absent facts remain unknown or not observed rather than inferred.
+- **Introspection temporal firewall** — The ordering rule that a generation captured at tick N can enter World-State and cognition only on a later tick, preventing same-tick self-report feedback.
 - **Publication authorization** — Finite scoped permission issued after independent approval and issuance admission; not publication-effect admission or publication success.
 - **Catalog deployment** — Establishment of exact authoritative installation catalog state after separate authorization; not publication, acquisition, commissioning, activation, serving, or inference.
 - **Acquisition** — Custody of artifact bytes; conveys no commissioning authority.

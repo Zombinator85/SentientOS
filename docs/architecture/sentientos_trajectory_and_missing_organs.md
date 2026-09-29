@@ -1,6 +1,6 @@
 # SentientOS trajectory: causal bridges and open closure
 
-> **Frontier correction after task 86414:** post-adoption consequence measurement, bounded initial POSIX commissioning, model-publication authorization issuance, separate publication-effect admission, and live cognitive-transition composition are implemented rather than missing organs. Persistent epistemic projection is also resident-composed as a bounded prior-only input. The remaining bridges are production evidence and later governed causal closure. See the [whole-system maturity report](whole_system_maturity_report.md).
+> **Current frontier:** post-adoption consequence measurement, bounded initial POSIX commissioning, model-publication authorization issuance, separate publication-effect admission, live cognitive-transition composition, bounded epistemic development, and causal-introspection generation are implemented rather than missing organs. Remaining bridges are principally production evidence, physical enforcement, broader independent observation, and later governed causal closure. See the [whole-system maturity report](whole_system_maturity_report.md).
 
 The bounded World-State → longitudinal self-model → prior-tick cognition bridge
 is now composed only under exact opt-in custody. A deterministic external scorer
@@ -173,4 +173,16 @@ and closed embodied development remain absent.
 
 ## Epistemic organ landed
 
-The model-independent persistent epistemic owner now closes the repository-level evidence-to-prior chain. Objective-truth verification, Bayesian optimality, demonstrated learning, production sensor adapters, and real cross-model longitudinal benefit remain open; they are not implied by durable state changes.
+The model-independent persistent epistemic owner now closes a configured repository-level
+World-State-evidence-to-later-prior chain through separate evidence and state admissions,
+deterministic qualitative candidacy, immutable append, exact-predecessor CAS, daemon
+cadence, and a same-tick cognitive firewall. Objective-truth verification, Bayesian
+optimality, unrestricted belief revision, demonstrated beneficial learning, production
+sensor adapters, and real cross-model longitudinal benefit remain open; they are not
+implied by durable state changes.
+
+Whole-system causal introspection is likewise no longer a missing compositor: registered
+owners can contribute independently attributable projections to a deterministic,
+immutable generation that becomes `owner_introspection` evidence only on a later tick.
+Its remaining frontier is production breadth, independent validation, physical/resource
+owner coverage, and long-run evidence across genuine software and model succession.

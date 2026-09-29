@@ -1,0 +1,46 @@
+{
+  "schema": "sentientos.repository_system_atlas:v3",
+  "snapshot_id": "repository-system-atlas:b7df2a07b67373e709ab43c09a4631eff1f064c4",
+  "bound_sha": "b7df2a07b67373e709ab43c09a4631eff1f064c4",
+  "tree_sha": "a22b52b325bcf9795fa5d2b4ed77694e48e797a9",
+  "generated_at": "2026-09-29T00:00:00Z",
+  "posture": "immutable repository-derived descriptive non-authorizing source snapshot; selected by a later documentation-only commit",
+  "maturity_predicates": {
+    "implemented": "bounded mechanism exists",
+    "composed": "wired into an end-to-end runtime or operator path",
+    "production-evidenced": "qualifying real nonsynthetic execution or independent observation exists",
+    "projected": "future architecture, intended closure, hypothesis, or missing evidence"
+  },
+  "capabilities": {
+    "total": 368,
+    "status_census": {"implemented": 293, "partial": 16, "deferred": 22, "blocked": 36, "scaffolded": 1},
+    "source": "sentientos.capability_registry.build_default_capability_registry"
+  },
+  "supported_entrypoints": ["sentientosd.py", "sentientos-chat", "sentientos-admin", "scripts and module CLIs named by pyproject.toml and repository documentation"],
+  "composition_roots": [
+    {"path": "sentientosd.py", "role": "resident World-State, developmental cognition/writeback, epistemic development, causal introspection, succession, and maintenance"},
+    {"path": "sentientos/chat_service.py", "role": "governed local-model chat, sessions, and canonical-memory retrieval"},
+    {"path": "sentientos/control_plane_kernel.py", "role": "authority definition, grants, revocation, and effect admission"}
+  ],
+  "current_system_census": [
+    {"surface": "World-State", "maturity": "resident-composed evidence board; evidence is not truth", "evidence": ["sentientos/world_state_board.py", "sentientosd.py"]},
+    {"surface": "resident developmental cognition/writeback", "maturity": "bounded configuration-composed path with separate admission and later-tick history", "evidence": ["sentientos/resident_developmental_cognition.py", "sentientosd.py"]},
+    {"surface": "persistent epistemics", "maturity": "owner and mutation/development path implemented and explicitly configuration-composed; no production longitudinal claim", "evidence": ["sentientos/persistent_epistemic_state.py", "sentientos/resident_epistemic_state_mutation.py", "sentientos/resident_epistemic_development.py", "sentientosd.py"]},
+    {"surface": "causal introspection", "maturity": "bounded owner projections, immutable generation, temporal firewall, and World-State adapter implemented and daemon-composed; partial domain coverage", "evidence": ["sentientos/causal_introspection.py", "sentientosd.py", "sentientos/world_state_board.py"]},
+    {"surface": "longitudinal self-model", "maturity": "optional prior-tick cognition composition and later reconciliation", "evidence": ["sentientos/longitudinal_self_model.py", "sentientosd.py"]},
+    {"surface": "canonical memory", "maturity": "governed user retention and retrieval composed separately from developmental history", "evidence": ["sentientos/canonical_memory.py", "sentientos/chat_service.py"]},
+    {"surface": "model supply and lifecycle", "maturity": "publication topology composed through fake provider; catalog, acquisition, commissioning, activation, serving and inference remain separate boundaries; no sovereign production chain claimed", "evidence": ["sentientos/model_mirror_publication.py", "sentientos/model_lifecycle.py"]},
+    {"surface": "cognitive transition", "maturity": "daemon-composed quiescence, staged approval, journal and rebinding; synthetic A-B-A evidence only", "evidence": ["sentientos/cognitive_transition.py", "sentientosd.py"]},
+    {"surface": "software succession and maintenance", "maturity": "bounded adoption/replacement and production-capable attribution campaign path; repeated production benefit not evidenced", "evidence": ["sentientos/maintenance.py", "sentientosd.py"]},
+    {"surface": "authority, admission, and effects", "maturity": "domain-scoped control-plane and custody paths; proposal and definition do not grant execution", "evidence": ["sentientos/control_plane_kernel.py", "sentientos/runtime_admission.py"]},
+    {"surface": "causal resources", "maturity": "principal authentication and attribution implemented; physical allocation, measurement and enforcement projected", "evidence": ["sentientos/causal_resource.py"]},
+    {"surface": "embodiment", "maturity": "experimental command/observation/consequence machinery; independent physical closure not production-evidenced", "evidence": ["sentientos/embodiment.py"]},
+    {"surface": "federation", "maturity": "bounded evidence/candidate exchange; local adoption and authority remain local", "evidence": ["sentientos/federation.py"]},
+    {"surface": "supervision", "maturity": "bounded resident supervision and panic/recovery surfaces; not universal service recovery", "evidence": ["sentientosd.py"]}
+  ],
+  "epistemic_chain": ["World-State observation", "exact configured proposition/rule", "source proof and binding", "evidence-stage admission", "immutable evidence append", "deterministic qualitative candidate", "state-stage admission", "exact-predecessor CAS state/update append", "later-tick prior-only cognition projection"],
+  "introspection_chain": ["independently owned projections", "deterministic validated aggregation", "immutable predecessor-bound generation", "same-tick firewall", "later World-State owner_introspection evidence", "later cognition"],
+  "production_evidence_boundary": "Tests, synthetic campaigns, fake providers, renderer reports, and production-shaped paths are not production effects, independent physical observations, or beneficial longitudinal outcomes.",
+  "remaining_frontier": ["production observation adapters and longitudinal epistemic outcomes", "genuine generation-zero commissioning evidence", "sovereign model-provider and real publication/catalog/acquisition/commissioning/activation/serving/inference evidence", "repeated nonsynthetic cognitive succession and recovery", "repeated production software-attribution campaigns and stronger causal identification", "independently observed physical embodiment", "physical resource allocation measurement and enforcement", "production breadth and independent validation of causal introspection including physical/resource owners and long-run succession", "explicit release/version policy and independently observed hosted metadata"],
+  "historical_snapshots": ["architecture/current_repository_system_atlas.json", "architecture/repository_system_atlas_3116672d.json"]
+}

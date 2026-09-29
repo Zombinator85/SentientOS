@@ -46,6 +46,32 @@ The projection is evidence-bound, read-only, and explicitly all-false for author
 
 More exactly, World-State is a deterministic, digest-bound, read-only projection with provenance, freshness, staleness, and conflicts; it is not perfect self-knowledge or philosophical omniscience. Phase-one host-resource operation is read-only. `host_resource_runtime.py` and its observation surfaces do not amount to universal computer control: **observation != blanket host control**.
 
+### Resident epistemic development and causal introspection
+
+When explicitly configured, the daemon composes this bounded epistemic path:
+
+```text
+World-State observation -> exact proposition/rule -> source proof and binding
+-> evidence-stage admission -> immutable evidence append
+-> deterministic qualitative candidate -> state-stage admission
+-> exact-predecessor CAS state/update append
+-> later-tick prior-only projection -> resident cognition
+```
+
+Evidence and epistemic position are not truth; candidate, authority, admission, and
+execution remain distinct; same-tick mutation is not a same-tick cognitive prior. This
+does not establish Bayesian optimality, unrestricted belief revision, beneficial
+learning, production sensor coverage, consciousness, or identity.
+
+The daemon separately composes owner-local causal observation through deterministic
+validated aggregation, an immutable predecessor-bound introspection generation, a
+same-tick firewall, and later `owner_introspection` World-State evidence and cognition.
+Its WHO, WHY, MAY, WHAT EXECUTED, WHAT IT COST, and WHAT HAPPENED dimensions are partial:
+missing fields stay unknown/not observed. Aggregation is not synthesis, observation is
+neither truth nor authority, health is not permission, and self-observation is not a
+privileged narrator. Configuration, enablement, composition, authority, execution, and
+production evidence remain separate predicates.
+
 ### Bounded maintenance and succession
 
 Maintenance has bounded resident parent supervision. The governed path can form evidence/work, implement, validate and correct, land a successor, configure transition, quiesce the predecessor, verify readiness, adopt, and perform POSIX process-image replacement. This is cooperative, bounded operational closure—not universal crash recovery, unrestricted RSI, or autonomous authority to modify anything.
@@ -158,7 +184,7 @@ SentientOS is not wholly formally verified. Its bounded authority/effect gates a
 
 Use these durable indexes rather than expanding this page into a proof warehouse:
 
-- [Current repository system atlas](current_repository_system_atlas.md): exhaustive SHA-bound source, composition, persistence, and capability archaeology.
+- [Current system-atlas index](system_atlas_index.md): selects the latest immutable SHA-bound source, composition, persistence, and capability census.
 - [Reviewer release-readiness index](reviewer_release_readiness_index.md): historical proof wings and reviewer entry points.
 - [Capability registry](../../sentientos/capability_registry.py): machine-readable status and forbidden implications.
 - [Trajectory and materially incomplete causal bridges](sentientos_trajectory_and_missing_organs.md): composition, recovery, experimental, and product gaps.
