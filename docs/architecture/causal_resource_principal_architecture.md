@@ -20,7 +20,7 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 **Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
 
-The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane still verifies only canonical root binding.
+The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane verifies canonical root binding by default and, when explicitly injected with the existing provenance verifier, can authenticate the issuer provenance without changing policy or admission.
 
 ### Canonical verification is not issuer authentication
 
@@ -391,7 +391,7 @@ This table refuses equivalence-by-name. “Current status” distinguishes obser
 
 Observation-only proof-budget attribution is implemented at the explicit control-plane boundary, and GenesisForge now has one bounded explicit producer path that supplies an already-existing caller root for an invocation. A governed local-model budget adapter remains later work. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
 
-The **smallest next runtime slice** is `control_plane_root_principal_provenance_authentication`: independently verify the forwarded provenance at the explicit control-plane observation boundary. This remains separate from every allocation, entitlement, admission, and effect-authority slice.
+The **smallest next runtime slice** is `principal_revocation_currentness_policy`: define the stronger principal-specific revocation/currentness guarantee required before entitlement-bearing use. This remains separate from every allocation, entitlement, admission, and effect-authority slice.
 
 ## 19. Unresolved questions
 
@@ -444,7 +444,7 @@ These are bounded implementation decisions, not reasons to reopen the architectu
 | 16. `final_check` | after otherwise-valid effect admission and immediately before effect attempt, plus metering where required |
 | 17. `receipt_relation` | cross-linked but distinct resource and effect receipts |
 | 18. `deferred` | all runtime minting, ledgers, propagation, enforcement, billing, GPU accounting and cost sharing |
-| 19. `next_runtime_task` | Independently authenticate forwarded root provenance at the explicit control-plane observation boundary; do not add allocation or authority. |
+| 19. `next_runtime_task` | Define principal revocation/currentness policy required before entitlement-bearing use; do not add allocation or authority. |
 
 ## 22. Design contract summary
 

@@ -120,9 +120,9 @@ principal + envelope (serialized claims)
 
 The verified result is constructed only inside the verifier and is not accepted from serialized caller input. A caller can serialize claims, but `verified=true` or a caller-created wrapper never establishes verification.
 
-GenesisForge now carries an explicitly supplied exact principal and provenance as separate untrusted claims after exact-type and cross-binding checks. Verification does not occur in GenesisForge. The receiving control boundary still observes only the canonical root; independent provenance authentication and any process-local authenticated bundle remain deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
+GenesisForge now carries an explicitly supplied exact principal and provenance as separate untrusted claims after exact-type and cross-binding checks. Verification does not occur in GenesisForge. When explicitly constructed with a `RootIssuerProvenanceVerifier`, the receiving control boundary now independently authenticates the forwarded claim through the verifier’s injected lookup-only store and produces process-local authenticated evidence. The default and global kernels remain unconfigured and canonical-only; absent, unavailable, or failed authentication never upgrades the status.
 
-The existing `canonical_root_binding_verified` remains self-consistency-only. A future `authenticated_root_issuer_provenance_verified` status is truthful only after canonical validation, exact binding, trusted catalog lookup, signature verification, and currentness checks all succeed.
+The existing `canonical_root_binding_verified` remains self-consistency-only. The explicitly configured control-plane path emits `authenticated_root_issuer_provenance_verified` only after canonical validation, exact binding, trusted catalog lookup, signature verification, and currentness checks all succeed.
 
 ## Authority and resource-allocation boundary
 
@@ -185,14 +185,13 @@ construction, or signing failure return no paired result. The existing `mint_roo
 operation remains signer-free and backward compatible.
 
 The paired result contains no trust assertion, approval, secret, key reference,
-allocation, entitlement, admission, or effect grant. Forwarding through GenesisForge is implemented without changing control-plane status. This slice does not mutate trust, administer
+allocation, entitlement, admission, or effect grant. Forwarding through GenesisForge and explicitly configured control-plane authentication are implemented. The constructor accepts a completed `RootIssuerProvenanceVerifier`; it owns no catalog lookup or cryptography and the global kernel remains canonical-only. Authentication changes only bounded causal attribution and does not mutate trust, administer
 keys or revocation, allocate resources, establish entitlement, perform admission, or
-grant effect authority. Existing sponsorship, public trust, receiving-side
-verification, and future allocation boundaries remain separate.
+grant effect authority. Existing sponsorship and future allocation boundaries remain separate. Public trust is used only through the explicitly injected verifier.
 
 ## Smallest next implementation slice
 
-Implement exactly **`control_plane_root_principal_provenance_authentication`**: independently authenticate the forwarded provenance at the explicit control-plane observation boundary using configured public trust. Keep trust administration, allocation, admission, entitlement, and effects deferred.
+Implement exactly **`principal_revocation_currentness_policy`**: define and verify the principal-specific revocation/currentness rule required before any entitlement-bearing use. Keep trust administration, allocation, admission, entitlement, and effects deferred.
 
 ## Unresolved questions
 

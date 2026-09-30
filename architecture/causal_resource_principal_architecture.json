@@ -494,12 +494,13 @@
       "deterministic root verification",
       "strict canonical mapping",
       "observation-only proof-budget causal attribution at the explicit control-plane boundary",
-      "explicit GenesisForge invocation carries an already-existing root into proof-budget observation"
+      "explicit GenesisForge invocation carries an already-existing root into proof-budget observation",
+      "explicitly configured control-plane root issuer provenance authentication with canonical-only degradation"
     ],
     "principal_allocates_nothing": true,
     "principal_grants_nothing": true,
     "runtime_module": "sentientos/causal_resource_principal.py",
-    "status": "root_identity_with_observation_only_proof_budget_attribution",
+    "status": "root_identity_with_configured_authenticated_observation_only_attribution",
     "still_not_implemented": [
       "resource allocations",
       "allocation ledgers",
@@ -519,7 +520,7 @@
       "resident composition",
       "revocation registry",
       "renewal generations",
-      "cryptographic issuer authentication across untrusted transport"
+      "default-active control-plane public trust configuration"
     ]
   },
   "lineage_rules": {
@@ -705,7 +706,7 @@
       "work_item_id"
     ]
   },
-  "repository_sha": "168fde46163676cb913887282088a3687d7d7bf4",
+  "repository_sha": "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786",
   "resource_classes": [
     {
       "class": "consumable",

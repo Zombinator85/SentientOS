@@ -1,10 +1,92 @@
 {
-  "schema": "sentientos.causal_resource_principal_authentication_architecture:v4",
-  "posture": "bounded_genesis_forge_untrusted_provenance_forwarding_non_authority",
-  "repository_sha": "1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a",
+  "algorithm_policy": {
+    "claim_identifier": "ed25519",
+    "dependency_posture": "dependency_injected_unavailable_by_default_core_runtime_extra_required",
+    "failure_policy": "fail_closed_no_algorithm_negotiation_or_fallback",
+    "hmac": "test_only_never_production_asymmetric_authentication",
+    "key_id": "ed25519-sha256:<64_lower_hex_of_raw_public_key>",
+    "library": "cryptography.hazmat.primitives.asymmetric.ed25519",
+    "openssh": "not_selected_for_runtime_boundary",
+    "private_key_encoding": "32_byte_raw_seed_in_secret_custody_only",
+    "production": "ed25519_cryptography_runtime_extra",
+    "public_key_encoding": "32_byte_raw_key_base64url_no_padding_in_trusted_catalog",
+    "repository_nacl": "must_not_use",
+    "signature_encoding": "64_byte_signature_base64url_no_padding"
+  },
+  "alternatives": [
+    {
+      "decision": "reject",
+      "dependency_footprint": "runtime_crypto",
+      "id": "principal_v2_signature_fields",
+      "reason": "Authentication churn would unnecessarily change causal identity and break v1 compatibility.",
+      "rotation": "coupled_to_identity",
+      "stable_identity": false
+    },
+    {
+      "decision": "adopt",
+      "dependency_footprint": "injected_runtime_extra",
+      "id": "separate_v1_provenance_envelope",
+      "reason": "It preserves inert v1 identity while making issuer proof independently durable and replaceable.",
+      "rotation": "new_envelope_same_principal",
+      "stable_identity": true
+    },
+    {
+      "decision": "reject",
+      "dependency_footprint": "runtime_crypto",
+      "id": "signed_opaque_token",
+      "reason": "It removes transparent deterministic bindings and weakens auditability.",
+      "rotation": "opaque",
+      "stable_identity": false
+    },
+    {
+      "decision": "reject",
+      "dependency_footprint": "none",
+      "id": "trusted_in_process_object_only",
+      "reason": "Custody does not survive serialization, restart, or an untrusted transport boundary.",
+      "rotation": "not_durable",
+      "stable_identity": true
+    },
+    {
+      "decision": "reject",
+      "dependency_footprint": "ssh_keygen",
+      "id": "direct_strategic_ssh_reuse",
+      "reason": "Subprocess, temporary-file, environment, and artifact-chain coupling is not the smallest runtime issuer boundary.",
+      "rotation": "allowed_signers_operational",
+      "stable_identity": true
+    },
+    {
+      "decision": "adopt",
+      "dependency_footprint": "runtime_optional_cryptography",
+      "id": "injected_ed25519_with_separate_custody",
+      "reason": "Independent verification, purpose scoping, and separate secret/public custody meet the trust requirement without custom crypto.",
+      "rotation": "cataloged_key_versions",
+      "stable_identity": true
+    }
+  ],
+  "consumer_flow": [
+    "receive_principal_and_envelope_claims",
+    "canonical_principal_verification",
+    "exact_envelope_schema_and_digest",
+    "exact_principal_binding",
+    "trusted_issuer_key_catalog_lookup",
+    "algorithm_and_signature_verification",
+    "key_validity_and_revocation",
+    "principal_time_and_revocation_currentness",
+    "process_local_authenticated_root_principal_evidence"
+  ],
+  "control_plane_composition": {
+    "authenticated_status": "authenticated_root_issuer_provenance_verified",
+    "configuration": "constructor_injected_RootIssuerProvenanceVerifier",
+    "default_active": false,
+    "degradation_status": "canonical_root_binding_verified",
+    "failure_posture": "bounded_non_sensitive_classification",
+    "global_kernel_requires_trust": false,
+    "grants": [],
+    "implemented": true,
+    "policy_or_admission_input": false
+  },
   "current_gap": {
-    "statement": "signed_provenance_is_not_independently_verified_trust",
-    "closed_in_this_slice": "GenesisForge explicitly forwards one exact RootPrincipalIssuance as separate principal and untrusted provenance claims",
+    "closed_in_this_slice": "configured ControlPlaneKernel authenticates exact forwarded provenance through RootIssuerProvenanceVerifier",
     "current_guarantees": [
       "exact_v1_schema",
       "deterministic_principal_id",
@@ -12,14 +94,29 @@
       "one_sponsorship_verification",
       "exact_principal_provenance_pair",
       "purpose_scoped_ed25519_provenance",
-      "GenesisForge_exact_untrusted_pair_forwarding"
+      "GenesisForge_exact_untrusted_pair_forwarding",
+      "control_plane_authenticated_status_when_explicitly_configured",
+      "canonical_only_degradation"
     ],
     "not_guaranteed": [
-      "receiving_side_trust_without_independent_verification",
-      "control_plane_authenticated_status",
+      "default_global_kernel_public_trust_configuration",
+      "live_principal_revocation_currentness",
       "resource_entitlement",
       "effect_authority"
-    ]
+    ],
+    "statement": "control_plane_authentication_is_explicitly_composed_not_default_active"
+  },
+  "decision": "separate_v1_envelope_with_injected_ed25519_boundaries",
+  "domain_separation": "sentientos.causal_resource_principal.issuer_provenance:v1",
+  "durability": {
+    "persisted": [
+      "principal_mapping",
+      "provenance_envelope"
+    ],
+    "policy": "durable_immutable_claim_evidence",
+    "private_key_persisted_with_claim": false,
+    "restart": "signature_remains_verifiable_with_valid_historical_catalog_and_current_revocation_policy",
+    "storage_implementation": "deferred"
   },
   "evidence_sources": [
     "sentientos/causal_resource_principal.py",
@@ -51,482 +148,101 @@
     "sentientos/causal_resource_principal_provenance_signer.py",
     "tests/test_causal_resource_principal_provenance_signer.py",
     "tests/test_causal_resource_principal_issuer_provenance_integration.py",
-    "tests/test_genesis_forge_root_principal_provenance_forwarding.py"
+    "tests/test_genesis_forge_root_principal_provenance_forwarding.py",
+    "tests/test_control_plane_root_principal_provenance_authentication.py",
+    "docs/development/control_plane_root_principal_provenance_authentication_task_acceptance.json"
   ],
   "existing_mechanism_audit": [
     {
-      "mechanism": "sentientos/signed_strategic.py:SshStrategicSigner",
       "classification": "artifact_signing",
-      "reuse_decision": "requires_refactor_before_reuse",
-      "reason": "OpenSSH ssh-keygen -Y subprocesses, temporary files, a configured private-key path, an allowed-signers file, and hash-chain artifact semantics are operationally coupled to strategic artifacts rather than a persistent purpose-scoped root issuer."
+      "mechanism": "sentientos/signed_strategic.py:SshStrategicSigner",
+      "reason": "OpenSSH ssh-keygen -Y subprocesses, temporary files, a configured private-key path, an allowed-signers file, and hash-chain artifact semantics are operationally coupled to strategic artifacts rather than a persistent purpose-scoped root issuer.",
+      "reuse_decision": "requires_refactor_before_reuse"
     },
     {
-      "mechanism": "sentientos/signed_strategic.py:HmacTestStrategicSigner",
       "classification": "test_only_authentication",
-      "reuse_decision": "test_only",
-      "reason": "The shared secret gives verifiers signing power and the source and documentation explicitly identify this as hmac-test."
+      "mechanism": "sentientos/signed_strategic.py:HmacTestStrategicSigner",
+      "reason": "The shared secret gives verifiers signing power and the source and documentation explicitly identify this as hmac-test.",
+      "reuse_decision": "test_only"
     },
     {
+      "classification": "self_binding_integrity_only",
       "mechanism": "sentientos/operator_report_attestation.py",
-      "classification": "self_binding_integrity_only",
-      "reuse_decision": "incompatible_semantics",
-      "reason": "It seals report evidence but does not establish a separately custodied asymmetric root issuer."
+      "reason": "It seals report evidence but does not establish a separately custodied asymmetric root issuer.",
+      "reuse_decision": "incompatible_semantics"
     },
     {
+      "classification": "self_binding_integrity_only",
       "mechanism": "sentientos/attestation.py",
-      "classification": "self_binding_integrity_only",
-      "reuse_decision": "reuse_pattern_only",
-      "reason": "Canonicalization and envelope hashing patterns are useful, but hashes alone do not authenticate an issuer."
+      "reason": "Canonicalization and envelope hashing patterns are useful, but hashes alone do not authenticate an issuer.",
+      "reuse_decision": "reuse_pattern_only"
     },
     {
-      "mechanism": "nacl/signing.py",
       "classification": "compatibility_stub",
-      "reuse_decision": "must_not_use",
-      "reason": "It computes SHA-256(message || key), exposes the same bytes as signing and verification keys, and is not Ed25519; it MUST NOT be used as the security basis for causal-resource-principal issuer authentication."
+      "mechanism": "nacl/signing.py",
+      "reason": "It computes SHA-256(message || key), exposes the same bytes as signing and verification keys, and is not Ed25519; it MUST NOT be used as the security basis for causal-resource-principal issuer authentication.",
+      "reuse_decision": "must_not_use"
     },
     {
+      "classification": "credential_custody",
       "mechanism": "keyring_backend.py",
-      "classification": "credential_custody",
-      "reuse_decision": "incompatible_semantics",
-      "reason": "It is a legacy generic keyring facade and is not a purpose-scoped signing-key authority."
+      "reason": "It is a legacy generic keyring facade and is not a purpose-scoped signing-key authority.",
+      "reuse_decision": "incompatible_semantics"
     },
     {
+      "classification": "credential_custody",
       "mechanism": "sentientos/external_model_execution_custody.py:OSKeyringCredentialBackend",
-      "classification": "credential_custody",
-      "reuse_decision": "reuse_pattern_only",
-      "reason": "Its operator-provisioned, exact, read-only, fail-closed, short-lived secret-use boundary is precedent; external-model credentials and namespaces must not be reused as signing keys."
+      "reason": "Its operator-provisioned, exact, read-only, fail-closed, short-lived secret-use boundary is precedent; external-model credentials and namespaces must not be reused as signing keys.",
+      "reuse_decision": "reuse_pattern_only"
     }
   ],
-  "alternatives": [
-    {
-      "id": "principal_v2_signature_fields",
-      "decision": "reject",
-      "stable_identity": false,
-      "rotation": "coupled_to_identity",
-      "dependency_footprint": "runtime_crypto",
-      "reason": "Authentication churn would unnecessarily change causal identity and break v1 compatibility."
-    },
-    {
-      "id": "separate_v1_provenance_envelope",
-      "decision": "adopt",
-      "stable_identity": true,
-      "rotation": "new_envelope_same_principal",
-      "dependency_footprint": "injected_runtime_extra",
-      "reason": "It preserves inert v1 identity while making issuer proof independently durable and replaceable."
-    },
-    {
-      "id": "signed_opaque_token",
-      "decision": "reject",
-      "stable_identity": false,
-      "rotation": "opaque",
-      "dependency_footprint": "runtime_crypto",
-      "reason": "It removes transparent deterministic bindings and weakens auditability."
-    },
-    {
-      "id": "trusted_in_process_object_only",
-      "decision": "reject",
-      "stable_identity": true,
-      "rotation": "not_durable",
-      "dependency_footprint": "none",
-      "reason": "Custody does not survive serialization, restart, or an untrusted transport boundary."
-    },
-    {
-      "id": "direct_strategic_ssh_reuse",
-      "decision": "reject",
-      "stable_identity": true,
-      "rotation": "allowed_signers_operational",
-      "dependency_footprint": "ssh_keygen",
-      "reason": "Subprocess, temporary-file, environment, and artifact-chain coupling is not the smallest runtime issuer boundary."
-    },
-    {
-      "id": "injected_ed25519_with_separate_custody",
-      "decision": "adopt",
-      "stable_identity": true,
-      "rotation": "cataloged_key_versions",
-      "dependency_footprint": "runtime_optional_cryptography",
-      "reason": "Independent verification, purpose scoping, and separate secret/public custody meet the trust requirement without custom crypto."
-    }
-  ],
-  "decision": "separate_v1_envelope_with_injected_ed25519_boundaries",
-  "principal_compatibility": {
-    "schema": "sentientos.causal_resource_principal:v1",
-    "decision": "preserve_unchanged",
-    "identity_under_resigning": "same_principal_id",
-    "identity_under_key_rotation": "same_principal_id",
-    "authentication_evidence": "different_provenance_envelope"
-  },
-  "provenance_envelope": {
-    "conceptual_name": "RootPrincipalIssuerProvenance",
-    "purpose": "authenticate_issuance_provenance_for_one_exact_immutable_root_principal",
-    "durable_fields": [
-      "schema",
-      "principal_id",
-      "principal_binding_digest",
-      "issuer_id",
-      "signing_key_id",
-      "algorithm",
-      "signed_at",
-      "signature",
-      "provenance_digest"
-    ],
-    "forbidden_fields": [
-      "public_key",
-      "private_key",
-      "verified",
-      "resource_allocation",
-      "effect_grant",
-      "operator_approval"
-    ],
-    "authority": "none"
-  },
-  "signed_payload": {
-    "fields_in_order_independent_mapping": [
-      "schema",
-      "domain",
-      "principal_id",
-      "principal_binding_digest",
-      "issuer_id",
-      "signing_key_id",
-      "algorithm",
-      "signed_at"
-    ],
-    "canonicalization": "utf8_json_sorted_keys_compact_separators_trailing_lf",
-    "bytes_rule": "UTF-8 JSON with sort_keys=true, separators=(',', ':'), ensure_ascii=false, followed by one LF; never repr, free-form text, or insertion-order JSON",
-    "principal_substitution_resistance": "principal_id_and_binding_digest",
-    "context_substitution_resistance": "schema_and_domain",
-    "identity_substitution_resistance": "issuer_id_signing_key_id_and_algorithm"
-  },
-  "domain_separation": "sentientos.causal_resource_principal.issuer_provenance:v1",
-  "algorithm_policy": {
-    "production": "ed25519_cryptography_runtime_extra",
-    "library": "cryptography.hazmat.primitives.asymmetric.ed25519",
-    "private_key_encoding": "32_byte_raw_seed_in_secret_custody_only",
-    "public_key_encoding": "32_byte_raw_key_base64url_no_padding_in_trusted_catalog",
-    "signature_encoding": "64_byte_signature_base64url_no_padding",
-    "key_id": "ed25519-sha256:<64_lower_hex_of_raw_public_key>",
-    "dependency_posture": "dependency_injected_unavailable_by_default_core_runtime_extra_required",
-    "hmac": "test_only_never_production_asymmetric_authentication",
-    "openssh": "not_selected_for_runtime_boundary",
-    "repository_nacl": "must_not_use",
-    "failure_policy": "fail_closed_no_algorithm_negotiation_or_fallback",
-    "claim_identifier": "ed25519"
-  },
-  "signer_boundary": {
-    "conceptual_interface": "RootIssuerProvenanceSigner.authenticate_root_provenance(principal)",
-    "owner": "operator_configured_root_issuer_process",
-    "possesses": "purpose_scoped_private_signing_capability",
-    "runtime_consumers_may_possess": false,
-    "effects": "one_exact_provenance_signature",
-    "can_rotate_keys": false,
-    "can_mutate_trust": false,
-    "arbitrary_bytes_api": "forbidden",
-    "implementation": "CryptographyEd25519RootIssuerProvenanceSigner",
-    "production_implemented": true,
-    "payload_construction": "internal_canonical_root_provenance_payload_only",
-    "output": "RootPrincipalIssuerProvenance"
-  },
-  "verifier_boundary": {
-    "conceptual_interfaces": [
-      "RootIssuerTrustStore",
-      "RootIssuerProvenanceVerifier"
-    ],
-    "owner": "receiving_control_boundary",
-    "possesses": "trusted_public_keys_only",
-    "can_sign": false,
-    "can_rotate_keys": false,
-    "can_mutate_trust": false,
-    "output": "process_local_authenticated_root_principal_evidence"
-  },
-  "private_key_custody": {
-    "selected_posture": "injected_external_signer_or_dedicated_operator_provisioned_keystore",
-    "first_practical_backend": "dedicated_os_keyring_namespace_may_be_evaluated_not_reused_from_external_model",
-    "requirements": [
-      "exact_key_reference",
-      "read_or_use_only",
-      "no_runtime_generation",
-      "no_admin_surface",
-      "no_export_api",
-      "short_lived_material_if_export_is_unavoidable",
-      "redacted_errors",
-      "fail_closed",
-      "not_in_repository",
-      "not_in_evidence"
-    ],
-    "rejected": [
-      "process_environment",
-      "repository_file",
-      "caller_selected_secret_name",
-      "external_model_credential_namespace"
-    ],
-    "implementation": "production_purpose_scoped_operator_provisioned_private_key_custody",
-    "configuration": "immutable_exact_issuer_id_signing_key_id_algorithm_and_key_reference",
-    "production_backend": "read_only_os_keyring_dedicated_namespace",
-    "dedicated_namespace": "sentientos.causal_resource_principal.root_issuer",
-    "stored_encoding": "canonical_base64url_no_padding_of_exactly_32_byte_raw_seed",
-    "exposure": "readonly_memoryview_for_bounded_callback_only",
-    "zeroization_claim": "python_owned_encoded_and_decoded_mutable_buffers_zeroized_in_finally",
-    "key_consistency": "private_seed_derived_public_key_must_equal_configured_signing_key_id",
-    "caching": false,
-    "signing": false,
-    "administration": false
-  },
-  "public_key_custody": {
-    "selected_posture": "operator_provisioned_digest_sealed_versioned_trust_catalog",
-    "entry_key": [
-      "issuer_id",
-      "signing_key_id",
-      "algorithm"
-    ],
-    "entry_value": [
-      "public_key",
-      "valid_from",
-      "valid_until",
-      "revocation_status"
-    ],
-    "runtime_callers_can_add": false,
-    "envelope_key_accepted": false,
-    "unknown_pair": "fail_closed",
-    "mutation": "separate_operator_controlled_operation",
-    "implementation": "production_read_only_trusted_issuer_public_key_catalog",
-    "operator_binding": [
-      "exact_operator_configured_catalog_path",
-      "exact_expected_catalog_version",
-      "exact_expected_catalog_digest"
-    ],
-    "digest_scope": "canonical_schema_catalog_version_and_entries_excluding_catalog_digest",
-    "catalog_digest_authenticates_operator": false,
-    "loaded_representation": "immutable_in_memory_mapping",
-    "lookup": "exact_fail_closed_trust_tuple_lookup",
-    "staleness_rule": "operator_expected_catalog_version_and_digest_must_match",
-    "live_revocation_currentness": "deferred"
-  },
-  "trust_anchor_rules": [
-    "signature_validity_is_not_trusted_issuer",
-    "lookup_precedes_signature_acceptance",
-    "key_must_come_from_trusted_catalog",
-    "catalog_digest_and_version_must_validate",
-    "stale_or_corrupt_catalog_fails_closed"
-  ],
-  "issuer_identity": {
-    "meaning": "stable_logical_root_issuer",
-    "format": "existing_causal_principal_issuer_id_grammar",
-    "trust": "only_with_catalog_membership_not_ambient_string",
-    "stable_across_rotation": true
-  },
-  "key_identity": {
-    "meaning": "one_issuer_controlled_public_key_version",
-    "format": "ed25519-sha256:<64_lower_hex>",
-    "derivation": "sha256_raw_public_key",
-    "display_label_sufficient": false,
-    "changes_on_rotation": true,
-    "distinct_from_issuer_id": true,
-    "distinct_from_principal_epoch": true
-  },
-  "rotation_semantics": {
-    "implemented": false,
-    "model": "versioned_catalog_with_bounded_overlap",
-    "old_and_new_overlap": "allowed_only_with_explicit_validity_windows",
-    "old_key_after_rotation": "historical verification allowed only when signed_at and principal validity fit retained non_revoked historical catalog entry",
-    "new_key": "new_signing_key_id_new_envelope_same_principal_id",
-    "causal_identity_preserved": true,
-    "trust_basis": "versioned_historical_trust_evidence_plus_current_revocation_policy"
-  },
-  "revocation_semantics": {
-    "signing_key": "reject affected envelopes according to effective revocation policy",
-    "issuer_trust": "reject every issuer catalog entry from the effective point",
-    "single_root_principal": "separate_principal_revocation_registry_not_key_revocation",
-    "natural_expiry": "principal_validity_check_not_revocation",
-    "resource_allocation": "future_allocator_owned_operation_not_principal_or_key_revocation",
-    "required_before_entitlement_use": [
-      "key_revocation_currentness",
-      "issuer_trust_currentness",
-      "principal_revocation_policy"
-    ]
-  },
-  "replay_semantics": {
-    "policy": "allowed_while_principal_and_trust_are_current",
-    "nonce": "none",
-    "consumption": "none",
-    "reason": "Identity provenance is durable evidence, not a one-shot effect token; effect/allocation layers own anti-replay."
-  },
-  "durability": {
-    "policy": "durable_immutable_claim_evidence",
-    "persisted": [
-      "principal_mapping",
-      "provenance_envelope"
-    ],
-    "private_key_persisted_with_claim": false,
-    "restart": "signature_remains_verifiable_with_valid_historical_catalog_and_current_revocation_policy",
-    "storage_implementation": "deferred"
-  },
-  "producer_flow": [
-    "sponsorship_evidence",
-    "OperatorSponsorshipVerifier",
-    "VerifiedOperatorSponsorship",
-    "RootPrincipalIssuer",
-    "CausalResourcePrincipal",
-    "RootIssuerProvenanceSigner.authenticate_root_provenance",
-    "RootPrincipalIssuerProvenance"
-  ],
-  "consumer_flow": [
-    "receive_principal_and_envelope_claims",
-    "canonical_principal_verification",
-    "exact_envelope_schema_and_digest",
-    "exact_principal_binding",
-    "trusted_issuer_key_catalog_lookup",
-    "algorithm_and_signature_verification",
-    "key_validity_and_revocation",
-    "principal_time_and_revocation_currentness",
-    "process_local_authenticated_root_principal_evidence"
-  ],
-  "verified_result_semantics": {
-    "name": "AuthenticatedRootPrincipalEvidence",
-    "serialization": "not_accepted_as_verified_caller_truth",
-    "construction": "verifier_owned_process_local_factory_only",
-    "claim_input": "principal_plus_provenance_remain_untrusted_until_reverified",
-    "grants": []
-  },
-  "observation_only_policy": {
-    "canonical_status": "canonical_root_binding_verified",
-    "canonical_status_meaning": "self_consistency_only",
-    "future_authenticated_status": "authenticated_root_issuer_provenance_verified",
-    "authenticated_status_requires": [
-      "canonical_root",
-      "exact_binding",
-      "trusted_issuer_key",
-      "valid_signature",
-      "current_key_and_principal"
-    ],
-    "canonical_only_may_continue": true,
-    "canonical_only_grants": []
-  },
-  "future_allocation_prerequisite": {
-    "rule": "canonical_and_authenticated_issuer_provenance_verified_under_current_trusted_custody",
-    "canonical_self_binding_alone_sufficient": false,
-    "authentication_creates_allocation": false,
-    "additional_allocator_policy_required": true
-  },
   "failure_semantics": {
-    "missing_provenance": "unauthenticated_or_reject_by_consumer_policy",
+    "crypto_backend_unavailable": "reject_no_trust_upgrade",
+    "entitlement_consumer": "authentication_mandatory",
+    "key_expired": "reject",
+    "key_not_yet_valid": "reject",
+    "key_revoked": "reject",
     "malformed_provenance": "reject",
+    "missing_provenance": "unauthenticated_or_reject_by_consumer_policy",
+    "observation_only_degradation": "may_report_canonical_only_explicitly",
+    "principal_binding_mismatch": "reject",
+    "signature_mismatch": "reject",
+    "trust_catalog_stale_or_corrupt": "reject",
     "unknown_issuer": "reject",
     "unknown_key": "reject",
-    "unsupported_algorithm": "reject",
-    "signature_mismatch": "reject",
-    "principal_binding_mismatch": "reject",
-    "key_revoked": "reject",
-    "key_not_yet_valid": "reject",
-    "key_expired": "reject",
-    "trust_catalog_stale_or_corrupt": "reject",
-    "crypto_backend_unavailable": "reject_no_trust_upgrade",
-    "observation_only_degradation": "may_report_canonical_only_explicitly",
-    "entitlement_consumer": "authentication_mandatory"
+    "unsupported_algorithm": "reject"
   },
-  "security_invariants": [
-    "principal_self_binding != issuer_authentication",
-    "issuer_authentication != operator_sponsorship_verification",
-    "issuer_authentication != resource_entitlement",
-    "issuer_authentication != effect_authority",
-    "valid_signature != trusted_issuer",
-    "trusted_public_key_must_not_come_from_untrusted_envelope",
-    "verifier_capability != signer_capability",
-    "signing_key_reference != signing_authority",
-    "signer_may_not_sign_arbitrary_caller_controlled_bytes",
-    "private_key != durable_provenance_evidence",
-    "key_rotation != causal_identity_rotation",
-    "resource_principal_epoch != signing_key_generation",
-    "observation_only_canonical_attribution_may_be_weaker_than_entitlement_authentication",
-    "future_resource_allocation_must_not_rely_on_canonical_self_binding_alone",
-    "catalog_self_consistent_digest != operator_trust",
-    "catalog_contains_public_keys_only",
-    "catalog_grants_no_authority"
+  "forbidden_claims": [
+    "authenticated_provenance_is_resource_entitlement",
+    "authenticated_provenance_is_effect_authority",
+    "authenticated_provenance_is_admission",
+    "authenticated_provenance_is_operator_approval",
+    "signing_key_possession_is_allocator_authority",
+    "trusted_issuer_is_unlimited_resource_sponsor",
+    "valid_signature_is_operator_sponsorship_proof",
+    "caller_verified_true_is_trusted"
   ],
-  "threat_model": [
-    {
-      "threat": "self_consistent_unsigned_principal",
-      "mitigation": "authenticated consumers require a trusted-key signature envelope"
-    },
-    {
-      "threat": "attacker_untrusted_key_signature",
-      "mitigation": "operator-controlled issuer/key catalog lookup"
-    },
-    {
-      "threat": "envelope_public_key_substitution",
-      "mitigation": "public_key is forbidden in the envelope and ignored as trust input"
-    },
-    {
-      "threat": "issuer_id_substitution",
-      "mitigation": "issuer_id is signed and must match principal and catalog"
-    },
-    {
-      "threat": "signing_key_id_substitution",
-      "mitigation": "key ID is signed and is a canonical public-key fingerprint"
-    },
-    {
-      "threat": "principal_binding_substitution",
-      "mitigation": "principal_id and exact binding_digest are signed"
-    },
-    {
-      "threat": "cross_protocol_signature_reuse",
-      "mitigation": "fixed schema and domain separation are signed"
-    },
-    {
-      "threat": "algorithm_confusion",
-      "mitigation": "closed algorithm identifier is signed and catalog-bound with no negotiation"
-    },
-    {
-      "threat": "verifier_has_signing_power",
-      "mitigation": "asymmetric verification and separate interfaces/custody"
-    },
-    {
-      "threat": "signing_service_arbitrary_bytes",
-      "mitigation": "semantic authenticate_root_provenance API constructs bytes internally"
-    },
-    {
-      "threat": "arbitrary_keyring_secret_access",
-      "mitigation": "exact operator-configured reference and dedicated namespace"
-    },
-    {
-      "threat": "key_material_in_logs",
-      "mitigation": "redacted fixed errors and no secret repr/export"
-    },
-    {
-      "threat": "stale_key_after_revocation",
-      "mitigation": "versioned current trust and revocation checks"
-    },
-    {
-      "threat": "rotation_changes_identity",
-      "mitigation": "separate envelope leaves v1 principal unchanged"
-    },
-    {
-      "threat": "authentication_mistaken_for_entitlement",
-      "mitigation": "empty grants and separate allocator prerequisite"
-    },
-    {
-      "threat": "compromised_signer_mints_roots",
-      "mitigation": "purpose-scoped signer, operational containment, revocation; authentication still grants no allocation"
-    },
-    {
-      "threat": "signature_mistaken_for_sponsorship",
-      "mitigation": "signed binding preserves linkage but does not re-run sponsorship verification"
-    },
-    {
-      "threat": "test_hmac_in_production",
-      "mitigation": "closed production algorithm policy rejects hmac-test"
-    },
-    {
-      "threat": "compatibility_nacl_mistaken_for_crypto",
-      "mitigation": "explicit must_not_use classification and production backend constraint"
-    },
-    {
-      "threat": "crypto_unavailable_fallback",
-      "mitigation": "fail closed or explicitly remain canonical-only without authenticated status"
-    }
-  ],
+  "future_allocation_prerequisite": {
+    "additional_allocator_policy_required": true,
+    "authentication_creates_allocation": false,
+    "canonical_self_binding_alone_sufficient": false,
+    "rule": "canonical_and_authenticated_issuer_provenance_verified_under_current_trusted_custody"
+  },
   "implementation_boundaries": {
-    "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/genesis_forge.py"
+      "sentientos/control_plane_kernel.py"
+    ],
+    "deferred": [
+      "trust_mutation",
+      "key_rotation_revocation_infrastructure",
+      "principal_revocation_registry",
+      "resource_allocation",
+      "resource_entitlement_enforcement",
+      "resource_admission",
+      "resource_effect_authority",
+      "catalog_enrollment",
+      "catalog_writer_admin_cli",
+      "live_revocation_distribution"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -556,32 +272,365 @@
       "root_principal_issuer_integration",
       "exact_principal_and_provenance_paired_result",
       "single_sponsorship_verification_paired_issuance",
-      "GenesisForge_provenance_forwarding"
-    ],
-    "deferred": [
-      "trust_mutation",
-      "key_rotation_revocation_infrastructure",
-      "principal_revocation_registry",
+      "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
+      "explicit_RootIssuerProvenanceVerifier_injection",
+      "canonical_only_degradation"
+    ],
+    "runtime_changes_in_this_task": true
+  },
+  "issuer_identity": {
+    "format": "existing_causal_principal_issuer_id_grammar",
+    "meaning": "stable_logical_root_issuer",
+    "stable_across_rotation": true,
+    "trust": "only_with_catalog_membership_not_ambient_string"
+  },
+  "key_identity": {
+    "changes_on_rotation": true,
+    "derivation": "sha256_raw_public_key",
+    "display_label_sufficient": false,
+    "distinct_from_issuer_id": true,
+    "distinct_from_principal_epoch": true,
+    "format": "ed25519-sha256:<64_lower_hex>",
+    "meaning": "one_issuer_controlled_public_key_version"
+  },
+  "next_runtime_slice": {
+    "count": 1,
+    "excluded": [
       "resource_allocation",
-      "resource_entitlement_enforcement",
+      "resource_entitlement",
       "resource_admission",
       "resource_effect_authority",
-      "catalog_enrollment",
-      "catalog_writer_admin_cli",
-      "live_revocation_distribution"
-    ]
+      "trust_mutation"
+    ],
+    "id": "principal_revocation_currentness_policy",
+    "scope": "Define and verify principal-specific revocation/currentness policy required before any entitlement-bearing use, without allocation, entitlement, admission, or effects."
   },
-  "forbidden_claims": [
-    "authenticated_provenance_is_resource_entitlement",
-    "authenticated_provenance_is_effect_authority",
-    "authenticated_provenance_is_admission",
-    "authenticated_provenance_is_operator_approval",
-    "signing_key_possession_is_allocator_authority",
-    "trusted_issuer_is_unlimited_resource_sponsor",
-    "valid_signature_is_operator_sponsorship_proof",
-    "caller_verified_true_is_trusted"
+  "observation_only_policy": {
+    "authenticated_status_requires": [
+      "canonical_root",
+      "exact_binding",
+      "trusted_issuer_key",
+      "valid_signature",
+      "current_key_and_principal"
+    ],
+    "canonical_only_grants": [],
+    "canonical_only_may_continue": true,
+    "canonical_status": "canonical_root_binding_verified",
+    "canonical_status_meaning": "self_consistency_only",
+    "future_authenticated_status": "authenticated_root_issuer_provenance_verified"
+  },
+  "open_questions": [
+    "Which dedicated production keystore backend and deployment platforms are admitted?",
+    "What operator-controlled trust-catalog mutation and historical snapshot format is canonical?",
+    "What principal-specific revocation registry will precede entitlement-bearing use?"
   ],
+  "posture": "explicitly_configured_control_plane_provenance_authentication_non_authority",
+  "principal_compatibility": {
+    "authentication_evidence": "different_provenance_envelope",
+    "decision": "preserve_unchanged",
+    "identity_under_key_rotation": "same_principal_id",
+    "identity_under_resigning": "same_principal_id",
+    "schema": "sentientos.causal_resource_principal:v1"
+  },
+  "private_key_custody": {
+    "administration": false,
+    "caching": false,
+    "configuration": "immutable_exact_issuer_id_signing_key_id_algorithm_and_key_reference",
+    "dedicated_namespace": "sentientos.causal_resource_principal.root_issuer",
+    "exposure": "readonly_memoryview_for_bounded_callback_only",
+    "first_practical_backend": "dedicated_os_keyring_namespace_may_be_evaluated_not_reused_from_external_model",
+    "implementation": "production_purpose_scoped_operator_provisioned_private_key_custody",
+    "key_consistency": "private_seed_derived_public_key_must_equal_configured_signing_key_id",
+    "production_backend": "read_only_os_keyring_dedicated_namespace",
+    "rejected": [
+      "process_environment",
+      "repository_file",
+      "caller_selected_secret_name",
+      "external_model_credential_namespace"
+    ],
+    "requirements": [
+      "exact_key_reference",
+      "read_or_use_only",
+      "no_runtime_generation",
+      "no_admin_surface",
+      "no_export_api",
+      "short_lived_material_if_export_is_unavoidable",
+      "redacted_errors",
+      "fail_closed",
+      "not_in_repository",
+      "not_in_evidence"
+    ],
+    "selected_posture": "injected_external_signer_or_dedicated_operator_provisioned_keystore",
+    "signing": false,
+    "stored_encoding": "canonical_base64url_no_padding_of_exactly_32_byte_raw_seed",
+    "zeroization_claim": "python_owned_encoded_and_decoded_mutable_buffers_zeroized_in_finally"
+  },
+  "producer_flow": [
+    "sponsorship_evidence",
+    "OperatorSponsorshipVerifier",
+    "VerifiedOperatorSponsorship",
+    "RootPrincipalIssuer",
+    "CausalResourcePrincipal",
+    "RootIssuerProvenanceSigner.authenticate_root_provenance",
+    "RootPrincipalIssuerProvenance"
+  ],
+  "provenance_envelope": {
+    "authority": "none",
+    "conceptual_name": "RootPrincipalIssuerProvenance",
+    "durable_fields": [
+      "schema",
+      "principal_id",
+      "principal_binding_digest",
+      "issuer_id",
+      "signing_key_id",
+      "algorithm",
+      "signed_at",
+      "signature",
+      "provenance_digest"
+    ],
+    "forbidden_fields": [
+      "public_key",
+      "private_key",
+      "verified",
+      "resource_allocation",
+      "effect_grant",
+      "operator_approval"
+    ],
+    "purpose": "authenticate_issuance_provenance_for_one_exact_immutable_root_principal"
+  },
+  "public_key_custody": {
+    "catalog_digest_authenticates_operator": false,
+    "digest_scope": "canonical_schema_catalog_version_and_entries_excluding_catalog_digest",
+    "entry_key": [
+      "issuer_id",
+      "signing_key_id",
+      "algorithm"
+    ],
+    "entry_value": [
+      "public_key",
+      "valid_from",
+      "valid_until",
+      "revocation_status"
+    ],
+    "envelope_key_accepted": false,
+    "implementation": "production_read_only_trusted_issuer_public_key_catalog",
+    "live_revocation_currentness": "deferred",
+    "loaded_representation": "immutable_in_memory_mapping",
+    "lookup": "exact_fail_closed_trust_tuple_lookup",
+    "mutation": "separate_operator_controlled_operation",
+    "operator_binding": [
+      "exact_operator_configured_catalog_path",
+      "exact_expected_catalog_version",
+      "exact_expected_catalog_digest"
+    ],
+    "runtime_callers_can_add": false,
+    "selected_posture": "operator_provisioned_digest_sealed_versioned_trust_catalog",
+    "staleness_rule": "operator_expected_catalog_version_and_digest_must_match",
+    "unknown_pair": "fail_closed"
+  },
+  "replay_semantics": {
+    "consumption": "none",
+    "nonce": "none",
+    "policy": "allowed_while_principal_and_trust_are_current",
+    "reason": "Identity provenance is durable evidence, not a one-shot effect token; effect/allocation layers own anti-replay."
+  },
+  "repository_sha": "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786",
+  "revocation_semantics": {
+    "issuer_trust": "reject every issuer catalog entry from the effective point",
+    "natural_expiry": "principal_validity_check_not_revocation",
+    "required_before_entitlement_use": [
+      "key_revocation_currentness",
+      "issuer_trust_currentness",
+      "principal_revocation_policy"
+    ],
+    "resource_allocation": "future_allocator_owned_operation_not_principal_or_key_revocation",
+    "signing_key": "reject affected envelopes according to effective revocation policy",
+    "single_root_principal": "separate_principal_revocation_registry_not_key_revocation"
+  },
+  "root_principal_issuer_integration": {
+    "api": "RootPrincipalIssuer.mint_root_with_provenance",
+    "canonical_only_api": "RootPrincipalIssuer.mint_root remains signer-free",
+    "grants": [],
+    "implemented": true,
+    "output": "RootPrincipalIssuance",
+    "output_fields": [
+      "principal",
+      "provenance"
+    ],
+    "provenance_trust": "unverified_claim_until_receiving_side_verification",
+    "signer_injection": "RootIssuerProvenanceSigner",
+    "signing_time": "explicit_signed_at",
+    "sponsorship_verifications_per_successful_issuance": 1
+  },
+  "rotation_semantics": {
+    "causal_identity_preserved": true,
+    "implemented": false,
+    "model": "versioned_catalog_with_bounded_overlap",
+    "new_key": "new_signing_key_id_new_envelope_same_principal_id",
+    "old_and_new_overlap": "allowed_only_with_explicit_validity_windows",
+    "old_key_after_rotation": "historical verification allowed only when signed_at and principal validity fit retained non_revoked historical catalog entry",
+    "trust_basis": "versioned_historical_trust_evidence_plus_current_revocation_policy"
+  },
+  "schema": "sentientos.causal_resource_principal_authentication_architecture:v5",
+  "security_invariants": [
+    "principal_self_binding != issuer_authentication",
+    "issuer_authentication != operator_sponsorship_verification",
+    "issuer_authentication != resource_entitlement",
+    "issuer_authentication != effect_authority",
+    "valid_signature != trusted_issuer",
+    "trusted_public_key_must_not_come_from_untrusted_envelope",
+    "verifier_capability != signer_capability",
+    "signing_key_reference != signing_authority",
+    "signer_may_not_sign_arbitrary_caller_controlled_bytes",
+    "private_key != durable_provenance_evidence",
+    "key_rotation != causal_identity_rotation",
+    "resource_principal_epoch != signing_key_generation",
+    "observation_only_canonical_attribution_may_be_weaker_than_entitlement_authentication",
+    "future_resource_allocation_must_not_rely_on_canonical_self_binding_alone",
+    "catalog_self_consistent_digest != operator_trust",
+    "catalog_contains_public_keys_only",
+    "catalog_grants_no_authority"
+  ],
+  "signed_payload": {
+    "bytes_rule": "UTF-8 JSON with sort_keys=true, separators=(',', ':'), ensure_ascii=false, followed by one LF; never repr, free-form text, or insertion-order JSON",
+    "canonicalization": "utf8_json_sorted_keys_compact_separators_trailing_lf",
+    "context_substitution_resistance": "schema_and_domain",
+    "fields_in_order_independent_mapping": [
+      "schema",
+      "domain",
+      "principal_id",
+      "principal_binding_digest",
+      "issuer_id",
+      "signing_key_id",
+      "algorithm",
+      "signed_at"
+    ],
+    "identity_substitution_resistance": "issuer_id_signing_key_id_and_algorithm",
+    "principal_substitution_resistance": "principal_id_and_binding_digest"
+  },
+  "signer_boundary": {
+    "arbitrary_bytes_api": "forbidden",
+    "can_mutate_trust": false,
+    "can_rotate_keys": false,
+    "conceptual_interface": "RootIssuerProvenanceSigner.authenticate_root_provenance(principal)",
+    "effects": "one_exact_provenance_signature",
+    "implementation": "CryptographyEd25519RootIssuerProvenanceSigner",
+    "output": "RootPrincipalIssuerProvenance",
+    "owner": "operator_configured_root_issuer_process",
+    "payload_construction": "internal_canonical_root_provenance_payload_only",
+    "possesses": "purpose_scoped_private_signing_capability",
+    "production_implemented": true,
+    "runtime_consumers_may_possess": false
+  },
+  "threat_model": [
+    {
+      "mitigation": "authenticated consumers require a trusted-key signature envelope",
+      "threat": "self_consistent_unsigned_principal"
+    },
+    {
+      "mitigation": "operator-controlled issuer/key catalog lookup",
+      "threat": "attacker_untrusted_key_signature"
+    },
+    {
+      "mitigation": "public_key is forbidden in the envelope and ignored as trust input",
+      "threat": "envelope_public_key_substitution"
+    },
+    {
+      "mitigation": "issuer_id is signed and must match principal and catalog",
+      "threat": "issuer_id_substitution"
+    },
+    {
+      "mitigation": "key ID is signed and is a canonical public-key fingerprint",
+      "threat": "signing_key_id_substitution"
+    },
+    {
+      "mitigation": "principal_id and exact binding_digest are signed",
+      "threat": "principal_binding_substitution"
+    },
+    {
+      "mitigation": "fixed schema and domain separation are signed",
+      "threat": "cross_protocol_signature_reuse"
+    },
+    {
+      "mitigation": "closed algorithm identifier is signed and catalog-bound with no negotiation",
+      "threat": "algorithm_confusion"
+    },
+    {
+      "mitigation": "asymmetric verification and separate interfaces/custody",
+      "threat": "verifier_has_signing_power"
+    },
+    {
+      "mitigation": "semantic authenticate_root_provenance API constructs bytes internally",
+      "threat": "signing_service_arbitrary_bytes"
+    },
+    {
+      "mitigation": "exact operator-configured reference and dedicated namespace",
+      "threat": "arbitrary_keyring_secret_access"
+    },
+    {
+      "mitigation": "redacted fixed errors and no secret repr/export",
+      "threat": "key_material_in_logs"
+    },
+    {
+      "mitigation": "versioned current trust and revocation checks",
+      "threat": "stale_key_after_revocation"
+    },
+    {
+      "mitigation": "separate envelope leaves v1 principal unchanged",
+      "threat": "rotation_changes_identity"
+    },
+    {
+      "mitigation": "empty grants and separate allocator prerequisite",
+      "threat": "authentication_mistaken_for_entitlement"
+    },
+    {
+      "mitigation": "purpose-scoped signer, operational containment, revocation; authentication still grants no allocation",
+      "threat": "compromised_signer_mints_roots"
+    },
+    {
+      "mitigation": "signed binding preserves linkage but does not re-run sponsorship verification",
+      "threat": "signature_mistaken_for_sponsorship"
+    },
+    {
+      "mitigation": "closed production algorithm policy rejects hmac-test",
+      "threat": "test_hmac_in_production"
+    },
+    {
+      "mitigation": "explicit must_not_use classification and production backend constraint",
+      "threat": "compatibility_nacl_mistaken_for_crypto"
+    },
+    {
+      "mitigation": "fail closed or explicitly remain canonical-only without authenticated status",
+      "threat": "crypto_unavailable_fallback"
+    }
+  ],
+  "trust_anchor_rules": [
+    "signature_validity_is_not_trusted_issuer",
+    "lookup_precedes_signature_acceptance",
+    "key_must_come_from_trusted_catalog",
+    "catalog_digest_and_version_must_validate",
+    "stale_or_corrupt_catalog_fails_closed"
+  ],
+  "verified_result_semantics": {
+    "claim_input": "principal_plus_provenance_remain_untrusted_until_reverified",
+    "construction": "verifier_owned_process_local_factory_only",
+    "grants": [],
+    "name": "AuthenticatedRootPrincipalEvidence",
+    "serialization": "not_accepted_as_verified_caller_truth"
+  },
+  "verifier_boundary": {
+    "can_mutate_trust": false,
+    "can_rotate_keys": false,
+    "can_sign": false,
+    "conceptual_interfaces": [
+      "RootIssuerTrustStore",
+      "RootIssuerProvenanceVerifier"
+    ],
+    "output": "process_local_authenticated_root_principal_evidence",
+    "owner": "receiving_control_boundary",
+    "possesses": "trusted_public_keys_only"
+  },
   "what_not_to_build": [
     "custom_cryptography",
     "repository_local_fake_nacl_production_security",
@@ -595,41 +644,5 @@
     "issuance_bundled_key_admin",
     "silent_crypto_fallback",
     "automatic_allocation_after_authentication"
-  ],
-  "open_questions": [
-    "Which dedicated production keystore backend and deployment platforms are admitted?",
-    "What operator-controlled trust-catalog mutation and historical snapshot format is canonical?",
-    "What principal-specific revocation registry will precede entitlement-bearing use?"
-  ],
-  "next_runtime_slice": {
-    "count": 1,
-    "id": "control_plane_root_principal_provenance_authentication",
-    "scope": "Independently authenticate the explicitly forwarded root-principal provenance at the control-plane observation boundary using configured public trust, without allocation, admission, entitlement, or effects.",
-    "excluded": [
-      "GenesisForge_automatic_root_signing",
-      "trust_mutation",
-      "key_rotation_administration",
-      "live_revocation_distribution",
-      "principal_revocation_registry",
-      "resource_allocation",
-      "resource_entitlement",
-      "resource_admission",
-      "resource_effect_authority"
-    ]
-  },
-  "root_principal_issuer_integration": {
-    "implemented": true,
-    "api": "RootPrincipalIssuer.mint_root_with_provenance",
-    "output": "RootPrincipalIssuance",
-    "output_fields": [
-      "principal",
-      "provenance"
-    ],
-    "sponsorship_verifications_per_successful_issuance": 1,
-    "signer_injection": "RootIssuerProvenanceSigner",
-    "signing_time": "explicit_signed_at",
-    "canonical_only_api": "RootPrincipalIssuer.mint_root remains signer-free",
-    "provenance_trust": "unverified_claim_until_receiving_side_verification",
-    "grants": []
-  }
+  ]
 }

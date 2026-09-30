@@ -16,14 +16,14 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a"
-    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v4"
+    assert CONTRACT["repository_sha"] == "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786"
+    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v5"
     assert CONTRACT["posture"] == (
-        "bounded_genesis_forge_untrusted_provenance_forwarding_non_authority"
+        "explicitly_configured_control_plane_provenance_authentication_non_authority"
     )
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/genesis_forge.py"
+        "sentientos/control_plane_kernel.py"
     ]
 
 
@@ -33,7 +33,7 @@ def test_v1_identity_and_authentication_are_separate() -> None:
     assert compatibility["decision"] == "preserve_unchanged"
     assert compatibility["identity_under_key_rotation"] == "same_principal_id"
     assert compatibility["identity_under_resigning"] == "same_principal_id"
-    assert CONTRACT["current_gap"]["statement"] == "signed_provenance_is_not_independently_verified_trust"
+    assert CONTRACT["current_gap"]["statement"] == "control_plane_authentication_is_explicitly_composed_not_default_active"
 
 
 def test_existing_mechanism_decisions_use_closed_vocabularies() -> None:
@@ -87,11 +87,11 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_control_plane_authentication_task() -> None:
+def test_next_slice_is_one_bounded_revocation_currentness_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "control_plane_root_principal_provenance_authentication"
-    assert "Independently authenticate" in next_slice["scope"]
+    assert next_slice["id"] == "principal_revocation_currentness_policy"
+    assert "revocation/currentness" in next_slice["scope"]
     assert "without allocation" in next_slice["scope"]
 
 
@@ -104,6 +104,8 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "real_verification_for_already_resolved_trusted_public_key_only" in boundaries["implemented"]
     assert "production_read_only_trusted_issuer_public_key_catalog" in boundaries["implemented"]
     assert "GenesisForge_provenance_forwarding" in boundaries["implemented"]
+    assert "control_plane_authenticated_status" in boundaries["implemented"]
+    assert "control_plane_authenticated_status" not in boundaries["deferred"]
     assert "GenesisForge_provenance_forwarding" not in boundaries["deferred"]
     assert "operator_provisioned_digest_sealed_versioned_public_trust" in boundaries["implemented"]
     assert "exact_fail_closed_trust_tuple_lookup" in boundaries["implemented"]
