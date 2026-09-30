@@ -1,6 +1,6 @@
 {
   "schema": "sentientos.causal_resource_principal_authentication_architecture:v2",
-  "posture": "bounded_runtime_verification_and_private_key_custody_boundary_non_authority",
+  "posture": "bounded_runtime_verification_private_key_custody_and_purpose_scoped_signing_non_authority",
   "repository_sha": "494f03e1aaf3d61fe2b98769b295517376824cb9",
   "current_gap": {
     "statement": "principal_self_binding_is_not_issuer_authentication",
@@ -45,7 +45,9 @@
     "sentientos/causal_resource_principal_trust_catalog.py",
     "tests/test_causal_resource_principal_trust_catalog.py",
     "sentientos/causal_resource_principal_signer_custody.py",
-    "tests/test_causal_resource_principal_signer_custody.py"
+    "tests/test_causal_resource_principal_signer_custody.py",
+    "sentientos/causal_resource_principal_provenance_signer.py",
+    "tests/test_causal_resource_principal_provenance_signer.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -213,7 +215,11 @@
     "effects": "one_exact_provenance_signature",
     "can_rotate_keys": false,
     "can_mutate_trust": false,
-    "arbitrary_bytes_api": "forbidden"
+    "arbitrary_bytes_api": "forbidden",
+    "implementation": "CryptographyEd25519RootIssuerProvenanceSigner",
+    "production_implemented": true,
+    "payload_construction": "internal_canonical_root_provenance_payload_only",
+    "output": "RootPrincipalIssuerProvenance"
   },
   "verifier_boundary": {
     "conceptual_interfaces": [
@@ -516,7 +522,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_signer_custody.py"
+      "sentientos/causal_resource_principal_provenance_signer.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -538,10 +544,13 @@
       "purpose_scoped_operator_provisioned_signing_key_reference",
       "short_lived_zeroized_private_seed_use",
       "private_seed_to_configured_key_id_consistency_check",
-      "production_read_only_dedicated_os_keyring_backend"
+      "production_read_only_dedicated_os_keyring_backend",
+      "production_RootIssuerProvenanceSigner",
+      "internal_canonical_root_provenance_payload_signing",
+      "real_ed25519_signature_generation",
+      "canonical_base64url_signature_envelope"
     ],
     "deferred": [
-      "production_RootIssuerProvenanceSigner",
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
       "principal_revocation_registry",
@@ -588,10 +597,9 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "production_purpose_scoped_root_issuer_provenance_signer",
-    "scope": "Consume exact private-key custody, construct the canonical provenance payload internally, sign only that semantic object, and emit RootPrincipalIssuerProvenance without root issuance, GenesisForge, or control-plane composition.",
+    "id": "production_root_principal_issuer_provenance_integration",
+    "scope": "Compose the existing purpose-scoped provenance signer into RootPrincipalIssuer output so one operator-sponsored root issuance returns its exact principal and provenance envelope, without GenesisForge forwarding, control-plane authenticated status, trust administration, allocation, admission, entitlement, or effects.",
     "excluded": [
-      "root_principal_issuer_integration",
       "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
       "trust_mutation",

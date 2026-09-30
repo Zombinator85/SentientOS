@@ -1,0 +1,51 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "5e62052246acd4aca8954e4cb7f938c1d7a8c676",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_real_custody_signer_catalog_and_verifier_chain",
+      "rationale": "Real Ed25519 proves private custody through the production signer, durable claim, read-only trusted catalog, production verifier, and exact authenticated evidence."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_signer_and_custody_key_binding_mismatch_fails_before_secret_read",
+      "rationale": "Signer and custody key substitution fails before private material is retrieved."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_only_exact_canonical_principal_is_accepted",
+      "rationale": "Mappings and malformed principal objects cannot reach signing."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_custody_unavailable_and_malformed_material_are_bounded",
+      "rationale": "Missing, malformed, and wrong-key custody material fail closed with bounded errors."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_backend_unavailable_and_signing_failure_are_bounded_and_redacted",
+      "rationale": "Cryptographic backend and signing failures expose only fixed redacted reasons."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_every_signing_call_reacquires_custody",
+      "rationale": "Each purpose-scoped operation reacquires and zeroizes custody material rather than caching it."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_principal_substitution_after_signing_fails_verification",
+      "rationale": "One root's provenance cannot authenticate a substituted root."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_provenance_signer.py::test_signer_surface_is_purpose_scoped_and_non_authoritative",
+      "rationale": "Structural proof excludes arbitrary-message signing, issuance, key/trust administration, allocation, admission, entitlement, effects, GenesisForge, and control-plane mutation."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication_architecture.py::test_next_slice_is_one_bounded_root_issuance_integration_task",
+      "rationale": "The completed signer slice advances the exact current-facing next slice without implementing it."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication_architecture.py::test_implemented_and_deferred_boundaries_are_exactly_separated",
+      "rationale": "The architecture marks purpose-scoped signing implemented while authority and allocation remain deferred."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_provenance_signer.py::test_real_custody_signer_catalog_and_verifier_chain"
+  ]
+}
