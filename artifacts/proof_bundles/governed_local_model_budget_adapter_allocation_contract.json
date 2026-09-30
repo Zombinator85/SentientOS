@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8a1ce976cc488c53a6c42d2a1592611038f945a8",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_machine_contract_and_narrative_freeze_same_identity_and_digest", "rationale": "The exact machine-readable contract, narrative identity, future task, serialization, and digest agree."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_all_runtime_budget_fields_are_exactly_classified", "rationale": "Every current budget field receives its truthful v1 resource law and unit."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_narrowing_and_separate_authority_currentness_and_serving_are_explicit", "rationale": "Allocation remains separate from currentness, model ceilings, serving feasibility, and effect admission."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_attempt_retry_timeout_failure_and_restart_semantics_are_closed", "rationale": "Charging and durable retry/restart conservation are mechanically explicit."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_candidate_definition_is_exact_closed_reproducible_and_not_registered", "rationale": "The candidate authority definition digest reproduces while the catalog remains unchanged."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_contract_introduces_no_runtime_allocator_or_runtime_behavior_change", "rationale": "No allocator, gate, enforcement, or runtime integration is introduced."},
+    {"node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_exactly_one_next_slice_is_definition_only_registration", "rationale": "The sole next step is registration contingent on independent approval, not allocator implementation."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_governed_local_model_budget_allocation_contract.py::test_machine_contract_and_narrative_freeze_same_identity_and_digest"
+  ]
+}

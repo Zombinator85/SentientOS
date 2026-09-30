@@ -451,6 +451,15 @@
     "ordering": "resource-class-specific early feasibility may narrow planning; effect grant/feasibility/admission remain independent; final resource check occurs after effect admission and immediately before effect attempt, with in-flight metering where needed",
     "runtime_admission_change_in_this_task": false
   },
+  "governed_local_model_allocation_contract": {
+    "authority_definition_registered": false,
+    "entitlement_enforcement_implemented": false,
+    "operator_approval_supplied": false,
+    "path": "architecture/governed_local_model_budget_allocation_contract.json",
+    "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+    "schema": "sentientos.governed_local_model_budget_allocation_contract:v1",
+    "status": "contract_defined_runtime_allocator_not_implemented"
+  },
   "identity_lifecycle": {
     "child_creation": "Issuer derives a child for a separately cancellable/observable semantic sub-action, binding parent current generation and a resource-specific delegation if entitlement is transferred.",
     "durability": "Seal before queue/process/restart boundaries.",
@@ -488,6 +497,8 @@
     ]
   },
   "implementation_status": {
+    "allocation_authority_registered": false,
+    "governed_local_model_allocation_contract": "defined_not_implemented",
     "implemented_now": [
       "canonical inert root principal evidence schema",
       "verified-sponsorship deterministic root minting",
@@ -499,6 +510,7 @@
     ],
     "principal_allocates_nothing": true,
     "principal_grants_nothing": true,
+    "resource_allocation_runtime_implemented": false,
     "runtime_module": "sentientos/causal_resource_principal.py",
     "status": "root_identity_with_configured_authenticated_observation_only_attribution",
     "still_not_implemented": [

@@ -454,3 +454,9 @@ A causal resource principal is an issuer-sealed, immutable, generation-aware ide
 ## 23. Repository-grounding boundary
 
 All “future” types and transitions above are recommendations. The crosswalk is the current-state claim surface. Nothing here updates the current-system atlas, doctrine, glossary, public overview, runtime modules, or resident composition, because doing so would falsely imply implementation.
+
+## 24. Governed local-model allocation contract reconciliation
+
+The first resource-specific contract is now frozen in [`architecture/governed_local_model_budget_allocation_contract.json`](../../architecture/governed_local_model_budget_allocation_contract.json) and its narrative companion. Its exact resource kind is `governed_local_model_invocation_call_entitlement.v1`; only the call dimension is conserved. This changes the prior “allocation contract undefined” gap to **contract defined, runtime allocator not implemented, entitlement enforcement not implemented, task authority not registered, and operator approval not supplied**. All generic allocation machinery and runtime behavior remain deferred.
+
+Exactly one next slice is selected: the definition-only `register-governed-local-model-resource-allocation-adapter-authority-definition` task, contingent on independent operator approval of the frozen definition digest. It must not implement or activate the allocator.

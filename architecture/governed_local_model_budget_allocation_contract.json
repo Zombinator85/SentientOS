@@ -1,0 +1,390 @@
+{
+  "allocation_record": {
+    "additional_identity_fields": {
+      "principal_epoch": "inspectable substitution-resistant principal generation; distinct from allocation epoch",
+      "principal_id": "inspectable exact principal identity; digest-bound and never substitutes for principal_binding_digest"
+    },
+    "caller_allocated_flag_allowed": false,
+    "canonical_json": "UTF-8 JSON, sorted keys, separators comma/colon, ensure_ascii=true, finite JSON numbers only; closed schemas reject unknown/missing fields, duplicate JSON keys, aliases, wildcards, booleans where integers are required, and mutable post-issuance changes.",
+    "field_rules": {
+      "allocation_digest": "lowercase SHA-256 of canonical JSON over every required field except allocation_id and allocation_digest",
+      "allocation_id": "lmalloc- plus first 24 lowercase hex characters of allocation_digest; recomputed, never caller selected",
+      "allocator_id": "exact literal sentientos.governed_local_model_resource_allocator.v1",
+      "epoch": "positive allocator-controlled monotonic allocation-policy generation, not principal epoch or serving activation generation",
+      "policy_digest": "lowercase SHA-256 of canonical JSON for the exact immutable allocator policy snapshot",
+      "principal_binding_digest": "exact verified CausalResourcePrincipal binding_digest lowercase sha256 hex",
+      "principal_epoch": "positive integer from that principal",
+      "principal_id": "exact principal_id from that principal",
+      "resource_kind": "exact literal governed_local_model_invocation_call_entitlement.v1; no aliases or wildcard",
+      "resource_specific_bounds": "exact closed v1 object defined below",
+      "validity": "exact closed object {not_before,not_after,principal_currentness_checked_at,principal_currentness_valid_until,allocator_policy_valid_until}; canonical UTC timestamps ending Z"
+    },
+    "generic_record": "ResourceAllocation",
+    "immutable": true,
+    "name": "GovernedLocalModelResourceAllocation",
+    "required_fields": [
+      "allocation_id",
+      "principal_binding_digest",
+      "principal_id",
+      "principal_epoch",
+      "resource_kind",
+      "resource_specific_bounds",
+      "validity",
+      "allocator_id",
+      "epoch",
+      "policy_digest",
+      "allocation_digest"
+    ]
+  },
+  "allocator_identity": {
+    "allocation_epoch": "monotonic positive policy generation controlled by this allocator; rollover never alters principal_epoch or serving activation generation",
+    "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+    "meaning": "stable resource-class allocator identity, not an authority principal and not caller supplied"
+  },
+  "attempt_semantics": {
+    "attempt_id": "lmattempt- plus 32 lowercase hex characters derived from SHA-256 of canonical JSON {allocation_digest, durable_attempt_nonce}; unique within and across correlations/restarts and durably uniqueness-checked before debit",
+    "backend_failure": "Consumes one call if failure follows backend entry.",
+    "completion": "The already consumed call remains consumed.",
+    "generation_begins": "Consumes exactly one call once backend model generation entry begins.",
+    "pre_attempt_rejection": "Consumes zero calls and writes no consumed receipt; a denied reservation may be audit evidence but cannot claim consumption.",
+    "retry": "Every retry has a new attempt_id and needs another remaining call; prior receipts/debits remain visible. Correlation-ID rollover never replenishes.",
+    "serving_guard_rejection_after_debit": "Reconcile as attempted_not_begun and restore the provisional debit only when trusted gate evidence proves backend entry did not occur.",
+    "timeout": "Consumes one call if backend entry began; timeout/cancellation does not refund it."
+  },
+  "candidate_definition_canonical_serialization": "{\"approval_requirements\":[\"independent_operator_approval_evidence\",\"exact_definition_digest_binding\"],\"capability_id\":\"governed_local_model_resource_allocation_adapter\",\"forbidden_goal_phrases\":[\"generic resource allocator\",\"host scheduling\",\"model effect admission\",\"provider invocation\",\"network egress\",\"grant local model inference\"],\"principal_kinds\":[\"governed_local_model_resource_allocator\"],\"purpose\":\"Implement only the governed local-model invocation resource allocator, durable call-entitlement gate, and resource-consumption reconciliation defined by the frozen v1 contract; this definition grants no model effect authority.\",\"required_effects\":[\"check_and_debit_governed_local_model_call_entitlement\",\"issue_governed_local_model_resource_allocation\",\"read_current_causal_resource_principal_evidence\",\"read_governed_local_model_resource_policy\",\"write_governed_local_model_resource_consumption_receipt\"],\"required_goal_phrases\":[\"governed local-model resource allocation\",\"durable call conservation\",\"resource consumption receipt\"],\"subsystem_kinds\":[\"causal_resource_principal_architecture\"]}",
+  "candidate_definition_digest": "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc",
+  "candidate_task_authority_definition": {
+    "approval_requirements": [
+      "independent_operator_approval_evidence",
+      "exact_definition_digest_binding"
+    ],
+    "capability_id": "governed_local_model_resource_allocation_adapter",
+    "forbidden_goal_phrases": [
+      "generic resource allocator",
+      "host scheduling",
+      "model effect admission",
+      "provider invocation",
+      "network egress",
+      "grant local model inference"
+    ],
+    "principal_kinds": [
+      "governed_local_model_resource_allocator"
+    ],
+    "purpose": "Implement only the governed local-model invocation resource allocator, durable call-entitlement gate, and resource-consumption reconciliation defined by the frozen v1 contract; this definition grants no model effect authority.",
+    "required_effects": [
+      "check_and_debit_governed_local_model_call_entitlement",
+      "issue_governed_local_model_resource_allocation",
+      "read_current_causal_resource_principal_evidence",
+      "read_governed_local_model_resource_policy",
+      "write_governed_local_model_resource_consumption_receipt"
+    ],
+    "required_goal_phrases": [
+      "governed local-model resource allocation",
+      "durable call conservation",
+      "resource consumption receipt"
+    ],
+    "subsystem_kinds": [
+      "causal_resource_principal_architecture"
+    ]
+  },
+  "conservation_semantics": {
+    "call_unit_consumed_at": "atomic durable debit at the final resource gate immediately before invoking the pre-effect serving-currentness guard and model generation; if that last serving guard rejects before model backend entry, reconciliation records attempted_not_begun and restores the debit because no effect attempt began",
+    "conserved_dimensions": [
+      "max_calls_per_correlation"
+    ],
+    "no_refund_after_backend_entry": true,
+    "not_conserved_dimensions": [
+      "max_input_chars",
+      "max_output_chars",
+      "max_new_tokens",
+      "timeout_seconds"
+    ],
+    "reservation": "The atomic pre-attempt debit is the minimal reservation/debit; no separate reservation lifecycle or refundable currency is introduced."
+  },
+  "consumption_measurement": {
+    "configured_ceiling_is_consumption": false,
+    "not_truthful_today": [
+      "exact actual token consumption",
+      "CPU consumption",
+      "GPU consumption",
+      "RAM consumption",
+      "energy consumption",
+      "proof that timed-out backend computation stopped"
+    ],
+    "truthful_today": [
+      "generation_attempted boolean inferred from backend-entry/effect evidence",
+      "generated output UTF-8 byte size",
+      "returned output truncation boolean",
+      "invoker latency_ms",
+      "configured input/output/new-token/timeout/call ceilings",
+      "invocation outcome and admission reference"
+    ]
+  },
+  "current_source_semantics": {
+    "allocation_ledger_exists": false,
+    "effect_receipt": "LocalModelInvocationReceipt reports effect attempt/output evidence, UTF-8 output bytes, latency, configured generation values, status, and admission reference; it is not a resource receipt.",
+    "max_calls_per_correlation": "Checked and incremented in the invoker process-local invocation_counts map after effect admission and before submitting generation; it resets with process state and is a component safeguard, not a durable allocation ledger.",
+    "max_input_chars": "The invoker compares Python len(prompt), i.e. Unicode code points despite the chars name; request semantic prompt_size separately uses UTF-8 bytes.",
+    "max_new_tokens": "Passed as a configured generation maximum narrowed by LocalModelAuthorityRecord generation_ceilings; no exact actual-token count is returned or receipted.",
+    "max_output_chars": "After generation completes, the invoker compares UTF-8 byte length and truncates encoded bytes to this value, decoding with errors ignored; the name says chars but enforcement unit is bytes and does not prevent generation compute.",
+    "timeout_seconds": "Thread future wait ceiling, clamped to at least 0.001 seconds; timeout cancellation does not prove backend computation stopped."
+  },
+  "deferred": [
+    "runtime ResourceAllocation type",
+    "allocator and durable ledger",
+    "resource gate and debit enforcement",
+    "live metering and ResourceConsumptionReceipt runtime",
+    "invocation/serving/control-plane changes",
+    "authority-definition registration",
+    "operator approval",
+    "allocation issuance",
+    "GPU/CPU/RAM/energy accounting",
+    "exact token usage",
+    "activation"
+  ],
+  "effect_admission_relationship": {
+    "allocation_is_effect_authority": false,
+    "effect_admission_mints_or_replenishes": false,
+    "effect_authority": "existing ControlPlane LOCAL_MODEL_INFERENCE admission",
+    "execution_order": [
+      "request structural validation",
+      "model and serving feasibility validation",
+      "authenticated and current causal principal verification",
+      "allocation existence and structural verification plus early narrowing only",
+      "existing independent LOCAL_MODEL_INFERENCE effect admission",
+      "final current allocation validity check and atomic durable call debit",
+      "existing serving-lifetime pre-effect currentness guard",
+      "model generation attempt",
+      "resource consumption measurement",
+      "resource receipt reconciliation",
+      "existing LocalModelInvocationReceipt completion/cross-link"
+    ],
+    "final_gate": "after otherwise-valid effect admission and immediately before the serving pre-effect guard/model effect attempt; early inspection can narrow or block but never authorize"
+  },
+  "exhaustion_semantics": {
+    "allowed": [
+      "block",
+      "defer",
+      "narrow",
+      "safely_degrade",
+      "terminate"
+    ],
+    "forbidden": [
+      "widen effect authority",
+      "automatically substitute another model without separate authorization",
+      "grant another allocation",
+      "reset usage",
+      "bypass serving currentness"
+    ]
+  },
+  "future_registration_task": {
+    "contingency": "independently supplied operator approval matching the exact candidate definition digest",
+    "register_authority_definition_payload": {
+      "authority_principal": "",
+      "definition": "candidate_task_authority_definition converted exactly to TaskAuthorityDefinition",
+      "operator_approval_evidence": "independently supplied exact approval",
+      "requested_capability_id": "",
+      "requested_effects": [],
+      "runtime_mutations": [],
+      "task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition"
+    },
+    "registration_in_this_task": false,
+    "task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition"
+  },
+  "implementation_prerequisites": [
+    "independent operator approval of exact candidate definition digest",
+    "definition-only authority registration task completed without exercising authority",
+    "separately admitted implementation task",
+    "durable atomic call ledger and attempt uniqueness before effect attempt",
+    "append-only reconciliation receipt persistence",
+    "integration retaining independent effect admission and serving-currentness gates"
+  ],
+  "next_runtime_slice": {
+    "allocator_implementation_allowed": false,
+    "count": 1,
+    "id": "register-governed-local-model-resource-allocation-adapter-authority-definition",
+    "kind": "definition_only_authority_registration",
+    "requires": "independent operator approval evidence bound to candidate_definition_digest"
+  },
+  "noncollapse_invariants": [
+    "causal principal != resource allocation",
+    "principal currentness != resource allocation",
+    "resource allocation != effect grant/admission",
+    "effect grant/admission != resource allocation",
+    "serving currentness != resource entitlement",
+    "resource allocation currentness != serving currentness",
+    "model authority/configuration ceiling != resource allocation",
+    "caller LocalModelInvocationBudget != entitlement",
+    "resource receipt != effect receipt",
+    "resource consumption != model output success",
+    "effect occurred != resource reconciliation complete",
+    "authority definition != runtime grant",
+    "runtime grant != runtime admission",
+    "registration != implementation",
+    "implementation != activation"
+  ],
+  "operator_approval_template": {
+    "approval_status": "<operator-supplied-approved-status>",
+    "approved_capability_id": "governed_local_model_resource_allocation_adapter",
+    "approved_definition_digest": "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc",
+    "approved_task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition",
+    "evidence_digest": "<computed-after-operator-supplied-fields>",
+    "evidence_id": "<operator-supplied-evidence-id>",
+    "operator_identity_label": "<operator-supplied-identity-label>",
+    "schema_version": "sentientos.operator_authority_definition_approval:v1"
+  },
+  "policy_binding": {
+    "caller_budget_is_policy": false,
+    "policy_digest": "SHA-256 lowercase hex of the immutable closed allocator policy snapshot encoded with the allocation canonical JSON rules",
+    "policy_must_be_current_through": "effective allocation not_after"
+  },
+  "posture": {
+    "allocations_issued": false,
+    "authority_definition_registered": false,
+    "contract_defined": true,
+    "effects_performed": false,
+    "entitlement_enforcement_implemented": false,
+    "grants_or_admissions_created": false,
+    "kind": "normative_architecture_contract_only",
+    "operator_approval_supplied": false,
+    "runtime_allocator_implemented": false
+  },
+  "principal_prerequisites": {
+    "caller_linkage_is_identity": false,
+    "correlation_id_is_identity": false,
+    "currentness_allocates": false,
+    "issuance_requires": [
+      "canonical CausalResourcePrincipal verification",
+      "independently authenticated issuer-provenance evidence",
+      "principal-specific currentness evidence from the exact bounded revocation snapshot",
+      "exact principal_id, principal_epoch, and principal_binding_digest cross-binding"
+    ],
+    "work_item_id_is_identity": false
+  },
+  "receipt_contract": {
+    "distinct_from_effect_receipt": true,
+    "effect_occurred_implies_reconciled": false,
+    "effect_receipt_digest": "nullable until effect receipt exists; reconciliation appends a new hash-linked receipt cross-linking exact LocalModelInvocationReceipt.receipt_digest",
+    "effect_success_required_for_consumption": false,
+    "generic_record": "ResourceConsumptionReceipt",
+    "measurement_rules": {
+      "actual_token_count": "must be null with measurement_status=unavailable_until_trusted_backend_usage_exists",
+      "call_units_consumed": "0 before backend entry; exactly 1 once entry begins",
+      "generated_output_size_bytes": "integer when observed, else null",
+      "returned_output_size_bytes": "integer when observed, else null"
+    },
+    "name": "GovernedLocalModelResourceConsumptionReceipt",
+    "previous_receipt_digest": "null only for first receipt for attempt; later state appends exact predecessor digest",
+    "receipt_digest": "SHA-256 of canonical closed receipt JSON excluding receipt_id and receipt_digest; receipt_id is lmresrec- plus first 24 digest hex",
+    "required_fields": [
+      "receipt_id",
+      "allocation_digest",
+      "principal_binding_digest",
+      "attempt_id",
+      "resource_specific_measurement",
+      "state",
+      "observed_at",
+      "previous_receipt_digest",
+      "effect_receipt_digest",
+      "receipt_digest"
+    ],
+    "resource_specific_measurement_fields": [
+      "generation_attempted",
+      "call_units_consumed",
+      "generated_output_size_bytes",
+      "returned_output_size_bytes",
+      "output_truncated",
+      "latency_ms",
+      "configured_bounds",
+      "invocation_outcome",
+      "actual_token_count"
+    ],
+    "states": [
+      "attempted_not_begun",
+      "attempt_begun",
+      "measured_completed",
+      "measured_timeout",
+      "measured_backend_failure",
+      "reconciled"
+    ]
+  },
+  "repository_sha": "8a1ce976cc488c53a6c42d2a1592611038f945a8",
+  "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+  "resource_specific_bounds": {
+    "caller_budget_authoritative_entitlement": false,
+    "closed_fields": [
+      "max_input_chars",
+      "max_output_chars",
+      "max_new_tokens",
+      "timeout_seconds",
+      "max_calls_per_correlation"
+    ],
+    "comparison_rules": "All values must be finite and positive; integer dimensions reject bool. Effective value for each dimension is numeric minimum(allocation bound, caller-requested bound, applicable model/serving ceiling). Missing caller narrowing means allocation value; a missing applicable model ceiling contributes no additional bound. Any caller or model value above allocation cannot expand it and is rejected or reduced to the minimum.",
+    "fields": {
+      "max_calls_per_correlation": {
+        "actual_measurement": "one durable call debit when the final gate commits immediately before generation attempt begins",
+        "allocation_role": "discrete consumable entitlement",
+        "conserved": true,
+        "measurable_consumption": true,
+        "unit": "generation attempts across the allocation, notwithstanding legacy correlation-scoped name"
+      },
+      "max_input_chars": {
+        "actual_measurement": "len(prompt)",
+        "aggregate_entitlement": false,
+        "allocation_role": "per-attempt feasibility ceiling",
+        "conserved": false,
+        "measurable_consumption": true,
+        "unit": "Python Unicode code points under current runtime"
+      },
+      "max_new_tokens": {
+        "actual_measurement": "currently unmeasurable as actual token consumption",
+        "allocation_role": "per-attempt generation feasibility ceiling",
+        "conserved": false,
+        "measurable_consumption": false,
+        "unit": "backend configured maximum tokens"
+      },
+      "max_output_chars": {
+        "actual_measurement": "generated output UTF-8 byte count is receiptable; returned output is post-generation truncated",
+        "allocation_role": "per-attempt returned-output ceiling",
+        "conserved": false,
+        "measurable_consumption": true,
+        "prevents_generation_compute": false,
+        "unit": "UTF-8 bytes under current runtime despite field name"
+      },
+      "timeout_seconds": {
+        "actual_measurement": "invoker latency_ms is observable elapsed latency, not fungible debited currency or proof backend stopped",
+        "allocation_role": "temporal ceiling",
+        "conserved": false,
+        "measurable_consumption": true,
+        "unit": "wall-clock seconds"
+      }
+    },
+    "schema": "sentientos.governed_local_model_resource_bounds:v1"
+  },
+  "retry_and_restart_semantics": {
+    "current_invocation_counts": "process-local component safeguard only; not a ledger, durable consumption, allocation evidence, or restart-safe conservation",
+    "implementation_requirement": "durable atomic attempt uniqueness, debit, remaining-call state, append-only receipt chain, and recovery/reconciliation must commit before backend entry",
+    "posture": "durable cross-restart call conservation is required by v1 before activation",
+    "restart_or_correlation_rollover_replenishes": false
+  },
+  "schema": "sentientos.governed_local_model_budget_allocation_contract:v1",
+  "serving_relationship": {
+    "allocation_current_is_serving_current": false,
+    "both_required": true,
+    "model_authority_ceiling_is_allocation": false,
+    "serving_activation_generation_in_allocation_epoch": false,
+    "serving_session_current_is_resource_entitlement": false
+  },
+  "validity_semantics": {
+    "distinct_generations": {
+      "allocation_epoch": "allocator policy/allocation generation used for stale allocation rejection",
+      "principal_epoch": "identity generation from CausalResourcePrincipal",
+      "serving_activation_generation": "operational model serving generation, independently checked and never copied into allocation epoch"
+    },
+    "effective_not_after": "min(allocation.not_after, principal.expires_at, principal-currentness snapshot valid_until, allocator policy valid_until, resource lease not_after if supplied)",
+    "effective_not_before": "max(allocation.not_before, principal.not_before if present, allocator policy not_before, resource lease not_before if a future policy supplies one)",
+    "gate_rule": "At issuance and final debit require effective_not_before <= now < effective_not_after and fresh re-verification against the exact authenticated principal and exact bounded currentness snapshot. Snapshot success is not live currentness after valid_until.",
+    "resource_specific_lease": "v1 adopts no additional lease window beyond explicit allocation validity.",
+    "revocation": "Principal or allocation revocation/supersession known to the durable gate blocks debit; no stale evidence fallback."
+  }
+}
