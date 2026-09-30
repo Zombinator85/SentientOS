@@ -50,7 +50,9 @@ from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_D
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateSnapshot
-from sentientos.causal_introspection import CausalIntrospectionRuntime, CaptureContext
+from sentientos.causal_introspection import (CausalIntrospectionRuntime, CaptureContext,
+    IntrospectionConfig, LiveOwnerMetadataProvider, ProviderRegistration,
+    load_config as load_causal_introspection_config)
 from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
@@ -1126,6 +1128,70 @@ def _run_resident_cognition_and_transition(runtime_surfaces: RuntimeMaintenanceS
     return cognition, transition
 
 
+def _compose_causal_introspection(
+        runtime_surfaces: RuntimeMaintenanceSurfaces,
+        *, resident_serving_controller: ResidentCognitiveModelServingController | None,
+        config: IntrospectionConfig) -> CausalIntrospectionRuntime:
+    """Bind only explicitly held live owners to read-only projection adapters."""
+    registrations: list[ProviderRegistration] = []
+    enabled = set(config.enabled_domains)
+    if "runtime_supervision" in enabled:
+        def inspect_runtime() -> dict[str, Any]:
+            surfaces = runtime_surfaces.governance_feedback().get("surfaces", {})
+            values = list(surfaces.values()) if isinstance(surfaces, dict) else []
+            return {"surface_count": len(values),
+                "degraded_surface_count": sum(1 for value in values
+                    if isinstance(value, dict) and value.get("status") in {"blocked", "degraded"})}
+        registrations.append(ProviderRegistration("sentientosd-runtime", "runtime_supervision",
+            LiveOwnerMetadataProvider(provider_id="sentientosd-runtime-supervision-v1",
+                owner_id="sentientosd-runtime", owner_kind="runtime_maintenance_surfaces",
+                domain="runtime_supervision", inspect=inspect_runtime,
+                observation_classes={"surface_count": "count", "degraded_surface_count": "count"})))
+    epistemic_owner = runtime_surfaces._epistemic_state_owner
+    if "persistent_epistemics" in enabled and epistemic_owner is not None:
+        def inspect_epistemics() -> dict[str, Any]:
+            counts = epistemic_owner.verify()
+            return {"proposition_count": int(counts.get("propositions", 0)),
+                "state_count": int(counts.get("states", 0)),
+                "evidence_binding_count": int(counts.get("bindings", 0))}
+        registrations.append(ProviderRegistration("persistent-epistemic-state", "persistent_epistemics",
+            LiveOwnerMetadataProvider(provider_id="persistent-epistemic-state-v1",
+                owner_id="persistent-epistemic-state", owner_kind="persistent_epistemic_state_owner",
+                domain="persistent_epistemics", inspect=inspect_epistemics,
+                observation_classes={"proposition_count": "count", "state_count": "count",
+                    "evidence_binding_count": "count"})))
+    longitudinal_owner = runtime_surfaces._longitudinal_self_model_owner
+    if "longitudinal_self_model" in enabled and longitudinal_owner is not None:
+        def inspect_longitudinal() -> dict[str, Any]:
+            history = longitudinal_owner.history()
+            latest = history[-1] if history else None
+            return {"reconciliation_count": len(history),
+                "latest_generation": latest.generation if latest is not None else 0,
+                "latest_reconciliation_id": latest.reconciliation_id if latest is not None else None}
+        registrations.append(ProviderRegistration("longitudinal-self-model", "longitudinal_self_model",
+            LiveOwnerMetadataProvider(provider_id="longitudinal-self-model-v1",
+                owner_id="longitudinal-self-model", owner_kind="longitudinal_self_model_owner",
+                domain="longitudinal_self_model", inspect=inspect_longitudinal,
+                observation_classes={"reconciliation_count": "count", "latest_generation": "lifecycle",
+                    "latest_reconciliation_id": "identity"})))
+    if "model_serving" in enabled and resident_serving_controller is not None:
+        def inspect_serving() -> dict[str, Any]:
+            health = resident_serving_controller.health()
+            session = resident_serving_controller.current_session()
+            return {"serving_status": str(health.get("status", "unknown")),
+                "session_present": session is not None,
+                "session_id": session.session_id if session is not None else None}
+        registrations.append(ProviderRegistration("resident-cognitive-model-serving", "model_serving",
+            LiveOwnerMetadataProvider(provider_id="resident-cognitive-model-serving-v1",
+                owner_id="resident-cognitive-model-serving", owner_kind="resident_cognitive_model_serving_controller",
+                domain="model_serving", inspect=inspect_serving,
+                observation_classes={"serving_status": "health", "session_present": "currentness",
+                    "session_id": "identity"})))
+    runtime = CausalIntrospectionRuntime(config, registrations)
+    runtime.reconstruct()  # fail closed on malformed or tampered predecessor custody
+    return runtime
+
+
 async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) -> None:
     """Run the autonomous Codex maintenance loop."""
 
@@ -1290,6 +1356,20 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         runtime_surfaces._resident_transition_configuration_error = (
             runtime_surfaces._resident_transition_configuration_error
             or "hardened_resident_serving_required")
+    try:
+        introspection_config = load_causal_introspection_config()
+        if introspection_config is not None and introspection_config.enabled:
+            runtime_surfaces._causal_introspection_runtime = _compose_causal_introspection(
+                runtime_surfaces, resident_serving_controller=resident_serving_controller,
+                config=introspection_config)
+        elif introspection_config is not None:
+            runtime_surfaces._feedback["surfaces"]["causal_introspection"] = {
+                "status": "disabled", "authority": False, "current_truth": False}
+    except Exception as exc:
+        runtime_surfaces._causal_introspection_runtime = None
+        runtime_surfaces._feedback["surfaces"]["causal_introspection"] = {
+            "status": "blocked", "reason": f"{type(exc).__name__}:{exc}",
+            "authority": False, "current_truth": False}
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     try:
