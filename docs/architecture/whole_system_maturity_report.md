@@ -131,6 +131,8 @@ WHAT HAPPENED** where the supplying owner actually knows them.
 7. Physical resource allocation, measurement, and scheduler/device/energy enforcement.
 8. Production breadth and independent validation for the bounded
    [causal-introspection topology](causal_introspection_topology.md), including
+   explicit configured canonical daemon composition across bounded live owner
+   adapters; this is neither default activity nor production evidence, and
    physical/resource owners whose source enforcement is not implemented and
    long-run stability across real software/model succession.
 9. An explicit authoritative release/version policy and independently observed hosted repository metadata.

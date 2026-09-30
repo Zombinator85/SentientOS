@@ -65,6 +65,16 @@ Configuration is absent-by-default, requires an absolute custody root, bounds
 provider count, and names enabled and required domains. Providers are injected
 explicitly: there is no scanning, reflection, or ambient owner discovery.
 
+Canonical `sentientosd.run_loop()` loads that configuration only after its live
+owners and final runtime surface have been selected.  When enabled, it binds
+capture-time adapters for runtime supervision and, when those owners are
+configured, persistent epistemics, longitudinal self-model custody, and hardened
+resident model serving.  Missing owners are not replaced; a required missing
+domain is therefore recorded by the existing partial-capture finding.  Invalid
+configuration or predecessor custody is exposed as a blocked introspection
+surface rather than being silently treated as absent.  Introspection remains
+absent when the environment variable is absent and is not default-resident.
+
 Generations are immutable `generation-N.json` objects. Their digests cover the
 ordered projection inventory, findings, conflicts, predecessor digest, capture
 tick, and optional repository identity. Restart reconstruction verifies every

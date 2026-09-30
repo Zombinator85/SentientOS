@@ -1,7 +1,7 @@
 {
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
-  "repository_sha": "08016c1061ff6aa68c49123b671eb0bb8cc31224",
+  "repository_sha": "17beac11d2eb79697099f3b885fce1d0c2505330",
   "test_provenance_path": "glow/test_runs/test_run_provenance.json",
   "required_nodes": [
     {"node_id": "tests/test_causal_introspection.py::test_common_projection_identity_and_reconstruction", "rationale": "Content identity, immutable generations, idempotence, and restart reconstruction."},
@@ -14,9 +14,12 @@
     {"node_id": "tests/test_causal_introspection.py::test_authority_truth_production_effect_and_credentials_rejected", "rationale": "Authority, truth, maturity, effect-proof, and credential collapses fail closed."},
     {"node_id": "tests/test_causal_introspection.py::test_provider_purity_and_recursive_provider_rejected", "rationale": "Provider purity and the no-self-provider boundary are enforced."},
     {"node_id": "tests/test_causal_introspection.py::test_tamper_and_same_tick_change_fail_closed", "rationale": "Changed same-tick content and altered immutable custody fail closed."}
-    ,{"node_id": "tests/test_causal_introspection.py::test_model_transition_preserves_introspection_chain", "rationale": "Model-specific references change while introspection custody remains predecessor-bound."}
+    ,{"node_id": "tests/test_causal_introspection.py::test_model_transition_preserves_introspection_chain", "rationale": "Model-specific references change while introspection custody remains predecessor-bound."},
+    {"node_id": "tests/test_sentientosd_causal_introspection_composition.py::test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall", "rationale": "Canonical run_loop loads explicit configuration, composes three live owner adapters, captures immutable generations, and exposes generation N only to a later World-State."},
+    {"node_id": "tests/test_sentientosd_causal_introspection_composition.py::test_run_loop_without_config_preserves_disabled_posture", "rationale": "Absent configuration preserves the historical disabled daemon posture without custody writes."},
+    {"node_id": "tests/test_sentientosd_causal_introspection_composition.py::test_run_loop_invalid_config_is_blocked_not_reinterpreted_as_absent", "rationale": "Malformed explicit configuration is a deterministic blocked introspection surface, never silent disablement."}
   ],
   "successful_path_nodes": [
-    "tests/test_causal_introspection.py::test_three_domain_live_capture_and_next_tick_world_state"
+    "tests/test_sentientosd_causal_introspection_composition.py::test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall"
   ]
 }

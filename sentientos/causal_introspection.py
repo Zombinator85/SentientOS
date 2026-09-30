@@ -12,7 +12,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence, cast
+from typing import Any, Callable, Mapping, Protocol, Sequence, cast
 
 SCHEMA_VERSION = "sentientos.causal_introspection:v1"
 CONFIG_ENV = "SENTIENTOS_CAUSAL_INTROSPECTION_CONFIG"
@@ -336,6 +336,38 @@ class MappingMetadataProvider:
             domain=self._domain, context=context, source_references=self._references,
             causal_references=(), observations=self._observations,
             semantic_trace=self._semantic_trace)
+
+
+class LiveOwnerMetadataProvider:
+    """Read a bounded owner-local projection at capture time.
+
+    The callback is explicitly supplied by the canonical compositor.  This is
+    deliberately not discovery: it neither scans for owners nor retains a
+    startup snapshot, and it has no mutation or invocation surface.
+    """
+
+    def __init__(self, *, provider_id: str, owner_id: str, owner_kind: str,
+            domain: str, inspect: Callable[[], Mapping[str, Any]],
+            observation_classes: Mapping[str, str]):
+        self.provider_id = provider_id
+        self._owner_id = owner_id
+        self._owner_kind = owner_kind
+        self._domain = domain
+        self._inspect = inspect
+        self._observation_classes = dict(observation_classes)
+
+    def project(self, context: CaptureContext) -> OwnerIntrospectionProjection:
+        metadata = dict(self._inspect())
+        if set(metadata) != set(self._observation_classes):
+            raise IntrospectionError("owner_projection_shape_changed")
+        observations = tuple(OwnerObservation(
+            observation_key=key, bounded_value=metadata[key],
+            observation_class=self._observation_classes[key], freshness="current",
+            production_posture=context.capture_posture)
+            for key in sorted(metadata))
+        return build_projection(owner_id=self._owner_id, owner_kind=self._owner_kind,
+            domain=self._domain, context=context, source_references=(),
+            causal_references=(), observations=observations)
 
 
 def _snapshot_payload(snapshot: CausalIntrospectionSnapshot) -> dict[str, Any]:
