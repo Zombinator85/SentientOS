@@ -86,25 +86,23 @@
     "policy_or_admission_input": false
   },
   "current_gap": {
-    "closed_in_this_slice": "configured ControlPlaneKernel authenticates exact forwarded provenance through RootIssuerProvenanceVerifier",
+    "closed_in_this_slice": "authenticated existing roots can be checked against one exact fresh operator-bound principal revocation snapshot",
     "current_guarantees": [
-      "exact_v1_schema",
-      "deterministic_principal_id",
-      "canonical_binding_digest",
-      "one_sponsorship_verification",
-      "exact_principal_provenance_pair",
-      "purpose_scoped_ed25519_provenance",
-      "GenesisForge_exact_untrusted_pair_forwarding",
-      "control_plane_authenticated_status_when_explicitly_configured",
-      "canonical_only_degradation"
+      "canonical_current_root",
+      "authenticated_issuer_provenance",
+      "operator_expected_registry_version_and_digest",
+      "bounded_snapshot_validity",
+      "exact_principal_specific_effective_revocation",
+      "process_local_currentness_evidence"
     ],
     "not_guaranteed": [
-      "default_global_kernel_public_trust_configuration",
-      "live_principal_revocation_currentness",
+      "live_revocation_distribution",
+      "renewal_or_successor_generation_currentness",
       "resource_entitlement",
+      "resource_allocation",
       "effect_authority"
     ],
-    "statement": "control_plane_authentication_is_explicitly_composed_not_default_active"
+    "statement": "principal_specific_snapshot_currentness_is_independent_evidence_not_authority"
   },
   "decision": "separate_v1_envelope_with_injected_ed25519_boundaries",
   "domain_separation": "sentientos.causal_resource_principal.issuer_provenance:v1",
@@ -150,7 +148,10 @@
     "tests/test_causal_resource_principal_issuer_provenance_integration.py",
     "tests/test_genesis_forge_root_principal_provenance_forwarding.py",
     "tests/test_control_plane_root_principal_provenance_authentication.py",
-    "docs/development/control_plane_root_principal_provenance_authentication_task_acceptance.json"
+    "docs/development/control_plane_root_principal_provenance_authentication_task_acceptance.json",
+    "sentientos/causal_resource_principal_currentness.py",
+    "tests/test_causal_resource_principal_currentness.py",
+    "docs/development/principal_revocation_currentness_policy_task_acceptance.json"
   ],
   "existing_mechanism_audit": [
     {
@@ -226,16 +227,16 @@
     "additional_allocator_policy_required": true,
     "authentication_creates_allocation": false,
     "canonical_self_binding_alone_sufficient": false,
-    "rule": "canonical_and_authenticated_issuer_provenance_verified_under_current_trusted_custody"
+    "currentness_creates_allocation": false,
+    "rule": "authenticated_issuer_provenance_plus_principal_specific_bounded_currentness_precede_but_do_not_create_allocation"
   },
   "implementation_boundaries": {
     "changed_runtime_files": [
-      "sentientos/control_plane_kernel.py"
+      "sentientos/causal_resource_principal_currentness.py"
     ],
     "deferred": [
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
-      "principal_revocation_registry",
       "resource_allocation",
       "resource_entitlement_enforcement",
       "resource_admission",
@@ -275,7 +276,12 @@
       "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
       "explicit_RootIssuerProvenanceVerifier_injection",
-      "canonical_only_degradation"
+      "canonical_only_degradation",
+      "production_read_only_principal_revocation_registry",
+      "operator_bound_registry_version_and_digest",
+      "bounded_registry_snapshot_validity",
+      "exact_principal_effective_revocation",
+      "process_local_current_authenticated_root_evidence"
     ],
     "runtime_changes_in_this_task": true
   },
@@ -297,14 +303,15 @@
   "next_runtime_slice": {
     "count": 1,
     "excluded": [
+      "renewal_successor_generation",
+      "live_revocation_distribution",
       "resource_allocation",
       "resource_entitlement",
       "resource_admission",
-      "resource_effect_authority",
-      "trust_mutation"
+      "resource_effect_authority"
     ],
-    "id": "principal_revocation_currentness_policy",
-    "scope": "Define and verify principal-specific revocation/currentness policy required before any entitlement-bearing use, without allocation, entitlement, admission, or effects."
+    "id": "currentness_observation_composition_at_consuming_boundary",
+    "scope": "Compose authenticated principal currentness at one observation-only consuming boundary without allocation, entitlement, admission, or effects."
   },
   "observation_only_policy": {
     "authenticated_status_requires": [
@@ -322,16 +329,46 @@
   },
   "open_questions": [
     "Which dedicated production keystore backend and deployment platforms are admitted?",
-    "What operator-controlled trust-catalog mutation and historical snapshot format is canonical?",
-    "What principal-specific revocation registry will precede entitlement-bearing use?"
+    "What operator-controlled trust-catalog mutation and historical snapshot format is canonical?"
   ],
-  "posture": "explicitly_configured_control_plane_provenance_authentication_non_authority",
+  "posture": "bounded_principal_currentness_verification_non_authority",
   "principal_compatibility": {
     "authentication_evidence": "different_provenance_envelope",
     "decision": "preserve_unchanged",
     "identity_under_key_rotation": "same_principal_id",
     "identity_under_resigning": "same_principal_id",
     "schema": "sentientos.causal_resource_principal:v1"
+  },
+  "principal_revocation_registry": {
+    "administration": false,
+    "digest_scope": "all_top_level_fields_except_registry_digest",
+    "effective_revocation": "matching_exact_principal_and_current_time >= revoked_at",
+    "entry_fields": [
+      "principal_id",
+      "principal_binding_digest",
+      "issuer_id",
+      "epoch",
+      "revoked_at"
+    ],
+    "grants": [],
+    "live_distribution": false,
+    "loaded_representation": "immutable_tuple",
+    "mutation": false,
+    "operator_binding": [
+      "exact_configured_path",
+      "expected_registry_version",
+      "expected_registry_digest"
+    ],
+    "schema": "sentientos.causal_resource_principal.revocation_registry:v1",
+    "snapshot_validity": "generated_at <= current_time < valid_until",
+    "top_level_fields": [
+      "schema",
+      "registry_version",
+      "generated_at",
+      "valid_until",
+      "revoked_principals",
+      "registry_digest"
+    ]
   },
   "private_key_custody": {
     "administration": false,
@@ -435,10 +472,11 @@
     "policy": "allowed_while_principal_and_trust_are_current",
     "reason": "Identity provenance is durable evidence, not a one-shot effect token; effect/allocation layers own anti-replay."
   },
-  "repository_sha": "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786",
+  "repository_sha": "591d56fb68ee9bf1cb69decca6ef35471d709bd0",
   "revocation_semantics": {
     "issuer_trust": "reject every issuer catalog entry from the effective point",
     "natural_expiry": "principal_validity_check_not_revocation",
+    "principal_snapshot_currentness": "implemented_bounded_not_live",
     "required_before_entitlement_use": [
       "key_revocation_currentness",
       "issuer_trust_currentness",
@@ -446,7 +484,7 @@
     ],
     "resource_allocation": "future_allocator_owned_operation_not_principal_or_key_revocation",
     "signing_key": "reject affected envelopes according to effective revocation policy",
-    "single_root_principal": "separate_principal_revocation_registry_not_key_revocation"
+    "single_root_principal": "implemented_exact_snapshot_entry_separate_from_key_revocation"
   },
   "root_principal_issuer_integration": {
     "api": "RootPrincipalIssuer.mint_root_with_provenance",
@@ -472,7 +510,7 @@
     "old_key_after_rotation": "historical verification allowed only when signed_at and principal validity fit retained non_revoked historical catalog entry",
     "trust_basis": "versioned_historical_trust_evidence_plus_current_revocation_policy"
   },
-  "schema": "sentientos.causal_resource_principal_authentication_architecture:v5",
+  "schema": "sentientos.causal_resource_principal_authentication_architecture:v6",
   "security_invariants": [
     "principal_self_binding != issuer_authentication",
     "issuer_authentication != operator_sponsorship_verification",

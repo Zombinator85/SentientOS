@@ -18,7 +18,7 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 **Implemented now:** canonical `sentientos.causal_resource_principal:v1` immutable root evidence, an injected operator-sponsorship verification boundary, deterministic issuer-derived identity and binding, strict mapping, deterministic explicit-time verification, and bounded observation-only causal attribution at the explicit proof-budget control-plane boundary. Roots have no parent and use an all-zero SHA-256 genesis predecessor.
 
-**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, revocation registry, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
+**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, live revocation distribution, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
 
 The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane verifies canonical root binding by default and, when explicitly injected with the existing provenance verifier, can authenticate the issuer provenance without changing policy or admission.
 
@@ -391,7 +391,9 @@ This table refuses equivalence-by-name. “Current status” distinguishes obser
 
 Observation-only proof-budget attribution is implemented at the explicit control-plane boundary, and GenesisForge now has one bounded explicit producer path that supplies an already-existing caller root for an invocation. A governed local-model budget adapter remains later work. They must preserve their existing arithmetic and admissions. Risk, Forge, host observation/proposal, maintenance cadence, effect grants/admissions, and external custody/receipts remain intentionally separate.
 
-The **smallest next runtime slice** is `principal_revocation_currentness_policy`: define the stronger principal-specific revocation/currentness guarantee required before entitlement-bearing use. This remains separate from every allocation, entitlement, admission, and effect-authority slice.
+Principal-specific bounded currentness is now independently implemented for authenticated existing roots through an immutable operator-bound, version/digest-sealed registry snapshot. It is valid only within its explicit generated-at/valid-until window and is not live distribution, renewal, supersession, allocation, entitlement, admission, or effects.
+
+The **smallest next runtime slice** is `currentness_observation_composition_at_consuming_boundary`: compose this evidence at one observation-only consumer while preserving all allocation and authority boundaries.
 
 ## 19. Unresolved questions
 
@@ -406,7 +408,6 @@ These are bounded implementation decisions, not reasons to reopen the architectu
 
 ## 20. Explicit non-goals
 
-- No runtime principal class.
 - No resource ledger.
 - No resource enforcement.
 - No admission changes.

@@ -10,8 +10,7 @@ operator-sponsored root issuance can return an exact immutable causal resource
 principal together with a purpose-scoped cryptographic issuer-provenance envelope for
 that same principal. The envelope remains an unverified claim until a receiving-side
 verifier checks current configured public trust. The integration implements no trust
-mutation, allocation, or authenticated control-plane status. GenesisForge now forwards an explicitly supplied exact pair as separate untrusted claims. The inspected
-clean starting repository SHA is `1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a`.
+mutation, allocation, or authenticated control-plane status. GenesisForge now forwards an explicitly supplied exact pair as separate untrusted claims. The principal-currentness implementation started from commit `591d56fb68ee9bf1cb69decca6ef35471d709bd0` (tree `3537cae8c188cefc0bc7f4a5bbd3051039a3e7de`).
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -189,12 +188,20 @@ allocation, entitlement, admission, or effect grant. Forwarding through GenesisF
 keys or revocation, allocate resources, establish entitlement, perform admission, or
 grant effect authority. Existing sponsorship and future allocation boundaries remain separate. Public trust is used only through the explicitly injected verifier.
 
+## Principal-specific bounded currentness
+
+`ReadOnlyPrincipalRevocationRegistry` now loads one immutable canonical JSON snapshot from an operator-selected path and requires the exact expected registry version and digest. Its exact schema is `schema`, `registry_version`, `generated_at`, `valid_until`, `revoked_principals`, and `registry_digest`; each entry binds `principal_id`, `principal_binding_digest`, `issuer_id`, `epoch`, and `revoked_at`. The digest covers every top-level field except itself. Duplicate keys, unknown or missing fields, malformed identities or times, invalid windows, duplicate exact entries, corrupt seals, and expected-version/digest substitution fail closed.
+
+`PrincipalCurrentnessVerifier` first cross-binds process-local `AuthenticatedRootPrincipalEvidence` to the exact root, then invokes the canonical principal verifier at the explicit current time, and finally requires `generated_at <= current_time < valid_until`. A matching exact entry is effective at `current_time >= revoked_at`; a future entry is not yet effective. Success creates process-local `CurrentAuthenticatedRootPrincipalEvidence` bound to the provenance and exact registry version, digest, validity window, and check time. Absence means only “not listed in this bounded snapshot.” Natural expiry, signing-key revocation, issuer distrust, and principal revocation remain distinct.
+
+The snapshot is loaded once: there is no writer, admin API, reload-on-use mutation, remote update, or live revocation distribution. Renewal and successor/supersession generations remain deferred. Currentness grants no allocation, entitlement, admission, or effects.
+
 ## Smallest next implementation slice
 
-Implement exactly **`principal_revocation_currentness_policy`**: define and verify the principal-specific revocation/currentness rule required before any entitlement-bearing use. Keep trust administration, allocation, admission, entitlement, and effects deferred.
+Implement exactly **`currentness_observation_composition_at_consuming_boundary`**: compose authenticated principal currentness at one observation-only consumer without changing proof budgets, admission, allocation, entitlement, or effects.
 
 ## Unresolved questions
 
 1. Which dedicated production keystore/backend and deployment platforms are admitted?
 2. What operator-controlled trust-catalog mutation and historical snapshot format is canonical?
-3. What principal-specific revocation registry must exist before entitlement-bearing use?
+3. Which separately governed live distribution mechanism could supersede bounded snapshots?
