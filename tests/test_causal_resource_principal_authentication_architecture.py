@@ -16,14 +16,14 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786"
-    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v5"
+    assert CONTRACT["repository_sha"] == "591d56fb68ee9bf1cb69decca6ef35471d709bd0"
+    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v6"
     assert CONTRACT["posture"] == (
-        "explicitly_configured_control_plane_provenance_authentication_non_authority"
+        "bounded_principal_currentness_verification_non_authority"
     )
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/control_plane_kernel.py"
+        "sentientos/causal_resource_principal_currentness.py"
     ]
 
 
@@ -33,7 +33,7 @@ def test_v1_identity_and_authentication_are_separate() -> None:
     assert compatibility["decision"] == "preserve_unchanged"
     assert compatibility["identity_under_key_rotation"] == "same_principal_id"
     assert compatibility["identity_under_resigning"] == "same_principal_id"
-    assert CONTRACT["current_gap"]["statement"] == "control_plane_authentication_is_explicitly_composed_not_default_active"
+    assert CONTRACT["current_gap"]["statement"] == "principal_specific_snapshot_currentness_is_independent_evidence_not_authority"
 
 
 def test_existing_mechanism_decisions_use_closed_vocabularies() -> None:
@@ -87,11 +87,11 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_revocation_currentness_task() -> None:
+def test_next_slice_is_one_bounded_observation_composition_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "principal_revocation_currentness_policy"
-    assert "revocation/currentness" in next_slice["scope"]
+    assert next_slice["id"] == "currentness_observation_composition_at_consuming_boundary"
+    assert "observation-only" in next_slice["scope"]
     assert "without allocation" in next_slice["scope"]
 
 
@@ -128,6 +128,8 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "catalog_enrollment" in boundaries["deferred"]
     assert "catalog_writer_admin_cli" in boundaries["deferred"]
     assert "live_revocation_distribution" in boundaries["deferred"]
+    assert "principal_revocation_registry" not in boundaries["deferred"]
+    assert "production_read_only_principal_revocation_registry" in boundaries["implemented"]
     assert "resource_allocation" in boundaries["deferred"]
     assert CONTRACT["algorithm_policy"]["claim_identifier"] == "ed25519"
 
@@ -142,6 +144,16 @@ def test_public_trust_catalog_posture_is_operator_bound_and_non_authority() -> N
     assert custody["live_revocation_currentness"] == "deferred"
     assert "catalog_self_consistent_digest != operator_trust" in CONTRACT["security_invariants"]
     assert "catalog_grants_no_authority" in CONTRACT["security_invariants"]
+
+
+def test_principal_revocation_registry_is_bounded_read_only_and_non_authority() -> None:
+    registry = CONTRACT["principal_revocation_registry"]
+    assert registry["operator_binding"] == ["exact_configured_path", "expected_registry_version", "expected_registry_digest"]
+    assert registry["snapshot_validity"] == "generated_at <= current_time < valid_until"
+    assert registry["entry_fields"] == ["principal_id", "principal_binding_digest", "issuer_id", "epoch", "revoked_at"]
+    assert registry["mutation"] is False and registry["administration"] is False
+    assert registry["live_distribution"] is False and registry["grants"] == []
+    assert CONTRACT["future_allocation_prerequisite"]["currentness_creates_allocation"] is False
 
 
 def test_all_evidence_sources_exist() -> None:
@@ -159,7 +171,7 @@ def test_top_level_contract_has_required_sections() -> None:
         "replay_semantics", "durability", "producer_flow", "consumer_flow",
         "verified_result_semantics", "observation_only_policy", "future_allocation_prerequisite",
         "security_invariants", "implementation_boundaries", "forbidden_claims", "open_questions",
-        "next_runtime_slice",
+        "next_runtime_slice", "principal_revocation_registry",
     }
     assert required <= CONTRACT.keys()
     assert {item["decision"] for item in CONTRACT["alternatives"]} <= {"adopt", "reject"}

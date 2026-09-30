@@ -1,0 +1,15 @@
+{
+  "artifact_kind": "principal_revocation_currentness_policy",
+  "capability_id": "principal_revocation_currentness_policy",
+  "status": "implemented",
+  "authority_level": "verification_only",
+  "proof_statement": "An authenticated existing root can be checked against one exact operator-bound bounded-validity principal-revocation snapshot without granting authority.",
+  "source_paths": ["sentientos/causal_resource_principal_currentness.py"],
+  "proof_tests": ["tests/test_causal_resource_principal_currentness.py"],
+  "matrix_lane": "causal_resource_principal_tests",
+  "explicit_non_authority_boundaries": [
+    "no allocation entitlement admission or effects",
+    "no registry mutation administration or live distribution",
+    "no renewal or successor generation semantics"
+  ]
+}

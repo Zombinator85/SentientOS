@@ -1,0 +1,17 @@
+{
+  "repository_sha": "591d56fb68ee9bf1cb69decca6ef35471d709bd0",
+  "required_nodes": [
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_real_ed25519_authenticated_root_fresh_registry_returns_currentness_evidence", "rationale": "Real Ed25519 authenticated-root evidence and an exact fresh operator-bound registry produce bounded currentness evidence."},
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_effective_and_future_revocation_boundary", "rationale": "Future revocation remains ineffective before its timestamp and exact revocation fails at and after it without changing key trust."},
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_principal_time_and_registry_time_fail_independently", "rationale": "Canonical principal time and bounded snapshot freshness independently fail closed."},
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_registry_digest_version_schema_and_duplicate_resistance", "rationale": "Corrupt, substituted, wrong-version, and duplicate-entry registries cannot establish currentness."},
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_authenticated_evidence_cross_binding_and_caller_smuggling_fail", "rationale": "Exact authenticated-evidence cross-binding is mandatory and serialized callers cannot construct verified currentness."},
+    {"node_id": "tests/test_causal_resource_principal_currentness.py::test_stale_absence_and_structural_non_authority", "rationale": "Absence in a stale snapshot proves nothing and the implementation exposes no allocation, authority, signing, issuance, mutation, or remote-update surface."}
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_causal_resource_principal_currentness.py::test_real_ed25519_authenticated_root_fresh_registry_returns_currentness_evidence"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
