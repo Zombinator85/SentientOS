@@ -1,21 +1,21 @@
 {
-  "schema": "sentientos.causal_resource_principal_authentication_architecture:v3",
-  "posture": "bounded_runtime_root_issuance_provenance_integration_non_authority",
-  "repository_sha": "c23130be270dceb4df6a4acb3ffb61e55be31d93",
+  "schema": "sentientos.causal_resource_principal_authentication_architecture:v4",
+  "posture": "bounded_genesis_forge_untrusted_provenance_forwarding_non_authority",
+  "repository_sha": "1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a",
   "current_gap": {
     "statement": "signed_provenance_is_not_independently_verified_trust",
-    "closed_in_this_slice": "RootPrincipalIssuer.mint_root_with_provenance returns one exact principal and its purpose-scoped provenance envelope",
+    "closed_in_this_slice": "GenesisForge explicitly forwards one exact RootPrincipalIssuance as separate principal and untrusted provenance claims",
     "current_guarantees": [
       "exact_v1_schema",
       "deterministic_principal_id",
       "canonical_binding_digest",
       "one_sponsorship_verification",
       "exact_principal_provenance_pair",
-      "purpose_scoped_ed25519_provenance"
+      "purpose_scoped_ed25519_provenance",
+      "GenesisForge_exact_untrusted_pair_forwarding"
     ],
     "not_guaranteed": [
       "receiving_side_trust_without_independent_verification",
-      "GenesisForge_forwarding",
       "control_plane_authenticated_status",
       "resource_entitlement",
       "effect_authority"
@@ -50,7 +50,8 @@
     "tests/test_causal_resource_principal_signer_custody.py",
     "sentientos/causal_resource_principal_provenance_signer.py",
     "tests/test_causal_resource_principal_provenance_signer.py",
-    "tests/test_causal_resource_principal_issuer_provenance_integration.py"
+    "tests/test_causal_resource_principal_issuer_provenance_integration.py",
+    "tests/test_genesis_forge_root_principal_provenance_forwarding.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -525,7 +526,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal.py"
+      "sentientos/genesis_forge.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -554,13 +555,13 @@
       "canonical_base64url_signature_envelope",
       "root_principal_issuer_integration",
       "exact_principal_and_provenance_paired_result",
-      "single_sponsorship_verification_paired_issuance"
+      "single_sponsorship_verification_paired_issuance",
+      "GenesisForge_provenance_forwarding"
     ],
     "deferred": [
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
       "principal_revocation_registry",
-      "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
       "resource_allocation",
       "resource_entitlement_enforcement",
@@ -602,11 +603,10 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "genesis_forge_root_principal_provenance_forwarding",
-    "scope": "Forward an explicitly supplied exact RootPrincipalIssuance principal-and-provenance pair through GenesisForge as untrusted claims, without automatic signing, control-plane authenticated status, trust mutation, allocation, admission, entitlement, or effects.",
+    "id": "control_plane_root_principal_provenance_authentication",
+    "scope": "Independently authenticate the explicitly forwarded root-principal provenance at the control-plane observation boundary using configured public trust, without allocation, admission, entitlement, or effects.",
     "excluded": [
       "GenesisForge_automatic_root_signing",
-      "control_plane_authenticated_status",
       "trust_mutation",
       "key_rotation_administration",
       "live_revocation_distribution",

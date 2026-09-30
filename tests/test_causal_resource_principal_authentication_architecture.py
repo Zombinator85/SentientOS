@@ -16,14 +16,14 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "c23130be270dceb4df6a4acb3ffb61e55be31d93"
-    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v3"
+    assert CONTRACT["repository_sha"] == "1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a"
+    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v4"
     assert CONTRACT["posture"] == (
-        "bounded_runtime_root_issuance_provenance_integration_non_authority"
+        "bounded_genesis_forge_untrusted_provenance_forwarding_non_authority"
     )
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal.py"
+        "sentientos/genesis_forge.py"
     ]
 
 
@@ -87,12 +87,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_genesis_forge_forwarding_task() -> None:
+def test_next_slice_is_one_bounded_control_plane_authentication_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "genesis_forge_root_principal_provenance_forwarding"
-    assert "Forward an explicitly supplied exact RootPrincipalIssuance" in next_slice["scope"]
-    assert "without automatic signing" in next_slice["scope"]
+    assert next_slice["id"] == "control_plane_root_principal_provenance_authentication"
+    assert "Independently authenticate" in next_slice["scope"]
+    assert "without allocation" in next_slice["scope"]
 
 
 def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
@@ -103,6 +103,8 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "production_verification_only_ed25519_backend_using_cryptography_runtime_extra" in boundaries["implemented"]
     assert "real_verification_for_already_resolved_trusted_public_key_only" in boundaries["implemented"]
     assert "production_read_only_trusted_issuer_public_key_catalog" in boundaries["implemented"]
+    assert "GenesisForge_provenance_forwarding" in boundaries["implemented"]
+    assert "GenesisForge_provenance_forwarding" not in boundaries["deferred"]
     assert "operator_provisioned_digest_sealed_versioned_public_trust" in boundaries["implemented"]
     assert "exact_fail_closed_trust_tuple_lookup" in boundaries["implemented"]
     assert "production_ed25519_backend" not in boundaries["deferred"]

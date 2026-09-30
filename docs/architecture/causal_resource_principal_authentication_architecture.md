@@ -10,8 +10,8 @@ operator-sponsored root issuance can return an exact immutable causal resource
 principal together with a purpose-scoped cryptographic issuer-provenance envelope for
 that same principal. The envelope remains an unverified claim until a receiving-side
 verifier checks current configured public trust. The integration implements no trust
-mutation, allocation, GenesisForge forwarding, or control-plane status. The inspected
-clean starting repository SHA is `c23130be270dceb4df6a4acb3ffb61e55be31d93`.
+mutation, allocation, or authenticated control-plane status. GenesisForge now forwards an explicitly supplied exact pair as separate untrusted claims. The inspected
+clean starting repository SHA is `1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a`.
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -21,7 +21,7 @@ The machine-readable normative companion is [`architecture/causal_resource_princ
 
 At the producer boundary, `RootPrincipalIssuer` invokes an injected `OperatorSponsorshipVerifier`, requires a `VerifiedOperatorSponsorship`, and then deterministically mints the root. The later `CausalResourcePrincipalVerifier` does not re-authenticate that producer or sponsorship verifier. Thus operator sponsorship verification, principal self-binding, and issuer authentication are three separate claims.
 
-GenesisForge can explicitly carry an existing principal into the proof-budget request. The control plane revalidates it and reports `canonical_root_binding_verified` as observation-only attribution. It does not change proof-budget policy, admission, entitlement, or authority. That weaker status remains useful and must retain this exact meaning.
+GenesisForge can explicitly carry either an existing principal alone or an exact `RootPrincipalIssuance` pair into the proof-budget request; the pair is forwarded as separate `causal_resource_principal` and `causal_resource_principal_provenance` untrusted claims. The control plane revalidates it and reports `canonical_root_binding_verified` as observation-only attribution. It does not change proof-budget policy, admission, entitlement, or authority. That weaker status remains useful and must retain this exact meaning.
 
 ## Existing authentication, signing, and custody audit
 
@@ -120,7 +120,7 @@ principal + envelope (serialized claims)
 
 The verified result is constructed only inside the verifier and is not accepted from serialized caller input. A caller can serialize claims, but `verified=true` or a caller-created wrapper never establishes verification.
 
-GenesisForge should eventually carry principal and provenance as separate untrusted claims. Verification occurs at the receiving control boundary, which may then construct a process-local typed bundle; a class name alone is not custody. Producer integration is now implemented; GenesisForge and control-plane runtime integrations remain explicitly deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
+GenesisForge now carries an explicitly supplied exact principal and provenance as separate untrusted claims after exact-type and cross-binding checks. Verification does not occur in GenesisForge. The receiving control boundary still observes only the canonical root; independent provenance authentication and any process-local authenticated bundle remain deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
 
 The existing `canonical_root_binding_verified` remains self-consistency-only. A future `authenticated_root_issuer_provenance_verified` status is truthful only after canonical validation, exact binding, trusted catalog lookup, signature verification, and currentness checks all succeed.
 
@@ -185,18 +185,14 @@ construction, or signing failure return no paired result. The existing `mint_roo
 operation remains signer-free and backward compatible.
 
 The paired result contains no trust assertion, approval, secret, key reference,
-allocation, entitlement, admission, or effect grant. This slice does not forward
-provenance through GenesisForge, change control-plane status, mutate trust, administer
+allocation, entitlement, admission, or effect grant. Forwarding through GenesisForge is implemented without changing control-plane status. This slice does not mutate trust, administer
 keys or revocation, allocate resources, establish entitlement, perform admission, or
 grant effect authority. Existing sponsorship, public trust, receiving-side
 verification, and future allocation boundaries remain separate.
 
 ## Smallest next implementation slice
 
-Implement exactly **`genesis_forge_root_principal_provenance_forwarding`**: forward an
-explicitly supplied exact `RootPrincipalIssuance` principal-and-provenance pair through
-GenesisForge as untrusted claims. Keep automatic signing, control-plane authenticated
-status, trust administration, allocation, admission, entitlement, and effects deferred.
+Implement exactly **`control_plane_root_principal_provenance_authentication`**: independently authenticate the forwarded provenance at the explicit control-plane observation boundary using configured public trust. Keep trust administration, allocation, admission, entitlement, and effects deferred.
 
 ## Unresolved questions
 

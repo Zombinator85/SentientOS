@@ -1,0 +1,43 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "1fbdaa51f5111dc36b49fc1adc9a07d9adb4858a",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_real_exact_pair_reaches_control_plane_without_trust_or_policy_change",
+      "rationale": "A production Ed25519 issuance pair reaches the actual proof-budget request byte-for-field exactly while the real control plane remains canonical-only and policy/admission results equal root-only behavior."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_structurally_mismatched_pair_fails_before_request[principal_id]",
+      "rationale": "Principal identity mismatch fails before any request is constructed."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_structurally_mismatched_pair_fails_before_request[principal_binding_digest]",
+      "rationale": "Principal binding-digest mismatch fails before any request is constructed."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_structurally_mismatched_pair_fails_before_request[issuer_id]",
+      "rationale": "Issuer mismatch fails before any request is constructed."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_non_exact_and_conflicting_inputs_fail_closed",
+      "rationale": "Non-exact issuance and ambiguous dual root specification fail closed."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_no_root_root_only_and_multiple_need_pair_modes_are_explicit",
+      "rationale": "No-root and root-only compatibility remain intact, and every need reuses the exact already-signed pair without signer invocation."
+    },
+    {
+      "node_id": "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_genesis_forwarder_has_no_issuer_verifier_trust_or_resource_authority",
+      "rationale": "AST and source regression proof excludes issuer/signer construction, provenance verification, trust lookup, allocation, quota, admission grants, and effect grants."
+    },
+    {
+      "node_id": "tests/test_causal_resource_principal_authentication_architecture.py::test_next_slice_is_one_bounded_control_plane_authentication_task",
+      "rationale": "Architecture advances exactly one causal gap to receiving-side provenance authentication without implementing allocation or authority."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_genesis_forge_root_principal_provenance_forwarding.py::test_real_exact_pair_reaches_control_plane_without_trust_or_policy_change"
+  ]
+}
