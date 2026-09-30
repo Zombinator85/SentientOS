@@ -1,20 +1,22 @@
 {
-  "schema": "sentientos.causal_resource_principal_authentication_architecture:v2",
-  "posture": "bounded_runtime_verification_private_key_custody_and_purpose_scoped_signing_non_authority",
-  "repository_sha": "494f03e1aaf3d61fe2b98769b295517376824cb9",
+  "schema": "sentientos.causal_resource_principal_authentication_architecture:v3",
+  "posture": "bounded_runtime_root_issuance_provenance_integration_non_authority",
+  "repository_sha": "c23130be270dceb4df6a4acb3ffb61e55be31d93",
   "current_gap": {
-    "statement": "principal_self_binding_is_not_issuer_authentication",
-    "serialized_risk": "Anyone who knows the v1 schema can construct a self-consistent principal with a syntactically valid issuer_id.",
+    "statement": "signed_provenance_is_not_independently_verified_trust",
+    "closed_in_this_slice": "RootPrincipalIssuer.mint_root_with_provenance returns one exact principal and its purpose-scoped provenance envelope",
     "current_guarantees": [
       "exact_v1_schema",
       "deterministic_principal_id",
       "canonical_binding_digest",
-      "validity_window",
-      "expected_value_comparison"
+      "one_sponsorship_verification",
+      "exact_principal_provenance_pair",
+      "purpose_scoped_ed25519_provenance"
     ],
     "not_guaranteed": [
-      "trusted_issuer_origin",
-      "cryptographic_provenance",
+      "receiving_side_trust_without_independent_verification",
+      "GenesisForge_forwarding",
+      "control_plane_authenticated_status",
       "resource_entitlement",
       "effect_authority"
     ]
@@ -47,7 +49,8 @@
     "sentientos/causal_resource_principal_signer_custody.py",
     "tests/test_causal_resource_principal_signer_custody.py",
     "sentientos/causal_resource_principal_provenance_signer.py",
-    "tests/test_causal_resource_principal_provenance_signer.py"
+    "tests/test_causal_resource_principal_provenance_signer.py",
+    "tests/test_causal_resource_principal_issuer_provenance_integration.py"
   ],
   "existing_mechanism_audit": [
     {
@@ -522,7 +525,7 @@
   "implementation_boundaries": {
     "runtime_changes_in_this_task": true,
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_provenance_signer.py"
+      "sentientos/causal_resource_principal.py"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -548,13 +551,15 @@
       "production_RootIssuerProvenanceSigner",
       "internal_canonical_root_provenance_payload_signing",
       "real_ed25519_signature_generation",
-      "canonical_base64url_signature_envelope"
+      "canonical_base64url_signature_envelope",
+      "root_principal_issuer_integration",
+      "exact_principal_and_provenance_paired_result",
+      "single_sponsorship_verification_paired_issuance"
     ],
     "deferred": [
       "trust_mutation",
       "key_rotation_revocation_infrastructure",
       "principal_revocation_registry",
-      "root_principal_issuer_integration",
       "GenesisForge_provenance_forwarding",
       "control_plane_authenticated_status",
       "resource_allocation",
@@ -597,10 +602,10 @@
   ],
   "next_runtime_slice": {
     "count": 1,
-    "id": "production_root_principal_issuer_provenance_integration",
-    "scope": "Compose the existing purpose-scoped provenance signer into RootPrincipalIssuer output so one operator-sponsored root issuance returns its exact principal and provenance envelope, without GenesisForge forwarding, control-plane authenticated status, trust administration, allocation, admission, entitlement, or effects.",
+    "id": "genesis_forge_root_principal_provenance_forwarding",
+    "scope": "Forward an explicitly supplied exact RootPrincipalIssuance principal-and-provenance pair through GenesisForge as untrusted claims, without automatic signing, control-plane authenticated status, trust mutation, allocation, admission, entitlement, or effects.",
     "excluded": [
-      "GenesisForge_provenance_forwarding",
+      "GenesisForge_automatic_root_signing",
       "control_plane_authenticated_status",
       "trust_mutation",
       "key_rotation_administration",
@@ -611,5 +616,20 @@
       "resource_admission",
       "resource_effect_authority"
     ]
+  },
+  "root_principal_issuer_integration": {
+    "implemented": true,
+    "api": "RootPrincipalIssuer.mint_root_with_provenance",
+    "output": "RootPrincipalIssuance",
+    "output_fields": [
+      "principal",
+      "provenance"
+    ],
+    "sponsorship_verifications_per_successful_issuance": 1,
+    "signer_injection": "RootIssuerProvenanceSigner",
+    "signing_time": "explicit_signed_at",
+    "canonical_only_api": "RootPrincipalIssuer.mint_root remains signer-free",
+    "provenance_trust": "unverified_claim_until_receiving_side_verification",
+    "grants": []
   }
 }

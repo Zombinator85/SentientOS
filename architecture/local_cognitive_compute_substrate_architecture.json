@@ -188,7 +188,7 @@
   ],
   "explicit_non_goals": ["CUDA_kernels", "Triton_kernels", "custom_attention_or_GEMM", "KV_cache_implementation", "quantization_algorithm", "model_training", "fine_tuning", "LoRA", "weight_updates", "runtime_replacement", "llama_cpp_modification", "PyTorch_modification", "model_download", "GPU_benchmark_execution", "autonomous_optimization", "ResourceAllocation", "production_root_principal_issuer_provenance_integration"],
   "orthogonal_roadmap": {
-    "resource_principal_next_runtime_slice": "production_root_principal_issuer_provenance_integration",
+    "resource_principal_next_runtime_slice": "genesis_forge_root_principal_provenance_forwarding",
     "status": "deferred_not_cancelled_and_not_implemented_by_this_task",
     "relationship": "local_compute_and_resource_principal_are_orthogonal_workstreams"
   },

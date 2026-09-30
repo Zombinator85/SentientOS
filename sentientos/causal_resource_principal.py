@@ -7,7 +7,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib, json, re
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
+
+if TYPE_CHECKING:
+    from sentientos.causal_resource_principal_authentication import (
+        RootIssuerProvenanceSigner,
+        RootPrincipalIssuerProvenance,
+    )
 
 SCHEMA = "sentientos.causal_resource_principal:v1"
 GENESIS_PREDECESSOR_DIGEST = "sha256:" + "0" * 64
@@ -70,6 +76,12 @@ class CausalResourcePrincipal:
         except (TypeError, ValueError) as exc: raise CausalResourcePrincipalError("malformed_principal") from exc
         return CausalResourcePrincipalVerifier().verify(candidate, current_time=candidate.issued_at)
 
+@dataclass(frozen=True)
+class RootPrincipalIssuance:
+    """One exact root and its unverified issuer-provenance claim."""
+    principal: CausalResourcePrincipal
+    provenance: RootPrincipalIssuerProvenance
+
 class CausalResourcePrincipalVerifier:
     def verify(self, evidence: CausalResourcePrincipal | Mapping[str, object], *, current_time: str,
                expected_issuer_id: str | None=None, expected_sponsor_evidence_digest: str | None=None,
@@ -95,11 +107,13 @@ class CausalResourcePrincipalVerifier:
         return p
 
 class RootPrincipalIssuer:
-    def __init__(self, *, issuer_id: str, sponsorship_verifier: OperatorSponsorshipVerifier) -> None:
+    def __init__(self, *, issuer_id: str, sponsorship_verifier: OperatorSponsorshipVerifier,
+                 provenance_signer: RootIssuerProvenanceSigner | None = None) -> None:
         self._issuer_id=_valid_issuer(issuer_id)
         if sponsorship_verifier is None: raise CausalResourcePrincipalError("sponsorship_verifier_required")
         self._verifier=sponsorship_verifier
-    def mint_root(self, *, sponsorship_evidence: object, subject_binding_digest: str, epoch: int, issued_at: str, expires_at: str) -> CausalResourcePrincipal:
+        self._provenance_signer=provenance_signer
+    def _mint_root(self, *, sponsorship_evidence: object, subject_binding_digest: str, epoch: int, issued_at: str, expires_at: str) -> CausalResourcePrincipal:
         try: verified=self._verifier.verify(sponsorship_evidence)
         except Exception as exc: raise CausalResourcePrincipalError("operator_sponsorship_not_verified") from exc
         if not isinstance(verified,VerifiedOperatorSponsorship): raise CausalResourcePrincipalError("operator_sponsorship_not_verified")
@@ -109,3 +123,25 @@ class RootPrincipalIssuer:
         identity=_identity(sponsor,subject,epoch,issued_at,expires_at,self._issuer_id); pid=_id(identity)
         body: dict[str,object]={"schema":SCHEMA,"principal_id":pid,"root_principal_id":pid,"parent_principal_id":None,**identity}
         return CausalResourcePrincipal(**body,binding_digest=_seal(body))  # type: ignore[arg-type]
+    def mint_root(self, *, sponsorship_evidence: object, subject_binding_digest: str, epoch: int, issued_at: str, expires_at: str) -> CausalResourcePrincipal:
+        """Mint canonical inert evidence without requiring or invoking a signer."""
+        return self._mint_root(sponsorship_evidence=sponsorship_evidence, subject_binding_digest=subject_binding_digest,
+                               epoch=epoch, issued_at=issued_at, expires_at=expires_at)
+    def mint_root_with_provenance(self, *, sponsorship_evidence: object, subject_binding_digest: str,
+                                  epoch: int, issued_at: str, expires_at: str,
+                                  signed_at: str) -> RootPrincipalIssuance:
+        """Mint once and sign that exact root, returning no result on either failure."""
+        signer=self._provenance_signer
+        if signer is None: raise CausalResourcePrincipalError("provenance_signer_required")
+        principal=self._mint_root(sponsorship_evidence=sponsorship_evidence,
+                                  subject_binding_digest=subject_binding_digest, epoch=epoch,
+                                  issued_at=issued_at, expires_at=expires_at)
+        provenance=signer.authenticate_root_provenance(principal, signed_at=signed_at)
+        from sentientos.causal_resource_principal_authentication import RootPrincipalIssuerProvenance
+        if type(provenance) is not RootPrincipalIssuerProvenance:
+            raise CausalResourcePrincipalError("provenance_result_not_canonical")
+        if (provenance.principal_id != principal.principal_id or
+                provenance.principal_binding_digest != principal.binding_digest or
+                provenance.issuer_id != principal.issuer_id):
+            raise CausalResourcePrincipalError("provenance_principal_binding_mismatch")
+        return RootPrincipalIssuance(principal=principal, provenance=provenance)

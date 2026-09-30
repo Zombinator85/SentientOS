@@ -284,7 +284,7 @@ Resource identity is not entitlement, allocation, scheduling priority, performan
 policy, or effect authority. This architecture does not implement `ResourceAllocation`.
 
 The causal-resource authentication roadmap is orthogonal. Its selected next runtime
-slice remains `production_root_principal_issuer_provenance_integration`, deferred rather
+slice has advanced to `genesis_forge_root_principal_provenance_forwarding`, deferred rather
 than cancelled and intentionally not implemented here.
 
 ## Exactly one next implementation slice
