@@ -190,8 +190,10 @@ def test_proof_budget_crosswalk_records_observation_without_allocation() -> None
 def test_genesis_composition_is_explicit_and_never_mints_a_root() -> None:
     source = Path("sentientos/genesis_forge.py").read_text(encoding="utf-8")
     assert "causal_resource_principal: CausalResourcePrincipal | None = None" in source
+    assert "root_principal_issuance: RootPrincipalIssuance | None = None" in source
     assert "causal_resource_principal.to_dict()" in source
-    assert "RootPrincipalIssuer" not in source
+    assert "RootPrincipalIssuer(" not in source
+    assert "mint_root_with_provenance(" not in source
     assert "ContextVar" not in source
 
 

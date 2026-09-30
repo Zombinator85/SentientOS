@@ -48,7 +48,8 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
     get_control_plane_kernel,
 )
-from sentientos.causal_resource_principal import CausalResourcePrincipal
+from sentientos.causal_resource_principal import CausalResourcePrincipal, RootPrincipalIssuance
+from sentientos.causal_resource_principal_authentication import RootPrincipalIssuerProvenance
 from sentientos.protected_mutation_provenance import validate_admission_provenance
 from sentientos.constitutional_mutation_fabric import (
     CanonicalMutationExecutionError,
@@ -747,8 +748,27 @@ class GenesisForge:
         vows: Sequence[CovenantVow],
         *,
         causal_resource_principal: CausalResourcePrincipal | None = None,
+        root_principal_issuance: RootPrincipalIssuance | None = None,
     ) -> list[GenesisOutcome]:
         """Draft reviewable Genesis proposals through the canonical evaluation pipeline."""
+
+        if causal_resource_principal is not None and root_principal_issuance is not None:
+            raise GenesisForgeError("causal_resource_principal_conflict")
+        if causal_resource_principal is not None and type(causal_resource_principal) is not CausalResourcePrincipal:
+            raise GenesisForgeError("causal_resource_principal_not_canonical")
+        if root_principal_issuance is not None:
+            if type(root_principal_issuance) is not RootPrincipalIssuance:
+                raise GenesisForgeError("root_principal_issuance_not_canonical")
+            principal = root_principal_issuance.principal
+            provenance = root_principal_issuance.provenance
+            if type(principal) is not CausalResourcePrincipal or type(provenance) is not RootPrincipalIssuerProvenance:
+                raise GenesisForgeError("root_principal_issuance_not_canonical")
+            if (
+                provenance.principal_id != principal.principal_id
+                or provenance.principal_binding_digest != principal.binding_digest
+                or provenance.issuer_id != principal.issuer_id
+            ):
+                raise GenesisForgeError("root_principal_issuance_binding_mismatch")
 
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
@@ -775,6 +795,9 @@ class GenesisForge:
             proof_budget_context: dict[str, object] = {"config": governor_config, "pressure_state": pressure_state, "run_context": {"pipeline":"genesis", "capability":need.capability, "router_attempt":1, "execution_attempt_id":attempt_id}}
             if causal_resource_principal is not None:
                 proof_budget_context["causal_resource_principal"] = causal_resource_principal.to_dict()
+            elif root_principal_issuance is not None:
+                proof_budget_context["causal_resource_principal"] = root_principal_issuance.principal.to_dict()
+                proof_budget_context["causal_resource_principal_provenance"] = root_principal_issuance.provenance.to_dict()
             budget_request = ControlActionRequest(action_kind="proof_budget", authority_class=AuthorityClass.PROPOSAL_EVALUATION, actor="genesis_forge", target_subsystem=need.capability, requested_phase=LifecyclePhase.MAINTENANCE, metadata={"correlation_id": f"genesis:{need.capability}:{attempt_id}:proof_budget", "require_admissible": False, "execution_attempt_id": attempt_id}, proof_budget_context=proof_budget_context)
             budget_gate = kernel.admit(budget_request)
             budget_payload = budget_gate.delegated_outcomes.get("proof_budget_governor", {})
@@ -799,6 +822,7 @@ class GenesisForge:
         vows: Sequence[CovenantVow],
         *,
         causal_resource_principal: CausalResourcePrincipal | None = None,
+        root_principal_issuance: RootPrincipalIssuance | None = None,
     ) -> list[GenesisOutcome]:
         """Fail closed: raw Genesis expansion no longer performs adoption.
 
@@ -810,6 +834,7 @@ class GenesisForge:
             telemetry_streams,
             vows,
             causal_resource_principal=causal_resource_principal,
+            root_principal_issuance=root_principal_issuance,
         )
         sealed: list[GenesisOutcome] = []
         for outcome in outcomes:
