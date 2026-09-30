@@ -1,9 +1,9 @@
 """Issuer-authentication claims for inert causal resource principals.
 
-This module supplies only verification boundaries.  Authentication performed here
-grants nothing, admits nothing, allocates nothing, and executes nothing.  In
-particular, no production signer, cryptographic backend, or trust-store mutation
-surface is provided.
+This module supplies evidence contracts and verification boundaries. Authentication
+performed here grants nothing, admits nothing, allocates nothing, and executes
+nothing. Production asymmetric backends remain in purpose-specific modules, and no
+trust-store mutation surface is provided.
 """
 from __future__ import annotations
 
@@ -206,7 +206,7 @@ class RootIssuerSignatureVerifier(Protocol):
 
 
 class RootIssuerProvenanceSigner(Protocol):
-    """Future purpose-scoped signer boundary; not implemented in production here."""
+    """Purpose-scoped signer boundary; implementations authenticate only roots."""
 
     def authenticate_root_provenance(
         self, principal: CausalResourcePrincipal, *, signed_at: str

@@ -156,13 +156,29 @@ Do not build custom cryptography, use repository-local fake NaCl as production s
 
 ## Implemented bounded runtime slice
 
-The repository now additionally implements `production_private_key_signer_custody`, a purpose-scoped operator-provisioned signing-key reference, short-lived zeroized private-seed use, and a private-seed-to-configured-key-ID consistency check. Its production OS-keyring backend is read-only and uses a dedicated namespace. Exact tuple mismatch, dependency/backend failure, missing material, noncanonical encoding, wrong seed length, and key-ID mismatch fail closed with fixed redacted reasons.
+The repository implements `production_private_key_signer_custody` and the production
+`CryptographyEd25519RootIssuerProvenanceSigner`. The signer accepts only an exact
+canonical `CausalResourcePrincipal`, checks that it is current at the canonical
+`signed_at`, binds the configured issuer/key/`ed25519` tuple, constructs
+`canonical_root_provenance_payload` internally, reacquires the exact seed through the
+bounded custody callback for every operation, and emits the canonical
+`RootPrincipalIssuerProvenance` envelope. Backend, custody, material, binding, and
+signing failures remain fail-closed and redacted. The API has no arbitrary-message
+signing operation.
 
-This slice does not sign, construct or emit `RootPrincipalIssuerProvenance`, integrate root issuance, forward provenance through GenesisForge, change control-plane status, mutate trust, administer rotation or revocation, allocate resources, establish entitlement, perform admission, or grant effect authority. Existing public-key trust and verification boundaries remain separate.
+This slice does not integrate signing into root issuance, forward provenance through
+GenesisForge, change control-plane status, mutate trust, administer keys or revocation,
+allocate resources, establish entitlement, perform admission, or grant effect
+authority. Existing sponsorship, public trust, verification, and future allocation
+boundaries remain separate.
 
 ## Smallest next implementation slice
 
-Implement exactly **`production_purpose_scoped_root_issuer_provenance_signer`**. It should consume the exact private-key custody boundary, construct the canonical provenance payload internally, sign only that semantic object, and emit `RootPrincipalIssuerProvenance`. It must not yet compose into root issuance, GenesisForge, or the control plane, and must not add trust administration, allocation, admission, entitlement, or effects.
+Implement exactly **`production_root_principal_issuer_provenance_integration`**: compose
+the existing purpose-scoped signer into `RootPrincipalIssuer` output so one
+operator-sponsored issuance returns its exact principal and provenance envelope. Keep
+GenesisForge forwarding, control-plane authenticated status, trust administration,
+allocation, admission, entitlement, and effects deferred.
 
 ## Unresolved questions
 

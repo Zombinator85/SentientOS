@@ -18,10 +18,12 @@ def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
     assert CONTRACT["repository_sha"] == "494f03e1aaf3d61fe2b98769b295517376824cb9"
     assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v2"
-    assert CONTRACT["posture"] == "bounded_runtime_verification_and_private_key_custody_boundary_non_authority"
+    assert CONTRACT["posture"] == (
+        "bounded_runtime_verification_private_key_custody_and_purpose_scoped_signing_non_authority"
+    )
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal_signer_custody.py"
+        "sentientos/causal_resource_principal_provenance_signer.py"
     ]
 
 
@@ -85,12 +87,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_purpose_scoped_signer_task() -> None:
+def test_next_slice_is_one_bounded_root_issuance_integration_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "production_purpose_scoped_root_issuer_provenance_signer"
-    assert "Consume exact private-key custody" in next_slice["scope"]
-    assert "without root issuance" in next_slice["scope"]
+    assert next_slice["id"] == "production_root_principal_issuer_provenance_integration"
+    assert "Compose the existing purpose-scoped provenance signer" in next_slice["scope"]
+    assert "without GenesisForge forwarding" in next_slice["scope"]
 
 
 def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
@@ -104,7 +106,10 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "operator_provisioned_digest_sealed_versioned_public_trust" in boundaries["implemented"]
     assert "exact_fail_closed_trust_tuple_lookup" in boundaries["implemented"]
     assert "production_ed25519_backend" not in boundaries["deferred"]
-    assert "production_RootIssuerProvenanceSigner" in boundaries["deferred"]
+    assert "production_RootIssuerProvenanceSigner" in boundaries["implemented"]
+    assert "production_RootIssuerProvenanceSigner" not in boundaries["deferred"]
+    assert CONTRACT["signer_boundary"]["production_implemented"] is True
+    assert CONTRACT["signer_boundary"]["arbitrary_bytes_api"] == "forbidden"
     assert "private_key_custody" not in boundaries["deferred"]
     assert "production_private_key_signer_custody" in boundaries["implemented"]
     assert "short_lived_zeroized_private_seed_use" in boundaries["implemented"]
