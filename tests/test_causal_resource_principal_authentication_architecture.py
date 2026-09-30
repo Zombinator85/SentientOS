@@ -87,11 +87,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_separately_admitted_allocation_contract() -> None:
+def test_next_slice_is_one_definition_only_registration_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "governed_local_model_budget_adapter_allocation_contract"
-    assert next_slice["crosses_allocation_or_entitlement_boundary"] is True
+    assert next_slice["id"] == "register-governed-local-model-resource-allocation-adapter-authority-definition"
+    assert next_slice["kind"] == "definition_only_authority_registration"
+    assert "independent operator approval" in next_slice["requires"]
     assert next_slice["implementation_in_this_task"] is False
 
 

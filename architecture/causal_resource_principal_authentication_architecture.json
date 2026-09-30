@@ -113,7 +113,7 @@
     "same_kernel_clock_timestamp": true
   },
   "current_gap": {
-    "closed_in_this_slice": "authenticated principal currentness is composed at the observation-only proof-budget control-plane attribution boundary",
+    "closed_in_this_slice": "authenticated principal currentness remains observation-only; the first governed-local-model allocation contract is now frozen without runtime allocation",
     "current_guarantees": [
       "canonical_current_root",
       "authenticated_issuer_provenance",
@@ -261,6 +261,15 @@
     "currentness_creates_allocation": false,
     "rule": "authenticated_issuer_provenance_plus_principal_specific_bounded_currentness_precede_but_do_not_create_allocation"
   },
+  "governed_local_model_allocation_contract": {
+    "authority_definition_registered": false,
+    "entitlement_enforcement_implemented": false,
+    "operator_approval_supplied": false,
+    "path": "architecture/governed_local_model_budget_allocation_contract.json",
+    "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+    "schema": "sentientos.governed_local_model_budget_allocation_contract:v1",
+    "status": "contract_defined_runtime_allocator_not_implemented"
+  },
   "implementation_boundaries": {
     "changed_runtime_files": [
       "sentientos/control_plane_kernel.py"
@@ -339,17 +348,10 @@
   },
   "next_runtime_slice": {
     "count": 1,
-    "crosses_allocation_or_entitlement_boundary": true,
-    "excluded": [
-      "live_revocation_distribution",
-      "renewal_successor_generation",
-      "external_model_allocation",
-      "host_resource_allocation",
-      "effect_authority"
-    ],
-    "id": "governed_local_model_budget_adapter_allocation_contract",
+    "id": "register-governed-local-model-resource-allocation-adapter-authority-definition",
     "implementation_in_this_task": false,
-    "scope": "Define the first resource-specific allocation and entitlement contract for governed local-model budgets; implementation requires separate admission and must not be inferred from observed currentness."
+    "kind": "definition_only_authority_registration",
+    "requires": "independent operator approval evidence bound to the frozen candidate definition digest"
   },
   "observation_only_policy": {
     "admission_input": false,

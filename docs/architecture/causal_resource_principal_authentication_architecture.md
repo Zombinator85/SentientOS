@@ -213,3 +213,9 @@ Select exactly **`governed_local_model_budget_adapter_allocation_contract`**. Th
 1. Which dedicated production keystore/backend and deployment platforms are admitted?
 2. What operator-controlled trust-catalog mutation and historical snapshot format is canonical?
 3. Which separately governed live distribution mechanism could supersede bounded snapshots?
+
+## Governed local-model allocation contract reconciliation
+
+The observation-only currentness prerequisite remains unchanged and still allocates nothing. The first resource specialization is now normatively defined by [`architecture/governed_local_model_budget_allocation_contract.json`](../../architecture/governed_local_model_budget_allocation_contract.json): `governed_local_model_invocation_call_entitlement.v1`. No allocator, entitlement enforcement, authority registration, operator approval, allocation issuance, grant, admission, or effect was added.
+
+The sole next slice is definition-only registration task `register-governed-local-model-resource-allocation-adapter-authority-definition`, and it is contingent on independently supplied approval bound to the exact candidate definition digest. Allocator implementation remains later and separately admitted.
