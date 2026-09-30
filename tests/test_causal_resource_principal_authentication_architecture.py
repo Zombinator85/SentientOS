@@ -16,14 +16,14 @@ CONTRACT = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 def test_contract_records_historical_sha_and_bounded_runtime_posture() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", CONTRACT["repository_sha"])
-    assert CONTRACT["repository_sha"] == "494f03e1aaf3d61fe2b98769b295517376824cb9"
-    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v2"
+    assert CONTRACT["repository_sha"] == "c23130be270dceb4df6a4acb3ffb61e55be31d93"
+    assert CONTRACT["schema"] == "sentientos.causal_resource_principal_authentication_architecture:v3"
     assert CONTRACT["posture"] == (
-        "bounded_runtime_verification_private_key_custody_and_purpose_scoped_signing_non_authority"
+        "bounded_runtime_root_issuance_provenance_integration_non_authority"
     )
     assert CONTRACT["implementation_boundaries"]["runtime_changes_in_this_task"] is True
     assert CONTRACT["implementation_boundaries"]["changed_runtime_files"] == [
-        "sentientos/causal_resource_principal_provenance_signer.py"
+        "sentientos/causal_resource_principal.py"
     ]
 
 
@@ -33,7 +33,7 @@ def test_v1_identity_and_authentication_are_separate() -> None:
     assert compatibility["decision"] == "preserve_unchanged"
     assert compatibility["identity_under_key_rotation"] == "same_principal_id"
     assert compatibility["identity_under_resigning"] == "same_principal_id"
-    assert CONTRACT["current_gap"]["statement"] == "principal_self_binding_is_not_issuer_authentication"
+    assert CONTRACT["current_gap"]["statement"] == "signed_provenance_is_not_independently_verified_trust"
 
 
 def test_existing_mechanism_decisions_use_closed_vocabularies() -> None:
@@ -87,12 +87,12 @@ def test_observation_only_and_verified_result_postures_are_explicit() -> None:
     assert CONTRACT["verified_result_semantics"]["serialization"] == "not_accepted_as_verified_caller_truth"
 
 
-def test_next_slice_is_one_bounded_root_issuance_integration_task() -> None:
+def test_next_slice_is_one_bounded_genesis_forge_forwarding_task() -> None:
     next_slice = CONTRACT["next_runtime_slice"]
     assert next_slice["count"] == 1
-    assert next_slice["id"] == "production_root_principal_issuer_provenance_integration"
-    assert "Compose the existing purpose-scoped provenance signer" in next_slice["scope"]
-    assert "without GenesisForge forwarding" in next_slice["scope"]
+    assert next_slice["id"] == "genesis_forge_root_principal_provenance_forwarding"
+    assert "Forward an explicitly supplied exact RootPrincipalIssuance" in next_slice["scope"]
+    assert "without automatic signing" in next_slice["scope"]
 
 
 def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
@@ -108,6 +108,13 @@ def test_implemented_and_deferred_boundaries_are_exactly_separated() -> None:
     assert "production_ed25519_backend" not in boundaries["deferred"]
     assert "production_RootIssuerProvenanceSigner" in boundaries["implemented"]
     assert "production_RootIssuerProvenanceSigner" not in boundaries["deferred"]
+    assert "root_principal_issuer_integration" in boundaries["implemented"]
+    assert "root_principal_issuer_integration" not in boundaries["deferred"]
+    integration = CONTRACT["root_principal_issuer_integration"]
+    assert integration["api"] == "RootPrincipalIssuer.mint_root_with_provenance"
+    assert integration["output_fields"] == ["principal", "provenance"]
+    assert integration["sponsorship_verifications_per_successful_issuance"] == 1
+    assert integration["grants"] == []
     assert CONTRACT["signer_boundary"]["production_implemented"] is True
     assert CONTRACT["signer_boundary"]["arbitrary_bytes_api"] == "forbidden"
     assert "private_key_custody" not in boundaries["deferred"]

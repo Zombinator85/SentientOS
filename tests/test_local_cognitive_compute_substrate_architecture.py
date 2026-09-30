@@ -92,7 +92,7 @@ def test_portability_security_and_resource_boundaries_fail_closed() -> None:
     resource = CONTRACT["resource_principal_connection"]
     assert "does not create ResourceAllocation" in resource["boundary"]
     assert CONTRACT["orthogonal_roadmap"]["resource_principal_next_runtime_slice"] == (
-        "production_root_principal_issuer_provenance_integration"
+        "genesis_forge_root_principal_provenance_forwarding"
     )
     assert CONTRACT["orthogonal_roadmap"]["status"] == (
         "deferred_not_cancelled_and_not_implemented_by_this_task"
@@ -129,4 +129,4 @@ def test_all_evidence_sources_and_companion_document_exist() -> None:
     text = companion.read_text(encoding="utf-8")
     assert "Local Cognitive Compute Substrate" in text
     assert "exact_runtime_backend_build_identity_and_benchmark_manifest" in text
-    assert "production_root_principal_issuer_provenance_integration" in text
+    assert "genesis_forge_root_principal_provenance_forwarding" in text

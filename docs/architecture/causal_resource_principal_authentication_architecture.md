@@ -2,7 +2,16 @@
 
 ## Posture and inspected base
 
-This is a **bounded runtime verification boundary and non-authority contract**. The immutable claim, verifier, production verification-only Ed25519 backend, production read-only trusted issuer/public-key catalog, and production purpose-scoped private-key custody boundary are implemented. The runtime can possess operator-provisioned trusted public verification material and can make one exact externally custodied private seed available for bounded future signing use. It implements no production signer, provenance emission, trust mutation, root minting integration, allocation, GenesisForge composition, or control-plane status. The inspected clean repository SHA is `494f03e1aaf3d61fe2b98769b295517376824cb9`.
+This is a **bounded runtime verification and producer-integration boundary and
+non-authority contract**. The immutable claim, verifier, production Ed25519 backend,
+read-only trusted issuer/public-key catalog, purpose-scoped signer and custody, and
+explicit root-issuance composition are implemented. One explicitly requested
+operator-sponsored root issuance can return an exact immutable causal resource
+principal together with a purpose-scoped cryptographic issuer-provenance envelope for
+that same principal. The envelope remains an unverified claim until a receiving-side
+verifier checks current configured public trust. The integration implements no trust
+mutation, allocation, GenesisForge forwarding, or control-plane status. The inspected
+clean starting repository SHA is `c23130be270dceb4df6a4acb3ffb61e55be31d93`.
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -111,7 +120,7 @@ principal + envelope (serialized claims)
 
 The verified result is constructed only inside the verifier and is not accepted from serialized caller input. A caller can serialize claims, but `verified=true` or a caller-created wrapper never establishes verification.
 
-GenesisForge should eventually carry principal and provenance as separate untrusted claims. Verification occurs at the receiving control boundary, which may then construct a process-local typed bundle; a class name alone is not custody. Producer, GenesisForge, and control-plane runtime integrations remain explicitly deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
+GenesisForge should eventually carry principal and provenance as separate untrusted claims. Verification occurs at the receiving control boundary, which may then construct a process-local typed bundle; a class name alone is not custody. Producer integration is now implemented; GenesisForge and control-plane runtime integrations remain explicitly deferred. The current verifier accepts trust only through its injected lookup-only store and returns bounded process-local authentication evidence.
 
 The existing `canonical_root_binding_verified` remains self-consistency-only. A future `authenticated_root_issuer_provenance_verified` status is truthful only after canonical validation, exact binding, trusted catalog lookup, signature verification, and currentness checks all succeed.
 
@@ -154,7 +163,7 @@ Missing or malformed provenance, unknown issuer/key, unsupported algorithm, sign
 
 Do not build custom cryptography, use repository-local fake NaCl as production security, use production HMAC for independent verification, accept caller keys, store private keys in the repository/principal/envelope/environment, treat signatures or roots as authority/allocation, expose a universal arbitrary-byte signing service, bundle key generation/admin with issuance, silently fall back when crypto is unavailable, or automatically allocate resources after authentication.
 
-## Implemented bounded runtime slice
+## Implemented bounded runtime slices
 
 The repository implements `production_private_key_signer_custody` and the production
 `CryptographyEd25519RootIssuerProvenanceSigner`. The signer accepts only an exact
@@ -166,19 +175,28 @@ bounded custody callback for every operation, and emits the canonical
 signing failures remain fail-closed and redacted. The API has no arbitrary-message
 signing operation.
 
-This slice does not integrate signing into root issuance, forward provenance through
-GenesisForge, change control-plane status, mutate trust, administer keys or revocation,
-allocate resources, establish entitlement, perform admission, or grant effect
-authority. Existing sponsorship, public trust, verification, and future allocation
-boundaries remain separate.
+`RootPrincipalIssuer` now accepts the semantic `RootIssuerProvenanceSigner` boundary by
+explicit dependency injection. Its explicit
+`mint_root_with_provenance(..., signed_at=...)` operation verifies sponsorship once,
+constructs one canonical root, passes that exact object to the signer once, checks the
+returned identity bindings, and returns the immutable two-field
+`RootPrincipalIssuance(principal, provenance)`. Missing signers and any sponsorship,
+construction, or signing failure return no paired result. The existing `mint_root(...)`
+operation remains signer-free and backward compatible.
+
+The paired result contains no trust assertion, approval, secret, key reference,
+allocation, entitlement, admission, or effect grant. This slice does not forward
+provenance through GenesisForge, change control-plane status, mutate trust, administer
+keys or revocation, allocate resources, establish entitlement, perform admission, or
+grant effect authority. Existing sponsorship, public trust, receiving-side
+verification, and future allocation boundaries remain separate.
 
 ## Smallest next implementation slice
 
-Implement exactly **`production_root_principal_issuer_provenance_integration`**: compose
-the existing purpose-scoped signer into `RootPrincipalIssuer` output so one
-operator-sponsored issuance returns its exact principal and provenance envelope. Keep
-GenesisForge forwarding, control-plane authenticated status, trust administration,
-allocation, admission, entitlement, and effects deferred.
+Implement exactly **`genesis_forge_root_principal_provenance_forwarding`**: forward an
+explicitly supplied exact `RootPrincipalIssuance` principal-and-provenance pair through
+GenesisForge as untrusted claims. Keep automatic signing, control-plane authenticated
+status, trust administration, allocation, admission, entitlement, and effects deferred.
 
 ## Unresolved questions
 
