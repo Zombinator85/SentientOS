@@ -21,6 +21,11 @@ from sentientos.causal_resource_principal_authentication import (
     RootIssuerProvenanceError,
     RootIssuerProvenanceVerifier,
 )
+from sentientos.causal_resource_principal_currentness import (
+    PrincipalCurrentnessError,
+    PrincipalCurrentnessVerifier,
+    ReadOnlyPrincipalRevocationRegistry,
+)
 from sentientos.runtime_governor import GovernorDecision, RuntimeGovernor, get_runtime_governor
 
 if TYPE_CHECKING:
@@ -175,11 +180,15 @@ class ControlPlaneKernel:
         admission_dedupe_max_entries: int = 4096,
         clock: Callable[[], float] | None = None,
         root_issuer_provenance_verifier: RootIssuerProvenanceVerifier | None = None,
+        principal_currentness_verifier: PrincipalCurrentnessVerifier | None = None,
+        principal_revocation_registry: ReadOnlyPrincipalRevocationRegistry | None = None,
     ) -> None:
         if admission_dedupe_ttl_seconds <= 0:
             raise ValueError("admission_dedupe_ttl_seconds must be positive")
         if admission_dedupe_max_entries < 1:
             raise ValueError("admission_dedupe_max_entries must be at least 1")
+        if (principal_currentness_verifier is None) != (principal_revocation_registry is None):
+            raise ValueError("principal currentness verifier and revocation registry must be configured together")
         self._phase = phase
         self._runtime_governor = runtime_governor or get_runtime_governor()
         root = Path(os.getenv("SENTIENTOS_CONTROL_KERNEL_ROOT", "glow/control_plane"))
@@ -189,6 +198,8 @@ class ControlPlaneKernel:
         self._admission_dedupe_max_entries = int(admission_dedupe_max_entries)
         self._clock = clock or (lambda: datetime.now(timezone.utc).timestamp())
         self._root_issuer_provenance_verifier = root_issuer_provenance_verifier
+        self._principal_currentness_verifier = principal_currentness_verifier
+        self._principal_revocation_registry = principal_revocation_registry
         self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
 
     @property
@@ -622,6 +633,49 @@ class ControlPlaneKernel:
                 "signing_key_id": authenticated.signing_key_id,
                 "algorithm": authenticated.algorithm,
                 "signed_at": authenticated.signed_at,
+            }
+        )
+        if self._principal_currentness_verifier is None:
+            return observation
+        assert self._principal_revocation_registry is not None
+        try:
+            current = self._principal_currentness_verifier.verify(
+                principal,
+                authenticated,
+                self._principal_revocation_registry,
+                current_time=current_time,
+            )
+        except PrincipalCurrentnessError as exc:
+            currentness_reasons = {
+                "principal_revoked",
+                "registry_stale",
+                "registry_not_yet_valid",
+                "authenticated_principal_id_mismatch",
+                "authenticated_principal_binding_mismatch",
+                "authenticated_issuer_mismatch",
+                "revocation_principal_binding_mismatch",
+                "revocation_issuer_mismatch",
+                "revocation_epoch_mismatch",
+                "principal_expired",
+                "principal_not_yet_valid",
+            }
+            observation["principal_currentness"] = "failed"
+            observation["principal_currentness_reason"] = (
+                str(exc) if str(exc) in currentness_reasons else "currentness_configuration_unusable"
+            )
+            return observation
+        except Exception:
+            observation["principal_currentness"] = "failed"
+            observation["principal_currentness_reason"] = "currentness_verifier_unavailable"
+            return observation
+        observation.update(
+            {
+                "principal_currentness": "verified",
+                "principal_currentness_checked_at": current.checked_at,
+                "principal_revocation_registry_version": current.revocation_registry_version,
+                "principal_revocation_registry_digest": current.revocation_registry_digest,
+                "principal_revocation_registry_generated_at": current.registry_generated_at,
+                "principal_revocation_registry_valid_until": current.registry_valid_until,
             }
         )
         return observation

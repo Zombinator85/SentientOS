@@ -13,6 +13,7 @@ import pytest
 from codex.proof_budget_governor import GovernorConfig, PressureState
 from sentientos.causal_resource_principal import RootPrincipalIssuance, RootPrincipalIssuer, VerifiedOperatorSponsorship
 from sentientos.causal_resource_principal_authentication import RootIssuerProvenanceVerifier
+from sentientos.causal_resource_principal_currentness import PrincipalCurrentnessVerifier, ReadOnlyPrincipalRevocationRegistry
 from sentientos.causal_resource_principal_ed25519 import CryptographyEd25519RootIssuerSignatureVerifier
 from sentientos.causal_resource_principal_provenance_signer import CryptographyEd25519RootIssuerProvenanceSigner
 from sentientos.causal_resource_principal_signer_custody import (
@@ -45,8 +46,15 @@ class _AllowGovernor:
         return GovernorDecision(action_class=action_type, allowed=True, mode="enforce", reason="allowed", subject="proof", scope="local", origin=actor, sampled_pressure=PressureSnapshot(cpu=.1, io=.1, thermal=.1, gpu=.1, composite=.1, sampled_at=NOW), reason_hash="hash", correlation_id=correlation_id, action_priority=0, action_family="control")
 
 
-def _kernel(tmp_path: Path, name: str, verifier: RootIssuerProvenanceVerifier | None = None) -> ControlPlaneKernel:
-    return ControlPlaneKernel(runtime_governor=_AllowGovernor(), phase=LifecyclePhase.MAINTENANCE, decisions_path=tmp_path / name, clock=lambda: 1789978200, root_issuer_provenance_verifier=verifier)  # type: ignore[arg-type]
+def _kernel(
+    tmp_path: Path,
+    name: str,
+    verifier: RootIssuerProvenanceVerifier | None = None,
+    *,
+    principal_currentness_verifier: PrincipalCurrentnessVerifier | None = None,
+    principal_revocation_registry: ReadOnlyPrincipalRevocationRegistry | None = None,
+) -> ControlPlaneKernel:
+    return ControlPlaneKernel(runtime_governor=_AllowGovernor(), phase=LifecyclePhase.MAINTENANCE, decisions_path=tmp_path / name, clock=lambda: 1789978200, root_issuer_provenance_verifier=verifier, principal_currentness_verifier=principal_currentness_verifier, principal_revocation_registry=principal_revocation_registry)  # type: ignore[arg-type]
 
 
 def _issuance() -> tuple[RootPrincipalIssuance, bytes, str]:

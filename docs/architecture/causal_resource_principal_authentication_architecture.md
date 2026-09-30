@@ -10,7 +10,7 @@ operator-sponsored root issuance can return an exact immutable causal resource
 principal together with a purpose-scoped cryptographic issuer-provenance envelope for
 that same principal. The envelope remains an unverified claim until a receiving-side
 verifier checks current configured public trust. The integration implements no trust
-mutation, allocation, or authenticated control-plane status. GenesisForge now forwards an explicitly supplied exact pair as separate untrusted claims. The principal-currentness implementation started from commit `591d56fb68ee9bf1cb69decca6ef35471d709bd0` (tree `3537cae8c188cefc0bc7f4a5bbd3051039a3e7de`).
+mutation, allocation, or authenticated control-plane status. GenesisForge now forwards an explicitly supplied exact pair as separate untrusted claims. The currentness-observation composition started from commit `f784bdaa66b98c7e123c31d659887c05a7b1332a` (tree `718fcf860fbf09327d6cf87bf7e7045c6a5f6eae`).
 
 The machine-readable normative companion is [`architecture/causal_resource_principal_authentication_architecture.json`](../../architecture/causal_resource_principal_authentication_architecture.json). Where this narrative abbreviates a closed decision, that contract controls.
 
@@ -196,9 +196,17 @@ grant effect authority. Existing sponsorship and future allocation boundaries re
 
 The snapshot is loaded once: there is no writer, admin API, reload-on-use mutation, remote update, or live revocation distribution. Renewal and successor/supersession generations remain deferred. Currentness grants no allocation, entitlement, admission, or effects.
 
+## Control-plane currentness observation composition
+
+The consuming boundary is `ControlPlaneKernel`'s descriptive `proof_budget_context.causal_attribution` projection. Its constructor accepts an explicit `PrincipalCurrentnessVerifier` and an already-loaded immutable `ReadOnlyPrincipalRevocationRegistry`; both must be absent or both present, and the default/global kernel remains unconfigured. The kernel loads no files and accepts no registry data or paths from callers.
+
+Canonical root verification precedes provenance authentication, which precedes currentness verification. Only the process-local `AuthenticatedRootPrincipalEvidence` returned by the configured provenance verifier can reach the currentness verifier. Both verifiers receive the exact same canonical UTC timestamp from the kernel's single clock read. A successful check retains `authenticated_root_issuer_provenance_verified` and adds `principal_currentness=verified` plus the evidence's check time and registry version, digest, generated-at, and valid-until fields. Failure retains truthful provenance authentication and adds `principal_currentness=failed` with a bounded classification; unavailable or unusable dependencies never expose raw exceptions. An unconfigured kernel simply retains the pre-existing authenticated projection without claiming a currentness check.
+
+This dimension is descriptive only: `policy_input=false`, `admission_input=false`, and `grants=[]`. It does not allocate, entitle, reserve, meter, admit, sign, issue, mutate revocation state, or grant effects. Live registry distribution, renewal/successor generations, allocation, entitlement, admission integration, and effects remain deferred.
+
 ## Smallest next implementation slice
 
-Implement exactly **`currentness_observation_composition_at_consuming_boundary`**: compose authenticated principal currentness at one observation-only consumer without changing proof budgets, admission, allocation, entitlement, or effects.
+Select exactly **`governed_local_model_budget_adapter_allocation_contract`**. This next slice crosses into resource-specific allocation and entitlement semantics, so it requires a separately bootstrapped and admitted task; no adapter or allocation behavior is implemented here.
 
 ## Unresolved questions
 

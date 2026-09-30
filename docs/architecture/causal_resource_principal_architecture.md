@@ -20,7 +20,7 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 **Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, live revocation distribution, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
 
-The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane verifies canonical root binding by default and, when explicitly injected with the existing provenance verifier, can authenticate the issuer provenance without changing policy or admission.
+The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane verifies canonical root binding by default and, when explicitly injected, authenticates issuer provenance and then verifies principal currentness against an already-loaded read-only registry snapshot. These observations do not change proof-budget arithmetic or admission.
 
 ### Canonical verification is not issuer authentication
 
@@ -393,7 +393,7 @@ Observation-only proof-budget attribution is implemented at the explicit control
 
 Principal-specific bounded currentness is now independently implemented for authenticated existing roots through an immutable operator-bound, version/digest-sealed registry snapshot. It is valid only within its explicit generated-at/valid-until window and is not live distribution, renewal, supersession, allocation, entitlement, admission, or effects.
 
-The **smallest next runtime slice** is `currentness_observation_composition_at_consuming_boundary`: compose this evidence at one observation-only consumer while preserving all allocation and authority boundaries.
+The currentness observation composition is now implemented at the existing proof-budget causal-attribution boundary. The **smallest next deferred slice** is `governed_local_model_budget_adapter_allocation_contract`. It crosses into resource-specific allocation and entitlement semantics and therefore requires a separate admitted task; no allocation consumer is implemented here.
 
 ## 19. Unresolved questions
 
@@ -445,7 +445,7 @@ These are bounded implementation decisions, not reasons to reopen the architectu
 | 16. `final_check` | after otherwise-valid effect admission and immediately before effect attempt, plus metering where required |
 | 17. `receipt_relation` | cross-linked but distinct resource and effect receipts |
 | 18. `deferred` | all runtime minting, ledgers, propagation, enforcement, billing, GPU accounting and cost sharing |
-| 19. `next_runtime_task` | Define principal revocation/currentness policy required before entitlement-bearing use; do not add allocation or authority. |
+| 19. `next_runtime_task` | Define `governed_local_model_budget_adapter_allocation_contract` in a separately admitted task; this is the first allocation/entitlement boundary and is not implemented here. |
 
 ## 22. Design contract summary
 

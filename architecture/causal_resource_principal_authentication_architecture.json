@@ -71,8 +71,11 @@
     "trusted_issuer_key_catalog_lookup",
     "algorithm_and_signature_verification",
     "key_validity_and_revocation",
+    "process_local_authenticated_root_principal_evidence",
+    "explicit_injected_principal_currentness_verifier_and_registry",
     "principal_time_and_revocation_currentness",
-    "process_local_authenticated_root_principal_evidence"
+    "process_local_current_authenticated_root_principal_evidence",
+    "bounded_control_plane_descriptive_projection"
   ],
   "control_plane_composition": {
     "authenticated_status": "authenticated_root_issuer_provenance_verified",
@@ -85,24 +88,50 @@
     "implemented": true,
     "policy_or_admission_input": false
   },
+  "control_plane_currentness_composition": {
+    "admission_input": false,
+    "configuration_pairing": "both_absent_or_both_present",
+    "constructor_configuration": [
+      "principal_currentness_verifier",
+      "principal_revocation_registry"
+    ],
+    "consuming_boundary": "ControlPlaneKernel proof_budget_context.causal_attribution observation",
+    "default_active": false,
+    "failure_posture": "authenticated provenance retained with failed and bounded reason",
+    "grants": [],
+    "policy_input": false,
+    "projection": [
+      "principal_currentness",
+      "principal_currentness_checked_at",
+      "principal_revocation_registry_version",
+      "principal_revocation_registry_digest",
+      "principal_revocation_registry_generated_at",
+      "principal_revocation_registry_valid_until"
+    ],
+    "provenance_authentication_prerequisite": true,
+    "registry_custody": "already_loaded_read_only_injected_snapshot",
+    "same_kernel_clock_timestamp": true
+  },
   "current_gap": {
-    "closed_in_this_slice": "authenticated existing roots can be checked against one exact fresh operator-bound principal revocation snapshot",
+    "closed_in_this_slice": "authenticated principal currentness is composed at the observation-only proof-budget control-plane attribution boundary",
     "current_guarantees": [
       "canonical_current_root",
       "authenticated_issuer_provenance",
       "operator_expected_registry_version_and_digest",
       "bounded_snapshot_validity",
       "exact_principal_specific_effective_revocation",
-      "process_local_currentness_evidence"
+      "process_local_currentness_evidence",
+      "bounded_control_plane_currentness_projection"
     ],
     "not_guaranteed": [
       "live_revocation_distribution",
       "renewal_or_successor_generation_currentness",
       "resource_entitlement",
       "resource_allocation",
+      "resource_admission",
       "effect_authority"
     ],
-    "statement": "principal_specific_snapshot_currentness_is_independent_evidence_not_authority"
+    "statement": "currentness_observation_is_descriptive_and_not_policy_or_authority"
   },
   "decision": "separate_v1_envelope_with_injected_ed25519_boundaries",
   "domain_separation": "sentientos.causal_resource_principal.issuer_provenance:v1",
@@ -151,7 +180,9 @@
     "docs/development/control_plane_root_principal_provenance_authentication_task_acceptance.json",
     "sentientos/causal_resource_principal_currentness.py",
     "tests/test_causal_resource_principal_currentness.py",
-    "docs/development/principal_revocation_currentness_policy_task_acceptance.json"
+    "docs/development/principal_revocation_currentness_policy_task_acceptance.json",
+    "tests/test_control_plane_principal_currentness_observation.py",
+    "docs/development/control_plane_principal_currentness_observation_task_acceptance.json"
   ],
   "existing_mechanism_audit": [
     {
@@ -232,7 +263,7 @@
   },
   "implementation_boundaries": {
     "changed_runtime_files": [
-      "sentientos/causal_resource_principal_currentness.py"
+      "sentientos/control_plane_kernel.py"
     ],
     "deferred": [
       "trust_mutation",
@@ -243,7 +274,8 @@
       "resource_effect_authority",
       "catalog_enrollment",
       "catalog_writer_admin_cli",
-      "live_revocation_distribution"
+      "live_revocation_distribution",
+      "renewal_successor_generations"
     ],
     "implemented": [
       "immutable_provenance_claim",
@@ -281,7 +313,12 @@
       "operator_bound_registry_version_and_digest",
       "bounded_registry_snapshot_validity",
       "exact_principal_effective_revocation",
-      "process_local_current_authenticated_root_evidence"
+      "process_local_current_authenticated_root_evidence",
+      "control_plane_currentness_observation_composition",
+      "explicit_PrincipalCurrentnessVerifier_injection",
+      "explicit_ReadOnlyPrincipalRevocationRegistry_injection",
+      "paired_currentness_configuration",
+      "bounded_currentness_success_and_failure_projection"
     ],
     "runtime_changes_in_this_task": true
   },
@@ -302,18 +339,21 @@
   },
   "next_runtime_slice": {
     "count": 1,
+    "crosses_allocation_or_entitlement_boundary": true,
     "excluded": [
-      "renewal_successor_generation",
       "live_revocation_distribution",
-      "resource_allocation",
-      "resource_entitlement",
-      "resource_admission",
-      "resource_effect_authority"
+      "renewal_successor_generation",
+      "external_model_allocation",
+      "host_resource_allocation",
+      "effect_authority"
     ],
-    "id": "currentness_observation_composition_at_consuming_boundary",
-    "scope": "Compose authenticated principal currentness at one observation-only consuming boundary without allocation, entitlement, admission, or effects."
+    "id": "governed_local_model_budget_adapter_allocation_contract",
+    "implementation_in_this_task": false,
+    "scope": "Define the first resource-specific allocation and entitlement contract for governed local-model budgets; implementation requires separate admission and must not be inferred from observed currentness."
   },
   "observation_only_policy": {
+    "admission_input": false,
+    "authenticated_status": "authenticated_root_issuer_provenance_verified",
     "authenticated_status_requires": [
       "canonical_root",
       "exact_binding",
@@ -325,13 +365,18 @@
     "canonical_only_may_continue": true,
     "canonical_status": "canonical_root_binding_verified",
     "canonical_status_meaning": "self_consistency_only",
-    "future_authenticated_status": "authenticated_root_issuer_provenance_verified"
+    "currentness_default_active": false,
+    "currentness_failure": "failed_with_bounded_reason",
+    "currentness_status_field": "principal_currentness",
+    "currentness_success": "verified",
+    "grants": [],
+    "policy_input": false
   },
   "open_questions": [
     "Which dedicated production keystore backend and deployment platforms are admitted?",
     "What operator-controlled trust-catalog mutation and historical snapshot format is canonical?"
   ],
-  "posture": "bounded_principal_currentness_verification_non_authority",
+  "posture": "control_plane_principal_currentness_observation_non_authority",
   "principal_compatibility": {
     "authentication_evidence": "different_provenance_envelope",
     "decision": "preserve_unchanged",
@@ -472,7 +517,7 @@
     "policy": "allowed_while_principal_and_trust_are_current",
     "reason": "Identity provenance is durable evidence, not a one-shot effect token; effect/allocation layers own anti-replay."
   },
-  "repository_sha": "591d56fb68ee9bf1cb69decca6ef35471d709bd0",
+  "repository_sha": "f784bdaa66b98c7e123c31d659887c05a7b1332a",
   "revocation_semantics": {
     "issuer_trust": "reject every issuer catalog entry from the effective point",
     "natural_expiry": "principal_validity_check_not_revocation",
@@ -510,7 +555,7 @@
     "old_key_after_rotation": "historical verification allowed only when signed_at and principal validity fit retained non_revoked historical catalog entry",
     "trust_basis": "versioned_historical_trust_evidence_plus_current_revocation_policy"
   },
-  "schema": "sentientos.causal_resource_principal_authentication_architecture:v6",
+  "schema": "sentientos.causal_resource_principal_authentication_architecture:v7",
   "security_invariants": [
     "principal_self_binding != issuer_authentication",
     "issuer_authentication != operator_sponsorship_verification",
