@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from sentientos.codex_task_authority_admission import (
     AUTHORITY_DEFINITIONS,
+    AUTHORITY_DEFINITION_REGISTRATION,
     TaskAuthorityDefinition,
     authority_definition_digest,
+    operator_approval_evidence_digest,
+    register_authority_definition,
 )
 from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 
@@ -20,16 +24,19 @@ CONTRACT = json.loads(PATH.read_text(encoding="utf-8"))
 
 
 def candidate() -> TaskAuthorityDefinition:
-    item = CONTRACT["candidate_task_authority_definition"]
+    return definition_from_json(CONTRACT["candidate_task_authority_definition"])
+
+
+def definition_from_json(item: dict[str, object]) -> TaskAuthorityDefinition:
     return TaskAuthorityDefinition(
-        capability_id=item["capability_id"],
-        subsystem_kinds=frozenset(item["subsystem_kinds"]),
-        principal_kinds=frozenset(item["principal_kinds"]),
-        required_effects=frozenset(item["required_effects"]),
-        forbidden_goal_phrases=tuple(item["forbidden_goal_phrases"]),
-        required_goal_phrases=tuple(item["required_goal_phrases"]),
-        approval_requirements=tuple(item["approval_requirements"]),
-        purpose=item["purpose"],
+        capability_id=str(item["capability_id"]),
+        subsystem_kinds=frozenset(cast(list[str], item["subsystem_kinds"])),
+        principal_kinds=frozenset(cast(list[str], item["principal_kinds"])),
+        required_effects=frozenset(cast(list[str], item["required_effects"])),
+        forbidden_goal_phrases=tuple(cast(list[str], item["forbidden_goal_phrases"])),
+        required_goal_phrases=tuple(cast(list[str], item["required_goal_phrases"])),
+        approval_requirements=tuple(cast(list[str], item["approval_requirements"])),
+        purpose=str(item["purpose"]),
     )
 
 
@@ -122,8 +129,96 @@ def test_approval_is_template_only_and_registration_payload_is_non_exercising() 
     assert approval["approval_status"].startswith("<operator-supplied")
     assert approval["evidence_digest"].startswith("<computed-after")
     payload = CONTRACT["future_registration_task"]["register_authority_definition_payload"]
+    assert approval["schema_version"] == "sentientos.authority_definition_operator_approval:v1"
+    assert payload["task_classification"] == AUTHORITY_DEFINITION_REGISTRATION
+    assert payload["definitions"] == [CONTRACT["candidate_task_authority_definition"]]
+    assert payload["operator_approval"] == approval
+    assert "definition" not in payload
+    assert "operator_approval_evidence" not in payload
+    assert payload["changed_paths"] == [
+        "sentientos/codex_task_authority_admission.py",
+        "tests/test_authority_definition_registration.py",
+        "docs/architecture/governed_local_model_budget_allocation_contract.md",
+    ]
     assert payload["requested_capability_id"] == payload["authority_principal"] == ""
     assert payload["requested_effects"] == payload["runtime_mutations"] == []
+
+
+def test_future_registration_template_is_mechanically_compatible_without_real_authority() -> None:
+    payload = CONTRACT["future_registration_task"]["register_authority_definition_payload"]
+    definition = definition_from_json(payload["definitions"][0])
+    assert definition == candidate()
+    assert authority_definition_digest(definition) == "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc"
+
+    approval = dict(payload["operator_approval"])
+    approval.update({
+        "evidence_id": "test-only-allocation-definition-approval",
+        "operator_identity_label": "operator:test-fixture-only",
+        "approval_status": "approved",
+    })
+    approval["evidence_digest"] = operator_approval_evidence_digest(approval)
+    artifact = {
+        **payload,
+        "definitions": (definition,),
+        "operator_approval": approval,
+        "requested_effects": tuple(payload["requested_effects"]),
+        "runtime_mutations": tuple(payload["runtime_mutations"]),
+        "changed_paths": tuple(payload["changed_paths"]),
+    }
+    canonical_before = dict(AUTHORITY_DEFINITIONS)
+    copied_catalog = dict(AUTHORITY_DEFINITIONS)
+    copied_catalog.pop(definition.capability_id, None)
+    result = register_authority_definition(artifact, authority_definitions=copied_catalog)
+
+    assert result.status == "authority_definition_registered"
+    assert result.definition_registered is True
+    assert result.authority_definitions[definition.capability_id] == definition
+    assert result.capability_granted is False
+    assert result.runtime_authority is None
+    assert result.effect_performed is False
+    assert result.runtime_mutation_performed is False
+    assert AUTHORITY_DEFINITIONS == canonical_before
+    assert definition.capability_id not in AUTHORITY_DEFINITIONS
+
+
+def test_incorrect_handoff_forms_and_unfilled_placeholders_fail_closed() -> None:
+    payload = CONTRACT["future_registration_task"]["register_authority_definition_payload"]
+    assert payload["task_classification"] == AUTHORITY_DEFINITION_REGISTRATION
+    assert payload["changed_paths"]
+    assert "definition" not in payload
+    assert "operator_approval_evidence" not in payload
+    assert "sentientos.operator_authority_definition_approval:v1" not in json.dumps(payload)
+
+    definition = definition_from_json(payload["definitions"][0])
+    converted = {
+        **payload,
+        "definitions": (definition,),
+        "requested_effects": (),
+        "runtime_mutations": (),
+        "changed_paths": tuple(payload["changed_paths"]),
+    }
+    placeholder_result = register_authority_definition(converted)
+    assert placeholder_result.status == "authority_definition_registration_blocked"
+    assert "authority_definition_operator_approval_binding_mismatch" in placeholder_result.blocker_codes
+    assert "authority_definition_operator_approval_digest_invalid" in placeholder_result.blocker_codes
+
+    wrong_schema_approval = dict(converted["operator_approval"])
+    wrong_schema_approval.update({
+        "schema_version": "sentientos.operator_authority_definition_approval:v1",
+        "evidence_id": "test-only-wrong-schema",
+        "operator_identity_label": "operator:test-fixture-only",
+        "approval_status": "approved",
+    })
+    wrong_schema_approval["evidence_digest"] = operator_approval_evidence_digest(wrong_schema_approval)
+    wrong_schema_result = register_authority_definition(
+        {**converted, "operator_approval": wrong_schema_approval}
+    )
+    assert "authority_definition_operator_approval_binding_mismatch" in wrong_schema_result.blocker_codes
+    missing_classification = dict(converted)
+    missing_classification.pop("task_classification")
+    assert "authority_definition_registration_classification_required" in register_authority_definition(
+        missing_classification
+    ).blocker_codes
 
 
 def test_contract_introduces_no_runtime_allocator_or_runtime_behavior_change() -> None:

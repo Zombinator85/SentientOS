@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "contract_correction",
+  "repository_sha": "f326b32625d5bf2741de06e8abb083b0034c6c85",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_candidate_definition_is_exact_closed_reproducible_and_not_registered",
+      "rationale": "Proves the frozen candidate definition digest and canonical non-registration posture."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_future_registration_template_is_mechanically_compatible_without_real_authority",
+      "rationale": "Proves repository-native conversion and fixture-only registration against an isolated copied catalog without capability, effect, or mutation authority."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_incorrect_handoff_forms_and_unfilled_placeholders_fail_closed",
+      "rationale": "Proves the former schema and keys are absent, required registration metadata is present, and placeholder evidence fails closed."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_governed_local_model_budget_allocation_contract.py::test_future_registration_template_is_mechanically_compatible_without_real_authority"
+  ]
+}

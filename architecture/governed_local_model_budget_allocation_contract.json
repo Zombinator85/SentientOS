@@ -181,12 +181,69 @@
     "contingency": "independently supplied operator approval matching the exact candidate definition digest",
     "register_authority_definition_payload": {
       "authority_principal": "",
-      "definition": "candidate_task_authority_definition converted exactly to TaskAuthorityDefinition",
-      "operator_approval_evidence": "independently supplied exact approval",
+      "changed_paths": [
+        "sentientos/codex_task_authority_admission.py",
+        "tests/test_authority_definition_registration.py",
+        "docs/architecture/governed_local_model_budget_allocation_contract.md"
+      ],
+      "definitions": [
+        {
+          "approval_requirements": [
+            "independent_operator_approval_evidence",
+            "exact_definition_digest_binding"
+          ],
+          "capability_id": "governed_local_model_resource_allocation_adapter",
+          "forbidden_goal_phrases": [
+            "generic resource allocator",
+            "host scheduling",
+            "model effect admission",
+            "provider invocation",
+            "network egress",
+            "grant local model inference"
+          ],
+          "principal_kinds": [
+            "governed_local_model_resource_allocator"
+          ],
+          "purpose": "Implement only the governed local-model invocation resource allocator, durable call-entitlement gate, and resource-consumption reconciliation defined by the frozen v1 contract; this definition grants no model effect authority.",
+          "required_effects": [
+            "check_and_debit_governed_local_model_call_entitlement",
+            "issue_governed_local_model_resource_allocation",
+            "read_current_causal_resource_principal_evidence",
+            "read_governed_local_model_resource_policy",
+            "write_governed_local_model_resource_consumption_receipt"
+          ],
+          "required_goal_phrases": [
+            "governed local-model resource allocation",
+            "durable call conservation",
+            "resource consumption receipt"
+          ],
+          "subsystem_kinds": [
+            "causal_resource_principal_architecture"
+          ]
+        }
+      ],
+      "operator_approval": {
+        "approval_status": "<operator-supplied-approved-status>",
+        "approved_capability_id": "governed_local_model_resource_allocation_adapter",
+        "approved_definition_digest": "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc",
+        "approved_task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition",
+        "evidence_digest": "<computed-after-operator-supplied-fields>",
+        "evidence_id": "<operator-supplied-evidence-id>",
+        "operator_identity_label": "<operator-supplied-identity-label>",
+        "schema_version": "sentientos.authority_definition_operator_approval:v1"
+      },
       "requested_capability_id": "",
       "requested_effects": [],
       "runtime_mutations": [],
+      "task_classification": "authority_definition_registration",
       "task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition"
+    },
+    "repository_native_conversion": {
+      "changed_paths": "JSON list converts to tuple[str, ...] without changing order or values",
+      "definitions": "the sole JSON object converts to the exact candidate TaskAuthorityDefinition; set-valued fields convert to frozenset and ordered phrase/approval fields convert to tuple",
+      "requested_effects": "empty JSON list converts to empty tuple",
+      "runtime_mutations": "empty JSON list converts to empty tuple",
+      "task_classification": "serialized string value of AUTHORITY_DEFINITION_REGISTRATION"
     },
     "registration_in_this_task": false,
     "task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition"
@@ -231,7 +288,7 @@
     "evidence_digest": "<computed-after-operator-supplied-fields>",
     "evidence_id": "<operator-supplied-evidence-id>",
     "operator_identity_label": "<operator-supplied-identity-label>",
-    "schema_version": "sentientos.operator_authority_definition_approval:v1"
+    "schema_version": "sentientos.authority_definition_operator_approval:v1"
   },
   "policy_binding": {
     "caller_budget_is_policy": false,
