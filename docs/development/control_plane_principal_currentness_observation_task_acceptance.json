@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f784bdaa66b98c7e123c31d659887c05a7b1332a",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_real_chain_projects_exact_process_local_currentness_evidence", "rationale": "Real issuance, Ed25519 authentication, fresh registry verification, and exact control-plane projection succeed end to end."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_configuration_pairing_fails_closed_and_default_remains_usable", "rationale": "Partial configuration fails deterministically while the default authenticated path remains compatible."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_currentness_failures_are_bounded_and_do_not_change_policy_or_admission", "rationale": "Revoked and invalid-window snapshots are bounded descriptions with invariant proof budget and admission."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_future_revocation_transitions_exactly_at_revoked_at", "rationale": "A future revocation is current before, and revoked exactly at, its effective time."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_currentness_runs_once_only_after_authentication_and_uses_the_same_clock", "rationale": "Currentness runs once, after provenance only, using the one observation timestamp."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_binding_failure_and_unavailable_verifier_are_bounded", "rationale": "Binding, unusable configuration, and verifier availability failures are classified without exception leakage."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_caller_currentness_and_registry_claims_are_ignored_and_success_is_policy_invariant", "rationale": "Caller smuggling is ignored and successful currentness does not change policy or admission."},
+    {"node_id": "tests/test_control_plane_principal_currentness_observation.py::test_composition_exposes_no_resource_or_authority_operations", "rationale": "The composition exposes no allocation, entitlement, effect, issuance, or registry administration operation."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_control_plane_principal_currentness_observation.py::test_real_chain_projects_exact_process_local_currentness_evidence"
+  ]
+}

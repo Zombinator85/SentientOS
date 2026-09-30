@@ -1,0 +1,16 @@
+{
+  "artifact_kind": "currentness_observation_composition_at_consuming_boundary",
+  "capability_id": "currentness_observation_composition_at_consuming_boundary",
+  "status": "implemented",
+  "authority_level": "descriptive_verification_only",
+  "proof_statement": "The observation-only control-plane causal-attribution boundary composes process-local authenticated principal currentness without changing proof budgets or admission.",
+  "source_paths": ["sentientos/control_plane_kernel.py"],
+  "proof_tests": ["tests/test_control_plane_principal_currentness_observation.py"],
+  "matrix_lane": "causal_resource_principal_tests",
+  "explicit_non_authority_boundaries": [
+    "no allocation entitlement admission or effects",
+    "no registry loading mutation administration or live distribution",
+    "no caller-supplied currentness evidence",
+    "no renewal or successor generation semantics"
+  ]
+}
