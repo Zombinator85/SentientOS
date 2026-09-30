@@ -69,7 +69,7 @@ def test_posture_precisely_records_partial_non_authority_implementation() -> Non
     value = contract(); posture = value["posture"]; status = value["implementation_status"]
     assert posture["kind"] == "partially_implemented_non_authority_architecture"
     assert posture["implemented"] is False and posture["claims_runtime_change"] is True
-    assert status["status"] == "root_identity_with_observation_only_proof_budget_attribution"
+    assert status["status"] == "root_identity_with_configured_authenticated_observation_only_attribution"
     assert status["principal_grants_nothing"] is True and status["principal_allocates_nothing"] is True
     assert (ROOT / status["runtime_module"]).is_file()
 
@@ -172,10 +172,12 @@ def test_contract_limits_runtime_implementation_to_root_identity_and_bounded_att
         "strict canonical mapping",
         "observation-only proof-budget causal attribution at the explicit control-plane boundary",
         "explicit GenesisForge invocation carries an already-existing root into proof-budget observation",
+        "explicitly configured control-plane root issuer provenance authentication with canonical-only degradation",
     } == set(status["implemented_now"])
     assert {"allocation ledgers", "child principals", "causal propagation", "resource enforcement"} <= set(value["non_goals"])
     assert "causal propagation" in status["still_not_implemented"]
-    assert "cryptographic issuer authentication across untrusted transport" in status["still_not_implemented"]
+    assert "cryptographic issuer authentication across untrusted transport" not in status["still_not_implemented"]
+    assert "default-active control-plane public trust configuration" in status["still_not_implemented"]
 
 
 def test_proof_budget_crosswalk_records_observation_without_allocation() -> None:

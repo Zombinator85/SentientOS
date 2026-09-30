@@ -17,6 +17,10 @@ from sentientos.causal_resource_principal import (
     CausalResourcePrincipalError,
     CausalResourcePrincipalVerifier,
 )
+from sentientos.causal_resource_principal_authentication import (
+    RootIssuerProvenanceError,
+    RootIssuerProvenanceVerifier,
+)
 from sentientos.runtime_governor import GovernorDecision, RuntimeGovernor, get_runtime_governor
 
 if TYPE_CHECKING:
@@ -170,6 +174,7 @@ class ControlPlaneKernel:
         admission_dedupe_ttl_seconds: float = 3600.0,
         admission_dedupe_max_entries: int = 4096,
         clock: Callable[[], float] | None = None,
+        root_issuer_provenance_verifier: RootIssuerProvenanceVerifier | None = None,
     ) -> None:
         if admission_dedupe_ttl_seconds <= 0:
             raise ValueError("admission_dedupe_ttl_seconds must be positive")
@@ -183,6 +188,7 @@ class ControlPlaneKernel:
         self._admission_dedupe_ttl_seconds = float(admission_dedupe_ttl_seconds)
         self._admission_dedupe_max_entries = int(admission_dedupe_max_entries)
         self._clock = clock or (lambda: datetime.now(timezone.utc).timestamp())
+        self._root_issuer_provenance_verifier = root_issuer_provenance_verifier
         self._admission_history: OrderedDict[tuple[str, str], _AdmissionHistoryEntry] = OrderedDict()
 
     @property
@@ -542,8 +548,8 @@ class ControlPlaneKernel:
         except Exception:
             return None, "proof_budget_delegate_error"
 
-    @staticmethod
     def _observe_causal_resource_principal(
+        self,
         request: ControlActionRequest,
         *,
         now: float,
@@ -564,7 +570,7 @@ class ControlPlaneKernel:
             principal = CausalResourcePrincipalVerifier().verify(evidence, current_time=current_time)
         except (CausalResourcePrincipalError, TypeError, ValueError):
             return {"status": "rejected", "reason": "principal_verification_failed"}
-        return {
+        observation: dict[str, object] = {
             "status": "canonical_root_binding_verified",
             "principal_id": principal.principal_id,
             "root_principal_id": principal.root_principal_id,
@@ -572,6 +578,53 @@ class ControlPlaneKernel:
             "issuer_id": principal.issuer_id,
             "epoch": principal.epoch,
         }
+        if "causal_resource_principal_provenance" not in context:
+            return observation
+        if self._root_issuer_provenance_verifier is None:
+            observation["provenance_authentication"] = "verifier_not_configured"
+            return observation
+        try:
+            authenticated = self._root_issuer_provenance_verifier.verify(
+                principal,
+                context["causal_resource_principal_provenance"],
+                current_time=current_time,
+            )
+        except RootIssuerProvenanceError as exc:
+            bounded_reasons = {
+                "principal_binding_mismatch": "principal_binding_mismatch",
+                "issuer_mismatch": "issuer_mismatch",
+                "trusted_key_not_found": "untrusted_issuer_key",
+                "trusted_key_binding_mismatch": "untrusted_issuer_key",
+                "trusted_key_revoked": "trusted_key_revoked",
+                "trusted_key_not_yet_valid": "trusted_key_not_yet_valid",
+                "trusted_key_expired": "trusted_key_expired",
+                "signature_verification_failed": "signature_invalid",
+                "signature_backend_unavailable": "cryptographic_backend_unavailable",
+            }
+            observation["provenance_authentication"] = "failed"
+            observation["provenance_authentication_reason"] = bounded_reasons.get(
+                str(exc), "provenance_malformed"
+            )
+            return observation
+        except (TypeError, ValueError):
+            observation["provenance_authentication"] = "failed"
+            observation["provenance_authentication_reason"] = "provenance_malformed"
+            return observation
+        except Exception:
+            observation["provenance_authentication"] = "failed"
+            observation["provenance_authentication_reason"] = "verifier_unavailable"
+            return observation
+        observation.update(
+            {
+                "status": "authenticated_root_issuer_provenance_verified",
+                "provenance_authentication": "verified",
+                "provenance_digest": authenticated.provenance_digest,
+                "signing_key_id": authenticated.signing_key_id,
+                "algorithm": authenticated.algorithm,
+                "signed_at": authenticated.signed_at,
+            }
+        )
+        return observation
 
     def _finalize(
         self,

@@ -1,0 +1,39 @@
+{
+  "repository_sha": "e7ce3450d0e7c0bf52ffed449a2a1a1d73a19786",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_real_ed25519_issuance_catalog_verification_upgrades_only_attribution",
+      "rationale": "Real issuance, signing, read-only catalog trust, production Ed25519 verification, and control-plane projection succeed without changing policy or admission."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_absent_or_unconfigured_provenance_degrades_to_canonical",
+      "rationale": "Default compatibility and canonical-only degradation remain explicit."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_invalid_provenance_is_bounded_and_policy_invariant",
+      "rationale": "Caller trust smuggling fails with bounded evidence and unchanged proof-budget/admission decisions."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_mutation_binding_substitution_and_trust_failures_never_upgrade",
+      "rationale": "Mutated, substituted, revoked, and non-current evidence cannot authenticate."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_untrusted_key_and_unavailable_crypto_never_upgrade",
+      "rationale": "Untrusted public keys and unavailable cryptographic verification remain canonical-only with bounded classifications."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_provenance_without_root_and_run_context_claims_cannot_manufacture_attribution",
+      "rationale": "Untrusted provenance and run-context claims cannot manufacture attribution."
+    },
+    {
+      "node_id": "tests/test_control_plane_root_principal_provenance_authentication.py::test_control_plane_has_verification_dependency_but_no_signing_or_authority_surface",
+      "rationale": "The control plane has no signing, minting, allocation, entitlement, or grant surface."
+    }
+  ],
+  "schema_version": "sentientos.task_acceptance:v1",
+  "successful_path_nodes": [
+    "tests/test_control_plane_root_principal_provenance_authentication.py::test_real_ed25519_issuance_catalog_verification_upgrades_only_attribution"
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json"
+}
