@@ -10,6 +10,9 @@ from sentientos.codex_task_authority_admission import (
     EXTERNAL_MODEL_INFERENCE,
     EXTERNAL_MODEL_INFERENCE_DEFINITION,
     EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL,
+    GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+    GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION,
+    GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL,
     MODEL_MIRROR_PUBLISH,
     TaskAuthorityDefinition,
     authority_admission_blockers,
@@ -25,6 +28,16 @@ EXTERNAL_MODEL_TASK = "register_governed_external_model_inference_authority_defi
 EXTERNAL_MODEL_DIGEST = "539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c"
 SUPERSEDED_EXTERNAL_MODEL_DIGEST = "0b74d6b113f909e9157263b6321864a4bd50a97d8e9ffda080bb21fcd02dcb6c"
 EXTERNAL_MODEL_APPROVAL_DIGEST = "a2e33b07a3ed411fefaa5d4f9dbcd05a12ef951eae5fa405bb209ea33203f028"
+RESOURCE_ALLOCATION_TASK = "register-governed-local-model-resource-allocation-adapter-authority-definition"
+RESOURCE_ALLOCATION_DIGEST = "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc"
+RESOURCE_ALLOCATION_APPROVAL_DIGEST = "c86e8fd257f7174b59c6996d534482aa9b04ee518baf1adf4d39d390600f1763"
+RESOURCE_ALLOCATION_EFFECTS = (
+    "check_and_debit_governed_local_model_call_entitlement",
+    "issue_governed_local_model_resource_allocation",
+    "read_current_causal_resource_principal_evidence",
+    "read_governed_local_model_resource_policy",
+    "write_governed_local_model_resource_consumption_receipt",
+)
 
 
 def definition(**changes: object) -> TaskAuthorityDefinition:
@@ -88,6 +101,119 @@ def external_model_artifact(**changes: object) -> dict[str, object]:
     }
     value.update(changes)
     return value
+
+
+def resource_allocation_artifact(**changes: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "task_classification": AUTHORITY_DEFINITION_REGISTRATION,
+        "task_name": RESOURCE_ALLOCATION_TASK,
+        "definitions": [GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION],
+        "operator_approval": dict(
+            GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL
+        ),
+        "requested_capability_id": "",
+        "authority_principal": "",
+        "requested_effects": (),
+        "runtime_mutations": (),
+        "changed_paths": (
+            "sentientos/codex_task_authority_admission.py",
+            "tests/test_authority_definition_registration.py",
+            "docs/architecture/governed_local_model_budget_allocation_contract.md",
+        ),
+    }
+    value.update(changes)
+    return value
+
+
+@pytest.mark.no_legacy_skip
+def test_governed_local_model_resource_allocation_definition_registration_is_inert() -> None:
+    definition_value = GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION
+    approval = dict(GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL)
+    assert authority_definition_digest(definition_value) == RESOURCE_ALLOCATION_DIGEST
+    assert approval == {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "approval:governed_local_model_resource_allocation_adapter:f6ba71581fa8:001",
+        "operator_identity_label": "repository_operator",
+        "approval_status": "approved",
+        "approved_capability_id": GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+        "approved_definition_digest": RESOURCE_ALLOCATION_DIGEST,
+        "approved_task_name": RESOURCE_ALLOCATION_TASK,
+        "evidence_digest": RESOURCE_ALLOCATION_APPROVAL_DIGEST,
+    }
+    assert operator_approval_evidence_digest(approval) == RESOURCE_ALLOCATION_APPROVAL_DIGEST
+
+    catalog_without_definition = {
+        key: value for key, value in AUTHORITY_DEFINITIONS.items()
+        if key != GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER
+    }
+    result = register_authority_definition(
+        resource_allocation_artifact(), authority_definitions=catalog_without_definition
+    )
+    assert result.status == "authority_definition_registered"
+    assert result.definition_registered is True
+    assert result.capability_granted is False
+    assert result.runtime_authority is None
+    assert result.effect_performed is False
+    assert result.runtime_mutation_performed is False
+    assert result.authority_definitions[
+        GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER
+    ] == definition_value
+    assert AUTHORITY_DEFINITIONS[
+        GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER
+    ] == definition_value
+
+
+@pytest.mark.no_legacy_skip
+def test_governed_local_model_resource_allocation_later_admission_is_exact() -> None:
+    exact_goal = (
+        "Implement governed local-model resource allocation with durable call "
+        "conservation and a resource consumption receipt."
+    )
+
+    def blockers(**changes: object) -> tuple[str, ...]:
+        request: dict[str, object] = {
+            "capability_id": GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+            "subsystem_kind": "causal_resource_principal_architecture",
+            "principal_kind": "governed_local_model_resource_allocator",
+            "requested_effects": RESOURCE_ALLOCATION_EFFECTS,
+            "task_goal": exact_goal,
+        }
+        request.update(changes)
+        return authority_admission_blockers(**request)  # type: ignore[arg-type]
+
+    assert blockers() == ()
+    assert "authority_effect_surface_not_exact" in blockers(
+        requested_effects=RESOURCE_ALLOCATION_EFFECTS[:-1]
+    )
+    assert "authority_effect_surface_not_exact" in blockers(
+        requested_effects=RESOURCE_ALLOCATION_EFFECTS + ("extra_effect",)
+    )
+    assert "authority_principal_not_admitted" in blockers(principal_kind="wrong_principal")
+    assert "authority_subsystem_not_admitted" in blockers(subsystem_kind="wrong_subsystem")
+    assert "authority_goal_missing_required_precondition" in blockers(
+        task_goal="Governed local-model resource allocation with durable call conservation."
+    )
+    assert "authority_goal_requests_forbidden_scope" in blockers(
+        task_goal=exact_goal + " Also permit provider invocation."
+    )
+    assert "unregistered_authority_capability" in blockers(
+        capability_id="governed_local_model_resource_allocation_adapter_substitute"
+    )
+
+
+@pytest.mark.no_legacy_skip
+def test_governed_local_model_resource_registration_cannot_self_authorize() -> None:
+    result = register_authority_definition(resource_allocation_artifact(
+        requested_capability_id=GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+        authority_principal="governed_local_model_resource_allocator",
+        requested_effects=RESOURCE_ALLOCATION_EFFECTS,
+    ))
+    assert result.status == "authority_definition_registration_blocked"
+    assert "authority_definition_registration_cannot_request_capability" in result.blocker_codes
+    assert result.definition_registered is False
+    assert result.capability_granted is result.effect_performed is False
+    assert result.runtime_authority is None
+    assert result.runtime_mutation_performed is False
 
 
 @pytest.mark.no_legacy_skip

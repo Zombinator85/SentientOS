@@ -110,7 +110,7 @@ def test_measurement_claims_are_truthful_and_resource_receipt_stays_separate() -
     assert "effect_receipt_digest" in receipt["required_fields"]
 
 
-def test_candidate_definition_is_exact_closed_reproducible_and_not_registered() -> None:
+def test_frozen_candidate_definition_is_exact_closed_reproducible_and_registered() -> None:
     definition = candidate()
     assert len(definition.subsystem_kinds) == len(definition.principal_kinds) == 1
     assert definition.required_effects
@@ -118,7 +118,8 @@ def test_candidate_definition_is_exact_closed_reproducible_and_not_registered() 
         definition.capability_id, *definition.subsystem_kinds,
         *definition.principal_kinds, *definition.required_effects))
     assert authority_definition_digest(definition) == CONTRACT["candidate_definition_digest"]
-    assert definition.capability_id not in AUTHORITY_DEFINITIONS
+    assert AUTHORITY_DEFINITIONS[definition.capability_id] == definition
+    # The immutable machine contract records the pre-registration handoff posture.
     assert CONTRACT["posture"]["authority_definition_registered"] is False
 
 
@@ -178,7 +179,7 @@ def test_future_registration_template_is_mechanically_compatible_without_real_au
     assert result.effect_performed is False
     assert result.runtime_mutation_performed is False
     assert AUTHORITY_DEFINITIONS == canonical_before
-    assert definition.capability_id not in AUTHORITY_DEFINITIONS
+    assert AUTHORITY_DEFINITIONS[definition.capability_id] == definition
 
 
 def test_incorrect_handoff_forms_and_unfilled_placeholders_fail_closed() -> None:

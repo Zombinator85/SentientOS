@@ -1,6 +1,6 @@
 # Governed local-model budget allocation contract
 
-This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON is the normative closed contract. It records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. This slice defines architecture only: no allocator, allocation, ledger, debit, meter, resource gate, runtime receipt, authority registration, grant, admission, or effect is implemented.
+This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON is the normative frozen design and registration contract. It records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The candidate authority definition is now registered as definition-only metadata; no allocator, allocation, ledger, debit, meter, resource gate, runtime receipt, grant, admission, or effect is implemented.
 
 ## Five independent answers
 
@@ -76,7 +76,7 @@ Truthful present measurements are generation-attempted status, generated/returne
 
 `effect_receipt_digest` is null until an effect receipt exists; reconciliation appends a hash-linked resource receipt referencing the exact `LocalModelInvocationReceipt.receipt_digest`. A resource receipt is not an effect receipt, consumption does not imply output success, and an effect does not imply reconciliation completed.
 
-## Candidate future task authority (not registered)
+## Registered task authority definition
 
 The exact candidate definition is:
 
@@ -97,16 +97,26 @@ Repository-native `authority_definition_digest(...)` canonical serialization is:
 
 Its digest is `f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc`.
 
-The approval template deliberately contains placeholders:
+The immutable digest-bound repository approval record is:
 
 ```json
-{"schema_version":"sentientos.authority_definition_operator_approval:v1","evidence_id":"<operator-supplied-evidence-id>","operator_identity_label":"<operator-supplied-identity-label>","approval_status":"<operator-supplied-approved-status>","approved_capability_id":"governed_local_model_resource_allocation_adapter","approved_definition_digest":"f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc","approved_task_name":"register-governed-local-model-resource-allocation-adapter-authority-definition","evidence_digest":"<computed-after-operator-supplied-fields>"}
+{"schema_version":"sentientos.authority_definition_operator_approval:v1","evidence_id":"approval:governed_local_model_resource_allocation_adapter:f6ba71581fa8:001","operator_identity_label":"repository_operator","approval_status":"approved","approved_capability_id":"governed_local_model_resource_allocation_adapter","approved_definition_digest":"f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc","approved_task_name":"register-governed-local-model-resource-allocation-adapter-authority-definition","evidence_digest":"c86e8fd257f7174b59c6996d534482aa9b04ee518baf1adf4d39d390600f1763"}
 ```
 
-Placeholders are not approval. The exact next slice is the definition-only `register-governed-local-model-resource-allocation-adapter-authority-definition` task after independent approval. Its repository-native artifact has `task_classification=AUTHORITY_DEFINITION_REGISTRATION` (serialized as `authority_definition_registration`), that exact `task_name`, `definitions=(candidate,)`, and `operator_approval=<exact independently supplied evidence>`, while `requested_capability_id=""`, `authority_principal=""`, `requested_effects=()`, and `runtime_mutations=()`. The exact bounded `changed_paths` tuple is `("sentientos/codex_task_authority_admission.py", "tests/test_authority_definition_registration.py", "docs/architecture/governed_local_model_budget_allocation_contract.md")`.
+Repository-native recomputation binds the approval evidence digest exactly to `c86e8fd257f7174b59c6996d534482aa9b04ee518baf1adf4d39d390600f1763`. The registration task identity is `register-governed-local-model-resource-allocation-adapter-authority-definition`. Its repository-native artifact has `task_classification=AUTHORITY_DEFINITION_REGISTRATION` (serialized as `authority_definition_registration`), that exact `task_name`, `definitions=(candidate,)`, and the approval above, while `requested_capability_id=""`, `authority_principal=""`, `requested_effects=()`, and `runtime_mutations=()`. The exact bounded `changed_paths` tuple is `("sentientos/codex_task_authority_admission.py", "tests/test_authority_definition_registration.py", "docs/architecture/governed_local_model_budget_allocation_contract.md")`.
 
-The JSON payload uses lists because JSON has no tuple or frozenset type. Conversion is exact: its sole `definitions` object becomes the frozen candidate `TaskAuthorityDefinition`; `subsystem_kinds`, `principal_kinds`, and `required_effects` become `frozenset` values; phrase and approval requirement lists become tuples; and `requested_effects`, `runtime_mutations`, and `changed_paths` become tuples without changing their values. The singular `definition` and `operator_approval_evidence` keys are not registrar inputs and are forbidden from this handoff. Registration may not exercise or self-authorize the definition. Definition is not grant; grant is not admission; registration is not implementation; implementation is not activation.
+The JSON payload uses lists because JSON has no tuple or frozenset type. Conversion is exact: its sole `definitions` object becomes the frozen candidate `TaskAuthorityDefinition`; `subsystem_kinds`, `principal_kinds`, and `required_effects` become `frozenset` values; phrase and approval requirement lists become tuples; and `requested_effects`, `runtime_mutations`, and `changed_paths` become tuples without changing their values. The singular `definition` and `operator_approval_evidence` keys are not registrar inputs and are forbidden from this handoff. Registration did not exercise or self-authorize the definition.
+
+The definition-only posture is explicit:
+
+- registered definition != runtime grant
+- registered definition != runtime admission
+- registered definition != allocator implementation
+- registered definition != allocation issuance
+- registered definition != activation
+
+The registered definition is visible to a later exact admission check, but eligibility is metadata only and grants no authority. The exact next slice is a separately admitted implementation of the frozen governed local-model resource allocator and durable call-entitlement ledger, requesting the registered complete five-effect set. It is not implemented here.
 
 ## Explicit deferral
 
-Deferred are the runtime allocation type, allocator, durable ledger, gate/debit, metering, receipt implementation, all invocation/serving/control-plane changes, authority registration, operator approval, allocation issuance, exact tokens, physical-resource accounting, and activation. The selected next slice is registration only—not allocator implementation.
+Deferred are the runtime allocation type, allocator, durable ledger, gate/debit, metering, receipt implementation, all invocation/serving/control-plane changes, runtime grants and admissions, allocation issuance, exact tokens, physical-resource accounting, and activation. Only the authority definition and its immutable repository approval mapping are registered.

@@ -50,6 +50,9 @@ DEVELOPMENTAL_MODEL_REPLACEMENT_EXPERIMENTAL_SERVING = (
     "developmental_model_replacement_experimental_serving"
 )
 EXTERNAL_MODEL_INFERENCE = "external_model_inference"
+GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER = (
+    "governed_local_model_resource_allocation_adapter"
+)
 
 
 @dataclass(frozen=True)
@@ -253,6 +256,54 @@ EXTERNAL_MODEL_INFERENCE_OPERATOR_APPROVAL = MappingProxyType({
     "approved_definition_digest": "539ff509bbeabe50cd2be17adf9ebbe58958e894b3cb6728a5c809a605db7b9c",
     "approved_task_name": "register_governed_external_model_inference_authority_definition",
     "evidence_digest": "a2e33b07a3ed411fefaa5d4f9dbcd05a12ef951eae5fa405bb209ea33203f028",
+})
+
+
+GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION = TaskAuthorityDefinition(
+    capability_id=GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+    subsystem_kinds=frozenset({"causal_resource_principal_architecture"}),
+    principal_kinds=frozenset({"governed_local_model_resource_allocator"}),
+    required_effects=frozenset({
+        "check_and_debit_governed_local_model_call_entitlement",
+        "issue_governed_local_model_resource_allocation",
+        "read_current_causal_resource_principal_evidence",
+        "read_governed_local_model_resource_policy",
+        "write_governed_local_model_resource_consumption_receipt",
+    }),
+    required_goal_phrases=(
+        "governed local-model resource allocation",
+        "durable call conservation",
+        "resource consumption receipt",
+    ),
+    forbidden_goal_phrases=(
+        "generic resource allocator",
+        "host scheduling",
+        "model effect admission",
+        "provider invocation",
+        "network egress",
+        "grant local model inference",
+    ),
+    approval_requirements=(
+        "independent_operator_approval_evidence",
+        "exact_definition_digest_binding",
+    ),
+    purpose=(
+        "Implement only the governed local-model invocation resource allocator, "
+        "durable call-entitlement gate, and resource-consumption reconciliation "
+        "defined by the frozen v1 contract; this definition grants no model "
+        "effect authority."
+    ),
+)
+
+GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:governed_local_model_resource_allocation_adapter:f6ba71581fa8:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER,
+    "approved_definition_digest": "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc",
+    "approved_task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition",
+    "evidence_digest": "c86e8fd257f7174b59c6996d534482aa9b04ee518baf1adf4d39d390600f1763",
 })
 
 
@@ -868,6 +919,8 @@ MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_OPERATOR_APPROVAL = MappingProxyTyp
 
 
 AUTHORITY_DEFINITIONS = {
+    GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER:
+        GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION,
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
     RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
     RESIDENT_EPISTEMIC_STATE_MUTATION:
