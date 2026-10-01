@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "834111ef6df36ac2c7f0670a96f4f315f72c874b",
+  "test_provenance_path": "/tmp/governed-local-model-resource-invocation-provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_resource_backed_completion_cross_links_exact_effect_receipt_and_survives_restart",
+      "rationale": "Proves the admitted ordered completion path, exact receipt cross-link, debit, and restart conservation."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_serving_guard_rejection_restores_only_pre_entry_debit",
+      "rationale": "Proves guard rejection occurs before backend entry and restores only the provisional debit."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_timeout_and_backend_failure_consume_and_reconcile",
+      "rationale": "Proves both irreversible post-entry failure outcomes are measured and reconciled."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_post_effect_guard_failure_consumes_and_cross_links_in_memory_receipt",
+      "rationale": "Proves post-generation serving-currentness failure consumes and reconciles the canonical in-memory receipt without claiming file persistence."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_preflight_and_denied_admission_never_debit",
+      "rationale": "Proves broad requests and independent inference denial cannot debit."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_duplicate_nonce_exhaustion_and_correlation_rollover_do_not_replenish",
+      "rationale": "Proves nonce uniqueness, exhaustion, and correlation-independent conservation."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_invocation_composition.py::test_serialized_smuggling_does_not_activate_resource_gate",
+      "rationale": "Proves serialized caller data cannot activate trusted resource custody."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound",
+      "rationale": "Proves the no-context legacy invocation remains compatible."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+      "rationale": "Proves production serving remains on its existing independent path."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_governed_local_model_resource_invocation_composition.py::test_resource_backed_completion_cross_links_exact_effect_receipt_and_survives_restart"
+  ]
+}
