@@ -1,0 +1,31 @@
+{
+  "artifact_kind": "production_local_model_serving_resource_composition",
+  "authority_level": "explicit_resource_allocation_composition_only",
+  "capability_id": "governed_local_model_resource_allocation_adapter",
+  "principal": "governed_local_model_resource_allocator",
+  "composition_boundary": "production_serving_inference_operation",
+  "effect_admission_independent": true,
+  "model_serving_admission_independent": true,
+  "persistent_production_chat_composed": false,
+  "allocation_issuance_during_generation": false,
+  "principal_evidence_creation_during_generation": false,
+  "policy_creation_during_generation": false,
+  "nonce_creation_during_generation": false,
+  "ordered_proof": [
+    "current_production_serving_session",
+    "exact_current_production_model",
+    "exact_authority_map_and_request",
+    "local_model_inference_admission",
+    "resource_final_gate",
+    "serving_pre_effect_guard",
+    "resource_backend_entry",
+    "production_model_generation",
+    "serving_post_effect_guard",
+    "local_model_invocation_receipt",
+    "resource_measurement",
+    "resource_reconciliation"
+  ],
+  "acceptance_manifest": "artifacts/proof_bundles/production_local_model_serving_resource_composition_task_acceptance.json",
+  "test_reference": "tests/test_local_model_serving_resource_allocation.py",
+  "status": "implemented"
+}
