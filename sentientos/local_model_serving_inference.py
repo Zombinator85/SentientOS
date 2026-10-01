@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from .config import GenerationConfig, ModelCandidate, ModelConfig
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker,
+    GovernedLocalModelResourceInvocationContext,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
 )
@@ -70,7 +71,9 @@ class ProductionServingInferenceController:
 
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget | None = None,
-                 caller_linkage: Mapping[str, Any] | None = None) -> LocalModelInvocationReceipt:
+                 caller_linkage: Mapping[str, Any] | None = None,
+                 resource_context: GovernedLocalModelResourceInvocationContext | None = None,
+                 ) -> LocalModelInvocationReceipt:
         session = self._serving.current_session()
         if session is None:
             raise ProductionServingInferenceError("current_serving_session_required")
@@ -120,7 +123,12 @@ class ProductionServingInferenceController:
                 self._serving._invalidate_inference_session(session, "currentness_changed_during_inference")
                 raise
 
-        receipt = invoker.invoke(request, pre_effect_guard=current, post_effect_guard=current_after)
+        receipt = invoker.invoke(
+            request,
+            pre_effect_guard=current,
+            post_effect_guard=current_after,
+            resource_context=resource_context,
+        )
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt

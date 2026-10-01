@@ -1,0 +1,51 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b3ab5353864ef7f65e99db733f564bff663ee2d6",
+  "test_provenance_path": "/tmp/production-local-model-serving-resource-composition-provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_backed_production_completion_forwards_exact_context_and_reconciles",
+      "rationale": "Proves exact context identity forwarding, independent admissions, durable debit, generation, reconciliation, and reload conservation."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_pre_effect_staleness_restores_without_generation",
+      "rationale": "Proves a stale serving pre-effect guard restores only the provisional debit without generation."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_post_effect_staleness_consumes_and_suppresses",
+      "rationale": "Proves post-entry serving staleness suppresses output but remains consumed and reconciled."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_timeout_consumes_and_reconciles",
+      "rationale": "Proves timeout remains consumed and cross-linked after backend entry."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_backend_failure_consumes_and_reconciles",
+      "rationale": "Proves backend failure remains consumed and cross-linked after backend entry."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_denied_inference_and_serialized_caller_claims_never_debit",
+      "rationale": "Proves inference denial cannot debit and serialized caller linkage cannot create entitlement."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_duplicate_nonce_exhaustion_and_correlation_rollover_do_not_double_spend",
+      "rationale": "Proves nonce replay and correlation rollover cannot spend twice or replenish entitlement."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_untrusted_context_shape_is_rejected_before_admission",
+      "rationale": "Proves mappings cannot activate the exact typed process-local resource boundary."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_resource_allocation.py::test_resource_entitlement_does_not_contaminate_serving_or_model_identity",
+      "rationale": "Proves serving-session and stable model identity remain free of per-attempt entitlement."
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+      "rationale": "Proves the legacy no-context production-serving path remains compatible."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_local_model_serving_resource_allocation.py::test_resource_backed_production_completion_forwards_exact_context_and_reconciles"
+  ]
+}
