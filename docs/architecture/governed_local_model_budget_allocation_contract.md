@@ -1,6 +1,6 @@
 # Governed local-model budget allocation contract
 
-This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON is the normative frozen design and registration contract. It records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The candidate authority definition is now registered as definition-only metadata; no allocator, allocation, ledger, debit, meter, resource gate, runtime receipt, grant, admission, or effect is implemented.
+This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON remains the normative frozen design and registration-era contract and records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The contract is defined, its exact authority definition is registered, and the standalone allocator runtime is now implemented. The allocator runtime is **not composed** into invocation, serving, or the control plane; it creates no grant, admission, or model effect authority.
 
 ## Five independent answers
 
@@ -10,7 +10,7 @@ This document is the narrative companion to `architecture/governed_local_model_b
 | What resource may be spent? | A `ResourceAllocation` specialized to `governed_local_model_invocation_call_entitlement.v1`. |
 | May inference occur? | Only under the separate existing `LOCAL_MODEL_INFERENCE` effect admission. |
 | Is the model operationally current? | Only under the separate serving-lifetime currentness check and model authority/configuration ceilings. |
-| What was attempted/consumed? | A future, separate, append-only `GovernedLocalModelResourceConsumptionReceipt`. |
+| What was attempted/consumed? | A separate, append-only `GovernedLocalModelResourceConsumptionReceipt`. |
 
 Currentness is observation, not allocation. A caller budget is a request ceiling, not entitlement. Model authority/configuration, serving currentness, effect admission, resource entitlement, and receipts do not manufacture one another.
 
@@ -117,6 +117,10 @@ The definition-only posture is explicit:
 
 The registered definition is visible to a later exact admission check, but eligibility is metadata only and grants no authority. The exact next slice is a separately admitted implementation of the frozen governed local-model resource allocator and durable call-entitlement ledger, requesting the registered complete five-effect set. It is not implemented here.
 
-## Explicit deferral
+## Implementation and explicit deferral
 
-Deferred are the runtime allocation type, allocator, durable ledger, gate/debit, metering, receipt implementation, all invocation/serving/control-plane changes, runtime grants and admissions, allocation issuance, exact tokens, physical-resource accounting, and activation. Only the authority definition and its immutable repository approval mapping are registered.
+`sentientos/governed_local_model_resource_allocation.py` now implements the closed v1 bounds and policy snapshots, immutable allocation and validity records, read-only exact-path policy loading, allocation issuance, a sealed atomically replaced durable ledger, unique provisional debits, trusted backend-entry transitions, pre-entry restoration, append-only hash-linked resource receipts, and restart-safe call conservation. Allocation requests broader than policy fail closed. Natural expiry and exhaustion work without an allocation-revocation administration surface.
+
+This is the organ, not its invocation composition. Deferred are composition into `GovernedLocalModelInvoker`, serving integration, control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and activation. The legacy process-local `invocation_counts` safeguard remains unchanged and independent.
+
+Exactly one next slice is selected: **compose governed local-model resource allocation at the invocation boundary**. That future slice must bind authenticated/current causal-principal evidence and an exact stored allocation beside the existing independent inference admission, then order final debit, the existing serving-currentness guard, backend entry, and distinct resource/effect receipt reconciliation. It must not collapse allocation into effect authority.
