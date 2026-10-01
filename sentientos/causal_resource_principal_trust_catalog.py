@@ -103,11 +103,27 @@ class ReadOnlyTrustedIssuerCatalog:
         if not isinstance(expected_catalog_digest, str) or _DIGEST.fullmatch(expected_catalog_digest) is None:
             raise TrustedIssuerCatalogError("expected_catalog_digest_invalid")
         try:
-            raw = Path(path).read_text(encoding="utf-8")
-            value = json.loads(raw, object_pairs_hook=_reject_duplicate_json_keys)
+            raw = Path(path).read_bytes()
         except TrustedIssuerCatalogError:
             raise
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise TrustedIssuerCatalogError("catalog_load_failed") from exc
+        return cls.from_bytes(raw, expected_catalog_version=expected_catalog_version,
+                              expected_catalog_digest=expected_catalog_digest)
+
+    @classmethod
+    def from_bytes(cls, raw: bytes, *, expected_catalog_version: int,
+                   expected_catalog_digest: str) -> ReadOnlyTrustedIssuerCatalog:
+        """Validate securely acquired exact catalog bytes."""
+        if type(expected_catalog_version) is not int or expected_catalog_version < 1:
+            raise TrustedIssuerCatalogError("expected_catalog_version_invalid")
+        if not isinstance(expected_catalog_digest, str) or _DIGEST.fullmatch(expected_catalog_digest) is None:
+            raise TrustedIssuerCatalogError("expected_catalog_digest_invalid")
+        try:
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_json_keys)
+        except TrustedIssuerCatalogError:
+            raise
+        except (UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise TrustedIssuerCatalogError("catalog_load_failed") from exc
         if not isinstance(value, dict) or set(value) != _CATALOG_FIELDS:
             raise TrustedIssuerCatalogError("catalog_fields_not_exact")

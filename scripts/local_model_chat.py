@@ -11,12 +11,14 @@ def main() -> None:
     parser.add_argument("--installation-identity", required=True)
     parser.add_argument("--serving-operation-id", required=True)
     parser.add_argument("--expected-activation-state-digest")
+    parser.add_argument("--resource-provisioning-id")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
     configure_production_chat(installation_identity=args.installation_identity,
                               serving_operation_id=args.serving_operation_id,
-                              expected_activation_state_digest=args.expected_activation_state_digest)
+                              expected_activation_state_digest=args.expected_activation_state_digest,
+                              resource_provisioning_id=args.resource_provisioning_id)
     run(host=args.host, port=args.port)
 
 
