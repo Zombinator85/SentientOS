@@ -1,6 +1,6 @@
 # Governed local-model budget allocation contract
 
-This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON remains the normative frozen design and registration-era contract and records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The contract is defined, its exact authority definition is registered, and the standalone allocator runtime is now implemented. The allocator runtime is **not composed** into invocation, serving, or the control plane; it creates no grant, admission, or model effect authority.
+This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON remains the normative frozen design and registration-era contract and records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The contract is defined, its exact authority definition is registered, the standalone allocator runtime is implemented, and an explicit resource-backed invocation-boundary path is implemented. Production-serving composition is **not implemented**; allocation still creates no grant, admission, or model effect authority.
 
 ## Five independent answers
 
@@ -28,7 +28,7 @@ Currentness is observation, not allocation. A caller budget is a request ceiling
 
 The legacy field name remains for compatibility, but the allocation's count is durable across correlations and restarts. The authoritative allocation—not caller serialization—owns it.
 
-For every positive finite dimension, the effective value is the numeric minimum of the allocation bound, a caller-requested budget, and any applicable model/serving ceiling. Integer fields reject booleans. Absence of caller narrowing uses the allocation value; absence of an applicable model ceiling adds no limit. A broader caller/model value is rejected or reduced and can never expand allocation. `LocalModelAuthorityRecord` is not an allocation and neither record manufactures the other.
+For every positive finite dimension, the effective value is the numeric minimum of the allocation bound, a caller-requested budget, and any applicable model/serving ceiling. Integer fields reject booleans. Absence of caller narrowing uses the allocation value; absence of an applicable model ceiling adds no limit. A broader caller request is rejected on the resource-backed path and can never expand allocation; model-authority generation ceilings may further narrow generation. `LocalModelAuthorityRecord` is not an allocation and neither record manufactures the other.
 
 ## Allocation schema, identity, and validity
 
@@ -52,7 +52,7 @@ Therefore v1 requires durable atomic attempt uniqueness, remaining-count/debit s
 
 Exhaustion may only block, defer, narrow, safely degrade, or terminate. It cannot widen authority, silently substitute a model without separate authorization, mint another allocation, reset usage, or bypass serving checks.
 
-## Required eventual order
+## Implemented explicit invocation order
 
 1. Request structural validation.
 2. Model and serving feasibility validation.
@@ -61,10 +61,10 @@ Exhaustion may only block, defer, narrow, safely degrade, or terminate. It canno
 5. Existing independent `LOCAL_MODEL_INFERENCE` effect admission.
 6. Final current allocation check and atomic durable call debit.
 7. Existing serving-lifetime pre-effect currentness guard.
-8. Model generation attempt.
-9. Resource measurement.
-10. Resource receipt/reconciliation.
-11. Existing effect receipt completion and cross-link.
+8. Durable backend-entry transition and model generation attempt.
+9. Existing post-effect guard and `LocalModelInvocationReceipt` construction/persistence under existing `persist` semantics.
+10. Resource measurement.
+11. Resource reconciliation cross-linked to the exact canonical effect-receipt digest.
 
 Early allocation inspection may narrow or block, but never authorizes an effect. The final resource gate is after otherwise-valid effect admission and immediately before the serving guard/model attempt.
 
@@ -121,6 +121,8 @@ The registered definition is visible to a later exact admission check, but eligi
 
 `sentientos/governed_local_model_resource_allocation.py` now implements the closed v1 bounds and policy snapshots, immutable allocation and validity records, read-only exact-path policy loading, allocation issuance, a sealed atomically replaced durable ledger, unique provisional debits, trusted backend-entry transitions, pre-entry restoration, append-only hash-linked resource receipts, and restart-safe call conservation. Allocation requests broader than policy fail closed. Natural expiry and exhaustion work without an allocation-revocation administration surface.
 
-This is the organ, not its invocation composition. Deferred are composition into `GovernedLocalModelInvoker`, serving integration, control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and activation. The legacy process-local `invocation_counts` safeguard remains unchanged and independent.
+`GovernedLocalModelResourceInvocationContext` is the immutable process-local composition input. It carries the exact allocator, stored allocation, principal, authenticated and current principal evidence, policy, durable nonce, and trusted clock. It has no mapping constructor and is not request data. The invoker performs structural/narrowing preflight before independent inference admission, calls `final_gate` only after admission, restores a provisional debit only when the pre-effect guard rejects, records backend entry immediately before generation, and appends measured and reconciled receipts after constructing the existing effect receipt. `persist=False` cross-links the canonical in-memory effect receipt and does not claim that an effect-receipt file exists.
 
-Exactly one next slice is selected: **compose governed local-model resource allocation at the invocation boundary**. That future slice must bind authenticated/current causal-principal evidence and an exact stored allocation beside the existing independent inference admission, then order final debit, the existing serving-currentness guard, backend entry, and distinct resource/effect receipt reconciliation. It must not collapse allocation into effect authority.
+The legacy no-context path and its process-local `invocation_counts` safeguard remain unchanged and independent. Deferred are production-serving composition, control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and activation. In particular, `local_model_serving_inference.py` does not supply this context, so production serving is not resource-enforced.
+
+Exactly one next slice is selected: **compose the explicit resource-backed invocation path into the production local-model serving boundary**. That future slice must determine how production serving obtains authenticated/current principal evidence, an exact pre-existing allocation, the exact allocator/policy, and a durable attempt nonce; it must not silently issue entitlement.

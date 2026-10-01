@@ -1,0 +1,23 @@
+{
+  "artifact_kind": "governed_local_model_resource_invocation_composition",
+  "authority_level": "resource_allocation_composition_only",
+  "capability_id": "governed_local_model_resource_allocation_adapter",
+  "principal": "governed_local_model_resource_allocator",
+  "composition_boundary": "explicit_governed_local_model_invoker_context",
+  "effect_admission_independent": true,
+  "production_serving_composed": false,
+  "allocation_issuance_during_invocation": false,
+  "ordered_proof": [
+    "local_model_inference_admission",
+    "resource_final_gate",
+    "serving_pre_effect_guard",
+    "resource_backend_entry",
+    "backend_attempt",
+    "local_model_invocation_receipt",
+    "resource_measurement",
+    "resource_reconciliation"
+  ],
+  "acceptance_manifest": "docs/development/governed_local_model_resource_invocation_composition_task_acceptance.json",
+  "test_reference": "tests/test_governed_local_model_resource_invocation_composition.py",
+  "status": "implemented"
+}
