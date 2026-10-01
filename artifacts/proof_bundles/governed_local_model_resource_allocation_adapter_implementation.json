@@ -1,0 +1,31 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8d4718e2e3a1f1f6efa76878ef32d3695b7f65c6",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_real_principal_durable_debit_receipt_chain_and_restart",
+      "rationale": "Authenticated and current causal-principal evidence issues an exact bounded allocation, records backend entry and an append-only receipt chain, then preserves the reduced entitlement on restart."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_provisional_restore_survives_restart_and_entry_is_irrevocable",
+      "rationale": "A proven pre-entry rejection restores exactly one provisional unit while backend entry makes restoration impossible."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_fail_closed_substitution_exhaustion_and_attempt_uniqueness",
+      "rationale": "Policy substitution, duplicate attempts, and exhaustion fail closed without double spending."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_broader_request_stale_currentness_and_caller_id_fail",
+      "rationale": "Callers cannot expand policy, use stale currentness, or mint an allocation identifier."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_module_has_no_effect_or_serving_authority_surface",
+      "rationale": "The standalone organ exposes no inference admission, model, serving, principal, policy-authoring, or grant power."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_governed_local_model_resource_allocation.py::test_real_principal_durable_debit_receipt_chain_and_restart"
+  ]
+}
