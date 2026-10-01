@@ -1,0 +1,38 @@
+{
+  "schema_version": "sentientos.persistent_production_chat_resource_context_owner:v1",
+  "composition_boundary": "PersistentConversationService -> ResourceBackedProductionChatInference -> ProductionServingInferenceController -> GovernedLocalModelInvoker",
+  "owner_type": "sentientos.production_chat_resource_context.ProductionChatResourceContextOwner",
+  "upstream_trusted_objects": [
+    "GovernedLocalModelResourceAllocator",
+    "GovernedLocalModelResourceAllocation",
+    "CausalResourcePrincipal",
+    "AuthenticatedRootPrincipalEvidence",
+    "CurrentAuthenticatedRootPrincipalEvidence",
+    "GovernedLocalModelResourcePolicy",
+    "trusted zero-argument nonce source",
+    "trusted clock"
+  ],
+  "posture": {
+    "allocation_issuance_during_chat": false,
+    "principal_or_currentness_creation_during_chat": false,
+    "chat_derived_entitlement": false,
+    "per_operation_nonce": true,
+    "exact_typed_context_forwarding": true,
+    "resource_failure_downgrade": false,
+    "legacy_no_owner_path_preserved": true
+  },
+  "ordering": [
+    "independent inference admission",
+    "resource final gate and durable debit",
+    "serving currentness guard",
+    "backend entry",
+    "generation",
+    "effect and resource receipt reconciliation"
+  ],
+  "acceptance_tests": [
+    "tests/test_production_chat_resource_context.py",
+    "tests/test_chat_service_resource_allocation.py"
+  ],
+  "acceptance_manifest": "artifacts/proof_bundles/persistent_production_chat_resource_context_owner_task_acceptance.json",
+  "next_slice": "establish concrete production startup/provisioning custody that supplies the persistent-chat owner with a genuine pre-existing principal/authentication/currentness bundle, allocator policy, and issued allocation"
+}

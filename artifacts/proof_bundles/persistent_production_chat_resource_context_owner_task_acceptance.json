@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e293ea4b537e2cf4eac95088fd37237d100ebf04",
+  "test_provenance_path": "/tmp/persistent-production-chat-resource-context-owner-provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_context.py::test_owner_uses_exact_preexisting_objects_and_zero_argument_fresh_nonce", "rationale": "Exact pre-existing custody and one fresh nonce per zero-argument context call."},
+    {"node_id": "tests/test_production_chat_resource_context.py::test_owner_rejects_substitutes_bad_nonce_and_cross_binding", "rationale": "Exact runtime type, stored allocation, and nonce boundaries fail closed."},
+    {"node_id": "tests/test_production_chat_resource_context.py::test_adapter_forwards_exact_context_and_ordinary_chat_arguments", "rationale": "Chat data is unchanged while the same typed owner context is forwarded."},
+    {"node_id": "tests/test_production_chat_resource_context.py::test_duplicate_nonce_and_exhaustion_fail_without_retry_or_backend_generation", "rationale": "Durable replay protection prevents retry and extra generation."},
+    {"node_id": "tests/test_production_chat_resource_context.py::test_two_contexts_conserve_one_allocation_and_stale_currentness_fails_closed", "rationale": "Two nonces consume one allocation while stale currentness never generates."},
+    {"node_id": "tests/test_production_chat_resource_context.py::test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_contamination", "rationale": "Successful persistent two-turn chain conserves calls without contaminating conversation or response records."},
+    {"node_id": "tests/test_chat_service_resource_allocation.py::test_configure_production_chat_rejects_nonexact_owner_before_establishing", "rationale": "Trusted process-local configuration rejects duck-typed owners before serving setup."},
+    {"node_id": "tests/test_chat_service_resource_allocation.py::test_chat_protocol_and_transaction_remain_resource_ignorant", "rationale": "Existing chat protocol, transaction, and response remain free of entitlement fields."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_context.py::test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_contamination"
+  ]
+}

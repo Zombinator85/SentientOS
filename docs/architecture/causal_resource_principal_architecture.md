@@ -1,6 +1,6 @@
 # Causal Resource Principal Architecture
 
-> **Posture — root identity evidence plus one bounded producer/consumer composition implemented; wider architecture remains non-runtime and non-authority.** `sentientos/causal_resource_principal.py` implements inert root evidence, and `sentientos/genesis_forge.py` may explicitly carry either a caller-supplied existing root or its exact paired issuer-provenance envelope as separate untrusted claims to `sentientos/control_plane_kernel.py`, which projects canonical evidence into descriptive proof-budget context. Neither surface implements allocation, child propagation, consumption, enforcement, entitlement, or effect authority. Possessing or observing a principal confers nothing and allocates nothing.
+> **Posture — root identity, governed local-model allocation, and explicit persistent production-chat consumption composition are implemented; wider architecture remains bounded.** `ProductionChatResourceContextOwner` holds an already-issued allocation and verifier-produced evidence and supplies a fresh chat-independent nonce per inference. It cannot mint identity or entitlement, and effect admission remains independent. Possessing or observing a principal still confers nothing and allocates nothing.
 
 **Inspected revision:** `168fde46163676cb913887282088a3687d7d7bf4`  
 **Inspection time:** `2026-09-21T07:28:58Z`  
@@ -18,7 +18,20 @@ The service rule is adopted: **work performed on behalf of a caller retains that
 
 **Implemented now:** canonical `sentientos.causal_resource_principal:v1` immutable root evidence, an injected operator-sponsorship verification boundary, deterministic issuer-derived identity and binding, strict mapping, deterministic explicit-time verification, and bounded observation-only causal attribution at the explicit proof-budget control-plane boundary. Roots have no parent and use an all-zero SHA-256 genesis predecessor.
 
-**Still not implemented:** resource allocations, allocation ledgers, child principals, delegation, causal propagation, async custody, consumption receipts, retries/accounting integration, resource enforcement, admission integration, generic causal propagation, local-model budget binding, external-model quotas, provider billing, GPU accounting, host scheduling, resident composition, live revocation distribution, or renewal generations. `work_item_id` remains correlation only and is omitted from this smallest evidence surface.
+**Still not implemented:** child principals, delegation, generic causal propagation,
+async custody, external-model quotas, provider billing, GPU accounting, host scheduling,
+resident-wide composition, allocation revocation administration, live revocation
+distribution, or renewal generations. `work_item_id` remains correlation only and is
+omitted from this entitlement surface.
+
+**Current bounded composition:** the governed local-model allocator and durable ledger,
+governed invoker, production-serving forwarding bridge, and an opt-in persistent-chat
+resource owner/adapter are implemented. The conversation transaction and public chat
+records remain resource-ignorant. Legacy no-owner production chat remains available;
+concrete startup provisioning of the owner's genuine pre-existing bundle is the next
+separate prerequisite. Child principals, delegation, generic propagation, external
+model quotas, physical-resource accounting, and revocation administration remain
+unimplemented.
 
 The bounded GenesisForge composition path now supports root-only and exact root-plus-provenance forwarding. One top-level invocation reuses the same supplied evidence for several needs without child derivation, minting, signature verification, trust lookup, allocation, admission influence, or proof-budget influence. The control plane verifies canonical root binding by default and, when explicitly injected, authenticates issuer provenance and then verifies principal currentness against an already-loaded read-only registry snapshot. These observations do not change proof-budget arithmetic or admission.
 

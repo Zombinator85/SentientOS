@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, List, Mapping, Protocol, cast
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException
 
@@ -22,6 +22,10 @@ from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
 from .local_model_serving_inference import ProductionServingInferenceController
+from .production_chat_resource_context import (
+    ProductionChatResourceContextOwner,
+    ResourceBackedProductionChatInference,
+)
 from .conversation_session import ConversationSessionStore, assemble_local_chat_context
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
@@ -70,7 +74,7 @@ class ProductionChatComposition:
     def close(self) -> None:
         self._serving.close()
     def ready(self) -> bool:
-        return self._serving.serving_is_current()
+        return cast(bool, self._serving.serving_is_current())
 
 class ChatRequest(BaseModel):
     message: str
@@ -159,9 +163,12 @@ def _get_conversation_service() -> PersistentConversationService:
 
 def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
                               expected_activation_state_digest: str | None = None,
-                              control_plane_kernel: ControlPlaneKernel | None = None) -> None:
+                              control_plane_kernel: ControlPlaneKernel | None = None,
+                              resource_context_owner: ProductionChatResourceContextOwner | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
+    if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
+        raise TypeError("exact_production_chat_resource_context_owner_required")
     identity = InstallationIdentity.parse(installation_identity)
     handle = InstallationStateRegistry.system().open(identity)
     serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
@@ -170,7 +177,11 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         if expected_activation_state_digest is not None:
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
         serving.establish(**establish_arguments)
-        inference = ProductionServingInferenceController(serving)
+        inference_bridge = ProductionServingInferenceController(serving)
+        inference: ChatInference = (
+            inference_bridge if resource_context_owner is None
+            else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
+        )
         data_root = sentientos_data_dir()
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(data_root / "conversations"),
@@ -256,7 +267,7 @@ async def readiness_endpoint() -> dict[str, str]:
 
 @APP.get("/sessions")
 async def list_sessions() -> list[dict[str, Any]]:
-    return _get_conversation_service().sessions.list_recent()
+    return cast(list[dict[str, Any]], _get_conversation_service().sessions.list_recent())
 
 
 @APP.get("/sessions/{session_id}")
