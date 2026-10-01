@@ -127,4 +127,32 @@ The registered definition is visible to a later exact admission check, but eligi
 
 The legacy no-context path and its process-local `invocation_counts` safeguard remain unchanged and independent. Caller linkage remains ordinary namespaced caller data and cannot activate resource custody. Serving-session binding and stable conversation-model identity contain no resource entitlement. Consequently, this is explicit capability, not a claim that all production local inference is resource-enforced. Control-plane resource composition, allocation revocation administration, child/delegated allocation, other resource classes, exact token accounting, physical-resource accounting, and activation remain deferred.
 
-Exactly one next slice is selected: **establish a trusted resource-context owner for persistent production chat and supply one exact pre-existing allocation/context per chat inference operation**. That owner must identify the upstream sources of existing causal-principal evidence, authenticated/current evidence, the existing allocation and allocator/policy, and a fresh durable nonce. It must never infer entitlement from `ChatRequest`, a session or correlation identifier, conversation memory, or user text.
+The next slice previously selected here—trusted resource-context ownership for
+persistent production chat—is implemented by the composition below.
+
+## Persistent production-chat composition
+
+The contract, registered definition, allocator, governed-invoker composition, and
+production-serving forwarding bridge are implemented. Persistent production chat can
+now be explicitly configured with a trusted
+`ProductionChatResourceContextOwner` holding one pre-existing exact allocator,
+allocation, principal, authenticated evidence, current evidence, and policy bundle.
+Its zero-argument `next_context()` requests exactly one process-local nonce and returns
+a new typed invocation context containing those same objects and the same trusted
+clock. `ResourceBackedProductionChatInference` forwards that exact object through the
+production-serving bridge for every chat inference operation.
+
+The owner performs construction-time structural binding, but does not replace the
+allocator's final currentness, policy, validity, duplicate-attempt, and durable-debit
+checks. It issues no allocation, creates no principal/authentication/currentness
+evidence, refreshes no evidence, creates no policy, and derives no entitlement from
+message, session, correlation, caller-linkage, history, or memory data. Exhaustion,
+duplicate nonces, and stale evidence fail through the resource-backed invocation path;
+there is no per-operation downgrade to the legacy path.
+
+The no-owner `configure_production_chat` mode is deliberately preserved, so this does
+not claim that all production chat is automatically resource-enforced. Upstream
+production allocation provisioning remains separate. The exact next slice is:
+**establish concrete production startup/provisioning custody that supplies the
+persistent-chat owner with a genuine pre-existing principal/authentication/currentness
+bundle, allocator policy, and issued allocation**.
