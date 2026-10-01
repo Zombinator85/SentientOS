@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "governance_only",
+  "repository_sha": "67861cbbf7379cd27164ad44fa316012401dfd25",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_governed_local_model_resource_allocation_definition_registration_is_inert",
+      "rationale": "Proves exact definition and approval digests, definition-only registration, canonical visibility, and absence of grant, runtime authority, effects, or runtime mutation."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_governed_local_model_resource_allocation_later_admission_is_exact",
+      "rationale": "Proves later exact admission eligibility and rejection of missing or extra effects, wrong principal or subsystem, missing or forbidden goal scope, and an unregistered substitute capability."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_governed_local_model_resource_registration_cannot_self_authorize",
+      "rationale": "Proves the registration task cannot request or exercise its registered capability, principal, or effects."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_budget_allocation_contract.py::test_frozen_candidate_definition_is_exact_closed_reproducible_and_registered",
+      "rationale": "Proves the frozen machine-contract candidate reconstructs to the exact registered canonical definition without rewriting the frozen contract."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_authority_definition_registration.py::test_governed_local_model_resource_allocation_definition_registration_is_inert"
+  ]
+}
