@@ -1,6 +1,10 @@
 # Governed local-model budget allocation contract
 
-This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON remains the normative frozen design and registration-era contract and records repository revision `8a1ce976cc488c53a6c42d2a1592611038f945a8`. The contract is defined, its exact authority definition is registered, the standalone allocator runtime is implemented, the invocation-boundary resource composition is implemented, and the production-serving bridge now supports explicit resource composition. Persistent production-chat resource ownership is **not implemented**; allocation still creates no grant, admission, or model effect authority.
+This document is the narrative companion to `architecture/governed_local_model_budget_allocation_contract.json` (`sentientos.governed_local_model_budget_allocation_contract:v1`). The JSON remains the normative frozen design and registration-era contract. The contract and authority definition are registered; the allocator, invocation composition, production-serving composition, persistent-chat resource owner, and installation-state production resource-bundle consumer are implemented. Automatic startup allocation issuance is **not implemented**, and a resource-bundle producer/publication operation is **not implemented**. Startup verifies one operator-installed pre-existing bundle and allocation; the repository does not claim that every installation possesses one.
+
+Restart reconstructs verifier-produced authentication/currentness evidence around the
+same durable allocation. It never mints a principal, signs provenance, accesses an
+issuer private key, issues an allocation, or replenishes conserved call entitlement.
 
 ## Five independent answers
 

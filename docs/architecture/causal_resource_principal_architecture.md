@@ -3,6 +3,15 @@
 > **Posture — root identity, governed local-model allocation, and explicit persistent production-chat consumption composition are implemented; wider architecture remains bounded.** `ProductionChatResourceContextOwner` holds an already-issued allocation and verifier-produced evidence and supplies a fresh chat-independent nonce per inference. It cannot mint identity or entitlement, and effect admission remains independent. Possessing or observing a principal still confers nothing and allocates nothing.
 
 **Inspected revision:** `168fde46163676cb913887282088a3687d7d7bf4`  
+
+Production chat can consume fixed authenticated installation custody at
+`local-model/resource-provisioning/<provisioning-id>/`. The consumer verifies the exact
+pre-existing principal/provenance, public trust catalog, revocation snapshot, policy,
+durable ledger, and named pre-issued allocation. Fresh process-local evidence is not
+renewal authority, and ordinary startup or serving restart does not mint, sign, issue,
+or replenish. The smallest remaining slice is a separately governed create-only bundle
+producer with explicit sponsorship/provenance inputs and one intentional allocation
+issuance independent of ordinary daemon startup.
 **Inspection time:** `2026-09-21T07:28:58Z`  
 **Initial repository state:** clean `work` branch at the inspected merge revision; the checkout exposed no local `main` ref or remote, so that exact clean HEAD is the available fresh-current main snapshot. The repository bootstrapper returned `ready` before edits.
 

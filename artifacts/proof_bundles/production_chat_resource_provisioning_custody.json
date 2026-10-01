@@ -1,0 +1,9 @@
+{
+  "artifact_kind": "production_chat_resource_provisioning_custody",
+  "schema_version": "sentientos.production_chat_resource_provisioning_proof:v1",
+  "fixed_location": "local-model/resource-provisioning/<resource_provisioning_id>/",
+  "manifest_schema": "sentientos.production_chat_resource_provisioning:v1",
+  "fixed_objects": ["manifest.json", "root-principal.json", "root-principal-provenance.json", "trusted-issuer-catalog.json", "principal-revocation-registry.json", "resource-policy.json", "resource-ledger.json"],
+  "security_properties": ["authenticated installation-state handle required", "no path inputs or manifest paths", "exact principal and provenance verification", "manifest-bound public trust catalog", "manifest-bound currentness registry", "manifest-bound policy", "exact existing ledger and allocation", "no root minting", "no provenance signing or private-key custody", "no startup allocation issuance", "restart conserves durable entitlement", "serving restart preserves provisioning identity", "resource-backed startup has no legacy fallback"],
+  "selected_next_slice": "Implement a separately governed create-only producer for the installation-state production resource provisioning bundle, including explicit sponsorship/provenance inputs and one intentional allocation issuance, without tying issuance to ordinary daemon restart."
+}

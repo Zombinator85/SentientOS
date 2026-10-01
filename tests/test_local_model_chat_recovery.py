@@ -115,6 +115,17 @@ def test_exact_restart_preserves_fixed_custody_and_passes_activation_guard(monke
     assert Path(adapter._argv[1]).name == "local_model_chat.py"
 
 
+def test_restart_preserves_resource_provisioning_identity(monkeypatch) -> None:
+    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(
+        True, "install-1", "serve-1", port=5500, resource_provisioning_id="production.v1"))
+    monkeypatch.setattr(adapter, "stop", lambda: None)
+    monkeypatch.setattr("sentientos.runtime.services.ChildProcessServiceAdapter.start", lambda _self: None)
+    adapter._restart_with_fresh_serving_operation(replacement_serving_operation_id="serve-2",
+                                                   expected_activation_state_digest="a" * 64)
+    assert adapter.startup_configuration.resource_provisioning_id == "production.v1"
+    assert adapter._argv[-2:] == ("--resource-provisioning-id", "production.v1")
+
+
 def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:
     parameters = set(inspect.signature(LocalModelChatServiceAdapter._restart_with_fresh_serving_operation).parameters)
     assert parameters == {"self", "replacement_serving_operation_id", "expected_activation_state_digest"}

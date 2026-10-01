@@ -164,13 +164,19 @@ def _get_conversation_service() -> PersistentConversationService:
 def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
-                              resource_context_owner: ProductionChatResourceContextOwner | None = None) -> None:
+                              resource_context_owner: ProductionChatResourceContextOwner | None = None,
+                              resource_provisioning_id: str | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
         raise TypeError("exact_production_chat_resource_context_owner_required")
+    if resource_context_owner is not None and resource_provisioning_id is not None:
+        raise ValueError("resource_owner_and_provisioning_id_mutually_exclusive")
     identity = InstallationIdentity.parse(installation_identity)
     handle = InstallationStateRegistry.system().open(identity)
+    if resource_provisioning_id is not None:
+        from .production_chat_resource_provisioning import load_production_chat_resource_context_owner
+        resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
     serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
     try:
         establish_arguments = {"operation_id": serving_operation_id}

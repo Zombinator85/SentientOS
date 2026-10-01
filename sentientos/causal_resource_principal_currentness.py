@@ -87,10 +87,27 @@ class ReadOnlyPrincipalRevocationRegistry:
         if not isinstance(expected_registry_digest, str) or _DIGEST.fullmatch(expected_registry_digest) is None:
             raise PrincipalCurrentnessError("expected_registry_digest_invalid")
         try:
-            value = json.loads(Path(path).read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
+            raw = Path(path).read_bytes()
         except PrincipalCurrentnessError:
             raise
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise PrincipalCurrentnessError("registry_load_failed") from exc
+        return cls.from_bytes(raw, expected_registry_version=expected_registry_version,
+                              expected_registry_digest=expected_registry_digest)
+
+    @classmethod
+    def from_bytes(cls, raw: bytes, *, expected_registry_version: int,
+                   expected_registry_digest: str) -> ReadOnlyPrincipalRevocationRegistry:
+        """Validate securely acquired exact revocation-snapshot bytes."""
+        if type(expected_registry_version) is not int or expected_registry_version < 1:
+            raise PrincipalCurrentnessError("expected_registry_version_invalid")
+        if not isinstance(expected_registry_digest, str) or _DIGEST.fullmatch(expected_registry_digest) is None:
+            raise PrincipalCurrentnessError("expected_registry_digest_invalid")
+        try:
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys)
+        except PrincipalCurrentnessError:
+            raise
+        except (UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise PrincipalCurrentnessError("registry_load_failed") from exc
         if not isinstance(value, dict) or set(value) != _REGISTRY_FIELDS:
             raise PrincipalCurrentnessError("registry_fields_not_exact")

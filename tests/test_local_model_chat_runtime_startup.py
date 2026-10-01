@@ -48,7 +48,8 @@ def test_invalid_identity_fails_before_adapter_construction(config: LocalModelCh
 
 def test_service_surface_has_no_execution_or_model_injection_parameters() -> None:
     fields = set(LocalModelChatStartup.__dataclass_fields__)
-    assert fields == {"enabled", "installation_identity", "serving_operation_id", "host", "port"}
+    assert fields == {"enabled", "installation_identity", "serving_operation_id", "host", "port",
+                      "resource_provisioning_id"}
     forbidden = {"executable", "script", "argv", "model_path", "activation_path", "runtime_path",
                  "interpreter_path", "custody_root", "preloaded_model", "simulation", "fallback"}
     assert not fields & forbidden
@@ -66,6 +67,19 @@ def test_enabled_adapter_constructs_only_exact_launcher_argv() -> None:
     assert "--model-path" not in argv and "--activation-path" not in argv
     assert "--simulation" not in argv and "--custody-root" not in argv
     assert set(adapter.identity) == {"adapter", "name"}
+
+
+def test_resource_provisioning_selector_is_bounded_and_fixed_in_launcher() -> None:
+    config = LocalModelChatStartup(enabled=True, installation_identity="install-1",
+        serving_operation_id="serve-1", resource_provisioning_id="production.v1")
+    adapter = LocalModelChatServiceAdapter(config, probe=lambda _url: True)
+    assert adapter._argv[-2:] == ("--resource-provisioning-id", "production.v1")
+    for invalid in ("", "../escape", "a/b", "a\\b", "all", "*"):
+        with pytest.raises(ValueError, match="invalid_resource_provisioning_id"):
+            LocalModelChatStartup(enabled=True, installation_identity="install-1",
+                serving_operation_id="serve-1", resource_provisioning_id=invalid).validate()
+    with pytest.raises(ValueError, match="resource_provisioning_requires_enabled_chat"):
+        LocalModelChatStartup(resource_provisioning_id="production.v1").validate()
 
 
 def test_legacy_bootstrap_paths_cannot_influence_production_composition() -> None:

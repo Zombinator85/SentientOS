@@ -226,6 +226,7 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     runtime_start.add_argument("--serving-operation-id")
     runtime_start.add_argument("--local-model-chat-host", default="127.0.0.1")
     runtime_start.add_argument("--local-model-chat-port", type=int, default=5000)
+    runtime_start.add_argument("--local-model-chat-resource-provisioning-id")
     runtime_start.add_argument("--health-cadence-seconds", type=float, default=2.0)
     runtime_intent = runtime_sub.add_parser("local-model-chat-recovery-intent",
         help="prepare a zero-effect exact hardened-chat recovery intent")
@@ -280,6 +281,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             installation_identity=args.installation_identity,
             serving_operation_id=args.serving_operation_id,
             host=str(args.local_model_chat_host), port=int(args.local_model_chat_port),
+            resource_provisioning_id=args.local_model_chat_resource_provisioning_id,
         )
         return run_canonical_runtime(config, cadence_seconds=float(args.health_cadence_seconds))
 

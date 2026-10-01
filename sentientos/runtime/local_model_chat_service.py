@@ -34,6 +34,7 @@ class LocalModelChatStartup:
     serving_operation_id: str | None = None
     host: str = "127.0.0.1"
     port: int = 5000
+    resource_provisioning_id: str | None = None
 
     def validate(self) -> None:
         if self.host != "127.0.0.1":
@@ -41,6 +42,8 @@ class LocalModelChatStartup:
         if not 1024 <= self.port <= 65535:
             raise ValueError("local_model_chat_port_out_of_range")
         if not self.enabled:
+            if self.resource_provisioning_id is not None:
+                raise ValueError("resource_provisioning_requires_enabled_chat")
             return
         if self.installation_identity is None:
             raise ValueError("installation_identity_required")
@@ -48,6 +51,9 @@ class LocalModelChatStartup:
             raise ValueError("serving_operation_id_required")
         InstallationIdentity.parse(self.installation_identity)
         _operation_id(self.serving_operation_id)
+        if self.resource_provisioning_id is not None:
+            from sentientos.production_chat_resource_provisioning import validate_resource_provisioning_id
+            validate_resource_provisioning_id(self.resource_provisioning_id)
 
 
 class DisabledLocalModelChatAdapter:
@@ -85,6 +91,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 "--host", config.host, "--port", str(config.port))
         if expected_activation_state_digest is not None:
             argv += ("--expected-activation-state-digest", expected_activation_state_digest)
+        if config.resource_provisioning_id is not None:
+            argv += ("--resource-provisioning-id", config.resource_provisioning_id)
         return argv
 
     def _restart_with_fresh_serving_operation(
@@ -98,7 +106,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         if self._process is not None and self._process.poll() is None:
             self.force_stop()
         self._config = LocalModelChatStartup(True, self._config.installation_identity,
-                                             replacement, self._config.host, self._config.port)
+                                             replacement, self._config.host, self._config.port,
+                                             self._config.resource_provisioning_id)
         self._argv = self._launcher_argv(self._config, root=self._root,
                                          expected_activation_state_digest=expected)
         self._stopped = False

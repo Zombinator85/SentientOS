@@ -184,7 +184,7 @@ def test_source_exposes_no_mutation_private_key_signing_secret_or_network_capabi
     public_methods = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")}
     imported = {alias.name for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
     called = {node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, (ast.Attribute, ast.Name))}
-    assert public_methods == {"catalog_digest_for", "load", "lookup"}
+    assert public_methods == {"catalog_digest_for", "load", "from_bytes", "lookup"}
     assert called.isdisjoint(forbidden_names)
     assert imported.isdisjoint({"Ed25519PrivateKey", "keyring", "requests", "urllib", "socket", "nacl.signing"})
     assert all(token not in source for token in ("private_key", "environment secret", "SSH signer", "HMAC signer"))
