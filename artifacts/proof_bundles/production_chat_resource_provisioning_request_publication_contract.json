@@ -1,0 +1,36 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "4a6ccebce6d7c47209b5f4c2afbe40c259658842",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_actuator_schema_embedding_and_digest_contract_are_exact",
+      "rationale": "Proves the frozen field, embedding, digest, loader, and exact-byte round-trip compatibility with the current actuator."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_contract_packet_prepares_deterministic_intent_without_state_access",
+      "rationale": "Proves deterministic inert intent preparation and zero request or installation-state writes."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_fixed_custody_create_only_receipt_last_and_partial_failure_are_frozen",
+      "rationale": "Proves fixed paths, authenticated locking, one-generation create-only custody, receipt-last publication, and fail-closed partial custody."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_trusted_exact_byte_verification_and_one_instant_are_frozen",
+      "rationale": "Proves exact trusted inputs, cryptographic/currentness chains, byte fidelity, absent signing/root authority, and one verification instant."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_registrar_native_handoff_registers_only_in_copy_without_authority",
+      "rationale": "Proves registrar compatibility in an isolated catalog without canonical registration, grant, runtime authority, effect, or mutation."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_candidate_definition_digest_exact_surface_and_catalog_absence",
+      "rationale": "Proves the exact unregistered five-effect candidate, reproducible digest, bundle-authority distinction, and unchanged canonical catalog."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_registrar_native_handoff_registers_only_in_copy_without_authority",
+    "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_contract_packet_prepares_deterministic_intent_without_state_access"
+  ]
+}

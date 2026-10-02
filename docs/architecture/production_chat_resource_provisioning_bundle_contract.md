@@ -91,3 +91,14 @@ There is no trust-catalog or revocation administration, policy creation/widening
 
 The selected actuator slice is now implemented. Ordinary-startup hooks, automatic
 allocation issuance or renewal, and cleanup/recovery authority remain absent.
+
+## Upstream request-publication boundary
+
+The design-only upstream boundary is now frozen in
+`production_chat_resource_provisioning_request_publication_contract.md`. The candidate
+`production_chat_resource_provisioning_request_publish` authority is distinct from
+`production_chat_resource_provisioning_bundle_create`: the former may eventually verify
+and publish one exact actuator request plus its publication receipt in fixed
+installation-state custody, while the latter may intentionally issue one allocation and
+create the final provisioning bundle. Neither capability implies the other. No request
+publisher, request write, or new registered authority is implemented by that contract.
