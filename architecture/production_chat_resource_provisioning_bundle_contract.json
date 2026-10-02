@@ -1,0 +1,361 @@
+{
+  "schema": "sentientos.production_chat_resource_provisioning_bundle_contract:v1",
+  "status": {
+    "consumer_implementation": "implemented",
+    "create_only_producer_contract": "defined",
+    "producer_authority_definition": "candidate only, not registered",
+    "producer_runtime": "not implemented",
+    "production_bundle": "not automatically created",
+    "ordinary_startup_allocation_issuance": "forbidden / not implemented"
+  },
+  "consumer_contract": {
+    "manifest_schema": "sentientos.production_chat_resource_provisioning:v1",
+    "bundle_location": "local-model/resource-provisioning/<resource_provisioning_id>/",
+    "required_filenames": [
+      "manifest.json",
+      "root-principal.json",
+      "root-principal-provenance.json",
+      "trusted-issuer-catalog.json",
+      "principal-revocation-registry.json",
+      "resource-policy.json",
+      "resource-ledger.json"
+    ],
+    "manifest_fields": [
+      "schema_version",
+      "provisioning_id",
+      "installation_identity",
+      "resource_kind",
+      "allocator_id",
+      "principal_id",
+      "principal_binding_digest",
+      "provenance_digest",
+      "trusted_issuer_catalog_version",
+      "trusted_issuer_catalog_digest",
+      "revocation_registry_version",
+      "revocation_registry_digest",
+      "resource_policy_digest",
+      "allocation_id",
+      "allocation_digest",
+      "manifest_digest"
+    ],
+    "resource_kind": "governed_local_model_invocation_call_entitlement.v1",
+    "allocator_id": "sentientos.governed_local_model_resource_allocator.v1",
+    "provisioning_id_law": {
+      "pattern": "[a-z0-9][a-z0-9._-]{0,127}\\Z",
+      "forbids_double_dot": true,
+      "forbidden_values": [
+        "all",
+        "any"
+      ],
+      "path_free": true
+    },
+    "performs_allocation_issuance": false,
+    "restart_behavior": "loads the same exact pre-issued allocation and does not replenish entitlement"
+  },
+  "producer_contract": {
+    "concept": "ProductionChatResourceProvisioningBundleProducer",
+    "lifecycle": "explicit one-time provisioning creation separate from consumer startup, chat inference, and resource consumption",
+    "trusted_inputs": [
+      "authenticated InstallationStateHandle",
+      "resource_provisioning_id",
+      "pre-existing canonical CausalResourcePrincipal",
+      "pre-existing RootPrincipalIssuerProvenance",
+      "exact trusted-issuer catalog artifact",
+      "exact principal-revocation registry artifact",
+      "exact GovernedLocalModelResourcePolicy artifact",
+      "GovernedLocalModelResourceBounds requested_bounds",
+      "requested_not_before",
+      "requested_not_after",
+      "trusted current-time source"
+    ],
+    "forbidden_inputs": [
+      "arbitrary filesystem path",
+      "chat data",
+      "session data",
+      "request data"
+    ],
+    "destination": "local-model/resource-provisioning/<resource_provisioning_id>/ beneath the authenticated installation state",
+    "concurrency": {
+      "rule": "deterministic exclusive custody per resource_provisioning_id before create-only inspection and mutation",
+      "mechanism": "authenticated installation-state locking machinery or equivalently bounded fixed lock derived only from resource_provisioning_id; never only a process-local mutex",
+      "lock_location": "local-model/resource-provisioning-locks/<resource_provisioning_id>.lock",
+      "grants_entitlement": false
+    },
+    "trusted_instant": {
+      "count": 1,
+      "use_for": [
+        "principal validity",
+        "provenance authentication",
+        "currentness verification",
+        "policy validity",
+        "allocation issuance"
+      ],
+      "later_invocation_clock": false
+    },
+    "preflight_before_write": [
+      "provisioning ID",
+      "installation identity",
+      "principal canonicality",
+      "principal validity",
+      "provenance structure",
+      "provenance signature",
+      "issuer trust",
+      "revocation and currentness",
+      "policy structure digest and validity",
+      "requested bounds shape",
+      "requested validity shape",
+      "destination create-only status"
+    ],
+    "create_only": {
+      "one_shot_id": true,
+      "all_required_objects_must_be_absent": true,
+      "fail_if_any_target_exists": true,
+      "forbidden": [
+        "overwrite",
+        "merge",
+        "repair in place",
+        "append a second allocation",
+        "silently reuse provisioning ID",
+        "automatic retry after partial creation",
+        "cleanup or delete"
+      ]
+    },
+    "public_trust_chain": [
+      "canonical CausalResourcePrincipal",
+      "RootPrincipalIssuerProvenance",
+      "exact trusted issuer catalog",
+      "CryptographyEd25519RootIssuerSignatureVerifier",
+      "RootIssuerProvenanceVerifier",
+      "verifier-created AuthenticatedRootPrincipalEvidence"
+    ],
+    "currentness_chain": [
+      "canonical CausalResourcePrincipal",
+      "verifier-created AuthenticatedRootPrincipalEvidence",
+      "exact ReadOnlyPrincipalRevocationRegistry",
+      "PrincipalCurrentnessVerifier",
+      "verifier-created CurrentAuthenticatedRootPrincipalEvidence"
+    ],
+    "allocation": {
+      "issue_call": "GovernedLocalModelResourceAllocator.issue(...) exactly once",
+      "request_fields": [
+        "requested_bounds",
+        "requested_not_before",
+        "requested_not_after"
+      ],
+      "allocator_authoritative_for": [
+        "principal binding",
+        "currentness",
+        "policy ceiling",
+        "validity intersection",
+        "allocation identity",
+        "allocation digest"
+      ],
+      "post_issue_counts": {
+        "allocation_count": 1,
+        "attempt_count": 0,
+        "resource_receipt_count": 0
+      },
+      "debits_allocation": false
+    },
+    "publication_order": [
+      "validate all inputs",
+      "secure exclusive provisioning-ID custody",
+      "prove destination unused",
+      "create durable ledger",
+      "issue exactly one allocation",
+      "durably create validated bundle artifacts",
+      "construct exact existing consumer manifest",
+      "durably create manifest.json LAST"
+    ],
+    "publication_marker": "manifest.json",
+    "partial_failure": {
+      "filesystem_wide_atomicity_claimed": false,
+      "before_manifest": "bundle is not published and consumer fails closed",
+      "retry_same_id_if_any_object_exists": false,
+      "operator_options": [
+        "select a new provisioning ID",
+        "separately govern cleanup"
+      ]
+    },
+    "artifact_fidelity": [
+      "principal ID and binding digest",
+      "provenance digest",
+      "trust-catalog version and digest",
+      "revocation-registry version and digest",
+      "policy digest",
+      "resource kind",
+      "allocator ID"
+    ],
+    "forbidden_operations": [
+      "mint_root",
+      "mint_root_with_provenance",
+      "renew root principal",
+      "derive child principal",
+      "alter principal epoch sponsor evidence or binding",
+      "sign issuer provenance",
+      "private signing-key custody",
+      "trust administration",
+      "policy administration",
+      "resource consumption",
+      "model inference or effect admission",
+      "automatic startup integration"
+    ],
+    "restart_inequalities": [
+      "ordinary daemon restart != producer invocation",
+      "serving restart != producer invocation",
+      "chat retry != producer invocation",
+      "new conversation != producer invocation"
+    ]
+  },
+  "candidate_task_authority_definition": {
+    "capability_id": "production_chat_resource_provisioning_bundle_create",
+    "subsystem_kinds": [
+      "causal_resource_principal_architecture"
+    ],
+    "principal_kinds": [
+      "deterministic_production_chat_resource_provisioning_controller"
+    ],
+    "required_effects": [
+      "create_only_installation_state_resource_provisioning_bundle",
+      "finalize_production_resource_provisioning_manifest",
+      "issue_one_governed_local_model_resource_allocation",
+      "read_exact_preexisting_causal_resource_principal_artifacts",
+      "read_exact_resource_trust_currentness_artifacts",
+      "read_governed_local_model_resource_policy"
+    ],
+    "required_goal_phrases": [
+      "create-only production chat resource provisioning bundle",
+      "one intentional allocation issuance",
+      "manifest-last publication",
+      "restart does not replenish entitlement"
+    ],
+    "forbidden_goal_phrases": [
+      "ordinary startup allocation issuance",
+      "automatic allocation renewal",
+      "root principal minting",
+      "issuer provenance signing",
+      "private signing key custody",
+      "overwrite existing provisioning bundle",
+      "generic installation state mutation",
+      "arbitrary filesystem mutation",
+      "model inference",
+      "grant local model inference",
+      "network egress",
+      "host scheduling"
+    ],
+    "approval_requirements": [
+      "independent operator approval evidence",
+      "exact definition digest binding",
+      "exact provisioning identity and installation binding",
+      "exact pre-existing principal provenance trust and currentness inputs",
+      "exact resource policy and requested allocation bounds",
+      "create-only manifest-last publication"
+    ],
+    "purpose": "Permit only a deterministic production-chat resource-provisioning controller to verify one pre-existing canonical principal, provenance, trust, currentness, and policy bundle; create one new bounded installation-state provisioning destination; issue exactly one policy-bounded governed local-model resource allocation into its new ledger; and publish the consumer-compatible bundle create-only with manifest last, while granting no root issuance, provenance signing, private-key custody, trust administration, policy administration, model inference or effect authority, arbitrary filesystem mutation, overwrite, or automatic restart issuance."
+  },
+  "candidate_definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+  "future_registration_task": {
+    "task_name": "register-production-chat-resource-provisioning-bundle-create-authority-definition",
+    "register_authority_definition_payload": {
+      "task_classification": "authority_definition_registration",
+      "task_name": "register-production-chat-resource-provisioning-bundle-create-authority-definition",
+      "definitions": [
+        {
+          "capability_id": "production_chat_resource_provisioning_bundle_create",
+          "subsystem_kinds": [
+            "causal_resource_principal_architecture"
+          ],
+          "principal_kinds": [
+            "deterministic_production_chat_resource_provisioning_controller"
+          ],
+          "required_effects": [
+            "create_only_installation_state_resource_provisioning_bundle",
+            "finalize_production_resource_provisioning_manifest",
+            "issue_one_governed_local_model_resource_allocation",
+            "read_exact_preexisting_causal_resource_principal_artifacts",
+            "read_exact_resource_trust_currentness_artifacts",
+            "read_governed_local_model_resource_policy"
+          ],
+          "required_goal_phrases": [
+            "create-only production chat resource provisioning bundle",
+            "one intentional allocation issuance",
+            "manifest-last publication",
+            "restart does not replenish entitlement"
+          ],
+          "forbidden_goal_phrases": [
+            "ordinary startup allocation issuance",
+            "automatic allocation renewal",
+            "root principal minting",
+            "issuer provenance signing",
+            "private signing key custody",
+            "overwrite existing provisioning bundle",
+            "generic installation state mutation",
+            "arbitrary filesystem mutation",
+            "model inference",
+            "grant local model inference",
+            "network egress",
+            "host scheduling"
+          ],
+          "approval_requirements": [
+            "independent operator approval evidence",
+            "exact definition digest binding",
+            "exact provisioning identity and installation binding",
+            "exact pre-existing principal provenance trust and currentness inputs",
+            "exact resource policy and requested allocation bounds",
+            "create-only manifest-last publication"
+          ],
+          "purpose": "Permit only a deterministic production-chat resource-provisioning controller to verify one pre-existing canonical principal, provenance, trust, currentness, and policy bundle; create one new bounded installation-state provisioning destination; issue exactly one policy-bounded governed local-model resource allocation into its new ledger; and publish the consumer-compatible bundle create-only with manifest last, while granting no root issuance, provenance signing, private-key custody, trust administration, policy administration, model inference or effect authority, arbitrary filesystem mutation, overwrite, or automatic restart issuance."
+        }
+      ],
+      "operator_approval": {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "<operator-supplied evidence id>",
+        "operator_identity_label": "<operator-supplied identity label>",
+        "approval_status": "approved",
+        "approved_capability_id": "production_chat_resource_provisioning_bundle_create",
+        "approved_definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+        "approved_task_name": "register-production-chat-resource-provisioning-bundle-create-authority-definition",
+        "evidence_digest": "<computed only after operator fields are supplied>"
+      },
+      "requested_capability_id": "",
+      "authority_principal": "",
+      "requested_effects": [],
+      "runtime_mutations": [],
+      "changed_paths": [
+        "sentientos/codex_task_authority_admission.py",
+        "tests/test_authority_definition_registration.py",
+        "docs/architecture/production_chat_resource_provisioning_bundle_contract.md"
+      ]
+    }
+  },
+  "operator_approval_template": {
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "<operator-supplied evidence id>",
+    "operator_identity_label": "<operator-supplied identity label>",
+    "approval_status": "approved",
+    "approved_capability_id": "production_chat_resource_provisioning_bundle_create",
+    "approved_definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+    "approved_task_name": "register-production-chat-resource-provisioning-bundle-create-authority-definition",
+    "evidence_digest": "<computed only after operator fields are supplied>"
+  },
+  "registration_posture": {
+    "definition_registered": false,
+    "capability_granted": false,
+    "runtime_authority": null,
+    "effect_performed": false,
+    "runtime_mutation_performed": false
+  },
+  "task_non_effects": [
+    "runtime producer",
+    "bundle write",
+    "allocation issuance",
+    "principal minting",
+    "provenance signing",
+    "private-key access",
+    "authority registration",
+    "runtime grant",
+    "runtime admission",
+    "model invocation"
+  ],
+  "selected_next_slice": "register the exact production-chat resource-provisioning bundle-create authority definition, contingent on independently supplied approval bound to the frozen candidate digest"
+}

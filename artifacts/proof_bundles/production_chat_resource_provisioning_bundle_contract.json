@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "cf43dac48ed5318516b3de12d5d4b6b55b4f48ac",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_registrar_native_handoff_registers_only_in_isolated_copy_without_authority", "rationale": "Proves exact candidate reconstruction and copied-catalog registration without grant, effect, runtime mutation, or canonical catalog change."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_producer_behavioral_contract_is_create_only_preflighted_and_manifest_last", "rationale": "Proves create-only, one issuance, manifest-last, and fail-closed partial-publication facts."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_concurrency_trust_non_authority_and_restart_laws_are_frozen", "rationale": "Proves bounded exclusion, pre-existing trust, forbidden privileged effects, and restart conservation."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_candidate_definition_digest_and_narrow_surface_are_exact", "rationale": "Proves the exact unregistered six-effect candidate and repository-native digest."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_approval_template_is_placeholder_only_and_fails_closed", "rationale": "Proves the future approval remains an unfilled template and cannot register."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_bundle_contract.py::test_registrar_native_handoff_registers_only_in_isolated_copy_without_authority"
+  ]
+}
