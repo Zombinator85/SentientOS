@@ -53,6 +53,9 @@ EXTERNAL_MODEL_INFERENCE = "external_model_inference"
 GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER = (
     "governed_local_model_resource_allocation_adapter"
 )
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE = (
+    "production_chat_resource_provisioning_bundle_create"
+)
 
 
 @dataclass(frozen=True)
@@ -304,6 +307,65 @@ GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL = MappingProx
     "approved_definition_digest": "f6ba71581fa862097cb279fe0ed47d2d008a6af9e9eef21169b01e6cd8605ebc",
     "approved_task_name": "register-governed-local-model-resource-allocation-adapter-authority-definition",
     "evidence_digest": "c86e8fd257f7174b59c6996d534482aa9b04ee518baf1adf4d39d390600f1763",
+})
+
+
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION = TaskAuthorityDefinition(
+    capability_id=PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
+    subsystem_kinds=frozenset({"causal_resource_principal_architecture"}),
+    principal_kinds=frozenset(
+        {"deterministic_production_chat_resource_provisioning_controller"}
+    ),
+    required_effects=frozenset({
+        "create_only_installation_state_resource_provisioning_bundle",
+        "finalize_production_resource_provisioning_manifest",
+        "issue_one_governed_local_model_resource_allocation",
+        "read_exact_preexisting_causal_resource_principal_artifacts",
+        "read_exact_resource_trust_currentness_artifacts",
+        "read_governed_local_model_resource_policy",
+    }),
+    required_goal_phrases=(
+        "create-only production chat resource provisioning bundle",
+        "one intentional allocation issuance",
+        "manifest-last publication",
+        "restart does not replenish entitlement",
+    ),
+    forbidden_goal_phrases=(
+        "ordinary startup allocation issuance",
+        "automatic allocation renewal",
+        "root principal minting",
+        "issuer provenance signing",
+        "private signing key custody",
+        "overwrite existing provisioning bundle",
+        "generic installation state mutation",
+        "arbitrary filesystem mutation",
+        "model inference",
+        "grant local model inference",
+        "network egress",
+        "host scheduling",
+    ),
+    approval_requirements=(
+        "independent operator approval evidence",
+        "exact definition digest binding",
+        "exact provisioning identity and installation binding",
+        "exact pre-existing principal provenance trust and currentness inputs",
+        "exact resource policy and requested allocation bounds",
+        "create-only manifest-last publication",
+    ),
+    purpose=(
+        "Permit only a deterministic production-chat resource-provisioning controller to verify one pre-existing canonical principal, provenance, trust, currentness, and policy bundle; create one new bounded installation-state provisioning destination; issue exactly one policy-bounded governed local-model resource allocation into its new ledger; and publish the consumer-compatible bundle create-only with manifest last, while granting no root issuance, provenance signing, private-key custody, trust administration, policy administration, model inference or effect authority, arbitrary filesystem mutation, overwrite, or automatic restart issuance."
+    ),
+)
+
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:production_chat_resource_provisioning_bundle_create:132f93c32f54:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
+    "approved_definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+    "approved_task_name": "register-production-chat-resource-provisioning-bundle-create-authority-definition",
+    "evidence_digest": "3103f4ff4ea3ec7ab0a662958eb5f7e4c8061dd814d3af4e9a833ff4089d9dec",
 })
 
 
@@ -919,6 +981,8 @@ MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_OPERATOR_APPROVAL = MappingProxyTyp
 
 
 AUTHORITY_DEFINITIONS = {
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE:
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION,
     GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER:
         GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION,
     EXTERNAL_MODEL_INFERENCE: EXTERNAL_MODEL_INFERENCE_DEFINITION,
