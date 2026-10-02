@@ -143,7 +143,8 @@ def test_candidate_definition_digest_and_narrow_surface_are_exact() -> None:
         "finalize_production_resource_provisioning_manifest",
     })
     assert authority_definition_digest(definition) == CONTRACT["candidate_definition_digest"] == DIGEST
-    assert CAPABILITY not in AUTHORITY_DEFINITIONS
+    assert CONTRACT["registration_posture"]["definition_registered"] is False
+    assert AUTHORITY_DEFINITIONS[CAPABILITY] == definition
     doc = DOC.read_text(encoding="utf-8")
     assert DIGEST in doc and definition.purpose in doc
 
@@ -161,13 +162,20 @@ def test_registrar_native_handoff_registers_only_in_isolated_copy_without_author
     assert "definition" not in raw and "operator_approval_evidence" not in raw
 
     canonical_before = dict(AUTHORITY_DEFINITIONS)
-    result = exact_handoff_result(converted_payload())
+    payload = converted_payload()
+    catalog_without_definition = {
+        key: value for key, value in AUTHORITY_DEFINITIONS.items() if key != CAPABILITY
+    }
+    result = register_authority_definition(
+        payload, authority_definitions=catalog_without_definition
+    )
     assert result is not None and result.status == "authority_definition_registered"
     assert result.definition_registered is True
     assert result.authority_definitions[CAPABILITY] == candidate()
     assert result.capability_granted is result.effect_performed is result.runtime_mutation_performed is False
     assert result.runtime_authority is None
-    assert AUTHORITY_DEFINITIONS == canonical_before and CAPABILITY not in AUTHORITY_DEFINITIONS
+    assert AUTHORITY_DEFINITIONS == canonical_before
+    assert AUTHORITY_DEFINITIONS[CAPABILITY] == candidate()
 
 
 def test_approval_template_is_placeholder_only_and_fails_closed() -> None:

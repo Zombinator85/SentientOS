@@ -1,6 +1,6 @@
 # Production chat resource provisioning bundle contract
 
-The normative machine artifact is `architecture/production_chat_resource_provisioning_bundle_contract.json` with schema `sentientos.production_chat_resource_provisioning_bundle_contract:v1`. This slice defines a contract only: it adds no producer, bundle write, allocation issuance, root mint, provenance signature, private-key access, authority registration, runtime grant/admission, startup hook, or model invocation.
+The normative machine artifact is `architecture/production_chat_resource_provisioning_bundle_contract.json` with schema `sentientos.production_chat_resource_provisioning_bundle_contract:v1`. That frozen artifact records the pre-registration design and handoff. The canonical repository catalog now registers its exact capability definition as definition-only metadata; this adds no producer, bundle write, allocation issuance, root mint, provenance signature, private-key access, runtime grant/admission, startup hook, or model invocation.
 
 ## Existing consumer and lifecycle separation
 
@@ -43,14 +43,25 @@ The unchanged manifest contains exactly `schema_version`, `provisioning_id`, `in
 
 Repository-native `authority_definition_digest(...)` yields `132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5`.
 
-## Registration handoff and approval template
+## Registration handoff and current catalog state
 
 The future task is exactly `register-production-chat-resource-provisioning-bundle-create-authority-definition`. Its registrar-native object has exactly the keys `task_classification`, `task_name`, `definitions`, `operator_approval`, `requested_capability_id`, `authority_principal`, `requested_effects`, `runtime_mutations`, and `changed_paths`. Classification is `authority_definition_registration`; definitions contains the sole candidate; runtime request fields are respectively `""`, `""`, `[]`, and `[]`. Changed paths are exactly `sentientos/codex_task_authority_admission.py`, `tests/test_authority_definition_registration.py`, and this document. JSON definition collections translate to frozensets and ordered phrase/approval collections to tuples.
 
 The approval template uses `sentientos.authority_definition_operator_approval:v1`, binds approved status, capability, digest, and task, but leaves `evidence_id`, `operator_identity_label`, and `evidence_digest` explicit placeholders. It is not approval evidence and no digest is fabricated while placeholders remain. Registration in a test-only copied catalog grants nothing, performs nothing, and cannot mutate canonical `AUTHORITY_DEFINITIONS`.
 
+The frozen machine contract's `registration_posture` remains historical and unchanged. Current canonical repository state registers `production_chat_resource_provisioning_bundle_create` with exact definition digest `132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5`. The immutable repository-operator approval has evidence ID `approval:production_chat_resource_provisioning_bundle_create:132f93c32f54:001` and evidence digest `3103f4ff4ea3ec7ab0a662958eb5f7e4c8061dd814d3af4e9a833ff4089d9dec`, bound to task `register-production-chat-resource-provisioning-bundle-create-authority-definition`. The registrar result is definition-only: it makes the exact metadata visible to a later exact admission check without granting or admitting runtime authority or performing an effect.
+
+Explicitly:
+
+- registered definition != runtime producer
+- registered definition != bundle publication
+- registered definition != allocation issuance
+- registered definition != runtime grant
+- registered definition != runtime admission
+- registered definition != model authority
+
 ## Non-goals and next slice
 
 There is no trust-catalog or revocation administration, policy creation/widening, consumption gate or receipt, model-effect admission/serving/inference, root authority, generic installation/filesystem authority, overwrite, renewal, startup integration, network egress, or host scheduling.
 
-The one selected next slice is: **register the exact production-chat resource-provisioning bundle-create authority definition, contingent on independently supplied approval bound to the frozen candidate digest**. It does not include producer runtime.
+The one selected next slice is: **implement the create-only production chat resource provisioning bundle producer under the newly registered exact six-effect authority definition**. It is not implemented in this registration task.

@@ -14,6 +14,9 @@ from sentientos.codex_task_authority_admission import (
     GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_DEFINITION,
     GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER_OPERATOR_APPROVAL,
     MODEL_MIRROR_PUBLISH,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL,
     TaskAuthorityDefinition,
     authority_admission_blockers,
     authority_definition_digest,
@@ -37,6 +40,22 @@ RESOURCE_ALLOCATION_EFFECTS = (
     "read_current_causal_resource_principal_evidence",
     "read_governed_local_model_resource_policy",
     "write_governed_local_model_resource_consumption_receipt",
+)
+PROVISIONING_TASK = "register-production-chat-resource-provisioning-bundle-create-authority-definition"
+PROVISIONING_DIGEST = "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5"
+PROVISIONING_APPROVAL_DIGEST = "3103f4ff4ea3ec7ab0a662958eb5f7e4c8061dd814d3af4e9a833ff4089d9dec"
+PROVISIONING_EFFECTS = (
+    "create_only_installation_state_resource_provisioning_bundle",
+    "finalize_production_resource_provisioning_manifest",
+    "issue_one_governed_local_model_resource_allocation",
+    "read_exact_preexisting_causal_resource_principal_artifacts",
+    "read_exact_resource_trust_currentness_artifacts",
+    "read_governed_local_model_resource_policy",
+)
+PROVISIONING_GOAL = (
+    "Create a create-only production chat resource provisioning bundle with one "
+    "intentional allocation issuance and manifest-last publication, where restart "
+    "does not replenish entitlement."
 )
 
 
@@ -123,6 +142,124 @@ def resource_allocation_artifact(**changes: object) -> dict[str, object]:
     }
     value.update(changes)
     return value
+
+
+def provisioning_artifact(**changes: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "task_classification": AUTHORITY_DEFINITION_REGISTRATION,
+        "task_name": PROVISIONING_TASK,
+        "definitions": [PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION],
+        "operator_approval": dict(
+            PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL
+        ),
+        "requested_capability_id": "",
+        "authority_principal": "",
+        "requested_effects": (),
+        "runtime_mutations": (),
+        "changed_paths": (
+            "sentientos/codex_task_authority_admission.py",
+            "tests/test_authority_definition_registration.py",
+            "docs/architecture/production_chat_resource_provisioning_bundle_contract.md",
+        ),
+    }
+    value.update(changes)
+    return value
+
+
+@pytest.mark.no_legacy_skip
+def test_production_provisioning_definition_registration_is_exact_and_inert() -> None:
+    definition_value = PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION
+    approval = dict(
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL
+    )
+    assert authority_definition_digest(definition_value) == PROVISIONING_DIGEST
+    assert approval == {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "approval:production_chat_resource_provisioning_bundle_create:132f93c32f54:001",
+        "operator_identity_label": "repository_operator",
+        "approval_status": "approved",
+        "approved_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
+        "approved_definition_digest": PROVISIONING_DIGEST,
+        "approved_task_name": PROVISIONING_TASK,
+        "evidence_digest": PROVISIONING_APPROVAL_DIGEST,
+    }
+    assert operator_approval_evidence_digest(approval) == PROVISIONING_APPROVAL_DIGEST
+
+    catalog_without_definition = {
+        key: value for key, value in AUTHORITY_DEFINITIONS.items()
+        if key != PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE
+    }
+    result = register_authority_definition(
+        provisioning_artifact(), authority_definitions=catalog_without_definition
+    )
+    assert result.status == "authority_definition_registered"
+    assert result.definition_registered is True
+    assert result.capability_granted is False
+    assert result.runtime_authority is None
+    assert result.effect_performed is False
+    assert result.runtime_mutation_performed is False
+    assert result.authority_definitions[
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE
+    ] == definition_value
+    assert AUTHORITY_DEFINITIONS[
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE
+    ] == definition_value
+
+
+@pytest.mark.no_legacy_skip
+def test_production_provisioning_later_admission_is_exact() -> None:
+    def blockers(**changes: object) -> tuple[str, ...]:
+        request: dict[str, object] = {
+            "capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
+            "subsystem_kind": "causal_resource_principal_architecture",
+            "principal_kind": "deterministic_production_chat_resource_provisioning_controller",
+            "requested_effects": PROVISIONING_EFFECTS,
+            "task_goal": PROVISIONING_GOAL,
+        }
+        request.update(changes)
+        return authority_admission_blockers(**request)  # type: ignore[arg-type]
+
+    assert blockers() == ()
+    assert "authority_effect_surface_not_exact" in blockers(
+        requested_effects=PROVISIONING_EFFECTS[:-1]
+    )
+    assert "authority_effect_surface_not_exact" in blockers(
+        requested_effects=PROVISIONING_EFFECTS + ("extra_effect",)
+    )
+    assert "authority_principal_not_admitted" in blockers(principal_kind="wrong_principal")
+    assert "authority_subsystem_not_admitted" in blockers(subsystem_kind="wrong_subsystem")
+    for phrase in PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION.required_goal_phrases:
+        assert "authority_goal_missing_required_precondition" in blockers(
+            task_goal=PROVISIONING_GOAL.replace(phrase, "")
+        )
+    for phrase in PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION.forbidden_goal_phrases:
+        assert "authority_goal_requests_forbidden_scope" in blockers(
+            task_goal=f"{PROVISIONING_GOAL} {phrase}."
+        )
+    assert "unregistered_authority_capability" in blockers(
+        capability_id="production_chat_resource_provisioning_bundle_create_substitute"
+    )
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    "request_change",
+    (
+        {"requested_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE},
+        {"authority_principal": "deterministic_production_chat_resource_provisioning_controller"},
+        {"requested_effects": PROVISIONING_EFFECTS},
+    ),
+)
+def test_production_provisioning_registration_cannot_self_authorize(
+    request_change: dict[str, object],
+) -> None:
+    result = register_authority_definition(provisioning_artifact(**request_change))
+    assert result.status == "authority_definition_registration_blocked"
+    assert "authority_definition_registration_cannot_request_capability" in result.blocker_codes
+    assert result.definition_registered is False
+    assert result.capability_granted is result.effect_performed is False
+    assert result.runtime_authority is None
+    assert result.runtime_mutation_performed is False
 
 
 @pytest.mark.no_legacy_skip
