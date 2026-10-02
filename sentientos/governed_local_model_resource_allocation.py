@@ -337,6 +337,12 @@ class GovernedLocalModelResourceLedger:
         used = sum(1 for value in self._state["attempts"].values() if value["allocation_id"] == allocation_id and value["status"] in {"provisional", "begun"})
         return allocation.resource_specific_bounds.max_calls_per_correlation - used
 
+    def snapshot_counts(self) -> tuple[int, int, int]:
+        """Return non-mutating allocation, attempt, and receipt counts."""
+        with self._lock:
+            return (len(self._state["allocations"]), len(self._state["attempts"]),
+                    len(self._state["receipts"]))
+
 
 class GovernedLocalModelResourceAllocator:
     def __init__(self, *, policy: GovernedLocalModelResourcePolicy, ledger: GovernedLocalModelResourceLedger) -> None:
