@@ -17,6 +17,9 @@ from sentientos.codex_task_authority_admission import (
     PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE,
     PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION,
     PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_OPERATOR_APPROVAL,
     TaskAuthorityDefinition,
     authority_admission_blockers,
     authority_definition_digest,
@@ -56,6 +59,18 @@ PROVISIONING_GOAL = (
     "Create a create-only production chat resource provisioning bundle with one "
     "intentional allocation issuance and manifest-last publication, where restart "
     "does not replenish entitlement."
+)
+
+REQUEST_PUBLISH_TASK = "register-production-chat-resource-provisioning-request-publish-authority-definition"
+REQUEST_PUBLISH_DIGEST = "349058b7e6959c06bfae1a8acabd01c6c022245c6fd404e63535cac6ed608cf5"
+REQUEST_PUBLISH_APPROVAL_DIGEST = "f7eece98ae6cd5e75a738c1b664a53ca0194a01c2b45dab07e8089fa41a1b4bc"
+REQUEST_PUBLISH_EFFECTS = tuple(sorted(
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION.required_effects
+))
+REQUEST_PUBLISH_GOAL = (
+    "Create a create-only production chat resource provisioning request with exact "
+    "pre-existing provisioning input custody and digest-bound operator request "
+    "publication. The bounded request has no allocation issuance."
 )
 
 
@@ -144,6 +159,28 @@ def resource_allocation_artifact(**changes: object) -> dict[str, object]:
     return value
 
 
+def request_publish_artifact(**changes: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "task_classification": AUTHORITY_DEFINITION_REGISTRATION,
+        "task_name": REQUEST_PUBLISH_TASK,
+        "definitions": [PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION],
+        "operator_approval": dict(
+            PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_OPERATOR_APPROVAL
+        ),
+        "requested_capability_id": "",
+        "authority_principal": "",
+        "requested_effects": (),
+        "runtime_mutations": (),
+        "changed_paths": (
+            "sentientos/codex_task_authority_admission.py",
+            "tests/test_authority_definition_registration.py",
+            "docs/architecture/production_chat_resource_provisioning_request_publication_contract.md",
+        ),
+    }
+    value.update(changes)
+    return value
+
+
 def provisioning_artifact(**changes: object) -> dict[str, object]:
     value: dict[str, object] = {
         "task_classification": AUTHORITY_DEFINITION_REGISTRATION,
@@ -164,6 +201,89 @@ def provisioning_artifact(**changes: object) -> dict[str, object]:
     }
     value.update(changes)
     return value
+
+
+@pytest.mark.no_legacy_skip
+def test_request_publication_definition_approval_and_registration_are_exact_and_inert() -> None:
+    definition_value = PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION
+    approval = dict(PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_OPERATOR_APPROVAL)
+    assert authority_definition_digest(definition_value) == REQUEST_PUBLISH_DIGEST
+    assert approval == {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "approval:production_chat_resource_provisioning_request_publish:349058b7e695:001",
+        "operator_identity_label": "repository_operator",
+        "approval_status": "approved",
+        "approved_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH,
+        "approved_definition_digest": REQUEST_PUBLISH_DIGEST,
+        "approved_task_name": REQUEST_PUBLISH_TASK,
+        "evidence_digest": REQUEST_PUBLISH_APPROVAL_DIGEST,
+    }
+    assert operator_approval_evidence_digest(approval) == REQUEST_PUBLISH_APPROVAL_DIGEST
+    catalog = {key: value for key, value in AUTHORITY_DEFINITIONS.items()
+               if key != PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH}
+    result = register_authority_definition(request_publish_artifact(), authority_definitions=catalog)
+    assert result.status == "authority_definition_registered"
+    assert result.definition_registered is True
+    assert result.capability_granted is result.effect_performed is False
+    assert result.runtime_authority is None
+    assert result.runtime_mutation_performed is False
+    assert result.authority_definitions[PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH] == definition_value
+    assert AUTHORITY_DEFINITIONS[PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH] == definition_value
+    assert authority_definition_digest(PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION) == PROVISIONING_DIGEST
+
+
+@pytest.mark.no_legacy_skip
+def test_request_publication_later_exact_admission_surface() -> None:
+    def blockers(**changes: object) -> tuple[str, ...]:
+        request: dict[str, object] = {
+            "capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH,
+            "subsystem_kind": "causal_resource_principal_architecture",
+            "principal_kind": "deterministic_production_chat_resource_provisioning_request_publisher",
+            "requested_effects": REQUEST_PUBLISH_EFFECTS,
+            "task_goal": REQUEST_PUBLISH_GOAL,
+        }
+        request.update(changes)
+        return authority_admission_blockers(**request)  # type: ignore[arg-type]
+    assert blockers() == ()
+    assert "authority_effect_surface_not_exact" in blockers(requested_effects=REQUEST_PUBLISH_EFFECTS[:-1])
+    assert "authority_effect_surface_not_exact" in blockers(requested_effects=REQUEST_PUBLISH_EFFECTS + ("extra",))
+    assert "authority_principal_not_admitted" in blockers(principal_kind="wrong")
+    assert "authority_subsystem_not_admitted" in blockers(subsystem_kind="wrong")
+    for phrase in PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION.required_goal_phrases:
+        assert "authority_goal_missing_required_precondition" in blockers(task_goal=REQUEST_PUBLISH_GOAL.replace(phrase, ""))
+    for phrase in PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION.forbidden_goal_phrases:
+        assert "authority_goal_requests_forbidden_scope" in blockers(task_goal=f"{REQUEST_PUBLISH_GOAL} {phrase}")
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize("change", (
+    {"requested_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH},
+    {"authority_principal": "deterministic_production_chat_resource_provisioning_request_publisher"},
+    {"requested_effects": REQUEST_PUBLISH_EFFECTS},
+    {"runtime_mutations": ("request.json",)},
+))
+def test_request_publication_registration_cannot_self_authorize(change: dict[str, object]) -> None:
+    result = register_authority_definition(request_publish_artifact(**change))
+    assert result.status == "authority_definition_registration_blocked"
+    assert result.definition_registered is result.capability_granted is False
+    assert result.runtime_authority is None
+    assert result.effect_performed is result.runtime_mutation_performed is False
+
+
+@pytest.mark.no_legacy_skip
+def test_request_publication_registration_tampering_and_duplicate_fail_closed() -> None:
+    for approval_change in (
+        {"approved_capability_id": "wrong"},
+        {"approved_definition_digest": "0" * 64},
+        {"evidence_digest": "0" * 64},
+    ):
+        approval = {**PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_OPERATOR_APPROVAL, **approval_change}
+        result = register_authority_definition(request_publish_artifact(operator_approval=approval))
+        assert result.status == "authority_definition_registration_blocked"
+    changed = replace(PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION, purpose="changed")
+    assert register_authority_definition(request_publish_artifact(definitions=[changed])).status == "authority_definition_registration_blocked"
+    duplicate = register_authority_definition(request_publish_artifact())
+    assert "authority_definition_capability_id_duplicate" in duplicate.blocker_codes
 
 
 @pytest.mark.no_legacy_skip

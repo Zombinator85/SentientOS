@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "governance_only",
+  "repository_sha": "5f9902d29d4e43a4899b495ea12e3923fd978d73",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_request_publication_definition_approval_and_registration_are_exact_and_inert",
+      "rationale": "Proves exact definition and operator approval digests, isolated inert registration, canonical visibility, unchanged neighboring authority, and zero runtime authority or effects."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_request_publication_later_exact_admission_surface",
+      "rationale": "Proves the newly registered definition's later exact admission surface and fail-closed principal, subsystem, effect, and goal matching."
+    },
+    {
+      "node_id": "tests/test_authority_definition_registration.py::test_request_publication_registration_cannot_self_authorize[change0]",
+      "rationale": "Proves registration cannot request the capability it defines."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_frozen_candidate_reconstructs_exact_canonical_registration",
+      "rationale": "Proves the unchanged frozen contract reconstructs exactly to the current canonical definition."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_authority_definition_registration.py::test_request_publication_definition_approval_and_registration_are_exact_and_inert"
+  ]
+}
