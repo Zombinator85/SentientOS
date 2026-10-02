@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.production_chat_resource_provisioning_actuator_proof:v1",
+  "authority": {
+    "capability": "production_chat_resource_provisioning_bundle_create",
+    "definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+    "principal": "deterministic_production_chat_resource_provisioning_controller",
+    "effects": ["create_only_installation_state_resource_provisioning_bundle", "finalize_production_resource_provisioning_manifest", "issue_one_governed_local_model_resource_allocation", "read_exact_preexisting_causal_resource_principal_artifacts", "read_exact_resource_trust_currentness_artifacts", "read_governed_local_model_resource_policy"]
+  },
+  "request_schema": "sentientos.production_chat_resource_provisioning_request:v1",
+  "embedded_exact_byte_custody": "canonical unpadded base64url, nonempty decoded bytes, lowercase sha256 binding; decoded bytes pass through without JSON reserialization",
+  "request_digest": "sha256 of finite ensure_ascii canonical JSON over every request field except request_digest",
+  "intent_digest": "sha256 of finite ensure_ascii canonical JSON over the prepared intent excluding intent_digest",
+  "prepare_create_separation": "prepare opens no installation and performs zero writes, locks, ledgers, issues, or manifests; create rebuilds from the original packet",
+  "confirmation_requirement": "exact rebuilt intent digest before installation open and producer invocation",
+  "producer_passthrough": "five decoded immutable bytes values, requested bounds, and validity pass to one producer call without normalization",
+  "producer_invocation_maximum": 1,
+  "absent_surfaces": ["independent source artifact paths", "destination paths", "installation creation", "startup integration", "renewal", "cleanup", "model behavior"],
+  "consumer_compatibility": "existing production chat resource context owner loads the actuator-created bundle and its one unspent allocation",
+  "restart_conservation_inheritance": "consumer reload observes the same durable allocation and reduced remaining entitlement without actuator or producer invocation",
+  "selected_next_slice": "production custody and publication of genuine provisioning request inputs"
+}

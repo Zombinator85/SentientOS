@@ -1,5 +1,30 @@
 # Production chat resource provisioning bundle contract
 
+## Implementation status
+
+- consumer: **implemented**
+- producer authority: **registered**
+- create-only producer primitive: **implemented**
+- bounded operator-facing actuator: **implemented**
+- ordinary startup producer invocation: **forbidden / absent**
+- automatic renewal: **absent**
+- cleanup/recovery: **absent**
+
+The actuator has only `prepare` and `create`. One closed request packet embeds the five
+exact source byte strings as canonical unpadded base64url plus their lowercase SHA-256
+digests. It contains no source, destination, state-root, serving, session, runtime-grant,
+or model-configuration field. `prepare` validates and summarizes those exact bytes but
+opens no installation, takes no provisioning lock, writes nothing, and issues nothing.
+`create` independently reloads the original packet, rebuilds the intent, requires the
+operator's exact intent digest, opens only an existing installation, and invokes the
+existing producer at most once. It has no retry, renewal, force, cleanup, or model path.
+
+Confirming an intent digest is not authority-definition registration, a runtime grant,
+or model-inference admission. It only authorizes this actuator invocation of the already
+governed producer with the exact operator-selected request. The smallest next slice is
+**production custody and publication of genuine provisioning request inputs**; it is not
+implemented by this actuator.
+
 The normative machine artifact is `architecture/production_chat_resource_provisioning_bundle_contract.json` with schema `sentientos.production_chat_resource_provisioning_bundle_contract:v1`. That frozen artifact records the pre-registration design and handoff. The canonical repository catalog now registers its exact capability definition as definition-only metadata; the separately governed create-only producer primitive is now implemented. Registration still grants no runtime admission by itself, and the primitive adds no root mint, provenance signature, private-key access, startup hook, or model invocation.
 
 ## Existing consumer and lifecycle separation
@@ -64,4 +89,5 @@ Explicitly:
 
 There is no trust-catalog or revocation administration, policy creation/widening, consumption gate or receipt, model-effect admission/serving/inference, root authority, generic installation/filesystem authority, overwrite, renewal, startup integration, network egress, or host scheduling.
 
-The one selected next slice is: **a bounded explicit operator-facing create-only provisioning actuator that invokes this producer**. The callable primitive is implemented, but no CLI, ordinary-startup hook, automatic allocation issuance, cleanup/recovery authority, or operator-facing actuator is implemented here.
+The selected actuator slice is now implemented. Ordinary-startup hooks, automatic
+allocation issuance or renewal, and cleanup/recovery authority remain absent.

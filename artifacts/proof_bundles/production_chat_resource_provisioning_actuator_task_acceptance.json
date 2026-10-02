@@ -1,0 +1,13 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "770cb9889b5267afb8c7c234cac875acb13dda39",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_provisioning_actuator.py::test_prepare_is_inert_and_exact_confirmation_creates_consumer_bundle", "rationale": "Successful prepare/create, consumer compatibility, initially unspent allocation, and restart conservation."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_actuator.py::test_execute_passes_exact_bytes_once_and_confirmation_precedes_open", "rationale": "Exact byte passthrough, one producer call, and fail-closed confirmation ordering."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_actuator.py::test_mutations_invalidate_confirmation_and_same_id_stays_burned", "rationale": "Mutation invalidates confirmation and create-only identity reuse cannot issue again."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_script.py::test_cli_has_only_prepare_create_and_one_request_path", "rationale": "Structural proof of the bounded CLI and forbidden path/force/cleanup/renewal surfaces."}
+  ],
+  "successful_path_nodes": ["tests/test_production_chat_resource_provisioning_actuator.py::test_prepare_is_inert_and_exact_confirmation_creates_consumer_bundle"]
+}
