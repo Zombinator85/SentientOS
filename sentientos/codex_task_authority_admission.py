@@ -56,6 +56,9 @@ GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER = (
 PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE = (
     "production_chat_resource_provisioning_bundle_create"
 )
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH = (
+    "production_chat_resource_provisioning_request_publish"
+)
 
 
 @dataclass(frozen=True)
@@ -368,6 +371,75 @@ PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_OPERATOR_APPROVAL = MappingP
     "evidence_digest": "3103f4ff4ea3ec7ab0a662958eb5f7e4c8061dd814d3af4e9a833ff4089d9dec",
 })
 
+
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION = TaskAuthorityDefinition(
+    capability_id=PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH,
+    subsystem_kinds=frozenset({"causal_resource_principal_architecture"}),
+    principal_kinds=frozenset(
+        {"deterministic_production_chat_resource_provisioning_request_publisher"}
+    ),
+    required_effects=frozenset({
+        "create_only_installation_state_resource_provisioning_request",
+        "finalize_production_resource_provisioning_request",
+        "read_exact_preexisting_causal_resource_principal_artifacts",
+        "read_exact_resource_trust_currentness_artifacts",
+        "read_governed_local_model_resource_policy",
+    }),
+    required_goal_phrases=(
+        "create-only production chat resource provisioning request",
+        "exact pre-existing provisioning input custody",
+        "digest-bound operator request publication",
+        "no allocation issuance",
+    ),
+    forbidden_goal_phrases=(
+        "resource allocation issuance",
+        "production provisioning bundle creation",
+        "ordinary startup publication",
+        "automatic request renewal",
+        "root principal minting",
+        "issuer provenance signing",
+        "private signing key custody",
+        "trust administration",
+        "currentness administration",
+        "policy administration",
+        "overwrite existing provisioning request",
+        "arbitrary filesystem mutation",
+        "model inference",
+        "grant local model inference",
+        "network egress",
+        "host scheduling",
+    ),
+    approval_requirements=(
+        "independent operator approval evidence",
+        "exact definition digest binding",
+        "exact installation and provisioning identity binding",
+        "exact pre-existing principal provenance trust and currentness inputs",
+        "exact resource policy requested bounds and validity binding",
+        "create-only actuator-compatible request publication",
+    ),
+    purpose=(
+        "Permit only a deterministic production-chat resource-provisioning request "
+        "publisher to verify one pre-existing canonical principal, provenance, trust, "
+        "currentness, and policy bundle; bind exact requested resource bounds and validity "
+        "for one existing installation and provisioning identity; and publish one immutable "
+        "actuator-compatible request packet into fixed installation-state custody, while "
+        "granting no allocation issuance, provisioning-bundle creation, root issuance, "
+        "provenance signing, private-key custody, trust or currentness administration, policy "
+        "administration, model inference or effect authority, arbitrary filesystem mutation, "
+        "overwrite, renewal, or startup automation."
+    ),
+)
+
+PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_OPERATOR_APPROVAL = MappingProxyType({
+    "schema_version": "sentientos.authority_definition_operator_approval:v1",
+    "evidence_id": "approval:production_chat_resource_provisioning_request_publish:349058b7e695:001",
+    "operator_identity_label": "repository_operator",
+    "approval_status": "approved",
+    "approved_capability_id": PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH,
+    "approved_definition_digest": "349058b7e6959c06bfae1a8acabd01c6c022245c6fd404e63535cac6ed608cf5",
+    "approved_task_name": "register-production-chat-resource-provisioning-request-publish-authority-definition",
+    "evidence_digest": "f7eece98ae6cd5e75a738c1b664a53ca0194a01c2b45dab07e8089fa41a1b4bc",
+})
 
 RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION = TaskAuthorityDefinition(
     capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -981,6 +1053,8 @@ MODEL_MIRROR_PUBLICATION_AUTHORIZATION_ISSUE_OPERATOR_APPROVAL = MappingProxyTyp
 
 
 AUTHORITY_DEFINITIONS = {
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH:
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION,
     PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE:
         PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION,
     GOVERNED_LOCAL_MODEL_RESOURCE_ALLOCATION_ADAPTER:

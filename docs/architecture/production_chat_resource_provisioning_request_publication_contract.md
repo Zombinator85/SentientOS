@@ -2,8 +2,9 @@
 
 ## Status and authority boundary
 
-This document freezes a design and future registration handoff; it implements **no
-runtime publisher** and registers **no authority**. Request publication is not
+This document preserves the frozen pre-registration design and handoff while recording
+the current repository state: its exact authority definition is now canonically
+registered, but it implements **no runtime publisher**. Request publication is not
 provisioning-bundle creation, allocation issuance, operator confirmation, ordinary
 startup, model inference, or runtime-effect admission. In particular,
 `production_chat_resource_provisioning_request_publish` !=
@@ -102,7 +103,7 @@ raw hashes, semantic identities/digests, installation identity, P, and authority
 before returning the exact request bytes. This task does not implement it or replace the
 historical/general arbitrary-request-file actuator.
 
-## Candidate authority definition
+## Frozen candidate and current canonical authority definition
 
 - capability: `production_chat_resource_provisioning_request_publish`
 - subsystem: `causal_resource_principal_architecture`
@@ -118,9 +119,9 @@ Repository-native `authority_definition_digest(...)` yields
 The existing bundle-create definition remains unchanged at
 `132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5`.
 
-## Registrar handoff, non-effects, and next slice
+## Historical registrar handoff, current approval, non-effects, and next slice
 
-The future task is exactly
+The frozen artifact records the now-completed registration task as exactly
 `register-production-chat-resource-provisioning-request-publish-authority-definition`.
 Its registrar payload has exactly `task_classification`, `task_name`, `definitions`,
 `operator_approval`, `requested_capability_id`, `authority_principal`,
@@ -128,15 +129,21 @@ Its registrar payload has exactly `task_classification`, `task_name`, `definitio
 `authority_definition_registration`; the four runtime-request values are `""`, `""`,
 `[]`, and `[]`. Changed paths are only
 `sentientos/codex_task_authority_admission.py`,
-`tests/test_authority_definition_registration.py`, and this document. The approval
-template binds schema, approved status, capability, digest, and task while leaving
-`evidence_id`, `operator_identity_label`, and `evidence_digest` as placeholders.
+`tests/test_authority_definition_registration.py`, and this document. That historical artifact intentionally retains its approval template placeholders. The
+current canonical registration instead carries immutable repository-operator evidence
+`approval:production_chat_resource_provisioning_request_publish:349058b7e695:001`,
+identity label `repository_operator`, status `approved`, the exact capability, definition
+digest, and task bindings above, and independently recomputed evidence digest
+`f7eece98ae6cd5e75a738c1b664a53ca0194a01c2b45dab07e8089fa41a1b4bc`.
 
-Copied-catalog test registration proves only definition compatibility: no canonical
-catalog mutation, capability grant, runtime authority, effect, or runtime mutation. This
-contract performs zero request writes, installation-state mutation, allocation issuance,
-bundle creation, principal minting, provenance signing, private-key access, trust/
-currentness/policy administration, authority registration, runtime grant/admission, or
-model inference. The one selected next slice is: **register the exact
-`production_chat_resource_provisioning_request_publish` authority definition**. It does
-not implement the runtime publisher.
+The exact definition is now present in canonical `AUTHORITY_DEFINITIONS`. Registration is
+definition-only: registered definition != runtime publisher, runtime publication,
+allocation issuance, runtime grant, or runtime admission. Copied-catalog registration
+proves no capability grant, runtime authority, effect, or runtime mutation and creates no
+request, receipt, lock, final provisioning bundle, allocation, root issuance, or
+provenance signature. The frozen machine artifact remains unchanged and truthfully
+records its historical candidate-only posture.
+
+The one selected next slice is: **implement the bounded runtime
+`deterministic_production_chat_resource_provisioning_request_publisher` against the
+frozen publication contract and newly registered exact authority definition.**

@@ -9,6 +9,8 @@ import pytest
 from sentientos.codex_task_authority_admission import (
     AUTHORITY_DEFINITIONS,
     AUTHORITY_DEFINITION_REGISTRATION,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION,
+    PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION,
     TaskAuthorityDefinition,
     authority_definition_digest,
     operator_approval_evidence_digest,
@@ -69,7 +71,8 @@ def converted_payload() -> dict[str, Any]:
 def frozen_handoff(payload: dict[str, Any]) -> Any:
     if list(payload.get("changed_paths", ())) != EXPECTED_PATHS:
         return None
-    return register_authority_definition(payload, authority_definitions=dict(AUTHORITY_DEFINITIONS))
+    catalog = {key: value for key, value in AUTHORITY_DEFINITIONS.items() if key != CAPABILITY}
+    return register_authority_definition(payload, authority_definitions=catalog)
 
 
 def test_actuator_schema_embedding_and_digest_contract_are_exact(tmp_path: Path) -> None:
@@ -155,7 +158,7 @@ def test_receipt_and_read_only_consumer_bind_every_required_identity() -> None:
     assert CONTRACT["published_request_consumer"]["implemented"] is False
 
 
-def test_candidate_definition_digest_exact_surface_and_catalog_absence() -> None:
+def test_frozen_candidate_reconstructs_exact_canonical_registration() -> None:
     definition = candidate()
     assert definition.capability_id == CAPABILITY
     assert definition.subsystem_kinds == frozenset({"causal_resource_principal_architecture"})
@@ -163,7 +166,8 @@ def test_candidate_definition_digest_exact_surface_and_catalog_absence() -> None
         "deterministic_production_chat_resource_provisioning_request_publisher"})
     assert len(definition.required_effects) == 5
     assert authority_definition_digest(definition) == CONTRACT["candidate_definition_digest"] == DIGEST
-    assert CAPABILITY not in AUTHORITY_DEFINITIONS
+    assert AUTHORITY_DEFINITIONS[CAPABILITY] == definition
+    assert PRODUCTION_CHAT_RESOURCE_PROVISIONING_REQUEST_PUBLISH_DEFINITION == definition
     assert CONTRACT["existing_bundle_authority"] == {
         "capability_id": "production_chat_resource_provisioning_bundle_create",
         "definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
@@ -183,14 +187,15 @@ def test_registrar_native_handoff_registers_only_in_copy_without_authority() -> 
     assert raw["requested_capability_id"] == raw["authority_principal"] == ""
     assert raw["requested_effects"] == raw["runtime_mutations"] == []
     canonical_before = dict(AUTHORITY_DEFINITIONS)
-    result = register_authority_definition(converted_payload(),
-                                            authority_definitions=dict(AUTHORITY_DEFINITIONS))
+    catalog = {key: value for key, value in AUTHORITY_DEFINITIONS.items() if key != CAPABILITY}
+    result = register_authority_definition(converted_payload(), authority_definitions=catalog)
     assert result.status == "authority_definition_registered"
     assert result.definition_registered is True
     assert result.capability_granted is result.effect_performed is result.runtime_mutation_performed is False
     assert result.runtime_authority is None
     assert result.authority_definitions[CAPABILITY] == candidate()
-    assert AUTHORITY_DEFINITIONS == canonical_before and CAPABILITY not in AUTHORITY_DEFINITIONS
+    assert AUTHORITY_DEFINITIONS == canonical_before
+    assert AUTHORITY_DEFINITIONS[CAPABILITY] == candidate()
 
 
 @pytest.mark.parametrize(("mutation", "code"), [
@@ -232,3 +237,6 @@ def test_broadened_registration_paths_are_not_the_frozen_handoff() -> None:
     }
     assert CONTRACT["selected_next_slice"] == (
         "register the exact production_chat_resource_provisioning_request_publish authority definition")
+    assert authority_definition_digest(
+        PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION
+    ) == "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5"
