@@ -1,6 +1,6 @@
 # Production chat resource provisioning bundle contract
 
-The normative machine artifact is `architecture/production_chat_resource_provisioning_bundle_contract.json` with schema `sentientos.production_chat_resource_provisioning_bundle_contract:v1`. That frozen artifact records the pre-registration design and handoff. The canonical repository catalog now registers its exact capability definition as definition-only metadata; this adds no producer, bundle write, allocation issuance, root mint, provenance signature, private-key access, runtime grant/admission, startup hook, or model invocation.
+The normative machine artifact is `architecture/production_chat_resource_provisioning_bundle_contract.json` with schema `sentientos.production_chat_resource_provisioning_bundle_contract:v1`. That frozen artifact records the pre-registration design and handoff. The canonical repository catalog now registers its exact capability definition as definition-only metadata; the separately governed create-only producer primitive is now implemented. Registration still grants no runtime admission by itself, and the primitive adds no root mint, provenance signature, private-key access, startup hook, or model invocation.
 
 ## Existing consumer and lifecycle separation
 
@@ -10,9 +10,9 @@ The consumer authenticates the installation, principal provenance, public issuer
 
 The registered `governed_local_model_resource_allocation_adapter` has exactly five effects: `check_and_debit_governed_local_model_call_entitlement`, `issue_governed_local_model_resource_allocation`, `read_current_causal_resource_principal_evidence`, `read_governed_local_model_resource_policy`, and `write_governed_local_model_resource_consumption_receipt`. It has no create-only installation-state bundle-publication or manifest-finalization effect. It must not be broadened or reinterpreted, so a producer requires separately registered and later admitted authority.
 
-## Eventual producer
+## Implemented create-only producer
 
-`ProductionChatResourceProvisioningBundleProducer` is a future deterministic, explicit, one-time creation operation for principal kind `deterministic_production_chat_resource_provisioning_controller`. It is not startup, inference, or consumption. Its bounded inputs are an authenticated `InstallationStateHandle`, provisioning ID, pre-existing canonical `CausalResourcePrincipal`, pre-existing `RootPrincipalIssuerProvenance`, exact issuer catalog, exact revocation registry, exact `GovernedLocalModelResourcePolicy`, requested `GovernedLocalModelResourceBounds`, requested validity endpoints, and a trusted current-time source. It accepts no caller destination, arbitrary path, environment destination, or chat/session/request data.
+`ProductionChatResourceProvisioningBundleProducer` is an implemented deterministic, explicit, one-time creation operation for principal kind `deterministic_production_chat_resource_provisioning_controller`. It is not startup, inference, or consumption. Its bounded inputs are an authenticated `InstallationStateHandle`, provisioning ID, pre-existing canonical `CausalResourcePrincipal`, pre-existing `RootPrincipalIssuerProvenance`, exact issuer catalog, exact revocation registry, exact `GovernedLocalModelResourcePolicy`, requested `GovernedLocalModelResourceBounds`, requested validity endpoints, and a trusted current-time source. It accepts no caller destination, arbitrary path, environment destination, or chat/session/request data.
 
 The principal, including its immutable `sponsor_evidence_digest`, is already issued. The producer may not call `mint_root` or `mint_root_with_provenance`, renew or derive principals, or alter epoch, sponsorship, or binding. Provenance is also pre-existing. The producer has no `RootIssuerPrivateKeyCustody`, keyring issuer-secret access, raw Ed25519 seed, or signing operation.
 
@@ -53,9 +53,9 @@ The frozen machine contract's `registration_posture` remains historical and unch
 
 Explicitly:
 
-- registered definition != runtime producer
-- registered definition != bundle publication
-- registered definition != allocation issuance
+- registered definition != runtime admission
+- producer invocation is the sole explicit create-only bundle publication path
+- ordinary startup != producer invocation
 - registered definition != runtime grant
 - registered definition != runtime admission
 - registered definition != model authority
@@ -64,4 +64,4 @@ Explicitly:
 
 There is no trust-catalog or revocation administration, policy creation/widening, consumption gate or receipt, model-effect admission/serving/inference, root authority, generic installation/filesystem authority, overwrite, renewal, startup integration, network egress, or host scheduling.
 
-The one selected next slice is: **implement the create-only production chat resource provisioning bundle producer under the newly registered exact six-effect authority definition**. It is not implemented in this registration task.
+The one selected next slice is: **a bounded explicit operator-facing create-only provisioning actuator that invokes this producer**. The callable primitive is implemented, but no CLI, ordinary-startup hook, automatic allocation issuance, cleanup/recovery authority, or operator-facing actuator is implemented here.

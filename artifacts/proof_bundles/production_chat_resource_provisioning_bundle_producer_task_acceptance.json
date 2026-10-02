@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ff298feb5fd835cbe3024875c5c26f45e5d757f1",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_producer_publishes_manifest_last_and_existing_consumer_loads", "rationale": "One issue call and manifest-last consumer-compatible publication."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_same_id_rerun_rejects_before_second_issue", "rationale": "Create-only rerun does not issue or mutate."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_preflight_failure_does_not_mutate_or_issue", "rationale": "Known-invalid policy fails before destination mutation."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_partial_publication_is_burned_and_unloadable", "rationale": "Unpublished partial state remains and forbids automatic retry."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_concurrent_same_id_has_one_publication_and_one_allocation", "rationale": "Per-ID kernel lock serializes competing producers."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_restart_reloads_same_allocation_without_replenishing", "rationale": "Restart reloads identical allocation and conserved remaining entitlement."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_public_api_has_no_paths_or_private_authority", "rationale": "API and module expose no source paths, minting, signing, inference, replacement, or debit authority."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_producer_publishes_manifest_last_and_existing_consumer_loads",
+    "tests/test_production_chat_resource_provisioning_bundle_producer.py::test_restart_reloads_same_allocation_without_replenishing"
+  ]
+}

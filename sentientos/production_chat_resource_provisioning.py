@@ -22,6 +22,7 @@ from .production_chat_resource_context import ProductionChatResourceContextOwner
 MANIFEST_SCHEMA = "sentientos.production_chat_resource_provisioning:v1"
 _ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}\Z")
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
+_RESOURCE_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _FIELDS = frozenset({"schema_version", "provisioning_id", "installation_identity", "resource_kind",
     "allocator_id", "principal_id", "principal_binding_digest", "provenance_digest",
     "trusted_issuer_catalog_version", "trusted_issuer_catalog_digest", "revocation_registry_version",
@@ -85,9 +86,13 @@ def _manifest(raw: bytes, *, provisioning_id: str, installation_identity: str) -
     if value["resource_kind"] != RESOURCE_KIND or value["allocator_id"] != ALLOCATOR_ID:
         raise ProductionChatResourceProvisioningError("resource_identity_mismatch")
     for field in ("principal_binding_digest", "provenance_digest", "trusted_issuer_catalog_digest",
-                  "revocation_registry_digest", "resource_policy_digest", "allocation_digest", "manifest_digest"):
+                  "revocation_registry_digest", "manifest_digest"):
         candidate = value[field]
         if not isinstance(candidate, str) or _DIGEST.fullmatch(candidate) is None:
+            raise ProductionChatResourceProvisioningError("invalid_manifest_digest")
+    for field in ("resource_policy_digest", "allocation_digest"):
+        resource_digest = value[field]
+        if not isinstance(resource_digest, str) or _RESOURCE_DIGEST.fullmatch(resource_digest) is None:
             raise ProductionChatResourceProvisioningError("invalid_manifest_digest")
     if value["manifest_digest"] != manifest_digest_for(value):
         raise ProductionChatResourceProvisioningError("manifest_digest_mismatch")
