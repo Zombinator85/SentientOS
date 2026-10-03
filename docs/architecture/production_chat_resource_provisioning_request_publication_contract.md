@@ -196,3 +196,7 @@ a final bundle. Any existing object preserves the frozen contract's prohibition 
 automatic same-ID retry. Recovery remains unimplemented and separately governed;
 `separately_governed_recovery_review_required` is evidence guidance, not an instruction
 or authorization to change custody.
+
+## Downstream terminal-abandonment review boundary
+
+A lock-free `bare_request` doctor observation proves custody only at its observation point; it does not prove that the publisher attempt terminated. The deterministic, metadata-only [recovery-review contract](production_chat_resource_provisioning_request_recovery_review_contract.md) freezes the future external evidence conjunction needed to classify one exact attempt as terminally abandoned. That classification remains distinct from and grants no recovery, retry, deletion, overwrite, republication, or provisioning-ID reuse authority. This link does not modify the frozen historical publication-contract artifact.

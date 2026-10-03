@@ -267,3 +267,9 @@ def test_broadened_registration_paths_are_not_the_frozen_handoff() -> None:
     assert authority_definition_digest(
         PRODUCTION_CHAT_RESOURCE_PROVISIONING_BUNDLE_CREATE_DEFINITION
     ) == "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5"
+
+
+def test_downstream_recovery_review_boundary_is_linked_without_rewriting_frozen_artifact() -> None:
+    text = DOC.read_text(encoding="utf-8")
+    assert "production_chat_resource_provisioning_request_recovery_review_contract.md" in text
+    assert CONTRACT["schema"] == "sentientos.production_chat_resource_provisioning_request_publication_contract:v1"
