@@ -29,3 +29,7 @@ Future custody is `local-model/resource-provisioning-request-attempts/<publicati
 The artifact binds publisher capability `production_chat_resource_provisioning_request_publish`, principal `deterministic_production_chat_resource_provisioning_request_publisher`, and authority-definition digest `349058b7e6959c06bfae1a8acabd01c6c022245c6fd404e63535cac6ed608cf5`. Existing five-effect publisher authority does **not** include lifecycle-evidence writing and is not widened by this contract.
 
 This contract refines only `pre_effect_publisher_attempt_identity_evidence` in the [recovery-review contract](production_chat_resource_provisioning_request_recovery_review_contract.md). It proves neither publication outcome nor terminality, recovery eligibility, reuse, allocation, or execution. Because emission, custody, independently verifiable provenance, verification, and authority remain absent, `publisher_attempt_identity_evidence_missing` remains open.
+
+## Downstream producer authority boundary
+
+The separate [attempt-identity evidence producer authority contract](production_chat_resource_provisioning_request_attempt_identity_authority_contract.md) freezes only an unregistered candidate effect surface and registrar handoff. It does not alter this contract or authorize evidence emission, publisher integration, or provenance conclusions.

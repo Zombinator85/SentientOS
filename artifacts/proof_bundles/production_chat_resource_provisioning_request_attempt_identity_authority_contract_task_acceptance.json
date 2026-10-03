@@ -1,0 +1,56 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "bb13f0fbf970c4fcd45e6713ba26ac660b5e9d34",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_candidate_reconstruction_digest_and_exact_contract_surface",
+      "rationale": "Candidate reconstruction and independently recomputed digest."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_candidate_absent_and_existing_publisher_definition_unchanged",
+      "rationale": "Canonical absence and unchanged publisher authority."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_exact_registrar_handoff_is_inert_and_template_only",
+      "rationale": "Exact inert registrar-native handoff."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_isolated_registration_is_compatible_and_grants_nothing",
+      "rationale": "Isolated inert registration."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_isolated_exact_admission_and_canonical_absence",
+      "rationale": "Exact isolated admission and canonical rejection."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_broadened_or_inexact_effect_admission_fails_closed",
+      "rationale": "Fail-closed missing, extra, and duplicate effects."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_wrong_principal_and_subsystem_fail_closed",
+      "rationale": "Fail-closed principal and subsystem."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_each_missing_required_phrase_fails_closed",
+      "rationale": "Fail-closed missing affirmative preconditions."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_every_forbidden_phrase_fails_closed",
+      "rationale": "Fail-closed forbidden scope."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_frozen_attempt_identity_machine_artifact_is_byte_identical",
+      "rationale": "Frozen upstream machine bytes preserved."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_metadata_only_module_performs_no_runtime_or_evidence_emission",
+      "rationale": "No runtime mutation or evidence emission."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_candidate_reconstruction_digest_and_exact_contract_surface",
+    "tests/test_production_chat_resource_provisioning_request_attempt_identity_authority_contract.py::test_isolated_exact_admission_and_canonical_absence"
+  ]
+}
