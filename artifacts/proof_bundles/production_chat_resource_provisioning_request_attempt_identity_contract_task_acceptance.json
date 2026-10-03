@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2c0c22d2e95097d13c4d93bfad8906434465d523",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_module_machine_agreement_exact_schemas_and_deterministic_digest",
+      "rationale": "Module/machine agreement and deterministic digest."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_exact_closed_evidence_schema_and_canonical_digest_law",
+      "rationale": "Exact closed future evidence schema and digest law."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_exact_request_intent_and_registered_publisher_definition_binding",
+      "rationale": "Exact publisher definition and request binding."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_one_invocation_attempt_id_law_rejects_aliases_placeholders_and_retrospection",
+      "rationale": "One-invocation identity law."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_pre_effect_ordering_and_separate_fixed_custody_are_mandatory",
+      "rationale": "Pre-effect ordering and fixed custody."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_independent_provenance_and_content_digest_insufficiency",
+      "rationale": "Self-attestation and digest insufficiency."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_future_producer_verifier_authority_absent_and_currently_unsatisfied",
+      "rationale": "Independent provenance and current unsatisfiability."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_covers_recovery_identity_bindings_and_frozen_recovery_machine_is_unchanged",
+      "rationale": "No authority widening and frozen recovery compatibility."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_metadata_only_no_runtime_or_evidence_emission_surface",
+      "rationale": "No runtime or evidence emission surface."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_attempt_identity_contract.py::test_module_machine_agreement_exact_schemas_and_deterministic_digest"
+  ]
+}
