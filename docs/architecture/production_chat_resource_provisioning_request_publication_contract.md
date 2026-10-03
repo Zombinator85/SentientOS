@@ -5,8 +5,9 @@
 This document preserves the frozen pre-registration design and handoff while recording
 the current repository state: its exact authority definition is now canonically
 registered and the bounded create-only runtime publisher is implemented in
-`sentientos.production_chat_resource_provisioning_request_publisher.py`. The read-only
-published-request consumer remains unimplemented. Request publication is not
+`sentientos.production_chat_resource_provisioning_request_publisher.py`. The bounded
+read-only published-request consumer is implemented in
+`sentientos.production_chat_resource_provisioning_request_consumer.py`. Request publication is not
 provisioning-bundle creation, allocation issuance, operator confirmation, ordinary
 startup, model inference, or runtime-effect admission. In particular,
 `production_chat_resource_provisioning_request_publish` !=
@@ -99,11 +100,15 @@ The receipt is the publication marker. Filesystem-wide atomicity is not claimed.
 request after failure is unpublished, incomplete custody; same-ID automatic retry,
 cleanup, and overwrite are forbidden. Separately governed recovery may be designed.
 
-A future read-only `load_published_production_chat_resource_provisioning_request`
-concept must require both objects and verify request and receipt digests, intent digest,
-raw hashes, semantic identities/digests, installation identity, P, and authority digest
-before returning the exact request bytes. This task does not implement it or replace the
-historical/general arbitrary-request-file actuator.
+The read-only `load_published_production_chat_resource_provisioning_request` consumer
+requires both fixed objects and verifies canonical request and receipt bytes, their
+digests, deterministic intent digest, five exact decoded-artifact hashes, semantic
+identities/digests, installation identity, P, canonical historical `verified_at`, and
+the registered authority-definition digest before returning the original stored request
+bytes. It uses only authenticated installation-state reads. It neither acquires publisher
+authority nor writes, locks, deletes, publishes, executes, allocates, creates a final
+bundle, performs current execution-time policy admission, or integrates with startup.
+The historical/general arbitrary-request-file actuator remains a separate surface.
 
 ## Frozen candidate and current canonical authority definition
 
@@ -146,9 +151,15 @@ request, receipt, lock, final provisioning bundle, allocation, root issuance, or
 provenance signature. The frozen machine artifact remains unchanged and truthfully
 records its historical candidate-only posture.
 
-The one selected next slice is: **implement the read-only
-`load_published_production_chat_resource_provisioning_request(...)` consumer that
-requires both `request.json` and `publication-receipt.json`, verifies every frozen
-digest/identity/authority binding, and returns the exact original request bytes suitable
-for the existing actuator.** Publication remains distinct from allocation-bearing bundle
-creation, execution, and startup integration.
+The frozen machine artifact remains unchanged: its `runtime_consumer: not implemented`
+and `published_request_consumer.implemented: false` fields truthfully record historical
+design status, just as its candidate-only authority and unimplemented-publisher fields do.
+Current repository implementation status is established by code and contract tests, not
+by rewriting that historical normative artifact.
+
+The one selected next slice is: **add a bounded operator-facing fixed-custody actuator
+path that selects an existing installation + provisioning ID, loads the request only
+through `load_published_production_chat_resource_provisioning_request(...)`, prepares the
+exact intent for operator confirmation, and keeps execution as a separately explicit
+confirmed action.** Publication and read-only custody verification remain distinct from
+allocation-bearing bundle creation, execution, and startup integration.

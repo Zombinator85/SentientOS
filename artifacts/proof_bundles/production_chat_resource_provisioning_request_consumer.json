@@ -1,0 +1,21 @@
+{
+  "schema_version": "sentientos.production_chat_resource_provisioning_request_consumer_proof:v1",
+  "runtime_surface": "sentientos.production_chat_resource_provisioning_request_consumer:load_published_production_chat_resource_provisioning_request",
+  "custody": {
+    "request": "local-model/resource-provisioning-requests/<resource_provisioning_id>/request.json",
+    "publication_marker": "local-model/resource-provisioning-requests/<resource_provisioning_id>/publication-receipt.json",
+    "authenticated_read_only": true
+  },
+  "proofs": [
+    "real publisher to consumer exact-byte round trip",
+    "canonical finite request and exact actuator validation",
+    "exact 21-field canonical receipt and receipt digest",
+    "request deterministic-intent and five decoded-artifact hash bindings",
+    "semantic installation provisioning and authority-definition bindings",
+    "canonical historical publication timestamp syntax without currentness inflation",
+    "missing partial tampered noncanonical and non-regular custody rejection",
+    "no mutation publication execution allocation bundle inference signing minting or startup authority"
+  ],
+  "trust_boundary": "Verified publication custody is not operator confirmation, runtime admission, allocation, final-bundle existence, current execution eligibility, startup authorization, or inference authority.",
+  "acceptance_manifest": "artifacts/proof_bundles/production_chat_resource_provisioning_request_consumer_task_acceptance.json"
+}

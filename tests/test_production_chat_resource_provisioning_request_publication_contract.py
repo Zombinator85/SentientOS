@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 from pathlib import Path
 from typing import Any, Callable
 
@@ -21,6 +22,7 @@ from sentientos.production_chat_resource_provisioning_actuator import (
     load_provisioning_request,
     prepare_provisioning_intent,
 )
+import sentientos.production_chat_resource_provisioning_request_consumer as consumer
 from tests.test_production_chat_resource_provisioning_actuator import packet
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -156,6 +158,31 @@ def test_receipt_and_read_only_consumer_bind_every_required_identity() -> None:
     assert receipt["receipt_digest"]["excludes"] == ["receipt_digest"]
     assert CONTRACT["published_request_consumer"]["requires"] == ["request.json", "publication-receipt.json"]
     assert CONTRACT["published_request_consumer"]["implemented"] is False
+
+
+def test_historical_consumer_status_is_frozen_but_current_consumer_is_complete() -> None:
+    frozen = CONTRACT["published_request_consumer"]
+    assert frozen["implemented"] is False
+    assert frozen["returns"] == "exact request.json bytes suitable for existing actuator"
+    parameters = inspect.signature(
+        consumer.load_published_production_chat_resource_provisioning_request).parameters
+    assert list(parameters) == ["installation_handle", "resource_provisioning_id"]
+    source = inspect.getsource(consumer)
+    current_proofs = {
+        "request digest": "request.request_digest",
+        "intent digest": "intent.intent_digest",
+        "raw artifact SHA-256 bindings": "artifact_bindings",
+        "semantic identities/digests": "getattr(intent, field)",
+        "receipt digest": "receipt_digest_mismatch",
+        "installation identity": "installation_identity_mismatch",
+        "resource provisioning ID": "resource_provisioning_id_mismatch",
+        "authority-definition digest": "authority_definition_digest_mismatch",
+    }
+    assert set(current_proofs) == set(frozen["verifies"])
+    assert all(proof in source for proof in current_proofs.values())
+    for forbidden in ("durable_create(", "durable_replace(", "ensure_directory(",
+                      "execute_provisioning_intent("):
+        assert forbidden not in source
 
 
 def test_frozen_candidate_reconstructs_exact_canonical_registration() -> None:
