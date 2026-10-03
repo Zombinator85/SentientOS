@@ -92,6 +92,14 @@ There is no trust-catalog or revocation administration, policy creation/widening
 The selected actuator slice is now implemented. Ordinary-startup hooks, automatic
 allocation issuance or renewal, and cleanup/recovery authority remain absent.
 
+The existing arbitrary `--request` file source remains supported by both `prepare` and
+confirmed `create`. A second fixed-custody source selects an existing installation
+identity and provisioning ID and requires exact completed publication custody verified
+by `load_published_production_chat_resource_provisioning_request(...)`. Both sources
+converge on the same deterministic intent schema and the same separately confirmed
+`execute_provisioning_intent(...)` boundary. No third command, startup behavior,
+automatic retry, renewal, or cleanup behavior was added.
+
 ## Upstream request-publication boundary
 
 The design-only upstream boundary is now frozen in

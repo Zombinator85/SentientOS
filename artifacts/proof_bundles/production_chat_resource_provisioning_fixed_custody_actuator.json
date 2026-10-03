@@ -1,0 +1,17 @@
+{
+  "schema_version": "sentientos.production_chat_resource_provisioning_fixed_custody_actuator_proof:v1",
+  "authority": {
+    "capability": "production_chat_resource_provisioning_bundle_create",
+    "definition_digest": "132f93c32f5490877a4748c0054dfb66aacb9f2a94ce560d69a0e65337c800f5",
+    "principal": "deterministic_production_chat_resource_provisioning_controller",
+    "effects": ["create_only_installation_state_resource_provisioning_bundle", "finalize_production_resource_provisioning_manifest", "issue_one_governed_local_model_resource_allocation", "read_exact_preexisting_causal_resource_principal_artifacts", "read_exact_resource_trust_currentness_artifacts", "read_governed_local_model_resource_policy"]
+  },
+  "fixed_custody_consumer": "load_published_production_chat_resource_provisioning_request",
+  "source_modes": ["request_file", "existing_installation_identity_and_resource_provisioning_id"],
+  "command_verbs": ["prepare", "create"],
+  "intent": "the existing deterministic sentientos.production_chat_resource_provisioning_intent:v1 representation",
+  "confirmation_boundary": "create freshly resolves and prepares its source and requires its exact lowercase intent digest before effect-bearing execution",
+  "sole_execution_function": "execute_provisioning_intent",
+  "inherited_effect_law": "the existing producer issues exactly one allocation into a create-only manifest-last final bundle; restart does not replenish entitlement",
+  "absent_surfaces": ["direct CLI producer invocation", "installation creation", "startup integration", "retry", "renewal", "cleanup", "state-root argument", "publication-root argument", "request-custody-path argument", "receipt-path argument", "destination-path argument"]
+}

@@ -15,6 +15,13 @@ startup, model inference, or runtime-effect admission. In particular,
 verified operator-request custody for a later `prepare/create` act. The latter may issue
 one allocation and create the final bundle. Neither implies the other.
 
+The operator CLI now integrates that consumer as a fixed-custody source for its existing
+`prepare` and confirmed `create` commands. Fixed-custody preparation opens only the named
+existing installation, verifies completed request/receipt custody through the read-only
+consumer, and remains inert. Creation remains separately explicit and digest-confirmed,
+and uses the distinct `production_chat_resource_provisioning_bundle_create` authority;
+publication itself remains non-executing and grants no creation authority.
+
 The normative machine artifact is
 `architecture/production_chat_resource_provisioning_request_publication_contract.json`,
 schema `sentientos.production_chat_resource_provisioning_request_publication_contract:v1`.
@@ -157,9 +164,6 @@ design status, just as its candidate-only authority and unimplemented-publisher 
 Current repository implementation status is established by code and contract tests, not
 by rewriting that historical normative artifact.
 
-The one selected next slice is: **add a bounded operator-facing fixed-custody actuator
-path that selects an existing installation + provisioning ID, loads the request only
-through `load_published_production_chat_resource_provisioning_request(...)`, prepares the
-exact intent for operator confirmation, and keeps execution as a separately explicit
-confirmed action.** Publication and read-only custody verification remain distinct from
-allocation-bearing bundle creation, execution, and startup integration.
+The bounded operator-facing fixed-custody actuator integration is now implemented.
+Publication and read-only custody verification remain distinct from allocation-bearing
+bundle creation, execution, and startup integration.
