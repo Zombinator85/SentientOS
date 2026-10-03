@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "e8ae52195c532ef2de2353c955ab82607eb7663f",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_real_publisher_exact_byte_round_trip_and_intent_binding", "rationale": "Real production publisher custody is returned byte-for-byte and independently binds the actuator request and deterministic intent."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_consumer_is_zero_mutation_and_zero_execution", "rationale": "Authenticated fixed-custody loading performs only reads and invokes no lock or mutation primitive."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_bare_request_after_publisher_failure_is_unpublished", "rationale": "Receipt-last partial custody remains unpublished and fails closed."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_receipt_structure_digest_and_identity_tampering_fails_closed[<lambda>-True-intent_digest_binding_mismatch]", "rationale": "Re-digested receipt tampering cannot substitute its deterministic-intent binding."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_each_exact_artifact_byte_binding_is_enforced[principal_artifact_sha256]", "rationale": "An independently re-digested false exact decoded-artifact SHA-256 binding is rejected."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_each_semantic_intent_binding_is_enforced[principal_binding_digest]", "rationale": "An independently re-digested false deterministic-intent semantic binding is rejected."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_noncanonical_request_and_receipt_custody_fail_closed", "rationale": "Semantically equivalent textual rewrites of either durable object fail canonical custody."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_public_api_has_no_path_or_runtime_authority_surface", "rationale": "The narrow API exposes no caller path, write, publication, execution, allocation, bundle, inference, signing, minting, or startup authority."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publication_contract.py::test_historical_consumer_status_is_frozen_but_current_consumer_is_complete", "rationale": "Current implementation verifies every frozen consumer item while preserving the historical machine artifact."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_consumer.py::test_real_publisher_exact_byte_round_trip_and_intent_binding"
+  ]
+}
