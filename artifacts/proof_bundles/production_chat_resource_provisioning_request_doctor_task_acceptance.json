@@ -1,0 +1,18 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2976cacacc0c2ae4e6d8c6718712233e63eb2623",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_real_complete_publication_diagnosis_reuses_consumer","rationale":"Real publisher custody is verified only through the completed-publication consumer."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_bare_request_diagnosis_is_unpublished_and_not_terminal","rationale":"Bare custody remains unpublished and does not infer terminal failure."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_malformed_bare_request_preserves_topology","rationale":"Semantic invalidity does not erase durable topology."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_receipt_only_is_contradictory","rationale":"Receipt-only custody is contradictory."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_tampered_complete_custody_is_invalid_through_consumer","rationale":"Tampered complete custody fails through the sovereign consumer."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_lock_free_zero_mutation_and_deterministic_report","rationale":"No lock or mutation occurs and reports are deterministic."},
+    {"node_id":"tests/test_production_chat_resource_provisioning_request_doctor.py::test_doctor_has_no_execution_allocation_or_recovery_authority","rationale":"Execution, allocation, and recovery surfaces are absent."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_doctor.py::test_real_complete_publication_diagnosis_reuses_consumer"
+  ]
+}

@@ -167,3 +167,32 @@ by rewriting that historical normative artifact.
 The bounded operator-facing fixed-custody actuator integration is now implemented.
 Publication and read-only custody verification remain distinct from allocation-bearing
 bundle creation, execution, and startup integration.
+
+## Read-only publication-custody doctor
+
+The current repository implements the publisher, completed-publication consumer, and
+fixed-custody operator `prepare`/separately confirmed `create` integration. It now also
+implements a separate read-only publication doctor with schema
+`sentientos.production_chat_resource_provisioning_request_publication_doctor:v1`. Given
+only an authenticated installation handle and canonical P, the doctor inspects the fixed
+`request.json` and `publication-receipt.json` identities and reports exactly one topology:
+`complete_pair`, `bare_request`, `orphan_receipt`, `empty_existing_destination`, or
+`custody_unavailable`. Unsafe parent traversal or a non-regular object is unavailable,
+never absence. A complete pair is verified only by the existing sovereign completed-
+publication consumer.
+
+Each report describes observed custody at one lock-free read-only inspection point. The
+doctor does not acquire the create-on-open publisher lock and records
+`snapshot_is_lock_free=true`, `concurrent_publication_excluded=false`, and
+`terminal_failure_inferred=false`. Thus a bare request is incomplete and unpublished at
+the observed instant, but does not prove that its publisher permanently failed: a
+publisher may concurrently be between request and receipt creation. The doctor emits
+only bounded byte counts, digests, identities, validation reason codes, and inspection
+guidance; it exposes neither raw custody nor embedded artifacts.
+
+The doctor grants no publication or recovery authority. It does not publish, lock,
+create a receipt, delete, clean up, repair, retry, overwrite, allocate, execute, or create
+a final bundle. Any existing object preserves the frozen contract's prohibition on
+automatic same-ID retry. Recovery remains unimplemented and separately governed;
+`separately_governed_recovery_review_required` is evidence guidance, not an instruction
+or authorization to change custody.

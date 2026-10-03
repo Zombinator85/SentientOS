@@ -1,0 +1,30 @@
+{
+  "schema_version": "sentientos.production_chat_resource_provisioning_request_doctor_proof:v1",
+  "doctor_schema": "sentientos.production_chat_resource_provisioning_request_publication_doctor:v1",
+  "bootstrap_authority": {
+    "raw_capability_id": "",
+    "raw_authority_principal": "",
+    "raw_requested_effects": [],
+    "synthesized_scaffold_capability_id": "add_production_chat_resource_provisioning_request_publication_doctor",
+    "synthesized_identifier_is_registered_authority": false,
+    "capability_granted": false
+  },
+  "fixed_custody": {
+    "request": "local-model/resource-provisioning-requests/P/request.json",
+    "receipt": "local-model/resource-provisioning-requests/P/publication-receipt.json"
+  },
+  "custody_shapes": ["bare_request", "complete_pair", "custody_unavailable", "empty_existing_destination", "orphan_receipt"],
+  "complete_pair_verifier": "load_published_production_chat_resource_provisioning_request",
+  "bare_request_evidence": ["stored_byte_length", "stored_sha256", "request_digest", "intent_digest", "installation_identity_binding", "resource_provisioning_id_binding"],
+  "snapshot_semantics": {
+    "snapshot_is_lock_free": true,
+    "concurrent_publication_excluded": false,
+    "terminal_failure_inferred": false,
+    "meaning": "observed custody at one lock-free read-only inspection point"
+  },
+  "deterministic_report_law": "same authenticated installation identity, provisioning ID, and observed custody bytes produce the same report",
+  "non_authority": {
+    "read_only": true,
+    "absent_surfaces": ["allocation", "cleanup", "deletion", "execution", "final_bundle", "locking", "overwrite", "publication", "receipt_creation", "recovery", "repair", "retry"]
+  }
+}
