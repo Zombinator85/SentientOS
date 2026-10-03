@@ -1,0 +1,43 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "9715d7ac88e99313b5accfcf7f40b627602ae7d5",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_frozen_machine_module_agreement_and_schema",
+      "rationale": "Frozen machine/module agreement."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_deterministic_digest_independently_recomputes",
+      "rationale": "Independent deterministic digest."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_exact_evidence_conjunction_and_bindings",
+      "rationale": "Exact evidence conjunction and bindings."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_current_unsatisfiability_and_missing_lifecycle_gaps",
+      "rationale": "Current lifecycle gaps fail closed."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_denied_time_snapshot_lock_pid_and_unauthenticated_inferences",
+      "rationale": "Time, snapshot, lock, PID, and unauthenticated assertions are denied."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_contradictory_completed_receipt_blocks_classification",
+      "rationale": "Completed custody contradicts abandonment."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_terminal_classification_grants_no_recovery_authority",
+      "rationale": "Classification grants no recovery authority."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_metadata_only_posture_and_runtime_surface_absence",
+      "rationale": "Runtime and recovery surfaces are absent."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_recovery_review_contract.py::test_frozen_machine_module_agreement_and_schema"
+  ]
+}
