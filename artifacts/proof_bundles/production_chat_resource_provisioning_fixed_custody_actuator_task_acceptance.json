@@ -1,0 +1,40 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f94a4e6c30f300f4cd1fcaa18206076336f3ed3e",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_script.py::test_fixed_custody_prepare_uses_consumer_and_is_inert",
+      "rationale": "Real publication custody is loaded only through the consumer into inert deterministic preparation."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_script.py::test_confirmed_fixed_custody_create_uses_actuator_once_and_preserves_conservation",
+      "rationale": "Exact confirmation reaches the actuator once, produces a consumer-compatible create-only bundle, and preserves one-allocation restart conservation."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_script.py::test_fixed_custody_confirmation_failures_precede_execution",
+      "rationale": "Missing, malformed, and wrong confirmation fail before effect-bearing execution."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_script.py::test_source_mode_ambiguity_and_incompleteness_are_bounded[extra3]",
+      "rationale": "Mixed, missing, and incomplete source selectors fail closed."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_script.py::test_cli_has_only_prepare_create_and_one_request_path",
+      "rationale": "The CLI retains exactly two verbs and exposes no producer, startup, renewal, cleanup, or path-authority surface."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_missing_publication_objects_fail_closed[publication-receipt.json]",
+      "rationale": "Unpublished custody is rejected by the sovereign read-only consumer."
+    },
+    {
+      "node_id": "tests/test_production_chat_resource_provisioning_request_consumer.py::test_receipt_structure_digest_and_identity_tampering_fails_closed[<lambda>-False-receipt_digest_mismatch]",
+      "rationale": "Tampered custody is rejected by the sovereign consumer."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_script.py::test_fixed_custody_prepare_uses_consumer_and_is_inert",
+    "tests/test_production_chat_resource_provisioning_script.py::test_confirmed_fixed_custody_create_uses_actuator_once_and_preserves_conservation"
+  ]
+}
