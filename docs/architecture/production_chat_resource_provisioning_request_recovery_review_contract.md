@@ -31,3 +31,7 @@ The repository has no governed pre-effect publisher-attempt identity artifact, t
 Even complete evidence means only that the evidence standard for classifying this exact attempt is satisfied. It grants no deletion, repair, cleanup, receipt completion, retry, republication, overwrite, rename/move/quarantine, provisioning-ID reuse, allocation, bundle creation, or execution. A later recovery design requires a separate governed contract and authority.
 
 The existing request and receipt schemas and publisher, consumer, and doctor runtime behavior remain unchanged.
+
+## Frozen pre-effect attempt-identity shape
+
+The required `pre_effect_publisher_attempt_identity_evidence` now has a [frozen future-only contract](production_chat_resource_provisioning_request_attempt_identity_contract.md). That contract defines the missing object's exact identity, request binding, custody, and independently verifiable provenance requirements; it does not emit evidence or implement provenance verification, so `publisher_attempt_identity_evidence_missing` remains open and recovery review remains unsatisfied.
