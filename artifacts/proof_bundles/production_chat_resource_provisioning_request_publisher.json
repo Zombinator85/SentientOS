@@ -1,0 +1,25 @@
+{
+  "schema_version": "sentientos.production_chat_resource_provisioning_request_publisher_proof:v1",
+  "authority": {
+    "capability_id": "production_chat_resource_provisioning_request_publish",
+    "principal": "deterministic_production_chat_resource_provisioning_request_publisher",
+    "definition_digest": "349058b7e6959c06bfae1a8acabd01c6c022245c6fd404e63535cac6ed608cf5",
+    "eligibility_only": true,
+    "capability_granted": false
+  },
+  "runtime_surface": "sentientos.production_chat_resource_provisioning_request_publisher:publish_production_chat_resource_provisioning_request",
+  "custody": {
+    "request": "local-model/resource-provisioning-requests/<resource_provisioning_id>/request.json",
+    "publication_marker": "local-model/resource-provisioning-requests/<resource_provisioning_id>/publication-receipt.json",
+    "lock": "local-model/resource-provisioning-request-locks/<resource_provisioning_id>.lock",
+    "semantics": "create_only_receipt_last_same_id_burned"
+  },
+  "proofs": [
+    "single trusted publication instant",
+    "exact input bytes embedded as canonical unpadded base64url",
+    "actuator request round trip and deterministic inert intent",
+    "kernel-locked same-ID exclusion",
+    "partial request custody retained without repair or retry",
+    "no execution allocation bundle mint signing inference or startup surface"
+  ]
+}

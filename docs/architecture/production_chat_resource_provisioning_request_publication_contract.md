@@ -4,7 +4,9 @@
 
 This document preserves the frozen pre-registration design and handoff while recording
 the current repository state: its exact authority definition is now canonically
-registered, but it implements **no runtime publisher**. Request publication is not
+registered and the bounded create-only runtime publisher is implemented in
+`sentientos.production_chat_resource_provisioning_request_publisher.py`. The read-only
+published-request consumer remains unimplemented. Request publication is not
 provisioning-bundle creation, allocation issuance, operator confirmation, ordinary
 startup, model inference, or runtime-effect admission. In particular,
 `production_chat_resource_provisioning_request_publish` !=
@@ -18,7 +20,7 @@ schema `sentientos.production_chat_resource_provisioning_request_publication_con
 
 ## Exact inputs and genuine verification
 
-The future publisher receives only an authenticated `InstallationStateHandle`, a
+The publisher receives only an authenticated `InstallationStateHandle`, a
 validated `resource_provisioning_id`, the exact pre-existing bytes of one canonical
 `CausalResourcePrincipal`, `RootPrincipalIssuerProvenance`, trusted issuer catalog,
 principal revocation registry, and `GovernedLocalModelResourcePolicy`; exact
@@ -144,6 +146,9 @@ request, receipt, lock, final provisioning bundle, allocation, root issuance, or
 provenance signature. The frozen machine artifact remains unchanged and truthfully
 records its historical candidate-only posture.
 
-The one selected next slice is: **implement the bounded runtime
-`deterministic_production_chat_resource_provisioning_request_publisher` against the
-frozen publication contract and newly registered exact authority definition.**
+The one selected next slice is: **implement the read-only
+`load_published_production_chat_resource_provisioning_request(...)` consumer that
+requires both `request.json` and `publication-receipt.json`, verifies every frozen
+digest/identity/authority binding, and returns the exact original request bytes suitable
+for the existing actuator.** Publication remains distinct from allocation-bearing bundle
+creation, execution, and startup integration.

@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "26d2e64c1602bf47d6e75d6fa77136c3630e98eb",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_successful_receipt_last_publication_and_digest_bindings", "rationale": "Actual request and receipt publication, receipt-last ordering, and exact authority/digest bindings."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_exact_bytes_actuator_round_trip_and_deterministic_intent", "rationale": "Exact five-byte-artifact preservation, canonical request digest, actuator reload, and inert deterministic intent."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_preflight_failure_has_no_request_custody_and_clock_called_once", "rationale": "Preflight-before-mutation and exactly one trusted publication-time call."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_same_id_is_burned_without_second_publication", "rationale": "Existing custody burns the ID before a second create."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_partial_failure_leaves_request_and_burns_id", "rationale": "Receipt failure leaves incomplete request custody without cleanup, overwrite, or retry."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_concurrent_same_id_exclusion", "rationale": "Kernel-backed per-ID exclusion admits at most one complete publication."},
+    {"node_id": "tests/test_production_chat_resource_provisioning_request_publisher.py::test_no_forbidden_runtime_surfaces_or_path_authority", "rationale": "No caller path, execution, allocation, final-bundle, mint, signing, inference, or startup surface."}
+  ],
+  "successful_path_nodes": [
+    "tests/test_production_chat_resource_provisioning_request_publisher.py::test_successful_receipt_last_publication_and_digest_bindings",
+    "tests/test_production_chat_resource_provisioning_request_publisher.py::test_exact_bytes_actuator_round_trip_and_deterministic_intent"
+  ]
+}
