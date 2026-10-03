@@ -1,0 +1,318 @@
+{
+  "schema": "sentientos.production_chat_resource_provisioning_request_attempt_identity_authority_contract:v1",
+  "status": "candidate_only_not_registered_or_granted",
+  "candidate_capability": "production_chat_resource_provisioning_request_attempt_identity_evidence_create",
+  "candidate_subsystem": "causal_resource_principal_architecture",
+  "candidate_principal": "deterministic_production_chat_resource_provisioning_request_attempt_identity_evidence_producer",
+  "exact_effect_surface": [
+    "read_exact_pre_effect_production_resource_provisioning_request_publication_intent",
+    "establish_one_production_resource_provisioning_request_publication_attempt_identity",
+    "create_only_installation_state_production_resource_provisioning_request_attempt_identity_evidence",
+    "finalize_production_resource_provisioning_request_attempt_identity_evidence"
+  ],
+  "required_goal_phrases": [
+    "create-only publisher attempt identity evidence",
+    "exact pre-effect request and intent binding",
+    "before first publication custody mutation",
+    "independently verifiable lifecycle provenance",
+    "no request publication or recovery authority"
+  ],
+  "forbidden_goal_phrases": [
+    "publish production chat resource provisioning request",
+    "create publication receipt",
+    "finalize publication receipt",
+    "terminal publisher closure",
+    "terminal abandonment classification",
+    "recovery authority",
+    "automatic recovery",
+    "same-id retry",
+    "same id retry",
+    "provisioning id reuse",
+    "overwrite attempt identity evidence",
+    "repair attempt identity evidence",
+    "delete attempt identity evidence",
+    "caller-selected attempt identity",
+    "retrospective attempt identity",
+    "allocation issuance",
+    "production provisioning bundle creation",
+    "model inference",
+    "grant local model inference",
+    "network egress",
+    "host scheduling",
+    "arbitrary filesystem mutation",
+    "widen publisher authority",
+    "modify publisher authority definition",
+    "root principal minting",
+    "issuer provenance signing",
+    "private signing key custody"
+  ],
+  "approval_requirements": [
+    "independent operator approval evidence",
+    "exact definition digest binding",
+    "exact publisher attempt identity contract digest binding",
+    "exact existing publisher authority definition binding",
+    "exact installation provisioning request and intent binding",
+    "create-only fixed attempt identity evidence custody",
+    "identity evidence completed before first publication custody mutation",
+    "independently verifiable lifecycle provenance",
+    "production non-synthetic evidence posture",
+    "no request publication receipt terminal closure or recovery authority"
+  ],
+  "candidate_purpose": "Permit only a future separately registered and admitted deterministic production provisioning request publisher-attempt identity evidence producer to consume exact validated pre-effect request and intent bindings for one installation and provisioning identity; establish one fresh publisher invocation identity; and create and finalize one immutable canonical identity evidence artifact in fixed authenticated installation-state custody before the first durable request-publication custody mutation, while granting no request or receipt publication, terminal closure, abandonment classification, recovery, retry, overwrite, cleanup, provisioning-ID reuse, allocation, bundle creation, inference, network, host, arbitrary filesystem, signing, root-issuance, or publisher-authority-widening authority.",
+  "candidate_task_authority_definition": {
+    "capability_id": "production_chat_resource_provisioning_request_attempt_identity_evidence_create",
+    "subsystem_kinds": [
+      "causal_resource_principal_architecture"
+    ],
+    "principal_kinds": [
+      "deterministic_production_chat_resource_provisioning_request_attempt_identity_evidence_producer"
+    ],
+    "required_effects": [
+      "create_only_installation_state_production_resource_provisioning_request_attempt_identity_evidence",
+      "establish_one_production_resource_provisioning_request_publication_attempt_identity",
+      "finalize_production_resource_provisioning_request_attempt_identity_evidence",
+      "read_exact_pre_effect_production_resource_provisioning_request_publication_intent"
+    ],
+    "required_goal_phrases": [
+      "create-only publisher attempt identity evidence",
+      "exact pre-effect request and intent binding",
+      "before first publication custody mutation",
+      "independently verifiable lifecycle provenance",
+      "no request publication or recovery authority"
+    ],
+    "forbidden_goal_phrases": [
+      "publish production chat resource provisioning request",
+      "create publication receipt",
+      "finalize publication receipt",
+      "terminal publisher closure",
+      "terminal abandonment classification",
+      "recovery authority",
+      "automatic recovery",
+      "same-id retry",
+      "same id retry",
+      "provisioning id reuse",
+      "overwrite attempt identity evidence",
+      "repair attempt identity evidence",
+      "delete attempt identity evidence",
+      "caller-selected attempt identity",
+      "retrospective attempt identity",
+      "allocation issuance",
+      "production provisioning bundle creation",
+      "model inference",
+      "grant local model inference",
+      "network egress",
+      "host scheduling",
+      "arbitrary filesystem mutation",
+      "widen publisher authority",
+      "modify publisher authority definition",
+      "root principal minting",
+      "issuer provenance signing",
+      "private signing key custody"
+    ],
+    "approval_requirements": [
+      "independent operator approval evidence",
+      "exact definition digest binding",
+      "exact publisher attempt identity contract digest binding",
+      "exact existing publisher authority definition binding",
+      "exact installation provisioning request and intent binding",
+      "create-only fixed attempt identity evidence custody",
+      "identity evidence completed before first publication custody mutation",
+      "independently verifiable lifecycle provenance",
+      "production non-synthetic evidence posture",
+      "no request publication receipt terminal closure or recovery authority"
+    ],
+    "purpose": "Permit only a future separately registered and admitted deterministic production provisioning request publisher-attempt identity evidence producer to consume exact validated pre-effect request and intent bindings for one installation and provisioning identity; establish one fresh publisher invocation identity; and create and finalize one immutable canonical identity evidence artifact in fixed authenticated installation-state custody before the first durable request-publication custody mutation, while granting no request or receipt publication, terminal closure, abandonment classification, recovery, retry, overwrite, cleanup, provisioning-ID reuse, allocation, bundle creation, inference, network, host, arbitrary filesystem, signing, root-issuance, or publisher-authority-widening authority."
+  },
+  "candidate_definition_digest": "ad219f43186a8a173e31dda428cff068c5ee2643211284dacf391f858def3b6d",
+  "current_publisher_definition_binding": {
+    "capability_id": "production_chat_resource_provisioning_request_publish",
+    "principal": "deterministic_production_chat_resource_provisioning_request_publisher",
+    "definition_digest": "349058b7e6959c06bfae1a8acabd01c6c022245c6fd404e63535cac6ed608cf5",
+    "effect_count": 5,
+    "unchanged": true,
+    "candidate_inherits_publisher_effects": false,
+    "publisher_inherits_candidate_effects": false,
+    "inequalities": [
+      "request publication authority != attempt identity lifecycle evidence authority",
+      "attempt identity lifecycle evidence authority != request publication authority"
+    ]
+  },
+  "frozen_attempt_identity_contract_binding": {
+    "contract_digest": "e8ec7ab9408ca3303c07f9a7878f89a4f718cec0f54c7e7a8c8b0158179823c0",
+    "semantics_referenced_not_redefined": [
+      "evidence schema",
+      "evidence fields",
+      "evidence digest law",
+      "attempt-ID law",
+      "fixed custody path",
+      "provenance requirements"
+    ]
+  },
+  "fixed_custody_boundary": {
+    "only_destination": "local-model/resource-provisioning-request-attempts/<publication_attempt_id>/identity.json",
+    "authenticated_installation_state": true,
+    "create_only": true,
+    "excluded_mutation_paths": [
+      "local-model/resource-provisioning-requests/<resource_provisioning_id>/request.json",
+      "local-model/resource-provisioning-requests/<resource_provisioning_id>/publication-receipt.json"
+    ],
+    "alternate_destination": false,
+    "overwrite": false,
+    "repair": false,
+    "deletion": false,
+    "cleanup": false,
+    "same_attempt_retry": false,
+    "terminal_closure_custody": false
+  },
+  "lifecycle_ordering_boundary": {
+    "future_producer_must_complete_evidence_before_first_durable_publication_custody_mutation": true,
+    "definition_eligibility_proves_ordering": false,
+    "authority_admission_proves_ordering": false,
+    "artifact_creation_alone_proves_ordering": false,
+    "future_implementation_and_independent_verifier_must_mechanically_prove_ordering": true
+  },
+  "producer_verifier_separation": {
+    "inequality": "attempt_identity_evidence_producer != independent_attempt_identity_provenance_verifier",
+    "independent_verifier_still_required": true,
+    "producer_may_conclude_own_provenance": false,
+    "self_verification_sufficient": false
+  },
+  "registration_posture": {
+    "candidate_definition_exists": true,
+    "candidate_definition_digest_frozen": true,
+    "candidate_present_in_canonical_authority_definitions": false,
+    "operator_approval_supplied": false,
+    "definition_registered": false,
+    "capability_granted": false,
+    "runtime_authority": null,
+    "effect_performed": false,
+    "runtime_mutation_performed": false
+  },
+  "future_registrar_handoff": {
+    "task_name": "register-production-chat-resource-provisioning-request-attempt-identity-evidence-create-authority-definition",
+    "register_authority_definition_payload": {
+      "task_classification": "authority_definition_registration",
+      "task_name": "register-production-chat-resource-provisioning-request-attempt-identity-evidence-create-authority-definition",
+      "definitions": [
+        {
+          "capability_id": "production_chat_resource_provisioning_request_attempt_identity_evidence_create",
+          "subsystem_kinds": [
+            "causal_resource_principal_architecture"
+          ],
+          "principal_kinds": [
+            "deterministic_production_chat_resource_provisioning_request_attempt_identity_evidence_producer"
+          ],
+          "required_effects": [
+            "create_only_installation_state_production_resource_provisioning_request_attempt_identity_evidence",
+            "establish_one_production_resource_provisioning_request_publication_attempt_identity",
+            "finalize_production_resource_provisioning_request_attempt_identity_evidence",
+            "read_exact_pre_effect_production_resource_provisioning_request_publication_intent"
+          ],
+          "required_goal_phrases": [
+            "create-only publisher attempt identity evidence",
+            "exact pre-effect request and intent binding",
+            "before first publication custody mutation",
+            "independently verifiable lifecycle provenance",
+            "no request publication or recovery authority"
+          ],
+          "forbidden_goal_phrases": [
+            "publish production chat resource provisioning request",
+            "create publication receipt",
+            "finalize publication receipt",
+            "terminal publisher closure",
+            "terminal abandonment classification",
+            "recovery authority",
+            "automatic recovery",
+            "same-id retry",
+            "same id retry",
+            "provisioning id reuse",
+            "overwrite attempt identity evidence",
+            "repair attempt identity evidence",
+            "delete attempt identity evidence",
+            "caller-selected attempt identity",
+            "retrospective attempt identity",
+            "allocation issuance",
+            "production provisioning bundle creation",
+            "model inference",
+            "grant local model inference",
+            "network egress",
+            "host scheduling",
+            "arbitrary filesystem mutation",
+            "widen publisher authority",
+            "modify publisher authority definition",
+            "root principal minting",
+            "issuer provenance signing",
+            "private signing key custody"
+          ],
+          "approval_requirements": [
+            "independent operator approval evidence",
+            "exact definition digest binding",
+            "exact publisher attempt identity contract digest binding",
+            "exact existing publisher authority definition binding",
+            "exact installation provisioning request and intent binding",
+            "create-only fixed attempt identity evidence custody",
+            "identity evidence completed before first publication custody mutation",
+            "independently verifiable lifecycle provenance",
+            "production non-synthetic evidence posture",
+            "no request publication receipt terminal closure or recovery authority"
+          ],
+          "purpose": "Permit only a future separately registered and admitted deterministic production provisioning request publisher-attempt identity evidence producer to consume exact validated pre-effect request and intent bindings for one installation and provisioning identity; establish one fresh publisher invocation identity; and create and finalize one immutable canonical identity evidence artifact in fixed authenticated installation-state custody before the first durable request-publication custody mutation, while granting no request or receipt publication, terminal closure, abandonment classification, recovery, retry, overwrite, cleanup, provisioning-ID reuse, allocation, bundle creation, inference, network, host, arbitrary filesystem, signing, root-issuance, or publisher-authority-widening authority."
+        }
+      ],
+      "operator_approval": {
+        "schema_version": "sentientos.authority_definition_operator_approval:v1",
+        "evidence_id": "<operator-supplied evidence id>",
+        "operator_identity_label": "<operator-supplied identity label>",
+        "approval_status": "approved",
+        "approved_capability_id": "production_chat_resource_provisioning_request_attempt_identity_evidence_create",
+        "approved_definition_digest": "ad219f43186a8a173e31dda428cff068c5ee2643211284dacf391f858def3b6d",
+        "approved_task_name": "register-production-chat-resource-provisioning-request-attempt-identity-evidence-create-authority-definition",
+        "evidence_digest": "<computed only after operator fields are supplied>"
+      },
+      "requested_capability_id": "",
+      "authority_principal": "",
+      "requested_effects": [],
+      "runtime_mutations": [],
+      "changed_paths": [
+        "sentientos/codex_task_authority_admission.py",
+        "tests/test_authority_definition_registration.py",
+        "docs/architecture/production_chat_resource_provisioning_request_attempt_identity_authority_contract.md"
+      ]
+    },
+    "operator_approval_template": {
+      "schema_version": "sentientos.authority_definition_operator_approval:v1",
+      "evidence_id": "<operator-supplied evidence id>",
+      "operator_identity_label": "<operator-supplied identity label>",
+      "approval_status": "approved",
+      "approved_capability_id": "production_chat_resource_provisioning_request_attempt_identity_evidence_create",
+      "approved_definition_digest": "ad219f43186a8a173e31dda428cff068c5ee2643211284dacf391f858def3b6d",
+      "approved_task_name": "register-production-chat-resource-provisioning-request-attempt-identity-evidence-create-authority-definition",
+      "evidence_digest": "<computed only after operator fields are supplied>"
+    },
+    "operator_fields_supplied": false
+  },
+  "task_non_effects": [
+    "authority registration",
+    "runtime grant",
+    "runtime admission",
+    "attempt ID generation",
+    "identity evidence emission",
+    "installation-state mutation",
+    "publisher modification",
+    "request publication",
+    "receipt publication",
+    "terminal closure",
+    "provenance verification",
+    "recovery",
+    "retry",
+    "overwrite",
+    "delete",
+    "provisioning ID reuse",
+    "allocation",
+    "bundle creation",
+    "model inference",
+    "network egress",
+    "host scheduling"
+  ],
+  "selected_next_slice": "future operator-approved registration of the exact candidate authority definition"
+}
