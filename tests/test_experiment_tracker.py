@@ -1,9 +1,3 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 import os
 import sys
 import importlib
@@ -22,6 +16,8 @@ def setup_env(tmp_path, monkeypatch):
 
 def test_propose_vote_comment(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
+    monkeypatch.setattr(et, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(et, "require_lumos_approval", lambda: None)
     eid = et.propose_experiment("calming", "haptic agitation", "lower stress", proposer="alice")
     assert et.get_experiment(eid)
     et.vote_experiment(eid, "alice", True)
@@ -33,3 +29,25 @@ def test_propose_vote_comment(tmp_path, monkeypatch):
     assert info["comments"]
     lines = (tmp_path / "audit.jsonl").read_text().splitlines()
     assert any(json.loads(l)["action"] == "propose" for l in lines)
+
+
+def test_save_authorizes_before_creating_or_writing_data(tmp_path, monkeypatch):
+    events = []
+
+    class Parent:
+        def mkdir(self, **kwargs):
+            events.append("mkdir")
+
+    class DataFile:
+        parent = Parent()
+
+        def write_text(self, *_args, **_kwargs):
+            events.append("write")
+
+    monkeypatch.setattr(et, "DATA_FILE", DataFile())
+    monkeypatch.setattr(et, "require_admin_banner", lambda: events.append("admin"))
+    monkeypatch.setattr(et, "require_lumos_approval", lambda: events.append("lumos"))
+
+    et._save([])
+
+    assert events == ["admin", "lumos", "mkdir", "write"]

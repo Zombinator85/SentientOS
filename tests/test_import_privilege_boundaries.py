@@ -56,6 +56,106 @@ def test_scripts_lock_import_is_inert(monkeypatch):
     assert calls == []
 
 
+@pytest.mark.parametrize("module_name", ["experiment_tracker", "privilege_lint_cli", "plugin_bus", "gui_stub"])
+def test_privilege_sensitive_library_imports_are_inert(monkeypatch, module_name):
+    import sentientos.privilege as privilege
+
+    calls = []
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: calls.append("admin"))
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: calls.append("lumos"))
+    monkeypatch.setattr(privilege, "require_covenant_alignment", lambda: calls.append("covenant"))
+    sys.modules.pop(module_name, None)
+
+    importlib.import_module(module_name)
+
+    assert calls == []
+
+
+def test_privilege_lint_cli_main_enforces_guards_before_argument_handling(monkeypatch):
+    import sentientos.privilege as privilege
+
+    calls = []
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: calls.append("admin"))
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: calls.append("lumos"))
+    sys.modules.pop("privilege_lint_cli", None)
+    cli = importlib.import_module("privilege_lint_cli")
+    monkeypatch.setattr(cli, "require_admin_banner", lambda: calls.append("admin"))
+    monkeypatch.setattr(cli, "require_lumos_approval", lambda: calls.append("lumos"))
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--help"])
+
+    assert exc.value.code == 0
+    assert calls == ["admin", "lumos"]
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="requires a non-root POSIX worker")
+def test_privilege_lint_cli_direct_execution_denies_non_admin_before_help():
+    cli_path = Path(__file__).resolve().parents[1] / "privilege_lint_cli.py"
+    completed = subprocess.run(
+        [sys.executable, str(cli_path), "--help"],
+        cwd=cli_path.parent,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    assert "Access denied: run as Administrator" in completed.stderr
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="requires a non-root POSIX worker")
+@pytest.mark.parametrize(
+    ("script", "action"),
+    [
+        ("scripts/verify_audits.py", ["--strict"]),
+        ("scripts/audit_immutability_verifier.py", ["--allow-missing-manifest"]),
+    ],
+)
+def test_audit_cli_keeps_privilege_at_execution_boundary(script, action):
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / script
+    help_result = subprocess.run(
+        [sys.executable, str(script_path), "--help"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert help_result.returncode == 0, help_result.stderr
+
+    action_result = subprocess.run(
+        [sys.executable, str(script_path), *action],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert action_result.returncode != 0
+    assert "Access denied: run as Administrator" in action_result.stderr
+
+
+def test_control_plane_federation_import_path_is_inert(tmp_path):
+    code = dedent(
+        """
+        import importlib, json
+        import sentientos.privilege as privilege
+        calls = []
+        privilege.require_admin_banner = lambda: calls.append("admin")
+        privilege.require_lumos_approval = lambda: calls.append("lumos")
+        privilege.require_covenant_alignment = lambda: calls.append("covenant")
+        importlib.import_module("control_plane.records")
+        print(json.dumps(calls))
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", code], cwd=Path(__file__).resolve().parents[1],
+        text=True, capture_output=True, check=True,
+    )
+
+    assert json.loads(completed.stdout) == []
+
+
 def test_scripts_lock_check_is_unprivileged(monkeypatch, tmp_path):
     import scripts.lock as lock
     monkeypatch.chdir(tmp_path)

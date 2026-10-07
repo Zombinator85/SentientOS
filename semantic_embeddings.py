@@ -17,22 +17,24 @@ from __future__ import annotations
 import hashlib
 import os
 import threading
-from typing import Iterable, List
-
-try:  # pragma: no cover - optional dependency
-    from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
-except Exception:  # pragma: no cover - gracefully handle missing package
-    SentenceTransformer = None  # type: ignore[assignment]
+from typing import Any, Iterable, List
 
 _MODEL_NAME = os.getenv("SENTIENTOS_EMBED_MODEL", "all-MiniLM-L6-v2")
-_MODEL: SentenceTransformer | None = None  # type: ignore[name-defined]
+_MODEL: Any = None
+SentenceTransformer: Any = None
 _LOCK = threading.Lock()
 
 
-def _load_model() -> SentenceTransformer | None:  # pragma: no cover - lazy loader
+def _load_model() -> Any:  # pragma: no cover - lazy loader
     """Return the shared sentence transformer instance if available."""
 
-    global _MODEL
+    global _MODEL, SentenceTransformer
+    if SentenceTransformer is None:
+        try:
+            from sentence_transformers import SentenceTransformer as model_type  # type: ignore[import-untyped]
+        except Exception:
+            return None
+        SentenceTransformer = model_type
     if SentenceTransformer is None:
         return None
     if _MODEL is None:
@@ -87,4 +89,3 @@ def embedding_dim() -> int:
 
 
 __all__ = ["encode", "embedding_dim"]
-

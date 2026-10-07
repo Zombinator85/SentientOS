@@ -28,15 +28,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
-
-from logging_config import get_log_path
+from logging_config import resolve_log_path
 from scripts import tooling_status
 from sentientos import immutability
 
 DEFAULT_MANIFEST = immutability.DEFAULT_MANIFEST_PATH
-LEDGER_PATH = get_log_path("audit_immutability.jsonl")
+LEDGER_PATH = resolve_log_path("audit_immutability.jsonl")
 RESULT_PATH = Path("glow/audits/audit_immutability_result.json")
 SCHEMA_VERSION = "1.0"
 MAX_ISSUES = 20
@@ -73,6 +70,8 @@ def _bounded_issues(issues: list[str]) -> list[str]:
 
 
 def write_result(*, ok: bool, issues: list[str], error: str | None) -> dict[str, object]:
+    require_admin_banner()
+    require_lumos_approval()
     payload: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "timestamp": _iso_now(),
@@ -87,6 +86,8 @@ def write_result(*, ok: bool, issues: list[str], error: str | None) -> dict[str,
 
 
 def log_event(entry: dict[str, Any]) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LEDGER_PATH.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry) + "\n")
@@ -225,6 +226,8 @@ def run_loop(
     interval: int = 3600,
     manifest_path: Path = DEFAULT_MANIFEST,
 ) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     while not stop.is_set():
         verify_once(manifest_path=manifest_path, logger=logger)
         if stop.wait(interval):
@@ -236,6 +239,8 @@ def update_manifest(
     manifest_path: Path = DEFAULT_MANIFEST,
     env_var: str = "LUMOS_VEIL_CONFIRM",
 ) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     if os.getenv(env_var) != "1":
         raise PermissionError("veil/confirm required")
     normalized = [str(Path(p)) for p in files]
@@ -253,6 +258,9 @@ def main(argv: list[str] | None = None) -> int:
         help="allow degraded environments to skip when the manifest is unavailable",
     )
     args = parser.parse_args(argv)
+
+    require_admin_banner()
+    require_lumos_approval()
 
     issues: list[str] = []
     try:

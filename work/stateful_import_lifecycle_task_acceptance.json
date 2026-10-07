@@ -1,0 +1,142 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "stateful_import_lifecycle_and_privilege_boundary_normalization",
+  "task_classification": "behavior_adding",
+  "repository_sha": "ce4a8e25a5e08dce6353c7aea8170c3d7acef6ea",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_inertness_verifier_covers_stateful_import_roots"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_integration_memory_construction_and_reconfigure_do_not_create_custody"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_integration_memory_reads_existing_custody_and_creates_on_write"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_strategy_engine_construction_is_inert_and_use_creates_storage"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_strategy_engine_hydrates_existing_state_and_reconfiguration"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_codex_public_exports_are_lazy_and_identity_compatible"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[raw]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[index]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[tomb]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[observation]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[jsonl]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[topic]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[session]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[turn]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[goals]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_denial_prevents_write_and_headless_skips_lumos[headless]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_denial_prevents_write_and_headless_skips_lumos[auto_approve]"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_memory_reads_existing_raw_fragments_and_missing_custody"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_reflection_authorizes_before_first_write"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_tomb_purge_authorizes_unlink_separately"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_legacy_glow_storage_authorizes_before_digest_effect"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_node_registry_default_binds_without_materializing_data_root"
+    },
+    {
+      "node_id": "tests/test_architect_import_boundaries.py::test_architect_import_isolated_and_inert"
+    },
+    {
+      "node_id": "tests/test_architect_import_boundaries.py::test_construction_reads_configuration_without_creating_storage"
+    },
+    {
+      "node_id": "tests/test_architect_import_boundaries.py::test_authorization_precedes_filesystem_process_git_ledger_and_pulse_effects"
+    },
+    {
+      "node_id": "tests/test_architect_import_boundaries.py::test_activation_authorizes_before_directory_creation_and_subscription"
+    },
+    {
+      "node_id": "tests/test_architect_import_boundaries.py::test_denial_stops_filesystem_and_process_effects"
+    },
+    {
+      "node_id": "tests/test_header_repair_import_inertness.py::test_header_tools_only_authorize_at_file_write_boundary[scripts.ritual_header_repair-fix_file]"
+    },
+    {
+      "node_id": "tests/test_header_repair_import_inertness.py::test_header_tools_only_authorize_at_file_write_boundary[fix_header_subset-process_file]"
+    },
+    {
+      "node_id": "tests/test_header_repair_import_inertness.py::test_header_tools_only_authorize_at_file_write_boundary[scripts.fix_header_subset-process_file]"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_sensitive_library_imports_are_inert[experiment_tracker]"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_sensitive_library_imports_are_inert[privilege_lint_cli]"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_sensitive_library_imports_are_inert[plugin_bus]"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_sensitive_library_imports_are_inert[gui_stub]"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_lint_cli_main_enforces_guards_before_argument_handling"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_privilege_lint_cli_direct_execution_denies_non_admin_before_help"
+    },
+    {
+      "node_id": "tests/test_import_privilege_boundaries.py::test_control_plane_federation_import_path_is_inert"
+    },
+    {
+      "node_id": "tests/test_emotion_pump.py::test_emotion_pump_import_is_inert"
+    },
+    {
+      "node_id": "tests/test_emotion_pump.py::test_emotion_pump_run_authorizes_before_runtime_effects"
+    },
+    {
+      "node_id": "tests/test_emotion_pump.py::test_emotion_pump_latest_vector"
+    },
+    {
+      "node_id": "tests/test_stateful_import_lifecycle.py::test_one_legacy_memory_operation_authorizes_once_across_private_writes"
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_stateful_import_lifecycle.py::test_integration_memory_reads_existing_custody_and_creates_on_write",
+    "tests/test_stateful_import_lifecycle.py::test_strategy_engine_hydrates_existing_state_and_reconfiguration",
+    "tests/test_stateful_import_lifecycle.py::test_legacy_memory_mutations_authorize_before_filesystem_effect[raw]",
+    "tests/test_architect_import_boundaries.py::test_authorization_precedes_filesystem_process_git_ledger_and_pulse_effects",
+    "tests/test_header_repair_import_inertness.py::test_header_tools_only_authorize_at_file_write_boundary[scripts.ritual_header_repair-fix_file]",
+    "tests/test_import_privilege_boundaries.py::test_privilege_lint_cli_direct_execution_denies_non_admin_before_help",
+    "tests/test_emotion_pump.py::test_emotion_pump_run_authorizes_before_runtime_effects",
+    "tests/test_stateful_import_lifecycle.py::test_one_legacy_memory_operation_authorizes_once_across_private_writes"
+  ]
+}

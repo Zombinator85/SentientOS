@@ -1,7 +1,4 @@
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
 
 import json
 import hashlib

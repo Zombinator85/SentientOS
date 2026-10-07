@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import memory_diff_audit as mda
 def main() -> None:
@@ -10,6 +7,8 @@ def main() -> None:
     parser.add_argument("session_a")
     parser.add_argument("session_b")
     args = parser.parse_args()
+    require_admin_banner()
+    require_lumos_approval()
 
     entries_a = mda.load_entries(args.session_a)
     entries_b = mda.load_entries(args.session_b)

@@ -1,9 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 
 """Stream the dominant emotion vector from the model bridge log."""
 
@@ -50,6 +46,8 @@ def latest_vector(path: Path | None = None) -> Optional[List[float]]:
 
 
 def run() -> None:  # pragma: no cover - loop
+    require_admin_banner()
+    require_lumos_approval()
     bridge = EmotionUDPBridge(HOST, PORT)
     pos = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
     while True:

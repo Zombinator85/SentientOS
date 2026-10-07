@@ -22,11 +22,6 @@ from sentientos.audit_recovery import load_checkpoints
 from sentientos.audit_strict_status import StrictAuditInputs, classify_strict_audit_state, write_strict_audit_artifacts
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
-
-require_admin_banner()
-require_lumos_approval()
-
 import audit_immutability as ai
 from scripts import tooling_status
 try:
@@ -73,9 +68,6 @@ class StrictOutputPayload(TypedDict):
     environment_issues: List[str]
 
 
-if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (os.getenv("CI") or os.getenv("GIT_HOOKS")):
-    os.environ["LUMOS_AUTO_APPROVE"] = "1"
-
 ROOT = REPO_ROOT
 CONFIG = Path("config/master_files.json")
 VALID_EXTS = {".jsonl", ".json", ".log"}
@@ -107,6 +99,8 @@ def _bounded_structured_issues(issues: List[AuditIssue]) -> List[AuditIssue]:
 
 
 def write_result(*, ok: bool, issues: List[str], structured_issues: List[AuditIssue], error: str | None) -> dict[str, object]:
+    require_admin_banner()
+    require_lumos_approval()
     payload: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "timestamp": _iso_now(),
@@ -416,13 +410,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", help="emit machine-readable summary payload")
     args = ap.parse_args(argv)
 
+    require_admin_banner()
+    require_lumos_approval()
+    os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
+
     global REPO_ROOT, ROOT
     REPO_ROOT = resolve_repo_root(args.repo_root)
     ROOT = REPO_ROOT
     all_issues: List[str] = []
     structured_issues: List[AuditIssue] = []
     try:
-        if args.auto_approve or args.no_input or args.strict or os.getenv("LUMOS_AUTO_APPROVE") == "1":
+        if (
+            args.auto_approve
+            or args.no_input
+            or args.strict
+            or os.getenv("LUMOS_AUTO_APPROVE") == "1"
+            or os.getenv("CI")
+            or os.getenv("GIT_HOOKS")
+        ):
             os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
         if args.runtime_dir:

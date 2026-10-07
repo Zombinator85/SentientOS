@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import json
 from pathlib import Path
@@ -11,6 +8,8 @@ import love_treasury as lt
 import treasury_federation as tf
 import treasury_attestation as ta
 def cmd_submit(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     log_text = Path(args.file).read_text(encoding="utf-8")
     participants = [p.strip() for p in args.participants.split(',') if p.strip()]
     sid = lt.submit_log(
@@ -26,11 +25,15 @@ def cmd_submit(args: argparse.Namespace) -> None:
 
 
 def cmd_review(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     ok = lt.review_log(args.id, args.user, args.action, note=args.note or "", cosign=args.cosign)
     print("recorded" if ok else "not found")
 
 
 def cmd_list(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     if args.global_view:
         entries = lt.list_global()
     elif args.treasury:
@@ -41,6 +44,8 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 
 def cmd_export(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     entry = lt.export_log(args.id)
     if entry:
         print(json.dumps(entry, indent=2))
@@ -49,15 +54,21 @@ def cmd_export(args: argparse.Namespace) -> None:
 
 
 def cmd_sync(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     imported = tf.pull(args.url)
     print(json.dumps(imported))
 
 
 def cmd_announce(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     print(json.dumps(tf.announce_payload(), indent=2))
 
 
 def cmd_attest(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     att_id = ta.add_attestation(args.id, args.user, args.origin, note=args.note or "")
     print(att_id)
 
@@ -111,6 +122,9 @@ def main() -> None:
     attest.set_defaults(func=cmd_attest)
 
     args = ap.parse_args()
+    if not hasattr(args, "func"):
+        ap.print_help()
+        return
     print_banner()
     print("All support and federation actions are logged in the shared state ledger.")
     if hasattr(args, "func"):

@@ -13,10 +13,7 @@ tts_stub = types.ModuleType("tts_bridge")
 tts_stub.speak = lambda *args, **kwargs: None
 sys.modules.setdefault("tts_bridge", tts_stub)
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
 
 from scripts.verify_context_hygiene_prompt_boundaries import scan_file_for_prompt_boundary_violations
 from sentientos.context_hygiene.prompt_materialization_policy import (

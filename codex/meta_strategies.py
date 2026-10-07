@@ -68,7 +68,6 @@ class MetaStrategyStorage:
 
     def __init__(self, root: Path | str) -> None:
         self._root = Path(root)
-        self._root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
 
     def _path_for(self, pattern: str) -> Path:
@@ -79,6 +78,7 @@ class MetaStrategyStorage:
         payload = json.dumps(strategy.to_dict(), indent=2, sort_keys=True)
         path = self._path_for(strategy.pattern)
         with self._lock:
+            self._root.mkdir(parents=True, exist_ok=True)
             path.write_text(payload, encoding="utf-8")
         return path
 

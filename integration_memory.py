@@ -209,12 +209,18 @@ class IntegrationMemory:
         self.locks_path = self.root / "locks.json"
         self._state = _StateIndex()
         self._locked: set[str] = set()
-        self._ensure_root()
-        self._load_locks()
-        self._reload_state()
+        self._loaded = False
 
     def _ensure_root(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
+
+    def _ensure_loaded(self) -> None:
+        """Hydrate existing custody on first explicit use without creating it."""
+        if self._loaded:
+            return
+        self._loaded = True
+        self._load_locks()
+        self._reload_state()
 
     def _load_locks(self) -> None:
         if self.locks_path.exists():
@@ -227,6 +233,7 @@ class IntegrationMemory:
             self._locked = set()
 
     def _save_locks(self) -> None:
+        self._ensure_root()
         self.locks_path.write_text(json.dumps(sorted(self._locked)), encoding="utf-8")
 
     def _reload_state(self) -> None:
@@ -240,9 +247,9 @@ class IntegrationMemory:
             self.ledger_path = self.root / "ledger.jsonl"
             self.state_path = self.root / "state_vectors.json"
             self.locks_path = self.root / "locks.json"
-            self._ensure_root()
-            self._load_locks()
+            self._loaded = False
             self._reload_state()
+            self._loaded = True
 
     # Public API ---------------------------------------------------------
     def record_event(
@@ -266,6 +273,7 @@ class IntegrationMemory:
         )
         line = json.dumps(entry.to_dict(), sort_keys=True)
         with self._lock:
+            self._ensure_loaded()
             self._ensure_root()
             with self.ledger_path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
@@ -274,6 +282,7 @@ class IntegrationMemory:
         return entry
 
     def load_events(self, limit: int | None = 50) -> list[IntegrationEntry]:
+        self._ensure_loaded()
         if not self.ledger_path.exists():
             return []
         entries: list[IntegrationEntry] = []
@@ -302,21 +311,26 @@ class IntegrationMemory:
         return entries
 
     def state_vector(self, source: str | None = None) -> dict[str, Any]:
+        self._ensure_loaded()
         return self._state.snapshot(source)
 
     def project_state(self, source: str, event_type: str | None = None) -> dict[str, Any]:
+        self._ensure_loaded()
         return self._state.projection(source, event_type)
 
     def locked_entries(self) -> set[str]:
+        self._ensure_loaded()
         return set(self._locked)
 
     def lock_entry(self, entry_id: str) -> None:
         with self._lock:
+            self._ensure_loaded()
             self._locked.add(entry_id)
             self._save_locks()
 
     def unlock_entry(self, entry_id: str) -> None:
         with self._lock:
+            self._ensure_loaded()
             self._locked.discard(entry_id)
             self._save_locks()
 
@@ -390,6 +404,7 @@ class IntegrationMemory:
             }
         except Exception:  # pragma: no cover - defensive to keep persistence resilient
             pass
+        self._ensure_root()
         self.state_path.write_text(json.dumps(snapshot, sort_keys=True, indent=2), encoding="utf-8")
 
 

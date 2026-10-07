@@ -23,10 +23,15 @@ def get_data_root() -> Path:
     when first requested.
     """
 
-    candidate = os.environ.get(_DATA_ROOT_ENV)
-    base = Path(candidate) if candidate else Path.cwd() / "sentientos_data"
+    base = resolve_data_root()
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def resolve_data_root() -> Path:
+    """Resolve the runtime data path without materializing its custody."""
+    candidate = os.environ.get(_DATA_ROOT_ENV)
+    return Path(candidate) if candidate else Path.cwd() / "sentientos_data"
 
 
 def ensure_mounts() -> Dict[str, Path]:

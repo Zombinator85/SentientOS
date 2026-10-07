@@ -8,8 +8,6 @@ Usage:
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 from scripts.auto_approve import prompt_yes_no
 import argparse
 import json
@@ -66,6 +64,11 @@ def main() -> None:
     recap.add_argument("--limit", type=int, default=20)
 
     args = parser.parse_args()
+    if args.cmd is None:
+        parser.print_help()
+        return
+    require_admin_banner()
+    require_lumos_approval()
 
     reset_ritual_state()
     print_banner()

@@ -2,8 +2,6 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
 
 """Streamlit-based control panel with Tkinter fallback."""
 
@@ -280,6 +278,8 @@ def run_tkinter() -> None:  # pragma: no cover - interactive fallback
 
 
 def main() -> None:  # pragma: no cover - manual
+    require_admin_banner()
+    require_lumos_approval()
     if st is not None:
         run_streamlit()
     else:

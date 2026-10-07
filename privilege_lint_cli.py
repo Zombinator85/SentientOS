@@ -1,8 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import ast
 import argparse
 import datetime
@@ -532,6 +530,8 @@ def run_lint(
 
 
 def main(argv: list[str] | None = None) -> int:
+    require_admin_banner()
+    require_lumos_approval()
     ap = argparse.ArgumentParser(description="Privilege banner linter")
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
     ap.add_argument("--fix", action="store_true", help="Rewrite files in place")

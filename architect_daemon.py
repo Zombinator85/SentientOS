@@ -12,7 +12,7 @@ import re
 import subprocess
 from collections import deque
 from pathlib import Path
-from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence, TypedDict
+from typing import Any, Callable, Deque, Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import random
 from uuid import uuid4
@@ -21,12 +21,28 @@ import yaml  # type: ignore[import-untyped]
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
-
-from daemon import codex_daemon
-from log_utils import append_json
 from sentientos.daemons import pulse_bus
+
+
+class _CodexDaemonFacade:
+    """Delay the stateful Codex runtime import until an authorized operation."""
+
+    @staticmethod
+    def load_ethics() -> str:
+        from daemon import codex_daemon as runtime_codex_daemon
+
+        return runtime_codex_daemon.load_ethics()
+
+
+codex_daemon = _CodexDaemonFacade()
+
+
+def append_json(path: Path, payload: dict[str, Any]) -> None:
+    """Load the stateful logging helper only after an authorized ledger call."""
+
+    from log_utils import append_json as append_runtime_json
+
+    append_runtime_json(path, payload)
 
 
 ARCHITECT_INTERVAL = float(os.getenv("ARCHITECT_INTERVAL", str(6 * 60 * 60)))
@@ -350,13 +366,9 @@ class ArchitectDaemon:
         )
         self._rng = rng or random.Random()
 
-        self.request_dir.mkdir(parents=True, exist_ok=True)
-        self.session_file.parent.mkdir(parents=True, exist_ok=True)
-        self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
         self._reflection_dir = (
             Path(reflection_dir) if reflection_dir else ARCHITECT_REFLECTION_DIR
         )
-        self._reflection_dir.mkdir(parents=True, exist_ok=True)
 
         self._priority_path = (
             Path(priority_path)
@@ -365,9 +377,7 @@ class ArchitectDaemon:
         )
         if not self._priority_path.is_absolute():
             self._priority_path = self._reflection_dir / self._priority_path
-        self._priority_path.parent.mkdir(parents=True, exist_ok=True)
         self._peer_backlog_dir = self._reflection_dir / "peer_backlogs"
-        self._peer_backlog_dir.mkdir(parents=True, exist_ok=True)
         (
             self._priority_active,
             self._priority_history,
@@ -376,6 +386,7 @@ class ArchitectDaemon:
             federated_entries,
             conflict_entries,
         ) = self._load_priority_backlog()
+        self._priority_backlog_needs_save = priority_dirty
         self._priority_index = {
             entry["id"]: entry for entry in self._priority_active if "id" in entry
         }
@@ -389,18 +400,12 @@ class ArchitectDaemon:
         self._hydrate_federated_state(federated_entries)
         self._hydrate_conflicts(conflict_entries)
         self._local_pending_snapshot = self._pending_snapshot()
-        if priority_dirty:
-            self._save_priority_backlog(share=False)
-
         self._conflict_resolution_dir = self._reflection_dir / "resolutions"
-        self._conflict_resolution_dir.mkdir(parents=True, exist_ok=True)
 
         self._cycle_dir = Path(cycle_dir) if cycle_dir else ARCHITECT_CYCLE_DIR
-        self._cycle_dir.mkdir(parents=True, exist_ok=True)
         self._trajectory_dir = (
             Path(trajectory_dir) if trajectory_dir else ARCHITECT_TRAJECTORY_DIR
         )
-        self._trajectory_dir.mkdir(parents=True, exist_ok=True)
         interval_value = (
             trajectory_interval
             if trajectory_interval is not None
@@ -472,6 +477,9 @@ class ArchitectDaemon:
     # ------------------------------------------------------------------
     # Lifecycle hooks
     def start(self) -> None:
+        self._ensure_storage_directories()
+        if self._priority_backlog_needs_save:
+            self._save_priority_backlog(share=False)
         self._subscriptions_enabled = True
         self._ensure_activation_subscription()
         if self.completion_path.exists():
@@ -479,6 +487,8 @@ class ArchitectDaemon:
             self._activate(reason="startup")
 
     def stop(self) -> None:
+        if self._subscription or self._activation_subscription:
+            self._authorize_effect()
         self._subscriptions_enabled = False
         if self._subscription and self._subscription.active:
             self._subscription.unsubscribe()
@@ -500,6 +510,7 @@ class ArchitectDaemon:
             return
         if self._activation_subscription and self._activation_subscription.active:
             return
+        self._authorize_effect()
         self._activation_subscription = pulse_bus.subscribe(self._handle_activation_pulse)
 
     def _ensure_event_subscription(self) -> None:
@@ -507,7 +518,38 @@ class ArchitectDaemon:
             return
         if self._subscription and self._subscription.active:
             return
+        self._authorize_effect()
         self._subscription = pulse_bus.subscribe(self.handle_pulse)
+
+    def _authorize_effect(self) -> None:
+        """Authorize a protected Architect operation at its effect boundary."""
+
+        require_admin_banner()
+        require_lumos_approval()
+
+    def _ensure_storage_directories(self) -> None:
+        self._authorize_effect()
+        for directory in (
+            self.request_dir,
+            self.session_file.parent,
+            self.ledger_path.parent,
+            self._reflection_dir,
+            self._priority_path.parent,
+            self._peer_backlog_dir,
+            self._conflict_resolution_dir,
+            self._cycle_dir,
+            self._trajectory_dir,
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+
+    def _write_text(self, path: Path, content: str) -> None:
+        self._authorize_effect()
+        self._write_text_after_authorization(path, content)
+
+    @staticmethod
+    def _write_text_after_authorization(path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
 
     def _handle_activation_pulse(self, event: Mapping[str, object]) -> None:
         event_type = event.get("event_type")
@@ -752,9 +794,7 @@ class ArchitectDaemon:
         )
         self._session["trajectory_overrides"] = dict(self._steering_overrides)
         self._session["low_confidence_priorities"] = sorted(self._low_confidence_priorities)
-        self.session_file.write_text(
-            json.dumps(self._session, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        self._write_text(self.session_file, json.dumps(self._session, indent=2, sort_keys=True))
 
     # ------------------------------------------------------------------
     # Priority backlog management
@@ -926,10 +966,12 @@ class ArchitectDaemon:
         federated_payload = self._serialize_federated_entries()
         payload["federated"] = federated_payload
         payload["conflicts"] = self._serialize_conflicts()
+        self._authorize_effect()
         try:
-            self._priority_path.write_text(
-                json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+            self._write_text_after_authorization(
+                self._priority_path, json.dumps(payload, indent=2, sort_keys=True)
             )
+            self._priority_backlog_needs_save = False
         except Exception:
             pass
 
@@ -1768,6 +1810,7 @@ class ArchitectDaemon:
         self._save_priority_backlog(share=False)
 
     def _build_conflict_prompt(self, conflict: Mapping[str, object]) -> str:
+        self._authorize_effect()
         ethics = codex_daemon.load_ethics()
         lines = [
             "You are assisting with SentientOS federated backlog reconciliation.",
@@ -1802,6 +1845,7 @@ class ArchitectDaemon:
         return "\n".join(lines)
 
     def _execute_codex_prompt(self, prompt: str) -> tuple[str, str | None]:
+        self._authorize_effect()
         try:
             proc = subprocess.run(
                 ["codex", "exec", prompt],
@@ -1887,7 +1931,7 @@ class ArchitectDaemon:
             "prompt": prompt,
             "raw_output": output,
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._write_text(path, json.dumps(payload, indent=2, sort_keys=True))
         suggestion_record["path"] = path.as_posix()
         return suggestion_record
 
@@ -2187,7 +2231,7 @@ class ArchitectDaemon:
         payload["latest_pending"] = update_entry["pending"]
         payload["last_received_at"] = update_entry["received_at"]
         payload["signature_verified"] = bool(verified)
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._write_text(path, json.dumps(payload, indent=2, sort_keys=True))
         return path
 
     def _emit_backlog_received(
@@ -2899,7 +2943,7 @@ class ArchitectDaemon:
         while path.exists():
             counter += 1
             path = self._cycle_dir / f"cycle_{timestamp}_{counter}.json"
-        path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        self._write_text(path, json.dumps(summary, indent=2, sort_keys=True))
         return path
 
     def _timestamp_for_cycle_filename(self, ended_at: str) -> str:
@@ -3268,7 +3312,7 @@ class ArchitectDaemon:
         while path.exists():
             counter += 1
             path = self._trajectory_dir / f"trajectory_{timestamp}_{counter}.json"
-        path.write_text(json.dumps(dict(report), indent=2, sort_keys=True), encoding="utf-8")
+        self._write_text(path, json.dumps(dict(report), indent=2, sort_keys=True))
         return path
 
     def _handle_trajectory_success(
@@ -4400,14 +4444,13 @@ class ArchitectDaemon:
     def _write_prompt(self, request: ArchitectRequest) -> None:
         stem = self._prompt_stem(request)
         target_dir = self._reflection_dir if request.mode == "reflect" else self.request_dir
-        target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / f"{stem}.txt"
         counter = 0
         while path.exists():
             counter += 1
             path = target_dir / f"{stem}_{counter}.txt"
         prompt = self._build_prompt(request)
-        path.write_text(prompt, encoding="utf-8")
+        self._write_text(path, prompt)
         metadata = request.metadata()
         prompt_path = path.as_posix().lstrip("/")
         metadata["prompt_path"] = prompt_path
@@ -4418,9 +4461,7 @@ class ArchitectDaemon:
             metadata["cycle_type"] = request.cycle_type
         if request.mode == "reflect":
             metadata["cycle_history"] = request.details.get("cycle_history", [])
-        path.with_suffix(".json").write_text(
-            json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        self._write_text(path.with_suffix(".json"), json.dumps(metadata, indent=2, sort_keys=True))
         prefix = self._prefix_from_stem(path.stem)
         request.codex_prefix = prefix
         request.prompt_path = path
@@ -4429,6 +4470,7 @@ class ArchitectDaemon:
             self._last_reflection_path = prompt_path
 
     def _build_prompt(self, request: ArchitectRequest) -> str:
+        self._authorize_effect()
         ethics = codex_daemon.load_ethics()
         lines = [
             "You are the ArchitectDaemon for SentientOS.",
@@ -4745,7 +4787,7 @@ class ArchitectDaemon:
             },
             "generated_at": self._now().isoformat(),
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._write_text(path, json.dumps(payload, indent=2, sort_keys=True))
         return path
 
     def _parse_reflection_output(
@@ -5039,9 +5081,11 @@ class ArchitectDaemon:
         return False
 
     def _run_git(self, command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        self._authorize_effect()
         return subprocess.run(list(command), capture_output=True, text=True)
 
     def _run_command(self, command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        self._authorize_effect()
         return subprocess.run(list(command), capture_output=True, text=True)
 
     # ------------------------------------------------------------------
@@ -5110,6 +5154,7 @@ class ArchitectDaemon:
     # ------------------------------------------------------------------
     # Ledger & pulse helpers
     def _emit_ledger_event(self, event: Mapping[str, object]) -> None:
+        self._authorize_effect()
         payload = dict(event)
         payload.setdefault("ts", self._now().strftime("%Y-%m-%d %H:%M:%S"))
         payload.setdefault("source", "ArchitectDaemon")
@@ -5124,6 +5169,7 @@ class ArchitectDaemon:
                 pass
 
     def _publish_pulse(self, event: Mapping[str, object]) -> None:
+        self._authorize_effect()
         try:
             self._pulse_publisher(dict(event))
         except Exception:

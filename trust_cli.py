@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import json
 from pprint import pprint
@@ -10,6 +7,8 @@ import support_log as sl
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 def cmd_log(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     events = te.list_events(limit=args.last)
     for e in events:
         print(f"{e['timestamp']} {e['id']} {e['type']} -> {e['explanation']}")
@@ -17,6 +16,8 @@ def cmd_log(args) -> None:
 
 
 def cmd_explain(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     e = te.get_event(args.event_id)
     if not e:
         print("Event not found")
@@ -26,11 +27,15 @@ def cmd_explain(args) -> None:
 
 
 def cmd_diff(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     diff = te.diff_policy(args.policy)
     print("\n".join(diff))
 
 
 def cmd_rollback(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     res = te.rollback_policy(args.policy)
     if res:
         print(f"Rolled back to {res}")
@@ -59,6 +64,9 @@ def main() -> None:
     rb.set_defaults(func=cmd_rollback)
 
     args = ap.parse_args()
+    if not hasattr(args, "func"):
+        ap.print_help()
+        return
     print_banner()
     sl.add("trust", f"trust_cli {args.cmd}")
     if hasattr(args, "func"):

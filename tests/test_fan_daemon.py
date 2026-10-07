@@ -1,9 +1,6 @@
 """Privilege rituals have been replaced by autonomous covenant alignment."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
 
 import threading
 from queue import Queue

@@ -14,10 +14,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from logging_config import get_log_path
+from logging_config import resolve_log_path
 
 REQUIRED_FIELDS = {"timestamp", "data"}
-PUBLIC_LOG: Path = get_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
+PUBLIC_LOG: Path = resolve_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
 _MAX_BYTES = int(os.getenv("LOG_JSON_MAX_BYTES", "0"))
 
 
