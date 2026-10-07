@@ -1,14 +1,11 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 from logging_config import get_log_path
 import json
 import uuid
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 from sentientos.experiments.consensus import compute_experiment_digest
 from sentientos.experiments.criteria_dsl import (
@@ -20,8 +17,6 @@ from sentientos.experiments.criteria_dsl import (
 
 DATA_FILE = get_log_path("experiments.json", "EXPERIMENTS_FILE")
 AUDIT_FILE = get_log_path("experiment_audit.jsonl", "EXPERIMENT_AUDIT_FILE")
-DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _now() -> str:
@@ -38,10 +33,16 @@ def _load() -> List[Dict[str, Any]]:
 
 
 def _save(data: List[Dict[str, Any]]) -> None:
+    require_admin_banner()
+    require_lumos_approval()
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     DATA_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _audit(action: str, exp_id: str, **meta: Any) -> None:
+    require_admin_banner()
+    require_lumos_approval()
+    AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
     entry = {"timestamp": _now(), "action": action, "experiment": exp_id, **meta}
     with AUDIT_FILE.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")

@@ -58,6 +58,30 @@ def _ensure_provisioned_environment() -> None:
 
 _ensure_provisioned_environment()
 
+
+@pytest.fixture(autouse=True)
+def _authorize_architect_unit_effects(request, monkeypatch):
+    """Keep legacy Architect unit scenarios local while boundary tests use real guards."""
+    module_name = request.module.__name__.rsplit(".", 1)[-1]
+    if module_name.startswith("test_architect_") and module_name != "test_architect_import_boundaries":
+        import architect_daemon
+        tmp_path = request.getfixturevalue("tmp_path")
+
+        monkeypatch.setattr(architect_daemon, "require_admin_banner", lambda: None)
+        monkeypatch.setattr(architect_daemon, "require_lumos_approval", lambda: None)
+        for name, child in (
+            ("ARCHITECT_REQUEST_DIR", "requests"),
+            ("ARCHITECT_SESSION_FILE", "session.json"),
+            ("ARCHITECT_LEDGER_PATH", "ledger.jsonl"),
+            ("ARCHITECT_CONFIG_PATH", "config.yaml"),
+            ("ARCHITECT_COMPLETION_PATH", "boot-complete"),
+            ("ARCHITECT_REFLECTION_DIR", "reflections"),
+            ("ARCHITECT_PRIORITY_BACKLOG_PATH", "reflections/priorities.json"),
+            ("ARCHITECT_CYCLE_DIR", "cycles"),
+            ("ARCHITECT_TRAJECTORY_DIR", "trajectories"),
+        ):
+            monkeypatch.setattr(architect_daemon, name, tmp_path / child)
+
 if not _module_available("yaml"):
     yaml_stub = types.ModuleType("yaml")
 
@@ -157,6 +181,8 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     monitoring_dir.mkdir(parents=True, exist_ok=True)
     pulse_runtime_dir = tmp_path / "glow" / "pulse"
     pulse_runtime_dir.mkdir(parents=True, exist_ok=True)
+    pulse_trust_dir = tmp_path / "glow" / "pulse_trust"
+    pulse_trust_dir.mkdir(parents=True, exist_ok=True)
     federation_runtime_dir = tmp_path / "glow" / "federation"
     federation_runtime_dir.mkdir(parents=True, exist_ok=True)
 
@@ -170,6 +196,8 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("PULSE_SIGNING_KEY", str(private_key))
     monkeypatch.setenv("PULSE_VERIFY_KEY", str(public_key))
     monkeypatch.setenv("PULSE_RUNTIME_ROOT", str(pulse_runtime_dir))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(pulse_trust_dir))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(pulse_trust_dir / "epoch_state.json"))
     monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(federation_runtime_dir))
     monkeypatch.delenv("MONITORING_METRICS_PATH", raising=False)
 

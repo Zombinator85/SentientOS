@@ -1,26 +1,13 @@
 #!/usr/bin/env python3
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 
 import argparse
 import re
 from pathlib import Path
 
-ASCII_LINES = {
-    line.strip() for line in Path("BANNER_ASCII.txt").read_text(encoding="utf-8").splitlines()
-}
-
 HEADER_LINES = [
-    '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""',
     "from __future__ import annotations",
-    "from sentientos.privilege import require_admin_banner, require_lumos_approval",
-    "",
-    "require_admin_banner()",
-    "require_lumos_approval()",
 ]
 
 ENCODING_RE = re.compile(r"#.*coding[:=]")
@@ -36,6 +23,10 @@ REMOVE_PATTERNS = [
 
 
 def process_file(path: Path) -> None:
+    ascii_lines = {
+        line.strip()
+        for line in Path("BANNER_ASCII.txt").read_text(encoding="utf-8").splitlines()
+    }
     text = path.read_text(encoding="utf-8").splitlines()
     idx = 0
     shebang = ""
@@ -51,7 +42,7 @@ def process_file(path: Path) -> None:
     body: list[str] = []
     for line in lines:
         stripped = line.strip()
-        if stripped in ASCII_LINES:
+        if stripped in ascii_lines:
             continue
         if any(p.search(stripped) for p in REMOVE_PATTERNS):
             continue
@@ -65,6 +56,8 @@ def process_file(path: Path) -> None:
     new_lines.extend(HEADER_LINES)
     new_lines.extend(body)
 
+    require_admin_banner()
+    require_lumos_approval()
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 

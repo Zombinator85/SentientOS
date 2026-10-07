@@ -1,9 +1,6 @@
 """Privilege checks for immutable audit flows."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_covenant_alignment
 
-require_admin_banner()
-require_covenant_alignment()
 
 import json
 import threading

@@ -1,5 +1,3 @@
-require_admin_banner()
-require_lumos_approval()
 
 import asyncio
 from pathlib import Path

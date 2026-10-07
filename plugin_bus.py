@@ -9,11 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
-
 from gui_stub import CathedralGUI
 
 

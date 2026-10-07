@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import os
 import sys
@@ -56,6 +53,11 @@ def main() -> None:
     sub.add_parser("dismiss").add_argument("id")
 
     args = parser.parse_args()
+    if args.cmd is None:
+        parser.print_help()
+        return
+    require_admin_banner()
+    require_lumos_approval()
     from sentient_banner import reset_ritual_state, print_snapshot_banner
 
     reset_ritual_state()

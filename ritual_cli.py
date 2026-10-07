@@ -1,20 +1,21 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import json
 import os
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from sentientos.ritual_api import add_attestation, ritual_attestations_history, ritual_events_history
 def cmd_attest(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     user = args.user or os.getenv("USER", "anon")
     add_attestation(args.event, user, comment=args.comment or "", quote=args.quote or "")
     print("Attestation recorded")
 
 
 def cmd_export(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     user = args.user
     events = ritual_events_history(user if user != "all" else None, limit=100000)
     attest = ritual_attestations_history(None, limit=100000)
@@ -23,6 +24,8 @@ def cmd_export(args) -> None:
 
 
 def cmd_timeline(args) -> None:
+    require_admin_banner()
+    require_lumos_approval()
     events = ritual_events_history(args.user if args.user else None, limit=1000)
     for e in events:
         print(f"{e.get('time')} {e.get('event')} by {e.get('user')}")
@@ -52,6 +55,9 @@ def main() -> None:
     tl.set_defaults(func=cmd_timeline)
 
     args = ap.parse_args()
+    if not hasattr(args, "func"):
+        ap.print_help()
+        return
     print_banner()
     if hasattr(args, "func"):
         args.func(args)

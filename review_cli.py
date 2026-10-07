@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 from pathlib import Path
 from story_studio import load_storyboard, save_storyboard
@@ -11,6 +8,8 @@ import notification
 import re
 def annotate(path: Path, chapter: int, text: str) -> None:
     """Add an annotation to a storyboard chapter and send mention notifications."""
+    require_admin_banner()
+    require_lumos_approval()
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch.setdefault("annotations", []).append(text)
@@ -22,6 +21,8 @@ def annotate(path: Path, chapter: int, text: str) -> None:
 
 def suggest_edit(path: Path, chapter: int, text: str) -> None:
     """Append an edit suggestion for the given chapter."""
+    require_admin_banner()
+    require_lumos_approval()
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch.setdefault("suggestions", []).append(text)
@@ -30,6 +31,8 @@ def suggest_edit(path: Path, chapter: int, text: str) -> None:
 
 def resolve_comment(path: Path, chapter: int, index: int) -> None:
     """Remove an annotation by index from a chapter."""
+    require_admin_banner()
+    require_lumos_approval()
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ann = ch.get("annotations", [])
@@ -39,6 +42,8 @@ def resolve_comment(path: Path, chapter: int, index: int) -> None:
 
 def set_status(path: Path, chapter: int, status: str) -> None:
     """Set an explicit status on a storyboard chapter."""
+    require_admin_banner()
+    require_lumos_approval()
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch["status"] = status
@@ -64,10 +69,14 @@ def main() -> None:
     print_banner()
 
     if args.whoami:
+        require_admin_banner()
+        require_lumos_approval()
         prof = up.load_profile()
         print(f"User: {prof.get('user','')} Persona: {prof.get('persona','')}")
         return
     if args.switch_persona:
+        require_admin_banner()
+        require_lumos_approval()
         up.update_profile(persona=args.switch_persona)
         print(f"Persona switched to {args.switch_persona}")
         return

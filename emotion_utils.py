@@ -1,11 +1,6 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 import os
-from typing import Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Tuple
 from collections import defaultdict
 
 from emotions import Emotion, empty_emotion_vector
@@ -19,15 +14,21 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 SOTA_MODEL = os.getenv("SOTA_EMOTION_MODEL")
-if SOTA_MODEL:
+_sota_classifier = None
+
+
+def _load_sota_classifier() -> Any | None:
+    """Load the optional model only when SOTA inference is explicitly used."""
+    global _sota_classifier
+    if _sota_classifier is not None or not SOTA_MODEL:
+        return _sota_classifier
     try:
-        import torch  # pragma: no cover - optional
         from transformers import pipeline  # optional transformers
+
         _sota_classifier = pipeline("audio-classification", model=SOTA_MODEL)
-    except Exception:  # pragma: no cover - missing deps
+    except Exception:  # pragma: no cover - optional dependency/model unavailable
         _sota_classifier = None
-else:
-    _sota_classifier = None
+    return _sota_classifier
 
 # Name of the emotion detection backend. "heuristic" uses
 # :func:`vad_and_features`, "neural" uses :func:`neural_emotions`.
@@ -116,10 +117,11 @@ def neural_emotions(path: str) -> Tuple[Emotion, Dict[str, float]]:
 
 def sota_emotions(path: str) -> Tuple[Emotion, Dict[str, float]]:
     """Use a pretrained model if available."""
-    if _sota_classifier is None or not os.path.exists(path):
+    classifier = _load_sota_classifier()
+    if classifier is None or not os.path.exists(path):
         return neural_emotions(path)
     try:  # pragma: no cover - heavy
-        result = _sota_classifier(path)[0]
+        result = classifier(path)[0]
         vec = empty_emotion_vector()
         vec[result['label']] = float(result['score'])
         return vec, {}

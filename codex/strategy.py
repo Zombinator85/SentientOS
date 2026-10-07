@@ -126,13 +126,13 @@ class _OutcomeLogger:
 
     def __init__(self, base_dir: Path) -> None:
         self._base_dir = base_dir
-        self._base_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
 
     def log(self, entry: OutcomeEntry) -> Path:
         path = self._base_dir / f"{entry.plan_id}.jsonl"
         line = json.dumps(entry.to_dict(), sort_keys=True)
         with self._lock:
+            self._base_dir.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
         return path
@@ -320,7 +320,6 @@ class StrategyStorage:
 
     def __init__(self, root: Path) -> None:
         self._root = root
-        self._root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
 
     def path_for(self, strategy_id: str) -> Path:
@@ -330,6 +329,7 @@ class StrategyStorage:
         data = json.dumps(strategy.to_dict(), indent=2, sort_keys=True)
         path = self.path_for(strategy.strategy_id)
         with self._lock:
+            self._root.mkdir(parents=True, exist_ok=True)
             path.write_text(data, encoding="utf-8")
         return path
 
@@ -358,16 +358,32 @@ class StrategyStorage:
 class StrategyAdjustmentEngine:
     """Manage adaptive strategy adjustments based on plan outcomes."""
 
-    def __init__(self, root: Path | str = Path("integration"), *, override_threshold: int = 3) -> None:
+    def __init__(
+        self,
+        root: Path | str = Path("integration"),
+        *,
+        override_threshold: int = 3,
+        _defer_load: bool = False,
+    ) -> None:
         self._root = Path(root)
         self._override_threshold = max(1, int(override_threshold))
         self._lock = threading.RLock()
+        self._initialized = False
+        self._initializing = False
+        self._reset_state()
+        if not _defer_load:
+            self._ensure_initialized()
+
+    def __getattribute__(self, name: str) -> Any:
+        if not name.startswith("_"):
+            object.__getattribute__(self, "_ensure_initialized")()
+        return object.__getattribute__(self, name)
+
+    def _reset_state(self) -> None:
         self._logger = _OutcomeLogger(self._root / "outcomes")
         self._strategy_log_path = self._root / "strategy_log.jsonl"
         self._state_path = self._root / "strategy_state.json"
         self._strategy_storage = StrategyStorage(self._root / "strategies")
-        self._meta_strategy_engine = PatternMiningEngine(self._root)
-        self._governor = MetaStrategyGovernor(self._root)
         self._weights = PriorityWeights().normalized()
         self._version = 1
         self._locked = False
@@ -376,10 +392,22 @@ class StrategyAdjustmentEngine:
         self._action_rollbacks: Counter[str] = Counter()
         self._sequence_counts: Counter[tuple[str, str]] = Counter()
         self._preferred_sequences: Dict[tuple[str, str], int] = {}
-        self._strategies: Dict[str, CodexStrategy] = self._strategy_storage.list_all()
+        self._strategies: Dict[str, CodexStrategy] = {}
         self._branch_usage: Counter[str] = Counter()
         self._strategy_ledger: StrategyLedger = StrategyLedger()
-        self._load_state()
+
+    def _ensure_initialized(self) -> None:
+        if self._initialized or self._initializing:
+            return
+        self._initializing = True
+        try:
+            self._meta_strategy_engine = PatternMiningEngine(self._root)
+            self._governor = MetaStrategyGovernor(self._root)
+            self._strategies = self._strategy_storage.list_all()
+            self._load_state()
+            self._initialized = True
+        finally:
+            self._initializing = False
 
     # ------------------------------------------------------------------
     # Public properties
@@ -640,27 +668,16 @@ class StrategyAdjustmentEngine:
     def reconfigure(self, root: Path | str) -> None:
         with self._lock:
             self._root = Path(root)
-            self._logger = _OutcomeLogger(self._root / "outcomes")
-            self._strategy_log_path = self._root / "strategy_log.jsonl"
-            self._state_path = self._root / "strategy_state.json"
-            self._strategy_storage = StrategyStorage(self._root / "strategies")
+            self._initialized = False
+            self._reset_state()
             self._meta_strategy_engine = PatternMiningEngine(self._root)
             self._governor = MetaStrategyGovernor(self._root)
-            self._version = 1
-            self._locked = False
-            self._metrics = defaultdict(float)
-            self._action_success = Counter()
-            self._action_rollbacks = Counter()
-            self._sequence_counts = Counter()
-            self._preferred_sequences = {}
             self._strategies = self._strategy_storage.list_all()
-            self._branch_usage = Counter()
-            self._strategy_ledger = StrategyLedger()
-            self._weights = PriorityWeights().normalized()
             self._load_state()
             for strategy in self._strategies.values():
                 self._refresh_governance(strategy, reason="reconfigure")
                 self._strategy_storage.save(strategy)
+            self._initialized = True
 
     # ------------------------------------------------------------------
     def record_outcome(
@@ -959,10 +976,9 @@ class StrategyAdjustmentEngine:
         return None
 
 
-strategy_engine = StrategyAdjustmentEngine()
+strategy_engine = StrategyAdjustmentEngine(_defer_load=True)
 
 
 def configure_strategy_root(path: Path | str) -> StrategyAdjustmentEngine:
     strategy_engine.reconfigure(path)
     return strategy_engine
-

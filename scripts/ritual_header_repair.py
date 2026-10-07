@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 
 
 import re
@@ -13,12 +9,6 @@ from pathlib import Path
 
 HEADER_LINES = [
     "from __future__ import annotations",
-    "",
-    '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""',
-    "from sentientos.privilege import require_admin_banner, require_lumos_approval",
-    "",
-    "require_admin_banner()",
-    "require_lumos_approval()",
     "",
 ]
 
@@ -55,6 +45,8 @@ def fix_file(path: Path) -> None:
         new_lines.append(shebang)
     new_lines.extend(HEADER_LINES)
     new_lines.extend(filtered)
+    require_admin_banner()
+    require_lumos_approval()
     path.write_text("\n".join(new_lines) + "\n")
 
 

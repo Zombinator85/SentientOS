@@ -71,6 +71,7 @@ def _build_daemon(
     completion_path.write_text("completed\n", encoding="utf-8")
 
     cycle_dir = tmp_path / "cycles"
+    cycle_dir.mkdir(parents=True, exist_ok=True)
     reflection_dir = tmp_path / "reflections"
     trajectory_dir = tmp_path / "trajectories"
     request_dir = tmp_path / "requests"

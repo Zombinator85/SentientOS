@@ -1,9 +1,6 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
-from logging_config import get_log_path
+from logging_config import resolve_log_path
 import argparse
 import json
 import os
@@ -16,11 +13,13 @@ A presence affirmation is stored with a blessing message.
 """
 
 
-LOG_PATH = get_log_path("avatar_presence.jsonl", "AVATAR_PRESENCE_LOG")
-LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+LOG_PATH = resolve_log_path("avatar_presence.jsonl", "AVATAR_PRESENCE_LOG")
 
 
 def log_invocation(path: str, reason: str, mode: str = "visual") -> dict:
+    require_admin_banner()
+    require_lumos_approval()
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "avatar": path,

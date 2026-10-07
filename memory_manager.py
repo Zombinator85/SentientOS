@@ -7,10 +7,12 @@ import json
 import logging
 import math
 import os
+from contextvars import ContextVar
 from datetime import timezone
+from functools import wraps
 from pathlib import Path
 from threading import RLock
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, ParamSpec, Sequence, TypeVar, Union
 
 from tools.storage_policy import (
     StoragePolicyConfig as StoragePolicy,
@@ -18,16 +20,7 @@ from tools.storage_policy import (
     stash_highlight,
 )
 
-from dotenv import load_dotenv
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-load_dotenv()
-
-require_admin_banner()
-if not (os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1"):
-    require_lumos_approval()
-else:
-    print("[Lumos] Blessing auto-approved (headless mode).")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,19 +54,52 @@ GLOW_DIR = MEMORY_DIR / "glow"
 DIGEST_DIR = GLOW_DIR / "digests"
 HIGHLIGHT_DIR = GLOW_DIR / "highlights"
 
-RAW_PATH.mkdir(parents=True, exist_ok=True)
-DAY_PATH.mkdir(parents=True, exist_ok=True)
-TOPIC_PATH.mkdir(parents=True, exist_ok=True)
-TURN_PATH.mkdir(parents=True, exist_ok=True)
-SESSION_PATH.mkdir(parents=True, exist_ok=True)
-TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
-OBSERVATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-CURIOSITY_REFLECTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
-TRANSCRIPT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-SCREEN_DIGEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-GLOW_DIR.mkdir(parents=True, exist_ok=True)
-DIGEST_DIR.mkdir(parents=True, exist_ok=True)
-HIGHLIGHT_DIR.mkdir(parents=True, exist_ok=True)
+
+_HEADLESS_APPROVAL_REPORTED = False
+_LEGACY_OPERATION_STATE: ContextVar[tuple[int, bool]] = ContextVar(
+    "legacy_memory_operation_state", default=(0, False)
+)
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _legacy_mutation_operation(function: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Share one successful authorization across nested writes in one public operation."""
+    @wraps(function)
+    def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        depth, authorized = _LEGACY_OPERATION_STATE.get()
+        token = _LEGACY_OPERATION_STATE.set((depth + 1, authorized if depth else False))
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _LEGACY_OPERATION_STATE.reset(token)
+
+    return wrapped
+
+
+def _authorize_legacy_mutation() -> None:
+    """Retain the legacy Administrator/Lumos boundary for each memory effect."""
+    global _HEADLESS_APPROVAL_REPORTED
+    depth, authorized = _LEGACY_OPERATION_STATE.get()
+    if depth and authorized:
+        return
+    require_admin_banner()
+    if os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1":
+        if depth:
+            _LEGACY_OPERATION_STATE.set((depth, True))
+        if not _HEADLESS_APPROVAL_REPORTED:
+            print("[Lumos] Blessing auto-approved (headless mode).")
+            _HEADLESS_APPROVAL_REPORTED = True
+        return
+    require_lumos_approval()
+    if depth:
+        _LEGACY_OPERATION_STATE.set((depth, True))
+
+
+def _prepare_write(path: Path) -> None:
+    """Authorize and create only the parent custody needed by this write."""
+    _authorize_legacy_mutation()
+    path.parent.mkdir(parents=True, exist_ok=True)
 
 # Registered callbacks invoked whenever a new reflection is stored.
 ReflectionListener = Callable[[dict], None]
@@ -129,6 +155,7 @@ def _load_fragment(fragment_id: str) -> dict | None:
 
 def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
+    _prepare_write(path)
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
@@ -172,6 +199,7 @@ def _load_index_records() -> list[dict]:
 
 
 def _save_index_records(records: Sequence[dict]) -> None:
+    _prepare_write(VECTOR_INDEX_PATH)
     with _INDEX_LOCK:
         with open(VECTOR_INDEX_PATH, "w", encoding="utf-8") as f:
             for record in records:
@@ -192,6 +220,7 @@ def _append_tomb(entry: Dict) -> None:
             json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ).hexdigest()
         entry["hash"] = digest
+    _prepare_write(TOMB_PATH)
     with open(TOMB_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -267,6 +296,7 @@ def _parse_ts(value: str | None) -> datetime.datetime:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
+@_legacy_mutation_operation
 def append_memory(
     text: str,
     tags: List[str] | None = None,
@@ -397,17 +427,20 @@ def _load_observation_records() -> List[Dict[str, Any]]:
 
 
 def _write_observation_record(record: Mapping[str, Any]) -> None:
+    _prepare_write(OBSERVATION_LOG_PATH)
     with open(OBSERVATION_LOG_PATH, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
+    _prepare_write(OBSERVATION_LOG_PATH)
     with open(OBSERVATION_LOG_PATH, "w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
+    _prepare_write(path)
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
@@ -424,6 +457,7 @@ def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
+@_legacy_mutation_operation
 def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
     """Persist a perception observation summary with novelty scoring."""
 
@@ -464,6 +498,7 @@ def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
     return record
 
 
+@_legacy_mutation_operation
 def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
     """Persist a raw multimodal observation from ASR or screen OCR."""
 
@@ -479,12 +514,14 @@ def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
         text = str(payload.get("text", "")).strip()
         if text:
             policy = StoragePolicy(digest_dir=DIGEST_DIR, highlight_dir=HIGHLIGHT_DIR)
+            _authorize_legacy_mutation()
             rotate_text_digests(policy, [text])
         snapshot = payload.get("highlight_image")
         if isinstance(snapshot, (bytes, bytearray)):
             policy = StoragePolicy(digest_dir=DIGEST_DIR, highlight_dir=HIGHLIGHT_DIR)
             timestamp_value = str(payload.get("timestamp"))
             name = f"highlight-{_hash(timestamp_value)}.png"
+            _authorize_legacy_mutation()
             stash_highlight(policy, name, bytes(snapshot))
     else:
         _append_jsonl(OBSERVATION_LOG_PATH, payload)
@@ -539,6 +576,7 @@ def recent_observations(
     return sanitized
 
 
+@_legacy_mutation_operation
 def update_novelty_score(observation_id: str, delta: float) -> bool:
     """Adjust the novelty score for an observation by ``delta``."""
 
@@ -563,6 +601,7 @@ def update_novelty_score(observation_id: str, delta: float) -> bool:
     return updated
 
 
+@_legacy_mutation_operation
 def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     """Persist a curiosity/reflexion insight and link it to observations."""
 
@@ -576,6 +615,7 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     record.setdefault("observation_id", None)
     reflection_id = record.get("reflection_id") or _hash(summary + timestamp)
     record["reflection_id"] = reflection_id
+    _prepare_write(CURIOSITY_REFLECTIONS_PATH)
     with open(CURIOSITY_REFLECTIONS_PATH, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     fragment_id = append_memory(
@@ -754,6 +794,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
 write_mem = append_memory
 
 
+@_legacy_mutation_operation
 def purge_memory(
     max_age_days: Optional[int] = None,
     max_files: Optional[int] = None,
@@ -788,6 +829,7 @@ def purge_memory(
                     "time": datetime.datetime.utcnow().isoformat(),
                     "reason": reason,
                 })
+                _authorize_legacy_mutation()
                 fp.unlink(missing_ok=True)
                 _remove_from_index(data.get("id", ""))
                 removed += 1
@@ -801,6 +843,7 @@ def purge_memory(
                 "time": datetime.datetime.utcnow().isoformat(),
                 "reason": reason,
             })
+            _authorize_legacy_mutation()
             fp.unlink(missing_ok=True)
             _remove_from_index(data.get("id", ""))
             removed += 1
@@ -823,6 +866,7 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
         if not tag:
             continue
         out = TOPIC_PATH / f"{tag}.md"
+        _prepare_write(out)
         with open(out, "w", encoding="utf-8") as f:
             f.write(f"# {tag} memory capsule\n\n")
             for line in lines[-200:]:  # keep recent history manageable
@@ -864,7 +908,7 @@ def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
 
     common_tags = ", ".join(tag for tag, _ in tags.most_common(6)) or "(none)"
     out = SESSION_PATH / f"{session_id}.md"
-    out.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_write(out)
     with open(out, "w", encoding="utf-8") as handle:
         handle.write(f"# Session {session_id}\n\n")
         handle.write(f"* timeframe: {start} → {end}\n")
@@ -898,12 +942,13 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
                 }
             )
         out = TURN_PATH / f"{session_id}.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
+        _prepare_write(out)
         out.write_text(json.dumps(turns, ensure_ascii=False, indent=2))
         _write_session_digest(session_id, session_entries)
         print(f"[SUMMARY] Turn capsule updated → {out}")
 
 
+@_legacy_mutation_operation
 def summarize_memory() -> None:
     """Concatenate daily fragments into summary files and topic capsules."""
 
@@ -924,6 +969,7 @@ def summarize_memory() -> None:
 
     for day, lines in summaries.items():
         out = DAY_PATH / f"{day}.txt"
+        _prepare_write(out)
         with open(out, "a", encoding="utf-8") as f:
             for line in lines:
                 f.write(line + "\n")
@@ -933,6 +979,7 @@ def summarize_memory() -> None:
     _write_turn_summaries(entries)
 
 
+@_legacy_mutation_operation
 def apply_forgetting_curve(
     *, requestor: str = "curator", reason: str = "forgetting_curve"
 ) -> int:
@@ -971,6 +1018,7 @@ def apply_forgetting_curve(
                     "reason": reason,
                 }
             )
+            _authorize_legacy_mutation()
             _fragment_path(fragment_id).unlink(missing_ok=True)
             removed += 1
         else:
@@ -984,6 +1032,7 @@ def apply_forgetting_curve(
     if kept_records:
         _save_index_records(kept_records)
     elif VECTOR_INDEX_PATH.exists():
+        _authorize_legacy_mutation()
         VECTOR_INDEX_PATH.unlink()
 
     if removed:
@@ -991,6 +1040,7 @@ def apply_forgetting_curve(
     return removed
 
 
+@_legacy_mutation_operation
 def curate_memory() -> dict[str, Any]:
     """Run summarisation and forgetting maintenance cycle."""
 
@@ -1025,6 +1075,7 @@ def _reflection_importance(status: str) -> float:
     return 0.35
 
 
+@_legacy_mutation_operation
 def save_reflection(
     *,
     parent: str,
@@ -1195,10 +1246,11 @@ def _load_goals() -> list[dict]:
 
 
 def _save_goals(goals: list[dict]) -> None:
-    GOALS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_write(GOALS_PATH)
     GOALS_PATH.write_text(json.dumps(goals, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+@_legacy_mutation_operation
 def add_goal(
     text: str,
     *,
@@ -1230,6 +1282,7 @@ def add_goal(
     return goal
 
 
+@_legacy_mutation_operation
 def save_goal(goal: dict) -> None:
     goals = _load_goals()
     for i, g in enumerate(goals):
@@ -1241,6 +1294,7 @@ def save_goal(goal: dict) -> None:
     _save_goals(goals)
 
 
+@_legacy_mutation_operation
 def delete_goal(goal_id: str) -> None:
     """Remove a goal by id."""
     goals = [g for g in _load_goals() if g.get("id") != goal_id]

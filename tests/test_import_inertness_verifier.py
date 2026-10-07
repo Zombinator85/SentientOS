@@ -12,10 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFIER = ROOT / "scripts" / "verify_import_inertness.py"
 
 
-def _run(tmp_path: Path, module_root: Path = ROOT) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+def _run(
+    tmp_path: Path,
+    module_root: Path = ROOT,
+    modules: tuple[str, ...] | None = None,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
     output = tmp_path / "result.json"
     completed = subprocess.run(
-        [sys.executable, str(VERIFIER), "--module-root", str(module_root), "--output", str(output)],
+        [
+            sys.executable, str(VERIFIER), "--module-root", str(module_root), "--output", str(output),
+            *(arg for module in (modules or ()) for arg in ("--module", module)),
+        ],
         cwd=ROOT,
         text=True,
         capture_output=True,
@@ -38,8 +45,74 @@ def test_import_verifier_reports_all_required_modules(tmp_path):
     assert completed.returncode == 0
     assert result["status"] == "import_inertness_ready"
     assert [item["module"] for item in result["module_results"]] == [
-        "sentientos", "scripts.lock", "api", "api.actuator"
+        "sentientos", "scripts.lock", "api", "api.actuator",
+        "integration_memory", "codex", "codex.integrity_daemon", "codex.strategy",
+        "memory_manager", "curiosity_goal_helper", "curiosity_executor",
+        "emotion_memory", "emotion_utils", "semantic_embeddings", "memory_governor", "node_registry",
+        "capability_ledger", "cathedral_const", "sentient_autonomy",
+        "sentientos.autonomy.curiosity_loop", "sentientos.autonomy.runtime",
     ]
+
+
+def test_import_verifier_accepts_explicit_import_inertness_inventory(tmp_path):
+    modules = (
+        "experiment_tracker",
+        "privilege_lint_cli",
+        "plugin_bus",
+        "gui_stub",
+        "emotion_pump",
+        "emotions",
+        "emotion_udp_bridge",
+        "audit_immutability",
+        "scripts.audit_immutability_verifier",
+        "scripts.verify_audits",
+        "architect_daemon",
+        "reflection_dashboard",
+        "scripts.ritual_header_repair",
+        "scripts.fix_header_subset",
+        "fix_header_subset",
+        "integration_memory",
+        "codex",
+        "codex.integrity_daemon",
+        "codex.strategy",
+        "memory_manager",
+        "curiosity_goal_helper",
+        "curiosity_executor",
+        "sentient_autonomy",
+        "sentientos.autonomy.curiosity_loop",
+        "sentientos.autonomy.runtime",
+        "emotion_memory",
+        "emotion_utils",
+        "semantic_embeddings",
+        "memory_governor",
+        "node_registry",
+        "capability_ledger",
+        "cathedral_const",
+    )
+    output = tmp_path / "inventory.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(VERIFIER),
+            "--module-root",
+            str(ROOT),
+            "--output",
+            str(output),
+            *(arg for module in modules for arg in ("--module", module)),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    result = json.loads(output.read_text(encoding="utf-8"))
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert result["status"] == "import_inertness_ready"
+    assert [item["module"] for item in result["module_results"]] == list(modules)
+    assert all(item["privilege_invoked"] == [] for item in result["module_results"])
+    assert all(item["effects_invoked"] == [] for item in result["module_results"])
+    assert all(item["environment_changes"] == {} for item in result["module_results"])
 
 
 def test_import_verifier_rejects_package_privilege_invocation(tmp_path):
@@ -47,7 +120,7 @@ def test_import_verifier_rejects_package_privilege_invocation(tmp_path):
         tmp_path,
         "from sentientos.privilege import require_admin_banner\nrequire_admin_banner()\n",
     )
-    completed, result = _run(tmp_path, root)
+    completed, result = _run(tmp_path, root, ("api", "api.actuator"))
     assert completed.returncode != 0
     assert result["status"] == "privilege_invoked"
 
@@ -58,9 +131,9 @@ def test_import_verifier_rejects_import_time_directory_creation(tmp_path):
         "",
         "import os\nfrom pathlib import Path\nPath(os.environ['SENTIENTOS_LOG_DIR']).mkdir(parents=True)\n",
     )
-    completed, result = _run(tmp_path, root)
+    completed, result = _run(tmp_path, root, ("api", "api.actuator"))
     assert completed.returncode != 0
-    assert result["status"] == "filesystem_mutated"
+    assert result["status"] == "runtime_effect_invoked"
 
 
 def test_import_verifier_rejects_external_plugin_execution(tmp_path):
@@ -69,6 +142,6 @@ def test_import_verifier_rejects_external_plugin_execution(tmp_path):
         "",
         "import os\nfrom pathlib import Path\nexec(next(Path(os.environ['ACT_PLUGINS_DIR']).glob('*.py')).read_text())\n",
     )
-    completed, result = _run(tmp_path, root)
+    completed, result = _run(tmp_path, root, ("api", "api.actuator"))
     assert completed.returncode != 0
     assert result["status"] == "plugin_executed"

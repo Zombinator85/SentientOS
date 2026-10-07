@@ -18,13 +18,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional
 
+from sentientos.storage import resolve_data_root
 from dotenv import load_dotenv
-
-from sentientos.storage import get_data_root
-
-load_dotenv()
 
 _DEFAULT_EXPIRY_SECONDS = 30.0
 _REGISTRY_DIR_NAME = "nodes"
@@ -153,7 +150,14 @@ class NodeRecord:
 class NodeRegistry:
     """Persisted registry of active SentientOS nodes."""
 
-    def __init__(self, storage_path: Path, *, expiry_seconds: float = _DEFAULT_EXPIRY_SECONDS) -> None:
+    def __init__(
+        self,
+        storage_path: Path,
+        *,
+        expiry_seconds: float = _DEFAULT_EXPIRY_SECONDS,
+        load: bool = True,
+        _resolve_default_path: bool = False,
+    ) -> None:
         self._path = storage_path
         self._expiry = expiry_seconds
         self._lock = threading.RLock()
@@ -161,13 +165,32 @@ class NodeRegistry:
         self._local_hostname: Optional[str] = None
         self._last_loaded_mtime: float = 0.0
         self._consensus_errors: Dict[str, tuple[int, float]] = {}
+        self._loaded = False
+        self._resolve_default_path = _resolve_default_path
+        if load:
+            self._ensure_loaded()
+
+    def __getattribute__(self, name: str) -> Any:
+        if not name.startswith("_"):
+            object.__getattribute__(self, "_ensure_loaded")()
+        return object.__getattribute__(self, name)
+
+    def _ensure_loaded(self) -> None:
+        if self._loaded:
+            return
+        if self._resolve_default_path:
+            load_dotenv()
+            self._path = resolve_data_root() / _REGISTRY_DIR_NAME / _REGISTRY_FILE_NAME
+            self._resolve_default_path = False
+        self._loaded = True
         self._load()
 
     @classmethod
-    def default(cls) -> "NodeRegistry":
-        root = get_data_root() / _REGISTRY_DIR_NAME
-        root.mkdir(parents=True, exist_ok=True)
-        return cls(root / _REGISTRY_FILE_NAME)
+    def default(cls, *, load: bool = True) -> "NodeRegistry":
+        if load:
+            load_dotenv()
+        root = resolve_data_root() / _REGISTRY_DIR_NAME
+        return cls(root / _REGISTRY_FILE_NAME, load=load, _resolve_default_path=not load)
 
     def set_local_identity(self, hostname: str) -> None:
         with self._lock:
@@ -524,7 +547,7 @@ class RoundRobinRouter:
         return node
 
 
-registry = NodeRegistry.default()
+registry = NodeRegistry.default(load=False)
 
 NODE_TOKEN = os.getenv("NODE_TOKEN", "")
 

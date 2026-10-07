@@ -1,17 +1,63 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 
 import json
+import importlib
+import sys
 import types
 from importlib import reload
 from pathlib import Path
 
 import emotion_pump as ep
 import pytest
+
+
+def test_emotion_pump_import_is_inert(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+    import sentientos.privilege as privilege
+    import emotion_udp_bridge
+
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: events.append("admin"))
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: events.append("lumos"))
+    monkeypatch.setattr(
+        emotion_udp_bridge,
+        "EmotionUDPBridge",
+        lambda *_args, **_kwargs: events.append("bridge"),
+    )
+    sys.modules.pop("emotion_pump", None)
+
+    imported = importlib.import_module("emotion_pump")
+
+    assert imported is not None
+    assert events == []
+
+
+def test_emotion_pump_run_authorizes_before_runtime_effects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class StopRun(Exception):
+        pass
+
+    class LogProbe:
+        def exists(self) -> bool:
+            events.append("log")
+            raise StopRun
+
+    monkeypatch.setattr(ep, "require_admin_banner", lambda: events.append("admin"))
+    monkeypatch.setattr(ep, "require_lumos_approval", lambda: events.append("lumos"))
+    monkeypatch.setattr(
+        ep,
+        "EmotionUDPBridge",
+        lambda *_args, **_kwargs: events.append("bridge"),
+    )
+    monkeypatch.setattr(ep, "LOG_FILE", LogProbe())
+    monkeypatch.setattr(ep.time, "sleep", lambda *_args: events.append("sleep"))
+
+    with pytest.raises(StopRun):
+        ep.run()
+
+    assert events == ["admin", "lumos", "bridge", "log"]
 
 
 def _write_log(path: Path, model: str, emotion: str) -> None:

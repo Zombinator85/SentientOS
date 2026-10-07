@@ -8,7 +8,7 @@ import os
 import gzip
 import shutil
 
-from logging_config import get_log_path
+from logging_config import resolve_log_path
 
 REQUIRED_FIELDS = {"timestamp", "data"}
 
@@ -22,7 +22,7 @@ def validate_log_entry(entry: Dict[str, Any]) -> None:
         raise ValueError("legacy field 'foo' is not allowed")
 
 # Shared constants for logs and lightweight utilities
-PUBLIC_LOG: Path = get_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
+PUBLIC_LOG: Path = resolve_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
 
 # Optional size-based rotation for ``log_json``.
 _MAX_BYTES = int(os.getenv("LOG_JSON_MAX_BYTES", "0"))

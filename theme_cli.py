@@ -1,8 +1,5 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import daily_theme
 from typing import Optional
@@ -12,6 +9,8 @@ def main() -> None:
     sub.add_parser("generate", help="Generate today's theme")
     sub.add_parser("show", help="Show latest theme")
     args = parser.parse_args()
+    require_admin_banner()
+    require_lumos_approval()
 
     if args.cmd == "generate":
         theme: Optional[str] = daily_theme.generate()

@@ -8,9 +8,6 @@ Usage:
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-
 import argparse
 import json
 import os
@@ -18,13 +15,6 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
-
-import reflection_stream as rs
-import trust_engine as te
-from sentient_banner import streamlit_banner, streamlit_closing, print_banner
-import ledger
-from sentientos.daemons import pulse_bus
-
 
 try:
     import pandas as pd  # type: ignore[import-untyped]  # pandas optional
@@ -51,6 +41,9 @@ def _parse_ts(ts: str) -> datetime:
 
 def load_timeline(limit: int = 200) -> List[Dict[str, Any]]:
     """Load recent reflection and trust events into a single timeline."""
+    import reflection_stream as rs
+    import trust_engine as te
+
     events: List[Dict[str, Any]] = []
     if rs.STREAM_FILE.exists():
         lines = rs.STREAM_FILE.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -114,6 +107,10 @@ def load_priority_backlog() -> Dict[str, Any]:
 
 
 def publish_backlog_action(action: str, conflict_id: str, reason: Optional[str] = None) -> None:
+    require_admin_banner()
+    require_lumos_approval()
+    from sentientos.daemons import pulse_bus
+
     payload: Dict[str, Any] = {"action": action, "conflict_id": conflict_id}
     if reason:
         payload["reason"] = reason
@@ -224,6 +221,11 @@ def run_dashboard() -> None:
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("--tail", action="store_true")
     parsed, _ = ap.parse_known_args()
+
+    require_admin_banner()
+    require_lumos_approval()
+    from sentient_banner import streamlit_banner, streamlit_closing
+    import ledger
 
     st.set_page_config(page_title="Reflection Dashboard", layout="wide")
     st.title("Event & Reflection Dashboard")
