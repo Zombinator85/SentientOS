@@ -12,10 +12,10 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -e .[docs]
-      - run: python scripts/build_docs.py --check-deps
-      - run: python scripts/build_docs.py
+      - run: sudo env "PATH=$PATH" python scripts/build_docs.py --check-deps
+      - run: sudo env "PATH=$PATH" python scripts/build_docs.py
       - name: Upload docs
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
   deploy:
@@ -29,4 +29,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4

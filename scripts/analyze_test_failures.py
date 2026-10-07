@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
+from sentientos.forge_failures import semantic_failure_signature
+
 DEFAULT_RUN_DIR = Path("glow/test_runs")
 DEFAULT_JUNITXML_PATH = DEFAULT_RUN_DIR / "pytest_junitxml.xml"
 DEFAULT_DIGEST_PATH = DEFAULT_RUN_DIR / "test_failure_digest.json"
@@ -18,6 +20,7 @@ class FailureCase:
     nodeid: str
     exception_type: str
     message_lines: tuple[str, ...]
+    full_message: str
     file: str | None
     line: int | None
 
@@ -31,6 +34,7 @@ class FailureGroup:
     count: int
     file: str | None
     line: int | None
+    semantic_signature: str
 
 
 def _coerce_int(value: str | None) -> int | None:
@@ -52,14 +56,14 @@ def _nodeid_from_case(testcase: ElementTree.Element) -> str:
     return classname or "<unknown>"
 
 
-def _message_lines(raw: str | None, max_lines: int) -> tuple[str, ...]:
+def _message_lines(raw: str | None, max_lines: int | None) -> tuple[str, ...]:
     if not raw:
         return ()
     lines = [line.strip() for line in raw.splitlines() if line.strip()]
-    return tuple(lines[:max_lines])
+    return tuple(lines if max_lines is None else lines[:max_lines])
 
 
-def _extract_failures(junitxml_path: Path, *, max_message_lines: int) -> list[FailureCase]:
+def _extract_failures(junitxml_path: Path, *, max_message_lines: int | None) -> list[FailureCase]:
     tree = ElementTree.parse(junitxml_path)
     failures: list[FailureCase] = []
     for testcase in tree.findall(".//testcase"):
@@ -75,6 +79,7 @@ def _extract_failures(junitxml_path: Path, *, max_message_lines: int) -> list[Fa
                         nodeid=nodeid,
                         exception_type=exception_type,
                         message_lines=_message_lines(message, max_message_lines),
+                        full_message=message,
                         file=(testcase.get("file") or None),
                         line=_coerce_int(testcase.get("line")),
                     )
@@ -83,13 +88,17 @@ def _extract_failures(junitxml_path: Path, *, max_message_lines: int) -> list[Fa
 
 
 def _group_failures(failures: list[FailureCase]) -> list[FailureGroup]:
-    grouped: dict[tuple[str, str, tuple[str, ...]], list[FailureCase]] = {}
+    grouped: dict[tuple[str, str, str], list[FailureCase]] = {}
     for failure in failures:
-        key = (failure.nodeid, failure.exception_type, failure.message_lines)
+        semantic_signature = semantic_failure_signature(
+            failure.nodeid, failure.exception_type, failure.full_message
+        )
+        key = (failure.nodeid, failure.exception_type, semantic_signature)
         grouped.setdefault(key, []).append(failure)
 
     groups: list[FailureGroup] = []
-    for (nodeid, exception_type, message_lines), members in grouped.items():
+    for (nodeid, exception_type, semantic_signature), members in grouped.items():
+        message_lines = members[0].message_lines
         first = members[0]
         signature = "|".join([nodeid, exception_type, "\\n".join(message_lines)])
         groups.append(
@@ -101,6 +110,7 @@ def _group_failures(failures: list[FailureCase]) -> list[FailureGroup]:
                 count=len(members),
                 file=first.file,
                 line=first.line,
+                semantic_signature=semantic_signature,
             )
         )
 
@@ -142,6 +152,7 @@ def generate_failure_digest(
                 "count": group.count,
                 "failure_class": _classify_failure(group),
                 "signature": group.signature,
+                "semantic_signature": group.semantic_signature,
                 "exception_type": group.exception_type,
                 "example_nodeid": group.nodeid,
                 "short_message": "\n".join(group.message_lines),

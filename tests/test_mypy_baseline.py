@@ -212,6 +212,34 @@ def test_canonical_version_is_accepted_before_matching(monkeypatch, tmp_path: Pa
     assert json.loads(capsys.readouterr().out)["status"] == "mypy_baseline_clean"
 
 
+def test_checker_fails_closed_when_mypy_command_fails(monkeypatch, tmp_path: Path, capsys) -> None:
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(manifest_to_text(build_manifest(records=[])), encoding="utf-8")
+    monkeypatch.setattr(check_mypy_baseline, "_mypy_version", lambda: CANONICAL_MYPY_VERSION)
+    monkeypatch.setattr(check_mypy_baseline, "_run_command", lambda _command: (1, "/python: No module named mypy"))
+
+    result = check_mypy_baseline.main(["--baseline", str(baseline)])
+
+    summary = json.loads(capsys.readouterr().out)
+    assert result == 2
+    assert summary["status"] == "mypy_baseline_command_failed"
+
+
+def test_checker_compares_expected_mypy_error_exit_against_baseline(monkeypatch, tmp_path: Path, capsys) -> None:
+    baseline = tmp_path / "baseline.json"
+    records = [MypyErrorRecord("a.py", 1, None, "misc", "A")]
+    baseline.write_text(manifest_to_text(build_manifest(records=records)), encoding="utf-8")
+    monkeypatch.setattr(check_mypy_baseline, "_mypy_version", lambda: CANONICAL_MYPY_VERSION)
+    monkeypatch.setattr(check_mypy_baseline, "_run_command", lambda _command: (1, "a.py:1: error: A [misc]\nFound 1 error in a.py\n"))
+
+    result = check_mypy_baseline.main(["--baseline", str(baseline)])
+
+    summary = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert summary["status"] == STATUS_MATCHES
+    assert summary["matched_existing_errors"] == 1
+
+
 def test_explicit_baseline_refresh_updates_records_and_digest(tmp_path: Path) -> None:
     output_file = tmp_path / "mypy.txt"
     baseline = tmp_path / "baseline.json"

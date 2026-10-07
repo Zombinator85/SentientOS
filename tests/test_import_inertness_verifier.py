@@ -51,7 +51,41 @@ def test_import_verifier_reports_all_required_modules(tmp_path):
         "emotion_memory", "emotion_utils", "semantic_embeddings", "memory_governor", "node_registry",
         "capability_ledger", "cathedral_const", "sentient_autonomy",
         "sentientos.autonomy.curiosity_loop", "sentientos.autonomy.runtime",
+        "sentientos.hosted_validation_evidence",
     ]
+
+
+def test_startup_import_probes_ignore_ambient_markers_and_require_fresh_inertness(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CODEX_STARTUP_ROOT_PID", "ambient-root")
+    monkeypatch.setenv("CODEX_STARTUP_FINALIZED", "ambient-finalized")
+    completed, result = _run(
+        tmp_path,
+        modules=("sentientos.codex_startup_guard", "codex.integrity_daemon"),
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert result["status"] == "import_inertness_ready"
+    assert all(item["environment_changes"] == {} for item in result["module_results"])
+
+
+def test_import_verifier_detects_startup_marker_mutation_despite_ambient_state(
+    tmp_path, monkeypatch
+):
+    root = _api_fixture(
+        tmp_path,
+        "import os\nos.environ.setdefault('CODEX_STARTUP_ROOT_PID', 'imported')\n",
+    )
+    monkeypatch.setenv("CODEX_STARTUP_ROOT_PID", "ambient-root")
+    completed, result = _run(tmp_path, root, ("api",))
+
+    assert completed.returncode != 0
+    assert result["status"] == "runtime_effect_invoked"
+    assert result["module_results"][0]["environment_changes"]["CODEX_STARTUP_ROOT_PID"] == {
+        "after_present": True,
+        "before_present": False,
+    }
 
 
 def test_import_verifier_accepts_explicit_import_inertness_inventory(tmp_path):

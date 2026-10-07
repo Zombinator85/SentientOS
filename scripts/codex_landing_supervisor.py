@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.output:
         Path(a.output).write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     _print(result, a.summary or a.cmd in {"summarize", "repair-plan"})
-    return 0 if result["decision"]["status"] in {"ready_to_commit", "ready_for_pr_metadata"} else 1
+    return 0 if result["decision"]["status"] in {"ready_to_commit", "ready_to_commit_pending_hosted_validation", "ready_for_pr_metadata"} else 1
 
 
 if __name__ == "__main__":

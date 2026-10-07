@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from typing import Any
+from typing import Any, cast
 
 from sentientos.forge_failures import HarvestResult, harvest_failures
 
@@ -24,6 +24,9 @@ class CiBaselineSnapshot:
     passed: bool
     failed_count: int
     top_clusters: list[dict[str, object]]
+    failure_signatures: list[dict[str, object]]
+    failure_signatures_complete: bool
+    repository_health_status: str
     last_green_sha: str | None
 
 
@@ -33,6 +36,11 @@ class CiBaselineDrift:
     drift_type: str
     drift_explanation: str
     failed_delta: int
+    repository_health_status: str = "unknown"
+    task_regression_status: str = "comparison_incomplete"
+    matched_preexisting_failures: list[dict[str, object]] | None = None
+    new_failures: list[dict[str, object]] | None = None
+    retired_failures: list[dict[str, object]] | None = None
 
 
 def emit_ci_baseline(
@@ -69,6 +77,21 @@ def emit_ci_baseline(
         passed=failed_count == 0 and (resolved_returncode == 0 if resolved_returncode is not None else True),
         failed_count=failed_count,
         top_clusters=_top_clusters(harvest),
+        failure_signatures=[
+            {
+                "signature": cluster.signature.semantic_signature,
+                "nodeid": cluster.signature.nodeid,
+                "exception_type": cluster.signature.error_type,
+                "message_digest": cluster.signature.message_digest,
+                "count": cluster.count,
+            }
+            for cluster in sorted(harvest.clusters, key=lambda item: item.signature.semantic_signature)
+        ],
+        failure_signatures_complete=(
+            failed_count == sum(cluster.count for cluster in harvest.clusters)
+            and (resolved_returncode in (None, 0, 1))
+        ),
+        repository_health_status="green" if failed_count == 0 and resolved_returncode in (None, 0) else "red",
         last_green_sha=git_sha if failed_count == 0 else _load_last_green_sha(output_path),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,24 +117,84 @@ def evaluate_ci_baseline_drift(
     failed_count = _coerce_int(baseline_payload.get("failed_count"))
     previous_failed = _coerce_int(previous_payload.get("failed_count")) if isinstance(previous_payload, dict) else 0
     failed_delta = failed_count - previous_failed
-
-    if not passed:
+    health = str(baseline_payload.get("repository_health_status") or ("green" if passed else "red"))
+    current = _signature_counts(baseline_payload.get("failure_signatures"))
+    if current is None and failed_count == 0:
+        current = {}
+    previous_count = _coerce_int(previous_payload.get("failed_count")) if isinstance(previous_payload, dict) else 0
+    previous = _signature_counts(previous_payload.get("failure_signatures")) if isinstance(previous_payload, dict) else None
+    if previous is None and previous_count == 0:
+        previous = {}
+    if (
+        current is None
+        or (failed_count > 0 and baseline_payload.get("failure_signatures_complete") is not True)
+        or (previous_payload is not None and previous is None)
+        or (previous_payload is not None and previous_count > 0 and previous_payload.get("failure_signatures_complete") is not True)
+    ):
         return CiBaselineDrift(
             drifted=True,
-            drift_type="tests_failing",
-            drift_explanation=f"scripts.run_tests gate failing (failed_count={failed_count})",
+            drift_type="comparison_incomplete",
+            drift_explanation="signature-aware failure evidence is missing or invalid",
             failed_delta=failed_delta,
+            repository_health_status=health,
+            task_regression_status="comparison_incomplete",
         )
-
-    if failed_delta > failure_threshold_delta:
+    if previous is None:
         return CiBaselineDrift(
-            drifted=True,
-            drift_type="failed_count_regression",
-            drift_explanation=f"failed_count regressed by {failed_delta} (threshold={failure_threshold_delta})",
+            drifted=failed_count > 0,
+            drift_type="baseline_missing" if failed_count > 0 else "none",
+            drift_explanation="no prior signature baseline is available",
             failed_delta=failed_delta,
+            repository_health_status=health,
+            task_regression_status="comparison_incomplete" if failed_count > 0 else "no_regression",
         )
+    matched, new, retired = _compare_signature_counts(previous, current)
+    if new:
+        return CiBaselineDrift(True, "failure_signature_regression", "new or increased semantic failure signatures", failed_delta, health, "regression_detected", matched, new, retired)
+    if retired:
+        return CiBaselineDrift(False, "failure_signatures_improved", "semantic failure debt retired or reduced", failed_delta, health, "improved", matched, new, retired)
+    if current:
+        return CiBaselineDrift(False, "matched_preexisting_debt", "all current semantic failures match the prior signature multiset", failed_delta, health, "no_regression", matched, new, retired)
+    return CiBaselineDrift(False, "none", "ci baseline clean", failed_delta, health, "no_regression", matched, new, retired)
 
-    return CiBaselineDrift(drifted=False, drift_type="none", drift_explanation="ci baseline clean", failed_delta=failed_delta)
+
+def _signature_counts(value: object) -> dict[str, dict[str, object]] | None:
+    if not isinstance(value, list):
+        return None
+    result: dict[str, dict[str, object]] = {}
+    for row in value:
+        if not isinstance(row, dict):
+            return None
+        signature, nodeid, count = row.get("signature"), row.get("nodeid"), row.get("count")
+        if not isinstance(signature, str) or not signature or not isinstance(nodeid, str) or not isinstance(count, int) or isinstance(count, bool) or count < 1 or signature in result:
+            return None
+        result[signature] = {"signature": signature, "nodeid": nodeid, "count": count}
+    return result
+
+
+def _compare_signature_counts(
+    previous: dict[str, dict[str, object]], current: dict[str, dict[str, object]],
+) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
+    matched: list[dict[str, object]] = []
+    new: list[dict[str, object]] = []
+    retired: list[dict[str, object]] = []
+    for signature in sorted(set(previous) | set(current)):
+        before, after = previous.get(signature), current.get(signature)
+        if before and after:
+            before_count = cast(int, before["count"])
+            after_count = cast(int, after["count"])
+            common = min(before_count, after_count)
+            matched.append({"signature": signature, "nodeid": after["nodeid"], "count": common})
+            delta = after_count - before_count
+            if delta > 0:
+                new.append({"signature": signature, "nodeid": after["nodeid"], "count": delta})
+            elif delta < 0:
+                retired.append({"signature": signature, "nodeid": before["nodeid"], "count": -delta})
+        elif after:
+            new.append(dict(after))
+        elif before:
+            retired.append(dict(before))
+    return matched, new, retired
 
 
 def parse_summary_failed_count(output: str) -> int | None:
@@ -134,6 +217,7 @@ def _top_clusters(harvest: HarvestResult, *, limit: int = 5) -> list[dict[str, o
         payload.append(
             {
                 "signature": f"{cluster.signature.error_type}:{cluster.signature.message_digest}",
+                "semantic_signature": cluster.signature.semantic_signature,
                 "count": cluster.count,
                 "nodeid": cluster.signature.nodeid,
             }

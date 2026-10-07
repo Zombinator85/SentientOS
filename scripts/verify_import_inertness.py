@@ -20,6 +20,7 @@ MODULES = (
     "emotion_memory", "emotion_utils", "semantic_embeddings", "memory_governor", "node_registry",
     "capability_ledger", "cathedral_const", "sentient_autonomy",
     "sentientos.autonomy.curiosity_loop", "sentientos.autonomy.runtime",
+    "sentientos.hosted_validation_evidence",
 )
 CAPTURE_LIMIT = 4096
 
@@ -45,6 +46,10 @@ os.environ.update({
     "SENTIENTOS_DATA_DIR": str(root / "data"),
     "IMPORT_INERTNESS_PLUGIN_MARKER": str(marker),
 })
+# Startup markers are deliberately absent in every import probe. Inherit neither
+# an earlier bootstrap's state nor ambient Cloud state as evidence of inertness.
+os.environ.pop("CODEX_STARTUP_ROOT_PID", None)
+os.environ.pop("CODEX_STARTUP_FINALIZED", None)
 invoked = []
 effects = []
 environment_before = dict(os.environ)

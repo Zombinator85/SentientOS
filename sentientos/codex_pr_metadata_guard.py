@@ -27,7 +27,7 @@ class CodexPrMetadataGuardRequest:
     matrix_json_path: str = ""
     validation_only: bool = False
     workspace_root: str = "."
-    git_status_lines: tuple[str, ...] = ()
+    git_status_lines: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -176,7 +176,7 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
         proof["validation_profile"] = "solo"
 
     if request.validation_only:
-        lines = request.git_status_lines or _git_status_lines(request.workspace_root)
+        lines = request.git_status_lines if request.git_status_lines is not None else _git_status_lines(request.workspace_root)
         proof["validation_only_git_status"] = list(lines)
         if _has_source_doc_test_changes(lines):
             reasons.append("validation_only_source_doc_test_changes_present")
@@ -187,8 +187,17 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
         reasons.append("missing_pr_metadata_finalizer")
 
     if pre_payload is not None:
-        if _decision_status(pre_payload) != "ready_to_commit":
-            reasons.append(f"pre_commit_decision_not_ready:{_decision_status(pre_payload) or 'missing'}")
+        pre_status = _decision_status(pre_payload)
+        if pre_status not in {"ready_to_commit", "ready_to_commit_pending_hosted_validation"}:
+            reasons.append(f"pre_commit_decision_not_ready:{pre_status or 'missing'}")
+        elif pre_status == "ready_to_commit_pending_hosted_validation":
+            pre_plan = pre_payload.get("landing_validation_plan")
+            deferred = pre_plan.get("hosted_deferred_stage_ids") if isinstance(pre_plan, Mapping) else None
+            if not isinstance(deferred, Sequence) or isinstance(deferred, (str, bytes)) or not deferred:
+                reasons.append("pre_commit_hosted_deferred_stage_list_missing")
+        pre_plan = pre_payload.get("landing_validation_plan")
+        if isinstance(pre_plan, Mapping) and pre_plan.get("overall_status") != pre_status:
+            reasons.append("pre_commit_decision_plan_status_mismatch")
         if _request_value(pre_payload, "title") and _request_value(pre_payload, "title") != request.title:
             reasons.append("title_mismatch:pre_commit_title")
         if _request_value(pre_payload, "intended_commit_title") and _request_value(pre_payload, "intended_commit_title") != request.intended_commit_title:
@@ -201,6 +210,9 @@ def evaluate_pr_metadata_guard(request: CodexPrMetadataGuardRequest) -> CodexPrM
             reasons.append("title_mismatch:pr_metadata_title")
         if _request_value(pr_payload, "intended_commit_title") and _request_value(pr_payload, "intended_commit_title") != request.intended_commit_title:
             reasons.append("title_mismatch:pr_metadata_intended_commit_title")
+        pr_plan_status = pr_payload.get("landing_validation_plan", {}).get("overall_status") if isinstance(pr_payload.get("landing_validation_plan"), Mapping) else None
+        if pr_plan_status is not None and pr_plan_status != _decision_status(pr_payload):
+            reasons.append("pr_metadata_decision_plan_status_mismatch")
         freshness = pr_payload.get("evidence_freshness")
         stale_result = str(freshness.get("stale_evidence_refresh_result", "not_required")) if isinstance(freshness, Mapping) else "not_required"
         proof["stale_evidence_refresh_result"] = stale_result

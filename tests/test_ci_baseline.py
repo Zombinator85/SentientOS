@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.emit_ci_baseline import main as emit_ci_baseline_main
 from scripts.emit_contract_status import emit_contract_status
 from sentientos.ci_baseline import evaluate_ci_baseline_drift
+from sentientos.forge_failures import semantic_failure_signature
 
 
 def test_emit_ci_baseline_writes_schema_and_contract_rollup(tmp_path: Path, monkeypatch) -> None:
@@ -36,14 +37,40 @@ def test_emit_ci_baseline_writes_schema_and_contract_rollup(tmp_path: Path, monk
     assert ci_domain["drifted"] is True
 
 
-def test_ci_baseline_drift_logic_thresholding() -> None:
-    drift = evaluate_ci_baseline_drift({"passed": True, "failed_count": 2}, previous_payload={"failed_count": 1}, failure_threshold_delta=0)
+def _sig(node: str, message: str, count: int = 1):
+    return {"signature": semantic_failure_signature(node, "AssertionError", message), "nodeid": node, "count": count}
+
+
+def _snapshot(failures):
+    return {"passed": not failures, "failed_count": sum(row["count"] for row in failures), "failure_signatures": failures, "failure_signatures_complete": True}
+
+
+def test_ci_baseline_compares_failure_identity_and_multiplicity() -> None:
+    a, b = _sig("tests/test_a.py::test_a", "A"), _sig("tests/test_b.py::test_b", "B")
+    same_count_changed_identity = evaluate_ci_baseline_drift(_snapshot([b]), previous_payload=_snapshot([a]))
+    assert same_count_changed_identity.drifted is True
+    assert same_count_changed_identity.drift_type == "failure_signature_regression"
+    assert same_count_changed_identity.repository_health_status == "red"
+
+    net_zero = evaluate_ci_baseline_drift(_snapshot([a, b]), previous_payload=_snapshot([_sig("tests/test_old.py::test_old", "old"), a]))
+    assert net_zero.drift_type == "failure_signature_regression"
+    assert net_zero.new_failures and net_zero.retired_failures
+
+    increased = evaluate_ci_baseline_drift(_snapshot([_sig("tests/test_a.py::test_a", "A", 2)]), previous_payload=_snapshot([a]))
+    assert increased.drift_type == "failure_signature_regression"
+    assert increased.new_failures[0]["count"] == 1
+
+
+def test_matching_failure_multiset_is_preexisting_debt_but_health_stays_red() -> None:
+    failure = _sig("tests/test_a.py::test_a", "A")
+    drift = evaluate_ci_baseline_drift(_snapshot([failure]), previous_payload=_snapshot([failure]))
+    assert drift.drifted is False
+    assert drift.drift_type == "matched_preexisting_debt"
+    assert drift.task_regression_status == "no_regression"
+    assert drift.repository_health_status == "red"
+
+
+def test_ci_baseline_fails_closed_without_signature_evidence() -> None:
+    drift = evaluate_ci_baseline_drift({"passed": False, "failed_count": 5}, previous_payload={"passed": False, "failed_count": 5})
     assert drift.drifted is True
-    assert drift.drift_type == "failed_count_regression"
-
-    clean = evaluate_ci_baseline_drift({"passed": True, "failed_count": 1}, previous_payload={"failed_count": 1}, failure_threshold_delta=0)
-    assert clean.drifted is False
-
-    failing = evaluate_ci_baseline_drift({"passed": False, "failed_count": 5})
-    assert failing.drifted is True
-    assert failing.drift_type == "tests_failing"
+    assert drift.drift_type == "comparison_incomplete"

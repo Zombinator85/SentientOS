@@ -26,12 +26,13 @@ from scripts.mypy_baseline_common import (
 )
 
 
-def _run_command(command: list[str]) -> str:
-    completed = subprocess.run(command, check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
+def _run_command(command: list[str]) -> tuple[int, str]:
+    executable_command = [sys.executable, *command[1:]] if command and command[0] == "python" else command
+    completed = subprocess.run(executable_command, check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
     output = completed.stdout
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr
-    return output
+    return completed.returncode, output
 
 
 def _mypy_version() -> str | None:
@@ -65,7 +66,20 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     command = list(DEFAULT_MYPY_COMMAND if not args.targets else (sys.executable, "-m", "mypy", *args.targets))
-    output = args.current_output_file.read_text(encoding="utf-8") if args.current_output_file is not None else _run_command(command)
+    if args.current_output_file is not None:
+        output = args.current_output_file.read_text(encoding="utf-8")
+    else:
+        command_returncode, output = _run_command(command)
+        current_diagnostics = parse_mypy_output(output)
+        if command_returncode not in {0, 1} or (command_returncode == 1 and not current_diagnostics):
+            command_failure_summary: dict[str, object] = {
+                "status": "mypy_baseline_command_failed",
+                "mypy_command": [sys.executable, *command[1:]] if command and command[0] == "python" else command,
+                "return_code": command_returncode,
+                "output_tail": output[-8000:],
+            }
+            print(json.dumps(command_failure_summary, sort_keys=True))
+            return 2
     result = compare_records(baseline_records=manifest_records(manifest), current_records=parse_mypy_output(output))
     summary = {
         "status": result["status"],

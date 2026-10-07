@@ -3,8 +3,9 @@ name: Required Quality Gate
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'codex/hosted-validation/**']
   merge_group:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +17,9 @@ jobs:
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -23,6 +27,7 @@ jobs:
         run: |
           python -m pip install --only-binary=:all: -r requirements-codex.txt
           python -m pip install --no-deps -e .
+          python -m pip install 'mkdocs>=1.6,<2' 'watchdog>=2,<3'
           python -m pip check
       - name: Prove imports are inert
         run: python scripts/verify_import_inertness.py --output glow/test_runs/quality_gate_import_smoke.json
@@ -49,7 +54,9 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py::test_disabled_accelerator_performs_no_setup \
             tests/test_github_hosted_acceptance_workflows.py::test_release_pr_validation_installs_project_without_publishing \
             tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_runs_and_verifies_real_tests \
-            tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique
+            tests/test_github_hosted_acceptance_workflows.py::test_required_quality_gate_name_is_unique \
+            tests/test_github_hosted_acceptance_workflows.py::test_prompt_assembler_invariant_runs_only_in_administrator_hosted_context \
+            tests/test_github_hosted_acceptance_workflows.py::test_required_hosted_gate_emits_exact_sha_privileged_stage_evidence
       - name: Bind and verify exact acceptance
         run: |
           python - <<'PY'
@@ -60,10 +67,100 @@ jobs:
           open('glow/test_runs/quality_gate_acceptance.json','w').write(json.dumps(manifest,indent=2)+'\n')
           assert p['validation_status']=='validation_complete' and p['validation_complete'] is True
           assert p['tests_collected']>0 and p['tests_executed']>0 and p['call_phase_outcome_count']>0
-          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==19
+          assert p['reporter_status']=='complete' and p['tests_failed']==0 and len(nodes)==21
           PY
           PYTHONPATH=. python scripts/verify_task_acceptance.py --manifest glow/test_runs/quality_gate_acceptance.json --provenance glow/test_runs/test_run_provenance.json --output glow/test_runs/quality_gate_acceptance_result.json
           python scripts/analyze_test_provenance.py --file glow/test_runs/test_run_provenance.json --dir /tmp/no-other-runs --output glow/test_runs/test_trend_report.json --verify-chain --require-validation-complete
+      - name: Run full repository test suite
+        id: broad_validation
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p glow/test_runs
+          python -m scripts.run_tests -q > glow/test_runs/hosted_broad_validation.log 2>&1
+          broad_status=$?
+          python - "$broad_status" <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          status = int(sys.argv[1])
+          report = {
+              "status": "passed" if status == 0 else "failed",
+              "exit_code": status,
+              "command": ["python", "-m", "scripts.run_tests", "-q"],
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "head_tree": subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(),
+          }
+          Path("glow/test_runs/hosted_broad_validation.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+          exit "$broad_status"
+      - name: Run privileged hosted landing checks
+        id: privileged_landing_checks
+        env:
+          HOSTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set +e
+          sudo -n true
+          sudo_status=$?
+          sudo env "PATH=$PATH" python verify_audits.py --strict
+          audit_status=$?
+          sudo env "PATH=$PATH" python scripts/audit_immutability_verifier.py
+          immutability_status=$?
+          sudo env "PATH=$PATH" python scripts/build_docs.py --check-deps
+          docs_check_status=$?
+          sudo env "PATH=$PATH" python scripts/build_docs.py
+          docs_build_status=$?
+          python - "$sudo_status" "$audit_status" "$immutability_status" "$docs_check_status" "$docs_build_status" <<'PY'
+          import json, os, sys
+          import subprocess
+          from pathlib import Path
+          sudo_status, audit_status, immutability_status, docs_check_status, docs_build_status = map(int, sys.argv[1:])
+          actual_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          actual_tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
+          if actual_sha != os.environ["HOSTED_HEAD_SHA"]:
+              raise SystemExit("checked_out_revision_does_not_match_requested_candidate")
+          stages = {
+              "strict_audits": {"status": "passed" if sudo_status == 0 and audit_status == 0 else "failed", "exit_code": audit_status if sudo_status == 0 else sudo_status},
+              "audit_immutability": {"status": "passed" if sudo_status == 0 and immutability_status == 0 else "failed", "exit_code": immutability_status if sudo_status == 0 else sudo_status},
+              "docs_check_deps": {"status": "passed" if sudo_status == 0 and docs_check_status == 0 else "failed", "exit_code": docs_check_status if sudo_status == 0 else sudo_status},
+              "docs_build": {"status": "passed" if sudo_status == 0 and docs_build_status == 0 else "failed", "exit_code": docs_build_status if sudo_status == 0 else sudo_status},
+          }
+          stages["broad_validation"] = json.loads(Path("glow/test_runs/hosted_broad_validation.json").read_text(encoding="utf-8"))
+          success = all(row.get("status") == "passed" and row.get("exit_code") == 0 for row in stages.values())
+          report = {
+              "schema_version": "sentientos.hosted_validation:v2",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "workflow_file": ".github/workflows/required-quality-gate.yml",
+              "run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "ref": os.environ["GITHUB_REF"],
+              "head_sha": os.environ["HOSTED_HEAD_SHA"],
+              "head_tree": actual_tree,
+              "status": "completed",
+              "conclusion": "success" if success else "failure",
+              "stages": {
+                  **stages,
+              },
+          }
+          out = Path("glow/test_runs/hosted_privileged_validation.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+          test "$sudo_status" -eq 0 && test "$audit_status" -eq 0 && test "$immutability_status" -eq 0 && test "$docs_check_status" -eq 0 && test "$docs_build_status" -eq 0
+      - name: Require every hosted validation stage to pass
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("glow/test_runs/hosted_privileged_validation.json").read_text(encoding="utf-8"))
+          stages = report.get("stages", {})
+          required = {"broad_validation", "strict_audits", "audit_immutability", "docs_check_deps", "docs_build"}
+          assert set(stages) >= required, "hosted_validation_stages_missing"
+          failed = [name for name in sorted(required) if stages[name].get("status") != "passed" or stages[name].get("exit_code") != 0]
+          assert not failed, "hosted_validation_stages_failed:" + ",".join(failed)
+          assert report.get("conclusion") == "success", "hosted_validation_workflow_not_green"
+          PY
       - name: Upload quality-gate evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,3 +172,6 @@ jobs:
             glow/test_runs/test_run_provenance.json
             glow/test_runs/quality_gate_acceptance_result.json
             glow/test_runs/test_trend_report.json
+            glow/test_runs/hosted_privileged_validation.json
+            glow/test_runs/hosted_broad_validation.json
+            glow/test_runs/hosted_broad_validation.log

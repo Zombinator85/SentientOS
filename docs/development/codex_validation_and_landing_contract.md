@@ -14,16 +14,35 @@ Pass `--task-acceptance-manifest PATH` to both finalizer phases when the task us
 
 ## Two-phase finalizer contract
 1. Before commit, run `python scripts/codex_finalize_landing.py finalize --phase pre-commit ...`.
-   - Commit only if status is `ready_to_commit`.
+   - Commit if status is `ready_to_commit`. `ready_to_commit_pending_hosted_validation` is narrower: it permits only creating the exact candidate commit so authorized hosted lanes can run. It does not mean deferred lanes passed or authorize PR readiness/merge.
    - Intended source/doc/test changes may be present when declared via `--changed-file`, inferred from tracked changes with `--allow-current-tracked-changes`, and inferred from safe untracked task files with `--allow-current-task-files` (pre-commit only).
 2. After commit and before PR metadata/final report, run `python scripts/codex_finalize_landing.py finalize --phase pr-metadata ...` (or `post-commit`).
-   - Create/update PR metadata only if status is `ready_for_pr_metadata`.
+   - When pre-commit deferred stages, post-commit may return `ready_for_hosted_validation` only for the exact committed SHA/tree and authorize only the hosted-validation handoff. Afterward, pass the artifact from the required hosted quality-gate run with `--hosted-validation-evidence`. It must identify the same candidate SHA and tree and show every required stage passed in a completed successful run. Create/update PR metadata only if status is `ready_for_pr_metadata`.
    - Tree must be clean except allowed generated artifacts that are cleaned successfully.
 
 ## Required evidence
 Run the validation required by `AGENTS.md`, the task profile/template, and the changed surfaces. Focused tests alone are insufficient when matrix, governance, landing, audit, supervisor, proof, or capability rails apply.
 
-The mandatory lifecycle is two-sided around an external boundary: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> exact body binding -> `pr_publication_handoff_ready` -> `ready_for_external_pr_publication` -> external `make_pr` -> independent hosted observation -> `hosted_publication_custody_verified_exact` -> `exact_hosted_publication_closed`. External publication and observation remain outside repository library authority.
+For broad test failures, distinguish current repository health from task regression.
+Keep raw output and run status visible. Preserve these categories monotonically:
+incomplete is not failed; unavailable is not failed; failed is not task-caused;
+pre-existing is not task-caused; local substrate unavailability is not hosted
+validation failure. When task doctrine permits baseline attribution, run
+`python -m scripts.compare_validation_runs` against the immutable task-start base
+and candidate using the same command contract and materially comparable
+environment; provide the resulting artifact to finalization with
+`--causal-validation-evidence` and `--immutable-base-sha`. Only an exact normalized
+failure signature and multiplicity proven on both sides is inherited debt.
+Incomplete or incomparable evidence never establishes non-regression. A strictly
+validated paired timeout may remain explicitly incomplete and permit only the
+candidate-commit posture when the exact required hosted lane is an authorized
+substitute. Unclassified incompleteness blocks. Exact task acceptance and
+protected-corridor evidence remain independent gates. See the
+[causal validation ratchet](causal_validation_ratchet_integration.md).
+
+The mandatory lifecycle is two-sided around an external boundary: bootstrap -> required feasible local validation -> pre-commit finalizer `ready_to_commit` or explicitly hosted-pending `ready_to_commit_pending_hosted_validation` -> exact candidate commit -> `ready_for_hosted_validation` for only the SHA/tree-bound validation handoff -> all required hosted lanes green and bound to that SHA/tree -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> exact body binding -> `pr_publication_handoff_ready` -> `ready_for_external_pr_publication` -> authorized PR publication -> required gates remain green -> merge -> independent hosted observation -> `hosted_publication_custody_verified_exact` -> `exact_hosted_publication_closed`. No candidate-only state authorizes PR readiness or merge. Hosted failure/incompleteness is an observation, not task causation; same-environment causal evidence is required for that classification. External publication and observation remain outside repository library authority.
+
+`strict_audits`, `audit_immutability`, `docs_check_deps`, and `docs_build` are currently eligible for hosted deferral because their canonical commands require Administrator privilege. The finalizer may classify them unavailable only from its native Administrator capability probe; a nonzero command exit, caller-supplied reason, timeout, or fabricated classification is not that proof. A broad lane may be deferred only when a strictly bound base/candidate comparison classifies a same-command, same-environment pair as `paired_timeout`; its status remains `comparison_incomplete`. The GitHub-hosted runner runs the broad suite and policy-required privileged stages and emits `glow/test_runs/hosted_privileged_validation.json` with repository, workflow, run, candidate SHA and tree, completion, conclusion, and per-stage outcomes. Supply that artifact to post-commit finalization. Failed, incomplete, skipped, missing, stale-SHA/tree, wrong-repository, or wrong-workflow evidence blocks. Deferred stages remain `hosted_deferred` in both pre-commit and hosted-handoff plans and become `hosted_passed` only after exact completed hosted evidence; they are never recorded as locally passed. Ordinary local validation failures block, and privileged stages run locally when the worker's Administrator probe succeeds.
 
 Situational validation selects the relevant lanes without weakening the landing contract:
 
@@ -35,7 +54,7 @@ Situational validation selects the relevant lanes without weakening the landing 
 
 For context-hygiene denial-phase documentation touching Phase 97-103 posture, treat the coverage as validation-only and non-runtime. The reviewer-facing consistency lane is `python scripts/verify_context_hygiene_prompt_boundaries.py` plus `python -m scripts.run_tests -q tests/test_capability_registry.py tests/test_work_item_review_packet_matrix.py`; docs edits still require `python scripts/build_docs.py --check-deps` and `python scripts/build_docs.py`. These checks confirm capability registry, matrix, verifier, spine, and validation-contract discoverability only; they do not grant provider invocation, prompt assembly, prompt export, external disclosure, release unblock, runtime authority, routing, admission, execution, or live `assemble_prompt(...)` behavior.
 
-Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate when the landing rail requires supervisor evidence; do not finalize unless decision is `ready_to_commit` or `ready_for_pr_metadata`.
+Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intended-commit-title "..." --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary` after matrix and PR gate when the landing rail requires supervisor evidence; do not finalize unless decision is `ready_to_commit`, `ready_to_commit_pending_hosted_validation` for exact candidate creation, `ready_for_hosted_validation` for only the bound hosted-validation handoff, or `ready_for_pr_metadata` after all required hosted evidence.
 
 ## Dirty tree rules
 - Pre-commit: declared intended task changes are allowed.
@@ -60,7 +79,7 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - A finalizer artifact alone is not enough when the PR metadata guard says blocked.
 - Focused tests passing without a ready PR metadata guard is not a complete landing.
 
-Strict local sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; bind the exact body and seal the exact publication handoff; only then invoke external `make_pr`. This reaches pre-publication readiness, not hosted closure. Exact hosted closure requires a later independent observation and exact custody verification.
+Strict sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required local validation; run pre-commit finalizer and require `ready_to_commit` or the narrowly authorized hosted-pending candidate state; commit once; if pending, complete and bind hosted privileged validation to that exact SHA; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; bind the exact body and seal the exact publication handoff; only then invoke external `make_pr`. This reaches pre-publication readiness, not hosted closure. Exact hosted closure requires a later independent observation and exact custody verification.
 
 ## Metadata-only lifecycle summaries
 

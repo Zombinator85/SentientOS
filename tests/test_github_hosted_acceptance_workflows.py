@@ -43,7 +43,8 @@ def test_required_quality_gate_runs_diagnostic_import_smoke() -> None:
     assert workflow.index("python -m pip check") < workflow.index(smoke)
     assert workflow.index(smoke) < workflow.index("python -m scripts.run_tests")
     assert "python -c \"import sentientos" not in workflow
-    assert "continue-on-error" not in workflow and "|| true" not in workflow
+    assert "continue-on-error: true" in workflow and "|| true" not in workflow
+    assert "Require every hosted validation stage to pass" in workflow
 
 
 def test_required_quality_gate_uploads_import_smoke_evidence() -> None:
@@ -58,14 +59,54 @@ def test_required_quality_gate_runs_exact_nodes_after_import_smoke() -> None:
     selection = workflow.split("python -m scripts.run_tests -q", 1)[1].split(
         "- name: Bind and verify exact acceptance", 1
     )[0]
-    assert selection.count("tests/") == 19
-    assert "len(nodes)==19" in workflow
+    assert selection.count("tests/") == 21
+    assert "len(nodes)==21" in workflow
 def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> None:
     text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
     assert text.index("verify_import_inertness.py") < text.index("verify_pytest_bootstrap.py") < text.index("Execute required call phases")
-    assert text.count("tests/test_") == 19
+    assert text.count("tests/test_") == 21
 
 
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
     text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
     assert text.count("quality_gate_pytest_bootstrap.json") == 2
+
+
+def test_invariant_workflow_installs_the_canonical_minimal_test_harness() -> None:
+    workflow = (ROOT / ".github/workflows/invariant-tests.yml").read_text(encoding="utf-8")
+    assert "python -m pip install -r requirements-codex.txt" in workflow
+    assert "python -m pip install --no-deps -e ." in workflow
+    assert "python -m pip check" in workflow
+    assert ".[dev]" not in workflow
+
+
+def test_docs_deploy_uses_pages_actions_compatible_with_artifact_v4() -> None:
+    workflow = (ROOT / ".github/workflows/docs-deploy.yml").read_text(encoding="utf-8")
+    assert "actions/upload-pages-artifact@v3" in workflow
+    assert "actions/deploy-pages@v4" in workflow
+    assert "actions/upload-pages-artifact@v2" not in workflow
+    assert "actions/deploy-pages@v2" not in workflow
+    assert 'sudo env "PATH=$PATH" python scripts/build_docs.py --check-deps' in workflow
+    assert 'sudo env "PATH=$PATH" python scripts/build_docs.py' in workflow
+
+
+def test_prompt_assembler_invariant_runs_only_in_administrator_hosted_context() -> None:
+    workflow = (ROOT / ".github/workflows/invariant-tests.yml").read_text(encoding="utf-8")
+    assert "tests/test_prompt_assembler.py" not in workflow.split("name: Run invariant tests", 1)[1].split("- name:", 1)[0]
+    assert 'sudo env "PATH=$PATH" "SENTIENTOS_HEADLESS=$SENTIENTOS_HEADLESS" python -m scripts.run_tests -q tests/test_prompt_assembler.py' in workflow
+
+
+def test_required_hosted_gate_emits_exact_sha_privileged_stage_evidence() -> None:
+    workflow = (ROOT / ".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
+    assert "Run privileged hosted landing checks" in workflow
+    assert "sudo -n true" in workflow
+    assert "sudo env \"PATH=$PATH\" python verify_audits.py --strict" in workflow
+    assert "sudo env \"PATH=$PATH\" python scripts/audit_immutability_verifier.py" in workflow
+    assert "sudo env \"PATH=$PATH\" python scripts/build_docs.py --check-deps" in workflow
+    assert "sudo env \"PATH=$PATH\" python scripts/build_docs.py" in workflow
+    for field in ("GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_REF", "HOSTED_HEAD_SHA", "head_tree", "broad_validation", "docs_check_deps", "docs_build", "conclusion", "stages"):
+        assert field in workflow
+    assert "'codex/hosted-validation/**'" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "Require every hosted validation stage to pass" in workflow
+    assert "glow/test_runs/hosted_privileged_validation.json" in workflow

@@ -23,6 +23,14 @@ def _run_python(script: str, *, authorize_startup: bool) -> subprocess.Completed
     if authorize_startup:
         env.pop("CODEX_STARTUP_ROOT_PID", None)
         env.pop("CODEX_STARTUP_FINALIZED", None)
+    else:
+        # These cases model a child launched by an initialized runtime. Importing
+        # the guard no longer stamps the test runner's environment, so establish
+        # that parent lifecycle state explicitly before inheriting it.
+        from sentientos.codex_startup_guard import init_codex_runtime
+
+        init_codex_runtime()
+        env = os.environ.copy()
     prelude = """
     import json
     import sys
@@ -79,6 +87,22 @@ def test_governance_entrypoints_allowed_during_startup(tmp_path: Path) -> None:
     result = _run_python(script, authorize_startup=True)
     assert result.returncode == 0
     assert "IntegrityDaemon" in result.stdout
+
+
+def test_explicit_startup_lifecycle_establishes_process_markers() -> None:
+    script = """
+    import os
+    from sentientos.codex_startup_guard import codex_startup_phase
+
+    assert "CODEX_STARTUP_ROOT_PID" not in os.environ
+    assert "CODEX_STARTUP_FINALIZED" not in os.environ
+    with codex_startup_phase():
+        assert os.environ["CODEX_STARTUP_ROOT_PID"] == str(os.getpid())
+    assert os.environ["CODEX_STARTUP_FINALIZED"] == str(os.getpid())
+    """
+
+    result = _run_python(script, authorize_startup=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_governance_entrypoints_block_runtime(tmp_path: Path) -> None:

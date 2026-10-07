@@ -8,7 +8,11 @@ Use `python scripts/codex_finalize_landing.py finalize` as landing authority.
 
 ## Decisions
 - `ready_to_commit`: only valid in `pre-commit` phase.
-- `ready_for_pr_metadata`: only valid in `post-commit`/`pr-metadata` phase.
+- `ready_to_commit_pending_hosted_validation`: pre-commit candidate-only state when every feasible local stage passes, no complete evidence establishes a candidate regression, and all deferred stages have an authorized hosted substitute. A comparable paired broad timeout remains `comparison_incomplete`, never `no_regression`; this state authorizes only the exact candidate commit required for hosted validation.
+- `ready_for_hosted_validation`: post-commit state bound to the exact candidate commit and tree, authorizing only the hosted-validation handoff. It does not authorize PR metadata, merge, or a claim that deferred validation passed.
+- `hosted_validation_failed` / `hosted_validation_incomplete`: preserve hosted observations without assigning task causation. Merge remains blocked; determine causality only with comparable base/candidate evidence for the exact failing hosted lane.
+- `validation_failed`, `validation_incomplete`, and `policy_blocked`: distinct blocked states; none implies a task-caused regression.
+- `ready_for_pr_metadata`: only valid after all required hosted evidence is complete, green, and bound to the current commit SHA and Git tree.
 - `repair_required_task_caused`, `manual_review_required`, `environment_blocked`, `do_not_finalize`, `finalizer_failed`.
 - `stale_evidence_refresh_required` when validation evidence is stale and refresh was not allowed.
 - `stale_evidence_refresh_failed` when an allowed bounded refresh fails or times out.
@@ -27,15 +31,33 @@ Pre-commit allows `intended_task_change` when declared by `--changed-file`, infe
 ## Why PR metadata is forbidden early
 Focused tests, matrix, gate, or supervisor alone are insufficient. PR metadata is forbidden until the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata`.
 
+## Causal broad-validation evidence
+Repository health and task regression are independent assessments. Preserve the raw
+exit and output from every broad validation run. When a broad run is nonzero, a
+complete base/candidate artifact from `python -m scripts.compare_validation_runs`
+may establish matched pre-existing debt; the finalizer verifies it with
+`--causal-validation-evidence PATH --immutable-base-sha SHA` and checks the current
+candidate SHA and workspace identity. A candidate failure is pre-existing only
+when its normalized signature and multiplicity appear in the immutable-base run.
+New, changed, increased, stale, incomplete, command-mismatched, or environment-
+mismatched evidence does not establish non-regression or task causation. A
+well-formed paired timeout may remain explicitly incomplete and can only defer
+the broad lane when the required hosted workflow is an authorized substitute;
+unclassified or unmatched incompleteness blocks. Exact task acceptance and any required
+protected-corridor proof remain independent blocking gates. A matched failure can
+leave repository health red while the task regression gate is green; the raw
+failure remains in the finalizer report.
+
 ## Example flows
 1. Normal feature landing: run pre-commit finalizer (`ready_to_commit`) -> commit -> run post-commit finalizer (`ready_for_pr_metadata`) -> create/update PR metadata.
-2. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
-3. Stabilization with generated artifact cleanup only: allow cleanup flags and stale-evidence refresh flags; one finalizer invocation cleans artifacts, refreshes matrix/gate/supervisor evidence once, and returns the phase-appropriate terminal status when the tree is clean.
+2. Hosted validation: pre-commit may return `ready_to_commit_pending_hosted_validation` for positively established local substrate unavailability and/or a comparable paired broad timeout, with every feasible local check complete and no known candidate regression. Create exactly the bound candidate commit. Post-commit may return `ready_for_hosted_validation`, which authorizes only the hosted-validation handoff. The workflow runs the broad suite plus policy-required privileged stages and emits evidence bound to candidate SHA and Git tree. Only a completed successful artifact from `.github/workflows/required-quality-gate.yml` can advance post-commit to `ready_for_pr_metadata`; failed, incomplete, missing, stale, or mismatched evidence blocks merge and is not automatically task-caused.
+3. Validation-only sealing with no changes: run post-commit/pr-metadata finalizer directly; expect `ready_for_pr_metadata` with clean tree.
+4. Stabilization with generated artifact cleanup only: allow cleanup flags and stale-evidence refresh flags; one finalizer invocation cleans artifacts, refreshes matrix/gate/supervisor evidence once, and returns the phase-appropriate terminal status when the tree is clean.
 
 
 ## Canonical two-phase command examples
-Pre-commit: run finalize with `--phase pre-commit`, `--allow-current-tracked-changes`, `--allow-current-task-files` (or explicit `--changed-file` entries), and require `ready_to_commit` before commit.
-Post-commit/pr-metadata: rerun finalize with `--phase pr-metadata` and require `ready_for_pr_metadata` before `make_pr` and final reporting.
+Pre-commit: run finalize with `--phase pre-commit`, `--allow-current-tracked-changes`, `--allow-current-task-files` (or explicit `--changed-file` entries), and require `ready_to_commit` or the narrow `ready_to_commit_pending_hosted_validation` candidate-creation authorization. An incomplete lane is never recorded as passed.
+Post-commit: for a pending candidate, run finalize with `--phase post-commit` and the pre-commit finalizer artifact; require `ready_for_hosted_validation` before publishing the exact commit/tree for hosted validation. After obtaining the hosted artifact, rerun with `--phase pr-metadata --hosted-validation-evidence PATH`; require `ready_for_pr_metadata` before PR metadata or merge readiness. The finalizer verifies workflow, repository, completed run/conclusion, every required stage, and exact current HEAD SHA and Git tree.
 
 When an authoritative exhaustive matrix has already completed against the unchanged
 pre-commit workspace, pass its exact output as `--prevalidated-matrix-json PATH` with

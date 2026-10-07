@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sentientos.forge_failures import harvest_failures
+from sentientos.forge_failures import harvest_failures, semantic_failure_signature
 
 
 def test_harvest_parses_pytest_failed_lines() -> None:
@@ -24,3 +24,9 @@ tests/test_gamma.py::test_three: AssertionError: boom
     cluster = result.clusters[0]
     assert cluster.signature.test_name == "test_three"
     assert cluster.signature.error_type == "AssertionError"
+
+
+def test_semantic_signature_ignores_diagnostic_line_movement_and_temp_paths() -> None:
+    left = semantic_failure_signature("tests/test_x.py::test_x", "AssertionError", "expected 1\n/tmp/pytest-of-agent/pytest-12/a.py:10")
+    right = semantic_failure_signature("tests/test_x.py::test_x", "AssertionError", "expected 1\n/tmp/pytest-of-agent/pytest-99/a.py:10")
+    assert left == right

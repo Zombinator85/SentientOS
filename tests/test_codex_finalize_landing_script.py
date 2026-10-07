@@ -7,6 +7,7 @@ import subprocess
 import os
 import stat
 import threading
+import time
 from pathlib import Path
 
 from scripts.codex_finalize_landing import (
@@ -15,9 +16,18 @@ from scripts.codex_finalize_landing import (
     _collect_dirty_diagnostics,
     _infer_task_slugs,
     _is_safe_untracked_task_file,
+    _same_stage_ids,
     build_parser,
     main,
+    _run_stage,
 )
+
+
+@pytest.mark.no_legacy_skip
+def test_deferred_stage_identity_is_order_independent_but_rejects_duplicates() -> None:
+    assert _same_stage_ids(["docs_build", "strict_audits"], ["strict_audits", "docs_build"])
+    assert not _same_stage_ids(["docs_build", "docs_build"], ["docs_build"])
+    assert not _same_stage_ids(["docs_build", 1], ["docs_build", "strict_audits"])
 
 
 def test_parser_has_phase_and_changed_file() -> None:
@@ -36,6 +46,62 @@ def test_parser_has_phase_and_changed_file() -> None:
     assert args.cmd == "finalize"
     assert args.phase == "pre-commit"
     assert args.changed_file == ["sentientos/codex_finalize_landing.py"]
+
+
+def test_unprivileged_finalizer_marks_hosted_audit_unavailable_without_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("scripts.codex_finalize_landing.is_admin", lambda: False)
+    monkeypatch.setattr("scripts.codex_finalize_landing.run_supervised", lambda *a, **k: pytest.fail("unavailable audit must not execute"))
+    result, runtime = _run_stage("strict_audits", "python verify_audits.py --strict", True, False, 10, time.monotonic() + 100.0, {})
+    assert result.exit_code == 126
+    assert result.availability_status == "substrate_unavailable"
+    assert result.availability_evidence == {"probe": "administrator_capability", "available": False, "source": "sentientos.admin_utils.is_admin"}
+    assert runtime.status == "unavailable" and runtime.completed is False
+
+
+def test_administrator_capable_finalizer_executes_privileged_audit_locally(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("scripts.codex_finalize_landing.is_admin", lambda: True)
+    monkeypatch.setattr("scripts.codex_finalize_landing.run_supervised", lambda *a, **k: type("Run", (), {"status": "passed", "return_code": 0, "stdout_tail": "", "stderr_tail": "", "child_pid": 1, "process_group_id": 1, "supervision_status": "exited"})())
+    result, runtime = _run_stage("strict_audits", "python verify_audits.py --strict", True, False, 10, time.monotonic() + 100.0, {})
+    assert result.exit_code == 0 and result.availability_status == "available"
+    assert runtime.status == "passed" and runtime.completed is True
+
+
+@pytest.mark.no_legacy_skip
+def test_precommit_finalizer_emits_candidate_only_hosted_pending_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from sentientos.codex_finalize_landing import CodexFinalizeLandingCommandResult
+    from sentientos.landing_validation_plan import verify_validation_plan
+
+    manifest, _, _, _ = _acceptance_fixture(tmp_path)
+    monkeypatch.setattr("scripts.codex_finalize_landing._git_status", lambda: [])
+    monkeypatch.setattr("scripts.codex_finalize_landing.is_admin", lambda: False)
+
+    def stage(stage_id: str, command: str, required: bool, progress: bool, timeout: int, deadline: float, child_environment: dict[str, str]):
+        if stage_id in {"strict_audits", "audit_immutability", "docs_check_deps", "docs_build"}:
+            return _run_stage(stage_id, command, required, progress, timeout, deadline, child_environment)
+        runtime = _successful_runtime(stage_id, command, required)
+        return CodexFinalizeLandingCommandResult(stage_id, command, 0, required=required), runtime
+
+    monkeypatch.setattr("scripts.codex_finalize_landing._run_stage", stage)
+    out = tmp_path / "pending.json"
+    code = main([
+        "finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit",
+        "--validation-profile", "solo", "--focused-test-command", "python -c 'pass'",
+        "--task-acceptance-manifest", str(manifest),
+        "--force-docs-validation", "--runtime-sandbox-root", str(tmp_path / "runtime"), "--output", str(out),
+    ])
+    payload = json.loads(out.read_text())
+    assert code == 0
+    assert payload["decision"]["status"] == "ready_to_commit_pending_hosted_validation"
+    assert set(payload["decision"]["deferred_stage_ids"]) == {"strict_audits", "audit_immutability", "docs_check_deps", "docs_build"}
+    plan = payload["landing_validation_plan"]
+    assert plan["stage_results"]["strict_audits"]["status"] == "hosted_deferred"
+    assert plan["stage_results"]["strict_audits"]["source"] == "unavailable_local_substrate"
+    assert plan["stage_results"]["strict_audits"]["local_execution_status"] == "unavailable"
+    assert plan["stage_results"]["strict_audits"]["duration_seconds"] == 0.0
+    assert plan["stage_results"]["audit_immutability"]["status"] == "hosted_deferred"
+    assert plan["stage_results"]["docs_check_deps"]["status"] == "hosted_deferred"
+    assert plan["stage_results"]["docs_build"]["status"] == "hosted_deferred"
+    assert verify_validation_plan(plan)[0]
 
 
 def test_parser_has_allow_current_tracked_changes() -> None:
@@ -70,6 +136,15 @@ def test_parser_has_stale_evidence_refresh_flags() -> None:
 
 def test_classify_untracked_task_file_inferred() -> None:
     findings = _classify(["?? tests/test_new_case.py"], (), ("tests/test_new_case.py",))
+    assert findings[0].classification == "intended_task_change"
+
+
+def test_classify_explicitly_declared_untracked_file() -> None:
+    findings = _classify(
+        ["?? docs/development/new_acceptance_manifest.json"],
+        ("docs/development/new_acceptance_manifest.json",),
+        (),
+    )
     assert findings[0].classification == "intended_task_change"
 
 
@@ -360,7 +435,7 @@ def test_invalid_acceptance_blocks_before_matrix_execution(monkeypatch: pytest.M
     seen: list[str] = []
     payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, lambda stage, timeout: seen.append(stage))
     assert seen == []
-    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["decision"]["status"] == "validation_failed"
     assert "repository_sha_mismatch" in payload["decision"]["reasons"]
 
 
@@ -404,7 +479,7 @@ def test_captured_acceptance_tampering_blocks_final_decision(monkeypatch: pytest
             path = next((tmp_path / "runtime" / "invocations").glob("*/task_acceptance/provenance.json"))
             path.write_bytes(path.read_bytes() + b" "); changed = True
     payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
-    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["decision"]["status"] == "validation_failed"
     assert payload["task_acceptance_custody"]["captured_evidence_unchanged"] is False
 
 
@@ -539,7 +614,7 @@ def test_symlinked_runtime_custody_ancestor_is_rejected_before_write(monkeypatch
     payload = json.loads(out.read_text())
     assert seen == [] and not target.exists()
     assert "symlinked_runtime_custody_component" in payload["runtime_custody"]["runtime_error"]
-    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["decision"]["status"] == "policy_blocked"
 
 
 @pytest.mark.no_legacy_skip
@@ -559,7 +634,7 @@ def test_existing_finalizer_owned_invocations_directory_requires_private_mode(mo
     main(["finalize", "--phase", "pre-commit", "--title", "x", "--intended-commit-title", "x", "--task-acceptance-manifest", str(manifest), "--runtime-sandbox-root", str(runtime), "--output", str(out)])
     payload = json.loads(out.read_text())
     if os.name == "posix":
-        assert payload["decision"]["status"] == "repair_required_task_caused"
+        assert payload["decision"]["status"] == "policy_blocked"
         assert payload["decision"]["reasons"] == [f"finalizer_owned_directory_mode_mismatch:{invocations}:0755"]
         assert seen == [] and list(invocations.iterdir()) == [sentinel]
         assert sentinel.read_bytes() == b"preserve" and stat.S_IMODE(invocations.stat().st_mode) == observed
@@ -598,7 +673,7 @@ def test_runtime_directory_mode_tampering_blocks_terminal_decision(monkeypatch: 
     try:
         payload = _run_fake_finalizer(monkeypatch, tmp_path, manifest, hook)
         if os.name == "posix":
-            assert payload["decision"]["status"] == "repair_required_task_caused"
+            assert payload["decision"]["status"] == "policy_blocked"
             assert payload["decision"]["reasons"] == [f"finalizer_owned_directory_mode_mismatch:{tampered}:0755"]
             assert payload["runtime_custody"]["terminal_directory_identity_status"] == "blocked"
         else:
@@ -830,7 +905,7 @@ def test_dirty_source_blocks_after_cleanup_and_refresh(monkeypatch: pytest.Monke
     ])
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert code == 1
-    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["decision"]["status"] == "validation_failed"
     assert "source_change_not_declared" in payload["decision"]["reasons"]
     assert payload["evidence_freshness"]["refresh_stage_runs"] == 3
 
@@ -928,7 +1003,7 @@ def test_finalizer_blocks_unsatisfied_task_acceptance(monkeypatch: pytest.Monkey
     code = main(["finalize", "--title", "x", "--intended-commit-title", "x", "--phase", "pre-commit", "--focused-test-command", "python -c 'pass'", "--task-acceptance-manifest", str(manifest), "--output", str(out)])
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert code == 1
-    assert payload["decision"]["status"] == "repair_required_task_caused"
+    assert payload["decision"]["status"] == "validation_failed"
     assert payload["task_acceptance"]["status"] == "task_acceptance_blocked"
 
 

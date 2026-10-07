@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, cast
 
 from sentientos.broad_lane_rows import build_broad_lane_row
+from sentientos.validation_causality import verify_comparison
 
 BLOCKING_FAILURE_CLASSES = {
     "covenant_tripwire_drift",
@@ -81,9 +82,7 @@ def _lane_summary_from_pointer(payload: Mapping[str, Any] | None, lane_name: str
 
 def _lane_row(*, lane: str, summary: LaneSummary, pointer_bits: Mapping[str, Any] | None = None) -> dict[str, Any]:
     pointer = pointer_bits if isinstance(pointer_bits, Mapping) else {}
-    return cast(
-        dict[str, Any],
-        build_broad_lane_row(
+    return build_broad_lane_row(
         lane=lane,
         status=summary.status,
         lane_state=summary.lane_state,
@@ -93,7 +92,6 @@ def _lane_row(*, lane: str, summary: LaneSummary, pointer_bits: Mapping[str, Any
         run_id=pointer.get("run_id"),
         failure_count=summary.failure_count,
         details=summary.details,
-        ),
     )
 
 
@@ -295,6 +293,10 @@ def build_status(
     mypy_ratchet_status_path: Path,
     corridor_report_path: Path,
     broad_lane_latest_summary_path: Path | None = Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"),
+    causal_validation_comparison: Mapping[str, Any] | None = None,
+    immutable_base_sha: str = "",
+    candidate_sha: str = "",
+    candidate_workspace_identity: str = "",
 ) -> dict[str, Any]:
     failure_digest = _read_json(failure_digest_path)
     run_provenance = _read_json(run_provenance_path)
@@ -310,6 +312,26 @@ def build_status(
     run_tests_row = _lane_row(lane="run_tests", summary=run_tests, pointer_bits=run_tests_pointer if isinstance(run_tests_pointer, Mapping) else {})
     mypy_row = _lane_row(lane="mypy", summary=mypy, pointer_bits=mypy_pointer if isinstance(mypy_pointer, Mapping) else {})
     protected_corridor_row = _lane_row(lane="protected_corridor", summary=protected_corridor, pointer_bits={})
+
+    causal_status: dict[str, Any] = {"status": "comparison_not_supplied", "reasons": []}
+    if causal_validation_comparison is not None:
+        if not immutable_base_sha or not candidate_sha or not candidate_workspace_identity:
+            causal_status = {"status": "comparison_incomplete", "reasons": ["causal_comparison_expected_identity_missing"]}
+        else:
+            causal_status = verify_comparison(
+                causal_validation_comparison,
+                immutable_base_sha=immutable_base_sha,
+                candidate_sha=candidate_sha,
+                candidate_workspace_identity=candidate_workspace_identity,
+            )
+
+    health_states = {run_tests.lane_state, mypy.lane_state, protected_corridor.lane_state}
+    if "lane_completed_with_blocking_failure" in health_states or run_tests.status == "red" or mypy.status == "red" or protected_corridor.status == "red":
+        repository_health = "red"
+    elif health_states & {"lane_not_run", "lane_unavailable_in_environment", "lane_incomplete"} or "amber" in {run_tests.status, mypy.status, protected_corridor.status}:
+        repository_health = "amber"
+    else:
+        repository_health = "green"
 
     broad_green = run_tests.status == "green" and mypy.status == "green"
     protected_green = protected_corridor.status in {"green", "amber"}
@@ -334,6 +356,9 @@ def build_status(
         "generated_at": _iso_now(),
         "protected_corridor_green": protected_green,
         "broad_baseline_green": broad_green,
+        "repository_health_status": repository_health,
+        "task_regression_status": causal_status.get("status", "comparison_not_supplied"),
+        "task_regression": causal_status,
         "lane_state_taxonomy": {
             "lane_not_run": "no evidence that the lane executed in this cycle",
             "lane_unavailable_in_environment": "lane could not run because required environment/bootstrap dependencies were unavailable",
@@ -394,6 +419,10 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"),
     )
+    parser.add_argument("--causal-validation-comparison", type=Path)
+    parser.add_argument("--immutable-base-sha", default="")
+    parser.add_argument("--candidate-sha", default="")
+    parser.add_argument("--candidate-workspace-identity", default="")
     parser.add_argument(
         "--output",
         type=Path,
@@ -408,6 +437,10 @@ def main(argv: list[str] | None = None) -> int:
         mypy_ratchet_status_path=args.mypy_ratchet_status,
         corridor_report_path=args.protected_corridor_report,
         broad_lane_latest_summary_path=args.broad_lane_latest_summary,
+        causal_validation_comparison=_read_json(args.causal_validation_comparison) if args.causal_validation_comparison else None,
+        immutable_base_sha=args.immutable_base_sha,
+        candidate_sha=args.candidate_sha,
+        candidate_workspace_identity=args.candidate_workspace_identity,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

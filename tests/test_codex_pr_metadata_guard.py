@@ -114,8 +114,9 @@ def _mutate(path: Path, section: str, field: str, value: object, *, reseal: bool
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_ready_pre_commit_and_pr_metadata_artifacts_are_ready(tmp_path: Path) -> None:
-    result = evaluate_pr_metadata_guard(_request(tmp_path))
+def test_ready_pre_commit_and_pr_metadata_artifacts_are_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request, _, _ = _transition_request(tmp_path, monkeypatch)
+    result = evaluate_pr_metadata_guard(request)
     assert result.status == "pr_metadata_guard_ready"
     assert result.ready is True
 
@@ -242,7 +243,19 @@ def test_validation_only_blocks_when_source_doc_test_changes_present(tmp_path: P
     assert result.status == "pr_metadata_guard_blocked_validation_only_mismatch"
 
 
-def test_json_output_is_deterministic(tmp_path: Path) -> None:
-    result = evaluate_pr_metadata_guard(_request(tmp_path))
+def test_validation_only_uses_live_git_status_when_evidence_is_unspecified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "sentientos.codex_pr_metadata_guard._git_status_lines",
+        lambda _root: (" M sentientos/x.py",),
+    )
+    result = evaluate_pr_metadata_guard(
+        _request(tmp_path, validation_only=True, pre_commit_finalizer_json="", git_status_lines=None)
+    )
+    assert result.status == "pr_metadata_guard_blocked_validation_only_mismatch"
+
+
+def test_json_output_is_deterministic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request, _, _ = _transition_request(tmp_path, monkeypatch)
+    result = evaluate_pr_metadata_guard(request)
     assert result_json(result) == result_json(result)
     assert '"status": "pr_metadata_guard_ready"' in result_json(result)

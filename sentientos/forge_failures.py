@@ -4,9 +4,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import json
 import re
+from typing import cast
 
 MAX_EXCERPT_CHARS = 8000
+
+
+def normalize_failure_message(message: str) -> str:
+    """Normalize incidental rendering noise without erasing failure semantics."""
+    normalized = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", message)
+    normalized = re.sub(r"0x[0-9a-fA-F]+", "<address>", normalized)
+    normalized = re.sub(
+        r"(?i)(?:/tmp/pytest-of-[^/\s]+/pytest-\d+|[A-Z]:\\[^\s]+\\pytest-\d+)",
+        "<pytest-temp>", normalized,
+    )
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def semantic_failure_signature(nodeid: str, error_type: str, message: str) -> str:
+    payload = [nodeid.strip(), error_type.strip(), normalize_failure_message(message)]
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(slots=True)
@@ -17,6 +37,7 @@ class FailureSignature:
     test_name: str
     error_type: str
     message_digest: str
+    semantic_signature: str = ""
 
 
 @dataclass(slots=True)
@@ -44,23 +65,27 @@ def harvest_failures(stdout: str, stderr: str = "") -> HarvestResult:
         failed = _parse_failed_count(raw)
         return HarvestResult(total_failed=failed, clusters=[], raw_excerpt_truncated=_truncate(raw))
 
-    clusters_by_key: dict[tuple[str, str, int | None, str, str, str], FailureCluster] = {}
+    clusters_by_key: dict[tuple[str, str, str], FailureCluster] = {}
     for rec in records:
-        digest = _digest(rec["message"])
+        message = cast(str, rec["message"])
+        nodeid = cast(str, rec["nodeid"])
+        error_type = cast(str, rec["error_type"])
         sig = FailureSignature(
-            nodeid=rec["nodeid"],
-            file=rec["file"],
-            line=rec["line"],
-            test_name=rec["test_name"],
-            error_type=rec["error_type"],
-            message_digest=digest,
+            nodeid=nodeid,
+            file=cast(str, rec["file"]),
+            line=cast(int | None, rec["line"]),
+            test_name=cast(str, rec["test_name"]),
+            error_type=error_type,
+            message_digest=_digest(message),
+            semantic_signature=semantic_failure_signature(nodeid, error_type, message),
         )
-        key = (sig.nodeid, sig.file, sig.line, sig.test_name, sig.error_type, sig.message_digest)
+        # File/line are diagnostic metadata. They do not define task regression.
+        key = (sig.nodeid, sig.error_type, sig.semantic_signature)
         if key not in clusters_by_key:
             clusters_by_key[key] = FailureCluster(signature=sig, count=0, examples=[])
         clusters_by_key[key].count += 1
         if len(clusters_by_key[key].examples) < 3:
-            clusters_by_key[key].examples.append(rec["message"])
+            clusters_by_key[key].examples.append(message)
 
     return HarvestResult(
         total_failed=len(records),

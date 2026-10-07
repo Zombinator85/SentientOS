@@ -197,7 +197,7 @@ def _resolve_invoker_module() -> str | None:
         caller_module: str | None = None
         while frame:
             module_name = frame.f_globals.get("__name__")
-            if module_name and not module_name.startswith("importlib."):
+            if isinstance(module_name, str) and module_name and not module_name.startswith("importlib."):
                 if module_name in skip_modules:
                     frame = frame.f_back
                     continue
@@ -289,9 +289,3 @@ def init_codex_runtime() -> None:
             pass
         _FORK_HANDLER_REGISTERED = True
     _STARTUP_INITIALIZED = True
-
-
-# Ensure parent process identity is stamped into environment at import time so
-# child processes deterministically observe finalized startup state unless they
-# are explicitly startup-authorized by clearing startup guard env markers.
-os.environ.setdefault(_ROOT_PID_ENV_VAR, str(os.getpid()))

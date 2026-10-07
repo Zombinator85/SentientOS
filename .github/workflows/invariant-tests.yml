@@ -17,16 +17,18 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .[dev]
+          python -m pip install -r requirements-codex.txt
+          python -m pip install --no-deps -e .
+          python -m pip check
       - name: Run invariant tests
         run: |
           python -m scripts.run_tests \
             tests/test_sentient_autonomy.py \
             tests/test_sentient_mesh_scheduler.py \
             tests/test_policy_engine.py \
-            tests/test_prompt_assembler.py \
             tests/test_capability_ledger.py
+      - name: Run Administrator-only prompt assembler invariant
+        run: sudo env "PATH=$PATH" "SENTIENTOS_HEADLESS=$SENTIENTOS_HEADLESS" python -m scripts.run_tests -q tests/test_prompt_assembler.py
       - name: Analyze test provenance trends
         if: always()
         run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain

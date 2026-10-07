@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.codex_landing_evidence_index import ARTIFACT_ROLES
+from sentientos.landing_validation_plan import verify_validation_plan_transition
 
 READY = "doctor_ready"
 BLOCKED = "doctor_blocked"
@@ -305,6 +306,19 @@ def build_lifecycle_doctor_report(request: CodexLifecycleDoctorRequest) -> dict[
     elif (matrix_s["required_failure_count"] or 0) > 0 or matrix_s["blocked_lane_count"] > 0:
         status, action = BLOCKED, "inspect_blocked_lanes"
         reasons.append("matrix_required_proof_blocked")
+    elif pre is not None and finalizer_s["pre_commit_status"] == "ready_to_commit_pending_hosted_validation":
+        pre_plan = pre.get("landing_validation_plan")
+        post_plan = pr.get("landing_validation_plan") if pr is not None else None
+        workspace = pre.get("workspace_binding")
+        commit = pr.get("commit_binding") if pr is not None else None
+        if isinstance(pre_plan, Mapping) and isinstance(post_plan, Mapping) and isinstance(workspace, Mapping) and isinstance(commit, Mapping):
+            transition_ready, transition_reasons, _ = verify_validation_plan_transition(pre_plan, post_plan, workspace, commit)
+            if not transition_ready:
+                status, action = BLOCKED, "provide_missing_evidence"
+                reasons.append("hosted_validation_lineage_not_ready:" + ",".join(transition_reasons))
+        else:
+            status, action = INCOMPLETE, "provide_missing_evidence"
+            reasons.append("hosted_validation_lineage_evidence_missing")
     elif pre is not None and finalizer_s["pre_commit_status"] != "ready_to_commit":
         status, action = BLOCKED, "rerun_finalizer_with_refresh"
         reasons.append(f"pre_commit_finalizer_not_ready:{finalizer_s['pre_commit_status']}")

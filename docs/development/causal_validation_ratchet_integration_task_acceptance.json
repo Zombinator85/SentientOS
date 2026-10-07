@@ -1,0 +1,71 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_deferred_stage_identity_is_order_independent_but_rejects_duplicates",
+      "rationale": "The post-commit hosted handoff accepts identical deferred-stage evidence regardless of serialization order while rejecting duplicate stage identities."
+    },
+    {
+      "node_id": "tests/test_causal_validation_ratchet_integration.py::test_matched_health_debt_flows_through_finalizer_without_task_regression",
+      "rationale": "Matched base debt remains visible as red repository health while the finalizer admits a candidate proven to introduce no regression."
+    },
+    {
+      "node_id": "tests/test_causal_validation_ratchet_integration.py::test_new_candidate_failure_flows_through_finalizer_as_blocking_regression",
+      "rationale": "A candidate-side semantic failure change blocks finalizer readiness."
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing.py::test_paired_broad_timeout_is_incomplete_and_allows_only_hosted_validation_commit",
+      "rationale": "A strictly paired timeout stays incomplete and permits only candidate commit for hosted validation."
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing.py::test_hosted_handoff_does_not_defer_a_new_complete_broad_failure",
+      "rationale": "The hosted-handoff posture cannot bypass a newly observed complete broad failure."
+    },
+    {
+      "node_id": "tests/test_hosted_validation_evidence.py::test_post_commit_hosted_handoff_binds_exact_candidate_tree_without_claiming_hosted_pass",
+      "rationale": "The intermediate handoff binds the committed tree and does not claim hosted checks ran."
+    },
+    {
+      "node_id": "tests/test_validation_causality.py::test_self_refreshed_candidate_sha_cannot_replace_immutable_base",
+      "rationale": "Candidate-side baseline refresh cannot replace the immutable reviewed base."
+    },
+    {
+      "node_id": "tests/test_validation_causality.py::test_line_movement_is_diagnostic_not_semantic_identity",
+      "rationale": "Harmless location changes do not alter semantic failure identity."
+    },
+    {
+      "node_id": "tests/test_analyze_test_failures.py::test_failure_identity_uses_message_beyond_display_excerpt",
+      "rationale": "Causal identity includes the complete normalized failure message beyond its display excerpt."
+    },
+    {
+      "node_id": "tests/test_compare_validation_runs.py::test_timeout_is_recorded_as_incomplete_with_raw_output",
+      "rationale": "An interrupted comparison preserves output and cannot be treated as a pass."
+    },
+    {
+      "node_id": "tests/test_compare_validation_runs.py::test_full_suite_comparison_defaults_to_runner_default_selection",
+      "rationale": "The immutable-base comparator can reproduce the exact full default test-runner command."
+    },
+    {
+      "node_id": "tests/test_ci_baseline.py::test_matching_failure_multiset_is_preexisting_debt_but_health_stays_red",
+      "rationale": "Signature-matched baseline debt remains visible while task regression stays green."
+    },
+    {
+      "node_id": "tests/test_mypy_baseline.py::test_checker_fails_closed_when_mypy_command_fails",
+      "rationale": "Unavailable mypy execution cannot be misreported as all baseline debt retired."
+    },
+    {
+      "node_id": "tests/test_codex_finalize_landing_script.py::test_classify_explicitly_declared_untracked_file",
+      "rationale": "An explicitly declared untracked task artifact is accepted by the canonical finalizer."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_codex_finalize_landing_script.py::test_deferred_stage_identity_is_order_independent_but_rejects_duplicates",
+    "tests/test_causal_validation_ratchet_integration.py::test_matched_health_debt_flows_through_finalizer_without_task_regression",
+    "tests/test_causal_validation_ratchet_integration.py::test_new_candidate_failure_flows_through_finalizer_as_blocking_regression",
+    "tests/test_codex_finalize_landing.py::test_paired_broad_timeout_is_incomplete_and_allows_only_hosted_validation_commit",
+    "tests/test_hosted_validation_evidence.py::test_post_commit_hosted_handoff_binds_exact_candidate_tree_without_claiming_hosted_pass"
+  ]
+}

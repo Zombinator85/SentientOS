@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
+from sentientos.landing_validation_plan import verify_validation_plan_transition
 
 READY_FOR_EXTERNAL_PUBLICATION = "ready_for_external_pr_publication"
 READY_FOR_PUBLICATION_HANDOFF = "ready_for_pr_publication_handoff"
@@ -122,7 +123,18 @@ def build_task_lifecycle_summary(request: CodexTaskLifecycleSummaryRequest) -> d
 
     reasons: list[str] = []
     missing_required = False
-    if pre["status"] != "ready_to_commit":
+    if pre["status"] == "ready_to_commit_pending_hosted_validation":
+        pre_plan = pre_payload.get("landing_validation_plan")
+        post_plan = pr_payload.get("landing_validation_plan")
+        workspace = pre_payload.get("workspace_binding")
+        commit = pr_payload.get("commit_binding")
+        if isinstance(pre_plan, Mapping) and isinstance(post_plan, Mapping) and isinstance(workspace, Mapping) and isinstance(commit, Mapping):
+            transition_ready, transition_reasons, _ = verify_validation_plan_transition(pre_plan, post_plan, workspace, commit)
+            if not transition_ready:
+                reasons.append("hosted_validation_lineage_not_ready:" + ",".join(transition_reasons))
+        else:
+            reasons.append("hosted_validation_lineage_evidence_missing")
+    elif pre["status"] != "ready_to_commit":
         reasons.append(f"pre_commit_finalizer_not_ready:{pre['status']}")
     if pr["status"] != "ready_for_pr_metadata":
         reasons.append(f"pr_metadata_finalizer_not_ready:{pr['status']}")

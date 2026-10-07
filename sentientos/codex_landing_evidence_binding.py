@@ -396,7 +396,7 @@ def create_pr_publication_handoff(
     post = _json_object(pr_metadata_finalizer_path, "pr_metadata_finalizer")
     guard = _json_object(pr_metadata_guard_path, "pr_metadata_guard")
     reasons: list[str] = []
-    if _decision_status(pre) != "ready_to_commit": reasons.append("pre_commit_finalizer_not_ready")
+    if _decision_status(pre) not in {"ready_to_commit", "ready_to_commit_pending_hosted_validation"}: reasons.append("pre_commit_finalizer_not_ready")
     if _decision_status(post) != "ready_for_pr_metadata": reasons.append("pr_metadata_finalizer_not_ready")
     if guard.get("status") != "pr_metadata_guard_ready": reasons.append("pr_metadata_guard_not_ready")
     commit = post.get("commit_binding")

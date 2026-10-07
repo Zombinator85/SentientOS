@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from scripts.emit_baseline_verification_status import build_status
+from sentientos.forge_failures import semantic_failure_signature
+from sentientos.validation_causality import compare_runs, command_contract_digest, environment_digest
 
 
 def test_build_status_reads_new_corridor_global_summary(tmp_path: Path) -> None:
@@ -151,6 +153,53 @@ def test_build_status_classifies_run_tests_deferred_debt(tmp_path: Path) -> None
     assert status["lanes"]["run_tests"]["status"] == "amber"
     assert status["lanes"]["run_tests"]["lane_state"] == "lane_completed_with_deferred_debt"
     assert status["lanes"]["run_tests"]["pointer_state"] == "unavailable"
+
+
+def test_repository_health_red_can_coexist_with_green_task_regression_gate(tmp_path: Path) -> None:
+    base_sha = "a" * 40
+    candidate_sha = "b" * 40
+    workspace = "sha256:" + "c" * 64
+    node = "tests/test_x.py::test_x"
+    signature = semantic_failure_signature(node, "AssertionError", "legacy invariant remains failing")
+    environment = {"python": "3.11", "pytest": "stable"}
+    command = ["python", "-m", "pytest", "-q", "tests/test_x.py::test_x"]
+
+    def run(sha: str, identity: str) -> dict[str, object]:
+        return {
+            "repository_sha": sha,
+            "workspace_identity": identity,
+            "command_contract": {"runner": "pytest", "argv": command},
+            "command_contract_digest": command_contract_digest(command),
+            "environment_identity": environment,
+            "environment_digest": environment_digest(environment),
+            "complete": True,
+            "exit_code": 1,
+            "tests_collected": 1,
+            "tests_executed": 1,
+            "junit_sha256": "sha256:" + "d" * 64,
+            "normalized_failure_multiset": [{"signature": signature, "nodeid": node, "exception_type": "AssertionError", "message": "legacy invariant remains failing", "count": 1}],
+        }
+
+    comparison = compare_runs(immutable_base_sha=base_sha, candidate_sha=candidate_sha, candidate_workspace_identity=workspace, base_run=run(base_sha, "sha256:" + "1" * 64), candidate_run=run(candidate_sha, workspace))
+    corridor = tmp_path / "corridor.json"
+    corridor.write_text(json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}), encoding="utf-8")
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({"metrics_status": "ok", "execution_mode": "execute", "pytest_exit_code": 1, "tests_failed": 1}), encoding="utf-8")
+    digest = tmp_path / "digest.json"
+    digest.write_text(json.dumps({"failure_groups": [{"failure_class": "covenant_tripwire_drift"}], "failure_class_totals": {"covenant_tripwire_drift": 1}}), encoding="utf-8")
+    ratchet = tmp_path / "mypy.json"
+    ratchet.write_text(json.dumps({"status": "ok"}), encoding="utf-8")
+
+    status = build_status(
+        failure_digest_path=digest, run_provenance_path=provenance,
+        mypy_output_path=tmp_path / "missing.txt", mypy_ratchet_status_path=ratchet,
+        corridor_report_path=corridor, causal_validation_comparison=comparison,
+        immutable_base_sha=base_sha, candidate_sha=candidate_sha,
+        candidate_workspace_identity=workspace,
+    )
+    assert status["repository_health_status"] == "red"
+    assert status["task_regression_status"] == "no_regression"
+    assert status["lanes"]["run_tests"]["lane_state"] == "lane_completed_with_blocking_failure"
 
 
 def test_build_status_classifies_mypy_from_ratchet_status(tmp_path: Path) -> None:

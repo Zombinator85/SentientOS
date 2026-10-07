@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from sentientos.codex_landing_evidence_binding import create_workspace_binding, create_commit_binding, verify_commit_matches_workspace
 from sentientos.codex_finalize_landing import (
+    _ADMINISTRATOR_UNAVAILABLE_PROOF,
     CodexFinalizeLandingArtifactFinding,
     CodexFinalizeLandingCommandResult,
     CodexFinalizeLandingPolicy,
@@ -24,6 +25,9 @@ from sentientos.codex_finalize_landing import (
 from sentientos.task_acceptance import verify as verify_task_acceptance
 from sentientos.bounded_subprocess import DEFAULT_HEARTBEAT_SECONDS, DEFAULT_TAIL_LINES, run_supervised
 from sentientos.landing_validation_plan import SOLO_MATRIX_STATUS, seal_validation_plan, verify_validation_plan
+from sentientos.admin_utils import is_admin
+from sentientos.hosted_validation_evidence import REQUIRED_STAGES, verify_hosted_validation_evidence
+from sentientos.validation_causality import verify_comparison
 
 GENERATED_PREFIXES = ("glow/", "pulse/", "artifacts/codex/", "artifacts/work_item_review_packet_matrix.json", "sentientos_data/vow", "sentientos_data/runtime", "sentientos_data/conversations/")
 BLOCKED_PATH_PARTS = ("__pycache__", ".pytest_cache")
@@ -256,6 +260,28 @@ def _run_stage(
 ) -> tuple[CodexFinalizeLandingCommandResult, StageRuntime]:
     if time.monotonic() >= overall_deadline:
         raise FinalizerTimeoutError(stage_id, "overall")
+    if stage_id in REQUIRED_STAGES and not is_admin():
+        unavailable_evidence = {
+            "probe": "administrator_capability", "available": False,
+            "source": "sentientos.admin_utils.is_admin",
+        }
+        message = "not executed: required Administrator capability unavailable"
+        return (
+            CodexFinalizeLandingCommandResult(
+                stage=stage_id, command=cmd, exit_code=126, output_tail=message,
+                required=required, availability_status="substrate_unavailable",
+                availability_evidence=unavailable_evidence,
+                availability_proof=_ADMINISTRATOR_UNAVAILABLE_PROOF,
+            ),
+            StageRuntime(
+                stage_id=stage_id, command=cmd, started_at=time.monotonic(),
+                completed=False, exit_code=126, duration_seconds=0.0,
+                stdout_tail="", stderr_tail=message, decision_impact="required",
+                status="unavailable", timed_out=False,
+                configured_timeout_seconds=stage_timeout_seconds,
+                effective_timeout_seconds=0,
+            ),
+        )
     _progress(progress, f"[finalizer] stage start: {stage_id}")
     started = time.monotonic()
     remaining = max(1, int(overall_deadline - started))
@@ -471,6 +497,45 @@ def _git_status() -> list[str]:
     return [l.rstrip() for l in p.stdout.splitlines() if l.strip()]
 
 
+def _git_repository_identity(workspace_root: str) -> str:
+    remote = subprocess.run(
+        ["git", "config", "--get", "remote.origin.url"], cwd=workspace_root,
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    value = remote.removesuffix(".git")
+    if value.startswith("git@github.com:"):
+        return value.removeprefix("git@github.com:")
+    if value.startswith("https://github.com/"):
+        return value.removeprefix("https://github.com/")
+    return ""
+
+
+def _load_hosted_validation_evidence(path_text: str, *, expected_sha: str, expected_tree: str, expected_repository: str) -> dict[str, Any] | None:
+    if not path_text:
+        return None
+    raw = Path(path_text).read_bytes()
+    evidence = json.loads(raw.decode("utf-8"))
+    if not isinstance(evidence, dict):
+        raise ValueError("hosted_validation_evidence_not_object")
+    proof = verify_hosted_validation_evidence(
+        evidence, expected_sha=expected_sha, expected_tree=expected_tree, expected_repository=expected_repository,
+    )
+    proof["artifact_sha256"] = "sha256:" + hashlib.sha256(raw).hexdigest()
+    proof["artifact_byte_length"] = len(raw)
+    proof["evidence_source"] = "supplied_github_actions_artifact"
+    return proof
+
+
+def _same_stage_ids(left: object, right: object) -> bool:
+    """Compare stage identities independent of order while rejecting duplicates."""
+    if not isinstance(left, (list, tuple)) or not isinstance(right, (list, tuple)):
+        return False
+    if not all(isinstance(item, str) and item for item in (*left, *right)):
+        return False
+    left_ids, right_ids = tuple(left), tuple(right)
+    return len(left_ids) == len(set(left_ids)) and len(right_ids) == len(set(right_ids)) and set(left_ids) == set(right_ids)
+
+
 def _git_tracked_changes() -> tuple[str, ...]:
     p = subprocess.run("git diff --name-only --cached && git diff --name-only", shell=True, text=True, capture_output=True)
     names = [line.strip() for line in p.stdout.splitlines() if line.strip()]
@@ -565,7 +630,7 @@ def _classify(status_lines: list[str], changed_files: tuple[str, ...], inferred_
         elif is_untracked and path in set(inferred_untracked_task_files):
             cls = "intended_task_change"
             action = "allow_pre_commit"
-        elif (not is_untracked) and path in changed_file_set:
+        elif path in changed_file_set:
             cls = "intended_task_change"
             action = "allow_pre_commit"
         elif path.endswith((".py", ".md", ".json", ".yaml", ".yml", ".toml", ".txt", ".bat")):
@@ -683,6 +748,10 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--no-progress", action="store_false", dest="progress")
         s.add_argument("--summary", action="store_true")
         s.add_argument("--pre-commit-finalizer-json")
+        s.add_argument("--hosted-validation-evidence", help="GitHub Actions artifact from hosted-privileged-validation.yml")
+        s.add_argument("--causal-validation-evidence", help="Immutable-base/candidate comparison artifact for a nonzero broad-validation lane")
+        s.add_argument("--immutable-base-sha", help="Reviewed base SHA for causal comparison; cannot be inferred from candidate evidence")
+        s.add_argument("--causal-validation-expected-command-digest", help="Expected exact broad command-contract digest")
         s.add_argument("--pre-commit-retry-finalizer-json")
         s.add_argument("--runtime-sandbox-root")
         s.add_argument("--task-acceptance-manifest")
@@ -735,19 +804,85 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         runtime_error = str(exc)
     prior_solo_plan: dict[str, Any] | None = None
-    if a.pre_commit_finalizer_json and a.validation_profile == "solo" and normalized_phase in {"post-commit", "pr-metadata"}:
+    prior_finalizer_payload: dict[str, Any] = {}
+    if a.pre_commit_finalizer_json and normalized_phase in {"post-commit", "pr-metadata"}:
         try:
             prior_payload = json.loads(Path(a.pre_commit_finalizer_json).read_text(encoding="utf-8"))
+            prior_finalizer_payload = prior_payload
             candidate = prior_payload.get("landing_validation_plan", {})
             valid, plan_reasons = verify_validation_plan(candidate)
-            if not valid or candidate.get("effective_profile") != "solo":
+            if not valid or candidate.get("effective_profile") != a.validation_profile:
                 runtime_error = "prior_validation_plan_invalid:" + ",".join(plan_reasons)
-            elif candidate.get("title") != (a.title or "") or candidate.get("intended_commit_title") != (a.intended_commit_title or ""):
+            if not runtime_error and (candidate.get("title") != (a.title or "") or candidate.get("intended_commit_title") != (a.intended_commit_title or "")):
                 runtime_error = "prior_validation_plan_command_or_title_contract_mismatch"
-            else:
+            elif not runtime_error:
                 prior_solo_plan = dict(candidate)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             runtime_error = f"prior_validation_plan_unreadable:{type(exc).__name__}"
+
+    repository_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=a.workspace_root,
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    candidate_tree_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"], cwd=a.workspace_root,
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    if normalized_phase == "pre-commit":
+        candidate_tree_sha = ""
+    prior_decision = prior_finalizer_payload.get("decision", {})
+    prior_plan = prior_finalizer_payload.get("landing_validation_plan", {})
+    causal_validation_payload: dict[str, Any] | None = None
+    causal_validation_identity: dict[str, Any] = {"status": "comparison_not_supplied", "reasons": []}
+    candidate_workspace_identity = ""
+    causal_validation_candidate_sha = repository_sha
+    if normalized_phase in {"post-commit", "pr-metadata"} and isinstance(prior_plan, Mapping):
+        causal_validation_candidate_sha = str(prior_plan.get("repository_sha", repository_sha))
+        candidate_workspace_identity = str(prior_plan.get("candidate_workspace_identity", ""))
+    if a.causal_validation_evidence:
+        try:
+            from scripts.compare_validation_runs import workspace_identity as compute_workspace_identity
+            evidence_path = Path(a.causal_validation_evidence)
+            evidence_bytes, _ = _stable_regular_read(evidence_path)
+            parsed_evidence = json.loads(evidence_bytes.decode("utf-8"))
+            if not isinstance(parsed_evidence, dict):
+                raise ValueError("causal_evidence_not_object")
+            causal_validation_payload = parsed_evidence
+            if not candidate_workspace_identity:
+                candidate_workspace_identity = compute_workspace_identity(Path(a.workspace_root).resolve(), head_sha=repository_sha)
+            causal_validation_identity = verify_comparison(
+                causal_validation_payload,
+                immutable_base_sha=a.immutable_base_sha or "",
+                candidate_sha=causal_validation_candidate_sha,
+                candidate_workspace_identity=candidate_workspace_identity,
+                expected_command_contract_digest=a.causal_validation_expected_command_digest or None,
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            causal_validation_identity = {"status": "comparison_incomplete", "reasons": [f"causal_validation_evidence_invalid:{type(exc).__name__}"]}
+    deferred_stage_ids: tuple[str, ...] = ()
+    if isinstance(prior_decision, Mapping) and prior_decision.get("status") == "ready_to_commit_pending_hosted_validation":
+        deferred_stage_ids = tuple(prior_decision.get("deferred_stage_ids", ()))
+        if not deferred_stage_ids and isinstance(prior_plan, Mapping):
+            deferred_stage_ids = tuple(prior_plan.get("hosted_deferred_stage_ids", ()))
+        if not isinstance(prior_plan, Mapping) or prior_plan.get("overall_status") != "ready_to_commit_pending_hosted_validation":
+            runtime_error = "prior_hosted_validation_commit_posture_unbound"
+        elif not _same_stage_ids(prior_plan.get("hosted_deferred_stage_ids", ()), deferred_stage_ids):
+            runtime_error = "prior_hosted_deferred_stages_mismatch"
+        elif prior_plan.get("causal_validation_status") == "comparison_incomplete" and prior_plan.get("causal_validation_incomplete_classification") != "paired_timeout":
+            runtime_error = "prior_causal_validation_incomplete_unclassified"
+    hosted_validation_proof: dict[str, Any] | None = None
+    if a.hosted_validation_evidence:
+        try:
+            hosted_validation_proof = _load_hosted_validation_evidence(
+                a.hosted_validation_evidence, expected_sha=repository_sha, expected_tree=candidate_tree_sha,
+                expected_repository=_git_repository_identity(a.workspace_root),
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            hosted_validation_proof = {
+                "status": "hosted_validation_evidence_blocked", "ready": False,
+                "reasons": [f"hosted_validation_evidence_unreadable:{type(exc).__name__}"],
+                "candidate_sha": "", "verified_stage_ids": [],
+            }
 
     req = CodexFinalizeLandingRequest(
         title=a.title or "",
@@ -767,6 +902,31 @@ def main(argv: list[str] | None = None) -> int:
         allow_no_focused_tests=a.allow_no_focused_tests,
         workspace_root=a.workspace_root,
         summary=a.summary,
+        repository_sha=repository_sha,
+        hosted_validation_evidence=hosted_validation_proof,
+        deferred_stage_ids=deferred_stage_ids,
+        immutable_base_sha=a.immutable_base_sha or "",
+        candidate_workspace_identity=candidate_workspace_identity,
+        causal_validation_candidate_sha=causal_validation_candidate_sha,
+        causal_validation_evidence=causal_validation_payload,
+        causal_validation_expected_command_digest=a.causal_validation_expected_command_digest or "",
+        task_acceptance_status="task_acceptance_ready" if a.task_acceptance_manifest else "not_supplied",
+        require_causal_validation=bool(a.causal_validation_evidence) or (
+            normalized_phase == "post-commit"
+            and isinstance(prior_decision, Mapping)
+            and prior_decision.get("status") == "ready_to_commit_pending_hosted_validation"
+        ),
+        hosted_validation_handoff_authorized=(
+            normalized_phase == "post-commit"
+            and isinstance(prior_decision, Mapping)
+            and prior_decision.get("status") == "ready_to_commit_pending_hosted_validation"
+            and isinstance(prior_plan, Mapping)
+            and prior_plan.get("overall_status") == "ready_to_commit_pending_hosted_validation"
+            and bool(deferred_stage_ids)
+            and (prior_plan.get("causal_validation_status") in {"no_regression", "improved"} or prior_plan.get("causal_validation_incomplete_classification") == "paired_timeout")
+            and bool(candidate_tree_sha)
+        ),
+        candidate_tree_sha=candidate_tree_sha,
     )
 
     stage_specs: list[tuple[str, str, bool]] = [("preflight_hygiene", "git status --short", True)]
@@ -861,7 +1021,11 @@ def main(argv: list[str] | None = None) -> int:
     if a.validation_profile == "exhaustive" and not (exact_matrix_reuse or precommit_retry_reuse or prevalidated_matrix_reuse):
         matrix_stages = [("matrix_summary", _landing_matrix_command(a.matrix_json_path, resume=bool(a.pre_commit_retry_finalizer_json), command_timeout_seconds=min(a.stage_timeout_seconds, a.matrix_timeout_seconds)), True)]
     changed_surface = set(a.changed_file) | set(inferred_changed_files) | set(inferred_untracked_task_files)
-    docs_required = a.force_docs_validation or any(path.startswith("docs/") or path in {"mkdocs.yml", "scripts/build_docs.py"} for path in changed_surface)
+    docs_required = (
+        a.force_docs_validation
+        or any(path.startswith("docs/") or path in {"mkdocs.yml", "scripts/build_docs.py"} for path in changed_surface)
+        or bool(set(deferred_stage_ids) & {"docs_check_deps", "docs_build"})
+    )
     stage_specs.extend(
         [
             ("mypy_baseline", "python scripts/check_mypy_baseline.py", True),
@@ -897,10 +1061,10 @@ def main(argv: list[str] | None = None) -> int:
     acceptance_ready = acceptance_result is None or acceptance_result.get("status") == "task_acceptance_ready"
     try:
         if runtime_error:
-            decision_status = "repair_required_task_caused"
+            decision_status = "policy_blocked"
             decision_reasons = [runtime_error]
         elif not acceptance_ready:
-            decision_status = "repair_required_task_caused"
+            decision_status = "validation_failed"
             decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"])) if acceptance_result else ["task_acceptance_blocked"]
         else:
             for stage_id, cmd, required in stage_specs:
@@ -989,6 +1153,22 @@ def main(argv: list[str] | None = None) -> int:
     diagnostics_after_refresh = _collect_dirty_diagnostics(status_after_refresh, findings_after_refresh, req.dirty_file_classification_source, cleanup_results)
     generated_dirty_after_refresh = [item.path for item in findings_after_refresh if item.classification == "generated_runtime_artifact"]
 
+    if causal_validation_payload is not None:
+        candidate_run = causal_validation_payload.get("candidate_run_provenance", {})
+        candidate_exit = candidate_run.get("exit_code", 2) if isinstance(candidate_run, Mapping) else 2
+        if not isinstance(candidate_exit, int):
+            candidate_exit = 2
+        raw_output = ""
+        if isinstance(candidate_run, Mapping):
+            raw_output = str(candidate_run.get("raw_stdout_tail", "")) + str(candidate_run.get("raw_stderr_tail", ""))
+        command_contract = candidate_run.get("command_contract", {}) if isinstance(candidate_run, Mapping) else {}
+        command_text = json.dumps(command_contract, sort_keys=True) if isinstance(command_contract, Mapping) else "causal comparison candidate command"
+        commands.append(CodexFinalizeLandingCommandResult(
+            "broad_validation", command_text, candidate_exit,
+            output_tail=raw_output[-8000:], required=True,
+            command_contract_digest=str(causal_validation_payload.get("command_contract_digest", "")),
+        ))
+
     landing_result = evaluate_finalize_landing(
         req,
         tuple(commands),
@@ -1000,6 +1180,12 @@ def main(argv: list[str] | None = None) -> int:
             allow_generated_artifact_cleanup=a.allow_generated_artifact_cleanup,
             allow_stale_evidence_refresh=a.allow_stale_evidence_refresh,
         ),
+    )
+
+    effective_deferred_stage_ids = (
+        tuple(landing_result.decision.deferred_stage_ids)
+        if normalized_phase == "pre-commit"
+        else deferred_stage_ids
     )
 
     if acceptance_custody and acceptance_custody.get("capture_status") == "task_acceptance_captured":
@@ -1070,6 +1256,16 @@ def main(argv: list[str] | None = None) -> int:
         decision_reasons = list(landing_result.decision.reasons)
 
     payload = landing_result.to_dict()
+    payload["assessment"] = {
+        **dict(payload.get("report", {}).get("assessments", {})),
+        "task_acceptance_status": acceptance_result.get("status") if acceptance_result else "not_supplied",
+        "regression_gate_status": causal_validation_identity.get("status", "comparison_not_supplied"),
+        "repository_health_status": causal_validation_identity.get("repository_health_status", "unknown"),
+        "protected_corridor_status": req.protected_corridor_status,
+        "environment_deferred_stage_ids": list(landing_result.decision.deferred_stage_ids),
+        "hosted_evidence_status": (hosted_validation_proof or {}).get("status", "not_supplied"),
+        "final_landing_decision": decision_status,
+    }
     payload["request"] = {
         "title": req.title,
         "intended_commit_title": req.intended_commit_title,
@@ -1100,10 +1296,43 @@ def main(argv: list[str] | None = None) -> int:
     stage_results: dict[str, dict[str, object]] = {}
     for item in runtime:
         prior = stage_results.get(item.stage_id)
-        passed = item.status == "passed" and (not prior or prior.get("status") == "passed")
+        stage_status = item.status
+        if item.stage_id in effective_deferred_stage_ids:
+            if normalized_phase == "pre-commit" and item.status == "unavailable":
+                stage_status = "hosted_deferred"
+            elif normalized_phase in {"post-commit", "pr-metadata"} and hosted_validation_proof and hosted_validation_proof.get("ready") and item.stage_id in hosted_validation_proof.get("verified_stage_ids", ()):
+                stage_status = "hosted_passed"
+            elif normalized_phase == "post-commit" and landing_result.decision.status == "ready_for_hosted_validation":
+                stage_status = "hosted_deferred"
+        passed = stage_status == "passed" and (not prior or prior.get("status") == "passed")
         prior_duration = prior.get("duration_seconds", 0.0) if prior else 0.0
-        stage_results[item.stage_id] = {"status": "passed" if passed else item.status, "duration_seconds": item.duration_seconds + (float(prior_duration) if isinstance(prior_duration, (int, float, str)) else 0.0)}
-    required_stage_ids = list(dict.fromkeys(stage for stage, _cmd, required in stage_specs if required))
+        stage_results[item.stage_id] = {
+            "status": "passed" if passed else stage_status,
+            "source": "unavailable_local_substrate" if stage_status == "hosted_deferred" else "hosted_validation_workflow" if stage_status == "hosted_passed" else "local",
+            "local_execution_status": item.status,
+            "duration_seconds": item.duration_seconds + (float(prior_duration) if isinstance(prior_duration, (int, float, str)) else 0.0),
+        }
+    broad_command = next((item for item in commands if item.stage == "broad_validation"), None)
+    if broad_command is not None:
+        if broad_command.exit_code == 0:
+            broad_status = "passed"
+        elif "broad_validation" in effective_deferred_stage_ids and (
+            causal_validation_identity.get("status") == "comparison_incomplete" or normalized_phase == "post-commit"
+        ):
+            broad_status = "hosted_deferred"
+        else:
+            broad_status = "failed"
+        stage_results["broad_validation"] = {
+            "status": broad_status,
+            "source": "causal_base_candidate_comparison",
+            "local_execution_status": "passed" if broad_command.exit_code == 0 else "incomplete" if broad_command.exit_code == 124 else "failed",
+            "exit_code": broad_command.exit_code,
+            "command_contract_digest": broad_command.command_contract_digest,
+        }
+    required_stage_ids = list(dict.fromkeys(
+        [stage for stage, _cmd, required in stage_specs if required]
+        + (["broad_validation"] if broad_command is not None else [])
+    ))
     inherited_acceptance: Mapping[str, Any] = {}
     inherited_plan: Mapping[str, Any] = {}
     if a.pre_commit_finalizer_json and acceptance_custody is None and normalized_phase in {"post-commit", "pr-metadata"}:
@@ -1123,7 +1352,18 @@ def main(argv: list[str] | None = None) -> int:
         "task_acceptance_provenance_digest": acceptance_custody.get("captured_provenance_digest") if acceptance_custody else inherited_plan.get("task_acceptance_provenance_digest"),
         "focused_test_command_contract": list(a.focused_test_command), "targeted_mypy_command_contract": list(a.targeted_mypy_command),
         "required_stage_ids": required_stage_ids, "conditionally_required_stage_ids": ["docs_check_deps", "docs_build"],
-        "skipped_or_deferred_stage_ids": ([] if docs_required else ["docs_check_deps", "docs_build"]) + ([] if a.validation_profile == "exhaustive" else ["matrix_summary"]),
+        "candidate_workspace_identity": candidate_workspace_identity or inherited_plan.get("candidate_workspace_identity", ""),
+        "causal_validation_candidate_sha": causal_validation_candidate_sha,
+        "causal_validation_status": causal_validation_identity.get("status", "comparison_not_supplied"),
+        "causal_validation_incomplete_classification": causal_validation_identity.get("incomplete_classification"),
+        "causal_validation_command_contract_digest": causal_validation_identity.get("command_contract_digest"),
+        "causal_validation_comparison_digest": causal_validation_identity.get("comparison_digest"),
+        "candidate_tree_sha": candidate_tree_sha,
+        "hosted_validation_evidence": hosted_validation_proof,
+        "skipped_or_deferred_stage_ids": ([] if docs_required else ["docs_check_deps", "docs_build"]) + ([] if a.validation_profile == "exhaustive" else ["matrix_summary"]) + sorted(set(effective_deferred_stage_ids)),
+        "hosted_deferred_stage_ids": sorted(set(effective_deferred_stage_ids)),
+        "hosted_deferred_stage_reasons": list(landing_result.decision.deferred_stage_reasons),
+        "hosted_validation_evidence": hosted_validation_proof,
         "stage_results": stage_results, "total_validation_duration_seconds": time.monotonic() - started,
         "configured_total_budget_seconds": a.overall_timeout_seconds, "remaining_budget_seconds": max(0.0, deadline - time.monotonic()),
         "exhaustive_matrix_status": SOLO_MATRIX_STATUS if a.validation_profile == "solo" else ("matrix_reused" if exact_matrix_reuse or prevalidated_matrix_reuse else "matrix_passed" if stage_results.get("matrix_summary", {}).get("status") == "passed" else "matrix_failed"),
@@ -1207,14 +1447,14 @@ def main(argv: list[str] | None = None) -> int:
         "terminal_cleaned_paths": [path for path, result in terminal_cleanup_results.items() if result[1] in {"removed", "restored"}],
         "rerun_required": rerun_required,
     }
-    if binding_errors and decision_status in {"ready_to_commit", "ready_for_pr_metadata"}:
-        decision_status = "manual_review_required" if "runtime_root_inside_workspace" in binding_errors else "repair_required_task_caused"
+    if binding_errors and decision_status in {"ready_to_commit", "ready_to_commit_pending_hosted_validation", "ready_for_hosted_validation", "ready_for_pr_metadata"}:
+        decision_status = "manual_review_required" if "runtime_root_inside_workspace" in binding_errors else "policy_blocked"
         decision_reasons = binding_errors
     if acceptance_result is not None and acceptance_result.get("status") != "task_acceptance_ready":
-        decision_status = "repair_required_task_caused"
+        decision_status = "validation_failed"
         decision_reasons = list(acceptance_result.get("reasons", ["task_acceptance_blocked"]))
     if terminal_directory_reasons:
-        decision_status = "repair_required_task_caused"
+        decision_status = "policy_blocked"
         decision_reasons = terminal_directory_reasons
     payload["decision"]["status"] = decision_status
     payload["decision"]["reasons"] = decision_reasons
@@ -1227,7 +1467,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _progress(a.progress, f"[finalizer] decision: {decision_status}")
     _emit_and_optionally_write(payload, a.output, a.summary, decision_status)
-    return 0 if (a.phase.replace("_", "-") == "pre-commit" and decision_status == "ready_to_commit") or (a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and decision_status == "ready_for_pr_metadata") else 1
+    return 0 if (a.phase.replace("_", "-") == "pre-commit" and decision_status in {"ready_to_commit", "ready_to_commit_pending_hosted_validation"}) or (a.phase.replace("_", "-") == "post-commit" and decision_status == "ready_for_hosted_validation") or (a.phase.replace("_", "-") in {"post-commit", "pr-metadata"} and decision_status == "ready_for_pr_metadata") else 1
 
 
 if __name__ == "__main__":
