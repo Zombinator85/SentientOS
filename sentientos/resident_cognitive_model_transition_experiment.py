@@ -204,7 +204,6 @@ class QuiescedDevelopmentalCognitionOwner:
 class TransitionJournal:
     def __init__(self, path: Path):
         self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
 
     def entries(self) -> list[dict[str, Any]]:
         if self.path.is_symlink():
@@ -252,6 +251,7 @@ class TransitionJournal:
         if (len(encoded) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES
                 or existing_size + len(encoded) > MAX_TRANSITION_JOURNAL_BYTES):
             raise TransitionError("journal_retention_limit_exceeded")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(descriptor, "ab") as stream:
             stream.write(encoded); stream.flush(); os.fsync(stream.fileno())

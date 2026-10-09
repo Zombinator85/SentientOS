@@ -321,11 +321,14 @@ class RuntimeMaintenanceSurfaces:
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
+        self._resident_transition_custody: tuple[Any, TransitionJournal] | None = None
+        self._resident_transition_custody_error: str | None = None
         self._resident_software_transition_controller: MaintenanceResidentRuntimeAdoptionController | None = None
         self._resident_software_transition_config: Mapping[str, Any] | None = None
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
+        self._resident_cognitive_invoker = resident_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
             try:
                 config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
@@ -577,10 +580,13 @@ class RuntimeMaintenanceSurfaces:
         records: list[dict[str, Any]] = []
         runtime = self._resident_transition_runtime
         controller = getattr(runtime, "controller", None) if runtime is not None else None
-        if controller is not None:
-            protocol = getattr(controller, "protocol", None)
-            journal = getattr(controller, "journal", None)
-            if protocol is not None and journal is not None:
+        protocol = getattr(controller, "protocol", None) if controller is not None else None
+        journal = getattr(controller, "journal", None) if controller is not None else None
+        if protocol is None or journal is None:
+            custody = self._resident_transition_custody
+            if custody is not None:
+                protocol, journal = custody
+        if protocol is not None and journal is not None:
                 protocol_value = dict(getattr(protocol, "value", {}))
                 transition_id = str(protocol_value.get("transition_id") or "unknown")
                 predecessor, successor = protocol_value.get("predecessor_a"), protocol_value.get("successor_b")
@@ -588,8 +594,25 @@ class RuntimeMaintenanceSurfaces:
                 status: dict[str, Any] = {}
                 try:
                     entries = journal.entries()[-16:]
-                    health = dict(controller.health())
-                    status = runtime.status()
+                    if controller is not None:
+                        health = dict(controller.health())
+                    else:
+                        unresolved = next((entry for entry in reversed(entries)
+                            if entry.get("status") in {"attempted", "effected", "failed", "interrupted"}), None)
+                        evidence = unresolved.get("evidence", {}) if isinstance(unresolved, Mapping) else {}
+                        health = {"status": "runtime_composition_blocked",
+                            "phase": "unknown", "outstanding_stage": (evidence.get("attempted_stage")
+                                or evidence.get("failed_stage") or evidence.get("interrupted_stage")),
+                            "replay_forbidden": unresolved is not None,
+                            "journal_head": entries[-1].get("entry_digest") if entries else "GENESIS"}
+                    if runtime is not None:
+                        status = runtime.status()
+                    else:
+                        serving = getattr(self._resident_cognitive_invoker, "current_controller", None)
+                        session = serving.current_session() if serving is not None else None
+                        identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
+                        status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
+                            "resident_serving_session_id": session.session_id if session is not None else None}
                 except Exception as exc:
                     records.append({"source_kind": "runtime_supervisor", "source_id": f"resident_transition:{transition_id}:recovery",
                         "subject_id": transition_id, "subject_kind": "model_transition", "stage": "observation",
@@ -661,6 +684,13 @@ class RuntimeMaintenanceSurfaces:
                             "recovery_posture": health.get("status"), "outstanding_stage": health.get("outstanding_stage"),
                             "replay_forbidden": health.get("replay_forbidden", True)},
                         "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
+        elif self._resident_transition_custody_error is not None:
+            records.append({"source_kind": "runtime_supervisor", "source_id": "resident_transition:recovery-unavailable",
+                "subject_id": "resident-model-transition", "subject_kind": "resident_model_transition_recovery",
+                "stage": "observation", "disposition": "incomplete", "evidence_strength": "unavailable",
+                "payload": {"recovery_posture": "transition_custody_unavailable",
+                    "error_class": self._resident_transition_custody_error, "replay_forbidden": True},
+                "observed_at": None, "effect_claimed": False, "effect_proven": False})
 
         software_controller = self._resident_software_transition_controller
         software_config = (software_controller.config if software_controller is not None
@@ -1416,13 +1446,31 @@ def _compose_causal_introspection(
                     "session_id": "identity"})))
     transition_runtime = runtime_surfaces._resident_transition_runtime
     transition_controller = getattr(transition_runtime, "controller", None) if transition_runtime is not None else None
-    if "model_succession" in enabled and transition_controller is not None:
+    transition_custody = runtime_surfaces._resident_transition_custody
+    transition_protocol = (getattr(transition_controller, "protocol", None) if transition_controller is not None
+                           else transition_custody[0] if transition_custody is not None else None)
+    transition_journal = (getattr(transition_controller, "journal", None) if transition_controller is not None
+                          else transition_custody[1] if transition_custody is not None else None)
+    if "model_succession" in enabled and transition_protocol is not None and transition_journal is not None:
         def inspect_model_succession() -> dict[str, Any]:
-            protocol = transition_controller.protocol
-            entries = transition_controller.journal.entries()
-            health = transition_controller.health()
-            status = transition_runtime.status()
+            protocol = transition_protocol
+            entries = transition_journal.entries()
             protocol_value = protocol.value
+            if transition_controller is not None and transition_runtime is not None:
+                health = transition_controller.health()
+                status = transition_runtime.status()
+            else:
+                unresolved = next((entry for entry in reversed(entries)
+                    if entry.get("status") in {"attempted", "effected", "failed", "interrupted"}), None)
+                evidence = unresolved.get("evidence", {}) if isinstance(unresolved, Mapping) else {}
+                health = {"status": "runtime_composition_blocked", "phase": "unknown",
+                    "outstanding_stage": (evidence.get("attempted_stage") or evidence.get("failed_stage")
+                        or evidence.get("interrupted_stage")), "replay_forbidden": unresolved is not None}
+                serving = getattr(runtime_surfaces._resident_cognitive_invoker, "current_controller", None)
+                session = serving.current_session() if serving is not None else None
+                identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
+                status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
+                    "resident_serving_session_id": session.session_id if session is not None else None}
             return {"transition_id": protocol_value.get("transition_id"),
                 "protocol_digest": protocol_value.get("protocol_digest"),
                 "journal_head_digest": entries[-1].get("entry_digest") if entries else "GENESIS",
@@ -1583,6 +1631,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 expected_activation_state_digest=resident_serving_config.expected_activation_state_digest)
             resident_serving_slot = ResidentCognitiveServingSlot(resident_serving_controller)
             resident_cognition_gate = ResidentCognitionQuiescenceGate()
+            candidate_surfaces: RuntimeMaintenanceSurfaces | None = None
             candidate_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
@@ -1602,6 +1651,34 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                         runtime_surfaces=candidate_surfaces)
                 except Exception as exc:
                     resident_transition_error = f"{type(exc).__name__}:{exc}"
+                    try:
+                        transition_config = LiveTransitionConfig.load(Path(resident_transition_live_path))
+                        if transition_config.enabled:
+                            recovery_protocol = load_verified_protocol(handle.root,
+                                protocol_id=transition_config.protocol_id,
+                                protocol_digest=transition_config.protocol_digest)
+                            if (transition_config.installation_identity != handle.identity.value
+                                    or transition_config.journal_identity != resident_transition_journal_identity(recovery_protocol)):
+                                raise TransitionError("transition_recovery_configuration_binding_mismatch")
+                            recovery_journal = TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+                            candidate_surfaces._resident_transition_custody = (recovery_protocol, recovery_journal)
+                    except Exception as recovery_exc:
+                        candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
+                if (resident_transition_runtime is None
+                        and candidate_surfaces._resident_transition_custody is None
+                        and candidate_surfaces._resident_transition_custody_error is None):
+                    try:
+                        transition_config = LiveTransitionConfig.load(Path(resident_transition_live_path))
+                        recovery_protocol = load_verified_protocol(handle.root,
+                            protocol_id=transition_config.protocol_id,
+                            protocol_digest=transition_config.protocol_digest)
+                        if (transition_config.installation_identity != handle.identity.value
+                                or transition_config.journal_identity != resident_transition_journal_identity(recovery_protocol)):
+                            raise TransitionError("transition_recovery_configuration_binding_mismatch")
+                        candidate_surfaces._resident_transition_custody = (recovery_protocol,
+                            TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY))
+                    except Exception as recovery_exc:
+                        candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
             if resident_transition_runtime is not None:
                 runtime_surfaces = RuntimeMaintenanceSurfaces(
                     repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
@@ -1616,6 +1693,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                     resident_transition_runtime=resident_transition_runtime)
             else:
                 runtime_surfaces = candidate_surfaces
+            if resident_transition_runtime is not None:
+                transition_controller = resident_transition_runtime.controller
+                runtime_surfaces._resident_transition_custody = (
+                    transition_controller.protocol, transition_controller.journal)
             runtime_surfaces._resident_transition_configuration_error = resident_transition_error
         except Exception as exc:
             resident_serving_error = f"{type(exc).__name__}:{exc}"
@@ -1630,6 +1711,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
                 epistemic_development_runtime=runtime_surfaces._epistemic_development_runtime)
+            if candidate_surfaces is not None:
+                runtime_surfaces._resident_transition_custody = candidate_surfaces._resident_transition_custody
+                runtime_surfaces._resident_transition_custody_error = candidate_surfaces._resident_transition_custody_error
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     if resident_transition_live_path and resident_serving_controller is None:
