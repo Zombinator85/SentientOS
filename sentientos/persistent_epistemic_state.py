@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -27,6 +28,10 @@ DEPENDENCIES = frozenset({"same_source_derivation", "shared_upstream_evidence", 
 STANCES = frozenset({"unknown", "suspended", "provisionally_supported", "supported", "contested", "provisionally_contradicted", "contradicted", "superseded"})
 UPDATE_REASONS = frozenset({"initialization", "new_evidence", "evidence_withdrawal", "contradiction_arrival", "duplicate_evidence_correction", "dependency_correction", "source_reliability_revision", "proposition_refinement", "update_rule_correction", "calibration_outcome", "operator_error_correction"})
 FALSE_AUTHORITY = {"policy": False, "goal": False, "permission": False, "effect_admission": False, "adoption": False, "memory_retention": False, "truth_oracle": False}
+RECORD_COLLECTIONS = frozenset({"propositions", "bindings", "states", "updates", "relations", "calibrations"})
+MAX_EPISTEMIC_RECORD_BYTES = 1_048_576
+MAX_EPISTEMIC_RECORDS_PER_COLLECTION = 65_536
+MAX_EPISTEMIC_COLLECTION_BYTES = 67_108_864
 
 
 class EpistemicStateError(ValueError):
@@ -221,13 +226,65 @@ class EpistemicCalibrationEvent:
 
 
 def _write_new(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.parent.is_symlink() or path.parent.parent.is_symlink() or not path.parent.is_dir():
+        raise EpistemicStateError("epistemic_custody_root_invalid")
+    data = canonical_bytes(value) + b"\n"
+    if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
+        raise EpistemicStateError("epistemic_record_size_limit_exceeded")
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError:
-        if path.read_bytes() != canonical_bytes(value) + b"\n": raise EpistemicStateError("immutable_record_collision")
+        existing = _read_record_bytes(path)
+    except FileNotFoundError:
+        existing = None
+    if existing is not None:
+        if existing != data: raise EpistemicStateError("immutable_record_collision")
         return
-    with os.fdopen(fd, "wb") as handle: handle.write(canonical_bytes(value) + b"\n")
+    descriptor, temporary = tempfile.mkstemp(prefix=".epistemic-record-", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            if _read_record_bytes(path) != data: raise EpistemicStateError("immutable_record_collision")
+            return
+        directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try: os.fsync(directory)
+        finally: os.close(directory)
+    finally:
+        try: os.unlink(temporary)
+        except FileNotFoundError: pass
+
+
+def _read_record_bytes(path: Path) -> bytes:
+    descriptor: int | None = None
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_EPISTEMIC_RECORD_BYTES:
+            raise EpistemicStateError("epistemic_record_unbounded_or_not_regular")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                or opened.st_dev != metadata.st_dev or opened.st_size > MAX_EPISTEMIC_RECORD_BYTES):
+            raise EpistemicStateError("epistemic_record_changed_during_open")
+        chunks: list[bytes] = []; remaining = MAX_EPISTEMIC_RECORD_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk: break
+            chunks.append(chunk); remaining -= len(chunk)
+        data = b"".join(chunks); after = os.fstat(descriptor)
+        if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
+            raise EpistemicStateError("epistemic_record_unbounded_or_not_regular")
+        if (len(data) != opened.st_size or after.st_size != opened.st_size
+                or after.st_mtime_ns != opened.st_mtime_ns):
+            raise EpistemicStateError("epistemic_record_changed_during_read")
+        return data
+    except EpistemicStateError:
+        raise
+    except OSError as exc:
+        raise EpistemicStateError("epistemic_record_unavailable") from exc
+    finally:
+        if descriptor is not None: os.close(descriptor)
 
 
 class PersistentEpistemicStateOwner:
@@ -235,15 +292,57 @@ class PersistentEpistemicStateOwner:
     def __init__(self, root: str | Path, *, allowed_namespaces: Sequence[str]) -> None:
         self.root = Path(root); self.allowed_namespaces = frozenset(allowed_namespaces)
         if not self.allowed_namespaces: raise EpistemicStateError("allowed_namespaces_required")
-        for part in ("propositions", "bindings", "states", "updates", "relations", "calibrations"): (self.root / part).mkdir(parents=True, exist_ok=True)
+        if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
+        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if self.root.is_symlink() or not self.root.is_dir(): raise EpistemicStateError("epistemic_custody_root_invalid")
+        for part in RECORD_COLLECTIONS:
+            directory = self.root / part
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if directory.is_symlink() or not directory.is_dir(): raise EpistemicStateError("epistemic_collection_invalid")
         self.verify()
 
     def _read(self, kind: str) -> list[dict[str, Any]]:
-        values=[]
-        for path in sorted((self.root / kind).glob("*.json")):
-            try: values.append(json.loads(path.read_text()))
-            except (OSError, json.JSONDecodeError) as exc: raise EpistemicStateError("epistemic_history_corrupt") from exc
+        values = []
+        for _, data in self._collection_bytes(kind):
+            try:
+                value = json.loads(data.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+                raise EpistemicStateError("epistemic_history_corrupt") from exc
+            if not isinstance(value, dict):
+                raise EpistemicStateError("epistemic_history_corrupt")
+            values.append(value)
         return values
+
+    def _collection_bytes(self, kind: str) -> tuple[tuple[str, bytes], ...]:
+        if kind not in RECORD_COLLECTIONS or self.root.is_symlink():
+            raise EpistemicStateError("epistemic_custody_root_invalid")
+        directory = self.root / kind
+        try:
+            entries_mode = directory.lstat()
+            if not stat.S_ISDIR(entries_mode.st_mode):
+                raise EpistemicStateError("epistemic_collection_invalid")
+        except FileNotFoundError:
+            return ()
+        except OSError as exc:
+            raise EpistemicStateError("epistemic_collection_invalid") from exc
+        paths = tuple(sorted(directory.glob("*.json")))
+        if len(paths) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION:
+            raise EpistemicStateError("epistemic_record_count_limit_exceeded")
+        records: list[tuple[str, bytes]] = []; total = 0
+        for path in paths:
+            data = _read_record_bytes(path)
+            total += len(data)
+            if total > MAX_EPISTEMIC_COLLECTION_BYTES:
+                raise EpistemicStateError("epistemic_collection_size_limit_exceeded")
+            records.append((path.name, data))
+        try:
+            after = directory.lstat()
+        except OSError as exc:
+            raise EpistemicStateError("epistemic_collection_changed_during_read") from exc
+        if (not stat.S_ISDIR(after.st_mode) or after.st_ino != entries_mode.st_ino
+                or after.st_dev != entries_mode.st_dev):
+            raise EpistemicStateError("epistemic_collection_changed_during_read")
+        return tuple(records)
 
     def register_proposition(self, proposition: EpistemicProposition) -> None:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
@@ -308,15 +407,14 @@ class PersistentEpistemicStateOwner:
         prior state.  Update ticks order generations *inside* that captured epoch;
         daemon tick strings are deliberately not interpreted as epistemic time.
         """
-        if not isinstance(max_states, int) or max_states < 1:
+        if (not isinstance(max_states, int) or isinstance(max_states, bool)
+                or not 1 <= max_states <= MAX_EPISTEMIC_RECORDS_PER_COLLECTION):
             raise EpistemicStateError("epistemic_projection_bound_invalid")
         self.verify()
-        update_paths = tuple(sorted((self.root / "updates").glob("*.json")))
-        state_paths = tuple(sorted((self.root / "states").glob("*.json")))
-        update_bytes = tuple((path.name, path.read_bytes()) for path in update_paths)
-        state_bytes = tuple((path.name, path.read_bytes()) for path in state_paths)
-        if (update_bytes != tuple((path.name, path.read_bytes()) for path in sorted((self.root / "updates").glob("*.json")))
-                or state_bytes != tuple((path.name, path.read_bytes()) for path in sorted((self.root / "states").glob("*.json")))):
+        update_bytes = self._collection_bytes("updates")
+        state_bytes = self._collection_bytes("states")
+        if (update_bytes != self._collection_bytes("updates")
+                or state_bytes != self._collection_bytes("states")):
             raise EpistemicStateError("epistemic_projection_boundary_changed")
         events = [EpistemicUpdateEvent(**json.loads(raw)) for _, raw in update_bytes]
         states = [EpistemicState(**json.loads(raw)) for _, raw in state_bytes]
