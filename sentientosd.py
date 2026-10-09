@@ -1670,11 +1670,11 @@ def _compose_causal_introspection(
                     "replay_forbidden": "currentness", "predecessor_model_identity": "identity",
                     "proposed_successor_model_identity": "identity",
                     "predecessor_model_provenance_posture": "lineage",
-                    "predecessor_model_provenance_manifest_digest": "artifact",
+                    "predecessor_model_provenance_manifest_digest": "lineage",
                     "successor_model_provenance_posture": "lineage",
-                    "successor_model_provenance_manifest_digest": "artifact",
+                    "successor_model_provenance_manifest_digest": "lineage",
                     "running_model_provenance_posture": "lineage",
-                    "running_model_provenance_manifest_digest": "artifact",
+                    "running_model_provenance_manifest_digest": "lineage",
                     "running_model_identity_observed": "identity"})))
     software_controller = runtime_surfaces._resident_software_transition_controller
     software_config = (software_controller.config if software_controller is not None

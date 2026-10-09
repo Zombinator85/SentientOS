@@ -406,6 +406,11 @@ class LiveOwnerMetadataProvider:
         self._domain = domain
         self._inspect = inspect
         self._observation_classes = dict(observation_classes)
+        if (domain not in DOMAINS or not self._observation_classes
+                or any(not isinstance(key, str) or not key for key in self._observation_classes)
+                or any(not isinstance(value, str) or value not in OBSERVATION_CLASSES
+                    for value in self._observation_classes.values())):
+            raise IntrospectionError("live_provider_observation_schema_invalid")
 
     def project(self, context: CaptureContext) -> OwnerIntrospectionProjection:
         metadata = dict(self._inspect())
