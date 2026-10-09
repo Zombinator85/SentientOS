@@ -135,12 +135,16 @@ class ResidentEpistemicDevelopmentRuntime:
     def _adapt(snapshot: WorldStateSnapshot, fact: WorldStateFact,
                rule: EpistemicDevelopmentRule) -> tuple[Any, EvidenceBinding]:
         observed = fact.observed_at
+        historical_resource_fact = fact.source.kind == "resource_governor"
         if fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
             historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
                                 if isinstance(item, Mapping) and item.get("observed_at")]
             if historical_times:
                 observed = max(historical_times)
-        observed = observed or str(snapshot.custody.get("observed_at", ""))
+        # Resource receipts without an event timestamp remain undated. Never
+        # replace missing historical time with the snapshot reconstruction
+        # clock; that would manufacture currentness during recovery.
+        observed = observed or ("" if historical_resource_fact else str(snapshot.custody.get("observed_at", "")))
         artifact_id = f"{snapshot.snapshot_id}:{fact.fact_id}"
         provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
