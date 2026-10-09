@@ -29,6 +29,7 @@ MAX_VALUE_BYTES = 4096
 MAX_RECONCILIATION_ENTRIES = 4096
 MAX_RECONCILIATION_BYTES = 4_194_304
 MAX_RECONCILIATION_CUSTODY_BYTES = 268_435_456
+MAX_RUNTIME_CONFIG_BYTES = 16_384
 FORBIDDEN_PREDICATES = {
     "authority", "permission", "policy", "goal", "adoption", "consciousness",
     "sentience", "identity_continuity", "learning", "improvement",
@@ -134,8 +135,37 @@ class CognitiveSelfModelProjection:
 
 def load_runtime_config(path: str | Path) -> LongitudinalSelfModelRuntimeConfig:
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        source = Path(path)
+        metadata = source.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_RUNTIME_CONFIG_BYTES:
+            raise LongitudinalSelfModelError("runtime_configuration_file_unbounded_or_not_regular")
+        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_RUNTIME_CONFIG_BYTES):
+                raise LongitudinalSelfModelError("runtime_configuration_file_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_RUNTIME_CONFIG_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(4096, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            config_data = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if len(config_data) > MAX_RUNTIME_CONFIG_BYTES:
+                raise LongitudinalSelfModelError("runtime_configuration_file_unbounded_or_not_regular")
+            if (len(config_data) != opened.st_size or after.st_size != opened.st_size
+                    or after.st_mtime_ns != opened.st_mtime_ns):
+                raise LongitudinalSelfModelError("runtime_configuration_file_changed_during_read")
+        finally:
+            os.close(descriptor)
+        payload = json.loads(config_data.decode("utf-8"))
+    except LongitudinalSelfModelError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise LongitudinalSelfModelError("runtime_configuration_unreadable") from exc
     expected = {"schema", "enabled", "custody_root", "cognitive_consumption_enabled",
                 "max_projection_claims", "allowed_predicates", "installation_id"}
@@ -147,6 +177,7 @@ def load_runtime_config(path: str | Path) -> LongitudinalSelfModelRuntimeConfig:
             or not isinstance(payload["custody_root"], str) or not Path(payload["custody_root"]).is_absolute()
             or not isinstance(payload["installation_id"], str) or not payload["installation_id"]
             or not isinstance(payload["max_projection_claims"], int)
+            or isinstance(payload["max_projection_claims"], bool)
             or not 1 <= payload["max_projection_claims"] <= MAX_PROJECTION_CLAIMS
             or not isinstance(allowed, list) or not allowed
             or any(not isinstance(item, str) or not item or item in FORBIDDEN_PREDICATES for item in allowed)
