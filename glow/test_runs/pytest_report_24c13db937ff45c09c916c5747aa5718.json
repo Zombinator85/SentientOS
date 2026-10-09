@@ -1,0 +1,37 @@
+{
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "call_phase_outcome_count": 1,
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "pytest_exit_code": 0,
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "selected_node_ids": [
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness"
+  ],
+  "session_finish_reached": true,
+  "tests_collected": 1,
+  "tests_executed": 1,
+  "tests_failed": 0,
+  "tests_passed": 1,
+  "tests_selected": 1,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0
+}

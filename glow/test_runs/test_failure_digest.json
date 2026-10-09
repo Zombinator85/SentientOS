@@ -1,0 +1,43 @@
+{
+  "failure_class_totals": {
+    "unclassified_runtime_failure": 3
+  },
+  "failure_groups": [
+    {
+      "count": 1,
+      "example_nodeid": "tests.test_emotion_pump::test_emotion_pump_model_bridge_log_fields",
+      "exception_type": "failure",
+      "failure_class": "unclassified_runtime_failure",
+      "file": null,
+      "line": null,
+      "rerun_command": "python -m scripts.run_tests -q tests.test_emotion_pump::test_emotion_pump_model_bridge_log_fields",
+      "short_message": "SystemExit: Access denied: run as Administrator to reach protected memory and policy state.",
+      "signature": "tests.test_emotion_pump::test_emotion_pump_model_bridge_log_fields|failure|SystemExit: Access denied: run as Administrator to reach protected memory and policy state."
+    },
+    {
+      "count": 1,
+      "example_nodeid": "tests.test_stateful_import_lifecycle::test_legacy_glow_storage_authorizes_before_digest_effect",
+      "exception_type": "failure",
+      "failure_class": "unclassified_runtime_failure",
+      "file": null,
+      "line": null,
+      "rerun_command": "python -m scripts.run_tests -q tests.test_stateful_import_lifecycle::test_legacy_glow_storage_authorizes_before_digest_effect",
+      "short_message": "Failed: DID NOT RAISE <class 'PermissionError'>",
+      "signature": "tests.test_stateful_import_lifecycle::test_legacy_glow_storage_authorizes_before_digest_effect|failure|Failed: DID NOT RAISE <class 'PermissionError'>"
+    },
+    {
+      "count": 1,
+      "example_nodeid": "tests.test_stateful_import_lifecycle::test_legacy_tomb_purge_authorizes_unlink_separately",
+      "exception_type": "failure",
+      "failure_class": "unclassified_runtime_failure",
+      "file": null,
+      "line": null,
+      "rerun_command": "python -m scripts.run_tests -q tests.test_stateful_import_lifecycle::test_legacy_tomb_purge_authorizes_unlink_separately",
+      "short_message": "Failed: DID NOT RAISE <class 'PermissionError'>",
+      "signature": "tests.test_stateful_import_lifecycle::test_legacy_tomb_purge_authorizes_unlink_separately|failure|Failed: DID NOT RAISE <class 'PermissionError'>"
+    }
+  ],
+  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_377f838e03e54479b19e4c743b24b683.xml",
+  "run_provenance_hash": "0a8bde522025d9f9094e2bf850df99ccff4475179a42391450dbb5942d6a5e8f",
+  "schema_version": 1
+}

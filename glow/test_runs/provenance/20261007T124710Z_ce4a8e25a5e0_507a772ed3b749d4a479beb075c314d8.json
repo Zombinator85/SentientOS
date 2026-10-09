@@ -71,7 +71,7 @@
   "install_fallback_reason": null,
   "install_mode": "none",
   "install_performed": false,
-  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_1389eac07d4d4a37837702432f489384.xml",
+  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_19531ee141244743bb666a6b5c7a8509.xml",
   "metrics_status": "ok",
   "node_outcomes": [
     {
@@ -281,8 +281,8 @@
     }
   ],
   "non_execution_flags": [],
-  "prev_provenance_hash": "a11e16586bf1124151671248de4904559ca517440d4ada1167c5f0af371d6c31",
-  "provenance_hash": "3c0cd90dde30437301668fa47f52cbb2975c23eef7cd09a8b8656bf8288ebd13",
+  "prev_provenance_hash": "eb73a4b8467f64a30ceba115af76b41427674cd777046d97d95344bf8ed62d0b",
+  "provenance_hash": "8cdfbdd54636bebe12050d4647d55b122f95430b40b551a42342e0601a261bf2",
   "pytest_args": [
     "tests/test_stateful_import_lifecycle.py::test_inertness_verifier_covers_stateful_import_roots",
     "tests/test_stateful_import_lifecycle.py::test_integration_memory_construction_and_reconfigure_do_not_create_custody",
@@ -334,7 +334,7 @@
   "reporter_loaded": true,
   "reporter_ok": true,
   "reporter_status": "complete",
-  "run_id": "5b02db9ac4bb4a9896d339b4b9116837",
+  "run_id": "8e942dc7cf11440ab6504984b6f38969",
   "run_intent": "targeted",
   "schema_version": 1,
   "selected_node_ids": [
@@ -433,7 +433,7 @@
   "tests_skipped": 0,
   "tests_xfailed": 0,
   "tests_xpassed": 0,
-  "timestamp": "2026-10-07T12:48:26.547347+00:00",
+  "timestamp": "2026-10-07T12:47:10.034630+00:00",
   "validation_complete": true,
   "validation_status": "validation_complete",
   "xfail_rate": 0.0
