@@ -310,7 +310,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "invocation_receipts": tuple(dict(item) for item in invocation_receipts[-max_invocation_receipts:]),
                "attribution_posture": "receipt_bound_only",
                "shared_host_usage_attribution": "unknown_without_independent_observation",
-               "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete"}
+               "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete",
+               "recovery_posture": "incomplete_attempts_present" if any(
+                   str(item.get("status")) in {"provisional", "begun"}
+                   for item in snapshot["attempts"] if isinstance(item, Mapping)
+               ) else "reconciled_or_restored"}
     return [{"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "subject_kind": "causal_resource_consumption",
