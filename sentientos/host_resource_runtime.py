@@ -310,6 +310,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "invocation_receipts": tuple(dict(item) for item in invocation_receipts[-max_invocation_receipts:]),
                "attribution_posture": "receipt_bound_only",
                "shared_host_usage_attribution": "unknown_without_independent_observation",
+               "reconstruction_observed_at": observed_at,
                "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete",
                "recovery_posture": "incomplete_attempts_present" if any(
                    str(item.get("status")) in {"provisional", "begun"}
@@ -321,7 +322,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
              "disposition": "recorded", "evidence_strength": "receipt_bound",
              "effect_claimed": False, "effect_proven": False,
-             "observed_at": observed_at, "payload": payload,
+             # The ledger receipt's event time is historical custody. Do not
+             # let a restart/reprojection timestamp make old consumption
+             # appear to be a fresh observation to epistemic consumers.
+             "observed_at": None, "payload": payload,
              "digest": digest(payload)}]
 
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:
