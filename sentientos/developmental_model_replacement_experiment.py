@@ -442,8 +442,13 @@ class ModelReplacementArtifactStore:
 
     def load_verified_protocol(self, protocol_id: str, protocol_digest: str) -> ModelReplacementProtocol:
         """Load an already-persisted protocol; never construct or repair one."""
-        if (not protocol_id.startswith("model-replacement-protocol-") or "/" in protocol_id
-                or "\\" in protocol_id or not protocol_digest.startswith("sha256:")):
+        protocol_prefix = "model-replacement-protocol-"
+        if (not isinstance(protocol_id, str) or len(protocol_id) != len(protocol_prefix) + 24
+                or not protocol_id.startswith(protocol_prefix)
+                or any(character not in "0123456789abcdef" for character in protocol_id[len(protocol_prefix):])
+                or not isinstance(protocol_digest, str) or len(protocol_digest) != 71
+                or not protocol_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in protocol_digest[7:])):
             raise DevelopmentalModelReplacementError("protocol_identity_invalid")
         path = self.protocols / f"{protocol_id}.json"
         try:
@@ -470,6 +475,15 @@ class ModelReplacementArtifactStore:
         return run_id, digest
 
     def load_verified_run(self, run_id: str, run_digest: str) -> dict[str, Any]:
+        run_prefix = "model-replacement-run-"
+        if (not isinstance(run_id, str) or len(run_id) != len(run_prefix) + 24
+                or not run_id.startswith(run_prefix)
+                or any(character not in "0123456789abcdef" for character in run_id[len(run_prefix):])
+                or not isinstance(run_digest, str) or len(run_digest) != 71
+                or not run_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in run_digest[7:])
+                or run_id != run_prefix + run_digest[7:31]):
+            raise DevelopmentalModelReplacementError("trial_run_identity_invalid")
         path = self.runs / f"{run_id}.json"
         try:
             value = self._read_artifact_json(path, maximum_bytes=MAX_RUN_ARTIFACT_BYTES,
