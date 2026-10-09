@@ -455,7 +455,8 @@ class ResidentCognitiveModelTransitionController:
                 "operation_identity": approval.get("operation_identity")}
 
     def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None,
-                stage_execution_context: TransitionStageExecutionContext | None = None) -> Mapping[str, Any]:
+                stage_execution_context: TransitionStageExecutionContext | None = None,
+                operation_context: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         self.protocol.verify()
         self._state = self._reconstruct()
         if self._state.blocked:
@@ -467,9 +468,16 @@ class ResidentCognitiveModelTransitionController:
         verify_stage_approval(approval, expected=self._approval_expected(target, approval),
                               observation_time=self.clock(), allow_synthetic_for_tests=self.allow_synthetic_approval_for_tests)
         supplied = dict(evidence or {})
-        if target in EFFECTFUL:
-            self.journal.append(current, {"attempted_stage": target,
-                                          "approval_digest": approval["approval_digest"]}, status="attempted")
+        context = dict(operation_context or {})
+        if context and (set(context) != {"request_id", "request_digest"}
+                        or not all(isinstance(value, str) and value for value in context.values())):
+            raise TransitionError("transition_operation_context_invalid")
+        # Publish an attempt before any stage can mutate runtime state. This
+        # makes a crash between a non-effectful handoff and its completion
+        # distinguishable from a request that was never admitted.
+        self.journal.append(current, {"attempted_stage": target,
+                                      "approval_digest": approval["approval_digest"],
+                                      **({"operator_request": context} if context else {})}, status="attempted")
         try:
             if target in {"a_quiesced", "b_quiesced"}:
                 supplied = dict(self.gate.quiesce(timeout_seconds=float(supplied.pop("timeout_seconds", 5)),
@@ -500,13 +508,16 @@ class ResidentCognitiveModelTransitionController:
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
                                   if entry["status"] == "completed" and entry["phase"] == "a_restoration_activation_committed")
                 supplied.update(_plain(self.operations.serve_restored_predecessor(activation)))
+            if context:
+                supplied["operator_request"] = context
             entry = self.journal.append(target, supplied)
             self._state = self._reconstruct()
             return MappingProxyType({"prior_phase": current, "phase": target,
                                      "journal_head": entry["entry_digest"], "advanced_one_stage": True})
         except Exception as exc:
             self.journal.append(current, {"failed_stage": target,
-                                          "error": getattr(exc, "code", type(exc).__name__)}, status="failed")
+                                          "error": getattr(exc, "code", type(exc).__name__),
+                                          **({"operator_request": context} if context else {})}, status="failed")
             self._state = self._reconstruct()
             raise
 

@@ -216,7 +216,7 @@ class LiveTransitionOperatorRuntime:
             if (not isinstance(row, dict) or set(row) != {"schema_version", "sequence", "prior_digest", "request_id", "result", "detail"}
                     or row.get("schema_version") != RECEIPT_SCHEMA or row.get("sequence") != sequence
                     or row.get("prior_digest") != prior or not isinstance(row.get("detail"), dict)
-                    or row.get("result") not in {"stage_advanced", "rejected"}
+                    or row.get("result") not in {"stage_advanced", "rejected", "incomplete"}
                     or not isinstance(row.get("request_id"), str) or not row["request_id"]
                     or row["request_id"] in seen or claimed != _digest_bytes(_canonical(row))):
                 raise TransitionError("operator_receipt_custody_corrupt")
@@ -245,6 +245,47 @@ class LiveTransitionOperatorRuntime:
             stream.flush(); os.fsync(stream.fileno())
         self._latest = receipt
         return receipt
+
+    def _recover_journal_outcome(self, packet: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Reconcile an operator request against the controller's durable journal.
+
+        The journal is the stage commit point. If the process died before the
+        operator receipt was appended, record that already-published outcome
+        rather than invoking the stage a second time.
+        """
+        request = {"request_id": packet.get("request_id"),
+                   "request_digest": packet.get("request_digest")}
+        matches = []
+        for entry in self.controller.journal.entries():
+            evidence = entry.get("evidence")
+            if isinstance(evidence, Mapping) and evidence.get("operator_request") == request:
+                matches.append(entry)
+        if not matches:
+            return None
+        if len(matches) not in {1, 2}:
+            raise TransitionError("operator_request_journal_lineage_ambiguous")
+        attempt = matches[0]
+        if (attempt.get("status") != "attempted"
+                or attempt.get("evidence", {}).get("attempted_stage") != packet.get("requested_stage")
+                or attempt.get("evidence", {}).get("approval_digest") != packet.get("stage_approval_digest")):
+            raise TransitionError("operator_request_journal_lineage_invalid")
+        terminal = matches[1] if len(matches) == 2 else None
+        if terminal is not None and terminal.get("phase") != attempt.get("phase"):
+            raise TransitionError("operator_request_journal_lineage_invalid")
+        if terminal is not None and terminal.get("status") == "completed" and terminal.get("phase") == packet.get("requested_stage"):
+            result = "stage_advanced"
+        else:
+            result = "incomplete"
+        receipt = self._append_receipt(str(packet["request_id"]), result, {
+            "recovered_from_transition_journal": True,
+            "attempt_entry_digest": attempt.get("entry_digest"),
+            "terminal_entry_digest": terminal.get("entry_digest") if terminal is not None else None,
+            "terminal_status": terminal.get("status") if terminal is not None else "missing_after_attempt",
+            "requested_stage": packet.get("requested_stage"),
+        })
+        return {"status": result, "request_id": packet["request_id"],
+                "effect_performed": False, "recovered": True,
+                "receipt_digest": receipt["receipt_digest"]}
 
     def _validate(self, packet: Mapping[str, Any]) -> None:
         self._verify_packet_identity(packet)
@@ -298,6 +339,10 @@ class LiveTransitionOperatorRuntime:
                         observed_consumed = request_id
                         self._latest = consumed[request_id]
                         continue
+                    self._verify_packet_identity(packet)
+                    recovered = self._recover_journal_outcome(packet)
+                    if recovered is not None:
+                        return recovered
                     self._validate(packet)
                     subordinate = packet.get("subordinate_approvals", [])
                     if not isinstance(subordinate, list): raise TransitionError("operator_request_subordinate_approval_invalid")
@@ -307,7 +352,9 @@ class LiveTransitionOperatorRuntime:
                         str(packet["requested_stage"]), subordinate)
                     result = dict(self.controller.advance(approval=packet["stage_approval"],
                                                           evidence=packet.get("stage_evidence", {}),
-                                                          stage_execution_context=context))
+                                                          stage_execution_context=context,
+                                                          operation_context={"request_id": packet["request_id"],
+                                                              "request_digest": packet["request_digest"]}))
                     receipt = self._append_receipt(request_id, "stage_advanced", result)
                     return {"status": "stage_advanced", "request_id": request_id,
                             "effect_performed": True, "stage_result": result,
@@ -316,6 +363,13 @@ class LiveTransitionOperatorRuntime:
                     code = getattr(exc, "code", type(exc).__name__)
                     if request_id in consumed:
                         raise TransitionError("consumed_operator_request_conflict") from exc
+                    if isinstance(packet, Mapping):
+                        try:
+                            recovered = self._recover_journal_outcome(packet)
+                        except Exception as recovery_exc:
+                            raise TransitionError("operator_request_recovery_ambiguous") from recovery_exc
+                        if recovered is not None:
+                            return recovered
                     receipt = self._append_receipt(str(request_id), "rejected", {"reason": code})
                     return {"status": "rejected", "request_id": request_id, "reason": code,
                             "effect_performed": False, "receipt_digest": receipt["receipt_digest"]}
