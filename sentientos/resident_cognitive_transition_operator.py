@@ -27,6 +27,10 @@ REQUEST_CUSTODY = "state/resident-cognitive-transition/operator-requests"
 RECEIPT_CUSTODY = "state/resident-cognitive-transition/operator-request-receipts.jsonl"
 JOURNAL_CUSTODY = "state/resident-cognitive-transition/transition.journal.jsonl"
 PROTOCOL_CUSTODY = "state/resident-cognitive-transition/protocol.json"
+MAX_TRANSITION_RECEIPTS = 4096
+MAX_TRANSITION_RECEIPT_BYTES = 16_777_216
+MAX_TRANSITION_REQUESTS = 4096
+MAX_TRANSITION_REQUEST_BYTES = 262_144
 
 
 def _plain(value: Any) -> Any:
@@ -197,28 +201,55 @@ class LiveTransitionOperatorRuntime:
     def _receipts(self) -> list[dict[str, Any]]:
         if not self.receipt_path.exists():
             return []
-        return [json.loads(line) for line in self.receipt_path.read_text(encoding="utf-8").splitlines()]
+        if (self.receipt_path.is_symlink() or not self.receipt_path.is_file()
+                or self.receipt_path.stat().st_size > MAX_TRANSITION_RECEIPT_BYTES):
+            raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
+        rows: list[dict[str, Any]] = []
+        prior = "GENESIS"
+        seen: set[str] = set()
+        for sequence, line in enumerate(self.receipt_path.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                row = json.loads(line)
+                claimed = row.pop("receipt_digest")
+            except (TypeError, ValueError, KeyError, AttributeError) as exc:
+                raise TransitionError("operator_receipt_custody_corrupt") from exc
+            if (not isinstance(row, dict) or set(row) != {"schema_version", "sequence", "prior_digest", "request_id", "result", "detail"}
+                    or row.get("schema_version") != RECEIPT_SCHEMA or row.get("sequence") != sequence
+                    or row.get("prior_digest") != prior or not isinstance(row.get("detail"), dict)
+                    or row.get("result") not in {"stage_advanced", "rejected"}
+                    or not isinstance(row.get("request_id"), str) or not row["request_id"]
+                    or row["request_id"] in seen or claimed != _digest_bytes(_canonical(row))):
+                raise TransitionError("operator_receipt_custody_corrupt")
+            if sequence > MAX_TRANSITION_RECEIPTS:
+                raise TransitionError("operator_receipt_retention_limit_exceeded")
+            row["receipt_digest"] = claimed
+            rows.append(row); seen.add(row["request_id"]); prior = claimed
+        return rows
 
     def _append_receipt(self, request_id: str, result: str, detail: Mapping[str, Any]) -> dict[str, Any]:
         prior = self._receipts()
+        if len(prior) >= MAX_TRANSITION_RECEIPTS or request_id in {item["request_id"] for item in prior}:
+            raise TransitionError("operator_receipt_identity_or_retention_conflict")
         body = {"schema_version": RECEIPT_SCHEMA, "sequence": len(prior) + 1,
                 "prior_digest": prior[-1]["receipt_digest"] if prior else "GENESIS",
                 "request_id": request_id, "result": result, "detail": _plain(detail)}
         receipt = {**body, "receipt_digest": _digest_bytes(_canonical(body))}
+        encoded = _canonical(receipt)
+        existing_size = self.receipt_path.stat().st_size if self.receipt_path.exists() else 0
+        if (len(encoded) > MAX_TRANSITION_REQUEST_BYTES
+                or existing_size + len(encoded) > MAX_TRANSITION_RECEIPT_BYTES):
+            raise TransitionError("operator_receipt_record_unbounded")
         self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
         with self.receipt_path.open("a", encoding="utf-8") as stream:
-            stream.write(_canonical(receipt).decode())
+            stream.write(encoded.decode())
             stream.flush(); os.fsync(stream.fileno())
         self._latest = receipt
         return receipt
 
     def _validate(self, packet: Mapping[str, Any]) -> None:
-        value = dict(packet); request_digest = value.pop("request_digest", None); request_id = value.pop("request_id", None)
-        observed = _digest_bytes(_canonical(value))
-        if (value.get("schema_version") != REQUEST_SCHEMA or request_digest != observed
-                or request_id != "resident-transition-request-" + observed[:24]
-                or value.get("grants_authority") is not False):
-            raise TransitionError("operator_request_tamper")
+        self._verify_packet_identity(packet)
+        value = dict(packet)
+        value.pop("request_digest", None); value.pop("request_id", None)
         health = self.controller.health()
         expected_stage = PHASES[PHASES.index(self.controller.phase) + 1] if self.controller.phase != PHASES[-1] else None
         if value.get("installation_identity") != self.config.installation_identity: raise TransitionError("operator_request_installation_mismatch")
@@ -231,20 +262,41 @@ class LiveTransitionOperatorRuntime:
         now = self.clock().astimezone(timezone.utc)
         if not _time(value.get("created_at")) <= now <= _time(value.get("expires_at")): raise TransitionError("operator_request_expired")
 
+    @staticmethod
+    def _verify_packet_identity(packet: Mapping[str, Any]) -> None:
+        value = dict(packet); request_digest = value.pop("request_digest", None); request_id = value.pop("request_id", None)
+        observed = _digest_bytes(_canonical(value))
+        if (value.get("schema_version") != REQUEST_SCHEMA or request_digest != observed
+                or request_id != "resident-transition-request-" + observed[:24]
+                or value.get("grants_authority") is not False):
+            raise TransitionError("operator_request_tamper")
+
     def process_one(self) -> dict[str, Any]:
         if not self.config.enabled:
             return {"status": "disabled", "effect_performed": False}
         with self._lock:
             self.request_root.mkdir(parents=True, exist_ok=True)
-            consumed = {item["request_id"] for item in self._receipts()}
+            if self.request_root.is_symlink() or not self.request_root.is_dir():
+                raise TransitionError("operator_request_custody_not_regular")
+            receipts = self._receipts()
+            consumed = {item["request_id"]: item for item in receipts}
             observed_consumed: str | None = None
-            for path in sorted(self.request_root.glob("*.json")):
+            paths = sorted(self.request_root.glob("*.json"))
+            if len(paths) > MAX_TRANSITION_REQUESTS:
+                raise TransitionError("operator_request_retention_limit_exceeded")
+            for path in paths:
+                request_id = "malformed:" + _digest_bytes(path.name.encode("utf-8"))[:24]
                 try:
+                    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_TRANSITION_REQUEST_BYTES:
+                        raise TransitionError("operator_request_unbounded_or_not_regular")
                     packet = json.loads(path.read_text(encoding="utf-8"))
                     request_id = str(packet.get("request_id", "malformed:" + _digest_bytes(path.read_bytes())[:24]))
+                    if path.stem != request_id:
+                        raise TransitionError("operator_request_path_identity_mismatch")
                     if request_id in consumed:
+                        self._verify_packet_identity(packet)
                         observed_consumed = request_id
-                        self._latest = next(item for item in reversed(self._receipts()) if item["request_id"] == request_id)
+                        self._latest = consumed[request_id]
                         continue
                     self._validate(packet)
                     subordinate = packet.get("subordinate_approvals", [])
@@ -262,7 +314,8 @@ class LiveTransitionOperatorRuntime:
                             "receipt_digest": receipt["receipt_digest"]}
                 except Exception as exc:
                     code = getattr(exc, "code", type(exc).__name__)
-                    request_id = locals().get("request_id", "malformed:" + _digest_bytes(path.read_bytes())[:24])
+                    if request_id in consumed:
+                        raise TransitionError("consumed_operator_request_conflict") from exc
                     receipt = self._append_receipt(str(request_id), "rejected", {"reason": code})
                     return {"status": "rejected", "request_id": request_id, "reason": code,
                             "effect_performed": False, "receipt_digest": receipt["receipt_digest"]}
