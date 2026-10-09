@@ -51,6 +51,13 @@ def _identity(prefix: str, payload: Mapping[str, Any]) -> tuple[str, str]:
     return f"{prefix}:{dg[7:31]}", dg
 
 
+def _valid_identity(value: Any, prefix: str) -> bool:
+    marker = prefix + ":"
+    return (isinstance(value, str) and len(value) == len(marker) + 24
+            and value.startswith(marker)
+            and all(character in "0123456789abcdef" for character in value[len(marker):]))
+
+
 def _authority(value: Mapping[str, bool]) -> None:
     if dict(value) != FALSE_AUTHORITY:
         raise EpistemicStateError("epistemic_authority_must_be_all_false")
@@ -303,15 +310,49 @@ class PersistentEpistemicStateOwner:
 
     def _read(self, kind: str) -> list[dict[str, Any]]:
         values = []
-        for _, data in self._collection_bytes(kind):
+        for filename, data in self._collection_bytes(kind):
             try:
                 value = json.loads(data.decode("utf-8"))
             except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
                 raise EpistemicStateError("epistemic_history_corrupt") from exc
             if not isinstance(value, dict):
                 raise EpistemicStateError("epistemic_history_corrupt")
+            if not self._collection_identity_matches(kind, value, filename):
+                raise EpistemicStateError("epistemic_record_path_identity_mismatch")
             values.append(value)
         return values
+
+    @staticmethod
+    def _collection_identity_matches(kind: str, value: Mapping[str, Any], filename: str) -> bool:
+        if kind == "propositions":
+            identity = value.get("proposition_id")
+            if not _valid_identity(identity, "proposition"): return False
+            expected = f"{identity}.json"
+        elif kind == "bindings":
+            identity = value.get("binding_id")
+            if not _valid_identity(identity, "evidence"): return False
+            expected = f"{identity}.json"
+        elif kind == "states":
+            generation, identity = value.get("generation"), value.get("state_id")
+            if (not isinstance(generation, int) or isinstance(generation, bool) or generation < 0
+                    or not _valid_identity(identity, "epistemic-state")):
+                return False
+            expected = f"{generation:012d}-{identity}.json"
+        elif kind == "updates":
+            generation, identity = value.get("generation"), value.get("event_id")
+            if (not isinstance(generation, int) or isinstance(generation, bool) or generation < 0
+                    or not _valid_identity(identity, "epistemic-update")):
+                return False
+            expected = f"{generation:012d}-{identity}.json"
+        elif kind == "relations":
+            expected = f"{digest(value)[7:]}.json"
+        elif kind == "calibrations":
+            identity = value.get("calibration_id")
+            if not _valid_identity(identity, "epistemic-calibration"): return False
+            expected = f"{identity}.json"
+        else:
+            return False
+        return filename == expected
 
     def _collection_bytes(self, kind: str) -> tuple[tuple[str, bytes], ...]:
         if kind not in RECORD_COLLECTIONS or self.root.is_symlink():
@@ -356,6 +397,8 @@ class PersistentEpistemicStateOwner:
         _write_new(self.root / "relations" / f"{digest(asdict(relation))[7:]}.json", asdict(relation))
 
     def proposition(self, proposition_id: str) -> EpistemicProposition:
+        if not _valid_identity(proposition_id, "proposition"):
+            raise EpistemicStateError("proposition_identity_invalid")
         path=self.root/"propositions"/f"{proposition_id}.json"
         if not path.is_file(): raise EpistemicStateError("proposition_not_found")
         value=EpistemicProposition(**json.loads(path.read_text())); expected=make_proposition(**{k:v for k,v in asdict(value).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
@@ -367,8 +410,11 @@ class PersistentEpistemicStateOwner:
         expected=make_evidence_binding(**{k:v for k,v in asdict(binding).items() if k not in {"binding_id","binding_digest","schema_version"}})
         if expected != binding: raise EpistemicStateError("evidence_binding_digest_mismatch")
         if binding.dependency_kind in {"same_source_derivation","shared_upstream_evidence","duplicate_alias"} and not binding.upstream_binding_ids: raise EpistemicStateError("evidence_dependency_missing_upstream")
+        known_upstream = {value.get("binding_id") for value in self._read("bindings")}
         for upstream in binding.upstream_binding_ids:
-            if not (self.root/"bindings"/f"{upstream}.json").is_file(): raise EpistemicStateError("evidence_upstream_not_found")
+            if not _valid_identity(upstream, "evidence"):
+                raise EpistemicStateError("evidence_upstream_identity_invalid")
+            if upstream not in known_upstream: raise EpistemicStateError("evidence_upstream_not_found")
         _write_new(self.root/"bindings"/f"{binding.binding_id}.json", asdict(binding))
 
     def bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
