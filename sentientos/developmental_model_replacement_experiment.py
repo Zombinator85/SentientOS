@@ -8,11 +8,12 @@ from __future__ import annotations
 import json
 import os
 import stat
+import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
 
-from .local_model_authority import atomic_write_json, digest_payload
+from .local_model_authority import digest_payload
 
 PURPOSE = "resident_developmental_model_replacement_experiment"
 CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
@@ -291,18 +292,58 @@ class ModelReplacementArtifactStore:
         self.provenance = self.root / "provenance"
         self.runs = self.root / "runs"
 
-    @staticmethod
-    def _write(path: Path, payload: Mapping[str, Any]) -> None:
+    def _write(self, path: Path, payload: Mapping[str, Any]) -> None:
         normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
-        if path.exists():
-            try:
-                prior = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise DevelopmentalModelReplacementError("artifact_tampered") from exc
+        limits = {"provenance": MAX_PROVENANCE_ARTIFACT_BYTES,
+            "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "runs": MAX_RUN_ARTIFACT_BYTES}
+        maximum = limits.get(path.parent.name)
+        if maximum is None:
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        if (self.root.is_symlink() or self.root.parent.is_symlink() or path.parent.is_symlink()):
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if path.parent.is_symlink() or not path.parent.is_dir():
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=True).encode("utf-8")
+        if len(encoded) > maximum:
+            raise DevelopmentalModelReplacementError("artifact_size_limit_exceeded")
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            prior = None
+        else:
+            prior = self._read_artifact_json(path, maximum_bytes=maximum,
+                missing_code="artifact_missing", invalid_code="artifact_tampered")
+        if prior is not None:
             if prior != normalized:
                 raise DevelopmentalModelReplacementError("artifact_identity_collision")
             return
-        atomic_write_json(path, normalized)
+        descriptor, temporary = tempfile.mkstemp(prefix=".model-replacement-", suffix=".tmp",
+            dir=str(path.parent))
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temporary, path, follow_symlinks=False)
+            except FileExistsError:
+                prior = self._read_artifact_json(path, maximum_bytes=maximum,
+                    missing_code="artifact_missing", invalid_code="artifact_tampered")
+                if prior != normalized:
+                    raise DevelopmentalModelReplacementError("artifact_identity_collision")
+                return
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
     def _read_artifact_json(self, path: Path, *, maximum_bytes: int,
                             missing_code: str, invalid_code: str) -> dict[str, Any]:
