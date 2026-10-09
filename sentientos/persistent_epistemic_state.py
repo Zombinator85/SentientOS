@@ -400,8 +400,15 @@ class PersistentEpistemicStateOwner:
         if not _valid_identity(proposition_id, "proposition"):
             raise EpistemicStateError("proposition_identity_invalid")
         path=self.root/"propositions"/f"{proposition_id}.json"
-        if not path.is_file(): raise EpistemicStateError("proposition_not_found")
-        value=EpistemicProposition(**json.loads(path.read_text())); expected=make_proposition(**{k:v for k,v in asdict(value).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
+        try:
+            raw = json.loads(_read_record_bytes(path).decode("utf-8"))
+        except FileNotFoundError as exc:
+            raise EpistemicStateError("proposition_not_found") from exc
+        except (UnicodeError, json.JSONDecodeError, TypeError, KeyError) as exc:
+            raise EpistemicStateError("proposition_record_corrupt") from exc
+        if not isinstance(raw, dict) or not self._collection_identity_matches("propositions", raw, path.name):
+            raise EpistemicStateError("proposition_record_identity_mismatch")
+        value=EpistemicProposition(**raw); expected=make_proposition(**{k:v for k,v in asdict(value).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
         if value != expected: raise EpistemicStateError("proposition_identity_mismatch")
         return value
 
