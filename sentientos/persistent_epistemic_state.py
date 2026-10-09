@@ -572,9 +572,9 @@ class PersistentEpistemicStateOwner:
                 relation = PropositionRelation(**raw)
             except (TypeError, KeyError) as exc:
                 raise EpistemicStateError("proposition_relation_invalid") from exc
-            if (not isinstance(relation.source_proposition_id, str)
-                    or not isinstance(relation.target_proposition_id, str)
-                    or relation.relation not in RELATIONS
+            if (not _valid_identity(relation.source_proposition_id, "proposition")
+                    or not _valid_identity(relation.target_proposition_id, "proposition")
+                    or not isinstance(relation.relation, str) or relation.relation not in RELATIONS
                     or relation.source_proposition_id == relation.target_proposition_id
                     or relation.source_proposition_id not in propositions
                     or relation.target_proposition_id not in propositions):
