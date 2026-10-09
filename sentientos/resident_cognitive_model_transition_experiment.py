@@ -226,7 +226,8 @@ class TransitionJournal:
         entries = self.entries()
         body = {"schema_version": JOURNAL_SCHEMA, "sequence": len(entries) + 1,
                 "prior_digest": entries[-1]["entry_digest"] if entries else "GENESIS",
-                "phase": phase, "status": status, "evidence": _plain(evidence)}
+                "phase": phase, "status": status, "event_time": datetime.now(timezone.utc).isoformat(),
+                "evidence": _plain(evidence)}
         item = {**body, "entry_digest": digest(body)}
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n")

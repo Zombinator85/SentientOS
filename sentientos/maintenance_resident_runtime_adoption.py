@@ -249,6 +249,7 @@ def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str,
         "continuity_receipt_digest": evidence["continuity_receipt_digest"],
         "pending_handoff_event_digest": evidence["pending_handoff_event_digest"],
         "prior_event_digest": rows[-1]["event_digest"] if rows else ZERO_DIGEST, **detail}
+    row["event_time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     row["event_digest"] = digest(row, "event_digest")
     path = Path(str(cfg["transition_journal_path"])); path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)

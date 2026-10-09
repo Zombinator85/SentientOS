@@ -604,6 +604,7 @@ class RuntimeMaintenanceSurfaces:
                         payload: dict[str, Any] = {"transition_id": transition_id, "transition_phase": phase,
                             "journal_sequence": entry.get("sequence"), "journal_entry_digest": entry.get("entry_digest"),
                             "journal_prior_digest": entry.get("prior_digest"), "journal_status": entry.get("status"),
+                            "event_time": entry.get("event_time"),
                             "predecessor_model_identity": predecessor, "proposed_successor_model_identity": successor,
                             "transition_protocol_digest": protocol_value.get("protocol_digest"),
                             "developmental_history_boundary": (protocol_value.get("initial_history_boundary", {}).get("boundary_digest")
@@ -631,7 +632,7 @@ class RuntimeMaintenanceSurfaces:
                             "subject_id": transition_id, "subject_kind": "resident_model_transition",
                             "stage": "observation", "disposition": disposition,
                             "evidence_strength": "transition_journal_receipt_bound", "payload": payload,
-                            "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                            "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
                     records.append({"source_kind": "runtime_supervisor",
@@ -658,9 +659,11 @@ class RuntimeMaintenanceSurfaces:
         software_controller = self._resident_software_transition_controller
         if software_controller is not None:
             try:
-                from sentientos.maintenance_resident_runtime_adoption import read_transition_events
+                from sentientos.maintenance_resident_runtime_adoption import (
+                    inspect_transition_custody, read_transition_events)
                 rows = read_transition_events(software_controller.config, limit=16)
                 software_health = software_controller.health()
+                custody = inspect_transition_custody(software_controller.config)
                 baseline = getattr(software_controller, "_baseline", None)
             except Exception as exc:
                 records.append({"source_kind": "runtime_supervisor", "source_id": "resident_software_transition:recovery",
@@ -674,6 +677,7 @@ class RuntimeMaintenanceSurfaces:
                     disposition = "completed" if phase == "resident_adoption_completed" else "attempted"
                     payload = {"transition_id": row.get("transition_id"), "transition_phase": phase,
                         "journal_entry_digest": row.get("event_digest"), "journal_prior_digest": row.get("prior_event_digest"),
+                        "event_time": row.get("event_time"),
                         "lineage_id": row.get("lineage_id"), "predecessor_generation_digest": row.get("predecessor_generation_digest"),
                         "successor_generation_digest": row.get("successor_generation_digest"),
                         "predecessor_ordinal": row.get("predecessor_ordinal"), "successor_ordinal": row.get("successor_ordinal"),
@@ -685,18 +689,19 @@ class RuntimeMaintenanceSurfaces:
                         "subject_id": str(row.get("transition_id") or "resident-software-transition"),
                         "subject_kind": "software_generation_transition", "stage": "observation",
                         "disposition": disposition, "evidence_strength": "software_transition_journal_receipt_bound",
-                        "payload": payload, "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                        "payload": payload, "observed_at": row.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 if rows:
                     last = rows[-1]
                     transaction_rows = [item for item in rows if item.get("transition_id") == last.get("transition_id")]
                     complete = bool(transaction_rows and transaction_rows[-1].get("phase") == "resident_adoption_completed")
                     records.append({"source_kind": "runtime_supervisor",
-                        "source_id": f"resident_software_recovery:{last.get('event_digest')}:{software_health.get('status', 'unknown')}",
+                        "source_id": f"resident_software_recovery:{last.get('event_digest')}:{custody.get('status', 'unknown')}",
                         "subject_id": str(last.get("transition_id") or "resident-software-transition"),
                         "subject_kind": "software_generation_transition_recovery", "stage": "observation",
                         "disposition": "complete" if complete else "incomplete",
                         "evidence_strength": "reconstructed_software_transition_journal_posture",
-                        "payload": {"journal_head": last.get("event_digest"), "recovery_posture": software_health.get("status"),
+                        "payload": {"journal_head": last.get("event_digest"), "recovery_posture": custody.get("status"),
+                            "process_recovery_status": software_health.get("status"),
                             "transition_phase": last.get("phase"), "completed": complete, "replay_forbidden": True},
                         "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
                 if isinstance(baseline, Mapping) and baseline.get("provenance_digest"):
@@ -1486,7 +1491,6 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 resident_health = resident_controller.health()
         except Exception as exc:
             resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
-            resident_controller = None
     resident_blocked = bool(resident_path and resident_health["status"] == "blocked")
     if resident_blocked and os.environ.get(STARTUP_GATE_ENV):
         return
@@ -1637,8 +1641,11 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     try:
         while not shutdown_event.is_set():
             if resident_blocked:
-                # Blocked resident posture is terminal for this image.
-                # Health has already been projected; no maintenance effector may run.
+                # Preserve a verified read-only recovery snapshot before this
+                # image stops. No cognition, transition retry, or effector runs.
+                with suppress(Exception):
+                    runtime_surfaces.build_world_state_board(
+                        tick_id=datetime.now(timezone.utc).isoformat())
                 shutdown_event.set()
                 continue
             if scheduler_owner is not None:
