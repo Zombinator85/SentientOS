@@ -478,6 +478,7 @@ class ResidentCognitiveModelTransitionController:
         self.journal.append(current, {"attempted_stage": target,
                                       "approval_digest": approval["approval_digest"],
                                       **({"operator_request": context} if context else {})}, status="attempted")
+        completion_published = False
         try:
             if target in {"a_quiesced", "b_quiesced"}:
                 supplied = dict(self.gate.quiesce(timeout_seconds=float(supplied.pop("timeout_seconds", 5)),
@@ -511,14 +512,19 @@ class ResidentCognitiveModelTransitionController:
             if context:
                 supplied["operator_request"] = context
             entry = self.journal.append(target, supplied)
+            completion_published = True
             self._state = self._reconstruct()
             return MappingProxyType({"prior_phase": current, "phase": target,
                                      "journal_head": entry["entry_digest"], "advanced_one_stage": True})
         except Exception as exc:
-            self.journal.append(current, {"failed_stage": target,
-                                          "error": getattr(exc, "code", type(exc).__name__),
-                                          **({"operator_request": context} if context else {})}, status="failed")
-            self._state = self._reconstruct()
+            # A completed journal row is the durable commit point. Do not
+            # append a contradictory failure if a later in-memory refresh
+            # fails; restart recovery will reconstruct from that completion.
+            if not completion_published:
+                self.journal.append(current, {"failed_stage": target,
+                                              "error": getattr(exc, "code", type(exc).__name__),
+                                              **({"operator_request": context} if context else {})}, status="failed")
+                self._state = self._reconstruct()
             raise
 
     def health(self) -> Mapping[str, Any]:
