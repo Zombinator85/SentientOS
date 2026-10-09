@@ -612,6 +612,9 @@ class RuntimeMaintenanceSurfaces:
                             "replay_forbidden": True}
                         if isinstance(successor, Mapping) and successor.get("model_development_provenance") is not None:
                             payload["model_development_provenance"] = successor["model_development_provenance"]
+                        elif isinstance(successor, Mapping) and successor.get("model_development_provenance_digest") is not None:
+                            payload["model_development_provenance"] = {
+                                "manifest_digest": successor["model_development_provenance_digest"]}
                         activation = evidence.get("activation") if isinstance(evidence.get("activation"), Mapping) else None
                         if (activation is not None and entry.get("status") == "completed"
                                 and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
@@ -681,6 +684,11 @@ class RuntimeMaintenanceSurfaces:
                         "lineage_id": row.get("lineage_id"), "predecessor_generation_digest": row.get("predecessor_generation_digest"),
                         "successor_generation_digest": row.get("successor_generation_digest"),
                         "predecessor_ordinal": row.get("predecessor_ordinal"), "successor_ordinal": row.get("successor_ordinal"),
+                        "continuity_receipt_digest": row.get("continuity_receipt_digest"),
+                        "pending_handoff_event_digest": row.get("pending_handoff_event_digest"),
+                        "successor_repository_commit": row.get("successor_repository_commit"),
+                        "successor_repository_tree": row.get("successor_repository_tree"),
+                        "successor_launch_provenance_digest": row.get("successor_launch_provenance_digest"),
                         "replay_forbidden": True}
                     if row.get("readiness_receipt_digest"):
                         payload["readiness_receipt_digest"] = row["readiness_receipt_digest"]
