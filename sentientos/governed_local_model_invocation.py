@@ -115,6 +115,7 @@ class LocalModelInvocationReceipt:
     resource_allocation_digest: str | None = None
     resource_attempt_id: str | None = None
     resource_consumption_receipt_digests: tuple[str, ...] = ()
+    resource_linkage_digest: str | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
         return {"request": dict(self.request), "status": self.status, "reason_codes": list(self.reason_codes), "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes, "generation_config": dict(self.generation_config), "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose, "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred, "effects": dict(self.effects)}
@@ -128,6 +129,8 @@ class LocalModelInvocationReceipt:
             "resource_allocation_digest": self.resource_allocation_digest,
             "resource_attempt_id": self.resource_attempt_id,
             "resource_consumption_receipt_digests": list(self.resource_consumption_receipt_digests)})
+        if self.resource_linkage_digest is not None:
+            p["resource_linkage_digest"] = self.resource_linkage_digest
         if include_output and self.output_text is not None: p["output_text"] = self.output_text
         return p
 
@@ -137,6 +140,13 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     semantic = {k: payload.get(k) for k in ["request", "status", "reason_codes", "output_digest", "output_size_bytes", "generation_config", "admission_decision_ref", "purpose", "output_truncated", "fallback_occurred", "effects"]}
     if payload.get("receipt_digest") != digest_payload(semantic): reasons.append("receipt_digest_mismatch")
     if payload.get("receipt_id") != "lmrec-" + digest_payload(semantic)[:24]: reasons.append("receipt_id_mismatch")
+    linkage = {"receipt_digest": payload.get("receipt_digest"),
+        "allocation_digest": payload.get("resource_allocation_digest"),
+        "attempt_id": payload.get("resource_attempt_id"),
+        "consumption_receipt_digests": tuple(payload.get("resource_consumption_receipt_digests") or ())}
+    if any(value is not None for value in linkage.values() if value != payload.get("receipt_digest")):
+        expected_linkage = digest_payload(linkage)
+        if payload.get("resource_linkage_digest") != expected_linkage: reasons.append("resource_linkage_digest_mismatch")
     effects = payload.get("effects")
     if not isinstance(effects, Mapping) or any(bool(effects.get(k)) for k in FORBIDDEN_EFFECTS): reasons.append("forbidden_effect_recorded")
     return not reasons, reasons
@@ -286,6 +296,11 @@ class GovernedLocalModelInvoker:
                 receipt = replace(receipt, resource_allocation_digest=resource_context.allocation.allocation_digest,
                     resource_attempt_id=attempt_id,
                     resource_consumption_receipt_digests=(measured.receipt_digest, reconciled.receipt_digest))
+                receipt = replace(receipt, resource_linkage_digest=digest_payload({
+                    "receipt_digest": receipt.receipt_digest,
+                    "allocation_digest": receipt.resource_allocation_digest,
+                    "attempt_id": receipt.resource_attempt_id,
+                    "consumption_receipt_digests": receipt.resource_consumption_receipt_digests}))
                 if persist:
                     self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
             except GovernedLocalModelResourceError:

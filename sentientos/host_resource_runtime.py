@@ -278,7 +278,9 @@ def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]
 
 def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResourceLedger,
                                               invocation_receipts: Sequence[Mapping[str, Any]] = (),
-                                              observed_at: str | None = None) -> list[dict[str, Any]]:
+                                              observed_at: str | None = None,
+                                              max_receipts: int = 256,
+                                              max_invocation_receipts: int = 256) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -286,8 +288,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     not attributed to an invocation without an independent receipt.
     """
     snapshot = ledger.observation_snapshot()
+    if max_receipts < 1 or max_invocation_receipts < 1:
+        raise ValueError("resource_observation_bounds_invalid")
+    raw_receipts = tuple(snapshot["receipts"])
     receipts = []
-    for receipt in snapshot["receipts"]:
+    for receipt in raw_receipts[-max_receipts:]:
         item = dict(receipt)
         measurement = dict(item.get("resource_specific_measurement", {}))
         item["measurement_posture"] = {
@@ -302,9 +307,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
                "allocations": snapshot["allocations"], "attempts": snapshot["attempts"],
                "consumption_receipts": tuple(receipts),
-               "invocation_receipts": tuple(dict(item) for item in invocation_receipts),
+               "invocation_receipts": tuple(dict(item) for item in invocation_receipts[-max_invocation_receipts:]),
                "attribution_posture": "receipt_bound_only",
-               "shared_host_usage_attribution": "unknown_without_independent_observation"}
+               "shared_host_usage_attribution": "unknown_without_independent_observation",
+               "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete"}
     return [{"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "subject_kind": "causal_resource_consumption",
