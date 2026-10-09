@@ -134,7 +134,13 @@ class ResidentEpistemicDevelopmentRuntime:
     @staticmethod
     def _adapt(snapshot: WorldStateSnapshot, fact: WorldStateFact,
                rule: EpistemicDevelopmentRule) -> tuple[Any, EvidenceBinding]:
-        observed = fact.observed_at or str(snapshot.custody.get("observed_at", ""))
+        observed = fact.observed_at
+        if fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
+            historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
+                                if isinstance(item, Mapping) and item.get("observed_at")]
+            if historical_times:
+                observed = max(historical_times)
+        observed = observed or str(snapshot.custody.get("observed_at", ""))
         artifact_id = f"{snapshot.snapshot_id}:{fact.fact_id}"
         provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,

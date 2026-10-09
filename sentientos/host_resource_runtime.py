@@ -299,6 +299,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         allocation_digest = invocation.get("resource_allocation_digest")
         attempt_id = invocation.get("resource_attempt_id")
         receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
+        # Historical receipts predating resource custody have no linkage and
+        # remain valid invocation evidence; they cannot be verified as resource
+        # linked, but must not be reported as a lineage failure.
+        if allocation_digest is None and attempt_id is None and not receipt_digests:
+            continue
         if allocation_digest not in allocation_digests:
             lineage_findings.append(f"allocation_missing:{allocation_digest}")
         linked = [item for item in raw_receipts if isinstance(item, Mapping) and item.get("attempt_id") == attempt_id]
