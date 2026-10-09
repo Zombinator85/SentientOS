@@ -343,6 +343,15 @@ class GovernedLocalModelResourceLedger:
             return (len(self._state["allocations"]), len(self._state["attempts"]),
                     len(self._state["receipts"]))
 
+    def observation_snapshot(self) -> Mapping[str, object]:
+        """Return sealed ledger identities for a read-only causal observer."""
+        with self._lock:
+            body = self._body()
+            return {"schema": LEDGER_SCHEMA, "ledger_digest": _digest(body),
+                    "allocations": tuple(body["allocations"].values()),
+                    "attempts": tuple({"attempt_id": key, **value} for key, value in body["attempts"].items()),
+                    "receipts": tuple(body["receipts"])}
+
 
 class GovernedLocalModelResourceAllocator:
     def __init__(self, *, policy: GovernedLocalModelResourcePolicy, ledger: GovernedLocalModelResourceLedger) -> None:

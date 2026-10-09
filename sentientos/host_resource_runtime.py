@@ -19,6 +19,7 @@ from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
+from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.world_state_board import WorldStateSourceKind, digest
 
 SCHEMA_VERSION = "host_resource_observation_runtime.v1"
@@ -274,6 +275,31 @@ def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]
         {**base,"source_id":"host_resource_runtime:policy","subject_id":"host_resource_policy","stage":"proposal","disposition":e.policy_decision.status,"payload":summarize_host_resource_policy_decision(e.policy_decision),"digest":digest(e.policy_decision.to_dict())},
         {**base,"source_id":"host_resource_runtime:receipts","subject_id":"host_resource_proposal_receipts","stage":"proposal","disposition":"recorded","payload":{"receipt_count": len(e.proposal_receipts), "receipt_ids": [r.receipt_id for r in e.proposal_receipts], "receipts": [summarize_host_resource_proposal_receipt(r) for r in e.proposal_receipts]},"digest":digest([r.to_dict() for r in e.proposal_receipts])},
     ]
+
+def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResourceLedger,
+                                              invocation_receipts: Sequence[Mapping[str, Any]] = (),
+                                              observed_at: str | None = None) -> list[dict[str, Any]]:
+    """Project existing allocation/consumption custody as later evidence.
+
+    The projection carries exact ledger identities and invocation linkage. It
+    deliberately reports measured receipt fields only; host-wide telemetry is
+    not attributed to an invocation without an independent receipt.
+    """
+    snapshot = ledger.observation_snapshot()
+    payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
+               "allocations": snapshot["allocations"], "attempts": snapshot["attempts"],
+               "consumption_receipts": snapshot["receipts"],
+               "invocation_receipts": tuple(dict(item) for item in invocation_receipts),
+               "attribution_posture": "receipt_bound_only",
+               "shared_host_usage_attribution": "unknown_without_independent_observation"}
+    return [{"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+             "source_id": "governed_local_model_resource_consumption",
+             "subject_kind": "causal_resource_consumption",
+             "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
+             "disposition": "recorded", "evidence_strength": "receipt_bound",
+             "effect_claimed": False, "effect_proven": False,
+             "observed_at": observed_at, "payload": payload,
+             "digest": digest(payload)}]
 
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:
     s=summary_for_evaluation(e)
