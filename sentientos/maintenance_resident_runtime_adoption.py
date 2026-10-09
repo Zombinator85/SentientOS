@@ -10,6 +10,7 @@ import hashlib
 import fcntl
 import json
 import os
+import stat
 import sys
 import time
 from datetime import datetime, timezone
@@ -37,6 +38,7 @@ PHASES = ("resident_adoption_intent_recorded", "predecessor_resident_provenance_
 MAX_RESIDENT_TRANSITION_ROWS = 4096
 MAX_RESIDENT_TRANSITION_JOURNAL_BYTES = 16_777_216
 MAX_RESIDENT_TRANSITION_ROW_BYTES = 262_144
+MAX_RESIDENT_ADOPTION_CONFIG_BYTES = 1_048_576
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -52,11 +54,55 @@ def _file_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _read_bounded_regular(path: Path, *, maximum_bytes: int, reason: str,
+                          limit_reason: str | None = None) -> bytes:
+    descriptor: int | None = None
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(reason)
+        if metadata.st_size > maximum_bytes:
+            raise ValueError(limit_reason or reason)
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                or opened.st_dev != metadata.st_dev or opened.st_size > maximum_bytes):
+            raise ValueError(reason)
+        chunks: list[bytes] = []
+        remaining = maximum_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        data = b"".join(chunks)
+        if len(data) > maximum_bytes:
+            raise ValueError(limit_reason or reason)
+        after = os.fstat(descriptor)
+        if (len(data) != opened.st_size or after.st_size != opened.st_size
+                or after.st_mtime_ns != opened.st_mtime_ns):
+            raise ValueError(reason)
+        return data
+    except FileNotFoundError:
+        raise
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(reason) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
 def _load_object(path: str | Path, reason: str) -> dict[str, Any]:
     source = Path(path)
-    if source.is_symlink() or not source.is_file():
-        raise ValueError(reason)
-    value = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        data = _read_bounded_regular(source, maximum_bytes=MAX_RESIDENT_ADOPTION_CONFIG_BYTES,
+            reason=reason)
+        value = json.loads(data.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(reason) from exc
     if not isinstance(value, dict):
         raise ValueError(reason)
     return value
@@ -187,12 +233,20 @@ def _write_exact(path: Path, value: Mapping[str, Any]) -> None:
 
 def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["transition_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
-    if path.is_symlink():
-        raise ValueError("resident_transition_journal_corrupt")
-    if not path.exists(): return rows
-    if not path.is_file() or path.stat().st_size > MAX_RESIDENT_TRANSITION_JOURNAL_BYTES:
-        raise ValueError("resident_transition_journal_retention_limit_exceeded")
-    for line in path.read_text(encoding="utf-8").splitlines():
+    try:
+        journal_bytes = _read_bounded_regular(path,
+            maximum_bytes=MAX_RESIDENT_TRANSITION_JOURNAL_BYTES,
+            reason="resident_transition_journal_corrupt",
+            limit_reason="resident_transition_journal_retention_limit_exceeded")
+    except FileNotFoundError:
+        return rows
+    try:
+        lines = journal_bytes.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise ValueError("resident_transition_journal_corrupt") from exc
+    for line in lines:
+        if len(line.encode("utf-8")) > MAX_RESIDENT_TRANSITION_ROW_BYTES:
+            raise ValueError("resident_transition_row_retention_limit_exceeded")
         row = json.loads(line)
         if (not isinstance(row, dict) or row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
                 row.get("prior_event_digest") != prior or row.get("event_digest") != digest(row, "event_digest")):
