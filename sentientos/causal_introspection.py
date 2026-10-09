@@ -659,9 +659,21 @@ class CausalIntrospectionRuntime:
                 "payload": {"projection_id": projection.projection_id,
                     "projection_digest": projection.projection_digest,
                     "owner_kind": projection.owner_kind,
-                    "observation_keys": [item.observation_key for item in projection.observations],
-                    "causal_reference_ids": [item.reference_id for item in projection.causal_references],
+                    "observations": [{"key": item.observation_key,
+                        "value": item.bounded_value, "class": item.observation_class,
+                        "freshness": item.freshness, "evidence_posture": item.evidence_posture,
+                        "production_posture": item.production_posture,
+                        "source_refs": list(item.source_refs)}
+                        for item in projection.observations],
+                    "source_references": [_plain(item) for item in projection.source_references],
+                    "causal_references": [_plain(item) for item in projection.causal_references],
+                    "semantic_trace": {key: _plain(value)
+                        for key, value in projection.semantic_trace.items()},
                     "read_only": True, "current_truth": False, "authority": False},
+                # The projection capture is the event time. This record is only
+                # made available by a later-generation board and keeps its
+                # original observation time through that temporal boundary.
+                "observed_at": projection.capture_tick,
                 "effect_claimed": False, "effect_proven": False,
             })
         return records
