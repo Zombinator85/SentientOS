@@ -292,6 +292,23 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     if max_receipts < 1 or max_invocation_receipts < 1:
         raise ValueError("resource_observation_bounds_invalid")
     raw_receipts = tuple(snapshot["receipts"])
+    allocation_digests = {str(item.get("allocation_digest")) for item in snapshot["allocations"] if isinstance(item, Mapping)}
+    ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
+    lineage_findings: list[str] = []
+    for invocation in invocation_receipts[-max_invocation_receipts:]:
+        allocation_digest = invocation.get("resource_allocation_digest")
+        attempt_id = invocation.get("resource_attempt_id")
+        receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
+        if allocation_digest not in allocation_digests:
+            lineage_findings.append(f"allocation_missing:{allocation_digest}")
+        linked = [item for item in raw_receipts if isinstance(item, Mapping) and item.get("attempt_id") == attempt_id]
+        if not receipt_digests or any(digest not in ledger_receipts for digest in receipt_digests):
+            lineage_findings.append(f"consumption_receipt_missing:{attempt_id}")
+        if linked and not set(receipt_digests).issubset({str(item.get("receipt_digest")) for item in linked}):
+            lineage_findings.append(f"consumption_attempt_lineage_mismatch:{attempt_id}")
+        reconciled = [item for item in linked if item.get("state") == "reconciled"]
+        if reconciled and not any(item.get("effect_receipt_digest") == invocation.get("receipt_digest") for item in reconciled):
+            lineage_findings.append(f"effect_receipt_mismatch:{attempt_id}")
     receipts = []
     for receipt in raw_receipts[-max_receipts:]:
         item = dict(receipt)
@@ -316,12 +333,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "recovery_posture": "incomplete_attempts_present" if any(
                    str(item.get("status")) in {"provisional", "begun"}
                    for item in snapshot["attempts"] if isinstance(item, Mapping)
-               ) else "reconciled_or_restored"}
+               ) else "reconciled_or_restored",
+               "lineage_posture": "verified" if not lineage_findings else "degraded",
+               "lineage_findings": tuple(sorted(set(lineage_findings)))}
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
-             "disposition": "recorded", "evidence_strength": "receipt_bound",
+             "disposition": "recorded" if not lineage_findings else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings else "incomplete",
              "effect_claimed": False, "effect_proven": False,
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption
