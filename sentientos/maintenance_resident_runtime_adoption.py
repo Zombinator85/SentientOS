@@ -230,6 +230,13 @@ def inspect_transition_custody(config: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def read_transition_events(config: Mapping[str, Any], *, limit: int = 128) -> tuple[Mapping[str, Any], ...]:
+    """Read a bounded, verified suffix of the existing software succession journal."""
+    if type(limit) is not int or not 1 <= limit <= 128:
+        raise ValueError("resident_transition_event_limit_invalid")
+    return tuple(dict(row) for row in _rows(validate_config(config))[-limit:])
+
+
 def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
     rows = _rows(cfg); expected = PHASES[len(rows) % len(PHASES)]
     if phase != expected: raise ValueError("resident_transition_phase_invalid")
@@ -562,4 +569,5 @@ def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
 
 __all__ = ["CONFIG_SCHEMA", "PROVENANCE_SCHEMA", "EVENT_SCHEMA", "RECEIPT_SCHEMA", "TRANSITION_ENV", "CONFIG_ENV",
            "SUCCESSOR_CONFIG_ENV", "AUTO_CONFIG_ENV",
-           "PHASES", "MaintenanceResidentRuntimeAdoptionController", "validate_config", "load_config", "transition_id", "inspect", "digest"]
+           "PHASES", "MaintenanceResidentRuntimeAdoptionController", "validate_config", "load_config", "transition_id", "inspect", "digest",
+           "inspect_transition_custody", "read_transition_events"]

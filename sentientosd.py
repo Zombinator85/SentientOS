@@ -321,6 +321,7 @@ class RuntimeMaintenanceSurfaces:
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
+        self._resident_software_transition_controller: MaintenanceResidentRuntimeAdoptionController | None = None
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
@@ -517,6 +518,7 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        records.extend(self._resident_succession_world_state_records(tick_key))
         if self._causal_introspection_runtime is not None:
             # Generation, not a parsed tick string, enforces the temporal firewall.
             next_capture_generation = len(self._causal_introspection_runtime.reconstruct()) + 1
@@ -568,6 +570,149 @@ class RuntimeMaintenanceSurfaces:
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._world_state_snapshot_built_for_tick = tick_key
         return feedback
+
+    def _resident_succession_world_state_records(self, observed_at: str) -> list[dict[str, Any]]:
+        """Expose durable transition events without promoting proposals to observations."""
+        records: list[dict[str, Any]] = []
+        runtime = self._resident_transition_runtime
+        controller = getattr(runtime, "controller", None) if runtime is not None else None
+        if controller is not None:
+            protocol = getattr(controller, "protocol", None)
+            journal = getattr(controller, "journal", None)
+            if protocol is not None and journal is not None:
+                protocol_value = dict(getattr(protocol, "value", {}))
+                transition_id = str(protocol_value.get("transition_id") or "unknown")
+                predecessor, successor = protocol_value.get("predecessor_a"), protocol_value.get("successor_b")
+                health: dict[str, Any] = {}
+                status: dict[str, Any] = {}
+                try:
+                    entries = journal.entries()[-16:]
+                    health = dict(controller.health())
+                    status = runtime.status()
+                except Exception as exc:
+                    records.append({"source_kind": "runtime_supervisor", "source_id": f"resident_transition:{transition_id}:recovery",
+                        "subject_id": transition_id, "subject_kind": "model_transition", "stage": "observation",
+                        "disposition": "incomplete", "evidence_strength": "unavailable",
+                        "payload": {"recovery_posture": "journal_reconstruction_failed", "error_class": type(exc).__name__},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                else:
+                    for entry in entries[-128:]:
+                        evidence = entry.get("evidence") if isinstance(entry.get("evidence"), Mapping) else {}
+                        phase = str(entry.get("phase") or "")
+                        disposition = {"completed": "completed", "attempted": "attempted", "effected": "effected",
+                                       "failed": "failed", "interrupted": "interrupted"}.get(str(entry.get("status")), "unknown")
+                        payload: dict[str, Any] = {"transition_id": transition_id, "transition_phase": phase,
+                            "journal_sequence": entry.get("sequence"), "journal_entry_digest": entry.get("entry_digest"),
+                            "journal_prior_digest": entry.get("prior_digest"), "journal_status": entry.get("status"),
+                            "predecessor_model_identity": predecessor, "proposed_successor_model_identity": successor,
+                            "transition_protocol_digest": protocol_value.get("protocol_digest"),
+                            "developmental_history_boundary": (protocol_value.get("initial_history_boundary", {}).get("boundary_digest")
+                                if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
+                            "replay_forbidden": True}
+                        if isinstance(successor, Mapping) and successor.get("model_development_provenance") is not None:
+                            payload["model_development_provenance"] = successor["model_development_provenance"]
+                        activation = evidence.get("activation") if isinstance(evidence.get("activation"), Mapping) else None
+                        if (activation is not None and entry.get("status") == "completed"
+                                and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
+                            identity_key = "proposed_successor_model_identity" if phase == "b_activation_committed" else "predecessor_model_identity"
+                            payload["activated_model_identity"] = successor if identity_key == "proposed_successor_model_identity" else protocol_value.get("restored_a")
+                            payload["activation_receipt_id"] = activation.get("receipt_id")
+                            payload["activation_receipt_digest"] = activation.get("receipt_semantic_digest")
+                            payload["activation_state_digest"] = activation.get("state_semantic_digest")
+                        binding = evidence.get("stage_binding") if isinstance(evidence.get("stage_binding"), Mapping) else None
+                        if (binding is not None and entry.get("status") == "completed"
+                                and phase in {"b_serving_bound", "restored_a_serving_bound"}):
+                            payload["serving_binding_digest"] = binding.get("binding_digest")
+                            payload["serving_activation_receipt_id"] = binding.get("activation_receipt_id")
+                            payload["serving_activation_receipt_digest"] = binding.get("activation_receipt_digest")
+                            payload["serving_expected_model_identity"] = binding.get("expected_model_identity")
+                        records.append({"source_kind": "runtime_supervisor",
+                            "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}",
+                            "subject_id": transition_id, "subject_kind": "resident_model_transition",
+                            "stage": "observation", "disposition": disposition,
+                            "evidence_strength": "transition_journal_receipt_bound", "payload": payload,
+                            "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                session_identity = status.get("resident_model_identity")
+                if session_identity is not None:
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}",
+                        "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
+                        "subject_kind": "observed_running_model", "stage": "observation",
+                        "disposition": "observed", "evidence_strength": "serving_session_observation",
+                        "payload": {"running_model_identity_observed": session_identity,
+                            "serving_session_id": status.get("resident_serving_session_id"),
+                            "transition_id": transition_id},
+                        "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
+                head = health.get("journal_head")
+                if head:
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_transition_recovery:{transition_id}:{head}:{health.get('status', 'unknown')}",
+                        "subject_id": transition_id, "subject_kind": "resident_model_transition_recovery",
+                        "stage": "observation", "disposition": str(health.get("status", "unknown")),
+                        "evidence_strength": "reconstructed_transition_journal_posture",
+                        "payload": {"transition_id": transition_id, "journal_head": head,
+                            "recovery_posture": health.get("status"), "outstanding_stage": health.get("outstanding_stage"),
+                            "replay_forbidden": health.get("replay_forbidden", True)},
+                        "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
+
+        software_controller = self._resident_software_transition_controller
+        if software_controller is not None:
+            try:
+                from sentientos.maintenance_resident_runtime_adoption import read_transition_events
+                rows = read_transition_events(software_controller.config, limit=16)
+                software_health = software_controller.health()
+                baseline = getattr(software_controller, "_baseline", None)
+            except Exception as exc:
+                records.append({"source_kind": "runtime_supervisor", "source_id": "resident_software_transition:recovery",
+                    "subject_id": "resident_software_transition", "subject_kind": "software_transition",
+                    "stage": "observation", "disposition": "incomplete", "evidence_strength": "unavailable",
+                    "payload": {"recovery_posture": "journal_reconstruction_failed", "error_class": type(exc).__name__},
+                    "observed_at": None, "effect_claimed": False, "effect_proven": False})
+            else:
+                for row in rows:
+                    phase = str(row.get("phase", ""))
+                    disposition = "completed" if phase == "resident_adoption_completed" else "attempted"
+                    payload = {"transition_id": row.get("transition_id"), "transition_phase": phase,
+                        "journal_entry_digest": row.get("event_digest"), "journal_prior_digest": row.get("prior_event_digest"),
+                        "lineage_id": row.get("lineage_id"), "predecessor_generation_digest": row.get("predecessor_generation_digest"),
+                        "successor_generation_digest": row.get("successor_generation_digest"),
+                        "predecessor_ordinal": row.get("predecessor_ordinal"), "successor_ordinal": row.get("successor_ordinal"),
+                        "replay_forbidden": True}
+                    if row.get("readiness_receipt_digest"):
+                        payload["readiness_receipt_digest"] = row["readiness_receipt_digest"]
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_software_transition:{row.get('event_digest')}",
+                        "subject_id": str(row.get("transition_id") or "resident-software-transition"),
+                        "subject_kind": "software_generation_transition", "stage": "observation",
+                        "disposition": disposition, "evidence_strength": "software_transition_journal_receipt_bound",
+                        "payload": payload, "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                if rows:
+                    last = rows[-1]
+                    transaction_rows = [item for item in rows if item.get("transition_id") == last.get("transition_id")]
+                    complete = bool(transaction_rows and transaction_rows[-1].get("phase") == "resident_adoption_completed")
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_software_recovery:{last.get('event_digest')}:{software_health.get('status', 'unknown')}",
+                        "subject_id": str(last.get("transition_id") or "resident-software-transition"),
+                        "subject_kind": "software_generation_transition_recovery", "stage": "observation",
+                        "disposition": "complete" if complete else "incomplete",
+                        "evidence_strength": "reconstructed_software_transition_journal_posture",
+                        "payload": {"journal_head": last.get("event_digest"), "recovery_posture": software_health.get("status"),
+                            "transition_phase": last.get("phase"), "completed": complete, "replay_forbidden": True},
+                        "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
+                if isinstance(baseline, Mapping) and baseline.get("provenance_digest"):
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_running_software:{baseline['provenance_digest']}",
+                        "subject_id": str(baseline.get("process_instance_id") or "resident-process"),
+                        "subject_kind": "observed_running_software_generation", "stage": "observation",
+                        "disposition": "observed", "evidence_strength": "resident_launch_provenance",
+                        "payload": {"running_software_generation_observed": baseline.get("represented_generation_digest"),
+                            "software_generation": baseline.get("represented_generation_digest"),
+                            "repository_commit": baseline.get("observed_commit_sha"),
+                            "repository_tree": baseline.get("observed_tree_sha"),
+                            "process_instance_id": baseline.get("process_instance_id"),
+                            "provenance_digest": baseline.get("provenance_digest")},
+                        "observed_at": baseline.get("startup_timestamp"), "effect_claimed": False, "effect_proven": False})
+        return records
 
     def capture_causal_introspection(self, *, tick_id: str) -> dict[str, Any]:
         """Capture after all same-tick owner closures; never invoke a model or owner mutation."""
@@ -1419,6 +1564,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         runtime_surfaces._resident_transition_configuration_error = (
             runtime_surfaces._resident_transition_configuration_error
             or "hardened_resident_serving_required")
+    # Explicit owner injection: World-State reads the already configured
+    # software-transition journal and the startup provenance captured by this
+    # controller. It does not discover generation custody from the filesystem.
+    runtime_surfaces._resident_software_transition_controller = resident_controller
     try:
         introspection_config = load_causal_introspection_config()
         if introspection_config is not None and introspection_config.enabled:
