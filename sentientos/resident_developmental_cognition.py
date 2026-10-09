@@ -40,7 +40,7 @@ SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
-CURRENT_PROJECTION_POLICY = "allowed_source_kind_then_source_id_then_fact_id:v1"
+CURRENT_PROJECTION_POLICY = "succession_identity_then_transition_evidence_then_source_id:v2"
 MAX_FACTS = 16
 MAX_HISTORY = 16
 
@@ -227,7 +227,7 @@ class ResidentDevelopmentalCognitionOwner:
         source_kinds = {source.source_id: source.kind for source in snapshot.sources}
         candidates = sorted(
             (fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
-            key=lambda fact: (source_kinds[fact.source.source_id], fact.source.source_id, fact.fact_id),
+            key=lambda fact: self._fact_selection_key(fact, source_kinds[fact.source.source_id]),
         )
         selected: list[str] = []
         for fact in candidates:
@@ -238,12 +238,29 @@ class ResidentDevelopmentalCognitionOwner:
                 break
         return tuple(selected)
 
+    @staticmethod
+    def _fact_selection_key(fact: Any, source_kind: str) -> tuple[Any, ...]:
+        """Keep observed generations and verified transition evidence ahead of journal volume."""
+        subject_kind = str(fact.subject.subject_kind)
+        payload = fact.payload
+        if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
+            priority = 0
+        elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
+            priority = 1
+        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
+            priority = 2
+        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
+            priority = 3
+        else:
+            priority = 4
+        return priority, source_kind, fact.source.source_id, fact.fact_id
+
     def _current_projection(self, snapshot: WorldStateSnapshot) -> CurrentWorldStateCognitiveProjection:
         """Select current context independently of developmental-writeback deduplication."""
         allowed = set(self.config.allowed_source_kinds)
         source_kinds = {source.source_id: source.kind for source in snapshot.sources}
         facts = sorted((fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
-                       key=lambda fact: (source_kinds[fact.source.source_id], fact.source.source_id, fact.fact_id))[:self.config.max_selected_facts]
+                       key=lambda fact: self._fact_selection_key(fact, source_kinds[fact.source.source_id]))[:self.config.max_selected_facts]
         selected = self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
         raw = CurrentWorldStateCognitiveProjection(snapshot.snapshot_id, snapshot.digest, selected.facts,
                                                     selected.sources, selected.conflicts,

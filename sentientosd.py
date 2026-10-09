@@ -1395,6 +1395,56 @@ def _compose_causal_introspection(
                 domain="model_serving", inspect=inspect_serving,
                 observation_classes={"serving_status": "health", "session_present": "currentness",
                     "session_id": "identity"})))
+    transition_runtime = runtime_surfaces._resident_transition_runtime
+    transition_controller = getattr(transition_runtime, "controller", None) if transition_runtime is not None else None
+    if "model_succession" in enabled and transition_controller is not None:
+        def inspect_model_succession() -> dict[str, Any]:
+            protocol = transition_controller.protocol
+            entries = transition_controller.journal.entries()
+            health = transition_controller.health()
+            status = transition_runtime.status()
+            protocol_value = protocol.value
+            return {"transition_id": protocol_value.get("transition_id"),
+                "protocol_digest": protocol_value.get("protocol_digest"),
+                "journal_head_digest": entries[-1].get("entry_digest") if entries else "GENESIS",
+                "recovery_status": health.get("status"), "current_phase": health.get("phase"),
+                "replay_forbidden": health.get("replay_forbidden", True),
+                "predecessor_model_identity": protocol_value.get("predecessor_a"),
+                "proposed_successor_model_identity": protocol_value.get("successor_b"),
+                "running_model_identity_observed": status.get("resident_model_identity")}
+        registrations.append(ProviderRegistration("resident-model-succession", "model_succession",
+            LiveOwnerMetadataProvider(provider_id="resident-model-succession-v1",
+                owner_id="resident-model-succession", owner_kind="resident_model_transition_controller",
+                domain="model_succession", inspect=inspect_model_succession,
+                observation_classes={"transition_id": "identity", "protocol_digest": "identity",
+                    "journal_head_digest": "identity", "recovery_status": "health", "current_phase": "lifecycle",
+                    "replay_forbidden": "currentness", "predecessor_model_identity": "identity",
+                    "proposed_successor_model_identity": "identity", "running_model_identity_observed": "identity"})))
+    software_controller = runtime_surfaces._resident_software_transition_controller
+    if "software_succession" in enabled and software_controller is not None:
+        def inspect_software_succession() -> dict[str, Any]:
+            from sentientos.maintenance_resident_runtime_adoption import read_transition_events
+            rows = read_transition_events(software_controller.config, limit=1)
+            health = software_controller.health()
+            baseline = getattr(software_controller, "_baseline", None)
+            last = rows[-1] if rows else {}
+            return {"transition_id": last.get("transition_id"),
+                "journal_head_digest": last.get("event_digest", "GENESIS"),
+                "transition_phase": last.get("phase", "none"),
+                "recovery_status": health.get("status"),
+                "predecessor_generation_digest": last.get("predecessor_generation_digest"),
+                "successor_generation_digest": last.get("successor_generation_digest"),
+                "running_software_generation_observed": (baseline.get("represented_generation_digest")
+                    if isinstance(baseline, Mapping) else None)}
+        registrations.append(ProviderRegistration("resident-software-succession", "software_succession",
+            LiveOwnerMetadataProvider(provider_id="resident-software-succession-v1",
+                owner_id="resident-software-succession", owner_kind="resident_software_generation_adoption_controller",
+                domain="software_succession", inspect=inspect_software_succession,
+                observation_classes={"transition_id": "identity", "journal_head_digest": "identity",
+                    "transition_phase": "lifecycle", "recovery_status": "health",
+                    "predecessor_generation_digest": "lineage",
+                    "successor_generation_digest": "lineage",
+                    "running_software_generation_observed": "lineage"})))
     runtime = CausalIntrospectionRuntime(config, registrations)
     runtime.reconstruct()  # fail closed on malformed or tampered predecessor custody
     return runtime
