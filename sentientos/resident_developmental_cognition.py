@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
@@ -228,6 +229,16 @@ class ResidentDevelopmentalCognitionOwner:
             recovered = self.writeback.recover_completed_records()
         except Exception as exc:
             raise ResidentDevelopmentalCognitionError("developmental_history_recovery_failed") from exc
+        def recovery_order(item: tuple[Any, Any]) -> tuple[float, str]:
+            record = item[0]
+            try:
+                created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+                if created.tzinfo is None:
+                    raise ValueError("naive")
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise ResidentDevelopmentalCognitionError("recovered_history_time_invalid") from exc
+            return created.astimezone(timezone.utc).timestamp(), record.record_id
+        recovered = tuple(sorted(recovered, key=recovery_order))
         processed = set(state["processed_selection_ids"])
         ticks = {str(row.get("tick_id")): row for row in state["completed_ticks"]}
         for record, receipt in recovered:
