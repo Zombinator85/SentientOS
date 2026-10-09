@@ -1545,6 +1545,58 @@ def _compose_causal_introspection(
                 domain="longitudinal_self_model", inspect=inspect_longitudinal,
                 observation_classes={"reconciliation_count": "count", "latest_generation": "lifecycle",
                     "latest_reconciliation_id": "identity"})))
+    developmental_owner = runtime_surfaces._resident_developmental_owner
+    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner):
+        developmental_owner = developmental_owner._owner
+    if "developmental_history" in enabled and developmental_owner is not None:
+        def inspect_developmental_history() -> dict[str, Any]:
+            records = developmental_owner.writeback.store.records()
+            if not records:
+                return {"record_count": 0, "latest_record_id": None,
+                    "latest_record_digest": None, "latest_candidate_id": None,
+                    "latest_model_id": None, "latest_model_artifact_digest": None,
+                    "latest_snapshot_digest": None, "selected_fact_count": 0,
+                    "verified_provenance_manifest_digests": []}
+            def record_order(record: Any) -> tuple[float, str]:
+                try:
+                    created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+                    if created.tzinfo is None:
+                        raise ValueError("naive")
+                except (AttributeError, TypeError, ValueError) as exc:
+                    raise ValueError("developmental_history_timestamp_invalid") from exc
+                return created.astimezone(timezone.utc).timestamp(), record.record_id
+            latest = max(records, key=record_order)
+            candidate = latest.candidate
+            selected_facts = candidate.get("selected_facts", ())
+            provenance_digests: set[str] = set()
+            for fact in selected_facts if isinstance(selected_facts, (list, tuple)) else ():
+                if not isinstance(fact, Mapping) or not isinstance(fact.get("payload"), Mapping):
+                    continue
+                payload = fact["payload"]
+                for key in ("proposed_successor_model_development_provenance",
+                            "predecessor_model_development_provenance", "model_development_provenance"):
+                    binding = payload.get(key)
+                    if (isinstance(binding, Mapping)
+                            and binding.get("posture") == "verified_source_bound_claim_manifest"
+                            and isinstance(binding.get("provenance_manifest_digest"), str)):
+                        provenance_digests.add(str(binding["provenance_manifest_digest"]))
+            return {"record_count": len(records), "latest_record_id": latest.record_id,
+                "latest_record_digest": latest.record_digest,
+                "latest_candidate_id": candidate.get("candidate_id"),
+                "latest_model_id": candidate.get("model_id"),
+                "latest_model_artifact_digest": candidate.get("model_artifact_digest"),
+                "latest_snapshot_digest": candidate.get("snapshot_digest"),
+                "selected_fact_count": len(candidate.get("selected_fact_ids", ())),
+                "verified_provenance_manifest_digests": sorted(provenance_digests)[:16]}
+        registrations.append(ProviderRegistration("resident-developmental-history", "developmental_history",
+            LiveOwnerMetadataProvider(provider_id="resident-developmental-history-v1",
+                owner_id="resident-developmental-history", owner_kind="resident_developmental_history_store",
+                domain="developmental_history", inspect=inspect_developmental_history,
+                observation_classes={"record_count": "count", "latest_record_id": "identity",
+                    "latest_record_digest": "lineage", "latest_candidate_id": "identity",
+                    "latest_model_id": "identity", "latest_model_artifact_digest": "lineage",
+                    "latest_snapshot_digest": "identity", "selected_fact_count": "count",
+                    "verified_provenance_manifest_digests": "lineage"})))
     if "model_serving" in enabled and resident_serving_controller is not None:
         def inspect_serving() -> dict[str, Any]:
             health = resident_serving_controller.health()
