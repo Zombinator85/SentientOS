@@ -39,7 +39,8 @@ from .world_state_board import WorldStateSnapshot, validate_snapshot
 CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
 SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
-STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
+STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
+LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
 CURRENT_PROJECTION_POLICY = "succession_identity_then_transition_evidence_then_source_id:v2"
 MAX_FACTS = 16
@@ -47,6 +48,9 @@ MAX_HISTORY = 16
 MAX_RECOVERED_TICKS = 4096
 MAX_RECOVERED_FACT_IDS = 65_536
 MAX_COMPOSITION_STATE_BYTES = 16_777_216
+MAX_COGNITION_OBSERVATIONS = 12_288
+MAX_COGNITION_OBSERVATION_BYTES = 65_536
+MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 
 
 class ResidentDevelopmentalCognitionError(ValueError):
@@ -200,8 +204,12 @@ class ResidentDevelopmentalCognitionOwner:
         self.experiments = DevelopmentalExperimentStore(config.state_root)
 
     def _state(self) -> dict[str, Any]:
+        state_migrated = False
+        if self.state_path.is_symlink():
+            raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
         if not self.state_path.exists():
-            semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": []}
+            semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": [],
+                "incomplete_ticks": []}
             state = {**semantic, "state_digest": _digest(semantic)}
         else:
             try:
@@ -209,20 +217,29 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
                 value = json.loads(self.state_path.read_text(encoding="utf-8"))
                 claimed = value.pop("state_digest")
-            except (OSError, json.JSONDecodeError, KeyError, AttributeError) as exc:
+            except (OSError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
                 raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
-            if value.get("schema") != STATE_SCHEMA or claimed != _digest(value):
+            if value.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA} or claimed != _digest(value):
                 raise ResidentDevelopmentalCognitionError("composition_state_digest_mismatch")
             if (not isinstance(value.get("processed_selection_ids"), list)
                     or any(not isinstance(item, str) for item in value["processed_selection_ids"])
                     or not isinstance(value.get("completed_ticks"), list)
                     or any(not isinstance(item, dict) for item in value["completed_ticks"])):
                 raise ResidentDevelopmentalCognitionError("composition_state_shape_invalid")
-            state = {**value, "state_digest": claimed}
+            if value.get("schema") == LEGACY_STATE_SCHEMA:
+                value["schema"] = STATE_SCHEMA
+                value["incomplete_ticks"] = []
+                state_migrated = True
+            elif (not isinstance(value.get("incomplete_ticks"), list)
+                    or any(not isinstance(item, dict) for item in value["incomplete_ticks"])):
+                raise ResidentDevelopmentalCognitionError("composition_state_shape_invalid")
+            migrated = {key: item for key, item in value.items() if key != "state_digest"}
+            claimed = _digest(migrated)
+            state = {**migrated, "state_digest": claimed}
         if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
-                or len(state["completed_ticks"]) > MAX_RECOVERED_TICKS):
+                or len(state["completed_ticks"]) + len(state["incomplete_ticks"]) > MAX_RECOVERED_TICKS):
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
-        changed = False
+        changed = state_migrated
         # The record and receipt are the commit point. Rebuild the checkpoint
         # if a process stopped after publication but before composition_state.
         try:
@@ -246,6 +263,12 @@ class ResidentDevelopmentalCognitionOwner:
             if not isinstance(saved_tick, str) or not saved_tick or saved_tick in ticks:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
             ticks[saved_tick] = row
+        incomplete: dict[str, dict[str, Any]] = {}
+        for row in state["incomplete_ticks"]:
+            saved_tick = row.get("tick_id")
+            if not isinstance(saved_tick, str) or not saved_tick or saved_tick in incomplete or saved_tick in ticks:
+                raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
+            incomplete[saved_tick] = row
         for record, receipt in recovered:
             candidate = record.candidate
             fact_ids = candidate.get("selected_fact_ids", ())
@@ -274,17 +297,68 @@ class ResidentDevelopmentalCognitionOwner:
                 changed = True
             elif existing.get("record_id") != record.record_id or existing.get("receipt_id") != receipt.receipt_id:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_record_conflict")
+            if recovered_tick in incomplete:
+                del incomplete[recovered_tick]
+                state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
+                    if row.get("tick_id") != recovered_tick]
+                changed = True
+        # A durable cognition observation without its enclosing tick checkpoint
+        # is an interrupted tick. Preserve it and reject same-tick replay.
+        for recovered_tick, observation_ids in self._recover_observation_ticks().items():
+            if recovered_tick in ticks or recovered_tick in incomplete:
+                continue
+            item = {"tick_id": recovered_tick, "observation_ids": list(observation_ids),
+                "status": "incomplete_recovered"}
+            state["incomplete_ticks"].append(item)
+            incomplete[recovered_tick] = item
+            changed = True
         if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
-                or len(state["completed_ticks"]) > MAX_RECOVERED_TICKS):
+                or len(state["completed_ticks"]) + len(state["incomplete_ticks"]) > MAX_RECOVERED_TICKS):
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         if changed:
             self._save_state(state)
         return state
 
+    def _recover_observation_ticks(self) -> dict[str, tuple[str, ...]]:
+        if self.observations_root.is_symlink():
+            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
+        if not self.observations_root.exists():
+            return {}
+        if self.observations_root.is_symlink() or not self.observations_root.is_dir():
+            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
+        paths = sorted(self.observations_root.glob("*.json"))
+        if len(paths) > MAX_COGNITION_OBSERVATIONS:
+            raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+        total_bytes = 0
+        by_tick: dict[str, list[str]] = {}
+        for path in paths:
+            if path.is_symlink() or not path.is_file():
+                raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
+            size = path.stat().st_size
+            total_bytes += size
+            if size > MAX_COGNITION_OBSERVATION_BYTES or total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+                observation_id = value.pop("observation_id")
+                observation_digest = value.pop("observation_digest")
+            except (OSError, UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
+            expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
+                "observation_id", "observation_digest"}
+            if (not isinstance(value, dict) or set(value) != expected_fields
+                    or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
+                    or observation_digest != _digest(value)
+                    or observation_id != "devcog-" + observation_digest[7:31]
+                    or path.stem != observation_id):
+                raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
+            by_tick.setdefault(value["tick_id"], []).append(observation_id)
+        return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
+
     def _save_state(self, state: Mapping[str, Any]) -> None:
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
         if (len(semantic.get("processed_selection_ids", ())) > MAX_RECOVERED_FACT_IDS
-                or len(semantic.get("completed_ticks", ())) > MAX_RECOVERED_TICKS):
+                or len(semantic.get("completed_ticks", ())) + len(semantic.get("incomplete_ticks", ())) > MAX_RECOVERED_TICKS):
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         if len(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_COMPOSITION_STATE_BYTES:
             raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
@@ -480,9 +554,10 @@ class ResidentDevelopmentalCognitionOwner:
         if not validation.valid:
             raise ResidentDevelopmentalCognitionError("invalid_world_state_snapshot")
         state = self._state()
-        if any(row.get("tick_id") == tick_id for row in state["completed_ticks"]):
+        if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
+                or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
             raise ResidentDevelopmentalCognitionError("tick_already_completed")
-        if len(state["completed_ticks"]) >= MAX_RECOVERED_TICKS:
+        if len(state["completed_ticks"]) + len(state["incomplete_ticks"]) >= MAX_RECOVERED_TICKS:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
 
         # Capture prior history before any candidate from this tick can exist.
