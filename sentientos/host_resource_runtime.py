@@ -237,7 +237,23 @@ class HostResourceRuntimeCoordinator:
         snapshot=build_host_resource_telemetry_from_collector_results(ordered_results, snapshot_id=_id("hrs_", {"plan": self.plan.semantic_digest, "results": [redact_value(r.to_dict()) for r in ordered_results]}))
         pressure=evaluate_host_resource_pressure(snapshot); decision2=evaluate_host_resource_policy(pressure); receipts=build_host_resource_proposal_receipts(decision2, created_at=observed_at)
         epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
-        epoch=HostObservationEpoch(_id("hoe_", epoch_sem), correlation_id, self.plan.plan_id, decision.admission_decision_ref, decision.outcome.value, ordered_results, counts, tuple(sorted(required_failed)), tuple(sorted(optional_failed)), tuple(sorted(timeouts)), tuple(findings), observed_at, self.collector_call_count, False, _id("hoes_", epoch_sem))
+        epoch = HostObservationEpoch(
+            epoch_id=_id("hoe_", epoch_sem),
+            correlation_id=correlation_id,
+            plan_id=self.plan.plan_id,
+            admission_decision_ref=decision.admission_decision_ref,
+            admission_outcome=decision.outcome.value,
+            results=ordered_results,
+            status_counts=counts,
+            required_failed=tuple(sorted(required_failed)),
+            optional_failed=tuple(sorted(optional_failed)),
+            timed_out_collectors=tuple(sorted(timeouts)),
+            validation_findings=tuple(findings),
+            semantic_digest=_id("hoes_", epoch_sem),
+            observed_at=observed_at,
+            collectors_called=self.collector_call_count,
+            effect_authority=False,
+        )
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
         evaluation=HostResourceRuntimeEvaluation(_id("hre_", ev_sem), self.plan, epoch, snapshot, pressure, decision2, receipts, validate_epoch(epoch).findings, _id("hres_", ev_sem), True)
         self._epochs_by_correlation[correlation_id]=evaluation

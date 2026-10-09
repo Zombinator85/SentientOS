@@ -144,12 +144,22 @@ class ResidentEpistemicDevelopmentRuntime:
             source_digest=fact.source.digest, source_schema=fact.source.schema_version,
             source_class=fact.source.kind, recorded_at=observed, adapter_id=ADAPTER_ID,
             provenance_id=provenance)
+        # Source freshness is evidence metadata, not an adapter default.  A
+        # degraded or undated snapshot must remain unknown; only a fresh,
+        # healthy source may be represented as current.
+        source_staleness = str(fact.source.staleness or "unknown").lower()
+        if source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded:
+            freshness = "current"
+        elif source_staleness in {"aging", "stale", "expired"}:
+            freshness = "stale"
+        else:
+            freshness = "unknown"
         binding = make_evidence_binding(proposition_id=rule.proposition_id,
             source_artifact_id=artifact_id, source_digest=fact.source.digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed, evidence_relation=rule.evidence_relation,
             dependency_kind=rule.dependency_kind,
-            dependency_group=rule.independence_basis, upstream_binding_ids=(), freshness="current",
+            dependency_group=rule.independence_basis, upstream_binding_ids=(), freshness=freshness,
             reliability_posture=rule.reliability_posture)
         return proof, binding
 
