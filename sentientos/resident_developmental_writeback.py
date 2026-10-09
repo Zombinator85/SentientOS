@@ -22,13 +22,14 @@ from .governed_local_model_invocation import (
 )
 from .local_model_authority import atomic_write_json, digest_payload
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
-from .world_state_board import WorldStateSnapshot, to_dict, validate_snapshot
+from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
 
 SCHEMA_VERSION = "sentientos.resident_developmental_writeback:v1"
 PRINCIPAL = "deterministic_resident_developmental_writeback_controller"
 EFFECTS = tuple(sorted(RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.required_effects))
 PURPOSE = "resident_developmental_interpretation"
 MAX_SELECTED_FACTS = 16
+MAX_SELECTED_EVIDENCE_BYTES = 6000
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
 MAX_DURABLE_RECORDS = 4096
@@ -83,11 +84,16 @@ class DevelopmentalCandidate:
     inference_receipt_digest: str
     output_digest: str
     transformation_provenance: Mapping[str, Any]
+    selected_facts: tuple[Mapping[str, Any], ...] = ()
     candidate_id: str = ""
     candidate_digest: str = ""
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self); value.pop("candidate_id"); value.pop("candidate_digest")
+        # Historical candidates predate payload retention. Preserve their
+        # content identities while new records carry exact selected evidence.
+        if not self.selected_facts:
+            value.pop("selected_facts", None)
         return value
 
 
@@ -274,6 +280,10 @@ class ResidentDevelopmentalWritebackController:
             if fact["source"] != to_dict(source): raise DevelopmentalWritebackError("selected_source_provenance_mismatch")
         conflicts = tuple(to_dict(c) for c in snapshot.conflicts if set(c.fact_ids) & set(requested))
         raw = SelectedEvidence(snapshot.snapshot_id, snapshot.digest, facts, sources, conflicts)
+        encoded_size = len(json.dumps(raw.semantic_payload(), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+        if encoded_size > MAX_SELECTED_EVIDENCE_BYTES:
+            raise DevelopmentalWritebackError("selected_evidence_unbounded")
         sid, digest = _identity("devsel", raw.semantic_payload())
         return replace(raw, selection_id=sid, selection_digest=digest)
 
@@ -301,7 +311,7 @@ class ResidentDevelopmentalWritebackController:
         req = dict(receipt.request)
         if req.get("purpose") != PURPOSE or req.get("upstream_evidence") != {"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}:
             raise DevelopmentalWritebackError("inference_evidence_binding_mismatch")
-        raw = DevelopmentalCandidate(output["interpretation"], output["uncertainty"], "untrusted_historical_interpretation_candidate", selection.snapshot_id, selection.snapshot_digest, selection.selection_id, selection.selection_digest, tuple(str(f["fact_id"]) for f in selection.facts), selection.sources, str(req["model_id"]), req.get("model_artifact_digest"), str(req["request_id"]), str(req["request_digest"]), receipt.receipt_id, receipt.receipt_digest, receipt.output_digest, {"kind":"governed_local_model_transformation", "purpose":PURPOSE, "selected_evidence_digest":selection.selection_digest})
+        raw = DevelopmentalCandidate(output["interpretation"], output["uncertainty"], "untrusted_historical_interpretation_candidate", selection.snapshot_id, selection.snapshot_digest, selection.selection_id, selection.selection_digest, tuple(str(f["fact_id"]) for f in selection.facts), selection.sources, str(req["model_id"]), req.get("model_artifact_digest"), str(req["request_id"]), str(req["request_digest"]), receipt.receipt_id, receipt.receipt_digest, receipt.output_digest, {"kind":"governed_local_model_transformation", "purpose":PURPOSE, "selected_evidence_digest":selection.selection_digest}, tuple(selection.facts))
         cid, digest = _identity("devcand", raw.semantic_payload())
         return replace(raw, candidate_id=cid, candidate_digest=digest)
 
@@ -341,6 +351,7 @@ class ResidentDevelopmentalWritebackController:
                 candidate_payload = dict(record.candidate)
                 candidate_payload["selected_fact_ids"] = tuple(candidate_payload["selected_fact_ids"])
                 candidate_payload["selected_sources"] = tuple(candidate_payload["selected_sources"])
+                candidate_payload["selected_facts"] = tuple(candidate_payload.get("selected_facts", ()))
                 candidate = DevelopmentalCandidate(**candidate_payload)
             except (KeyError, TypeError, ValueError) as exc:
                 raise DevelopmentalWritebackError("durable_candidate_reconstruction_failed") from exc
@@ -351,6 +362,45 @@ class ResidentDevelopmentalWritebackController:
                     or len(set(candidate.selected_fact_ids)) != len(candidate.selected_fact_ids)
                     or any(not isinstance(item, str) or not item for item in candidate.selected_fact_ids)):
                 raise DevelopmentalWritebackError("durable_candidate_fact_bounds_invalid")
+            if candidate.selected_facts:
+                if (len(candidate.selected_facts) != len(candidate.selected_fact_ids)
+                        or any(not isinstance(fact, Mapping) for fact in candidate.selected_facts)
+                        or any(not isinstance(source, Mapping) for source in candidate.selected_sources)
+                        or tuple(str(fact.get("fact_id", "")) for fact in candidate.selected_facts)
+                            != candidate.selected_fact_ids
+                        or len(json.dumps([dict(fact) for fact in candidate.selected_facts], sort_keys=True,
+                            separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+                            > MAX_SELECTED_EVIDENCE_BYTES):
+                    raise DevelopmentalWritebackError("durable_candidate_fact_payload_invalid")
+                selected_sources = {str(source.get("source_id", "")): dict(source)
+                                    for source in candidate.selected_sources}
+                for fact in candidate.selected_facts:
+                    source = fact.get("source")
+                    subject = fact.get("subject")
+                    if (set(fact) != {"fact_id", "subject", "stage", "disposition", "evidence_strength",
+                                      "source", "payload", "effect_claimed", "effect_proven", "observed_at"}
+                            or not isinstance(source, Mapping) or not isinstance(subject, Mapping)
+                            or set(subject) != {"subject_id", "subject_kind", "labels"}
+                            or not isinstance(subject.get("subject_id"), str)
+                            or not isinstance(subject.get("subject_kind"), str)
+                            or not isinstance(subject.get("labels"), list)
+                            or not isinstance(fact.get("stage"), str)
+                            or not isinstance(fact.get("disposition"), str)
+                            or not isinstance(fact.get("evidence_strength"), str)
+                            or type(fact.get("effect_claimed")) is not bool
+                            or type(fact.get("effect_proven")) is not bool
+                            or selected_sources.get(str(source.get("source_id", ""))) != dict(source)
+                            or not isinstance(fact.get("payload"), Mapping)
+                            or not isinstance(source.get("source_id"), str)
+                            or not isinstance(source.get("digest"), str)
+                            or len(source["digest"]) != 64
+                            or any(character not in "0123456789abcdef" for character in source["digest"])):
+                        raise DevelopmentalWritebackError("durable_candidate_fact_source_mismatch")
+                    expected_id = "fact-" + digest((dict(subject), fact.get("stage"),
+                        fact.get("disposition"), source.get("digest"), dict(fact["payload"]),
+                        fact.get("effect_claimed"), fact.get("effect_proven")))[:16]
+                    if fact.get("fact_id") != expected_id:
+                        raise DevelopmentalWritebackError("durable_candidate_fact_identity_mismatch")
             admission = self.admission_verifier.recorded_admission(record.admission_id)
             if (admission.binding_digest != record.admission_binding_digest
                     or admission.effects != EFFECTS or record.principal != PRINCIPAL

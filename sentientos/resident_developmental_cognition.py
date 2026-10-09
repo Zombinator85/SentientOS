@@ -411,12 +411,15 @@ class ResidentDevelopmentalCognitionOwner:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
             priority = 1
-        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
+        elif (isinstance(payload.get("proposed_successor_model_development_provenance"), Mapping)
+                and payload["proposed_successor_model_development_provenance"].get("identity_binding_verified") is True):
             priority = 2
-        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
+        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
             priority = 3
-        else:
+        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
             priority = 4
+        else:
+            priority = 5
         return priority, source_kind, fact.source.source_id, fact.fact_id
 
     def _current_projection(self, snapshot: WorldStateSnapshot) -> CurrentWorldStateCognitiveProjection:
