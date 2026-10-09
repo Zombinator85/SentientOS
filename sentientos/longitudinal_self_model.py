@@ -331,8 +331,7 @@ class LongitudinalSelfModelOwner:
         if not tick_id or any(snapshot.authority.values()):
             raise LongitudinalSelfModelError("invalid_reconciliation_context")
         for fact in snapshot.facts:
-            if (not fact.source.source_id or not fact.source.digest or fact.source.finding != "ok"
-                    or not fact.observed_at):
+            if not fact.source.source_id or not fact.source.digest or fact.source.finding != "ok":
                 raise LongitudinalSelfModelError("missing_or_invalid_source_provenance")
             if any(bool(fact.payload.get(key)) for key in FORBIDDEN_PREDICATES):
                 raise LongitudinalSelfModelError("authority_or_unsupported_claim_smuggling")
@@ -371,9 +370,13 @@ class LongitudinalSelfModelOwner:
                 cid = _claim_id(key, value, [fact.fact_id for fact in facts]); ids.append(cid)
                 prior = prior_current.get(key)
                 supersedes = (prior.claim_id,) if prior and prior.value != value else ()
-                source_times = tuple(sorted({str(fact.observed_at) for fact in facts}))
+                source_times = tuple(sorted({str(fact.observed_at) for fact in facts if fact.observed_at is not None}))
                 freshnesses = {fact.source.staleness for fact in facts}
-                freshness = "stale" if freshnesses & {"stale", "expired", "undated"} else ("aging" if "aging" in freshnesses else "fresh")
+                freshness = ("stale" if freshnesses & {"stale", "expired"} else
+                             "unknown" if "undated" in freshnesses else
+                             "aging" if "aging" in freshnesses else "fresh")
+                if "not_applicable" in freshnesses and not freshnesses & {"fresh", "aging", "stale", "expired", "undated"}:
+                    freshness = "not_applicable"
                 payloads = [fact.payload for fact in facts]
                 def context(names: Sequence[str]) -> str | None:
                     vals = {str(payload[name]) for payload in payloads for name in names if name in payload}
@@ -381,7 +384,7 @@ class LongitudinalSelfModelOwner:
                 new_claims.append(SelfModelClaim(
                     cid, key, facts[0].subject.subject_id, facts[0].subject.subject_kind,
                     predicate, value, "historical_and_current", category, facts[0].stage,
-                    "contradicted" if contradicted else ("historical" if freshness == "stale" else "current"),
+                    "contradicted" if contradicted else ("historical" if freshness in {"stale", "unknown", "not_applicable"} else "current"),
                     freshness, "contradicted" if contradicted else "consistent",
                     min((fact.evidence_strength for fact in facts), default="unknown"),
                     tuple(sorted({fact.source.source_id for fact in facts})),
