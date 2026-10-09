@@ -551,6 +551,16 @@ class PersistentEpistemicStateOwner:
             bindings[binding_value.binding_id]=binding_value
         states=[EpistemicState(**v) for v in self._read("states")]; events=[EpistemicUpdateEvent(**v) for v in self._read("updates")]
         event_by_generation={(e.proposition_id,e.generation):e for e in events}
+        state_by_generation={(state.proposition_id,state.generation):state for state in states}
+        if (len(event_by_generation) != len(events) or len(state_by_generation) != len(states)
+                or len(states) != len(events)):
+            raise EpistemicStateError("epistemic_update_state_pairing_ambiguous")
+        for event in events:
+            state = state_by_generation.get((event.proposition_id, event.generation))
+            if (state is None or event.prior_state_digest != state.predecessor_state_digest
+                    or event.successor_state_digest != state.state_digest
+                    or event.event_id != state.last_update_event_id):
+                raise EpistemicStateError("epistemic_update_state_pairing_invalid")
         previous: dict[str, str] = {}
         for state in sorted(states,key=lambda x:(x.proposition_id,x.generation)):
             if state.proposition_id not in propositions or state.stance not in STANCES or dict(state.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_state_invalid")
