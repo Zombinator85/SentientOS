@@ -568,15 +568,20 @@ class PersistentEpistemicStateOwner:
                     or event.successor_state_digest != state.state_digest
                     or event.event_id != state.last_update_event_id):
                 raise EpistemicStateError("epistemic_update_state_pairing_invalid")
-        previous: dict[str, str] = {}
+        previous: dict[str, tuple[int, str]] = {}
         for state in sorted(states,key=lambda x:(x.proposition_id,x.generation)):
             if state.proposition_id not in propositions or state.stance not in STANCES or dict(state.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_state_invalid")
             sid,sdg=_identity("epistemic-state",state.payload())
             if (sid,sdg)!=(state.state_id,state.state_digest): raise EpistemicStateError("epistemic_state_digest_mismatch")
-            if state.predecessor_state_digest != previous.get(state.proposition_id): raise EpistemicStateError("epistemic_predecessor_missing_or_mismatch")
+            prior = previous.get(state.proposition_id)
+            expected_generation = prior[0] + 1 if prior is not None else 0
+            expected_predecessor = prior[1] if prior is not None else None
+            if (state.generation != expected_generation
+                    or state.predecessor_state_digest != expected_predecessor):
+                raise EpistemicStateError("epistemic_predecessor_missing_or_mismatch")
             event=event_by_generation.get((state.proposition_id,state.generation))
             if event is None or event.prior_state_digest != state.predecessor_state_digest or event.successor_state_digest != state.state_digest or event.event_id != state.last_update_event_id: raise EpistemicStateError("epistemic_update_event_missing_or_mismatch")
-            previous[state.proposition_id]=state.state_digest
+            previous[state.proposition_id]=(state.generation,state.state_digest)
         for event in events:
             eid,edg=_identity("epistemic-update",event.identity_payload())
             if (eid,edg)!=(event.event_id,event.event_digest) or event.reason not in UPDATE_REASONS or dict(event.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_update_event_invalid")
