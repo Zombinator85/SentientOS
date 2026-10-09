@@ -240,7 +240,12 @@ class ResidentDevelopmentalCognitionOwner:
             return created.astimezone(timezone.utc).timestamp(), record.record_id
         recovered = tuple(sorted(recovered, key=recovery_order))
         processed = set(state["processed_selection_ids"])
-        ticks = {str(row.get("tick_id")): row for row in state["completed_ticks"]}
+        ticks: dict[str, dict[str, Any]] = {}
+        for row in state["completed_ticks"]:
+            saved_tick = row.get("tick_id")
+            if not isinstance(saved_tick, str) or not saved_tick or saved_tick in ticks:
+                raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
+            ticks[saved_tick] = row
         for record, receipt in recovered:
             candidate = record.candidate
             fact_ids = candidate.get("selected_fact_ids", ())

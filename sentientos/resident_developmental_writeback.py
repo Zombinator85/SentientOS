@@ -347,6 +347,10 @@ class ResidentDevelopmentalWritebackController:
             candidate_id, candidate_digest = _identity("devcand", candidate.semantic_payload())
             if (candidate.candidate_id, candidate.candidate_digest) != (candidate_id, candidate_digest):
                 raise DevelopmentalWritebackError("durable_candidate_digest_mismatch")
+            if (not candidate.selected_fact_ids or len(candidate.selected_fact_ids) > MAX_SELECTED_FACTS
+                    or len(set(candidate.selected_fact_ids)) != len(candidate.selected_fact_ids)
+                    or any(not isinstance(item, str) or not item for item in candidate.selected_fact_ids)):
+                raise DevelopmentalWritebackError("durable_candidate_fact_bounds_invalid")
             admission = self.admission_verifier.recorded_admission(record.admission_id)
             if (admission.binding_digest != record.admission_binding_digest
                     or admission.effects != EFFECTS or record.principal != PRINCIPAL
