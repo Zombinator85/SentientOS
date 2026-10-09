@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import threading
 import time
 from contextlib import contextmanager
@@ -30,6 +31,9 @@ PHASES = ("predecessor_a_epoch_current", "a_to_b_transition_requested", "a_quies
  "experiment_complete")
 EFFECTFUL = frozenset({"b_activation_committed", "b_serving_bound",
                        "a_restoration_activation_committed", "restored_a_serving_bound"})
+MAX_TRANSITION_JOURNAL_ENTRIES = 4096
+MAX_TRANSITION_JOURNAL_BYTES = 16_777_216
+MAX_TRANSITION_JOURNAL_ENTRY_BYTES = 262_144
 
 
 class TransitionError(RuntimeError):
@@ -203,20 +207,31 @@ class TransitionJournal:
         path.parent.mkdir(parents=True, exist_ok=True)
 
     def entries(self) -> list[dict[str, Any]]:
+        if self.path.is_symlink():
+            raise TransitionError("journal_not_regular")
         if not self.path.exists():
             return []
+        if not self.path.is_file() or self.path.stat().st_size > MAX_TRANSITION_JOURNAL_BYTES:
+            raise TransitionError("journal_retention_limit_exceeded")
         out: list[dict[str, Any]] = []
         prior = "GENESIS"
         for number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), 1):
             try:
                 item = json.loads(line)
                 claimed = item.pop("entry_digest")
-            except (ValueError, KeyError, AttributeError) as exc:
+            except (TypeError, ValueError, KeyError, AttributeError) as exc:
                 raise TransitionError("journal_tamper") from exc
-            if (item.get("schema_version") != JOURNAL_SCHEMA or item.get("sequence") != number
+            legacy_keys = {"schema_version", "sequence", "prior_digest", "phase", "status", "evidence"}
+            timestamped_keys = legacy_keys | {"event_time"}
+            if (not isinstance(item, dict) or item.get("schema_version") != JOURNAL_SCHEMA or item.get("sequence") != number
                     or item.get("prior_digest") != prior or digest(item) != claimed
+                    or frozenset(item) not in {frozenset(legacy_keys), frozenset(timestamped_keys)}
+                    or item.get("phase") not in PHASES or not isinstance(item.get("evidence"), Mapping)
+                    or ("event_time" in item and not isinstance(item["event_time"], str))
                     or item.get("status") not in {"attempted", "effected", "completed", "failed", "interrupted"}):
                 raise TransitionError("journal_tamper")
+            if number > MAX_TRANSITION_JOURNAL_ENTRIES:
+                raise TransitionError("journal_retention_limit_exceeded")
             item["entry_digest"] = claimed
             out.append(item)
             prior = claimed
@@ -224,14 +239,22 @@ class TransitionJournal:
 
     def append(self, phase: str, evidence: Mapping[str, Any], *, status: str = "completed") -> Mapping[str, Any]:
         entries = self.entries()
+        if (len(entries) >= MAX_TRANSITION_JOURNAL_ENTRIES or phase not in PHASES
+                or status not in {"attempted", "effected", "completed", "failed", "interrupted"}):
+            raise TransitionError("journal_retention_limit_or_phase_invalid")
         body = {"schema_version": JOURNAL_SCHEMA, "sequence": len(entries) + 1,
                 "prior_digest": entries[-1]["entry_digest"] if entries else "GENESIS",
                 "phase": phase, "status": status, "event_time": datetime.now(timezone.utc).isoformat(),
                 "evidence": _plain(evidence)}
         item = {**body, "entry_digest": digest(body)}
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n")
-            stream.flush()
+        encoded = (json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        existing_size = self.path.stat().st_size if self.path.exists() else 0
+        if (len(encoded) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES
+                or existing_size + len(encoded) > MAX_TRANSITION_JOURNAL_BYTES):
+            raise TransitionError("journal_retention_limit_exceeded")
+        descriptor = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(descriptor, "ab") as stream:
+            stream.write(encoded); stream.flush(); os.fsync(stream.fileno())
         return MappingProxyType(item)
 
 

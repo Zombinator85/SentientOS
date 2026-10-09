@@ -34,6 +34,9 @@ PHASES = ("resident_adoption_intent_recorded", "predecessor_resident_provenance_
           "maintenance_runtime_quiescence_confirmed", "self_exec_requested",
           "successor_launch_provenance_verified", "successor_resident_readiness_recorded",
           "resident_adoption_completed")
+MAX_RESIDENT_TRANSITION_ROWS = 4096
+MAX_RESIDENT_TRANSITION_JOURNAL_BYTES = 16_777_216
+MAX_RESIDENT_TRANSITION_ROW_BYTES = 262_144
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -184,12 +187,14 @@ def _write_exact(path: Path, value: Mapping[str, Any]) -> None:
 
 def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["transition_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
-    if not path.exists(): return rows
-    if path.is_symlink() or not path.is_file():
+    if path.is_symlink():
         raise ValueError("resident_transition_journal_corrupt")
+    if not path.exists(): return rows
+    if not path.is_file() or path.stat().st_size > MAX_RESIDENT_TRANSITION_JOURNAL_BYTES:
+        raise ValueError("resident_transition_journal_retention_limit_exceeded")
     for line in path.read_text(encoding="utf-8").splitlines():
         row = json.loads(line)
-        if (row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
+        if (not isinstance(row, dict) or row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
                 row.get("prior_event_digest") != prior or row.get("event_digest") != digest(row, "event_digest")):
             raise ValueError("resident_transition_journal_corrupt")
         index = len(rows); expected = PHASES[index % len(PHASES)]
@@ -201,6 +206,8 @@ def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
                         "continuity_receipt_digest", "pending_handoff_event_digest"):
                 if row.get(key) != first.get(key): raise ValueError("resident_transition_chain_branched")
         prior = row["event_digest"]; rows.append(row)
+        if len(rows) > MAX_RESIDENT_TRANSITION_ROWS:
+            raise ValueError("resident_transition_journal_retention_limit_exceeded")
     return rows
 
 
@@ -239,6 +246,7 @@ def read_transition_events(config: Mapping[str, Any], *, limit: int = 128) -> tu
 
 def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
     rows = _rows(cfg); expected = PHASES[len(rows) % len(PHASES)]
+    if len(rows) >= MAX_RESIDENT_TRANSITION_ROWS: raise ValueError("resident_transition_journal_retention_limit_exceeded")
     if phase != expected: raise ValueError("resident_transition_phase_invalid")
     if rows and len(rows) % len(PHASES) and rows[-1]["transition_id"] != tid:
         raise ValueError("resident_transition_already_in_flight")
@@ -252,8 +260,12 @@ def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str,
     row["event_time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     row["event_digest"] = digest(row, "event_digest")
     path = Path(str(cfg["transition_journal_path"])); path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    encoded = canonical_bytes(row) + b"\n"
+    existing_size = path.stat().st_size if path.exists() else 0
+    if len(encoded) > MAX_RESIDENT_TRANSITION_ROW_BYTES or existing_size + len(encoded) > MAX_RESIDENT_TRANSITION_JOURNAL_BYTES:
+        raise ValueError("resident_transition_journal_retention_limit_exceeded")
     fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    with os.fdopen(fd, "ab") as handle: handle.write(canonical_bytes(row) + b"\n"); handle.flush(); os.fsync(handle.fileno())
+    with os.fdopen(fd, "ab") as handle: handle.write(encoded); handle.flush(); os.fsync(handle.fileno())
     return row
 
 
