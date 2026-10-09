@@ -639,7 +639,8 @@ class RuntimeMaintenanceSurfaces:
                     raise DevelopmentalModelReplacementError("provenance_subject_active_identity_mismatch")
             except Exception as exc:
                 code = str(exc)
-                posture = ("unavailable_manifest" if code == "provenance_manifest_unavailable"
+                posture = ("unavailable_protocol" if code == "preregistered_protocol_unavailable"
+                           else "unavailable_manifest" if code == "provenance_manifest_unavailable"
                            else "contradictory_provenance_evidence")
                 bindings[transition_role] = {"posture": posture, "finding": code,
                     "protocol_id": reference.get("protocol_id"),

@@ -488,8 +488,10 @@ class ModelReplacementArtifactStore:
             value["planned_comparisons"] = tuple(value["planned_comparisons"])
             value["non_claims"] = tuple(value["non_claims"])
             protocol = ModelReplacementProtocol(**value)
+        except DevelopmentalModelReplacementError:
+            raise
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise DevelopmentalModelReplacementError("preregistered_protocol_unavailable") from exc
+            raise DevelopmentalModelReplacementError("protocol_artifact_invalid") from exc
         if protocol.protocol_id != protocol_id or protocol.protocol_digest != protocol_digest:
             raise DevelopmentalModelReplacementError("protocol_identity_mismatch")
         protocol.verify()
