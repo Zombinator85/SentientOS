@@ -473,6 +473,9 @@ class DevelopmentalModelReplacementExperiment:
                  expected: CognitiveModelIdentity, provenance_digest: str,
                  with_history: bool, trial_id: str) -> dict[str, Any]:
         self.context.verify(); self.protocol.verify(); self.store.verify_protocol_bytes(self.protocol)
+        verified_provenance = self.store.load_verified_provenance(provenance_digest, expected)
+        if verified_provenance.manifest_digest != provenance_digest:
+            raise DevelopmentalModelReplacementError("model_provenance_artifact_drift")
         if endpoint.current_identity() != expected:
             raise DevelopmentalModelReplacementError("model_identity_drift")
         prompt = self._prompt(with_history)
