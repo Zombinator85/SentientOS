@@ -135,11 +135,15 @@ class ModelDevelopmentClaim:
         return replace(raw, claim_id="model-claim-" + digest[7:31], claim_digest=digest)
 
     def verify(self, subject: CognitiveModelIdentity) -> None:
+        subject.verify()
+        self.verify_subject_digest(subject.identity_digest)
+
+    def verify_subject_digest(self, subject_identity_digest: str) -> None:
         payload = asdict(self); payload.pop("claim_id"); payload.pop("claim_digest")
         digest = _digest(payload)
         if self.claim_digest != digest or self.claim_id != "model-claim-" + digest[7:31]:
             raise DevelopmentalModelReplacementError("provenance_claim_digest_mismatch")
-        if self.subject_identity_digest != subject.identity_digest:
+        if self.subject_identity_digest != subject_identity_digest:
             raise DevelopmentalModelReplacementError("provenance_subject_mismatch")
         string_values = (self.claim_id, self.subject_identity_digest, self.relation_type,
                          self.evidence_kind, self.epistemic_posture)
@@ -173,6 +177,7 @@ class ModelDevelopmentProvenance:
         return replace(raw, manifest_digest=_digest(payload))
 
     def verify(self, subject: CognitiveModelIdentity) -> None:
+        subject.verify()
         payload = asdict(self); payload.pop("manifest_digest")
         if self.manifest_digest != _digest(payload) or self.grants_authority:
             raise DevelopmentalModelReplacementError("provenance_manifest_digest_mismatch")
@@ -184,7 +189,7 @@ class ModelDevelopmentProvenance:
                 or (self.claims and self.availability != "source_bound_evidence_available")):
             raise DevelopmentalModelReplacementError("provenance_availability_or_bounds_invalid")
         for claim in self.claims:
-            claim.verify(subject)
+            claim.verify_subject_digest(subject.identity_digest)
 
 
 @dataclass(frozen=True)
@@ -379,6 +384,29 @@ class ModelReplacementArtifactStore:
                 os.close(descriptor)
 
     def persist_provenance(self, manifest: ModelDevelopmentProvenance) -> None:
+        payload = asdict(manifest)
+        claimed_digest = payload.pop("manifest_digest", None)
+        if (manifest.schema_version != PROVENANCE_SCHEMA or manifest.grants_authority is not False
+                or not isinstance(claimed_digest, str) or len(claimed_digest) != 71
+                or not claimed_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in claimed_digest[7:])
+                or claimed_digest != _digest(payload)
+                or not isinstance(manifest.subject_identity_digest, str)
+                or not manifest.subject_identity_digest.startswith("sha256:")
+                or len(manifest.subject_identity_digest) != 71
+                or any(character not in "0123456789abcdef"
+                    for character in manifest.subject_identity_digest[7:])
+                or not isinstance(manifest.claims, tuple)
+                or len(manifest.claims) > MAX_PROVENANCE_CLAIMS
+                or not isinstance(manifest.availability, str)
+                or manifest.availability not in {"source_bound_evidence_available", "unknown"}
+                or (not manifest.claims and manifest.availability != "unknown")
+                or (manifest.claims and manifest.availability != "source_bound_evidence_available")
+                or any(not isinstance(claim, ModelDevelopmentClaim)
+                    for claim in manifest.claims)):
+            raise DevelopmentalModelReplacementError("provenance_manifest_invalid")
+        for claim in manifest.claims:
+            claim.verify_subject_digest(manifest.subject_identity_digest)
         self._write(self.provenance / f"{manifest.manifest_digest[7:]}.json", asdict(manifest))
 
     def load_verified_provenance(self, manifest_digest: str,
