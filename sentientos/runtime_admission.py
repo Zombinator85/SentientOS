@@ -109,6 +109,14 @@ class RuntimeAdmissionVerifier:
     def __init__(self, *, definitions: Mapping[str, TaskAuthorityDefinition], ledger: AdmissionLedger, issuer_id: str = ISSUER_ID) -> None:
         self._definitions, self._ledger, self._issuer_id = definitions, ledger, issuer_id
 
+    def recorded_admission(self, admission_id: str) -> AdmissionEvidence:
+        """Resolve one exact, ledger-verified admission for historical custody recovery."""
+        admissions, _ = self._ledger.load()
+        matches = tuple(item for item in admissions if item.admission_id == admission_id)
+        if len(matches) != 1:
+            raise AdmissionError("recorded_admission_missing_or_ambiguous")
+        return matches[0]
+
     def verify(self, admission: AdmissionEvidence, *, current_sequence: int, capability_id: str, principal_id: str, effect: str, subject_id: str, request_configuration_digest: str) -> None:
         admissions, revocations = self._ledger.load(); definition = self._definitions.get(capability_id)
         stored = next((x for x in admissions if x.admission_id == admission.admission_id), None)

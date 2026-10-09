@@ -31,6 +31,8 @@ PURPOSE = "resident_developmental_interpretation"
 MAX_SELECTED_FACTS = 16
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
+MAX_DURABLE_RECORDS = 4096
+MAX_DURABLE_RECORD_BYTES = 1_048_576
 
 
 class DevelopmentalWritebackError(ValueError):
@@ -213,9 +215,24 @@ class DevelopmentalHistoryStore:
 
     @staticmethod
     def _read_json(path: Path) -> dict[str, Any]:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_DURABLE_RECORD_BYTES:
+            raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
         value = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(value, dict): raise DevelopmentalWritebackError("stored_payload_not_object")
         return value
+
+    def records(self) -> tuple[DevelopmentalRecord, ...]:
+        if not self.records_root.exists():
+            return ()
+        if self.records_root.is_symlink() or not self.records_root.is_dir():
+            raise DevelopmentalWritebackError("durable_record_root_invalid")
+        paths = sorted(self.records_root.glob("*.json"))
+        if len(paths) > MAX_DURABLE_RECORDS:
+            raise DevelopmentalWritebackError("durable_record_limit_exceeded")
+        records = tuple(self.get(path.stem) for path in paths)
+        if any(path.stem != record.record_id for path, record in zip(paths, records)):
+            raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
+        return records
 
     @staticmethod
     def _verify_record(record: DevelopmentalRecord) -> None:
@@ -315,6 +332,45 @@ class ResidentDevelopmentalWritebackController:
         if limit < 1 or limit > MAX_RETRIEVAL_RECORDS or len(ids) > limit or len(set(ids)) != len(ids): raise DevelopmentalWritebackError("retrieval_bounds_invalid")
         records = tuple(asdict(self.store.get(rid)) for rid in ids)
         return DevelopmentalHistoryProjection(records, ids)
+
+    def recover_completed_records(self) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
+        """Verify durable records and restore only their deterministic receipt metadata."""
+        recovered: list[tuple[DevelopmentalRecord, WritebackReceipt]] = []
+        for record in self.store.records():
+            try:
+                candidate_payload = dict(record.candidate)
+                candidate_payload["selected_fact_ids"] = tuple(candidate_payload["selected_fact_ids"])
+                candidate_payload["selected_sources"] = tuple(candidate_payload["selected_sources"])
+                candidate = DevelopmentalCandidate(**candidate_payload)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DevelopmentalWritebackError("durable_candidate_reconstruction_failed") from exc
+            candidate_id, candidate_digest = _identity("devcand", candidate.semantic_payload())
+            if (candidate.candidate_id, candidate.candidate_digest) != (candidate_id, candidate_digest):
+                raise DevelopmentalWritebackError("durable_candidate_digest_mismatch")
+            admission = self.admission_verifier.recorded_admission(record.admission_id)
+            if (admission.binding_digest != record.admission_binding_digest
+                    or admission.effects != EFFECTS or record.principal != PRINCIPAL
+                    or admission.principal_id != PRINCIPAL
+                    or admission.subject_id != candidate.candidate_id
+                    or record.operation_id != "resident-developmental-writeback:" +
+                        record.correlation_id.removesuffix(":resident-developmental-writeback") + ":" + candidate.candidate_id):
+                raise DevelopmentalWritebackError("durable_admission_binding_mismatch")
+            request_digest = self.admission_configuration_digest(candidate, operation_id=record.operation_id)
+            try:
+                for effect in EFFECTS:
+                    self.admission_verifier.verify(admission, current_sequence=admission.issued_sequence,
+                        capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, principal_id=PRINCIPAL,
+                        effect=effect, subject_id=candidate.candidate_id,
+                        request_configuration_digest=request_digest)
+            except AdmissionError as exc:
+                raise DevelopmentalWritebackError("durable_admission_recovery_rejected") from exc
+            raw = WritebackReceipt("", "", record.record_id, record.record_digest,
+                candidate.candidate_id, candidate.candidate_digest, record.admission_id,
+                record.admission_binding_digest, record.principal, record.operation_id, True)
+            receipt_id, receipt_digest = _identity("devreceipt", raw.semantic_payload())
+            receipt = self.store.write_receipt(replace(raw, receipt_id=receipt_id, receipt_digest=receipt_digest))
+            recovered.append((record, receipt))
+        return tuple(recovered)
 
 
 def measure_changed_cognition(*, with_record: CognitionObservation, without_record: CognitionObservation,

@@ -43,6 +43,9 @@ COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
 CURRENT_PROJECTION_POLICY = "succession_identity_then_transition_evidence_then_source_id:v2"
 MAX_FACTS = 16
 MAX_HISTORY = 16
+MAX_RECOVERED_TICKS = 4096
+MAX_RECOVERED_FACT_IDS = 65_536
+MAX_COMPOSITION_STATE_BYTES = 16_777_216
 
 
 class ResidentDevelopmentalCognitionError(ValueError):
@@ -198,20 +201,77 @@ class ResidentDevelopmentalCognitionOwner:
     def _state(self) -> dict[str, Any]:
         if not self.state_path.exists():
             semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": []}
-            return {**semantic, "state_digest": _digest(semantic)}
+            state = {**semantic, "state_digest": _digest(semantic)}
+        else:
+            try:
+                if self.state_path.is_symlink() or not self.state_path.is_file() or self.state_path.stat().st_size > MAX_COMPOSITION_STATE_BYTES:
+                    raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
+                value = json.loads(self.state_path.read_text(encoding="utf-8"))
+                claimed = value.pop("state_digest")
+            except (OSError, json.JSONDecodeError, KeyError, AttributeError) as exc:
+                raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
+            if value.get("schema") != STATE_SCHEMA or claimed != _digest(value):
+                raise ResidentDevelopmentalCognitionError("composition_state_digest_mismatch")
+            if (not isinstance(value.get("processed_selection_ids"), list)
+                    or any(not isinstance(item, str) for item in value["processed_selection_ids"])
+                    or not isinstance(value.get("completed_ticks"), list)
+                    or any(not isinstance(item, dict) for item in value["completed_ticks"])):
+                raise ResidentDevelopmentalCognitionError("composition_state_shape_invalid")
+            state = {**value, "state_digest": claimed}
+        if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
+                or len(state["completed_ticks"]) > MAX_RECOVERED_TICKS):
+            raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
+        changed = False
+        # The record and receipt are the commit point. Rebuild the checkpoint
+        # if a process stopped after publication but before composition_state.
         try:
-            value = json.loads(self.state_path.read_text(encoding="utf-8"))
-            claimed = value.pop("state_digest")
-        except (OSError, json.JSONDecodeError, KeyError, AttributeError) as exc:
-            raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
-        if value.get("schema") != STATE_SCHEMA or claimed != _digest(value):
-            raise ResidentDevelopmentalCognitionError("composition_state_digest_mismatch")
-        if not isinstance(value.get("processed_selection_ids"), list) or not isinstance(value.get("completed_ticks"), list):
-            raise ResidentDevelopmentalCognitionError("composition_state_shape_invalid")
-        return {**value, "state_digest": claimed}
+            recovered = self.writeback.recover_completed_records()
+        except Exception as exc:
+            raise ResidentDevelopmentalCognitionError("developmental_history_recovery_failed") from exc
+        processed = set(state["processed_selection_ids"])
+        ticks = {str(row.get("tick_id")): row for row in state["completed_ticks"]}
+        for record, receipt in recovered:
+            candidate = record.candidate
+            fact_ids = candidate.get("selected_fact_ids", ())
+            if not isinstance(fact_ids, (list, tuple)) or any(not isinstance(item, str) for item in fact_ids):
+                raise ResidentDevelopmentalCognitionError("recovered_fact_identity_invalid")
+            for fact_id in fact_ids:
+                if fact_id not in processed:
+                    state["processed_selection_ids"].append(fact_id)
+                    processed.add(fact_id)
+                    changed = True
+            suffix = ":resident-developmental-writeback"
+            correlation = record.correlation_id
+            if not correlation.endswith(suffix):
+                raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
+            recovered_tick = correlation[:-len(suffix)]
+            expected_operation = "resident-developmental-writeback:" + recovered_tick + ":" + str(candidate.get("candidate_id"))
+            if not recovered_tick or record.operation_id != expected_operation:
+                raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
+            existing = ticks.get(recovered_tick)
+            checkpoint = {"tick_id": recovered_tick, "snapshot_id": candidate.get("snapshot_id"),
+                "snapshot_digest": candidate.get("snapshot_digest"), "record_id": record.record_id,
+                "receipt_id": receipt.receipt_id}
+            if existing is None:
+                state["completed_ticks"].append(checkpoint)
+                ticks[recovered_tick] = checkpoint
+                changed = True
+            elif existing.get("record_id") != record.record_id or existing.get("receipt_id") != receipt.receipt_id:
+                raise ResidentDevelopmentalCognitionError("recovered_tick_record_conflict")
+        if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
+                or len(state["completed_ticks"]) > MAX_RECOVERED_TICKS):
+            raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
+        if changed:
+            self._save_state(state)
+        return state
 
     def _save_state(self, state: Mapping[str, Any]) -> None:
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
+        if (len(semantic.get("processed_selection_ids", ())) > MAX_RECOVERED_FACT_IDS
+                or len(semantic.get("completed_ticks", ())) > MAX_RECOVERED_TICKS):
+            raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
+        if len(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_COMPOSITION_STATE_BYTES:
+            raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
         atomic_write_json(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str) -> DevelopmentalHistoryProjection:
@@ -232,7 +292,10 @@ class ResidentDevelopmentalCognitionOwner:
         selected: list[str] = []
         for fact in candidates:
             trial = self.writeback.select_evidence(snapshot, fact_ids=(fact.fact_id,))
-            if trial.selection_id not in processed:
+            # Fact IDs remain stable when the same immutable source is observed
+            # in a later snapshot. Selection IDs include snapshot identity and
+            # are accepted only for compatibility with pre-recovery state files.
+            if fact.fact_id not in processed and trial.selection_id not in processed:
                 selected.append(fact.fact_id)
             if len(selected) == self.config.max_selected_facts:
                 break
@@ -403,6 +466,8 @@ class ResidentDevelopmentalCognitionOwner:
         state = self._state()
         if any(row.get("tick_id") == tick_id for row in state["completed_ticks"]):
             raise ResidentDevelopmentalCognitionError("tick_already_completed")
+        if len(state["completed_ticks"]) >= MAX_RECOVERED_TICKS:
+            raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
 
         # Capture prior history before any candidate from this tick can exist.
         prior = self._prior_projection(state, tick_id)
@@ -467,6 +532,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "validity":"valid_controlled_observation", "contamination_reasons":[]})
 
         fact_ids = self._select_fact_ids(snapshot, set(state["processed_selection_ids"]))
+        if len(set(state["processed_selection_ids"]) | set(fact_ids)) > MAX_RECOVERED_FACT_IDS:
+            raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         record_id = receipt_id = None
         if fact_ids:
             selection = self.writeback.select_evidence(snapshot, fact_ids=fact_ids)
@@ -493,10 +560,7 @@ class ResidentDevelopmentalCognitionOwner:
                 record_id, receipt_id = record.record_id, receipt.receipt_id
                 # Persist each exact fact-evidence identity so changing the batch
                 # bound cannot make an already interpreted fact eligible again.
-                state["processed_selection_ids"].extend(
-                    self.writeback.select_evidence(snapshot, fact_ids=(fact_id,)).selection_id
-                    for fact_id in fact_ids
-                )
+                state["processed_selection_ids"].extend(fact_ids)
         state["completed_ticks"].append({"tick_id": tick_id, "snapshot_id": snapshot.snapshot_id,
                                          "snapshot_digest": snapshot.digest, "record_id": record_id,
                                          "receipt_id": receipt_id})
