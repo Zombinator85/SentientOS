@@ -322,6 +322,7 @@ class RuntimeMaintenanceSurfaces:
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
         self._resident_software_transition_controller: MaintenanceResidentRuntimeAdoptionController | None = None
+        self._resident_software_transition_config: Mapping[str, Any] | None = None
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
         resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
@@ -660,14 +661,17 @@ class RuntimeMaintenanceSurfaces:
                         "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
 
         software_controller = self._resident_software_transition_controller
-        if software_controller is not None:
+        software_config = (software_controller.config if software_controller is not None
+                           else self._resident_software_transition_config)
+        if software_config is not None:
             try:
                 from sentientos.maintenance_resident_runtime_adoption import (
                     inspect_transition_custody, read_transition_events)
-                rows = read_transition_events(software_controller.config, limit=16)
-                software_health = software_controller.health()
-                custody = inspect_transition_custody(software_controller.config)
-                baseline = getattr(software_controller, "_baseline", None)
+                rows = read_transition_events(software_config, limit=16)
+                custody = inspect_transition_custody(software_config)
+                software_health = (software_controller.health() if software_controller is not None else
+                    self._feedback.get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
+                baseline = getattr(software_controller, "_baseline", None) if software_controller is not None else None
             except Exception as exc:
                 records.append({"source_kind": "runtime_supervisor", "source_id": "resident_software_transition:recovery",
                     "subject_id": "resident_software_transition", "subject_kind": "software_transition",
@@ -1434,12 +1438,15 @@ def _compose_causal_introspection(
                     "replay_forbidden": "currentness", "predecessor_model_identity": "identity",
                     "proposed_successor_model_identity": "identity", "running_model_identity_observed": "identity"})))
     software_controller = runtime_surfaces._resident_software_transition_controller
-    if "software_succession" in enabled and software_controller is not None:
+    software_config = (software_controller.config if software_controller is not None
+                       else runtime_surfaces._resident_software_transition_config)
+    if "software_succession" in enabled and software_config is not None:
         def inspect_software_succession() -> dict[str, Any]:
             from sentientos.maintenance_resident_runtime_adoption import read_transition_events
-            rows = read_transition_events(software_controller.config, limit=1)
-            health = software_controller.health()
-            baseline = getattr(software_controller, "_baseline", None)
+            rows = read_transition_events(software_config, limit=1)
+            health = (software_controller.health() if software_controller is not None else
+                runtime_surfaces.governance_feedback().get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
+            baseline = getattr(software_controller, "_baseline", None) if software_controller is not None else None
             last = rows[-1] if rows else {}
             return {"transition_id": last.get("transition_id"),
                 "journal_head_digest": last.get("event_digest", "GENESIS"),
@@ -1473,6 +1480,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
     auto_derivation_path = os.environ.get("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG")
     resident_path = os.environ.get("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG")
+    resident_config: dict[str, Any] | None = None
     resident_controller = None
     resident_health: dict[str, Any] = {"status": "disabled", "read_only": True}
     if resident_path:
@@ -1562,7 +1570,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_health
     runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
-    if resident_serving_config is not None and resident_serving_config.enabled:
+    if not resident_blocked and resident_serving_config is not None and resident_serving_config.enabled:
         try:
             assert resident_serving_config.installation_identity is not None
             handle = InstallationStateRegistry.system().open(
@@ -1630,6 +1638,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     # software-transition journal and the startup provenance captured by this
     # controller. It does not discover generation custody from the filesystem.
     runtime_surfaces._resident_software_transition_controller = resident_controller
+    runtime_surfaces._resident_software_transition_config = resident_config
     try:
         introspection_config = load_causal_introspection_config()
         if introspection_config is not None and introspection_config.enabled:
