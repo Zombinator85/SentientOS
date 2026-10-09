@@ -112,6 +112,9 @@ class LocalModelInvocationReceipt:
     fallback_occurred: bool
     effects: Mapping[str, bool]
     observed_at: str
+    resource_allocation_digest: str | None = None
+    resource_attempt_id: str | None = None
+    resource_consumption_receipt_digests: tuple[str, ...] = ()
 
     def semantic_payload(self) -> dict[str, Any]:
         return {"request": dict(self.request), "status": self.status, "reason_codes": list(self.reason_codes), "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes, "generation_config": dict(self.generation_config), "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose, "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred, "effects": dict(self.effects)}
@@ -121,7 +124,10 @@ class LocalModelInvocationReceipt:
     @property
     def receipt_id(self) -> str: return "lmrec-" + self.receipt_digest[:24]
     def to_dict(self, *, include_output: bool = False) -> dict[str, Any]:
-        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms, "observed_at": self.observed_at})
+        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms, "observed_at": self.observed_at,
+            "resource_allocation_digest": self.resource_allocation_digest,
+            "resource_attempt_id": self.resource_attempt_id,
+            "resource_consumption_receipt_digests": list(self.resource_consumption_receipt_digests)})
         if include_output and self.output_text is not None: p["output_text"] = self.output_text
         return p
 
@@ -275,8 +281,13 @@ class GovernedLocalModelInvoker:
             measurement = resource_context.allocator.measurement(resource_context.allocation, generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=len(generated_output.encode("utf-8")) if generated_output is not None else None, returned_output_size_bytes=len(output.encode("utf-8")) if output is not None else None, output_truncated=truncated, latency_ms=receipt.latency_ms, invocation_outcome=status)
             state = "measured_timeout" if status == "timeout" else "measured_backend_failure" if status == "backend_failure" else "measured_completed"
             try:
-                resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state=state, observed_at=resource_context.clock(), measurement=measurement)
-                resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state="reconciled", observed_at=resource_context.clock(), measurement=measurement, effect_receipt_digest=receipt.receipt_digest)
+                measured = resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state=state, observed_at=resource_context.clock(), measurement=measurement)
+                reconciled = resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state="reconciled", observed_at=resource_context.clock(), measurement=measurement, effect_receipt_digest=receipt.receipt_digest)
+                receipt = replace(receipt, resource_allocation_digest=resource_context.allocation.allocation_digest,
+                    resource_attempt_id=attempt_id,
+                    resource_consumption_receipt_digests=(measured.receipt_digest, reconciled.receipt_digest))
+                if persist:
+                    self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
             except GovernedLocalModelResourceError:
                 # Backend entry is irreversible.  Never restore it merely because
                 # post-effect resource bookkeeping lost custody.

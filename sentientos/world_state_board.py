@@ -77,7 +77,7 @@ class WorldStateBoardBuilder:
         for i,r in enumerate(records):
             kind=str(r.get("source_kind", r.get("kind","capability_registry")))
             if kind not in {k.value for k in WorldStateSourceKind}: raise ValueError(f"unsupported source kind: {kind}")
-            sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
+            sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
             dg=str(r.get("digest") or digest(content)); finding="ok"
             if r.get("digest") and r.get("digest") != digest(content): finding="digest-mismatch"
             st=staleness_for(kind, r.get("observed_at"), now)
