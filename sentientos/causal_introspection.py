@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
+import tempfile
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
@@ -22,6 +24,8 @@ MAX_OBSERVATIONS = 128
 MAX_FINDINGS = 32
 MAX_PROJECTION_BYTES = 131_072
 MAX_SNAPSHOT_BYTES = 2_097_152
+MAX_SNAPSHOT_GENERATIONS = 4096
+MAX_SNAPSHOT_CUSTODY_BYTES = 268_435_456
 
 DOMAINS = frozenset({
     "installation", "model_supply", "model_serving", "model_succession",
@@ -449,17 +453,82 @@ class CausalIntrospectionRuntime:
             raise IntrospectionError("provider_domain_not_enabled")
 
     def _paths(self) -> list[Path]:
-        if not self.config.custody_root.exists():
+        try:
+            root_mode = self.config.custody_root.lstat().st_mode
+        except FileNotFoundError:
             return []
-        return sorted(self.config.custody_root.glob("generation-*.json"))
+        if not stat.S_ISDIR(root_mode):
+            raise IntrospectionError("custody_root_invalid")
+        paths = sorted(self.config.custody_root.glob("generation-*.json"))
+        if len(paths) > MAX_SNAPSHOT_GENERATIONS:
+            raise IntrospectionError("snapshot_generation_limit_exceeded")
+        return paths
+
+    @staticmethod
+    def _read_snapshot(path: Path) -> bytes:
+        try:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_SNAPSHOT_BYTES:
+                raise IntrospectionError("snapshot_file_unbounded_or_not_regular")
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(path, flags)
+            try:
+                opened = os.fstat(descriptor)
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                        or opened.st_dev != metadata.st_dev or opened.st_size > MAX_SNAPSHOT_BYTES):
+                    raise IntrospectionError("snapshot_file_changed_during_open")
+                chunks: list[bytes] = []
+                remaining = MAX_SNAPSHOT_BYTES + 1
+                while remaining:
+                    chunk = os.read(descriptor, min(65_536, remaining))
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    remaining -= len(chunk)
+                data = b"".join(chunks)
+                if len(data) > MAX_SNAPSHOT_BYTES:
+                    raise IntrospectionError("snapshot_file_unbounded_or_not_regular")
+                return data
+            finally:
+                os.close(descriptor)
+        except IntrospectionError:
+            raise
+        except OSError as exc:
+            raise IntrospectionError("snapshot_file_unavailable") from exc
+
+    @staticmethod
+    def _publish_snapshot(path: Path, data: bytes) -> None:
+        descriptor, temporary = tempfile.mkstemp(prefix=".causal-introspection-", suffix=".tmp",
+            dir=str(path.parent))
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.link(temporary, path, follow_symlinks=False)
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
 
     def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
         snapshots: list[CausalIntrospectionSnapshot] = []
         paths = self._paths()
+        total_bytes = 0
         for expected_generation, path in enumerate(paths, 1):
-            if path.name != f"generation-{expected_generation:020d}.json" or path.is_symlink():
+            if path.name != f"generation-{expected_generation:020d}.json":
                 raise IntrospectionError("missing_or_ambiguous_generation")
-            snapshot = _decode_snapshot(json.loads(path.read_text(encoding="utf-8")))
+            data = self._read_snapshot(path)
+            total_bytes += len(data)
+            if total_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
+                raise IntrospectionError("snapshot_custody_limit_exceeded")
+            snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
             validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
             snapshots.append(snapshot)
         return tuple(snapshots)
@@ -505,16 +574,12 @@ class CausalIntrospectionRuntime:
         target = self.config.custody_root / f"generation-{snapshot.generation:020d}.json"
         data = _canonical(_plain(snapshot))
         try:
-            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            self._publish_snapshot(target, data)
         except FileExistsError:
-            existing = target.read_bytes()
+            existing = self._read_snapshot(target)
             if existing != data:
                 raise IntrospectionError("same_generation_content_conflict")
             return _decode_snapshot(json.loads(existing))
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
         return snapshot
 
     @staticmethod
