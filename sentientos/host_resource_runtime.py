@@ -203,7 +203,7 @@ class HostResourceRuntimeCoordinator:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)
         if not decision.allowed: return None
-        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
+        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
         # Do not use the executor as a context manager here: its implicit
         # ``shutdown(wait=True)`` would make a timed-out collector hold the
         # maintenance tick open until the worker returns.  The observation
@@ -215,7 +215,7 @@ class HostResourceRuntimeCoordinator:
             for spec in self.plan.collectors:
                 if platform_label not in spec.supported_platforms and "unknown" not in spec.supported_platforms:
                     results.append(_unsupported_result(spec, observed_at)); continue
-                futs[ex.submit(spec.function, observed_at=observed_at)] = spec; self.collector_call_count += 1
+                futs[ex.submit(spec.function, observed_at=observed_at)] = spec; self.collector_call_count += 1; cycle_collectors_called += 1
             for fut, spec in list(futs.items()):
                 remaining = self.plan.budget.total_deadline_seconds - (time.monotonic()-start)
                 if remaining <= 0: fut.cancel(); results.append(_timeout_result(spec, observed_at)); timeouts.append(spec.collector_id); continue
@@ -251,7 +251,7 @@ class HostResourceRuntimeCoordinator:
             validation_findings=tuple(findings),
             semantic_digest=_id("hoes_", epoch_sem),
             observed_at=observed_at,
-            collectors_called=self.collector_call_count,
+            collectors_called=cycle_collectors_called,
             effect_authority=False,
         )
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
