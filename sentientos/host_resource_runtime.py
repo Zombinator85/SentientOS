@@ -204,7 +204,13 @@ class HostResourceRuntimeCoordinator:
         decision = decision or self.request_admission(correlation_id)
         if not decision.allowed: return None
         observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
-        with cf.ThreadPoolExecutor(max_workers=min(self.plan.budget.max_workers, max(1, len(self.plan.collectors)))) as ex:
+        # Do not use the executor as a context manager here: its implicit
+        # ``shutdown(wait=True)`` would make a timed-out collector hold the
+        # maintenance tick open until the worker returns.  The observation
+        # budget is a real upper bound for the coordinator, so timed-out work
+        # is cancelled where possible and late worker results are discarded.
+        ex = cf.ThreadPoolExecutor(max_workers=min(self.plan.budget.max_workers, max(1, len(self.plan.collectors))))
+        try:
             futs={}
             for spec in self.plan.collectors:
                 if platform_label not in spec.supported_platforms and "unknown" not in spec.supported_platforms:
@@ -217,6 +223,8 @@ class HostResourceRuntimeCoordinator:
                 except cf.TimeoutError: fut.cancel(); results.append(_timeout_result(spec, observed_at)); timeouts.append(spec.collector_id); continue
                 except BaseException as exc: results.append(_exception_result(spec, observed_at, exc)); continue
                 results.append(sanitize_result(raw))
+        finally:
+            ex.shutdown(wait=False, cancel_futures=True)
         ordered_results=tuple(sorted(results, key=lambda r: [s.order for s in self.plan.collectors if s.collector_id==r.collector_id][0] if any(s.collector_id==r.collector_id for s in self.plan.collectors) else 999))
         counts={s:0 for s in STATUSES}
         required_failed=[]; optional_failed=[]

@@ -41,6 +41,16 @@ The policy source is [`docs/development/codex_validation_and_landing_contract.md
 
 ## Validation commands
 
+## Construction mode
+
+Construction branches may implement bounded, reviewable increments without
+running the full pytest, mypy, matrix, strict-audit, bootstrap, or landing
+ritual. Such work must be explicitly marked **untested** in its commit and
+handoff. Construction does not authorize weakening custody, authorization,
+effect enforcement, or production activation. Production acceptance runs the
+canonical validation and landing workflow after the construction increment is
+complete.
+
 Use the canonical command reference above for landing. Core contribution checks are:
 
 - `python -m mypy scripts/ sentientos/` (or task-targeted scope where required; never modify the baseline to hide failures)
