@@ -259,3 +259,11 @@ Ordinary Codex validation uses the canonical minimal bootstrap in
 [`dependency_bootstrap_contract.md`](dependency_bootstrap_contract.md). A selected
 task may install an explicit capability extra only when exact scope requires it;
 minimal bootstrap failure is never authority to install the full graph.
+# Construction versus production acceptance
+
+Construction branches may land implementation increments before the complete
+acceptance ritual is run. A construction commit must identify itself as
+untested and must preserve all authorization, custody, and effect-enforcement
+boundaries. Construction status is not a production-readiness claim; the full
+validation and landing contract applies before production acceptance.
+
