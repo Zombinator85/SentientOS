@@ -600,6 +600,30 @@ class PersistentEpistemicStateOwner:
                     or event.successor_state_digest != state.state_digest
                     or event.event_id != state.last_update_event_id):
                 raise EpistemicStateError("epistemic_update_state_pairing_invalid")
+        active_by_proposition: dict[str, set[str]] = {}
+        for event in sorted(events, key=lambda item: (item.proposition_id, item.generation)):
+            state = state_by_generation[(event.proposition_id, event.generation)]
+            if (not isinstance(event.added_binding_ids, (list, tuple))
+                    or not isinstance(event.removed_binding_ids, (list, tuple))
+                    or any(not _valid_identity(item, "evidence")
+                        for item in (*event.added_binding_ids, *event.removed_binding_ids))):
+                raise EpistemicStateError("epistemic_evidence_delta_invalid")
+            added = set(event.added_binding_ids); removed = set(event.removed_binding_ids)
+            active = active_by_proposition.setdefault(event.proposition_id, set())
+            if (len(added) != len(event.added_binding_ids)
+                    or len(removed) != len(event.removed_binding_ids)
+                    or added & removed or not removed <= active or added & active):
+                raise EpistemicStateError("epistemic_evidence_delta_invalid")
+            for binding_id in added | removed:
+                binding = bindings.get(binding_id)
+                if binding is None:
+                    raise EpistemicStateError("epistemic_update_binding_missing")
+                if binding.proposition_id != event.proposition_id:
+                    raise EpistemicStateError("epistemic_update_binding_foreign")
+            active.difference_update(removed)
+            active.update(added)
+            if digest(sorted(active)) != state.evidence_set_digest:
+                raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
         previous: dict[str, tuple[int, str]] = {}
         for state in sorted(states,key=lambda x:(x.proposition_id,x.generation)):
             if state.proposition_id not in propositions or state.stance not in STANCES or dict(state.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_state_invalid")
