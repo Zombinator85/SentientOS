@@ -660,7 +660,7 @@ class RuntimeMaintenanceSurfaces:
                             "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}",
                             "subject_id": transition_id, "subject_kind": "resident_model_transition",
                             "stage": "observation", "disposition": disposition,
-                            "evidence_strength": "transition_journal_receipt_bound", "payload": payload,
+                            "evidence_strength": "validated_transition_journal_entry", "payload": payload,
                             "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
@@ -732,7 +732,7 @@ class RuntimeMaintenanceSurfaces:
                         "source_id": f"resident_software_transition:{row.get('event_digest')}",
                         "subject_id": str(row.get("transition_id") or "resident-software-transition"),
                         "subject_kind": "software_generation_transition", "stage": "observation",
-                        "disposition": disposition, "evidence_strength": "software_transition_journal_receipt_bound",
+                        "disposition": disposition, "evidence_strength": "validated_software_transition_journal_entry",
                         "payload": payload, "observed_at": row.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 if rows:
                     last = rows[-1]
