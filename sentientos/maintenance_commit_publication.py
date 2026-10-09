@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence, cast
 
 from sentientos import maintenance_task_journal as journal
 from sentientos import maintenance_task_authority_lease as lease_mod
+from sentientos import maintenance_validation_controller as validation
 
 LANDING_TERMS_SCHEMA='sentientos.maintenance_landing_terms:v1'
 LANDING_POLICY_SCHEMA='sentientos.maintenance_landing_policy:v1'
@@ -89,6 +90,63 @@ def validate_landing_authority(lease: Mapping[str,Any], authorities: Sequence[st
     if mode in {'fast_forward_base_ref',LOCAL_FAST_FORWARD_MODE} and 'pull_request_publish' in have: raise MaintenanceLandingError('excess_pull_request_authority')
     if mode==LOCAL_FAST_FORWARD_MODE and have & {'remote_repository_read','remote_ref_publish'}: raise MaintenanceLandingError('excess_remote_authority')
 
+def _validation_gate(root:Path, repo:Path, lease:Mapping[str,Any], supplied:Mapping[str,Any], at:str, worktree:Path|None=None)->dict[str,Any]:
+    try:
+        proof=validation.verify_validation_evidence(state_root=root,repository_root=repo,
+            validation_ref_id=str(supplied['validation_ref_id']),evaluation_time=at,worktree_root=worktree)
+        if canonical_json_bytes(proof['result'])!=canonical_json_bytes(supplied): raise ValueError('caller_validation_mapping_mismatch')
+        if proof['plan']['canonical_inputs']['lease']!=dict(lease): raise ValueError('current_lease_binding_mismatch')
+        return proof
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        raise MaintenanceLandingError('validation_evidence_rejected:'+str(exc)) from exc
+
+def _verify_candidate_tree(git:str, repo:Path, plan:Mapping[str,Any], tree:str)->None:
+    changed=_git(git,repo,['diff-tree','--no-commit-id','--name-only','-r','-z',str(plan['base_sha']),tree])
+    if changed.returncode or sorted(x for x in changed.stdout.decode().split('\0') if x)!=sorted(plan['changed_paths']): raise MaintenanceLandingError('staged_tree_paths_mismatch')
+    for entry in plan['validated_worktree_manifest']:
+        cp=_git(git,repo,['ls-tree','-z',tree,'--',entry['path']])
+        if cp.returncode: raise MaintenanceLandingError('staged_tree_unverifiable')
+        if not entry['exists']:
+            if cp.stdout: raise MaintenanceLandingError('staged_deletion_mismatch')
+            continue
+        try:
+            header,rel=cp.stdout.rstrip(b'\0').split(b'\t',1); mode,kind,oid=header.decode().split()
+        except ValueError as exc: raise MaintenanceLandingError('staged_tree_entry_missing') from exc
+        expected_mode='100755' if int(entry['mode'],8)&0o111 else '100644'
+        blob=_git(git,repo,['cat-file','blob',oid])
+        if rel.decode()!=entry['path'] or kind!='blob' or mode!=expected_mode or blob.returncode or bytes_digest(blob.stdout)!=entry['digest']: raise MaintenanceLandingError('staged_tree_bytes_or_mode_mismatch')
+
+def _publication_validation_gate(root:Path, repo:Path, lease:Mapping[str,Any], req:Mapping[str,Any], policy:Mapping[str,Any], at:str)->None:
+    validation._checked(req,PUBLICATION_REQUEST_SCHEMA,'publication_request_digest')
+    if req['lease_digest']!=lease['lease_digest'] or req['lease_id']!=lease['lease_id'] or req['task_id']!=lease['task_id'] or at>=lease['expires_at']: raise ValueError('publication_lease_mismatch_or_expired')
+    mode=req['publication_mode']
+    if mode!=lease['landing_terms']['publication_mode']: raise ValueError('publication_mode_mismatch')
+    required=(['repository_commit','local_repository_base_advance'] if mode==LOCAL_FAST_FORWARD_MODE else ['repository_commit','remote_repository_read','remote_ref_publish']+(['pull_request_publish'] if mode=='pull_request' else []))
+    validate_landing_authority(lease,required,mode)
+    plans=[validation.read_json(p) for p in (root/'maintenance_commit_plans').glob('*.json')]
+    matches=[p for p in plans if p.get('plan_digest')==req['commit_plan_digest']]
+    if len(matches)!=1: raise ValueError('publication_commit_plan_missing_or_ambiguous')
+    plan=validation._checked(matches[0],COMMIT_PLAN_SCHEMA,'plan_digest')
+    results=[validation.read_json(p) for p in (root/'maintenance_commit_results').glob('*.json')]
+    matches=[r for r in results if r.get('commit_result_digest')==req['commit_result_digest']]
+    if len(matches)!=1: raise ValueError('publication_commit_result_missing_or_ambiguous')
+    result=validation._checked(matches[0],COMMIT_RESULT_SCHEMA,'commit_result_digest')
+    canonical=validation.read_json(root/'maintenance_validation_results'/(validation._component(plan['validation_reference_id'])+'.json'))
+    proof=_validation_gate(root,repo,lease,canonical,at)
+    if req['publication_policy_digest']!=policy['policy_digest'] or plan['policy_digest']!=policy['policy_digest']: raise ValueError('publication_policy_binding_mismatch')
+    if plan['validation_plan_digest']!=proof['plan']['plan_digest'] or plan['validation_result_digest']!=canonical['result_digest'] or result['plan_digest']!=plan['plan_digest']: raise ValueError('publication_validation_binding_mismatch')
+    for key in ['task_id','commit_sha','tree_sha','parent_sha','validation_result_digest']:
+        if req[key]!=result[key]: raise ValueError('publication_commit_binding_mismatch')
+    for key in ['task_id','lease_id','lease_digest','publication_mode','base_ref','head_ref','remote_name']:
+        if req[key]!=plan[key]: raise ValueError('publication_plan_binding_mismatch')
+    if plan['base_sha']!=canonical['base_sha'] or canonical_json_bytes(plan['validated_worktree_manifest'])!=canonical_json_bytes(canonical['worktree_manifest']): raise ValueError('publication_manifest_binding_mismatch')
+    git=str(policy['git_executable'])
+    observed=_git(git,repo,['show','-s','--format=%T%n%P',result['commit_sha']])
+    if observed.returncode or observed.stdout.decode().splitlines()!=[result['tree_sha'],result['parent_sha']]: raise ValueError('publication_object_binding_mismatch')
+    _verify_candidate_tree(git,repo,plan,result['tree_sha'])
+    snap=journal.materialize_snapshot(root,lease['task_id'],repo_root=repo,evaluation_time=at)
+    if snap.get('commit_reference',{}).get('payload',{}).get('commit_result_digest')!=result['commit_result_digest']: raise ValueError('publication_journal_commit_mismatch')
+
 def build_commit_plan(*, state_root: str|Path, repository_root: str|Path, worktree_root: str|Path, lease: Mapping[str,Any], validation_result: Mapping[str,Any], landing_policy: Mapping[str,Any], evaluation_time: str, objective: str|None=None)->dict[str,Any]:
     pol=seal_landing_policy(landing_policy); repo=Path(repository_root); wt=Path(worktree_root)
     if validation_result.get('terminal_status')!='validation_ready_for_commit': raise MaintenanceLandingError('validation_not_ready_for_commit')
@@ -96,6 +154,7 @@ def build_commit_plan(*, state_root: str|Path, repository_root: str|Path, worktr
     if mode not in PUBLICATION_MODES: raise MaintenanceLandingError('unknown_publication_mode')
     required=(['repository_commit','local_repository_base_advance'] if mode==LOCAL_FAST_FORWARD_MODE else ['repository_commit','remote_repository_read','remote_ref_publish']+(['pull_request_publish'] if mode=='pull_request' else []))
     validate_landing_authority(lease, required, mode)
+    _validation_gate(Path(state_root),repo,lease,validation_result,evaluation_time,wt)
     base=str(validation_result.get('base_sha') or lease.get('base_sha'))
     head=_git(pol['git_executable'], wt, ['rev-parse','HEAD']).stdout.decode().strip()
     branch=_git(pol['git_executable'], wt, ['symbolic-ref','--short','-q','HEAD'])
@@ -129,6 +188,10 @@ def create_commit_and_enqueue(*, state_root: str|Path, repository_root: str|Path
       _git(git, worktree_root, ['read-tree',plan['base_sha']], env=env)
       for path in plan['changed_paths']: _git(git, worktree_root, ['add','--',path], env=env)
       tree=_git(git, worktree_root, ['write-tree'], env=env).stdout.decode().strip()
+      # Staging is not snapshot isolation. Check its actual tree against the
+      # proved base and complete changed-file manifest before creating a commit.
+      _verify_candidate_tree(git,Path(repository_root),plan,tree)
+      _validation_gate(root,Path(repository_root),lease,validation_result,evaluation_time,Path(worktree_root))
       commit=_git(git, worktree_root, ['commit-tree',tree,'-p',plan['base_sha']], env=env, input_b=(plan['commit_title']+'\n').encode()).stdout.decode().strip()
       result={'schema_version':COMMIT_RESULT_SCHEMA,'task_id':plan['task_id'],'commit_result_id':_id('mcommitresult',{'plan':plan['plan_digest'],'commit':commit}),'commit_sha':commit,'tree_sha':tree,'parent_sha':plan['base_sha'],'subject':plan['commit_title'],'identity_digests':{'author':plan['author_identity_digest'],'committer':plan['committer_identity_digest']},'timestamps':{'author':evaluation_time,'committer':evaluation_time},'plan_digest':plan['plan_digest'],'validation_result_digest':plan['validation_result_digest'],'worktree_manifest_digest':digest(plan['validated_worktree_manifest']),'patch_digest':plan['patch_digest'],'changed_paths':plan['changed_paths'],'git_argv_digests':[digest(['read-tree',plan['base_sha']]),digest(['write-tree']),digest(['commit-tree',tree,'-p',plan['base_sha']])],'external_index_path':str(idx),'object_verification':verify_commit_tree(repository_root, worktree_root, git, plan, commit),'no_branch_proof':{'branch_refs_pointing_at_commit':[]},'canonical_checkout_proof':{'head':_git(git, repository_root, ['rev-parse','HEAD']).stdout.decode().strip()},'terminal_status':'commit_created'}
       result['commit_result_digest']=_seal({**result,'commit_result_digest':''},'commit_result_digest')
@@ -270,6 +333,13 @@ def publish_one_maintenance_request(*, state_root: str|Path, repository_root: st
       fcntl.flock(lf, fcntl.LOCK_EX)
       existing=root/'maintenance_publication_results'/(publication_id+'.json')
       if existing.exists(): return _read_json(existing)
+      try:
+        _publication_validation_gate(root,Path(repository_root),lease,req,pol,evaluation_time)
+      except (ValueError,OSError,KeyError,TypeError,MaintenanceLandingError) as exc:
+        # Retain the pending request. Denial is not a new publication attempt,
+        # remote observation, retry, or retrospective certification.
+        return {'terminal_status':'publication_integrity_failed','terminal_classification':'publication_integrity_failed',
+                'publication_id':publication_id,'reason_code':str(exc),'remote_operations':0,'network_performed':False}
       if evaluation_time>=str(req.get('expiry','~')): cls='publication_expired'; return _publication_result(root,req,cls,{},evaluation_time,repository_root)
       attempts=len(list((root/'maintenance_publication_attempts').glob(publication_id+'-*.json'))) if (root/'maintenance_publication_attempts').exists() else 0
       if attempts>=int(req.get('attempt_ceiling',1)): return _publication_result(root,req,'publication_attempt_limit_reached',{},evaluation_time,repository_root)
