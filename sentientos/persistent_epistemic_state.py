@@ -357,7 +357,7 @@ class PersistentEpistemicStateOwner:
         selected=[known[x] for x in active_binding_ids]
         posture=evidence_posture(selected); support=tuple(sorted(b.binding_id for b in selected if b.evidence_relation=="supports" or b.reliability_posture=="supports")); contradiction=tuple(sorted(b.binding_id for b in selected if b.evidence_relation=="contradicts" or b.reliability_posture=="contradicts"))
         generation=(prior.generation+1 if prior else 0)
-        active_freshness = {b.freshness for b in bindings if not b.withdrawn}
+        active_freshness = {b.freshness for b in selected if not b.withdrawn}
         # Unknown evidence must not be promoted to current merely because it
         # is present.  A current observation keeps a mixed set current; when
         # no current observation exists, preserve stale or unknown posture.
