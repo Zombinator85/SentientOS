@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -199,15 +200,36 @@ class LiveTransitionOperatorRuntime:
         return self.installation_root / RECEIPT_CUSTODY
 
     def _receipts(self) -> list[dict[str, Any]]:
-        if not self.receipt_path.exists():
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(self.receipt_path, flags)
+        except FileNotFoundError:
             return []
-        if (self.receipt_path.is_symlink() or not self.receipt_path.is_file()
-                or self.receipt_path.stat().st_size > MAX_TRANSITION_RECEIPT_BYTES):
-            raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
+        except OSError as exc:
+            raise TransitionError("operator_receipt_custody_unbounded_or_not_regular") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_TRANSITION_RECEIPT_BYTES:
+                raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
+            chunks: list[bytes] = []
+            remaining = metadata.st_size
+            while remaining:
+                chunk = os.read(descriptor, min(remaining, 65536))
+                if not chunk:
+                    raise TransitionError("operator_receipt_custody_changed_during_read")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw_receipts = b"".join(chunks)
+        finally:
+            os.close(descriptor)
         rows: list[dict[str, Any]] = []
         prior = "GENESIS"
         seen: set[str] = set()
-        for sequence, line in enumerate(self.receipt_path.read_text(encoding="utf-8").splitlines(), 1):
+        try:
+            lines = raw_receipts.decode("utf-8").splitlines()
+        except UnicodeError as exc:
+            raise TransitionError("operator_receipt_custody_corrupt") from exc
+        for sequence, line in enumerate(lines, 1):
             try:
                 row = json.loads(line)
                 claimed = row.pop("receipt_digest")
@@ -235,14 +257,30 @@ class LiveTransitionOperatorRuntime:
                 "request_id": request_id, "result": result, "detail": _plain(detail)}
         receipt = {**body, "receipt_digest": _digest_bytes(_canonical(body))}
         encoded = _canonical(receipt)
-        existing_size = self.receipt_path.stat().st_size if self.receipt_path.exists() else 0
-        if (len(encoded) > MAX_TRANSITION_REQUEST_BYTES
-                or existing_size + len(encoded) > MAX_TRANSITION_RECEIPT_BYTES):
+        if len(encoded) > MAX_TRANSITION_REQUEST_BYTES:
             raise TransitionError("operator_receipt_record_unbounded")
         self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.receipt_path.open("a", encoding="utf-8") as stream:
-            stream.write(encoded.decode())
-            stream.flush(); os.fsync(stream.fileno())
+        descriptor = os.open(self.receipt_path,
+            os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_size + len(encoded) > MAX_TRANSITION_RECEIPT_BYTES):
+                raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
+            view = memoryview(encoded)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise TransitionError("operator_receipt_custody_write_incomplete")
+                view = view[written:]
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        directory = os.open(self.receipt_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
         self._latest = receipt
         return receipt
 
