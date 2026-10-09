@@ -1078,6 +1078,23 @@ def _resident_developmental_owner(surfaces: RuntimeMaintenanceSurfaces) -> Resid
     return owner
 
 
+def _load_resident_transition_custody(config_path: str, installation_handle: Any | None = None) -> tuple[Any, TransitionJournal]:
+    """Resolve exact configured transition protocol and journal without composing an effector."""
+    config = LiveTransitionConfig.load(Path(config_path))
+    handle = installation_handle
+    if handle is None:
+        handle = InstallationStateRegistry.system().open(
+            InstallationIdentity.parse(config.installation_identity))
+    if handle.identity.value != config.installation_identity:
+        raise TransitionError("transition_recovery_installation_binding_mismatch")
+    protocol = load_verified_protocol(handle.root, protocol_id=config.protocol_id,
+        protocol_digest=config.protocol_digest)
+    if (protocol.value.get("installation_identity") != handle.identity.value
+            or config.journal_identity != resident_transition_journal_identity(protocol)):
+        raise TransitionError("transition_recovery_configuration_binding_mismatch")
+    return protocol, TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+
+
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
         kernel: Any, slot: ResidentCognitiveServingSlot, gate: ResidentCognitionQuiescenceGate,
         developmental_owner: ResidentDevelopmentalCognitionOwner | None = None,
@@ -1652,31 +1669,16 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 except Exception as exc:
                     resident_transition_error = f"{type(exc).__name__}:{exc}"
                     try:
-                        transition_config = LiveTransitionConfig.load(Path(resident_transition_live_path))
-                        if transition_config.enabled:
-                            recovery_protocol = load_verified_protocol(handle.root,
-                                protocol_id=transition_config.protocol_id,
-                                protocol_digest=transition_config.protocol_digest)
-                            if (transition_config.installation_identity != handle.identity.value
-                                    or transition_config.journal_identity != resident_transition_journal_identity(recovery_protocol)):
-                                raise TransitionError("transition_recovery_configuration_binding_mismatch")
-                            recovery_journal = TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
-                            candidate_surfaces._resident_transition_custody = (recovery_protocol, recovery_journal)
+                        candidate_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                            resident_transition_live_path, handle)
                     except Exception as recovery_exc:
                         candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
                 if (resident_transition_runtime is None
                         and candidate_surfaces._resident_transition_custody is None
                         and candidate_surfaces._resident_transition_custody_error is None):
                     try:
-                        transition_config = LiveTransitionConfig.load(Path(resident_transition_live_path))
-                        recovery_protocol = load_verified_protocol(handle.root,
-                            protocol_id=transition_config.protocol_id,
-                            protocol_digest=transition_config.protocol_digest)
-                        if (transition_config.installation_identity != handle.identity.value
-                                or transition_config.journal_identity != resident_transition_journal_identity(recovery_protocol)):
-                            raise TransitionError("transition_recovery_configuration_binding_mismatch")
-                        candidate_surfaces._resident_transition_custody = (recovery_protocol,
-                            TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY))
+                        candidate_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                            resident_transition_live_path, handle)
                     except Exception as recovery_exc:
                         candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
             if resident_transition_runtime is not None:
@@ -1714,6 +1716,14 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             if candidate_surfaces is not None:
                 runtime_surfaces._resident_transition_custody = candidate_surfaces._resident_transition_custody
                 runtime_surfaces._resident_transition_custody_error = candidate_surfaces._resident_transition_custody_error
+    if (resident_transition_live_path
+            and runtime_surfaces._resident_transition_custody is None
+            and runtime_surfaces._resident_transition_custody_error is None):
+        try:
+            runtime_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                resident_transition_live_path)
+        except Exception as recovery_exc:
+            runtime_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     if resident_transition_live_path and resident_serving_controller is None:
