@@ -567,6 +567,18 @@ class PersistentEpistemicStateOwner:
             expected_binding=make_evidence_binding(**{k:v for k,v in raw.items() if k not in {"binding_id","binding_digest","schema_version"}})
             if binding_value != expected_binding: raise EpistemicStateError("evidence_binding_digest_mismatch")
             bindings[binding_value.binding_id]=binding_value
+        for raw in self._read("relations"):
+            try:
+                relation = PropositionRelation(**raw)
+            except (TypeError, KeyError) as exc:
+                raise EpistemicStateError("proposition_relation_invalid") from exc
+            if (not isinstance(relation.source_proposition_id, str)
+                    or not isinstance(relation.target_proposition_id, str)
+                    or relation.relation not in RELATIONS
+                    or relation.source_proposition_id == relation.target_proposition_id
+                    or relation.source_proposition_id not in propositions
+                    or relation.target_proposition_id not in propositions):
+                raise EpistemicStateError("proposition_relation_invalid")
         children: dict[str, list[str]] = {binding_id: [] for binding_id in bindings}
         indegree: dict[str, int] = {}
         for binding in bindings.values():
@@ -643,13 +655,24 @@ class PersistentEpistemicStateOwner:
             if (eid,edg)!=(event.event_id,event.event_digest) or event.reason not in UPDATE_REASONS or dict(event.authority)!=FALSE_AUTHORITY: raise EpistemicStateError("epistemic_update_event_invalid")
         state_by_digest={s.state_digest:s for s in states}
         for raw in self._read("calibrations"):
-            calibration=EpistemicCalibrationEvent(**raw); forecast=state_by_digest.get(calibration.forecast_state_digest)
+            calibration=EpistemicCalibrationEvent(**raw)
+            source_binding_ids = calibration.source_binding_ids
+            if (not _valid_identity(calibration.proposition_id, "proposition")
+                    or not isinstance(calibration.forecast_state_digest, str)
+                    or not isinstance(calibration.resolved_at, str)
+                    or not isinstance(source_binding_ids, (tuple, list))
+                    or any(not _valid_identity(binding_id, "evidence") for binding_id in source_binding_ids)
+                    or len(source_binding_ids) != len(set(source_binding_ids))):
+                raise EpistemicStateError("epistemic_calibration_invalid")
+            forecast=state_by_digest.get(calibration.forecast_state_digest)
             cid,cdg=_identity("epistemic-calibration",calibration.payload())
             if ((cid,cdg)!=(calibration.calibration_id,calibration.calibration_digest) or
                     calibration.proposition_id not in propositions or forecast is None or
                     forecast.proposition_id != calibration.proposition_id or
                     calibration.resolved_at <= forecast.updated_at or not calibration.source_binding_ids or
-                    any(binding_id not in bindings or bindings[binding_id].proposition_id != calibration.proposition_id
+                    calibration.schema_version != CALIBRATION_SCHEMA
+                    or calibration.authority != FALSE_AUTHORITY
+                    or any(binding_id not in bindings or bindings[binding_id].proposition_id != calibration.proposition_id
                         for binding_id in calibration.source_binding_ids)):
                 raise EpistemicStateError("epistemic_calibration_invalid")
         return {"propositions":len(propositions),"bindings":len(bindings),"states":len(states),"updates":len(events),"calibrations":len(self._read("calibrations"))}
