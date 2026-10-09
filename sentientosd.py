@@ -263,7 +263,8 @@ class RuntimeMaintenanceSurfaces:
         self._identify_admitted = False
         self._governed_local_invoker = governed_local_invoker
         self._governed_resource_ledger = governed_resource_ledger
-        self._governed_invocation_receipts = tuple(dict(item) for item in governed_invocation_receipts)
+        self._governed_invocation_receipts_path = self._runtime_state_root / "governed_local_model_invocation" / "registered_receipts.json"
+        self._governed_invocation_receipts = self._recover_governed_invocation_receipts(governed_invocation_receipts)
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
@@ -381,11 +382,44 @@ class RuntimeMaintenanceSurfaces:
         receipt_id = str(receipt.get("receipt_id") or "")
         if not receipt_id:
             raise ValueError("missing_governed_invocation_receipt_id")
-        if any(str(item.get("receipt_id") or "") == receipt_id for item in self._governed_invocation_receipts):
-            return
+        for item in self._governed_invocation_receipts:
+            if str(item.get("receipt_id") or "") == receipt_id:
+                if dict(item) != dict(receipt):
+                    raise ValueError("conflicting_governed_invocation_receipt")
+                return
         if len(self._governed_invocation_receipts) >= 256:
             self._governed_invocation_receipts = self._governed_invocation_receipts[-255:]
         self._governed_invocation_receipts = (*self._governed_invocation_receipts, dict(receipt))
+        self._persist_governed_invocation_receipts()
+
+    def _recover_governed_invocation_receipts(self, supplied: tuple[Mapping[str, Any], ...]) -> tuple[dict[str, Any], ...]:
+        """Recover evidence only; no model call, ledger mutation, or replay."""
+        recovered: list[dict[str, Any]] = []
+        if self._governed_invocation_receipts_path.exists():
+            raw = json.loads(self._governed_invocation_receipts_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, list) or len(raw) > 256:
+                raise ValueError("registered_invocation_receipts_artifact_invalid")
+            recovered.extend(dict(item) for item in raw if isinstance(item, Mapping))
+        for item in supplied:
+            candidate = dict(item)
+            receipt_id = str(candidate.get("receipt_id") or "")
+            prior = next((existing for existing in recovered if str(existing.get("receipt_id") or "") == receipt_id), None)
+            if prior is not None and prior != candidate:
+                raise ValueError("conflicting_recovered_invocation_receipt")
+            if prior is None:
+                recovered.append(candidate)
+        for item in recovered:
+            valid, findings = validate_receipt(item)
+            if not valid:
+                raise ValueError("invalid_recovered_invocation_receipt:" + ",".join(findings))
+        return tuple(recovered[-256:])
+
+    def _persist_governed_invocation_receipts(self) -> None:
+        path = self._governed_invocation_receipts_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(list(self._governed_invocation_receipts), sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        os.replace(temporary, path)
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
         records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
