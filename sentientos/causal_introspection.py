@@ -26,6 +26,7 @@ MAX_PROJECTION_BYTES = 131_072
 MAX_SNAPSHOT_BYTES = 2_097_152
 MAX_SNAPSHOT_GENERATIONS = 4096
 MAX_SNAPSHOT_CUSTODY_BYTES = 268_435_456
+MAX_CONFIG_BYTES = 16_384
 
 DOMAINS = frozenset({
     "installation", "model_supply", "model_serving", "model_succession",
@@ -216,23 +217,69 @@ def load_config(path: str | Path | None = None) -> IntrospectionConfig | None:
     selected = str(path) if path is not None else os.environ.get(CONFIG_ENV)
     if not selected:
         return None
-    payload = json.loads(Path(selected).read_text(encoding="utf-8"))
+    config_path = Path(selected)
+    try:
+        metadata = config_path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CONFIG_BYTES:
+            raise IntrospectionError("configuration_file_unbounded_or_not_regular")
+        descriptor = os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_CONFIG_BYTES):
+                raise IntrospectionError("configuration_file_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_CONFIG_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(4096, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            config_data = b"".join(chunks)
+            if len(config_data) > MAX_CONFIG_BYTES:
+                raise IntrospectionError("configuration_file_unbounded_or_not_regular")
+        finally:
+            os.close(descriptor)
+        payload = json.loads(config_data.decode("utf-8"))
+    except IntrospectionError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IntrospectionError("configuration_unavailable_or_invalid") from exc
+    if not isinstance(payload, dict):
+        raise IntrospectionError("configuration_object_required")
     if payload.get("schema") != SCHEMA_VERSION:
         raise IntrospectionError("unsupported_config_schema")
-    root = Path(str(payload.get("custody_root", "")))
+    allowed = {"schema", "enabled", "custody_root", "world_state_consumption_enabled",
+        "max_projections", "enabled_domains", "required_domains"}
+    if set(payload) - allowed or not {"schema", "enabled", "custody_root",
+            "world_state_consumption_enabled", "enabled_domains", "required_domains"} <= set(payload):
+        raise IntrospectionError("configuration_shape_invalid")
+    if (not isinstance(payload["enabled"], bool)
+            or not isinstance(payload["world_state_consumption_enabled"], bool)):
+        raise IntrospectionError("configuration_boolean_invalid")
+    root_value = payload.get("custody_root")
+    if not isinstance(root_value, str) or not root_value:
+        raise IntrospectionError("absolute_custody_root_required")
+    root = Path(root_value)
     if not root.is_absolute():
         raise IntrospectionError("absolute_custody_root_required")
-    enabled = tuple(str(item) for item in payload.get("enabled_domains", ()))
-    required = tuple(str(item) for item in payload.get("required_domains", ()))
+    raw_enabled = payload["enabled_domains"]
+    raw_required = payload["required_domains"]
+    if (not isinstance(raw_enabled, list) or not isinstance(raw_required, list)
+            or any(not isinstance(item, str) for item in (*raw_enabled, *raw_required))):
+        raise IntrospectionError("configuration_domains_invalid")
+    enabled = tuple(raw_enabled)
+    required = tuple(raw_required)
     if len(set(enabled)) != len(enabled) or len(set(required)) != len(required):
         raise IntrospectionError("duplicate_config_domain")
     if not set(enabled) <= DOMAINS or not set(required) <= set(enabled):
         raise IntrospectionError("invalid_config_domains")
-    maximum = int(payload.get("max_projections", MAX_PROJECTIONS))
-    if maximum < 1 or maximum > MAX_PROJECTIONS:
+    maximum = payload.get("max_projections", MAX_PROJECTIONS)
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 1 or maximum > MAX_PROJECTIONS:
         raise IntrospectionError("invalid_max_projections")
-    return IntrospectionConfig(bool(payload.get("enabled", False)), root,
-        bool(payload.get("world_state_consumption_enabled", False)), maximum,
+    return IntrospectionConfig(payload["enabled"], root,
+        payload["world_state_consumption_enabled"], maximum,
         enabled, required)
 
 
