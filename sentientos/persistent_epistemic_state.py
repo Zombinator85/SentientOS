@@ -108,6 +108,14 @@ def make_evidence_binding(**kwargs: Any) -> EvidenceBinding:
     raw = EvidenceBinding("", "", **kwargs)
     if raw.evidence_relation not in EVIDENCE_RELATIONS or raw.dependency_kind not in DEPENDENCIES or raw.freshness not in {"current", "stale", "unknown"}:
         raise EpistemicStateError("evidence_binding_shape_invalid")
+    if (not isinstance(raw.upstream_binding_ids, (list, tuple))
+            or any(not _valid_identity(item, "evidence") for item in raw.upstream_binding_ids)
+            or len(raw.upstream_binding_ids) != len(set(raw.upstream_binding_ids))
+            or raw.binding_id in raw.upstream_binding_ids):
+        raise EpistemicStateError("evidence_binding_upstream_shape_invalid")
+    if (raw.dependency_kind in {"same_source_derivation", "shared_upstream_evidence", "duplicate_alias"}
+            and not raw.upstream_binding_ids):
+        raise EpistemicStateError("evidence_dependency_missing_upstream")
     _authority(raw.authority)
     bid, dg = _identity("evidence", raw.payload())
     return replace(raw, binding_id=bid, binding_digest=dg)
@@ -417,11 +425,14 @@ class PersistentEpistemicStateOwner:
         expected=make_evidence_binding(**{k:v for k,v in asdict(binding).items() if k not in {"binding_id","binding_digest","schema_version"}})
         if expected != binding: raise EpistemicStateError("evidence_binding_digest_mismatch")
         if binding.dependency_kind in {"same_source_derivation","shared_upstream_evidence","duplicate_alias"} and not binding.upstream_binding_ids: raise EpistemicStateError("evidence_dependency_missing_upstream")
-        known_upstream = {value.get("binding_id") for value in self._read("bindings")}
+        known_bindings = {value.get("binding_id"): value for value in self._read("bindings")}
         for upstream in binding.upstream_binding_ids:
             if not _valid_identity(upstream, "evidence"):
                 raise EpistemicStateError("evidence_upstream_identity_invalid")
-            if upstream not in known_upstream: raise EpistemicStateError("evidence_upstream_not_found")
+            predecessor = known_bindings.get(upstream)
+            if predecessor is None: raise EpistemicStateError("evidence_upstream_not_found")
+            if predecessor.get("proposition_id") != binding.proposition_id:
+                raise EpistemicStateError("evidence_upstream_proposition_mismatch")
         _write_new(self.root/"bindings"/f"{binding.binding_id}.json", asdict(binding))
 
     def bindings(self, proposition_id: str) -> tuple[EvidenceBinding, ...]:
@@ -556,6 +567,27 @@ class PersistentEpistemicStateOwner:
             expected_binding=make_evidence_binding(**{k:v for k,v in raw.items() if k not in {"binding_id","binding_digest","schema_version"}})
             if binding_value != expected_binding: raise EpistemicStateError("evidence_binding_digest_mismatch")
             bindings[binding_value.binding_id]=binding_value
+        children: dict[str, list[str]] = {binding_id: [] for binding_id in bindings}
+        indegree: dict[str, int] = {}
+        for binding in bindings.values():
+            indegree[binding.binding_id] = len(binding.upstream_binding_ids)
+            for upstream in binding.upstream_binding_ids:
+                predecessor = bindings.get(upstream)
+                if predecessor is None:
+                    raise EpistemicStateError("evidence_upstream_not_found")
+                if predecessor.proposition_id != binding.proposition_id:
+                    raise EpistemicStateError("evidence_upstream_proposition_mismatch")
+                children[upstream].append(binding.binding_id)
+        ready = [binding_id for binding_id, count in indegree.items() if count == 0]
+        visited = 0
+        while ready:
+            binding_id = ready.pop(); visited += 1
+            for child in children[binding_id]:
+                indegree[child] -= 1
+                if indegree[child] == 0:
+                    ready.append(child)
+        if visited != len(bindings):
+            raise EpistemicStateError("evidence_dependency_cycle")
         states=[EpistemicState(**v) for v in self._read("states")]; events=[EpistemicUpdateEvent(**v) for v in self._read("updates")]
         event_by_generation={(e.proposition_id,e.generation):e for e in events}
         state_by_generation={(state.proposition_id,state.generation):state for state in states}
