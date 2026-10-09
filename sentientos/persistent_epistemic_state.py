@@ -507,15 +507,29 @@ class PersistentEpistemicStateOwner:
                       reliability_changes: Mapping[str,str] = {}, update_rule_id: str = "qualitative_explicit:v1",
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
                       correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
-        self.proposition(proposition_id); prior=self.current_state(proposition_id)
+        self.verify(); self.proposition(proposition_id); prior=self.current_state(proposition_id)
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
         if stance not in STANCES or reason not in UPDATE_REASONS: raise EpistemicStateError("epistemic_update_vocabulary_invalid")
         if candidate:
             expected_candidate = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items() if k != "candidate_id"})
             if (candidate != expected_candidate or candidate.proposition_id != proposition_id or candidate.predecessor_state_digest != expected_predecessor_digest or candidate.proposed_stance != stance or candidate.reason != reason or dict(candidate.authority) != FALSE_AUTHORITY): raise EpistemicStateError("epistemic_candidate_validation_failed")
+        sequences = (active_binding_ids, added_binding_ids, removed_binding_ids)
+        if (any(not isinstance(values, (list, tuple)) for values in sequences)
+                or any(not _valid_identity(item, "evidence") for values in sequences for item in values)):
+            raise EpistemicStateError("epistemic_evidence_delta_invalid")
+        active_set, added_set, removed_set = map(set, sequences)
+        if (len(active_set) != len(active_binding_ids) or len(added_set) != len(added_binding_ids)
+                or len(removed_set) != len(removed_binding_ids) or added_set & removed_set):
+            raise EpistemicStateError("epistemic_evidence_delta_invalid")
         known={b.binding_id:b for b in self.bindings(proposition_id)}
-        if (set(active_binding_ids) | set(added_binding_ids) | set(removed_binding_ids)) - set(known): raise EpistemicStateError("epistemic_evidence_not_found")
+        if (active_set | added_set | removed_set) - set(known): raise EpistemicStateError("epistemic_evidence_not_found")
+        prior_active = set(self.active_binding_ids(proposition_id))
+        if (not removed_set <= prior_active or added_set & prior_active
+                or active_set != ((prior_active - removed_set) | added_set)):
+            raise EpistemicStateError("epistemic_evidence_delta_mismatch")
+        if any(known[binding_id].withdrawn for binding_id in active_set):
+            raise EpistemicStateError("epistemic_withdrawn_evidence_active")
         selected=[known[x] for x in active_binding_ids]
         posture=evidence_posture(selected); support=tuple(sorted(b.binding_id for b in selected if b.evidence_relation=="supports" or b.reliability_posture=="supports")); contradiction=tuple(sorted(b.binding_id for b in selected if b.evidence_relation=="contradicts" or b.reliability_posture=="contradicts"))
         generation=(prior.generation+1 if prior else 0)
@@ -634,6 +648,8 @@ class PersistentEpistemicStateOwner:
                     raise EpistemicStateError("epistemic_update_binding_foreign")
             active.difference_update(removed)
             active.update(added)
+            if any(bindings[binding_id].withdrawn for binding_id in active):
+                raise EpistemicStateError("epistemic_withdrawn_evidence_active")
             if digest(sorted(active)) != state.evidence_set_digest:
                 raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
         previous: dict[str, tuple[int, str]] = {}
