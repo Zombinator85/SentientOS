@@ -612,10 +612,12 @@ class RuntimeMaintenanceSurfaces:
                                 if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
                             "replay_forbidden": True}
                         if isinstance(successor, Mapping) and successor.get("model_development_provenance") is not None:
-                            payload["model_development_provenance"] = successor["model_development_provenance"]
+                            payload["model_development_provenance_reference"] = successor["model_development_provenance"]
+                            payload["model_development_provenance_reference_posture"] = "protocol_bound_reference_only"
                         elif isinstance(successor, Mapping) and successor.get("model_development_provenance_digest") is not None:
-                            payload["model_development_provenance"] = {
+                            payload["model_development_provenance_reference"] = {
                                 "manifest_digest": successor["model_development_provenance_digest"]}
+                            payload["model_development_provenance_reference_posture"] = "protocol_bound_reference_only"
                         activation = evidence.get("activation") if isinstance(evidence.get("activation"), Mapping) else None
                         if (activation is not None and entry.get("status") == "completed"
                                 and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
