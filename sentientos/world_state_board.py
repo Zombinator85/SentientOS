@@ -50,6 +50,10 @@ class WorldStateValidationResult: valid:bool; findings:tuple[str,...]
 
 def _canon(o:Any)->str: return json.dumps(o, sort_keys=True, separators=(",",":"), default=lambda x: asdict(x) if hasattr(x,"__dataclass_fields__") else str(x))
 def digest(o:Any)->str: return hashlib.sha256(_canon(o).encode()).hexdigest()
+def record_digest(record: Mapping[str, Any]) -> str:
+    """Canonical digest for a World-State producer record, excluding self-digest."""
+    content = {k: v for k, v in record.items() if k not in {"digest", "observed_at", "retrieved_at", "latency", "absolute_path", "temporary_root", "process_id", "dashboard_request_time", "output_location"}}
+    return digest(content)
 def _sid(prefix:str, payload:Any)->str: return f"{prefix}-{digest(payload)[:16]}"
 def to_dict(o:Any)->Any: return json.loads(_canon(o))
 def _parse_time(s:str|None):
@@ -78,8 +82,8 @@ class WorldStateBoardBuilder:
             kind=str(r.get("source_kind", r.get("kind","capability_registry")))
             if kind not in {k.value for k in WorldStateSourceKind}: raise ValueError(f"unsupported source kind: {kind}")
             sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
-            dg=str(r.get("digest") or digest(content)); finding="ok"
-            if r.get("digest") and r.get("digest") != digest(content): finding="digest-mismatch"
+            dg=str(r.get("digest") or record_digest(r)); finding="ok"
+            if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
             st=staleness_for(kind, r.get("observed_at"), now)
             src=WorldStateSourceRef(sid,kind,str(r.get("schema_version","v1")),dg,bool(r.get("required",False)), "redacted", st, finding)
             sources.append(src)

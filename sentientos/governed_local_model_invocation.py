@@ -144,10 +144,18 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         "allocation_digest": payload.get("resource_allocation_digest"),
         "attempt_id": payload.get("resource_attempt_id"),
         "consumption_receipt_digests": tuple(payload.get("resource_consumption_receipt_digests") or ())}
-    has_linkage = any(value is not None for key, value in linkage.items() if key != "receipt_digest")
+    allocation = payload.get("resource_allocation_digest")
+    attempt = payload.get("resource_attempt_id")
+    consumption = payload.get("resource_consumption_receipt_digests")
+    has_linkage = any(value is not None for value in (allocation, attempt, consumption))
     if payload.get("resource_linkage_digest") is not None and not has_linkage:
         reasons.append("resource_linkage_fields_missing")
     if has_linkage:
+        if (not isinstance(allocation, str) or not allocation or not isinstance(attempt, str)
+                or not attempt or not isinstance(consumption, (list, tuple)) or not consumption
+                or any(not isinstance(item, str) or not item for item in consumption)
+                or payload.get("resource_linkage_digest") is None):
+            reasons.append("resource_linkage_incomplete")
         expected_linkage = digest_payload(linkage)
         if payload.get("resource_linkage_digest") != expected_linkage: reasons.append("resource_linkage_digest_mismatch")
     effects = payload.get("effects")

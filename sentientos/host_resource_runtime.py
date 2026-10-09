@@ -20,7 +20,7 @@ from sentientos.host_collectors import HostCollectorResult, collect_cpu_observat
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
-from sentientos.world_state_board import WorldStateSourceKind, digest
+from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
 
 SCHEMA_VERSION = "host_resource_observation_runtime.v1"
 CollectorCallable = Callable[..., HostCollectorResult]
@@ -267,7 +267,7 @@ def summary_for_evaluation(e: HostResourceRuntimeEvaluation) -> dict[str, Any]:
 
 def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]]:
     base={"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value, "subject_kind": "host_resource_observation_runtime", "effect_claimed": False, "effect_proven": False, "observed_at": e.epoch.observed_at}
-    return [
+    records = [
         {**base,"source_id":"host_resource_runtime:plan","subject_id":"host_resource_observation_plan","stage":"observation","disposition":"recorded","payload":e.plan.to_dict(),"digest":digest(e.plan.to_dict())},
         {**base,"source_id":"host_resource_runtime:epoch","subject_id":"host_resource_observation_epoch","stage":"observation","disposition":"degraded" if e.epoch.required_failed else "recorded","payload":{"epoch_id":e.epoch.epoch_id,"status_counts":dict(e.epoch.status_counts),"collectors_called":e.epoch.collectors_called,"timed_out_collectors":e.epoch.timed_out_collectors,"admission":e.epoch.admission_decision_ref},"digest":digest({"epoch":e.epoch.semantic_digest})},
         {**base,"source_id":"host_resource_runtime:snapshot","subject_id":"host_resource_snapshot","stage":"observation","disposition":"recorded","payload":e.snapshot.to_dict(),"digest":digest(e.snapshot.to_dict())},
@@ -275,6 +275,7 @@ def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]
         {**base,"source_id":"host_resource_runtime:policy","subject_id":"host_resource_policy","stage":"proposal","disposition":e.policy_decision.status,"payload":summarize_host_resource_policy_decision(e.policy_decision),"digest":digest(e.policy_decision.to_dict())},
         {**base,"source_id":"host_resource_runtime:receipts","subject_id":"host_resource_proposal_receipts","stage":"proposal","disposition":"recorded","payload":{"receipt_count": len(e.proposal_receipts), "receipt_ids": [r.receipt_id for r in e.proposal_receipts], "receipts": [summarize_host_resource_proposal_receipt(r) for r in e.proposal_receipts]},"digest":digest([r.to_dict() for r in e.proposal_receipts])},
     ]
+    return [{**item, "digest": record_digest(item)} for item in records]
 
 def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResourceLedger,
                                               invocation_receipts: Sequence[Mapping[str, Any]] = (),
@@ -316,7 +317,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                    str(item.get("status")) in {"provisional", "begun"}
                    for item in snapshot["attempts"] if isinstance(item, Mapping)
                ) else "reconciled_or_restored"}
-    return [{"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+    record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
@@ -325,8 +326,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption
              # appear to be a fresh observation to epistemic consumers.
-             "observed_at": None, "payload": payload,
-             "digest": digest(payload)}]
+             "observed_at": None, "payload": payload}
+    return [{**record, "digest": record_digest(record)}]
 
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:
     s=summary_for_evaluation(e)
