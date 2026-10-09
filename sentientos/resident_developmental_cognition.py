@@ -39,6 +39,7 @@ from .world_state_board import WorldStateSnapshot, validate_snapshot
 CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
 SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
+CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -70,6 +71,7 @@ class ResidentDevelopmentalCognitionConfig:
     max_retrieved_records: int = 4
     comparison_enabled: bool = False
     enabled: bool = True
+    model_replacement_artifact_root: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -165,8 +167,11 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ResidentDevelopmentalCognitionError("configuration_unreadable_or_invalid_json") from exc
-    expected = {"schema", "enabled", "history_root", "state_root", "allowed_source_kinds", "max_selected_facts", "max_retrieved_records", "comparison_enabled"}
-    if not isinstance(payload, dict) or set(payload) != expected or payload.get("schema") != CONFIG_SCHEMA:
+    common = {"schema", "enabled", "history_root", "state_root", "allowed_source_kinds",
+              "max_selected_facts", "max_retrieved_records", "comparison_enabled"}
+    schema = payload.get("schema") if isinstance(payload, dict) else None
+    expected = common if schema == CONFIG_SCHEMA else common | {"model_replacement_artifact_root"}
+    if not isinstance(payload, dict) or set(payload) != expected or schema not in {CONFIG_SCHEMA, CONFIG_SCHEMA_V2}:
         raise ResidentDevelopmentalCognitionError("configuration_shape_invalid")
     kinds = payload.get("allowed_source_kinds")
     maximum = payload.get("max_selected_facts")
@@ -178,11 +183,17 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
             or not isinstance(payload.get("history_root"), str) or not payload["history_root"]
             or not isinstance(payload.get("state_root"), str) or not payload["state_root"]):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
+    provenance_root = payload.get("model_replacement_artifact_root")
+    if schema == CONFIG_SCHEMA_V2 and (not isinstance(provenance_root, str) or not provenance_root):
+        raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     history_root, state_root = Path(payload["history_root"]), Path(payload["state_root"])
     if history_root == state_root:
         raise ResidentDevelopmentalCognitionError("configuration_roots_must_be_separate")
+    if provenance_root is not None and Path(provenance_root) in {history_root, state_root}:
+        raise ResidentDevelopmentalCognitionError("configuration_artifact_root_must_be_separate")
     return ResidentDevelopmentalCognitionConfig(history_root, state_root, tuple(sorted(kinds)), maximum,
-                                                 history_maximum, payload["comparison_enabled"], payload["enabled"])
+        history_maximum, payload["comparison_enabled"], payload["enabled"],
+        Path(provenance_root) if provenance_root is not None else None)
 
 
 class ResidentDevelopmentalCognitionOwner:

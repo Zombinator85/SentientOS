@@ -327,12 +327,15 @@ class RuntimeMaintenanceSurfaces:
         self._resident_software_transition_config: Mapping[str, Any] | None = None
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
+        self._resident_developmental_configuration_status = (
+            "explicitly_injected" if self._resident_developmental_owner is not None else "not_configured")
         resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
         self._resident_cognitive_invoker = resident_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
             try:
                 config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
                 if config.enabled:
+                    self._resident_developmental_configuration_status = "enabled"
                     ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
                     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
                     def current_admission_sequence() -> int:
@@ -353,8 +356,12 @@ class RuntimeMaintenanceSurfaces:
                     ) if resident_invoker is not None else None
                     if resident_invoker is None:
                         self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"
+                        self._resident_developmental_configuration_status = "blocked_invoker_unavailable"
+                else:
+                    self._resident_developmental_configuration_status = "disabled"
             except Exception as exc:
                 self._resident_developmental_configuration_error = f"{type(exc).__name__}:{exc}"
+                self._resident_developmental_configuration_status = "invalid"
         if self._resident_developmental_owner is not None and self._resident_cognition_gate is not None:
             self._resident_developmental_owner = QuiescedDevelopmentalCognitionOwner(
                 self._resident_developmental_owner, self._resident_cognition_gate)
@@ -575,6 +582,85 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot_built_for_tick = tick_key
         return feedback
 
+    def _resident_model_provenance_bindings(self, protocol_value: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+        references = protocol_value.get("model_replacement_protocol_references")
+        if not isinstance(references, Mapping) or not references:
+            legacy: dict[str, dict[str, Any]] = {}
+            for role in ("predecessor_a", "successor_b"):
+                identity = protocol_value.get(role)
+                reference = identity.get("model_development_provenance") if isinstance(identity, Mapping) else None
+                reference_digest = identity.get("model_development_provenance_digest") if isinstance(identity, Mapping) else None
+                if reference is not None or reference_digest is not None:
+                    legacy[role] = {"posture": "referenced_unverified_legacy_binding",
+                        "reference": {"manifest_digest": (reference_digest or
+                            (reference.get("manifest_digest") if isinstance(reference, Mapping) else None)),
+                            "reference_present": True}}
+                else:
+                    legacy[role] = {"posture": "unavailable_not_protocol_bound"}
+            return legacy
+        owner = self._resident_developmental_owner
+        if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
+            owner = owner._owner
+        if owner is None:
+            posture = {
+                "disabled": "unavailable_developmental_configuration_disabled",
+                "invalid": "unavailable_invalid_developmental_configuration",
+                "blocked_invoker_unavailable": "unavailable_developmental_invoker",
+            }.get(self._resident_developmental_configuration_status,
+                "unavailable_developmental_owner_not_composed")
+            return {role: {"posture": posture} for role in references}
+        config = getattr(owner, "config", None)
+        artifact_root = getattr(config, "model_replacement_artifact_root", None)
+        if artifact_root is None:
+            return {role: {"posture": "unavailable_artifact_store_not_configured",
+                "protocol_id": reference.get("protocol_id") if isinstance(reference, Mapping) else None,
+                "protocol_digest": reference.get("protocol_digest") if isinstance(reference, Mapping) else None}
+                for role, reference in references.items()}
+        from sentientos.developmental_model_replacement_experiment import (
+            DevelopmentalModelReplacementError, ModelReplacementArtifactStore)
+        try:
+            store = ModelReplacementArtifactStore(Path(artifact_root))
+        except (TypeError, ValueError, OSError):
+            return {role: {"posture": "contradictory_artifact_store_configuration"}
+                    for role in references}
+        bindings: dict[str, dict[str, Any]] = {}
+        model_roles = {"predecessor_a": "predecessor_a", "successor_b": "successor_b"}
+        for transition_role, reference in references.items():
+            expected_identity = protocol_value.get(model_roles[transition_role])
+            if not isinstance(reference, Mapping):
+                bindings[transition_role] = {"posture": "contradictory_protocol_reference"}
+                continue
+            try:
+                replacement, identity, manifest = store.load_verified_protocol_provenance(
+                    str(reference.get("protocol_id", "")),
+                    str(reference.get("protocol_digest", "")),
+                    model_role=str(reference.get("model_role", "")))
+                if dict(identity.active_model_identity) != dict(expected_identity or {}):
+                    raise DevelopmentalModelReplacementError("provenance_subject_active_identity_mismatch")
+            except Exception as exc:
+                code = str(exc)
+                posture = ("unavailable_manifest" if code == "provenance_manifest_unavailable"
+                           else "contradictory_provenance_evidence")
+                bindings[transition_role] = {"posture": posture, "finding": code,
+                    "protocol_id": reference.get("protocol_id"),
+                    "protocol_digest": reference.get("protocol_digest")}
+                continue
+            bindings[transition_role] = {
+                "posture": ("verified_source_bound_claim_manifest" if manifest.claims
+                    else "verified_manifest_with_unknown_claims"),
+                "identity_binding_verified": True,
+                "protocol_id": replacement.protocol_id,
+                "protocol_digest": replacement.protocol_digest,
+                "model_role": reference["model_role"],
+                "model_identity_digest": identity.identity_digest,
+                "active_model_identity_digest": identity.active_model_identity_digest,
+                "provenance_manifest_digest": manifest.manifest_digest,
+                "provenance_subject_identity_digest": manifest.subject_identity_digest,
+                "provenance_availability": manifest.availability,
+                "provenance_claim_count": len(manifest.claims),
+            }
+        return bindings
+
     def _resident_succession_world_state_records(self, observed_at: str) -> list[dict[str, Any]]:
         """Expose durable transition events without promoting proposals to observations."""
         records: list[dict[str, Any]] = []
@@ -590,6 +676,7 @@ class RuntimeMaintenanceSurfaces:
                 protocol_value = dict(getattr(protocol, "value", {}))
                 transition_id = str(protocol_value.get("transition_id") or "unknown")
                 predecessor, successor = protocol_value.get("predecessor_a"), protocol_value.get("successor_b")
+                provenance_bindings = self._resident_model_provenance_bindings(protocol_value)
                 health: dict[str, Any] = {}
                 status: dict[str, Any] = {}
                 try:
@@ -634,13 +721,13 @@ class RuntimeMaintenanceSurfaces:
                             "developmental_history_boundary": (protocol_value.get("initial_history_boundary", {}).get("boundary_digest")
                                 if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
                             "replay_forbidden": True}
-                        if isinstance(successor, Mapping) and successor.get("model_development_provenance") is not None:
-                            payload["model_development_provenance_reference"] = successor["model_development_provenance"]
-                            payload["model_development_provenance_reference_posture"] = "protocol_bound_reference_only"
-                        elif isinstance(successor, Mapping) and successor.get("model_development_provenance_digest") is not None:
-                            payload["model_development_provenance_reference"] = {
-                                "manifest_digest": successor["model_development_provenance_digest"]}
-                            payload["model_development_provenance_reference_posture"] = "protocol_bound_reference_only"
+                        successor_provenance = provenance_bindings.get("successor_b",
+                            {"posture": "unavailable_not_protocol_bound"})
+                        payload["proposed_successor_model_development_provenance"] = successor_provenance
+                        payload["model_development_provenance_posture"] = successor_provenance["posture"]
+                        predecessor_provenance = provenance_bindings.get("predecessor_a")
+                        if predecessor_provenance is not None:
+                            payload["predecessor_model_development_provenance"] = predecessor_provenance
                         activation = evidence.get("activation") if isinstance(evidence.get("activation"), Mapping) else None
                         if (activation is not None and entry.get("status") == "completed"
                                 and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
@@ -656,22 +743,32 @@ class RuntimeMaintenanceSurfaces:
                             payload["serving_activation_receipt_id"] = binding.get("activation_receipt_id")
                             payload["serving_activation_receipt_digest"] = binding.get("activation_receipt_digest")
                             payload["serving_expected_model_identity"] = binding.get("expected_model_identity")
+                        provenance_identity = (successor_provenance.get("provenance_manifest_digest")
+                            or successor_provenance.get("posture", "unknown"))
                         records.append({"source_kind": "runtime_supervisor",
-                            "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}",
+                            "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}:{provenance_identity}",
                             "subject_id": transition_id, "subject_kind": "resident_model_transition",
                             "stage": "observation", "disposition": disposition,
                             "evidence_strength": "validated_transition_journal_entry", "payload": payload,
                             "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
+                    running_provenance = next((value for role, value in provenance_bindings.items()
+                        if value.get("identity_binding_verified") is True
+                        and isinstance(protocol_value.get(role), Mapping)
+                        and dict(protocol_value[role]) == dict(session_identity)), None)
+                    running_provenance_identity = ((running_provenance or {}).get("provenance_manifest_digest")
+                        or (running_provenance or {}).get("posture", "unknown"))
                     records.append({"source_kind": "runtime_supervisor",
-                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{running_provenance_identity}",
                         "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
                         "subject_kind": "observed_running_model", "stage": "observation",
                         "disposition": "observed", "evidence_strength": "serving_session_observation",
                         "payload": {"running_model_identity_observed": session_identity,
                             "serving_session_id": status.get("resident_serving_session_id"),
-                            "transition_id": transition_id},
+                            "transition_id": transition_id,
+                            "model_development_provenance": (running_provenance or
+                                {"posture": "unavailable_no_exact_running_identity_binding"})},
                         "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
                 head = health.get("journal_head")
                 if head:
@@ -1488,6 +1585,15 @@ def _compose_causal_introspection(
                 identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
                 status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
                     "resident_serving_session_id": session.session_id if session is not None else None}
+            provenance = runtime_surfaces._resident_model_provenance_bindings(protocol_value)
+            predecessor_provenance = provenance.get("predecessor_a", {})
+            successor_provenance = provenance.get("successor_b", {})
+            running_identity = status.get("resident_model_identity")
+            running_provenance = next((value for role, value in provenance.items()
+                if value.get("identity_binding_verified") is True
+                and isinstance(protocol_value.get(role), Mapping)
+                and isinstance(running_identity, Mapping)
+                and dict(protocol_value[role]) == dict(running_identity)), {})
             return {"transition_id": protocol_value.get("transition_id"),
                 "protocol_digest": protocol_value.get("protocol_digest"),
                 "journal_head_digest": entries[-1].get("entry_digest") if entries else "GENESIS",
@@ -1495,6 +1601,13 @@ def _compose_causal_introspection(
                 "replay_forbidden": health.get("replay_forbidden", True),
                 "predecessor_model_identity": protocol_value.get("predecessor_a"),
                 "proposed_successor_model_identity": protocol_value.get("successor_b"),
+                "predecessor_model_provenance_posture": predecessor_provenance.get("posture", "unknown"),
+                "predecessor_model_provenance_manifest_digest": predecessor_provenance.get("provenance_manifest_digest"),
+                "successor_model_provenance_posture": successor_provenance.get("posture", "unknown"),
+                "successor_model_provenance_manifest_digest": successor_provenance.get("provenance_manifest_digest"),
+                "running_model_provenance_posture": running_provenance.get("posture",
+                    "unavailable_no_exact_running_identity_binding"),
+                "running_model_provenance_manifest_digest": running_provenance.get("provenance_manifest_digest"),
                 "running_model_identity_observed": status.get("resident_model_identity")}
         registrations.append(ProviderRegistration("resident-model-succession", "model_succession",
             LiveOwnerMetadataProvider(provider_id="resident-model-succession-v1",
@@ -1503,7 +1616,14 @@ def _compose_causal_introspection(
                 observation_classes={"transition_id": "identity", "protocol_digest": "identity",
                     "journal_head_digest": "identity", "recovery_status": "health", "current_phase": "lifecycle",
                     "replay_forbidden": "currentness", "predecessor_model_identity": "identity",
-                    "proposed_successor_model_identity": "identity", "running_model_identity_observed": "identity"})))
+                    "proposed_successor_model_identity": "identity",
+                    "predecessor_model_provenance_posture": "lineage",
+                    "predecessor_model_provenance_manifest_digest": "artifact",
+                    "successor_model_provenance_posture": "lineage",
+                    "successor_model_provenance_manifest_digest": "artifact",
+                    "running_model_provenance_posture": "lineage",
+                    "running_model_provenance_manifest_digest": "artifact",
+                    "running_model_identity_observed": "identity"})))
     software_controller = runtime_surfaces._resident_software_transition_controller
     software_config = (software_controller.config if software_controller is not None
                        else runtime_surfaces._resident_software_transition_config)

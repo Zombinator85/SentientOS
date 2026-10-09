@@ -19,6 +19,7 @@ from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
+SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
 BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v1"
 APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
 JOURNAL_SCHEMA = "sentientos.resident_cognitive_model_transition_journal_entry:v1"
@@ -107,8 +108,27 @@ class TransitionProtocol:
     def create(cls, *, installation_identity: str, predecessor: Mapping[str, Any],
                successor: Mapping[str, Any], initial_activation: Mapping[str, Any],
                initial_session: Mapping[str, Any], initial_boundary: Mapping[str, Any],
-               b_operation_id: str, restored_a_operation_id: str) -> "TransitionProtocol":
-        body = {"schema_version": SCHEMA, "installation_identity": installation_identity,
+               b_operation_id: str, restored_a_operation_id: str,
+               model_replacement_protocol_references: Mapping[str, Mapping[str, str]] | None = None) -> "TransitionProtocol":
+        if model_replacement_protocol_references is not None and not isinstance(model_replacement_protocol_references, Mapping):
+            raise TransitionError("model_provenance_protocol_reference_invalid")
+        references = _plain(model_replacement_protocol_references or {})
+        if references:
+            if not isinstance(references, dict) or set(references) - {"predecessor_a", "successor_b"}:
+                raise TransitionError("model_provenance_protocol_reference_invalid")
+            for reference in references.values():
+                if (not isinstance(reference, dict)
+                        or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
+                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or not isinstance(reference.get("protocol_id"), str)
+                        or not reference["protocol_id"].startswith("model-replacement-protocol-")
+                        or not isinstance(reference.get("protocol_digest"), str)
+                        or len(reference["protocol_digest"]) != 71
+                        or not reference["protocol_digest"].startswith("sha256:")
+                        or any(c not in "0123456789abcdef" for c in reference["protocol_digest"][7:])):
+                    raise TransitionError("model_provenance_protocol_reference_invalid")
+        body = {"schema_version": SCHEMA_V2 if references else SCHEMA,
+                "installation_identity": installation_identity,
                 "predecessor_a": _plain(predecessor), "successor_b": _plain(successor),
                 "restored_a": _plain(predecessor), "initial_activation": _plain(initial_activation),
                 "initial_resident_session": _plain(initial_session),
@@ -118,6 +138,8 @@ class TransitionProtocol:
                 "failure_policy": "interrupt_no_retry_no_rollback", "grants_authority": False,
                 "nonclaims": ["personal_identity", "consciousness_continuity", "selfhood_continuity",
                               "learning", "improvement"]}
+        if references:
+            body["model_replacement_protocol_references"] = references
         pd = digest(body)
         return cls(MappingProxyType({**body, "protocol_id": "resident-transition-protocol-" + pd[:24],
                                      "protocol_digest": pd, "transition_id": "transition-" + pd[:24]}))
@@ -127,10 +149,28 @@ class TransitionProtocol:
         claimed = value.pop("protocol_digest", None)
         protocol_id = value.pop("protocol_id", None)
         transition_id = value.pop("transition_id", None)
-        if (value.get("schema_version") != SCHEMA or value.get("phase_order") != list(PHASES)
+        schema = value.get("schema_version")
+        references = value.get("model_replacement_protocol_references")
+        if ((schema == SCHEMA and references is not None)
+                or (schema == SCHEMA_V2 and (not isinstance(references, Mapping) or not references
+                    or set(references) - {"predecessor_a", "successor_b"}))
+                or schema not in {SCHEMA, SCHEMA_V2}
+                or value.get("phase_order") != list(PHASES)
                 or digest(value) != claimed or protocol_id != "resident-transition-protocol-" + str(claimed)[:24]
                 or transition_id != "transition-" + str(claimed)[:24]):
             raise TransitionError("protocol_tamper")
+        if schema == SCHEMA_V2:
+            for reference in references.values():
+                if (not isinstance(reference, Mapping)
+                        or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
+                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or not isinstance(reference.get("protocol_id"), str)
+                        or not reference["protocol_id"].startswith("model-replacement-protocol-")
+                        or not isinstance(reference.get("protocol_digest"), str)
+                        or len(reference["protocol_digest"]) != 71
+                        or not reference["protocol_digest"].startswith("sha256:")
+                        or any(c not in "0123456789abcdef" for c in reference["protocol_digest"][7:])):
+                    raise TransitionError("protocol_model_provenance_reference_invalid")
 
 
 class ResidentCognitionQuiescenceGate:

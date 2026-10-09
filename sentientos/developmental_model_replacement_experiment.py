@@ -6,6 +6,8 @@ governed endpoints; the experiment never changes either endpoint or any memory.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
@@ -17,6 +19,10 @@ CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
 PROVENANCE_SCHEMA = "sentientos.model_development_provenance:v1"
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_protocol:v1"
 RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v1"
+MAX_PROVENANCE_ARTIFACT_BYTES = 262_144
+MAX_PROVENANCE_CLAIMS = 128
+MAX_PROTOCOL_ARTIFACT_BYTES = 1_048_576
+MAX_RUN_ARTIFACT_BYTES = 4_194_304
 CONDITION_ORDER = (
     "model_a_history_present", "model_a_history_withheld",
     "model_b_history_present", "model_b_history_withheld",
@@ -85,6 +91,21 @@ class CognitiveModelIdentity:
             raise DevelopmentalModelReplacementError("model_identity_not_production_eligible")
         if self.active_model_identity_digest != _digest(dict(self.active_model_identity)):
             raise DevelopmentalModelReplacementError("active_model_identity_digest_mismatch")
+        observed = self.active_model_identity
+        identity_bindings = {
+            "semantic_artifact_identity": self.semantic_artifact_identity,
+            "model_content_sha256": self.model_content_sha256,
+            "artifact_size_bytes": self.artifact_size_bytes,
+            "sidecar_metadata_digest": self.sidecar_metadata_digest,
+            "configuration_digest": self.configuration_digest,
+            "engine": self.engine_runtime_family,
+            "candidate_index": self.candidate_index,
+        }
+        if (not isinstance(observed, Mapping)
+                or any(observed.get(key) != value for key, value in identity_bindings.items())
+                or observed.get("posture") != "production"
+                or observed.get("fallback") is not False):
+            raise DevelopmentalModelReplacementError("model_identity_active_observation_mismatch")
         if self.identity_digest != _digest(_identity_payload(self)):
             raise DevelopmentalModelReplacementError("model_identity_digest_mismatch")
 
@@ -119,6 +140,16 @@ class ModelDevelopmentClaim:
             raise DevelopmentalModelReplacementError("provenance_claim_digest_mismatch")
         if self.subject_identity_digest != subject.identity_digest:
             raise DevelopmentalModelReplacementError("provenance_subject_mismatch")
+        string_values = (self.claim_id, self.subject_identity_digest, self.relation_type,
+                         self.evidence_kind, self.epistemic_posture)
+        if (any(not isinstance(value, str) or not value or len(value) > 512 for value in string_values)
+                or (self.claimed_parent_or_teacher is not None and
+                    (not isinstance(self.claimed_parent_or_teacher, str) or len(self.claimed_parent_or_teacher) > 2048))
+                or (self.source_reference is not None and
+                    (not isinstance(self.source_reference, str) or len(self.source_reference) > 2048))
+                or (self.evidence_digest is not None and
+                    (not isinstance(self.evidence_digest, str) or len(self.evidence_digest) > 256))):
+            raise DevelopmentalModelReplacementError("provenance_claim_fields_invalid")
         if self.epistemic_posture not in EPISTEMIC_POSTURES:
             raise DevelopmentalModelReplacementError("provenance_posture_invalid")
 
@@ -146,8 +177,11 @@ class ModelDevelopmentProvenance:
             raise DevelopmentalModelReplacementError("provenance_manifest_digest_mismatch")
         if self.subject_identity_digest != subject.identity_digest:
             raise DevelopmentalModelReplacementError("provenance_subject_mismatch")
-        if not self.claims and self.availability != "unknown":
-            raise DevelopmentalModelReplacementError("absent_provenance_must_be_unknown")
+        if (len(self.claims) > MAX_PROVENANCE_CLAIMS
+                or self.availability not in {"source_bound_evidence_available", "unknown"}
+                or (not self.claims and self.availability != "unknown")
+                or (self.claims and self.availability != "source_bound_evidence_available")):
+            raise DevelopmentalModelReplacementError("provenance_availability_or_bounds_invalid")
         for claim in self.claims:
             claim.verify(subject)
 
@@ -270,8 +304,88 @@ class ModelReplacementArtifactStore:
             return
         atomic_write_json(path, normalized)
 
+    def _read_artifact_json(self, path: Path, *, maximum_bytes: int,
+                            missing_code: str, invalid_code: str) -> dict[str, Any]:
+        descriptor: int | None = None
+        try:
+            if (self.root.is_symlink() or self.root.parent.is_symlink()
+                    or path.parent.is_symlink()):
+                raise DevelopmentalModelReplacementError(invalid_code)
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes:
+                raise DevelopmentalModelReplacementError(invalid_code)
+            chunks: list[bytes] = []
+            remaining = metadata.st_size
+            while remaining:
+                chunk = os.read(descriptor, min(remaining, 65536))
+                if not chunk:
+                    raise DevelopmentalModelReplacementError(invalid_code)
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            value = json.loads(b"".join(chunks).decode("utf-8"))
+            if not isinstance(value, dict):
+                raise DevelopmentalModelReplacementError(invalid_code)
+            return value
+        except FileNotFoundError as exc:
+            raise DevelopmentalModelReplacementError(missing_code) from exc
+        except DevelopmentalModelReplacementError:
+            raise
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise DevelopmentalModelReplacementError(invalid_code) from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
     def persist_provenance(self, manifest: ModelDevelopmentProvenance) -> None:
         self._write(self.provenance / f"{manifest.manifest_digest[7:]}.json", asdict(manifest))
+
+    def load_verified_provenance(self, manifest_digest: str,
+                                 subject: CognitiveModelIdentity) -> ModelDevelopmentProvenance:
+        """Load one exact, content-addressed manifest and verify its model subject.
+
+        A digest identifies stored bytes; ``verify`` checks the manifest and
+        each claim against the supplied independently verified model identity.
+        This method does not treat a manifest as evidence that a model is
+        installed, active, or running.
+        """
+        subject.verify()
+        if (not isinstance(manifest_digest, str) or not manifest_digest.startswith("sha256:")
+                or len(manifest_digest) != 71
+                or any(character not in "0123456789abcdef" for character in manifest_digest[7:])):
+            raise DevelopmentalModelReplacementError("provenance_manifest_reference_invalid")
+        path = self.provenance / f"{manifest_digest[7:]}.json"
+        value = self._read_artifact_json(path, maximum_bytes=MAX_PROVENANCE_ARTIFACT_BYTES,
+            missing_code="provenance_manifest_unavailable",
+            invalid_code="provenance_manifest_unbounded_or_not_regular")
+        raw_claims = value.get("claims")
+        if not isinstance(raw_claims, list) or len(raw_claims) > MAX_PROVENANCE_CLAIMS:
+            raise DevelopmentalModelReplacementError("provenance_claim_retention_limit_exceeded")
+        try:
+            value["claims"] = tuple(ModelDevelopmentClaim(**row) for row in raw_claims)
+            manifest = ModelDevelopmentProvenance(**value)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalModelReplacementError("provenance_manifest_invalid") from exc
+        if (path.stem != manifest_digest[7:]
+                or manifest.manifest_digest != manifest_digest
+                or manifest.subject_identity_digest != subject.identity_digest):
+            raise DevelopmentalModelReplacementError("provenance_manifest_subject_or_path_mismatch")
+        manifest.verify(subject)
+        return manifest
+
+    def load_verified_protocol_provenance(self, protocol_id: str, protocol_digest: str,
+                                          *, model_role: str) -> tuple[ModelReplacementProtocol,
+                                                                       CognitiveModelIdentity,
+                                                                       ModelDevelopmentProvenance]:
+        """Load a preregistered model identity and its exact provenance manifest."""
+        if model_role not in {"model_a", "model_b"}:
+            raise DevelopmentalModelReplacementError("provenance_model_role_invalid")
+        protocol = self.load_verified_protocol(protocol_id, protocol_digest)
+        identity = protocol.model_a_identity if model_role == "model_a" else protocol.model_b_identity
+        manifest_digest = (protocol.model_a_provenance_digest if model_role == "model_a"
+                           else protocol.model_b_provenance_digest)
+        provenance = self.load_verified_provenance(manifest_digest, identity)
+        return protocol, identity, provenance
 
     def persist_protocol(self, protocol: ModelReplacementProtocol) -> None:
         protocol.verify()
@@ -280,7 +394,9 @@ class ModelReplacementArtifactStore:
     def verify_protocol_bytes(self, protocol: ModelReplacementProtocol) -> None:
         path = self.protocols / f"{protocol.protocol_id}.json"
         expected = json.loads(json.dumps(asdict(protocol), sort_keys=True))
-        if not path.is_file() or json.loads(path.read_text(encoding="utf-8")) != expected:
+        stored = self._read_artifact_json(path, maximum_bytes=MAX_PROTOCOL_ARTIFACT_BYTES,
+            missing_code="preregistered_protocol_unavailable", invalid_code="protocol_artifact_invalid")
+        if stored != expected:
             raise DevelopmentalModelReplacementError("protocol_custody_changed")
 
     def load_verified_protocol(self, protocol_id: str, protocol_digest: str) -> ModelReplacementProtocol:
@@ -290,14 +406,15 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("protocol_identity_invalid")
         path = self.protocols / f"{protocol_id}.json"
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = self._read_artifact_json(path, maximum_bytes=MAX_PROTOCOL_ARTIFACT_BYTES,
+                missing_code="preregistered_protocol_unavailable", invalid_code="protocol_artifact_invalid")
             for role in ("model_a_identity", "model_b_identity"):
                 value[role] = CognitiveModelIdentity(**value[role])
             value["condition_order"] = tuple(value["condition_order"])
             value["planned_comparisons"] = tuple(value["planned_comparisons"])
             value["non_claims"] = tuple(value["non_claims"])
             protocol = ModelReplacementProtocol(**value)
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("preregistered_protocol_unavailable") from exc
         if protocol.protocol_id != protocol_id or protocol.protocol_digest != protocol_digest:
             raise DevelopmentalModelReplacementError("protocol_identity_mismatch")
@@ -314,8 +431,9 @@ class ModelReplacementArtifactStore:
     def load_verified_run(self, run_id: str, run_digest: str) -> dict[str, Any]:
         path = self.runs / f"{run_id}.json"
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            value = self._read_artifact_json(path, maximum_bytes=MAX_RUN_ARTIFACT_BYTES,
+                missing_code="trial_run_artifact_unavailable", invalid_code="trial_run_artifact_invalid")
+        except (OSError, json.JSONDecodeError, DevelopmentalModelReplacementError) as exc:
             raise DevelopmentalModelReplacementError("trial_run_artifact_unavailable") from exc
         semantic = {key: item for key, item in value.items() if key not in {"run_id", "run_digest"}}
         if (value.get("run_id") != run_id or value.get("run_digest") != run_digest
