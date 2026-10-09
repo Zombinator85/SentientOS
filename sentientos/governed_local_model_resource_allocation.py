@@ -346,6 +346,7 @@ class GovernedLocalModelResourceLedger:
     def observation_snapshot(self) -> Mapping[str, object]:
         """Return sealed ledger identities for a read-only causal observer."""
         with self._lock:
+            self._verify_invariants(self._state)
             body = self._body()
             return {"schema": LEDGER_SCHEMA, "ledger_digest": _digest(body),
                     "allocations": tuple(body["allocations"].values()),
