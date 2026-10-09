@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
+import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .local_model_authority import atomic_write_json, digest_payload
+from .local_model_authority import digest_payload
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
@@ -23,6 +26,9 @@ FALSE_AUTHORITY = {
 }
 MAX_CLAIMS = 256
 MAX_VALUE_BYTES = 4096
+MAX_RECONCILIATION_ENTRIES = 4096
+MAX_RECONCILIATION_BYTES = 4_194_304
+MAX_RECONCILIATION_CUSTODY_BYTES = 268_435_456
 FORBIDDEN_PREDICATES = {
     "authority", "permission", "policy", "goal", "adoption", "consciousness",
     "sentience", "identity_continuity", "learning", "improvement",
@@ -260,13 +266,92 @@ class LongitudinalSelfModelOwner:
         self.root = Path(root)
         self.entries = self.root / "reconciliations"
 
-    def _load(self) -> tuple[SelfModelReconciliation, ...]:
-        if not self.entries.exists():
-            return ()
-        loaded: list[SelfModelReconciliation] = []
-        for path in sorted(self.entries.glob("*.json")):
+    @staticmethod
+    def _read_entry(path: Path) -> bytes:
+        descriptor: int | None = None
+        try:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_RECONCILIATION_BYTES:
+                raise LongitudinalSelfModelError("reconciliation_file_unbounded_or_not_regular")
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_RECONCILIATION_BYTES):
+                raise LongitudinalSelfModelError("reconciliation_file_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_RECONCILIATION_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            data = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if len(data) > MAX_RECONCILIATION_BYTES:
+                raise LongitudinalSelfModelError("reconciliation_file_unbounded_or_not_regular")
+            if (len(data) != opened.st_size or after.st_size != opened.st_size
+                    or after.st_mtime_ns != opened.st_mtime_ns):
+                raise LongitudinalSelfModelError("reconciliation_file_changed_during_read")
+            return data
+        except LongitudinalSelfModelError:
+            raise
+        except OSError as exc:
+            raise LongitudinalSelfModelError("reconciliation_file_unavailable") from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
+    def _publish_entry(self, path: Path, result: SelfModelReconciliation) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if path.parent.is_symlink() or not path.parent.is_dir():
+            raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
+        data = json.dumps(asdict(result), sort_keys=True, indent=2).encode("utf-8") + b"\n"
+        if len(data) > MAX_RECONCILIATION_BYTES:
+            raise LongitudinalSelfModelError("reconciliation_file_unbounded")
+        descriptor, temporary = tempfile.mkstemp(prefix=".reconciliation-", suffix=".tmp",
+            dir=str(path.parent))
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
             try:
-                raw = json.loads(path.read_text(encoding="utf-8"))
+                os.link(temporary, path, follow_symlinks=False)
+            except FileExistsError as exc:
+                raise LongitudinalSelfModelError("reconciliation_path_collision") from exc
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+    def _load(self) -> tuple[SelfModelReconciliation, ...]:
+        if self.root.is_symlink():
+            raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
+        try:
+            entries_mode = self.entries.lstat().st_mode
+        except FileNotFoundError:
+            return ()
+        if not stat.S_ISDIR(entries_mode):
+            raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
+        paths = sorted(self.entries.glob("*.json"))
+        if len(paths) > MAX_RECONCILIATION_ENTRIES:
+            raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
+        loaded: list[SelfModelReconciliation] = []
+        total_bytes = 0
+        for path in paths:
+            try:
+                entry_bytes = self._read_entry(path)
+                total_bytes += len(entry_bytes)
+                if total_bytes > MAX_RECONCILIATION_CUSTODY_BYTES:
+                    raise LongitudinalSelfModelError("reconciliation_custody_limit_exceeded")
+                raw = json.loads(entry_bytes.decode("utf-8"))
                 claims = tuple(SelfModelClaim(**{
                     **claim,
                     "source_evidence_ids": tuple(claim["source_evidence_ids"]),
@@ -277,12 +362,13 @@ class LongitudinalSelfModelOwner:
                     "superseded_by": tuple(claim["superseded_by"]),
                 }) for claim in raw.pop("claims"))
                 reconciliation = SelfModelReconciliation(claims=claims, **raw)
-            except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, RecursionError) as exc:
                 raise LongitudinalSelfModelError("reconciliation_journal_corrupt") from exc
             if reconciliation.schema != RECONCILIATION_SCHEMA or reconciliation.reconciliation_digest != _digest(_semantic(reconciliation)):
                 raise LongitudinalSelfModelError("reconciliation_digest_mismatch")
             expected_id = "self-reconciliation-" + reconciliation.reconciliation_digest[7:31]
-            if reconciliation.reconciliation_id != expected_id:
+            expected_path = f"{reconciliation.generation:020d}-{expected_id}.json"
+            if reconciliation.reconciliation_id != expected_id or path.name != expected_path:
                 raise LongitudinalSelfModelError("reconciliation_identity_mismatch")
             loaded.append(reconciliation)
         for index, item in enumerate(loaded):
@@ -368,6 +454,8 @@ class LongitudinalSelfModelOwner:
                 return history_item
 
         generation = len(history) + 1
+        if generation > MAX_RECONCILIATION_ENTRIES:
+            raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
         previous = history[-1] if history else None
         prior_current = {claim.claim_key: claim for claim in previous.claims if claim.status in {"current", "contradicted", "unresolved"}} if previous else {}
         candidates: dict[str, list[tuple[WorldStateFact, str, Any, str]]] = {}
@@ -439,9 +527,7 @@ class LongitudinalSelfModelOwner:
         dg = _digest(_semantic(shell)); result = replace(shell, reconciliation_id="self-reconciliation-" + dg[7:31], reconciliation_digest=dg)
         self.entries.mkdir(parents=True, exist_ok=True)
         target = self.entries / f"{generation:020d}-{result.reconciliation_id}.json"
-        if target.exists():
-            raise LongitudinalSelfModelError("reconciliation_path_collision")
-        atomic_write_json(target, asdict(result))
+        self._publish_entry(target, result)
         return result
 
 
