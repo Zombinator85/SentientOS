@@ -286,9 +286,22 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     not attributed to an invocation without an independent receipt.
     """
     snapshot = ledger.observation_snapshot()
+    receipts = []
+    for receipt in snapshot["receipts"]:
+        item = dict(receipt)
+        measurement = dict(item.get("resource_specific_measurement", {}))
+        item["measurement_posture"] = {
+            "call_units": "measured" if measurement.get("call_units_consumed") in (0, 1) else "unknown",
+            "generated_output_size": "measured" if isinstance(measurement.get("generated_output_size_bytes"), int) else "unknown",
+            "returned_output_size": "measured" if isinstance(measurement.get("returned_output_size_bytes"), int) else "unknown",
+            "latency": "measured" if isinstance(measurement.get("latency_ms"), int) else "unknown",
+            "token_count": "unknown",
+            "shared_host_cpu_gpu": "unknown_without_independent_observation",
+        }
+        receipts.append(item)
     payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
                "allocations": snapshot["allocations"], "attempts": snapshot["attempts"],
-               "consumption_receipts": snapshot["receipts"],
+               "consumption_receipts": tuple(receipts),
                "invocation_receipts": tuple(dict(item) for item in invocation_receipts),
                "attribution_posture": "receipt_bound_only",
                "shared_host_usage_attribution": "unknown_without_independent_observation"}
