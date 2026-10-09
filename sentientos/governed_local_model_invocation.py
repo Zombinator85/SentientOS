@@ -162,7 +162,11 @@ def _status_for_denial(outcome: str) -> str:
 
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None
+
+    def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
+        """Install an explicit observational receipt sink owned by the runtime."""
+        self._evidence_sink = sink
 
     def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None, structured_output_schema: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
         identity = getattr(self.model, "active_identity", None)
@@ -310,6 +314,8 @@ class GovernedLocalModelInvoker:
                 # Backend entry is irreversible.  Never restore it merely because
                 # post-effect resource bookkeeping lost custody.
                 receipt = replace(receipt, status="resource_reconciliation_failure", reason_codes=(*receipt.reason_codes, "resource_reconciliation_failed"))
+        if self._evidence_sink is not None:
+            self._evidence_sink(receipt.to_dict(include_output=False))
         return receipt
 
     def _record_for(self, model_id: str) -> LocalModelAuthorityRecord | None:

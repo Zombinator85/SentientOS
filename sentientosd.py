@@ -368,6 +368,8 @@ class RuntimeMaintenanceSurfaces:
             "degraded": False,
             "surfaces": {},
         }
+        if self._governed_local_invoker is not None:
+            self._governed_local_invoker.register_evidence_sink(self.register_governed_invocation_receipt)
 
     def register_governed_invocation_receipt(self, receipt: Mapping[str, Any]) -> None:
         """Admit an already-produced invocation receipt as bounded evidence.
