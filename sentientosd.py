@@ -32,7 +32,7 @@ from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
-from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
+from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
 from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary)
@@ -367,6 +367,25 @@ class RuntimeMaintenanceSurfaces:
             "degraded": False,
             "surfaces": {},
         }
+
+    def register_governed_invocation_receipt(self, receipt: Mapping[str, Any]) -> None:
+        """Admit an already-produced invocation receipt as bounded evidence.
+
+        Registration is observational only: it validates the receipt identity,
+        deduplicates by receipt ID, and never invokes a model or grants effect
+        authority. The next World-State build carries the exact receipt fields.
+        """
+        valid, findings = validate_receipt(receipt)
+        if not valid:
+            raise ValueError("invalid_governed_invocation_receipt:" + ",".join(findings))
+        receipt_id = str(receipt.get("receipt_id") or "")
+        if not receipt_id:
+            raise ValueError("missing_governed_invocation_receipt_id")
+        if any(str(item.get("receipt_id") or "") == receipt_id for item in self._governed_invocation_receipts):
+            return
+        if len(self._governed_invocation_receipts) >= 256:
+            self._governed_invocation_receipts = self._governed_invocation_receipts[-255:]
+        self._governed_invocation_receipts = (*self._governed_invocation_receipts, dict(receipt))
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
         records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
