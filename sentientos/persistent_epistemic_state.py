@@ -382,7 +382,8 @@ class PersistentEpistemicStateOwner:
             if not _valid_identity(identity, "epistemic-calibration"): return False
             expected = f"{identity}.json"
         elif kind == "transactions":
-            transaction_semantic = {key: value.get(key) for key in ("state", "event")}
+            transaction_keys = ("state", "event", "mutation_binding") if "mutation_binding" in value else ("state", "event")
+            transaction_semantic = {key: value.get(key) for key in transaction_keys}
             identity, transaction_digest = _identity("epistemic-transaction", transaction_semantic)
             if (value.get("transaction_id") != identity
                     or value.get("transaction_digest") != transaction_digest):
@@ -434,14 +435,19 @@ class PersistentEpistemicStateOwner:
     def _recover_transactions(self) -> None:
         """Complete only digest-valid state/event pairs from immutable intents."""
         prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
-        generation_bindings: dict[tuple[str, int], tuple[str, str]] = {}
+        generation_bindings: dict[tuple[str, int], tuple[str, str, str]] = {}
         for raw in self._read("transactions"):
-            if set(raw) != {"transaction_id", "transaction_digest", "state", "event"}:
+            expected_transaction_fields = {"transaction_id", "transaction_digest", "state", "event"}
+            if "mutation_binding" in raw:
+                expected_transaction_fields.add("mutation_binding")
+            if set(raw) != expected_transaction_fields:
                 raise EpistemicStateError("epistemic_transaction_shape_invalid")
             state_raw, event_raw = raw.get("state"), raw.get("event")
             if not isinstance(state_raw, dict) or not isinstance(event_raw, dict):
                 raise EpistemicStateError("epistemic_transaction_shape_invalid")
             semantic = {"state": state_raw, "event": event_raw}
+            if "mutation_binding" in raw:
+                semantic["mutation_binding"] = raw.get("mutation_binding")
             transaction_id, transaction_digest = _identity("epistemic-transaction", semantic)
             if (raw.get("transaction_id"), raw.get("transaction_digest")) != (
                     transaction_id, transaction_digest):
@@ -468,8 +474,20 @@ class PersistentEpistemicStateOwner:
                     or state.last_update_event_id != event.event_id
                     or not isinstance(event.tick, int) or isinstance(event.tick, bool) or event.tick < 0):
                 raise EpistemicStateError("epistemic_transaction_lineage_invalid")
+            mutation_binding = raw.get("mutation_binding")
+            if mutation_binding is not None:
+                if (not isinstance(mutation_binding, Mapping)
+                        or set(mutation_binding) != {"candidate_id", "candidate_digest", "admission_id",
+                            "admission_binding_digest", "operation_id", "correlation_id"}
+                        or mutation_binding.get("candidate_id") != event.candidate_id
+                        or mutation_binding.get("correlation_id") != event.correlation_id
+                        or any(not isinstance(mutation_binding.get(key), str) or not mutation_binding[key]
+                            for key in ("candidate_id", "candidate_digest", "admission_id",
+                                "admission_binding_digest", "operation_id", "correlation_id"))):
+                    raise EpistemicStateError("epistemic_transaction_mutation_binding_invalid")
             generation = (state.proposition_id, state.generation)
-            pair = (state.state_digest, event.event_digest)
+            pair = (state.state_digest, event.event_digest,
+                    digest(mutation_binding) if mutation_binding is not None else digest(None))
             previous = generation_bindings.get(generation)
             if previous is not None and previous != pair:
                 raise EpistemicStateError("epistemic_transaction_generation_conflict")
@@ -643,7 +661,8 @@ class PersistentEpistemicStateOwner:
                       removed_binding_ids: Sequence[str] = (), dependency_changes: Mapping[str,str] = {},
                       reliability_changes: Mapping[str,str] = {}, update_rule_id: str = "qualitative_explicit:v1",
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
-                      correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
+                      correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None,
+                      mutation_binding: Mapping[str, Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
         with self._mutation_lock():
             return self._commit_update_locked(proposition_id=proposition_id,
                 expected_predecessor_digest=expected_predecessor_digest, stance=stance, reason=reason,
@@ -651,14 +670,16 @@ class PersistentEpistemicStateOwner:
                 removed_binding_ids=removed_binding_ids, dependency_changes=dependency_changes,
                 reliability_changes=reliability_changes, update_rule_id=update_rule_id,
                 update_rule_revision=update_rule_revision, candidate=candidate,
-                correlation_id=correlation_id, tick=tick, recorded_at=recorded_at, confidence=confidence)
+                correlation_id=correlation_id, tick=tick, recorded_at=recorded_at, confidence=confidence,
+                mutation_binding=mutation_binding)
 
     def _commit_update_locked(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
                       reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
                       removed_binding_ids: Sequence[str] = (), dependency_changes: Mapping[str,str] = {},
                       reliability_changes: Mapping[str,str] = {}, update_rule_id: str = "qualitative_explicit:v1",
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
-                      correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
+                      correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None,
+                      mutation_binding: Mapping[str, Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
         self.verify(); self.proposition(proposition_id); prior=self.current_state(proposition_id)
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
@@ -704,7 +725,8 @@ class PersistentEpistemicStateOwner:
         event=EpistemicUpdateEvent(eid,edg,proposition_id,actual,sdg,reason,tuple(sorted(added_binding_ids)),
             tuple(sorted(removed_binding_ids)),dict(dependency_changes),dict(reliability_changes),update_rule_revision,
             candidate.candidate_id if candidate else None,"deterministically_validated",correlation_id,tick,generation,dict(FALSE_AUTHORITY))
-        transaction_semantic = {"state": asdict(state), "event": asdict(event)}
+        transaction_semantic = {"state": asdict(state), "event": asdict(event),
+                                "mutation_binding": dict(mutation_binding) if mutation_binding is not None else None}
         transaction_id, transaction_digest = _identity("epistemic-transaction", transaction_semantic)
         transaction = {**transaction_semantic, "transaction_id": transaction_id,
                        "transaction_digest": transaction_digest}
