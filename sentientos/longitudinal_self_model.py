@@ -96,6 +96,7 @@ HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
     "observation_missing", "renderer_report_only", "indeterminate", "execution_failed",
     "body_generation_mismatch", "correlation_mismatch",
 })
+HISTORICAL_COMPARISON_RESULTS = frozenset({"satisfied", "contradicted", "missing", "indeterminate"})
 HISTORICAL_REVIEW_SUBJECTS = frozenset({"embodied_strategy_proposal_review"})
 HISTORICAL_FULFILLMENT_SUBJECTS = frozenset({"embodied_proposal_fulfillment_receipt"})
 _REVIEW_CONTEXT_FIELDS = (
@@ -283,6 +284,73 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.payload.get("classification") in HISTORICAL_CONSEQUENCE_CLASSES):
         out.append(("embodiment.historical_consequence_classification",
                     _bounded(fact.payload["classification"]), "historical_interpretation"))
+    # Keep enough of the prediction comparison in durable history for a later
+    # cognition to inspect what was compared and which fields were unresolved.
+    # Values themselves stay in the source record; this compact claim carries
+    # only digest-bound identities, outcome labels and bounded counts.
+    if (fact.source.kind == "embodiment" and fact.source.finding == "ok"
+            and fact.subject.subject_kind in {"embodied_consequence_attribution",
+                                               "embodied_prediction_comparison"}):
+        payload = fact.payload
+        attribution_record = fact.subject.subject_kind == "embodied_consequence_attribution"
+        identity_fields = (("attribution_id", "attribution_digest") if attribution_record
+                          else ("comparison_id", "comparison_digest"))
+        record_id, record_digest = (payload.get(identity_fields[0]), payload.get(identity_fields[1]))
+        comparison_id = payload.get("comparison_id")
+        comparison_digest = payload.get("comparison_digest")
+        expectation_id = payload.get("expectation_id")
+        expectation_digest = payload.get("expectation_digest")
+        observation_id = payload.get("observation_id")
+        observation_digest = payload.get("observation_digest")
+        complete_pairs = (
+            (record_id, record_digest), (comparison_id, comparison_digest),
+            (expectation_id, expectation_digest),
+        )
+        optional_observation_pair = (observation_id, observation_digest)
+        if (record_id == fact.source.source_id and record_digest == fact.source.digest
+                and all(isinstance(identity, str) and identity for pair in complete_pairs for identity in pair)
+                and ((observation_id is None and observation_digest is None)
+                     or all(isinstance(identity, str) and identity for identity in optional_observation_pair))):
+            raw_results = payload.get("observable_results", ())
+            compact_results: list[dict[str, str]] = []
+            result_posture = "field_results_unavailable"
+            if isinstance(raw_results, (list, tuple)) and len(raw_results) <= 32:
+                valid_results = all(isinstance(item, Mapping)
+                    and isinstance(item.get("field"), str) and 0 < len(item["field"]) <= 64
+                    and item.get("result") in HISTORICAL_COMPARISON_RESULTS
+                    for item in raw_results)
+                if valid_results:
+                    compact_results = [{"field": item["field"], "result": item["result"]}
+                                       for item in raw_results]
+                    result_posture = "digest_bound_field_results"
+            raw_counts = payload.get("counts")
+            counts: dict[str, int] = {}
+            if isinstance(raw_counts, Mapping) and all(
+                    key in HISTORICAL_COMPARISON_RESULTS
+                    and type(value) is int and 0 <= value <= 32
+                    for key, value in raw_counts.items()):
+                counts = {str(key): value for key, value in raw_counts.items()}
+            outcome = payload.get("classification") if attribution_record else None
+            if outcome not in HISTORICAL_CONSEQUENCE_CLASSES:
+                outcome = None
+            lineage = {
+                "record_id": record_id, "record_digest": record_digest,
+                "comparison_id": comparison_id, "comparison_digest": comparison_digest,
+                "expectation_id": expectation_id, "expectation_digest": expectation_digest,
+                "observation_id": observation_id, "observation_digest": observation_digest,
+                "outcome_classification": outcome, "outcome_counts": counts,
+                "field_results": compact_results, "field_results_posture": result_posture,
+                "observation_independence_posture": payload.get(
+                    "observation_independence_posture", "not_bound_by_comparison"),
+                "causal_attribution_posture": payload.get("causal_attribution_posture", "unknown"),
+                "event_time": payload.get("evaluated_at") if attribution_record else None,
+                "source_binding_posture": "world_state_source_digest_verified",
+                "historical_only": True, "current_truth": False,
+                "effect_proven": False, "authority": False,
+            }
+            if len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8")) <= MAX_VALUE_BYTES:
+                out.append(("embodiment.prediction_outcome_lineage", _bounded(lineage),
+                            "historical_interpretation"))
     if (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "developmental_model_replacement_experiment"):
         raw_observations = fact.payload.get("observations")
