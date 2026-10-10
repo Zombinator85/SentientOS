@@ -533,8 +533,13 @@ class MaintenanceProductionPostAdoptionCampaign:
         protocol = self.campaigns.protocol(campaign_id)
         prior = [x for x in self.campaigns._read("trials") if x["campaign_id"] == campaign_id]
         if len(prior) >= len(protocol.trial_ids): raise ProductionCampaignError("campaign_already_terminal")
-        trial = self.campaigns.record_trial(protocol, trial_id=protocol.trial_ids[len(prior)], evaluation=None,
-            controls=(), terminal_status="interrupted", completed_at=completed_at)
+        order = len(prior)
+        trial_id = protocol.trial_ids[order]
+        evaluation_protocol = self.evaluations.protocol(protocol.evaluation_protocol_ids[order])
+        evaluation = self.evaluations.evaluation_if_present(evaluation_protocol.protocol_id)
+        controls = self.campaigns.controls_for_trial(campaign_id, trial_id)
+        trial = self.campaigns.record_trial(protocol, trial_id=trial_id, evaluation=evaluation,
+            controls=controls, terminal_status="interrupted", completed_at=completed_at)
         return asdict(trial)
 
     def finalize(self, campaign_id: str, *, completed_at: str) -> Mapping[str, Any]:

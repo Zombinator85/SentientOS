@@ -84,3 +84,7 @@ Next compile, commit, push, and remote-verify the cross-store increment. Then in
 - Current terminal-handoff increment (compiled, not yet committed): campaign recovery verifies every persisted improvement signal against its exact terminal result, tolerates a missing derived signal after a crash, and exact finalization replay republishes that handoff. Malformed/unrelated signals fail closed. Production evaluation signal recovery also validates source IDs as strings before lookup. No runtime behavior was exercised.
 
 Next compile, commit, push, and remote-verify the signal recovery increment. Then check that finalization cannot aggregate orphaned partial control artifacts as if a trial had consumed them; keep incomplete state explicit.
+- `55740c91fc7d207a5fa2d01d85747c71d64bdfb5` (remote verified): campaign terminal signal reconstruction is exact and missing derived signals are repaired by exact finalization replay.
+- Current control-consumption increment (compiled, not yet committed): a terminal trial must preserve any control artifacts already durably published for it; interruption records now retain an exact available evaluation and controls. Campaign finalization rejects control records that no trial consumed, and recovered result verification enforces the same linkage.
+
+Next compile, commit, push, and remote-verify this control-lineage increment. Then review whether any remaining source or temporal input is caller-selected without being separately marked or sealed.

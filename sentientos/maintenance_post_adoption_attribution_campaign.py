@@ -421,6 +421,14 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         order = protocol.trial_ids.index(trial_id)
         existing = self._read("trials")
         if any(x["campaign_id"] == protocol.campaign_id and x["trial_id"] == trial_id for x in existing): raise AttributionCampaignError("trial_retry_or_replacement_forbidden")
+        persisted_controls = [row for row in self._read("controls")
+            if row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == trial_id]
+        supplied_by_observable = {item.observable_id:item for item in controls}
+        for row in persisted_controls:
+            supplied = supplied_by_observable.get(row["observable_id"])
+            if (supplied is None or supplied.control_id != row["control_id"]
+                    or supplied.control_digest != row["control_digest"]):
+                raise AttributionCampaignError("trial_control_recovery_mismatch")
         expected_next = len([x for x in existing if x["campaign_id"] == protocol.campaign_id])
         if order != expected_next: raise AttributionCampaignError("trial_order_or_omission_forbidden")
         if any(x.campaign_digest != protocol.campaign_digest or x.trial_id != trial_id for x in controls): raise AttributionCampaignError("control_campaign_lineage_mismatch")
@@ -461,6 +469,9 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         classification = _classification(outcomes)
         controls = sorted((x for x in self._read("controls") if x["campaign_id"] == protocol.campaign_id),
                           key=lambda x:(protocol.trial_ids.index(x["trial_id"]), x["observable_id"]))
+        consumed_control_ids = {identity for trial in trials for identity in trial.control_ids}
+        if consumed_control_ids != {row["control_id"] for row in controls}:
+            raise AttributionCampaignError("campaign_unconsumed_control_evidence")
         # ``evidence_class`` and collector/source identities are caller supplied;
         # this owner has no authenticated issuer verifier and cannot certify
         # production readiness from those declarations alone.
@@ -626,6 +637,9 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                 ordered_trials = sorted(campaign_trials.get(result.campaign_id, []), key=lambda x:x["trial_order"])
                 expected_controls = sorted((x for x in control_rows if x["campaign_id"] == result.campaign_id),
                     key=lambda x:(protocol.trial_ids.index(x["trial_id"]), x["observable_id"]))
+                trial_control_ids = {identity for trial in ordered_trials for identity in trial["control_ids"]}
+                if trial_control_ids != {item["control_id"] for item in expected_controls}:
+                    raise AttributionCampaignError("campaign_history_corrupt")
                 expected_ids = tuple(x["trial_record_id"] for x in ordered_trials)
                 expected_digests = tuple(x["trial_digest"] for x in ordered_trials)
                 expected_ordered_trial_ids = tuple(x["trial_id"] for x in ordered_trials)
