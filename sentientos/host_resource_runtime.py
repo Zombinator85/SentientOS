@@ -495,6 +495,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 request_context = {"experiment_condition": observation.get("condition_id"),
                     "experiment_protocol_id": run_payload.get("protocol_id"),
                     "history_record_ids": list(observation.get("history_record_ids") or ()),
+                    "history_record_digests": list(observation.get("history_record_digests") or ()),
                     "history_withheld": observation.get("history_withheld")}
                 linkage = {"posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
                     "request_id": observation.get("request_id"),
@@ -651,7 +652,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "principal_epoch", "resource_kind", "epoch", "policy_digest")}
         request_context = payload.get("invocation_request_context_linkage")
         task_context = ({key: request_context.get(key) for key in (
-            "experiment_condition", "experiment_protocol_id", "history_record_ids")}
+            "experiment_condition", "experiment_protocol_id", "history_record_ids",
+            "history_record_digests")}
             if isinstance(request_context, Mapping) else None)
         join = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
             "source_id": "strategy-resource-lineage:" + digest({

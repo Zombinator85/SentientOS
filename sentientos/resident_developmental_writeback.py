@@ -89,6 +89,16 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             if omitted_history_count:
                 context["history_record_ids_digest"] = full_history_digest
                 context["history_record_ids_omitted"] = omitted_history_count
+        history_digests = context.get("history_record_digests")
+        omitted_history_digest_count = 0
+        if isinstance(history_digests, (list, tuple)):
+            if isinstance(history_ids, (list, tuple)) and len(history_digests) != len(history_ids):
+                context["history_lineage_posture"] = "source_record_identity_pairs_incomplete"
+            context["history_record_digests"] = list(history_digests[:32])
+            if len(history_digests) > 32:
+                omitted_history_digest_count = len(history_digests) - 32
+                context["history_record_digests_digest"] = digest(list(history_digests))
+                context["history_record_digests_omitted"] = omitted_history_digest_count
         compact_linkage = {key: linkage.get(key) for key in (
             "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
             "allocation_digest", "attempt_id", "consumption_receipt_digests",
@@ -105,7 +115,9 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         raw_event_times = original.get("event_times", ())
         event_times = raw_event_times if isinstance(raw_event_times, (list, tuple)) else ()
         selected_times = list(event_times[-16:])
-        projection_posture = "complete" if not omitted_history_count and not omitted_receipt_count \
+        projection_posture = "complete" if not omitted_history_count and not omitted_history_digest_count \
+            and not omitted_receipt_count \
+            and context.get("history_lineage_posture") != "source_record_identity_pairs_incomplete" \
             and len(event_times) <= 16 else "bounded_context_incomplete"
         summary = {
             "resource_linkage": compact_linkage,
