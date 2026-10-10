@@ -46,6 +46,8 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 - The durable five-condition model-replacement World-State fact now has a compact longitudinal self-model interpretation with exact run/protocol/context identities, A/B model and provenance identities, each bounded condition's observation/receipt IDs and resource-link digest, preserved event-time text/posture, completion and classification. It explicitly records unknown software-generation identity and no current truth/effect/authority.
 - Historical observations missing the optional timestamp remain compatible and undated. The new interpretation is emitted only as a predicate consumed when the existing explicit predicate allowlist selects it; no default epistemic rule or self-model predicate selection was activated.
 - Resident developmental cognition now selects verified model-replacement run evidence ahead of generic World-State facts and selects consequence chains/comparisons before strategy proposals, after active running identities and resource/transition evidence. It requires the `embodiment` source kind for these priorities, preserving source-kind distinctions.
+- Windows read-only `ConsequenceStore` construction previously used `Path.exists()` as its only root-custody check before later handle-bound artifact reads. It now validates the explicitly configured root through `verify_explicit_directory()` and maps missing versus unsafe/unavailable roots separately; POSIX behavior is unchanged.
+- Legacy model-replacement conditions without timestamp fields now project an explicit `unknown` time posture, preserving their receipt identities without leaving an ambiguous null posture.
 
 ## Next executable task
 

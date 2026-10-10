@@ -1241,7 +1241,9 @@ class ModelReplacementArtifactStore:
                         or raw.get("inference_event_time_posture", event_time_posture) != event_time_posture
                         or generation_parameters.get("temperature") != 0):
                     raise DevelopmentalModelReplacementError("run_projection_observation_binding_invalid")
-                observations.append({key: raw.get(key) for key in (
+                observations.append({
+                    key: raw.get(key, "unknown" if key == "inference_event_time_posture" else None)
+                    for key in (
                     "condition_id", "observation_id", "observation_digest", "model_identity_digest",
                     "model_provenance_manifest_digest", "causal_context_id", "causal_context_digest",
                     "request_id", "request_digest",
