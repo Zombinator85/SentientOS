@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import stat
-import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
@@ -303,69 +303,125 @@ class ModelReplacementArtifactStore:
         self.runs = self.root / "runs"
         self.read_only = read_only
 
+    @staticmethod
+    def _require_descriptor_storage() -> None:
+        required = (os.open, os.mkdir, os.link, os.unlink)
+        if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+                or any(function not in os.supports_dir_fd for function in required)):
+            raise DevelopmentalModelReplacementError("artifact_store_unsupported_platform")
+
+    def _open_kind_directory(self, kind: str, *, create: bool) -> int:
+        if kind not in {"provenance", "protocols", "runs"}:
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        self._require_descriptor_storage()
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
+        try:
+            descriptor = os.open(os.sep, flags)
+            components = (*self.state_root.parts[1:], "developmental_experiments",
+                "model_replacement", kind)
+            for component in components:
+                if create:
+                    try:
+                        os.mkdir(component, 0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                metadata = os.fstat(next_descriptor)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(next_descriptor)
+                    raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor
+        except DevelopmentalModelReplacementError:
+            if "descriptor" in locals():
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if "descriptor" in locals():
+                os.close(descriptor)
+            if isinstance(exc, FileNotFoundError):
+                raise
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid") from exc
+
+    def _artifact_location(self, path: Path) -> tuple[str, str]:
+        try:
+            relative = path.relative_to(self.root)
+        except ValueError as exc:
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid") from exc
+        if len(relative.parts) != 2 or relative.parts[0] not in {"provenance", "protocols", "runs"}:
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        if not relative.parts[1] or relative.parts[1] in {".", ".."}:
+            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        return relative.parts[0], relative.parts[1]
+
     def _write(self, path: Path, payload: Mapping[str, Any]) -> None:
         if self.read_only:
             raise DevelopmentalModelReplacementError("artifact_store_read_only")
         normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
         limits = {"provenance": MAX_PROVENANCE_ARTIFACT_BYTES,
             "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "runs": MAX_RUN_ARTIFACT_BYTES}
-        maximum = limits.get(path.parent.name)
-        if maximum is None:
-            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
-        if (self.root.is_symlink() or self.root.parent.is_symlink() or path.parent.is_symlink()):
-            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if path.parent.is_symlink() or not path.parent.is_dir():
-            raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
+        kind, filename = self._artifact_location(path)
+        maximum = limits[kind]
         encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":"),
             ensure_ascii=True).encode("utf-8")
         if len(encoded) > maximum:
             raise DevelopmentalModelReplacementError("artifact_size_limit_exceeded")
+        directory_fd = self._open_kind_directory(kind, create=True)
+        temporary_name: str | None = None
         try:
-            path.lstat()
-        except FileNotFoundError:
-            prior = None
-        else:
-            prior = self._read_artifact_json(path, maximum_bytes=maximum,
-                missing_code="artifact_missing", invalid_code="artifact_tampered")
-        if prior is not None:
-            if prior != normalized:
-                raise DevelopmentalModelReplacementError("artifact_identity_collision")
-            return
-        descriptor, temporary = tempfile.mkstemp(prefix=".model-replacement-", suffix=".tmp",
-            dir=str(path.parent))
-        try:
+            try:
+                existing_fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            except FileNotFoundError:
+                existing_fd = None
+            except OSError as exc:
+                raise DevelopmentalModelReplacementError("artifact_tampered") from exc
+            if existing_fd is None:
+                prior = None
+            else:
+                os.close(existing_fd)
+                prior = self._read_artifact_json(path, maximum_bytes=maximum,
+                    missing_code="artifact_missing", invalid_code="artifact_tampered")
+            if prior is not None:
+                if prior != normalized:
+                    raise DevelopmentalModelReplacementError("artifact_identity_collision")
+                return
+            temporary_name = ".model-replacement-" + secrets.token_hex(16) + ".tmp"
+            descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd)
             with os.fdopen(descriptor, "wb") as handle:
                 handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
             try:
-                os.link(temporary, path, follow_symlinks=False)
+                os.link(temporary_name, filename, src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd, follow_symlinks=False)
             except FileExistsError:
                 prior = self._read_artifact_json(path, maximum_bytes=maximum,
                     missing_code="artifact_missing", invalid_code="artifact_tampered")
                 if prior != normalized:
                     raise DevelopmentalModelReplacementError("artifact_identity_collision")
                 return
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            os.fsync(directory_fd)
+        except OSError as exc:
+            raise DevelopmentalModelReplacementError("artifact_publication_failed") from exc
         finally:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
+            if temporary_name is not None:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                    os.fsync(directory_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(directory_fd)
 
     def _read_artifact_json(self, path: Path, *, maximum_bytes: int,
                             missing_code: str, invalid_code: str) -> dict[str, Any]:
+        kind, filename = self._artifact_location(path)
         descriptor: int | None = None
+        directory_fd: int | None = None
         try:
-            if (self.root.is_symlink() or self.root.parent.is_symlink()
-                    or path.parent.is_symlink()):
-                raise DevelopmentalModelReplacementError(invalid_code)
-            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            directory_fd = self._open_kind_directory(kind, create=False)
+            descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
             metadata = os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes:
                 raise DevelopmentalModelReplacementError(invalid_code)
@@ -390,6 +446,8 @@ class ModelReplacementArtifactStore:
         finally:
             if descriptor is not None:
                 os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
 
     def persist_provenance(self, manifest: ModelDevelopmentProvenance) -> None:
         payload = asdict(manifest)

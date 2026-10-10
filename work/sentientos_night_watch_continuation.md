@@ -10,6 +10,7 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - Fourth increment in progress: the existing observation digest proves content identity, not observer authority. Consequence attribution now labels that source as `unverified_caller_assertion`; the epistemic adapter keeps its freshness unknown even when the timestamp parses as recent.
 - Fifth increment compiled: `ConsequenceStore` opens the configured root and artifact directories by no-follow descriptors; artifact/checkpoint reads are relative to the opened kind directory. Missing checkpoints remain non-mutating and publication retains existing immutable locking.
 - Sixth increment in progress: strategy proposals have a typed adapter to the existing review-only receipt owner; new review receipts bind proposal digests and mark reviewer identity `declared_unverified`. Review resolution matches both ID and digest, while the legacy handoff table continues to block unsupported strategy kinds.
+- Seventh increment compiled: model-replacement experiment artifacts now use no-follow directory-descriptor traversal for reads and immutable `linkat`-style publication, with explicit fail-closed behavior if those POSIX primitives are unavailable.
 
 ## Boundaries and blockers
 
@@ -21,6 +22,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile the review bridge, commit `[untested]`, push, and verify remote SHA.
+1. Commit `[untested]`, push, and verify remote SHA.
 2. Review other adjacent portability/custody owners for the same read-vs-write asymmetry; do not broaden beyond directly connected code.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
