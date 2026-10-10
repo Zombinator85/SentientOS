@@ -668,3 +668,11 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `resident_epistemic_development.py`. No tests, actual source admission, epistemic mutation, history writeback, cognition, or production verification was performed.
 
 **Next implementation dependency:** inspect durable candidate selection and later cognition's retained interpretation path for this exact aggregate evidence, especially whether a qualified source's recorded event time and uncertainty survive compacting and restart without promoting it to present truth.
+
+### New checkpoint — keep unbound invocation timestamps out of epistemic event time
+
+- The chat-process invocation record carries `observed_at` from the invocation receipt, but the receipt's semantic digest intentionally excludes that custody metadata. The epistemic adapter previously copied this value into the historical evidence binding's `observation_time`.
+- It now retains the labeled timestamp in the source payload while leaving semantic event time unknown unless the source explicitly supplies a semantic-digest-bound event-time posture. Current receipts use `invocation_receipt_observed_at_unbound_metadata`, so none become dated or fresh through this path.
+- Python compilation passed for `resident_epistemic_development.py`. No source record was admitted or reconstructed and no temporal behavior was executed.
+
+**Next implementation dependency:** the serving and runtime observation records have digest-bound event times; invocation receipts currently do not. Continue the source review with that limit explicit, and verify the compact historical claim preserves the timestamp's unbound posture while later cognition still receives the exact invocation and software identities.

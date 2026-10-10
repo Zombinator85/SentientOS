@@ -303,8 +303,16 @@ class ResidentEpistemicDevelopmentRuntime:
                 if isinstance(source_event_time, str) else None)
         elif fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
             if fact.subject.subject_kind == "chat_process_software_generation_invocation":
+                # The receipt's observed_at is custody metadata outside its
+                # semantic receipt digest. Retain it in the source payload, but
+                # do not promote it into an epistemic event time.
+                event_time_posture = fact.payload.get("event_time_posture")
                 source_event_time = fact.payload.get("event_time")
-                historical_times = [source_event_time] if isinstance(source_event_time, str) else []
+                historical_times = (
+                    [source_event_time]
+                    if event_time_posture == "invocation_receipt_semantic_digest_bound"
+                        and isinstance(source_event_time, str)
+                    else [])
             else:
                 historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
                                     if isinstance(item, Mapping) and item.get("observed_at")]
