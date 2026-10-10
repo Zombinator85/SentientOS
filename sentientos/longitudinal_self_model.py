@@ -88,6 +88,11 @@ PAYLOAD_PREDICATES = {
     "embodiment.observed_pose": ("observed_pose",),
     "embodiment.observed_expression": ("observed_expression",),
 }
+HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
+    "expectation_satisfied", "expectation_partially_satisfied", "expectation_contradicted",
+    "observation_missing", "renderer_report_only", "indeterminate", "execution_failed",
+    "body_generation_mismatch", "correlation_mismatch",
+})
 
 
 class LongitudinalSelfModelError(ValueError):
@@ -280,6 +285,15 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 break
     if fact.effect_proven and "observed_consequence" in fact.payload:
         out.append(("observed_consequence", _bounded(fact.payload["observed_consequence"]), "observed_consequence"))
+    # Keep deterministic comparison results available to later cognition as
+    # explicitly historical interpretation. They do not prove an effect or
+    # become current merely because a projection was reconstructed recently.
+    if (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind in {"embodied_consequence_attribution",
+                                               "embodied_prediction_comparison"}
+            and fact.payload.get("classification") in HISTORICAL_CONSEQUENCE_CLASSES):
+        out.append(("embodiment.historical_consequence_classification",
+                    _bounded(fact.payload["classification"]), "historical_interpretation"))
     return out
 
 
@@ -521,7 +535,8 @@ class LongitudinalSelfModelOwner:
                 unauthenticated_observation = any(payload.get("observer_issuer_posture")
                     == "unverified_caller_assertion" for payload in payloads)
                 all_freshnesses = freshnesses | declared_freshnesses
-                freshness = ("unknown" if unauthenticated_observation else
+                historical_interpretation = category == "historical_interpretation"
+                freshness = ("unknown" if historical_interpretation or unauthenticated_observation else
                              "stale" if all_freshnesses & {"stale", "expired"} else
                              "unknown" if all_freshnesses & {"unknown", "undated"} else
                              "aging" if "aging" in all_freshnesses else "fresh")
@@ -534,7 +549,8 @@ class LongitudinalSelfModelOwner:
                 new_claims.append(SelfModelClaim(
                     cid, key, facts[0].subject.subject_id, facts[0].subject.subject_kind,
                     predicate, value, "historical_and_current", category, facts[0].stage,
-                    "contradicted" if contradicted else ("historical" if freshness in {"stale", "unknown", "not_applicable"} else "current"),
+                    "contradicted" if contradicted else ("historical" if historical_interpretation
+                        or freshness in {"stale", "unknown", "not_applicable"} else "current"),
                     freshness, "contradicted" if contradicted else "consistent",
                     ("unverified_caller_assertion" if unauthenticated_observation else
                      min((fact.evidence_strength for fact in facts), default="unknown")),
@@ -546,6 +562,7 @@ class LongitudinalSelfModelOwner:
                     supersedes, (), context(("software_generation", "runtime_generation")),
                     context(("cognitive_model_id", "serving_model", "model_id")),
                     context(("developmental_history_boundary",)),
+                    current_truth=False, interpretation=historical_interpretation,
                 ))
             active_ids_by_key[key] = tuple(sorted(ids))
 

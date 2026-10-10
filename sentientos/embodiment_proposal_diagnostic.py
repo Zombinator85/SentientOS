@@ -202,7 +202,8 @@ def build_embodied_proposal_review_summary(*, path: Path, review_receipt_path: P
         for proposal in strategy_proposals:
             identity = str(proposal.get("proposal_id") or "")
             context = {key:proposal.get(key) for key in (
-                "source_experiment_result_id", "source_experiment_result_digest", "source_experiment_condition")}
+                "source_experiment_result_id", "source_experiment_result_digest",
+                "source_experiment_condition", "source_execution_contexts")}
             existing = known.get(identity)
             if existing is not None:
                 if existing.get("proposal_digest") != proposal.get("proposal_digest"):
