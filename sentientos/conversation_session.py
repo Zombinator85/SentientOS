@@ -25,6 +25,7 @@ MAX_TURN_BYTES = 64 * 1024
 MAX_SESSION_BYTES = 8 * 1024 * 1024
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
 _TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
 def _now() -> str:
@@ -146,6 +147,7 @@ class ConversationSessionStore:
                 or [turn.get("sequence") for turn in turns] != list(range(1, len(turns) + 1))):
             raise ValueError("invalid_turn_sequence")
         seen_ids: set[str] = set()
+        seen_request_digests: set[str] = set()
         for turn in turns:
             text = turn.get("text")
             role = turn.get("role")
@@ -167,6 +169,14 @@ class ConversationSessionStore:
             if not isinstance(turn_id, str) or not _TURN_ID.fullmatch(turn_id) or turn_id in seen_ids:
                 raise ValueError("invalid_turn_identity")
             seen_ids.add(turn_id)
+            request_digest = linkage.get("client_request_id_digest")
+            if request_digest is not None:
+                if (role != "user" or not isinstance(request_digest, str)
+                        or len(request_digest) != 64
+                        or any(character not in "0123456789abcdef" for character in request_digest)
+                        or request_digest in seen_request_digests):
+                    raise ValueError("invalid_chat_request_identity")
+                seen_request_digests.add(request_digest)
             active_identity = linkage.get("active_model_identity")
             if (active_identity is not None and (not isinstance(active_identity, Mapping)
                     or linkage.get("active_model_identity_digest") != _digest(dict(active_identity)))):
@@ -183,6 +193,67 @@ class ConversationSessionStore:
         if payload.get("revision") != len(turns):
             raise ValueError("invalid_session_revision")
         return payload
+
+    def find_user_request(self, session_id: str, *, request_id: str, text: str,
+                          retain: bool) -> dict[str, Any] | None:
+        if not isinstance(request_id, str) or not _REQUEST_ID.fullmatch(request_id):
+            raise ValueError("invalid_chat_request_id")
+        request_digest = _digest({"client_request_id": request_id})
+        lock = self._locked(session_id)
+        try:
+            session = self.load(session_id)
+            matches = [turn for turn in session["turns"]
+                if turn.get("role") == "user"
+                and isinstance(turn.get("linkage"), Mapping)
+                and turn["linkage"].get("client_request_id_digest") == request_digest]
+            if len(matches) > 1:
+                raise ValueError("chat_request_identity_conflict")
+            if not matches:
+                return None
+            turn = matches[0]
+            if (turn.get("text_digest") != _digest({"text": text})
+                    or (turn.get("retention_state") != "not_requested") != retain):
+                raise ValueError("chat_request_identity_conflict")
+            return dict(turn)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
+
+    def append_user_request(self, session_id: str, *, request_id: str, text: str,
+                            retain: bool) -> tuple[dict[str, Any], bool]:
+        if not isinstance(request_id, str) or not _REQUEST_ID.fullmatch(request_id):
+            raise ValueError("invalid_chat_request_id")
+        encoded = text.encode("utf-8")
+        if not text or len(encoded) > MAX_TURN_BYTES:
+            raise ValueError("turn_size_limit")
+        request_digest = _digest({"client_request_id": request_id})
+        lock = self._locked(session_id)
+        try:
+            session = self.load(session_id)
+            matches = [turn for turn in session["turns"]
+                if turn.get("role") == "user"
+                and isinstance(turn.get("linkage"), Mapping)
+                and turn["linkage"].get("client_request_id_digest") == request_digest]
+            if len(matches) > 1:
+                raise ValueError("chat_request_identity_conflict")
+            if matches:
+                turn = matches[0]
+                if (turn.get("text_digest") != _digest({"text": text})
+                        or (turn.get("retention_state") != "not_requested") != retain):
+                    raise ValueError("chat_request_identity_conflict")
+                return dict(turn), False
+            sequence = len(session["turns"]) + 1
+            turn = {"turn_id": f"turn-{uuid.uuid4().hex[:24]}", "sequence": sequence,
+                    "role": "user", "timestamp": _now(), "text": text,
+                    "text_digest": _digest({"text": text}), "character_count": len(text),
+                    "byte_count": len(encoded),
+                    "linkage": {"client_request_id_digest": request_digest},
+                    "retention_state": "requested" if retain else "not_requested"}
+            session["turns"].append(turn); session["revision"] = sequence
+            session["latest_activity_at"] = turn["timestamp"]
+            _atomic_json(self._path(session_id), session)
+            return turn, True
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 
     def append_turn(self, session_id: str, *, role: str, text: str, linkage: Mapping[str, Any] | None = None,
                     retention_state: str = "not_requested") -> dict[str, Any]:

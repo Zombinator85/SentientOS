@@ -93,6 +93,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
     retain: bool = False
+    request_id: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -101,6 +102,10 @@ class ChatResponse(BaseModel):
     turn_id: str
     context: dict[str, object]
     retention: dict[str, object]
+
+
+class ChatRequestStateError(ValueError):
+    """A replay conflict or an intentionally unreplayed interrupted request."""
 
 
 class PersistentConversationService:
@@ -117,11 +122,90 @@ class PersistentConversationService:
         self.retention_writer = AdmittedRetentionWriter(memory_store)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
 
-    def chat(self, message: str, *, session_id: str | None = None, retain: bool = False) -> ChatResponse:
+    def _recover_idempotent_response(self, session_id: str,
+                                     user_turn: Mapping[str, Any]) -> ChatResponse:
+        session = self.sessions.load(session_id)
+        user_turn_id = str(user_turn.get("turn_id", ""))
+        assistants = [turn for turn in session["turns"]
+            if turn.get("role") == "assistant"
+            and isinstance(turn.get("linkage"), Mapping)
+            and turn["linkage"].get("source_user_turn_id") == user_turn_id]
+        if not assistants:
+            raise ChatRequestStateError("chat_request_interrupted_no_replay")
+        if len(assistants) != 1:
+            raise ChatRequestStateError("chat_request_response_identity_conflict")
+        assistant = assistants[0]
+        linkage = assistant.get("linkage", {})
+        if not isinstance(linkage, Mapping):
+            raise ChatRequestStateError("chat_request_response_lineage_invalid")
+        verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+        if callable(verifier):
+            try:
+                verified = verifier(
+                    receipt_id=linkage["invocation_receipt_id"],
+                    receipt_digest=linkage["invocation_receipt_digest"],
+                    session_id=session_id,
+                    user_turn_id=user_turn_id,
+                    assistant_text=str(assistant.get("text", "")),
+                )
+            except Exception as exc:
+                raise ChatRequestStateError("chat_request_response_receipt_unavailable") from exc
+            active_identity = linkage.get("active_model_identity")
+            loaded_identity = linkage.get("loaded_model_identity")
+            if (not isinstance(active_identity, Mapping) or not isinstance(loaded_identity, Mapping)
+                    or dict(verified.get("serving_identity", {})) != dict(active_identity)
+                    or dict(verified.get("loaded_model_identity", {})) != dict(loaded_identity)
+                    or (linkage.get("assistant_output_lineage") is not None
+                        and dict(verified.get("assistant_output_lineage", {}))
+                            != dict(linkage["assistant_output_lineage"]))):
+                raise ChatRequestStateError("chat_request_response_receipt_conflict")
+        elif not isinstance(self._inference, DevelopmentSimulationInference):
+            raise ChatRequestStateError("chat_request_recovery_verifier_unavailable")
+        retention_state = user_turn.get("retention_state")
+        if retention_state == "requested":
+            retention = {"status": "retention_interrupted_no_replay"}
+        elif isinstance(user_turn.get("retention_receipt"), Mapping):
+            retention = dict(user_turn["retention_receipt"])
+        else:
+            retention = {"status": str(retention_state or "unknown")}
+        return ChatResponse(
+            response=str(assistant["text"]), session_id=session_id,
+            turn_id=str(assistant["turn_id"]),
+            context={
+                "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
+                "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
+                "active_model_identity_digest": linkage.get("active_model_identity_digest"),
+                "loaded_model_identity_digest": linkage.get("loaded_model_identity_digest"),
+                "recovered_without_inference": True,
+            },
+            retention=retention,
+        )
+
+    def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
+             request_id: str | None = None) -> ChatResponse:
+        if request_id is not None:
+            if session_id is None:
+                raise ChatRequestStateError("idempotent_request_requires_existing_session")
+            try:
+                existing = self.sessions.find_user_request(session_id,
+                    request_id=request_id, text=message, retain=retain)
+            except (FileNotFoundError, ValueError) as exc:
+                raise ChatRequestStateError(str(exc)) from exc
+            if existing is not None:
+                return self._recover_idempotent_response(session_id, existing)
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
-        user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
-                                              retention_state="requested" if retain else "not_requested")
+        if request_id is None:
+            user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
+                retention_state="requested" if retain else "not_requested")
+        else:
+            try:
+                user_turn, created = self.sessions.append_user_request(session["session_id"],
+                    request_id=request_id, text=message, retain=retain)
+            except ValueError as exc:
+                raise ChatRequestStateError(str(exc)) from exc
+            if not created:
+                return self._recover_idempotent_response(session["session_id"], user_turn)
         history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
@@ -400,8 +484,11 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             # Narrator responses are not model conversation turns.
             raise HTTPException(status_code=409, detail=summary)
     try:
-        return _get_conversation_service().chat(message, session_id=request.session_id, retain=request.retain)
-    except (KeyError, ValueError) as exc:
+        return _get_conversation_service().chat(message, session_id=request.session_id,
+            retain=request.retain, request_id=request.request_id)
+    except ChatRequestStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (KeyError, FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         LOGGER.warning("Production chat unavailable: %s", type(exc).__name__)
