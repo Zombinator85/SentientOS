@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `6801e6d210b7678a7095f9d0abbf4a7936f297ca` (tree `0bdeab5c291d967e7aa0a6214e3ce8cc2ac8bd8d`, parent `919cb4e7724cfea68ab0534c9600abf5d6cb9565`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `f09376eea0d536c9ace310d95991a0a93a5d7d1f` (tree `bcf788f177515a7746cd73cba7bbf74e3ea4369d`, parent `6801e6d210b7678a7095f9d0abbf4a7936f297ca`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -50,6 +50,7 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 - Legacy model-replacement conditions without timestamp fields now project an explicit `unknown` time posture, preserving their receipt identities without leaving an ambiguous null posture.
 - The POSIX-only initial-resident commissioning inspector's shared artifact loader no longer relies on `is_file()` plus `read_text()`. It now uses the existing bounded no-follow explicit-file reader on both platforms; commissioning authority and effect execution remain POSIX-gated.
 - Epistemic adaptation of expectation, renderer, observation, attribution and comparison records now reads event time only from their digest-bound owner payload fields. Consequence-chain summaries preserve the latest valid bound event across expectation, command, renderer, claimed observer and comparison while retaining each source time separately. Nonsemantic World-State `observed_at` metadata no longer seeds a new historical evidence identity for those records.
+- Repeated resident succession snapshots no longer timestamp stable serving-session identities or recovered journal posture with each daemon tick. Those rows keep time unknown when the owner does not retain a session/event timestamp. Model and software transition journal events use their digest-bound payload event time; resident-software launch lineage carries its bound startup timestamp in payload for adaptation.
 
 ## Next executable task
 

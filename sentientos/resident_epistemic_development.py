@@ -233,6 +233,22 @@ class ResidentEpistemicDevelopmentRuntime:
                 if fact.payload.get(key) is not None]
             observed = (_latest_historical_event_time(raw_times)
                 if all(isinstance(value, str) for value in raw_times) and raw_times else None)
+        if fact.source.kind == "runtime_supervisor":
+            if fact.subject.subject_kind in {"resident_model_transition",
+                    "software_generation_transition"} and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("event_time")
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "observed_running_software_generation" and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("startup_timestamp")
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind in {"observed_running_model",
+                    "resident_model_transition_recovery",
+                    "software_generation_transition_recovery"}:
+                # Session-currentness checks and journal reconstruction time
+                # are not retained source events. Keep their chronology unknown.
+                observed = None
         if (fact.source.kind == "embodiment"
                 and fact.subject.subject_kind == "developmental_model_replacement_experiment"
                 and isinstance(fact.payload, Mapping)):
