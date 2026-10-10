@@ -618,7 +618,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     recovery_required_fields = {
         "request_id", "request_semantic_digest", "intent_id", "intent_semantic_digest",
         "approval_id", "approval_semantic_digest", "installation_identity",
-        "runtime_supervisor_generation", "prior_serving_receipt_id",
+        "runtime_supervisor_generation", "prior_serving_operation_id",
+        "replacement_serving_operation_id", "prior_serving_receipt_id",
         "prior_serving_receipt_semantic_digest", "attempt_phase_digest", "readiness_phase_digest",
         "completion_phase_digest", "attempt_started_at", "readiness_observed_at",
         "snapshot_advanced_at", "advanced_snapshot_digest", "decision_outcome_claimed",
@@ -626,8 +627,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "successor_chat_process_handoff", "handoff_lineage_posture", "terminal_receipt_digest",
         "terminal_status", "successor_serving_receipt_id",
         "successor_serving_receipt_semantic_digest", "successor_serving_session_id",
-        "successor_serving_receipt_posture", "phase_posture", "phase_evidence_posture",
-        "runtime_currentness", "effect_authority", "inference_performed",
+        "successor_serving_receipt_posture", "predecessor_serving_operation_binding_posture",
+        "successor_serving_operation_binding_posture", "successor_configured_serving_operation_id",
+        "phase_posture", "phase_evidence_posture", "runtime_currentness", "effect_authority",
+        "inference_performed",
     }
     seen_recovery: dict[str, Mapping[str, Any]] = {}
     for transition in verified_chat_process_recovery_transitions:
@@ -644,7 +647,33 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 or transition.get("runtime_currentness")
                     != "historical_process_identity_not_reobserved_during_recovery"
                 or transition.get("successor_serving_receipt_posture") not in {
-                    "verified_historical_custody", "legacy_or_missing"}
+                    "verified_historical_custody", "verified_historical_custody_and_operation_binding",
+                    "verified_receipt_legacy_handoff_operation_unknown", "legacy_or_missing"}
+                or transition.get("predecessor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or transition.get("successor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or any(transition.get(key) is not None and (
+                    not isinstance(transition.get(key), str) or not transition.get(key)
+                    or len(transition[key]) > 128) for key in (
+                        "prior_serving_operation_id", "replacement_serving_operation_id",
+                        "successor_configured_serving_operation_id"))
+                or (transition.get("predecessor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("predecessor_chat_process_handoff"), Mapping)
+                        or transition["predecessor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("prior_serving_operation_id")))
+                or (transition.get("successor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("successor_chat_process_handoff"), Mapping)
+                        or transition["successor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")
+                        or transition.get("successor_configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")))
                 or transition.get("effect_authority") is not False
                 or transition.get("inference_performed") is not False):
             raise ValueError("chat_process_recovery_transition_binding_invalid")

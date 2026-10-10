@@ -675,6 +675,24 @@ class ProductionLocalModelChatRecoveryController:
         successor = self._verify_phase_handoff(
             readiness.get("successor_chat_process_handoff") if readiness is not None else None,
             required=readiness is not None)
+        predecessor_operation = (
+            predecessor.get("configured_serving_operation_id") if predecessor is not None else None)
+        successor_operation = (
+            successor.get("configured_serving_operation_id") if successor is not None else None)
+        if (predecessor_operation is not None
+                and predecessor_operation != intent.get("prior_serving_operation_id")):
+            raise LocalModelChatRecoveryError("recovery_phase_predecessor_serving_operation_mismatch")
+        if (successor_operation is not None
+                and successor_operation != intent.get("replacement_serving_operation_id")):
+            raise LocalModelChatRecoveryError("recovery_phase_successor_serving_operation_mismatch")
+        predecessor_operation_posture = (
+            "handoff_unavailable" if predecessor is None else
+            "exact_handoff_launch_operation_binding" if predecessor_operation is not None else
+            "legacy_handoff_operation_unknown")
+        successor_operation_posture = (
+            "handoff_unavailable" if successor is None else
+            "exact_handoff_launch_operation_binding" if successor_operation is not None else
+            "legacy_handoff_operation_unknown")
         if ready and predecessor is not None and successor is not None:
             successor_prior = successor.get("prior_snapshot_generation")
             if (not isinstance(successor_prior, Mapping)
@@ -701,6 +719,9 @@ class ProductionLocalModelChatRecoveryController:
             "post_restart_semantic_readiness": "serving_current" if ready else "not_durably_observed",
             "predecessor_chat_process_handoff": predecessor,
             "successor_chat_process_handoff": successor,
+            "predecessor_serving_operation_binding_posture": predecessor_operation_posture,
+            "successor_serving_operation_binding_posture": successor_operation_posture,
+            "successor_configured_serving_operation_id": successor_operation,
             "chat_process_handoff_lineage_posture": readiness.get(
                 "chat_process_handoff_lineage_posture", "unavailable") if readiness else "unavailable",
             "recovery_phase_lineage": self._phase_lineage(request_id),
@@ -1101,6 +1122,24 @@ def inspect_chat_recovery_phase_custody(handle: Any, *, max_records: int = MAX_P
         predecessor = verify_handoff(predecessor_value, False)
         successor_value = readiness.get("successor_chat_process_handoff") if readiness else None
         successor = verify_handoff(successor_value, readiness is not None)
+        predecessor_operation = (
+            predecessor.get("configured_serving_operation_id") if predecessor is not None else None)
+        successor_operation = (
+            successor.get("configured_serving_operation_id") if successor is not None else None)
+        if (predecessor_operation is not None
+                and predecessor_operation != intent.get("prior_serving_operation_id")):
+            raise LocalModelChatRecoveryError("recovery_phase_observation_predecessor_serving_operation_mismatch")
+        if (successor_operation is not None
+                and successor_operation != intent.get("replacement_serving_operation_id")):
+            raise LocalModelChatRecoveryError("recovery_phase_observation_successor_serving_operation_mismatch")
+        predecessor_operation_posture = (
+            "handoff_unavailable" if predecessor is None else
+            "exact_handoff_launch_operation_binding" if predecessor_operation is not None else
+            "legacy_handoff_operation_unknown")
+        successor_operation_posture = (
+            "handoff_unavailable" if successor is None else
+            "exact_handoff_launch_operation_binding" if successor_operation is not None else
+            "legacy_handoff_operation_unknown")
         if predecessor is not None and successor is not None:
             prior_snapshot = successor.get("prior_snapshot_generation")
             if not isinstance(prior_snapshot, Mapping) or prior_snapshot.get("handoff") != predecessor:
@@ -1155,6 +1194,8 @@ def inspect_chat_recovery_phase_custody(handle: Any, *, max_records: int = MAX_P
             "approval_id": approval.get("evidence_id"), "approval_semantic_digest": approval.get("approval_semantic_digest"),
             "installation_identity": handle.identity.value,
             "runtime_supervisor_generation": attempt.get("runtime_supervisor_generation"),
+            "prior_serving_operation_id": intent.get("prior_serving_operation_id"),
+            "replacement_serving_operation_id": intent.get("replacement_serving_operation_id"),
             "prior_serving_receipt_id": attempt.get("prior_serving_receipt_id"),
             "prior_serving_receipt_semantic_digest": attempt.get("prior_serving_receipt_semantic_digest"),
             "successor_serving_receipt_id": successor_serving_id,
@@ -1177,8 +1218,14 @@ def inspect_chat_recovery_phase_custody(handle: Any, *, max_records: int = MAX_P
             "terminal_receipt_digest": receipt.get("receipt_semantic_digest") if receipt else None,
             "terminal_status": receipt.get("terminal_status") if receipt else None,
             "successor_serving_receipt_posture": (
-                "verified_historical_custody" if successor_serving_id is not None
-                else "legacy_or_missing"),
+                "verified_historical_custody_and_operation_binding"
+                    if successor_serving_id is not None
+                    and successor_operation_posture == "exact_handoff_launch_operation_binding" else
+                "verified_receipt_legacy_handoff_operation_unknown"
+                    if successor_serving_id is not None else "legacy_or_missing"),
+            "predecessor_serving_operation_binding_posture": predecessor_operation_posture,
+            "successor_serving_operation_binding_posture": successor_operation_posture,
+            "successor_configured_serving_operation_id": successor_operation,
             "phase_posture": posture,
             "phase_evidence_posture": "canonical_installation_custody_and_digest_chain_checked_not_independently_signed",
             "runtime_currentness": "historical_process_identity_not_reobserved_during_recovery",

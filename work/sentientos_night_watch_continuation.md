@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the child-launch operation binding increment, GitHub branch inspection verified `0daf1e9abb65c2ee3543332b20fc31a942ff0a41` (tree `ecd74a91e068dbd822d6d2d9739bb8bdf97dc92a`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the recovery-operation lineage increment, GitHub branch inspection verified `2bc5e986f7025ac6cf5df886cc9ca576c7613c25` (tree `3c081fa3d412336a1bad016ab98c99373b2bb101`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -445,3 +445,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for the updated generation, startup, World-State projection, and longitudinal self-model sources. No subprocess, recovery, schema migration, concurrency, Windows, World-State execution, or production verification was run.
 
 **Next implementation dependency:** inspect model-transition recovery and serving receipt joins for operation-ID reuse or predecessor gaps across process replacement. Keep any handoff continuity distinct from model continuity and carry only observed invocation identity into later cognition.
+
+### New checkpoint — bind interrupted recovery to predecessor and successor serving operations
+
+- Recovery-phase reconstruction now compares a successor handoff's configured operation ID with the replacement operation recorded in the approved recovery intent, and compares any v3 predecessor operation ID with the prior serving operation. Contradictions fail closed.
+- Recovered transition rows preserve predecessor and successor operation IDs, exact-versus-legacy binding posture, and the successor receipt's operation-binding strength. A v1/v2 handoff without stored launch arguments stays explicitly unknown; a serving receipt alone no longer upgrades it to process-operation linkage.
+- The host World-State projector validates and carries those exact operation links. Longitudinal self-model history retains the operation IDs and binding postures alongside predecessor/successor process and receipt identities, with historical-only/current-truth-false flags unchanged.
+- Existing terminal recovery receipts remain readable. Reconstructed rows derive operation linkage from canonical phase and handoff custody; reconstruction does not replay restart, reload, inference, or effects.
+- Python compilation passed for recovery, World-State, self-model, startup, and process-generation sources. No recovery replay, child process, transition, Windows, World-State execution, or production behavior was tested.
+
+**Next implementation dependency:** trace actual invocation receipts and transcript lineage across a recovered successor generation. Confirm the exact process handoff and serving operation carried by each invocation, preserve the prior transcript's history linkage, and keep any missing runtime observation explicitly unknown.

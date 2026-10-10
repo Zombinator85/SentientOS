@@ -447,7 +447,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 if not isinstance(value, Mapping):
                     return None
                 keys = ("handoff_id", "handoff_digest", "process_instance_id",
-                    "software_generation_digest", "startup_timestamp", "source_generation_scope")
+                    "software_generation_digest", "startup_timestamp", "source_generation_scope",
+                    "configured_serving_operation_id")
                 projected = {key: value[key] for key in keys if key in value}
                 return projected if {"handoff_id", "handoff_digest"}.issubset(projected) else None
             lineage = {
@@ -462,6 +463,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "runtime_supervisor_generation": transition.get("runtime_supervisor_generation"),
                 "prior_serving_receipt_id": transition.get("prior_serving_receipt_id"),
                 "prior_serving_receipt_semantic_digest": transition.get("prior_serving_receipt_semantic_digest"),
+                "prior_serving_operation_id": transition.get("prior_serving_operation_id"),
+                "replacement_serving_operation_id": transition.get("replacement_serving_operation_id"),
                 "attempt_phase_digest": transition.get("attempt_phase_digest"),
                 "readiness_phase_digest": transition.get("readiness_phase_digest"),
                 "completion_phase_digest": transition.get("completion_phase_digest"),
@@ -474,6 +477,12 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     "successor_serving_receipt_semantic_digest"),
                 "successor_serving_session_id": transition.get("successor_serving_session_id"),
                 "successor_serving_receipt_posture": transition.get("successor_serving_receipt_posture"),
+                "predecessor_serving_operation_binding_posture": transition.get(
+                    "predecessor_serving_operation_binding_posture"),
+                "successor_serving_operation_binding_posture": transition.get(
+                    "successor_serving_operation_binding_posture"),
+                "successor_configured_serving_operation_id": transition.get(
+                    "successor_configured_serving_operation_id"),
                 "predecessor_chat_process_handoff": handoff_lineage(
                     transition.get("predecessor_chat_process_handoff")),
                 "successor_chat_process_handoff": handoff_lineage(
