@@ -140,18 +140,22 @@ class EmbodimentEvidenceOwner:
                 raise EmbodimentEvidenceError("source_identity_digest_changed")
             seen[item.source_id] = item.source_digest
             is_fulfillment = item.evidence_class == "fulfillment_observation"
+            caller_asserted_observation = item.evidence_class == "avatar_independently_observed_state"
             records.append({
                 "source_kind": "fulfillment" if is_fulfillment else "embodiment",
                 "source_id": item.source_id, "schema_version": item.source_schema,
                 "subject_id": item.subject_id,
                 "subject_kind": item.subject_kind,
                 "stage": "execution" if is_fulfillment else "observation",
-                "disposition": "recorded", "evidence_strength": item.provenance_class,
+                "disposition": "recorded", "evidence_strength": (
+                    "unverified_caller_assertion" if caller_asserted_observation else item.provenance_class),
                 "staleness": item.freshness, "observed_at": item.observed_at,
                 "effect_claimed": item.effect_claimed, "effect_proven": item.effect_proven,
-                "payload": {"embodiment_evidence_class": item.evidence_class,
+                "payload": {**dict(item.payload), "embodiment_evidence_class": item.evidence_class,
                             "evidence_posture": item.posture,
-                            "source_semantic_digest": item.source_digest, **dict(item.payload)},
+                            "observer_issuer_posture": ("unverified_caller_assertion"
+                                if caller_asserted_observation else "not_applicable"),
+                            "source_semantic_digest": item.source_digest},
             })
         return records
 
