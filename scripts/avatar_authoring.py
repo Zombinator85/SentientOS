@@ -15,7 +15,7 @@ from sentientos.avatar_authoring import (
 from sentientos.embodiment_self_observation import AvatarBodyManifest
 from sentientos.embodied_consequence import (
     AvatarRendererReport, EmbodiedActionExpectation, IndependentConsequenceObservation,
-    EmbodiedStrategyProposal,
+    ConsequenceStore, EmbodiedStrategyProposal,
     evaluate_consequence, run_strategy_experiment, verify_independent_observation,
     verify_renderer_report,
 )
@@ -75,7 +75,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--renderer-report"); p.add_argument("--observation"); p.add_argument("--fulfillment-receipt"); p.add_argument("--causal-principal-binding-digest")
     p=sub.add_parser("consequence-show"); p.add_argument("--attribution",required=True); p.add_argument("--comparison",required=True)
     p=sub.add_parser("developmental-assimilate"); p.add_argument("--selection",required=True); p.add_argument("--candidate",required=True); p.add_argument("--admission",required=True); p.add_argument("--output",required=True)
-    p=sub.add_parser("strategy-experiment"); p.add_argument("--protocol",required=True); p.add_argument("--history-record",required=True); p.add_argument("--situation",required=True); p.add_argument("--consequence",required=True); p.add_argument("--backend-fixture",required=True); p.add_argument("--output",required=True)
+    p=sub.add_parser("strategy-experiment"); p.add_argument("--protocol",required=True); p.add_argument("--history-record",required=True); p.add_argument("--situation",required=True); p.add_argument("--consequence",required=True); p.add_argument("--backend-fixture",required=True); p.add_argument("--output",required=True); p.add_argument("--store-root")
     return root
 
 
@@ -121,7 +121,9 @@ def main(argv: list[str] | None=None) -> int:
         # admission and durable append remain owned by ResidentDevelopmentalWritebackController.
         result={"schema_version":"sentientos.developmental_assimilation_request:v1","selection":_read(args.selection),"candidate":_read(args.candidate),"admission":_read(args.admission),"status":"ready_for_resident_developmental_writeback_controller","automatic_write":False,"authority":{}}
         _write(args.output,result); return 0
-    elif command=="strategy-experiment": result=run_strategy_experiment(protocol=_read(args.protocol),history_record=_read(args.history_record),situation=_read(args.situation),backend=_FixtureStrategyBackend(_read(args.backend_fixture)),consequence=_read(args.consequence)); _write(args.output,result); return 0
+    elif command=="strategy-experiment":
+        store=ConsequenceStore(Path(args.store_root)) if args.store_root else None
+        result=run_strategy_experiment(protocol=_read(args.protocol),history_record=_read(args.history_record),situation=_read(args.situation),backend=_FixtureStrategyBackend(_read(args.backend_fixture)),consequence=_read(args.consequence),store=store); _write(args.output,result); return 0
     else: raise AssertionError(command)
     _write(None,result); return 0
 

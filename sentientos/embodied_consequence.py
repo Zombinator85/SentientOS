@@ -26,9 +26,12 @@ STRATEGY_SCHEMA = "sentientos.embodied_strategy_proposal:v1"
 EXPERIMENT_SCHEMA = "sentientos.embodied_strategy_experiment:v1"
 LEGACY_EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v1"
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v2"
+STRATEGY_CONDITION_START_SCHEMA = "sentientos.embodied_strategy_condition_start:v1"
+STRATEGY_CONDITION_RESULT_SCHEMA = "sentientos.embodied_strategy_condition_result:v1"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
-_CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons", "strategy-experiments"}
+_CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons",
+    "strategy-experiments", "strategy-experiment-starts", "strategy-experiment-conditions"}
 _CONSEQUENCE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9a-f]{24}\Z")
 _ARTIFACT_IDENTITIES = {
     "expectations": ("expectation_id", "expectation_digest", "expectation"),
@@ -474,13 +477,26 @@ class GovernedStrategyCognitionBackend:
     def __init__(self, *, invoker: Any, model_id: str, model_artifact_digest: str,
                  inference_budget: Mapping[str, Any], caller: str,
                  resident_runtime_owner: Any | None = None) -> None:
-        from .governed_local_model_invocation import LocalModelInvocationBudget
+        from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
+        from .maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController
+        from .resident_cognitive_model_serving import ResidentCognitiveModelServingInvoker, ResidentCognitiveServingSlot
         if not isinstance(caller, str) or not caller.strip() or len(caller) > 128:
             raise EmbodiedConsequenceError("governed_strategy_caller_invalid")
+        if type(invoker) not in {GovernedLocalModelInvoker, ResidentCognitiveModelServingInvoker,
+                ResidentCognitiveServingSlot}:
+            raise EmbodiedConsequenceError("existing_governed_local_invoker_required")
+        if resident_runtime_owner is not None and type(resident_runtime_owner) is not MaintenanceResidentRuntimeAdoptionController:
+            raise EmbodiedConsequenceError("resident_software_generation_owner_required")
         try:
             self.budget = LocalModelInvocationBudget(**dict(inference_budget))
         except (TypeError, ValueError) as exc:
             raise EmbodiedConsequenceError("governed_strategy_budget_invalid") from exc
+        if (self.budget.max_input_chars < 1 or self.budget.max_output_chars < 1
+                or self.budget.max_new_tokens < 1 or self.budget.timeout_seconds <= 0
+                or self.budget.max_calls_per_correlation != 1
+                or not isinstance(model_id, str) or not model_id
+                or not isinstance(model_artifact_digest, str) or not model_artifact_digest):
+            raise EmbodiedConsequenceError("governed_strategy_budget_or_model_binding_invalid")
         self.invoker = invoker
         self.model_id = model_id
         self.model_artifact_digest = model_artifact_digest
@@ -543,6 +559,12 @@ class GovernedStrategyCognitionBackend:
             "receipt_id": receipt_value.get("receipt_id"),
             "receipt_digest": receipt_value.get("receipt_digest"),
             "invocation_receipt": receipt_value}
+        history_event_time = self.protocol.get("history_record_created_at")
+        inference_event_time = receipt_value.get("observed_at")
+        if not isinstance(history_event_time, str) or not isinstance(inference_event_time, str):
+            raise EmbodiedConsequenceError("strategy_event_time_unavailable")
+        if _time(inference_event_time) <= _time(history_event_time):
+            raise EmbodiedConsequenceError("strategy_inference_predates_history_record")
         runtime_after = self._runtime_provenance()
         if runtime_before is not None and runtime_after is not None and runtime_before != runtime_after:
             software_posture = "contradictory_process_identity_changed_during_inference"
@@ -618,6 +640,9 @@ class GovernedStrategyCognitionBackend:
             "receipt_id": receipt_value.get("receipt_id"), "receipt_digest": receipt_value.get("receipt_digest"),
             "invocation_receipt": receipt_value,
             "response_digest": response_digest,
+            "history_event_time": history_event_time,
+            "inference_event_time": inference_event_time,
+            "historical_event_precedes_inference": True,
             "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest,
             "software_generation_posture": software_posture,
             "software_execution_provenance": runtime_after,
@@ -657,8 +682,76 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
     payload["score_digest"]=digest(payload); return payload
 
 
+def _strategy_proposal_from_mapping(value: Mapping[str, Any]) -> EmbodiedStrategyProposal:
+    payload = dict(value)
+    for name in ("relevant_consequence_ids", "factual_assertions"):
+        if isinstance(payload.get(name), list): payload[name] = tuple(payload[name])
+    try:
+        proposal = EmbodiedStrategyProposal(**payload)
+    except (TypeError, ValueError) as exc:
+        raise EmbodiedConsequenceError("stored_strategy_proposal_invalid") from exc
+    verify_strategy_proposal(proposal)
+    return proposal
+
+
+def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: str,
+        protocol_id: str, protocol: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
+        history_record: Mapping[str, Any], situation: Mapping[str, Any],
+        proposal: EmbodiedStrategyProposal) -> dict[str, Any]:
+    from .governed_local_model_invocation import validate_receipt
+    from .local_model_authority import digest_payload
+    row = dict(value)
+    row_digest = row.pop("association_digest", None)
+    receipt = row.get("invocation_receipt")
+    valid_receipt, _ = validate_receipt(receipt) if isinstance(receipt, Mapping) else (False, ["missing_receipt"])
+    receipt_request = receipt.get("request") if isinstance(receipt, Mapping) else None
+    situation_copy = json.loads(canonical_bytes(dict(situation)))
+    expected_prompt = canonical_bytes({"schema": STRATEGY_PROMPT_SCHEMA,
+        "condition": condition, "history": [dict(item) for item in history],
+        "situation": situation_copy}).decode("utf-8")
+    linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
+    if (row_digest != digest(row) or not valid_receipt
+            or row.get("condition") != condition
+            or row.get("proposal_id") != proposal.strategy_id
+            or row.get("proposal_digest") != proposal.strategy_digest
+            or not isinstance(receipt_request, Mapping)
+            or receipt.get("receipt_id") != row.get("receipt_id")
+            or receipt.get("receipt_digest") != row.get("receipt_digest")
+            or receipt_request.get("request_id") != row.get("request_id")
+            or receipt_request.get("request_digest") != row.get("request_digest")
+            or receipt_request.get("prompt_digest") != digest_payload({"prompt": expected_prompt})
+            or receipt_request.get("purpose") != "resident_developmental_history_intervention_experiment"
+            or receipt_request.get("model_id") != protocol.get("model_id")
+            or receipt_request.get("model_artifact_digest") != protocol.get("model_artifact_digest")
+            or digest(receipt_request.get("budget")) != protocol.get("inference_budget_digest")
+            or receipt_request.get("active_model_identity") != row.get("active_model_identity")
+            or receipt_request.get("authority_map_digest") != row.get("authority_map_digest")
+            or receipt.get("output_digest") != row.get("response_digest")
+            or row.get("response_digest") != receipt.get("output_digest")
+            or receipt.get("status") != "admitted_completed"
+            or receipt.get("output_truncated") is not False
+            or receipt.get("fallback_occurred") is not False
+            or not isinstance(receipt.get("effects"), Mapping)
+            or receipt["effects"].get("local_model_inference") is not True
+            or row.get("active_model_identity_digest") != digest(row.get("active_model_identity"))
+            or not isinstance(linkage, Mapping)
+            or linkage.get("experiment_condition") != condition
+            or linkage.get("experiment_protocol_id") != protocol_id
+            or linkage.get("history_record_ids") != [str(item.get("record_id", "")) for item in history]
+            or row.get("history_digest") != digest([dict(item) for item in history])
+            or row.get("situation_digest") != digest(dict(situation))
+            or row.get("history_event_time") != history_record.get("created_at")
+            or row.get("inference_event_time") != receipt.get("observed_at")
+            or row.get("historical_event_precedes_inference") is not True
+            or _time(str(receipt.get("observed_at"))) <= _time(str(history_record.get("created_at")))):
+        raise EmbodiedConsequenceError("governed_execution_evidence_binding_invalid")
+    row["association_digest"] = row_digest
+    return row
+
+
 def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapping[str, Any], situation: Mapping[str, Any],
-                            backend: StrategyCognitionBackend, consequence: Mapping[str, Any]) -> dict[str, Any]:
+                            backend: StrategyCognitionBackend, consequence: Mapping[str, Any],
+                            store: "ConsequenceStore | None" = None) -> dict[str, Any]:
     required={"protocol_id","snapshot_digest","body_generation","model_id","model_artifact_digest","inference_budget_digest",
               "prompt_schema_digest","renderer_situation_digest","software_generation","environment_fixture_digest"}
     if (set(protocol)!=required or len(canonical_bytes(dict(protocol)))>MAX_STRATEGY_CONTEXT_BYTES
@@ -680,14 +773,23 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                               and history_record.get("current_truth") is False
                               and history_record.get("authority") is False
                               and history_record.get("policy") is False)
+    history_event_time = history_record.get("created_at")
+    try:
+        if not isinstance(history_event_time, str): raise EmbodiedConsequenceError("history_event_time_missing")
+        _time(history_event_time)
+    except EmbodiedConsequenceError:
+        history_binding_verified = False
     situation_digest=digest(dict(situation))
     situation_binding_verified=protocol.get("renderer_situation_digest")==situation_digest
     evidence_scope=_history_evidence_scope(history_record)
     conditions=("history_present","history_withheld","history_restored")
     protocol_id, protocol_digest = _identity("strategy-protocol", dict(protocol))
     bind_protocol = getattr(backend, "bind_protocol", None)
+    if isinstance(backend, GovernedStrategyCognitionBackend) and store is None:
+        raise EmbodiedConsequenceError("durable_store_required_for_governed_strategy_experiment")
     if callable(bind_protocol):
-        bind_protocol({**dict(protocol), "protocol_id": protocol_id, "protocol_digest": protocol_digest})
+        bind_protocol({**dict(protocol), "protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "history_record_created_at": history_event_time})
     proposals=[]
     execution_evidence=[]
     condition_statuses=[]
@@ -698,85 +800,133 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         # Each call receives an independent canonical copy so a backend cannot
         # mutate shared context and contaminate a later control condition.
         situation_copy=json.loads(canonical_bytes(dict(situation)))
+        condition_input_digest = digest({"protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "condition": condition, "history": [dict(item) for item in history],
+            "situation": situation_copy, "consequence_id": consequence.get("attribution_id"),
+            "consequence_digest": consequence.get("attribution_digest"),
+            "target_history_record_id": history_record.get("record_id"),
+            "target_history_record_digest": record_digest})
+        if store is not None:
+            start, terminal = store.read_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest)
+            if terminal is not None:
+                condition_status = {"condition": condition, "status": terminal["status"],
+                    "condition_result_digest": terminal["condition_result_digest"]}
+                if terminal.get("status") == "completed" and isinstance(terminal.get("proposal"), Mapping):
+                    condition_status["proposal_id"] = terminal["proposal"].get("strategy_id")
+                    condition_status["proposal_digest"] = terminal["proposal"].get("strategy_digest")
+                elif terminal.get("failure_posture") is not None:
+                    condition_status["failure_posture"] = terminal["failure_posture"]
+                condition_statuses.append(condition_status)
+                if isinstance(terminal.get("execution_evidence"), Mapping):
+                    stored_evidence = dict(terminal["execution_evidence"])
+                else:
+                    stored_evidence = None
+                if terminal.get("status") != "completed":
+                    if stored_evidence is not None:
+                        execution_evidence.append(stored_evidence)
+                    failure_posture = terminal.get("failure_posture") or "recovered_terminal_condition_incomplete"
+                    execution_contradiction = terminal.get("status") == "contradictory"
+                    break
+                proposal_value = terminal.get("proposal")
+                if not isinstance(proposal_value, Mapping):
+                    execution_contradiction = True
+                    failure_posture = "recovered_completed_condition_missing_proposal"
+                    condition_statuses[-1]["status"] = "contradictory"
+                    break
+                proposal = _strategy_proposal_from_mapping(proposal_value)
+                verify_strategy_proposal(proposal,
+                    situation_binding=str(situation_copy.get("situation_binding", "")),
+                    body_generation=int(protocol["body_generation"]))
+                if stored_evidence is not None and stored_evidence.get("execution_posture") == "verified_governed_model_identity":
+                    stored_evidence = _verify_strategy_execution_evidence(stored_evidence,
+                        condition=condition, protocol_id=protocol_id, protocol=protocol,
+                        history=history, history_record=history_record,
+                        situation=situation_copy, proposal=proposal)
+                    execution_evidence.append(stored_evidence)
+                else:
+                    execution_evidence.append(stored_evidence or {"condition":condition,
+                        "execution_posture":"unknown_no_governed_receipt"})
+                proposals.append(proposal)
+                continue
+            if start is not None:
+                # An intent exists without a terminal record.  It may reflect a
+                # live call or a crash after backend entry; either way it cannot
+                # be retried safely.
+                condition_statuses.append({"condition": condition, "status": "incomplete",
+                    "failure_posture": "started_without_terminal_no_replay"})
+                failure_posture = "started_without_terminal_no_replay"
+                break
+            claimed, _ = store.begin_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest)
+            if not claimed:
+                condition_statuses.append({"condition": condition, "status": "incomplete",
+                    "failure_posture": "concurrent_or_recovered_condition_claim_no_replay"})
+                failure_posture = "concurrent_or_recovered_condition_claim_no_replay"
+                break
         take_evidence = getattr(backend, "consume_execution_evidence", None)
         evidence = None
+        proposal: EmbodiedStrategyProposal | None = None
         try:
             proposal = backend.propose(condition=condition,history=history,situation=situation_copy)
             evidence = take_evidence() if callable(take_evidence) else None
             if evidence is not None:
                 if not isinstance(backend, GovernedStrategyCognitionBackend) or not isinstance(evidence, Mapping):
                     raise EmbodiedConsequenceError("unowned_governed_execution_evidence")
-                row = dict(evidence)
-                row_digest = row.pop("association_digest", None)
-                receipt = row.get("invocation_receipt")
-                from .governed_local_model_invocation import validate_receipt
-                from .local_model_authority import digest_payload
-                valid_receipt, _ = validate_receipt(receipt) if isinstance(receipt, Mapping) else (False, ["missing_receipt"])
-                receipt_request = receipt.get("request") if isinstance(receipt, Mapping) else None
-                expected_prompt = canonical_bytes({"schema": STRATEGY_PROMPT_SCHEMA,
-                    "condition": condition, "history": [dict(item) for item in history],
-                    "situation": situation_copy}).decode("utf-8")
-                linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
-                if (row_digest != digest(row) or not valid_receipt
-                        or row.get("condition") != condition
-                        or row.get("proposal_id") != proposal.strategy_id
-                    or row.get("proposal_digest") != proposal.strategy_digest
-                    or not isinstance(receipt_request, Mapping)
-                    or receipt.get("receipt_id") != row.get("receipt_id")
-                    or receipt.get("receipt_digest") != row.get("receipt_digest")
-                    or receipt_request.get("request_id") != row.get("request_id")
-                    or receipt_request.get("request_digest") != row.get("request_digest")
-                    or receipt_request.get("prompt_digest") != digest_payload({"prompt": expected_prompt})
-                    or receipt_request.get("purpose") != "resident_developmental_history_intervention_experiment"
-                    or receipt_request.get("model_id") != protocol.get("model_id")
-                    or receipt_request.get("model_artifact_digest") != protocol.get("model_artifact_digest")
-                    or digest(receipt_request.get("budget")) != protocol.get("inference_budget_digest")
-                    or receipt_request.get("active_model_identity") != row.get("active_model_identity")
-                    or receipt_request.get("authority_map_digest") != row.get("authority_map_digest")
-                    or receipt.get("output_digest") != row.get("response_digest")
-                    or row.get("response_digest") != receipt.get("output_digest")
-                    or receipt.get("status") != "admitted_completed"
-                    or receipt.get("output_truncated") is not False
-                    or receipt.get("fallback_occurred") is not False
-                    or not isinstance(receipt.get("effects"), Mapping)
-                    or receipt["effects"].get("local_model_inference") is not True
-                    or row.get("active_model_identity_digest") != digest(row.get("active_model_identity"))
-                    or not isinstance(linkage, Mapping)
-                    or linkage.get("experiment_condition") != condition
-                    or linkage.get("experiment_protocol_id") != protocol_id
-                    or linkage.get("history_record_ids") != [str(item.get("record_id", "")) for item in history]):
-                    raise EmbodiedConsequenceError("governed_execution_evidence_binding_invalid")
-                row["association_digest"] = row_digest
-                execution_evidence.append(row)
+                row = _verify_strategy_execution_evidence(evidence, condition=condition,
+                    protocol_id=protocol_id, protocol=protocol, history=history,
+                    history_record=history_record, situation=situation_copy, proposal=proposal)
             else:
-                execution_evidence.append({"condition": condition, "execution_posture": "unknown_no_governed_receipt"})
-            proposals.append(proposal)
-            condition_statuses.append({"condition": condition, "status": "completed",
-                "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest})
+                row = {"condition": condition, "execution_posture": "unknown_no_governed_receipt"}
+            verify_strategy_proposal(proposal, situation_binding=str(situation_copy.get("situation_binding", "")),
+                body_generation=int(protocol["body_generation"]))
         except Exception as exc:
             if evidence is None and callable(take_evidence):
                 evidence = take_evidence()
+            condition_execution: dict[str, Any] | None = None
             if isinstance(evidence, Mapping):
                 receipt = evidence.get("invocation_receipt")
                 if isinstance(receipt, Mapping):
                     from .governed_local_model_invocation import validate_receipt
                     receipt_valid, _ = validate_receipt(receipt)
-                    execution_evidence.append({"condition": condition,
+                    condition_execution = {"condition": condition,
                         "execution_posture": "incomplete_invocation_receipt",
                         "receipt_id": receipt.get("receipt_id"), "receipt_digest": receipt.get("receipt_digest"),
-                        "receipt_valid": receipt_valid, "invocation_receipt": dict(receipt)})
+                        "receipt_valid": receipt_valid, "invocation_receipt": dict(receipt)}
                 else:
-                    execution_evidence.append({"condition": condition,
+                    condition_execution = {"condition": condition,
                         "execution_posture": "incomplete_or_contradictory_evidence",
-                        "evidence_digest": digest(dict(evidence))})
+                        "evidence_digest": digest(dict(evidence))}
             failure_posture = getattr(exc, "code", None) or "backend_failure:" + type(exc).__name__
             failure_text = str(failure_posture).lower()
             contradictory = any(marker in failure_text for marker in
-                ("mismatch", "invalid", "contradictory", "malformed", "binding", "digest", "fields", "shape"))
+                ("mismatch", "invalid", "contradictory", "malformed", "binding", "digest", "fields", "shape",
+                 "not_json", "unowned"))
             execution_contradiction = execution_contradiction or contradictory
+            if store is not None:
+                terminal = store.finish_strategy_condition(protocol_id=protocol_id,
+                    protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                    status="contradictory" if contradictory else "incomplete",
+                    proposal=asdict(proposal) if isinstance(proposal, EmbodiedStrategyProposal) else None,
+                    execution_evidence=condition_execution, failure_posture=str(failure_posture)[:128])
+                condition_result_digest = terminal["condition_result_digest"]
+            else:
+                condition_result_digest = None
+            if condition_execution is not None: execution_evidence.append(condition_execution)
             condition_statuses.append({"condition": condition, "status": "contradictory" if contradictory else "incomplete",
-                "failure_posture": str(failure_posture)[:128]})
+                "condition_result_digest":condition_result_digest,"failure_posture": str(failure_posture)[:128]})
             break
+        if store is not None:
+            terminal = store.finish_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                status="completed", proposal=asdict(proposal), execution_evidence=row)
+        else:
+            terminal = None
+        proposals.append(proposal)
+        execution_evidence.append(row)
+        condition_statuses.append({"condition": condition, "status": "completed",
+            "condition_result_digest": terminal.get("condition_result_digest") if terminal else None,
+            "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest})
     expected_situation_binding=str(situation.get("situation_binding", ""))
     proposal_contradiction = False
     for proposal in proposals:
@@ -797,7 +947,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         if experiment_complete else {"status":"not_scored_incomplete_execution", "authority":dict(FALSE_AUTHORITY)})
     governed_rows = [item for item in execution_evidence if item.get("execution_posture") == "verified_governed_model_identity"]
     if experiment_contradictory:
-        execution_posture = "contradictory_strategy_proposal"
+        execution_posture = "contradictory_proposal_or_execution_evidence"
     elif not experiment_complete:
         execution_posture = "incomplete_interrupted_before_all_conditions"
     elif not governed_rows:
@@ -838,14 +988,18 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         and len({digest(item.get("invocation_receipt", {}).get("generation_config"))
                  for item in governed_rows}) == 1
         and len({digest(item.get("serving_identity")) for item in governed_rows}) == 1)
+    temporal_separation_posture = ("historical_record_event_precedes_inference_logical_tick_unbound"
+        if len(governed_rows) == len(conditions)
+        and all(item.get("historical_event_precedes_inference") is True for item in governed_rows)
+        else "unknown_or_incomplete")
     if experiment_contradictory:
-        validity = "proposal_identity_contradictory"
+        validity = "execution_or_proposal_identity_contradictory"
     elif not experiment_complete:
         validity = "execution_incomplete"
     elif not history_binding_verified or not situation_binding_verified:
         validity = "context_binding_incomplete"
     elif execution_posture == "verified_governed_model_serving_and_running_software_generation":
-        validity = "controlled_context_identity_consistent"
+        validity = "controlled_history_situation_execution_identity_consistent_cognition_context_unbound"
     elif execution_posture.startswith("contradictory") or "contradictory" in execution_posture:
         validity = "execution_identity_contradictory"
     else:
@@ -857,17 +1011,23 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         "failure_posture":failure_posture,
         "history_record_identity_consistent":history_binding_verified,
         "situation_matches_declared_digest":situation_binding_verified,
+        "world_state_binding_posture":"protocol_snapshot_digest_declared_without_resident_snapshot_object",
+        "self_model_binding_posture":"not_bound_by_embodied_strategy_protocol",
+        "epistemic_state_binding_posture":"not_bound_by_embodied_strategy_protocol",
+        "temporal_separation_posture":temporal_separation_posture,
         "cognitive_execution_identity_posture":execution_posture,
         "execution_context_stable_across_conditions":execution_context_stable if callable(bind_protocol) else None,
         "execution_evidence":execution_evidence,
         "consequence_scope":"prior_context_only_no_post_experiment_consequence_observed",
-        "input_context_digest":digest({"situation":dict(situation),"history_record_id":history_record.get("record_id"),
+        "input_context_digest":digest({"protocol_digest":protocol_digest,"situation":dict(situation),"history_record_id":history_record.get("record_id"),
             "history_record_digest":record_digest,"consequence_id":consequence.get("attribution_id"),
             "consequence_digest":consequence.get("attribution_digest")}),
         "evidence_scope":evidence_scope,
         "validity":validity,
         "proposals":[asdict(p) for p in proposals],"scoring":scoring,"no_retries":True,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
     payload["experiment_result_id"],payload["experiment_result_digest"]=_identity("strategy-experiment",payload)
+    if store is not None:
+        store.put("strategy-experiments", payload["experiment_result_id"], payload)
     return payload
 
 
@@ -1008,3 +1168,119 @@ class ConsequenceStore:
         if (claimed!=calculated_digest or claimed_id!=identity or calculated_id!=identity):
             raise EmbodiedConsequenceError("stored_artifact_digest_mismatch_or_identity_invalid")
         return cast(dict[str, Any], value)
+
+    @staticmethod
+    def _strategy_condition_id(protocol_id: str, condition: str) -> str:
+        if condition not in ("history_present", "history_withheld", "history_restored"):
+            raise EmbodiedConsequenceError("strategy_condition_invalid")
+        return _identity("strategy-condition", {"protocol_id": protocol_id, "condition": condition})[0]
+
+    def _checkpoint(self, kind: str, identity: str, *, digest_field: str,
+                    expected_schema: str) -> dict[str, Any] | None:
+        path = self._path(kind, identity)
+        if not os.path.lexists(path):
+            return None
+        try:
+            value = json.loads(self._read(path).decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_corrupt") from exc
+        if not isinstance(value, dict) or value.get("schema_version") != expected_schema:
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_corrupt")
+        semantic = dict(value)
+        claimed = semantic.pop(digest_field, None)
+        if (claimed != digest(semantic) or value.get("condition_id") != identity
+                or value.get("authority") != dict(FALSE_AUTHORITY)):
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_digest_mismatch")
+        return value
+
+    def _create_checkpoint(self, kind: str, identity: str, value: Mapping[str, Any], *,
+                           digest_field: str) -> bool:
+        path = self._path(kind, identity)
+        semantic = dict(value)
+        if value.get(digest_field) != digest({key: item for key, item in semantic.items()
+                                              if key != digest_field}):
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_digest_invalid")
+        data = canonical_bytes(value) + b"\n"
+        if len(data) > MAX_CONSEQUENCE_ARTIFACT_BYTES:
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_oversized")
+        descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".strategy-condition-")
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data); handle.flush(); os.fsync(handle.fileno())
+            try:
+                os.link(temporary, path)
+            except FileExistsError:
+                if self._read(path) != data:
+                    raise EmbodiedConsequenceError("strategy_condition_checkpoint_conflict")
+                return False
+            directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try: os.fsync(directory_fd)
+            finally: os.close(directory_fd)
+        except OSError as exc:
+            raise EmbodiedConsequenceError("strategy_condition_checkpoint_publication_failed") from exc
+        finally:
+            try: os.unlink(temporary)
+            except FileNotFoundError: pass
+        return True
+
+    def begin_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
+                                 condition: str, input_digest: str) -> tuple[bool, dict[str, Any]]:
+        condition_id = self._strategy_condition_id(protocol_id, condition)
+        semantic = {"schema_version": STRATEGY_CONDITION_START_SCHEMA, "condition_id": condition_id,
+            "protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "condition": condition, "input_digest": input_digest, "authority": dict(FALSE_AUTHORITY)}
+        record = {**semantic, "condition_start_digest": digest(semantic)}
+        created = self._create_checkpoint("strategy-experiment-starts", condition_id, record,
+            digest_field="condition_start_digest")
+        stored = self._checkpoint("strategy-experiment-starts", condition_id,
+            digest_field="condition_start_digest", expected_schema=STRATEGY_CONDITION_START_SCHEMA)
+        if stored != record:
+            raise EmbodiedConsequenceError("strategy_condition_start_binding_conflict")
+        return created, record
+
+    def finish_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
+                                  condition: str, input_digest: str, status: str,
+                                  proposal: Mapping[str, Any] | None,
+                                  execution_evidence: Mapping[str, Any] | None,
+                                  failure_posture: str | None = None) -> dict[str, Any]:
+        if status not in {"completed", "incomplete", "contradictory"}:
+            raise EmbodiedConsequenceError("strategy_condition_terminal_status_invalid")
+        condition_id = self._strategy_condition_id(protocol_id, condition)
+        start = self._checkpoint("strategy-experiment-starts", condition_id,
+            digest_field="condition_start_digest", expected_schema=STRATEGY_CONDITION_START_SCHEMA)
+        if (start is None or start.get("protocol_digest") != protocol_digest
+                or start.get("input_digest") != input_digest or start.get("condition") != condition):
+            raise EmbodiedConsequenceError("strategy_condition_start_missing_or_conflicting")
+        semantic = {"schema_version": STRATEGY_CONDITION_RESULT_SCHEMA, "condition_id": condition_id,
+            "protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "condition": condition, "input_digest": input_digest,
+            "condition_start_digest": start["condition_start_digest"], "status": status,
+            "proposal": dict(proposal) if proposal is not None else None,
+            "execution_evidence": dict(execution_evidence) if execution_evidence is not None else None,
+            "failure_posture": failure_posture, "authority": dict(FALSE_AUTHORITY)}
+        record = {**semantic, "condition_result_digest": digest(semantic)}
+        self._create_checkpoint("strategy-experiment-conditions", condition_id, record,
+            digest_field="condition_result_digest")
+        stored = self._checkpoint("strategy-experiment-conditions", condition_id,
+            digest_field="condition_result_digest", expected_schema=STRATEGY_CONDITION_RESULT_SCHEMA)
+        if stored != record:
+            raise EmbodiedConsequenceError("strategy_condition_terminal_conflict")
+        return record
+
+    def read_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
+                                condition: str, input_digest: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        condition_id = self._strategy_condition_id(protocol_id, condition)
+        start = self._checkpoint("strategy-experiment-starts", condition_id,
+            digest_field="condition_start_digest", expected_schema=STRATEGY_CONDITION_START_SCHEMA)
+        terminal = self._checkpoint("strategy-experiment-conditions", condition_id,
+            digest_field="condition_result_digest", expected_schema=STRATEGY_CONDITION_RESULT_SCHEMA)
+        for value in (start, terminal):
+            if value is not None and (value.get("protocol_id") != protocol_id
+                    or value.get("protocol_digest") != protocol_digest
+                    or value.get("condition") != condition
+                    or value.get("input_digest") != input_digest):
+                raise EmbodiedConsequenceError("strategy_condition_recovery_context_conflict")
+        if terminal is not None and (start is None or terminal.get("condition_start_digest") != start.get("condition_start_digest")
+                or terminal.get("status") not in {"completed", "incomplete", "contradictory"}):
+            raise EmbodiedConsequenceError("strategy_condition_recovery_lineage_invalid")
+        return start, terminal
