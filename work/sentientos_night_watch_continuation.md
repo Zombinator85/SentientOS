@@ -368,3 +368,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The modified sources passed Python AST parsing and had no trailing whitespace at this checkpoint. No runtime, Windows, restart/crash, suite, external provider, model activation, or production verification was performed. Work remains unverified for production.
 
 **Next implementation dependency:** link recovery readiness to the exact successor serving receipt already emitted by the serving owner, then validate that link during recovery projection. Do not infer a live process or model solely from a persisted receipt.
+
+
+### New checkpoint — recovery readiness binds the successor serving lifetime
+
+- The recovery controller already had a deterministic phase-to-terminal-receipt reconstruction path. Its successful phase result was written only after the immutable phases and startup snapshot had been checked; the observer does not invoke that path. Recovery inspection remains side-effect-free.
+- A newly recorded readiness phase now captures the exact serving receipt and session emitted for the replacement serving operation, after the child reports semantic readiness. The phase binds its receipt ID, semantic digest, and session ID alongside the successor process handoff.
+- Read-only reconstruction reopens the exact serving receipt from the selected installation, checks canonical bytes/digest, serving admission/loaded posture, installation identity, exact replacement operation, and phase/terminal receipt references. Legacy phases without these fields remain readable but expose a legacy-unbound posture; no receipt is synthesized by the observer.
+- When the recovery controller itself reconstructs terminal custody from already durable phases after interruption, its existing idempotent path remains the only publisher. It does not restart the child or replay inference/effects while doing so.
+- The exact serving receipt is historical custody plus a readiness-time claim. It does not establish that the serving process is still alive now. No independent cross-process liveness issuer is composed.
+- Python AST parsing passed for the modified files. No runtime, crash injection, Windows, or production verification was performed; changes remain untested.
+
+**Next implementation dependency:** determine whether an existing chat supervisor owner can publish a bounded, authenticated current-process observation into the selected installation without exposing its mutable recovery capability to the daemon. If no such issuer exists, preserve currentness as unknown and continue with another owner-level causal gap.

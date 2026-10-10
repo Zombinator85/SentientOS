@@ -622,8 +622,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "snapshot_advanced_at", "advanced_snapshot_digest", "decision_outcome_claimed",
         "decision_reference_claimed", "decision_posture", "predecessor_chat_process_handoff",
         "successor_chat_process_handoff", "handoff_lineage_posture", "terminal_receipt_digest",
-        "terminal_status", "phase_posture", "phase_evidence_posture", "runtime_currentness",
-        "effect_authority", "inference_performed",
+        "terminal_status", "successor_serving_receipt_id",
+        "successor_serving_receipt_semantic_digest", "successor_serving_session_id",
+        "successor_serving_receipt_posture", "phase_posture", "phase_evidence_posture",
+        "runtime_currentness", "effect_authority", "inference_performed",
     }
     seen_recovery: dict[str, Mapping[str, Any]] = {}
     for transition in verified_chat_process_recovery_transitions:
@@ -639,6 +641,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     != "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
                 or transition.get("runtime_currentness")
                     != "historical_process_identity_not_reobserved_during_recovery"
+                or transition.get("successor_serving_receipt_posture") not in {
+                    "verified_historical_custody", "legacy_or_missing"}
                 or transition.get("effect_authority") is not False
                 or transition.get("inference_performed") is not False):
             raise ValueError("chat_process_recovery_transition_binding_invalid")

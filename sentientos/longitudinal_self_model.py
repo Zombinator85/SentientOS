@@ -413,6 +413,11 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "readiness_observed_at": transition.get("readiness_observed_at"),
                 "snapshot_advanced_at": transition.get("snapshot_advanced_at"),
                 "advanced_snapshot_digest": transition.get("advanced_snapshot_digest"),
+                "successor_serving_receipt_id": transition.get("successor_serving_receipt_id"),
+                "successor_serving_receipt_semantic_digest": transition.get(
+                    "successor_serving_receipt_semantic_digest"),
+                "successor_serving_session_id": transition.get("successor_serving_session_id"),
+                "successor_serving_receipt_posture": transition.get("successor_serving_receipt_posture"),
                 "predecessor_chat_process_handoff": handoff_lineage(
                     transition.get("predecessor_chat_process_handoff")),
                 "successor_chat_process_handoff": handoff_lineage(
