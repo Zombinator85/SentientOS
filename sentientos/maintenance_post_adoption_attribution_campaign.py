@@ -412,6 +412,58 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             row[field] = tuple(row[field])
         return CampaignResult(**row)
 
+    def world_state_records(self, *, campaign_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Project explicitly selected durable outcomes as non-authorizing context."""
+        from sentientos.world_state_board import record_digest
+        identities = tuple(campaign_ids)
+        if (len(identities) > 32 or any(not isinstance(item, str) or not item.startswith("attribution-campaign:")
+                for item in identities) or len(identities) != len(set(identities))):
+            raise AttributionCampaignError("campaign_world_state_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for campaign_id in identities:
+            result = self.result(campaign_id)
+            protocol = self.protocol(campaign_id)
+            record: dict[str, Any] = {
+                "source_kind": "owner_introspection",
+                "source_id": "post-adoption-attribution:" + result.result_id,
+                "schema_version": RESULT_SCHEMA,
+                "subject_id": result.result_id,
+                "subject_kind": "post_adoption_attribution_campaign",
+                "stage": "observation",
+                "disposition": result.classification,
+                "evidence_strength": "digest_verified_campaign_custody_unverified_sources",
+                "payload": {
+                    "campaign_id": result.campaign_id,
+                    "campaign_digest": result.campaign_digest,
+                    "result_id": result.result_id,
+                    "result_digest": result.result_digest,
+                    "protocol_successor_generation": protocol.successor_generation,
+                    "protocol_successor_revision": protocol.successor_revision,
+                    "protocol_successor_tree": protocol.successor_tree,
+                    "adoption_identity_declared": protocol.adoption_identity,
+                    "trial_record_ids": list(result.trial_record_ids),
+                    "trial_digests": list(result.trial_digests),
+                    "evaluation_ids": list(result.evaluation_ids),
+                    "evaluation_digests": list(result.evaluation_digests),
+                    "control_ids": list(result.control_ids),
+                    "control_digests": list(result.control_digests),
+                    "reconstruction_lineage": list(result.reconstruction_lineage),
+                    "declared_completed_at": result.completed_at,
+                    "event_time_posture": "caller_declared_campaign_completion_time",
+                    "source_issuer_posture": "unverified_caller_supplied_sources",
+                    "production_ready": False,
+                    "current_truth": False,
+                    "authority": dict(FALSE_AUTHORITY),
+                },
+                "effect_claimed": False,
+                "effect_proven": False,
+            }
+            record["digest"] = record_digest(record)
+            if len(canonical_bytes(record)) > 65_536:
+                raise AttributionCampaignError("campaign_world_state_record_oversized")
+            records.append(record)
+        return records
+
     def verify(self) -> Mapping[str, int]:
         protocols: dict[str, CampaignProtocol] = {}
         for row in self._read("protocols"):

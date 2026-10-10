@@ -139,6 +139,8 @@ class ResidentEpistemicDevelopmentRuntime:
         historical_resource_fact = fact.source.kind == "resource_governor"
         historical_resource_introspection = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "causal_resources")
+        historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "post_adoption_attribution_campaign")
         historical_undated_consequence = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
                                                "developmental_model_replacement_experiment",
@@ -187,14 +189,15 @@ class ResidentEpistemicDevelopmentRuntime:
         # replace missing historical time with the snapshot reconstruction
         # clock; that would manufacture currentness during recovery.
         observed = observed or ("undated" if historical_resource_fact or historical_resource_introspection
-                                or historical_undated_consequence
+                                or historical_undated_consequence or historical_unverified_owner_record
                                 else str(snapshot.custody.get("observed_at", "")))
         provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
-                or historical_undated_consequence else "source_time_unverified" if unverified_embodiment_observation
+                or historical_undated_consequence or historical_unverified_owner_record
+                else "source_time_unverified" if unverified_embodiment_observation
                 else "source_observed"},
             sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
@@ -206,7 +209,8 @@ class ResidentEpistemicDevelopmentRuntime:
         # healthy source may be represented as current.
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
-                and not historical_undated_consequence and not unverified_embodiment_observation
+                and not historical_undated_consequence and not historical_unverified_owner_record
+                and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
         elif source_staleness in {"aging", "stale", "expired"}:
