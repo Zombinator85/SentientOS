@@ -162,9 +162,20 @@ class ResidentEpistemicDevelopmentRuntime:
         historical_resource_fact = fact.source.kind == "resource_governor"
         resource_invocation_lineage = (historical_resource_fact and fact.subject.subject_kind in {
             "strategy_invocation_resource_lineage", "model_replacement_invocation_resource_lineage"})
+        resource_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        resource_findings = resource_payload.get("lineage_findings")
+        resource_findings_empty = (
+            isinstance(resource_findings, (list, tuple)) and not resource_findings)
         incomplete_resource_lineage = (resource_invocation_lineage
-            and (fact.disposition != "verified" or not isinstance(fact.payload, Mapping)
-                or fact.payload.get("lineage_findings") != []))
+            and (fact.disposition != "verified" or not resource_findings_empty))
+        if (historical_resource_fact
+                and fact.subject.subject_kind == "causal_resource_consumption"):
+            incomplete_resource_lineage = incomplete_resource_lineage or (
+                fact.disposition != "recorded"
+                or resource_payload.get("lineage_posture") != "verified"
+                or not resource_findings_empty
+                or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                or resource_payload.get("retention_posture") != "complete")
         historical_resource_introspection = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"

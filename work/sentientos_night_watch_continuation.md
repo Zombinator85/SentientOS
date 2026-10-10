@@ -659,3 +659,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed again for the three changed modules. The source review covered the chat turn's stored-invocation verifier handoff; no service execution, receipt recovery, inference, cognition, or production verification was performed.
 
 **Next implementation dependency:** inspect how chat-process runtime observation and invocation source records are selected into configured epistemic development and admitted developmental writeback. Confirm the new operation-binding posture survives those existing selectors without becoming current truth or same-tick cognition; continue with any concrete loss at those handoffs.
+
+### New checkpoint — prevent degraded ledger summaries from supporting epistemic updates
+
+- Selector-path review found that an aggregate `causal_resource_consumption` record can be degraded by lineage findings, incomplete attempts, or bounded-retention omissions, while the epistemic adapter did not classify that subject kind as incomplete resource lineage. A rule explicitly selecting that degraded record could bind its configured `supports` or `contradicts` relation.
+- The adapter now treats the aggregate as contextual-only unless its disposition is recorded, lineage posture is verified, the findings collection is present and empty, recovery is complete, and retention is complete. Existing qualified historical resource evidence still flows through the configured rule; freshness remains unknown and no source selector, rule, or admission was activated.
+- Empty findings are recognized as either in-memory tuples or decoded lists so a verified positive source does not become falsely degraded because of representation.
+- Python compilation passed for `resident_epistemic_development.py`. No tests, actual source admission, epistemic mutation, history writeback, cognition, or production verification was performed.
+
+**Next implementation dependency:** inspect durable candidate selection and later cognition's retained interpretation path for this exact aggregate evidence, especially whether a qualified source's recorded event time and uncertainty survive compacting and restart without promoting it to present truth.
