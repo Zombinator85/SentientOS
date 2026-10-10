@@ -17,6 +17,7 @@ from .local_model_authority import digest_payload
 
 PURPOSE = "resident_developmental_model_replacement_experiment"
 CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
+CONTEXT_BINDING_SCHEMA = "sentientos.developmental_model_replacement_context_binding:v1"
 PROVENANCE_SCHEMA = "sentientos.model_development_provenance:v1"
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_protocol:v1"
 RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v1"
@@ -25,6 +26,7 @@ CONDITION_RESULT_SCHEMA = "sentientos.developmental_model_replacement_condition_
 MAX_PROVENANCE_ARTIFACT_BYTES = 262_144
 MAX_PROVENANCE_CLAIMS = 128
 MAX_PROTOCOL_ARTIFACT_BYTES = 1_048_576
+MAX_CONTEXT_ARTIFACT_BYTES = 2_097_152
 MAX_RUN_ARTIFACT_BYTES = 4_194_304
 MAX_CONDITION_ARTIFACT_BYTES = 1_048_576
 MAX_WORLD_STATE_PROJECTION_RECORDS = 48
@@ -33,6 +35,182 @@ CONDITION_ORDER = (
     "model_b_history_present", "model_b_history_withheld",
     "model_a_history_restored",
 )
+
+
+def _prior_cognition_bindings(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate and expose exact prior cognitive projections frozen in context."""
+    self_model = payload.get("prior_self_model")
+    epistemic = payload.get("prior_epistemic_state")
+    tick_id, current_tick = payload.get("tick_id"), payload.get("current_tick")
+    if self_model is not None or epistemic is not None:
+        if (not isinstance(tick_id, str) or not tick_id or type(current_tick) is not int
+                or current_tick < 0):
+            raise DevelopmentalModelReplacementError("prior_cognition_tick_binding_invalid")
+    result: dict[str, Any] = {
+        "prior_self_model_projection_id": None,
+        "prior_self_model_projection_digest": None,
+        "prior_self_model_source_tick": None,
+        "prior_epistemic_projection_id": None,
+        "prior_epistemic_projection_digest": None,
+        "prior_epistemic_source_tick": None,
+        "prior_epistemic_state_ids": [],
+        "prior_epistemic_state_digests": [],
+        "prior_cognitive_context_posture": "not_bound",
+    }
+    bound = 0
+    if self_model is not None:
+        if not isinstance(self_model, Mapping):
+            raise DevelopmentalModelReplacementError("prior_self_model_binding_invalid")
+        semantic = {key: value for key, value in self_model.items()
+            if key not in {"projection_id", "projection_digest"}}
+        claims = self_model.get("selected_claims")
+        claim_ids, claim_digests = self_model.get("selected_claim_ids"), self_model.get("selected_claim_digests")
+        authority = self_model.get("authority")
+        calculated = _digest(semantic)
+        if (self_model.get("projection_digest") != calculated
+                or self_model.get("projection_id") != "cognitive-self-model-" + calculated[7:31]
+                or not isinstance(self_model.get("source_tick"), str)
+                or self_model.get("source_tick") == tick_id
+                or not isinstance(claims, (list, tuple)) or len(claims) > 64
+                or any(not isinstance(item, Mapping) for item in claims)
+                or not isinstance(claim_ids, (list, tuple))
+                or not isinstance(claim_digests, (list, tuple)) or len(claim_ids) > 64
+                or len(claim_ids) != len(claim_digests)
+                or tuple(claim_ids) != tuple(str(item.get("claim_id", "")) for item in claims)
+                or tuple(claim_digests) != tuple(str(item.get("semantic_digest", "")) for item in claims)
+                or not isinstance(authority, Mapping) or any(authority.values())
+                or self_model.get("current_truth") is not False
+                or self_model.get("read_only") is not True
+                or self_model.get("derived_evidence") is not True
+                or self_model.get("interpretation") is not False):
+            raise DevelopmentalModelReplacementError("prior_self_model_binding_invalid")
+        result.update({"prior_self_model_projection_id": self_model["projection_id"],
+            "prior_self_model_projection_digest": self_model["projection_digest"],
+            "prior_self_model_source_tick": self_model["source_tick"]})
+        bound += 1
+    if epistemic is not None:
+        if not isinstance(epistemic, Mapping):
+            raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+        states = epistemic.get("states")
+        if (type(epistemic.get("source_tick")) is not int or epistemic["source_tick"] >= current_tick
+                or not isinstance(states, (list, tuple)) or len(states) > 64):
+            raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+        state_ids, state_digests = [], []
+        for state in states:
+            if not isinstance(state, Mapping):
+                raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+            state_semantic = {key: value for key, value in state.items()
+                if key not in {"state_id", "state_digest"}}
+            state_digest = _digest(state_semantic)
+            authority = state.get("authority")
+            if (state.get("state_digest") != state_digest
+                    or state.get("state_id") != "epistemic-state:" + state_digest[7:31]
+                    or type(state.get("generation")) is not int
+                    or not isinstance(authority, Mapping) or any(authority.values())):
+                raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+            state_ids.append(state["state_id"])
+            state_digests.append(state["state_digest"])
+        bindings = {"source_tick": epistemic["source_tick"],
+            "proposition_ids": epistemic.get("proposition_ids"),
+            "state_ids": epistemic.get("state_ids"),
+            "state_digests": epistemic.get("state_digests"),
+            "generations": epistemic.get("generations"),
+            "evidence_set_digests": epistemic.get("evidence_set_digests"),
+            "states": states, "evidence_only": False, "prior_position_only": True,
+            "current_truth": False, "authority": False, "policy": False, "goal": False}
+        calculated = _digest(bindings)
+        if (epistemic.get("projection_digest") != calculated
+                or epistemic.get("projection_id") != "epistemic-projection:" + calculated[7:31]
+                or epistemic.get("evidence_only") is not False
+                or epistemic.get("prior_position_only") is not True
+                or epistemic.get("current_truth") is not False
+                or epistemic.get("authority") is not False
+                or epistemic.get("policy") is not False
+                or epistemic.get("goal") is not False
+                or tuple(epistemic.get("proposition_ids", ())) != tuple(
+                    str(state.get("proposition_id", "")) for state in states)
+                or tuple(epistemic.get("state_ids", ())) != tuple(state_ids)
+                or tuple(epistemic.get("state_digests", ())) != tuple(state_digests)
+                or tuple(epistemic.get("generations", ())) != tuple(
+                    int(state.get("generation", -1)) for state in states)
+                or tuple(epistemic.get("evidence_set_digests", ())) != tuple(
+                    str(state.get("evidence_set_digest", "")) for state in states)):
+            raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+        result.update({"prior_epistemic_projection_id": epistemic["projection_id"],
+            "prior_epistemic_projection_digest": epistemic["projection_digest"],
+            "prior_epistemic_source_tick": epistemic["source_tick"],
+            "prior_epistemic_state_ids": list(state_ids),
+            "prior_epistemic_state_digests": list(state_digests)})
+        bound += 1
+    result["prior_cognitive_context_posture"] = (
+        "verified_prior_self_and_epistemic_projections" if bound == 2 else
+        "verified_partial_prior_cognitive_context" if bound == 1 else "not_bound")
+    return result
+
+
+def _validate_prior_binding_manifest(value: Mapping[str, Any]) -> None:
+    expected_keys = {"prior_self_model_projection_id", "prior_self_model_projection_digest",
+        "prior_self_model_source_tick", "prior_epistemic_projection_id",
+        "prior_epistemic_projection_digest", "prior_epistemic_source_tick",
+        "prior_epistemic_state_ids", "prior_epistemic_state_digests",
+        "prior_cognitive_context_posture"}
+    if set(value) != expected_keys:
+        raise DevelopmentalModelReplacementError("context_prior_binding_shape_invalid")
+    self_bound = value.get("prior_self_model_projection_id") is not None
+    epistemic_bound = value.get("prior_epistemic_projection_id") is not None
+    for stem, bound in (("prior_self_model", self_bound), ("prior_epistemic", epistemic_bound)):
+        identity, identity_digest, source_tick = (value.get(stem + suffix) for suffix in
+            ("_projection_id", "_projection_digest", "_source_tick"))
+        source_valid = (type(source_tick) is int and source_tick >= 0 if stem == "prior_epistemic"
+            else isinstance(source_tick, str) and bool(source_tick))
+        if bound != (isinstance(identity, str) and bool(identity)
+                and isinstance(identity_digest, str) and bool(identity_digest) and source_valid):
+            raise DevelopmentalModelReplacementError("context_prior_binding_identity_invalid")
+    state_ids, state_digests = value.get("prior_epistemic_state_ids"), value.get("prior_epistemic_state_digests")
+    if (not isinstance(state_ids, list) or not isinstance(state_digests, list)
+            or len(state_ids) != len(state_digests) or len(state_ids) > 64
+            or any(not isinstance(item, str) or not item for item in (*state_ids, *state_digests))
+            or (not epistemic_bound and (state_ids or state_digests))):
+        raise DevelopmentalModelReplacementError("context_prior_binding_state_lineage_invalid")
+    posture = ("verified_prior_self_and_epistemic_projections" if self_bound and epistemic_bound else
+        "verified_partial_prior_cognitive_context" if self_bound or epistemic_bound else "not_bound")
+    if value.get("prior_cognitive_context_posture") != posture:
+        raise DevelopmentalModelReplacementError("context_prior_binding_posture_invalid")
+
+
+def _resource_receipt_binding(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    allocation = receipt.get("resource_allocation_digest")
+    attempt = receipt.get("resource_attempt_id")
+    consumption = receipt.get("resource_consumption_receipt_digests", ())
+    linkage = receipt.get("resource_linkage_digest")
+    if not isinstance(consumption, (list, tuple)):
+        raise DevelopmentalModelReplacementError("inference_resource_linkage_invalid")
+    values = tuple(consumption)
+    if allocation is None and attempt is None and not values and linkage is None:
+        return {"resource_allocation_digest": None, "resource_attempt_id": None,
+            "resource_consumption_receipt_digests": [], "resource_linkage_digest": None,
+            "resource_attribution_posture": "no_resource_linkage_supplied"}
+    if (not isinstance(allocation, str) or len(allocation) != 64
+            or any(character not in "0123456789abcdef" for character in allocation)
+            or not isinstance(attempt, str) or not attempt.startswith("lmattempt-")
+            or len(attempt) > 128
+            or not values or any(not isinstance(item, str) or len(item) != 64
+                or any(character not in "0123456789abcdef" for character in item)
+                for item in values)
+            or not isinstance(receipt.get("inference_receipt_digest"), str)
+            or len(receipt["inference_receipt_digest"]) != 64
+            or any(character not in "0123456789abcdef" for character in receipt["inference_receipt_digest"])
+            or not isinstance(linkage, str)
+            or len(linkage) != 64
+            or any(character not in "0123456789abcdef" for character in linkage)
+            or linkage != digest_payload({"receipt_digest": receipt.get("inference_receipt_digest"),
+                "allocation_digest": allocation, "attempt_id": attempt,
+                "consumption_receipt_digests": values})):
+        raise DevelopmentalModelReplacementError("inference_resource_linkage_invalid")
+    return {"resource_allocation_digest": allocation, "resource_attempt_id": attempt,
+        "resource_consumption_receipt_digests": list(values),
+        "resource_linkage_digest": linkage,
+        "resource_attribution_posture": "linkage_digest_bound_ledger_reconciliation_pending"}
 COMPARISONS = (
     "history_effect_model_a", "history_effect_model_b",
     "model_difference_with_history", "model_difference_without_history",
@@ -232,6 +410,14 @@ class FrozenCausalContext:
             raise DevelopmentalModelReplacementError("causal_context_digest_mismatch")
         if self.projected_content_digest != _digest(dict(self.current_projection_payload)):
             raise DevelopmentalModelReplacementError("current_projection_content_mismatch")
+        if (len(self.current_fact_ids) > 64 or len(set(self.current_fact_ids)) != len(self.current_fact_ids)
+                or len(self.history_record_ids) > 64
+                or len(self.history_record_ids) != len(self.history_record_digests)
+                or len(self.history_record_ids) != len(self.history_projection_payload)
+                or any(not isinstance(item, str) or not item for item in self.history_record_ids)
+                or any(not isinstance(item, str) or not item.startswith("sha256:")
+                    for item in self.history_record_digests)):
+            raise DevelopmentalModelReplacementError("causal_context_evidence_bounds_invalid")
         history = {"record_ids": list(self.history_record_ids),
                    "record_digests": list(self.history_record_digests)}
         if self.history_record_set_digest != _digest(history):
@@ -240,6 +426,27 @@ class FrozenCausalContext:
             raise DevelopmentalModelReplacementError("instruction_template_digest_mismatch")
         if self.generation_posture.get("temperature") != 0:
             raise DevelopmentalModelReplacementError("temperature_zero_required")
+        _prior_cognition_bindings(self.current_projection_payload)
+
+    def identity_manifest(self) -> dict[str, Any]:
+        self.verify()
+        semantic = {"schema_version": CONTEXT_BINDING_SCHEMA,
+            "context_id": self.context_id, "context_digest": self.context_digest,
+            "snapshot_id": self.snapshot_id, "snapshot_digest": self.snapshot_digest,
+            "current_projection_id": self.current_projection_id,
+            "current_projection_digest": self.current_projection_digest,
+            "current_fact_ids": list(self.current_fact_ids),
+            "projected_content_digest": self.projected_content_digest,
+            "history_record_ids": list(self.history_record_ids),
+            "history_record_digests": list(self.history_record_digests),
+            "history_record_set_digest": self.history_record_set_digest,
+            "instruction_template_digest": self.instruction_template_digest,
+            "inference_budget": dict(self.inference_budget),
+            "generation_posture": dict(self.generation_posture),
+            "repository_generation_identity": self.repository_generation_identity,
+            "prior_cognition_bindings": _prior_cognition_bindings(self.current_projection_payload),
+            "authority": False}
+        return {**semantic, "context_manifest_digest": _digest(semantic)}
 
 
 @dataclass(frozen=True)
@@ -302,6 +509,7 @@ class ModelReplacementArtifactStore:
         self.state_root = selected_root.resolve()
         self.root = self.state_root / "developmental_experiments" / "model_replacement"
         self.protocols = self.root / "protocols"
+        self.contexts = self.root / "contexts"
         self.provenance = self.root / "provenance"
         self.runs = self.root / "runs"
         self.condition_starts = self.root / "condition-starts"
@@ -316,7 +524,7 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("artifact_store_unsupported_platform")
 
     def _open_kind_directory(self, kind: str, *, create: bool) -> int:
-        if kind not in {"provenance", "protocols", "runs", "condition-starts", "condition-results"}:
+        if kind not in {"provenance", "protocols", "contexts", "runs", "condition-starts", "condition-results"}:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
         self._require_descriptor_storage()
         flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
@@ -354,7 +562,7 @@ class ModelReplacementArtifactStore:
             relative = path.relative_to(self.root)
         except ValueError as exc:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid") from exc
-        if len(relative.parts) != 2 or relative.parts[0] not in {"provenance", "protocols", "runs",
+        if len(relative.parts) != 2 or relative.parts[0] not in {"provenance", "protocols", "contexts", "runs",
                 "condition-starts", "condition-results"}:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
         if not relative.parts[1] or relative.parts[1] in {".", ".."}:
@@ -366,7 +574,8 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("artifact_store_read_only")
         normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
         limits = {"provenance": MAX_PROVENANCE_ARTIFACT_BYTES,
-            "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "runs": MAX_RUN_ARTIFACT_BYTES,
+            "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "contexts": MAX_CONTEXT_ARTIFACT_BYTES,
+            "runs": MAX_RUN_ARTIFACT_BYTES,
             "condition-starts": MAX_CONDITION_ARTIFACT_BYTES,
             "condition-results": MAX_CONDITION_ARTIFACT_BYTES}
         kind, filename = self._artifact_location(path)
@@ -534,6 +743,72 @@ class ModelReplacementArtifactStore:
     def persist_protocol(self, protocol: ModelReplacementProtocol) -> None:
         protocol.verify()
         self._write(self.protocols / f"{protocol.protocol_id}.json", asdict(protocol))
+
+    def persist_context(self, context: FrozenCausalContext) -> None:
+        manifest = context.identity_manifest()
+        self._write(self.contexts / f"{context.context_id}.json", manifest)
+
+    def load_verified_context(self, context_id: str, context_digest: str) -> dict[str, Any]:
+        prefix = "model-replacement-context-"
+        if (not isinstance(context_id, str) or len(context_id) != len(prefix) + 24
+                or not context_id.startswith(prefix)
+                or any(character not in "0123456789abcdef" for character in context_id[len(prefix):])
+                or not isinstance(context_digest, str) or len(context_digest) != 71
+                or not context_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in context_digest[7:])):
+            raise DevelopmentalModelReplacementError("context_artifact_identity_invalid")
+        path = self.contexts / f"{context_id}.json"
+        try:
+            value = self._read_artifact_json(path, maximum_bytes=MAX_CONTEXT_ARTIFACT_BYTES,
+                missing_code="context_artifact_unavailable", invalid_code="context_artifact_invalid")
+            manifest_digest = value.get("context_manifest_digest")
+            semantic = {key: item for key, item in value.items()
+                if key != "context_manifest_digest"}
+            history_ids = value.get("history_record_ids")
+            history_digests = value.get("history_record_digests")
+            current_fact_ids = value.get("current_fact_ids")
+            prior_bindings = value.get("prior_cognition_bindings")
+            if (value.get("schema_version") != CONTEXT_BINDING_SCHEMA
+                    or manifest_digest != _digest(semantic)
+                    or value.get("context_id") != context_id
+                    or value.get("context_digest") != context_digest
+                    or value.get("authority") is not False
+                    or not all(isinstance(value.get(key), str) and value.get(key) for key in (
+                        "snapshot_id", "snapshot_digest", "current_projection_id",
+                        "current_projection_digest", "projected_content_digest",
+                        "instruction_template_digest"))
+                    or any(len(value.get(key, "")) != 71 or not value[key].startswith("sha256:")
+                        or any(character not in "0123456789abcdef" for character in value[key][7:])
+                        for key in ("snapshot_digest", "current_projection_digest",
+                            "projected_content_digest", "instruction_template_digest"))
+                    or not isinstance(value.get("inference_budget"), Mapping)
+                    or not isinstance(value.get("generation_posture"), Mapping)
+                    or value.get("generation_posture", {}).get("temperature") != 0
+                    or not isinstance(history_ids, list) or not isinstance(history_digests, list)
+                    or len(history_ids) != len(history_digests) or len(history_ids) > 64
+                    or len(set(history_ids)) != len(history_ids)
+                    or any(not isinstance(item, str) or not item for item in history_ids)
+                    or any(not isinstance(item, str) or len(item) != 71 or not item.startswith("sha256:")
+                        or any(character not in "0123456789abcdef" for character in item[7:])
+                        for item in history_digests)
+                    or value.get("history_record_set_digest") != _digest({
+                        "record_ids": history_ids, "record_digests": history_digests})
+                    or not isinstance(current_fact_ids, list) or len(current_fact_ids) > 64
+                    or any(not isinstance(item, str) or not item for item in current_fact_ids)
+                    or len(set(current_fact_ids)) != len(current_fact_ids)
+                    or not isinstance(prior_bindings, Mapping)
+                    or prior_bindings.get("prior_cognitive_context_posture") not in {
+                        "not_bound", "verified_partial_prior_cognitive_context",
+                        "verified_prior_self_and_epistemic_projections"}):
+                raise DevelopmentalModelReplacementError("context_artifact_invalid")
+            _validate_prior_binding_manifest(prior_bindings)
+        except DevelopmentalModelReplacementError:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalModelReplacementError("context_artifact_invalid") from exc
+        if context_id != "model-replacement-context-" + context_digest[7:31]:
+            raise DevelopmentalModelReplacementError("context_artifact_identity_mismatch")
+        return value
 
     def verify_protocol_bytes(self, protocol: ModelReplacementProtocol) -> None:
         path = self.protocols / f"{protocol.protocol_id}.json"
@@ -705,6 +980,12 @@ class ModelReplacementArtifactStore:
                 or run_id != "model-replacement-run-" + run_digest[7:31]):
             raise DevelopmentalModelReplacementError("trial_run_artifact_tampered")
         condition_statuses = value.get("condition_statuses")
+        context_lineage_posture = value.get("context_lineage_posture")
+        if (context_lineage_posture not in {None, "legacy_context_not_persisted",
+                "verified_persisted_frozen_context"}
+                or (context_lineage_posture == "verified_persisted_frozen_context"
+                    and condition_statuses is None)):
+            raise DevelopmentalModelReplacementError("trial_context_lineage_posture_invalid")
         if condition_statuses is not None:
             protocol = value.get("protocol")
             trial_id = value.get("trial_id")
@@ -716,6 +997,17 @@ class ModelReplacementArtifactStore:
                     or completion not in {"completed", "incomplete", "contradictory"}):
                 raise DevelopmentalModelReplacementError("trial_condition_lineage_incomplete")
             protocol_id = str(protocol.get("protocol_id") or "")
+            frozen_context: dict[str, Any] | None = None
+            prior_bindings: dict[str, Any] | None = None
+            context_lineage_posture = value.get("context_lineage_posture")
+            if context_lineage_posture == "verified_persisted_frozen_context":
+                protocol_object = self.load_verified_protocol(protocol_id,
+                    str(protocol.get("protocol_digest") or ""))
+                frozen_context = self.load_verified_context(protocol_object.causal_context_id,
+                    protocol_object.causal_context_digest)
+                prior_bindings = dict(frozen_context["prior_cognition_bindings"])
+            elif context_lineage_posture not in {None, "legacy_context_not_persisted"}:
+                raise DevelopmentalModelReplacementError("trial_context_lineage_posture_invalid")
             completed_observations: list[Mapping[str, Any]] = []
             saw_terminal_status = False
             for index, (condition, status) in enumerate(zip(CONDITION_ORDER, condition_statuses)):
@@ -739,6 +1031,18 @@ class ModelReplacementArtifactStore:
                             or len(completed_observations) >= len(observations)
                             or terminal.get("observation") != observations[len(completed_observations)]):
                         raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
+                    if prior_bindings is not None and frozen_context is not None:
+                        for key, expected_value in prior_bindings.items():
+                            if terminal["observation"].get(key) != expected_value:
+                                raise DevelopmentalModelReplacementError("trial_prior_cognition_binding_conflict")
+                        if (terminal["observation"].get("current_projection_id") != frozen_context["current_projection_id"]
+                                or terminal["observation"].get("current_projection_digest") != frozen_context["current_projection_digest"]):
+                            raise DevelopmentalModelReplacementError("trial_current_projection_binding_conflict")
+                    if context_lineage_posture == "verified_persisted_frozen_context":
+                        resource_binding = _resource_receipt_binding(terminal["observation"])
+                        if any(terminal["observation"].get(key) != expected_value
+                                for key, expected_value in resource_binding.items()):
+                            raise DevelopmentalModelReplacementError("trial_resource_linkage_binding_conflict")
                     completed_observations.append(cast(Mapping[str, Any], terminal["observation"]))
                 else:
                     saw_terminal_status = True
@@ -787,6 +1091,13 @@ class ModelReplacementArtifactStore:
             normalized_protocol = json.loads(json.dumps(asdict(protocol), sort_keys=True))
             if normalized_protocol != dict(protocol_value):
                 raise DevelopmentalModelReplacementError("run_projection_protocol_binding_mismatch")
+            if run.get("context_lineage_posture") == "verified_persisted_frozen_context":
+                projection_context = self.load_verified_context(protocol.causal_context_id,
+                    protocol.causal_context_digest)
+                prior_cognition_context_posture = projection_context["prior_cognition_bindings"][
+                    "prior_cognitive_context_posture"]
+            else:
+                prior_cognition_context_posture = "legacy_context_not_persisted"
             provenance_a = self.load_verified_provenance(protocol.model_a_provenance_digest,
                 protocol.model_a_identity)
             provenance_b = self.load_verified_provenance(protocol.model_b_provenance_digest,
@@ -845,7 +1156,14 @@ class ModelReplacementArtifactStore:
                     "model_provenance_manifest_digest", "causal_context_id", "causal_context_digest",
                     "current_projection_id", "current_projection_digest", "history_withheld",
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
-                    "inference_receipt_digest", "output_digest")})
+                    "inference_receipt_digest", "output_digest",
+                    "prior_self_model_projection_id", "prior_self_model_projection_digest",
+                    "prior_self_model_source_tick", "prior_epistemic_projection_id",
+                    "prior_epistemic_projection_digest", "prior_epistemic_source_tick",
+                    "prior_epistemic_state_ids", "prior_epistemic_state_digests",
+                    "prior_cognitive_context_posture", "resource_allocation_digest",
+                    "resource_attempt_id", "resource_consumption_receipt_digests",
+                    "resource_linkage_digest", "resource_attribution_posture")})
             if completion == "completed":
                 if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
                         or observations[0].get("history_record_digests") != observations[2].get("history_record_digests")
@@ -889,6 +1207,7 @@ class ModelReplacementArtifactStore:
                 "model_b_provenance_availability": provenance_b.availability,
                 "model_b_provenance_claim_count": len(provenance_b.claims),
                 "observations": observations, "differences": differences,
+                "prior_cognitive_context_posture": prior_cognition_context_posture,
                 "classification": classification,
                 "experiment_completion_posture": run.get("experiment_completion_posture", "completed"),
                 "condition_statuses": run.get("condition_statuses"),
@@ -993,6 +1312,8 @@ class DevelopmentalModelReplacementExperiment:
                     "actual_generation_parameters": dict(actual),
                     "authority_record_digest": expected.authority_record_digest,
                     "correlation_id": correlation}
+        semantic.update(_resource_receipt_binding(receipt))
+        semantic.update(_prior_cognition_bindings(self.context.current_projection_payload))
         digest = _digest(semantic)
         return {**semantic, "observation_id": "model-replacement-observation-" + digest[7:31],
                 "observation_digest": digest}
@@ -1009,6 +1330,13 @@ class DevelopmentalModelReplacementExperiment:
         history_digests = list(self.context.history_record_digests) if with_history else []
         correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
         generation = value.get("actual_generation_parameters")
+        prior_bindings = _prior_cognition_bindings(self.context.current_projection_payload)
+        resource_fields = {"resource_allocation_digest", "resource_attempt_id",
+            "resource_consumption_receipt_digests", "resource_linkage_digest",
+            "resource_attribution_posture"}
+        resource_binding = (_resource_receipt_binding(value)
+            if resource_fields.intersection(value) else None)
+        has_prior_bindings = any(key in value for key in prior_bindings)
         if (value.get("observation_digest") != calculated
                 or value.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
                 or value.get("condition_id") != condition or value.get("trial_id") != trial_id
@@ -1023,6 +1351,10 @@ class DevelopmentalModelReplacementExperiment:
                 or value.get("history_record_ids") != history_ids
                 or value.get("history_record_digests") != history_digests
                 or value.get("history_withheld") is not (not with_history)
+                or (resource_binding is not None and any(value.get(key) != expected_value
+                    for key, expected_value in resource_binding.items()))
+                or (has_prior_bindings and any(value.get(key) != expected_value
+                    for key, expected_value in prior_bindings.items()))
                 or value.get("prompt_digest") != prompt_digest
                 or value.get("correlation_id") != correlation
                 or not all(isinstance(value.get(key), str) and value.get(key) for key in (
@@ -1042,6 +1374,7 @@ class DevelopmentalModelReplacementExperiment:
             "observations": [dict(item) for item in observations],
             "condition_statuses": [dict(item) for item in condition_statuses],
             "experiment_completion_posture": completion,
+            "context_lineage_posture": "verified_persisted_frozen_context",
             "differences": None,
             "classification": "experiment_contradictory" if completion == "contradictory"
                 else "experiment_incomplete",
@@ -1058,6 +1391,7 @@ class DevelopmentalModelReplacementExperiment:
         # All metadata and the complete immutable protocol exist before inference one.
         self.store.persist_provenance(self.provenance_a)
         self.store.persist_provenance(self.provenance_b)
+        self.store.persist_context(self.context)
         self.store.persist_protocol(self.protocol)
         plan = ((CONDITION_ORDER[0], self.model_a, self.protocol.model_a_identity,
                  self.provenance_a.manifest_digest, True),
@@ -1194,6 +1528,7 @@ class DevelopmentalModelReplacementExperiment:
             classification = "no_observable_history_effect_either_model"
         semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol), "observations": observations,
                     "condition_statuses": condition_statuses,
+                    "context_lineage_posture": "verified_persisted_frozen_context",
                     "experiment_completion_posture": "completed",
                     "differences": differences, "classification": classification,
                     "claims_posture": "bounded_digest_level_observed_association_only",

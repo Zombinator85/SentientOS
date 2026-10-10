@@ -273,7 +273,11 @@ class ExperimentalCognitiveEndpoint:
                 "request_id": request.request_id, "request_digest": request.request_digest,
                 "inference_receipt_id": result.receipt_id, "inference_receipt_digest": result.receipt_digest,
                 "output_digest": result.output_digest,
-                "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {})}
+                "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {}),
+                "resource_allocation_digest": result.resource_allocation_digest,
+                "resource_attempt_id": result.resource_attempt_id,
+                "resource_consumption_receipt_digests": list(result.resource_consumption_receipt_digests),
+                "resource_linkage_digest": result.resource_linkage_digest}
 
     def _invalidate(self, reason: str) -> None:
         if not self._closed: self.close(reason=reason, status="invalidated")
