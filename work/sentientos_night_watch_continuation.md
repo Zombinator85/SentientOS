@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `de9093e016cc51f19c8a8f3f28bd2c49294965ec` (tree `797580ad9bd5303653aee43faff11e07a2b51b6a`, parent `0783224bf01faa337c2e1b214a2c278b9bf05d77`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `d756b8198ba89ef26376871d7310be645993d145` (tree `15240e72f3e913793502c1f5f5a5d33fd1598f9a`, parent `de9093e016cc51f19c8a8f3f28bd2c49294965ec`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -30,4 +30,4 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 
 ## Next executable task
 
-The daemon and developmental cognition owners already pass these facts through normal World-State selection when the explicit source-kind configuration allows `resource_governor`; no checked-in epistemic rule configuration was found, and no default or selector was added. Next, inspect authenticated prediction/consequence handoffs and succession outcomes for further existing-owner connections. Caller-supplied embodied observations remain contextual until an authenticated observer issuer is composed.
+The daemon and developmental cognition owners already pass these facts through normal World-State selection when the explicit source-kind configuration allows `resource_governor`; no checked-in epistemic rule configuration was found, and no default or selector was added. Next, inspect whether an existing local owner can authenticate consequence observations, then inspect model/software succession outcomes for further existing-owner connections. Caller-supplied embodied observations remain contextual until an authenticated observer issuer is composed.
