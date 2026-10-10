@@ -506,7 +506,7 @@ class LiveTransitionOperatorRuntime:
 
     def status(self) -> dict[str, Any]:
         health = dict(self.controller.health())
-        session = self.slot.current_controller.current_session()
+        session = self.slot.current_controller.observed_current_session()
         return {"schema_version": "sentientos.resident_cognitive_transition_live_status:v1",
                 "enabled": self.config.enabled, "configured": True,
                 "protocol_id": self.config.protocol_id, "protocol_digest": self.config.protocol_digest,
@@ -515,6 +515,12 @@ class LiveTransitionOperatorRuntime:
                 "quiesced": self.gate.quiesced,
                 "resident_serving_session_id": session.session_id if session else None,
                 "resident_model_identity": (_plain(session.binding.get("observed_loaded_model_identity")) if session else None),
+                "activation_state_digest": session.binding.get("activation_state_semantic_digest") if session else None,
+                "activation_generation": session.binding.get("activation_generation") if session else None,
+                "activation_receipt_id": session.binding.get("activation_receipt_id") if session else None,
+                "activation_receipt_digest": session.binding.get("activation_receipt_semantic_digest") if session else None,
+                "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session else None,
+                "activation_history_digest": session.binding.get("activation_history_digest") if session else None,
                 "latest_consumed_request_id": self._latest.get("request_id") if self._latest else None,
                 "latest_stage_result": self._latest.get("result") if self._latest else None,
                 "interrupted": health["status"] == "interrupted", "complete": health["status"] == "complete",
