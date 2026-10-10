@@ -648,6 +648,7 @@ class GovernedStrategyCognitionBackend:
             "historical_event_precedes_inference": True,
             "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest,
             "software_generation_posture": software_posture,
+            "software_execution_provenance_before": runtime_before,
             "software_execution_provenance": runtime_after,
             "execution_posture": "verified_governed_model_identity"}
         evidence["association_digest"] = digest(evidence)
@@ -806,12 +807,37 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
     receipt = row.get("invocation_receipt")
     valid_receipt, _ = validate_receipt(receipt) if isinstance(receipt, Mapping) else (False, ["missing_receipt"])
     receipt_request = receipt.get("request") if isinstance(receipt, Mapping) else None
+    request_semantic = ({key: item for key, item in receipt_request.items()
+        if key not in {"request_id", "request_digest", "raw_prompt_stored", "ephemeral_prompt_handling"}}
+        if isinstance(receipt_request, Mapping) else None)
+    expected_request_digest = digest_payload(request_semantic) if request_semantic is not None else None
     situation_copy = json.loads(canonical_bytes(dict(situation)))
     expected_prompt = canonical_bytes({"schema": STRATEGY_PROMPT_SCHEMA,
         "condition": condition, "history": [dict(item) for item in history],
         "situation": situation_copy, "cognitive_context": cognitive_context}).decode("utf-8")
     linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
     expected_correlation_id = _strategy_request_correlation_id(digest(dict(protocol)), condition)
+    receipt_serving_identity = (linkage.get("resident_cognitive_serving")
+        if isinstance(linkage, Mapping) else None)
+    expected_serving_posture = ("verified_session_bound" if isinstance(receipt_serving_identity, Mapping)
+        and all(receipt_serving_identity.get(key) for key in (
+            "session_id", "model_serving_admission_ref", "activation_state_semantic_digest"))
+        else "unknown_no_resident_serving_session")
+    runtime_before = row.get("software_execution_provenance_before")
+    runtime_after = row.get("software_execution_provenance")
+    software_posture = row.get("software_generation_posture")
+    provenance_rows = [item for item in (runtime_before, runtime_after) if item is not None]
+    provenance_shapes_valid = all(isinstance(item, Mapping)
+        and all(isinstance(item.get(key), str) and item.get(key) for key in (
+            "provenance_digest", "process_instance_id", "represented_generation_digest"))
+        for item in provenance_rows)
+    software_identity_verified = (software_posture == "verified_current_resident_generation"
+        and isinstance(runtime_before, Mapping) and isinstance(runtime_after, Mapping)
+        and dict(runtime_before) == dict(runtime_after) and provenance_shapes_valid
+        and runtime_after.get("represented_generation_digest") == protocol.get("software_generation"))
+    legacy_software_provenance = (software_posture == "verified_current_resident_generation"
+        and runtime_before is None and isinstance(runtime_after, Mapping) and provenance_shapes_valid
+        and runtime_after.get("represented_generation_digest") == protocol.get("software_generation"))
     if (row_digest != digest(row) or not valid_receipt
             or row.get("condition") != condition
             or row.get("proposal_id") != proposal.strategy_id
@@ -821,6 +847,8 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
             or receipt.get("receipt_digest") != row.get("receipt_digest")
             or receipt_request.get("request_id") != row.get("request_id")
             or receipt_request.get("request_digest") != row.get("request_digest")
+            or receipt_request.get("request_digest") != expected_request_digest
+            or receipt_request.get("request_id") != "lmreq-" + str(expected_request_digest or "")[:24]
             or receipt_request.get("correlation_id") != expected_correlation_id
             or receipt_request.get("prompt_digest") != digest_payload({"prompt": expected_prompt})
             or receipt_request.get("purpose") != "resident_developmental_history_intervention_experiment"
@@ -837,6 +865,12 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
             or not isinstance(receipt.get("effects"), Mapping)
             or receipt["effects"].get("local_model_inference") is not True
             or row.get("active_model_identity_digest") != digest(row.get("active_model_identity"))
+            or row.get("serving_identity") != (dict(receipt_serving_identity)
+                if isinstance(receipt_serving_identity, Mapping) else None)
+            or row.get("serving_identity_posture") != expected_serving_posture
+            or not provenance_shapes_valid
+            or (software_posture == "verified_current_resident_generation"
+                and not (software_identity_verified or legacy_software_provenance))
             or not isinstance(linkage, Mapping)
             or linkage.get("experiment_condition") != condition
             or linkage.get("experiment_protocol_id") != protocol_id
@@ -1100,8 +1134,11 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         execution_posture = "verified_model_but_contradictory_software_generation"
     elif all(item.get("software_generation_posture") == "verified_current_resident_generation"
              and item.get("serving_identity_posture") == "verified_session_bound"
+             and isinstance(item.get("software_execution_provenance_before"), Mapping)
              for item in governed_rows):
-        if len({digest(item.get("serving_identity")) for item in governed_rows}) == 1:
+        if (len({digest(item.get("serving_identity")) for item in governed_rows}) == 1
+                and len({digest(item.get("software_execution_provenance_before"))
+                         for item in governed_rows}) == 1):
             execution_posture = "verified_governed_model_serving_and_running_software_generation"
         else:
             execution_posture = "contradictory_serving_identity_changed_across_conditions"
@@ -1119,8 +1156,10 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         and len({item.get("active_model_identity_digest") for item in governed_rows}) == 1
         and all(item.get("software_generation_posture") == "verified_current_resident_generation"
                 and item.get("serving_identity_posture") == "verified_session_bound"
+                and isinstance(item.get("software_execution_provenance_before"), Mapping)
                 and isinstance(item.get("software_execution_provenance"), Mapping)
                 for item in governed_rows)
+        and len({digest(item.get("software_execution_provenance_before")) for item in governed_rows}) == 1
         and len({digest(item.get("software_execution_provenance")) for item in governed_rows}) == 1
         and len({item.get("authority_map_digest") for item in governed_rows}) == 1
         and len({digest(item.get("invocation_receipt", {}).get("generation_config"))
