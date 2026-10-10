@@ -571,7 +571,8 @@ class ResidentDevelopmentalCognitionOwner:
         )
         strategy_resource_lineage_verified = (
             source_kind == "resource_governor"
-            and subject_kind == "strategy_invocation_resource_lineage"
+            and subject_kind in {"strategy_invocation_resource_lineage",
+                "model_replacement_invocation_resource_lineage"}
             and fact.disposition == "verified"
             and isinstance(payload.get("resource_linkage"), Mapping)
             and bool(payload.get("principal_binding_digest"))

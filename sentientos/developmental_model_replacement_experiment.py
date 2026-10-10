@@ -1223,9 +1223,11 @@ class ModelReplacementArtifactStore:
                 observations.append({key: raw.get(key) for key in (
                     "condition_id", "observation_id", "observation_digest", "model_identity_digest",
                     "model_provenance_manifest_digest", "causal_context_id", "causal_context_digest",
+                    "request_id", "request_digest",
                     "current_projection_id", "current_projection_digest", "history_withheld",
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
                     "inference_receipt_digest", "output_digest",
+                    "model_id", "model_artifact_digest",
                     "prior_self_model_projection_id", "prior_self_model_projection_digest",
                     "prior_self_model_source_tick", "prior_epistemic_projection_id",
                     "prior_epistemic_projection_digest", "prior_epistemic_source_tick",
@@ -1370,6 +1372,8 @@ class DevelopmentalModelReplacementExperiment:
                     "causal_context_id": self.context.context_id,
                     "causal_context_digest": self.context.context_digest,
                     "model_identity_digest": expected.identity_digest,
+                    "model_id": expected.model_id,
+                    "model_artifact_digest": expected.model_content_sha256,
                     "model_provenance_manifest_digest": provenance_digest,
                     "current_projection_id": self.context.current_projection_id,
                     "current_projection_digest": self.context.current_projection_digest,
@@ -1417,6 +1421,8 @@ class DevelopmentalModelReplacementExperiment:
                 or value.get("causal_context_id") != self.context.context_id
                 or value.get("causal_context_digest") != self.context.context_digest
                 or value.get("model_identity_digest") != expected.identity_digest
+                or value.get("model_id") != expected.model_id
+                or value.get("model_artifact_digest") != expected.model_content_sha256
                 or value.get("model_provenance_manifest_digest") != provenance_digest
                 or value.get("current_projection_id") != self.context.current_projection_id
                 or value.get("current_projection_digest") != self.context.current_projection_digest

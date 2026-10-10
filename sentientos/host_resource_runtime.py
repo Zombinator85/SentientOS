@@ -393,11 +393,23 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     selected_allocations = all_allocations[-16:]
     selected_attempts = all_attempts[-max_attempts:]
     selected_invocations = tuple(invocation_receipts[-min(max_invocation_receipts, 16):])
-    compact_invocations = tuple({key: invocation.get(key) for key in (
-        "receipt_id", "receipt_digest", "request_id", "request_digest", "status", "purpose",
-        "model_id", "model_artifact_digest", "observed_at", "resource_allocation_digest",
-        "resource_attempt_id", "resource_consumption_receipt_digests") if key in invocation}
-        for invocation in selected_invocations)
+    compact_invocations = tuple({
+        "receipt_id": invocation.get("receipt_id"),
+        "receipt_digest": invocation.get("receipt_digest"),
+        "request_id": (invocation.get("request", {}).get("request_id")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "request_digest": (invocation.get("request", {}).get("request_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "status": invocation.get("status"), "purpose": invocation.get("purpose"),
+        "model_id": (invocation.get("request", {}).get("model_id")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "model_artifact_digest": (invocation.get("request", {}).get("model_artifact_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "observed_at": invocation.get("observed_at"),
+        "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+        "resource_attempt_id": invocation.get("resource_attempt_id"),
+        "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
+    } for invocation in selected_invocations)
     retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
         or len(raw_receipts) > min(max_receipts, 16)
         or len(invocation_receipts) > min(max_invocation_receipts, 16)
@@ -438,8 +450,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
 
 
 def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, Any]],
-        *, max_records: int = 16) -> list[dict[str, Any]]:
-    """Join selected strategy proposals to the exact projected resource ledger.
+        *, max_records: int = 16, include_model_replacement: bool = True) -> list[dict[str, Any]]:
+    """Join selected strategy/model inference records to projected resource custody.
 
     This is a read-only cross-source reconciliation. It emits historical
     attribution only; the invocation receipt is not an external consequence,
@@ -455,16 +467,92 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
     proposal_rows = [dict(item) for item in records
         if item.get("source_kind") == "embodiment"
         and item.get("subject_kind") == "embodied_strategy_proposal"]
+    model_replacement_candidates: dict[str, dict[str, Any]] = {}
+    if include_model_replacement:
+        for run in records:
+            if (run.get("source_kind") != "embodiment"
+                    or run.get("subject_kind") != "developmental_model_replacement_experiment"
+                    or not isinstance(run.get("payload"), Mapping)):
+                continue
+            run_payload = run["payload"]
+            observations = run_payload.get("observations", ())
+            if not isinstance(observations, (list, tuple)):
+                continue
+            for observation in observations[:5]:
+                if not isinstance(observation, Mapping) or observation.get(
+                        "resource_attribution_posture") != "linkage_digest_bound_ledger_reconciliation_pending":
+                    continue
+                semantic_observation = {key: value for key, value in observation.items()
+                    if key not in {"observation_id", "observation_digest"}}
+                candidate_findings = []
+                if (run.get("digest") != record_digest(run)
+                        or observation.get("observation_digest") != "sha256:" + digest_payload(semantic_observation)):
+                    candidate_findings.append("model_replacement_source_binding_invalid")
+                consumption = observation.get("resource_consumption_receipt_digests")
+                if not isinstance(consumption, (list, tuple)):
+                    candidate_findings.append("model_replacement_resource_linkage_shape_invalid")
+                    consumption = ()
+                request_context = {"experiment_condition": observation.get("condition_id"),
+                    "experiment_protocol_id": run_payload.get("protocol_id"),
+                    "history_record_ids": list(observation.get("history_record_ids") or ()),
+                    "history_withheld": observation.get("history_withheld")}
+                linkage = {"posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
+                    "request_id": observation.get("request_id"),
+                    "request_digest": observation.get("request_digest"),
+                    "purpose": "resident_developmental_model_replacement_experiment",
+                    "model_id": observation.get("model_id"),
+                    "model_artifact_digest": observation.get("model_artifact_digest"),
+                    "allocation_digest": observation.get("resource_allocation_digest"),
+                    "attempt_id": observation.get("resource_attempt_id"),
+                    "consumption_receipt_digests": list(consumption),
+                    "linkage_digest": observation.get("resource_linkage_digest"),
+                    "effect_receipt_id": observation.get("inference_receipt_id"),
+                    "effect_receipt_digest": observation.get("inference_receipt_digest")}
+                candidate_id = str(observation.get("observation_id") or "")
+                synthetic = {"source_kind": "embodiment",
+                    "source_id": "model-replacement-invocation-candidate:" + candidate_id,
+                    "subject_id": candidate_id, "subject_kind": "embodied_strategy_proposal",
+                    "payload": {"resource_linkage": linkage,
+                        "invocation_request_context_linkage": request_context,
+                        "invocation_receipt_id": linkage["effect_receipt_id"],
+                        "invocation_receipt_digest": linkage["effect_receipt_digest"],
+                        "active_model_identity_digest": observation.get("model_identity_digest"),
+                        "declared_software_generation": run_payload.get("software_generation_identity"),
+                        "software_generation_posture": run_payload.get("software_generation_posture"),
+                        "software_execution_provenance_digest": None,
+                        "_lineage_findings": candidate_findings,
+                        "_model_replacement_run_id": run_payload.get("run_id"),
+                        "_model_replacement_run_digest": run_payload.get("run_digest"),
+                        "_model_replacement_condition": observation.get("condition_id"),
+                        "_model_identity_digest": observation.get("model_identity_digest"),
+                        "_model_provenance_digest": observation.get("model_provenance_manifest_digest"),
+                        "_causal_context_id": observation.get("causal_context_id"),
+                        "_causal_context_digest": observation.get("causal_context_digest")}}
+                synthetic["digest"] = record_digest(synthetic)
+                model_replacement_candidates[str(synthetic["source_id"])] = synthetic["payload"]
+                proposal_rows.append(synthetic)
+    linked_candidates = [item for item in proposal_rows
+        if isinstance(item.get("payload"), Mapping)
+        and isinstance(item["payload"].get("resource_linkage"), Mapping)
+        and (item["payload"]["resource_linkage"].get("posture") != "legacy_or_unlinked_invocation"
+            or any(item["payload"]["resource_linkage"].get(key) for key in (
+                "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest")))]
+    linked_candidates.sort(key=lambda item: str(item.get("source_id", "")))
+    omitted_candidates = linked_candidates[max_records:]
+    proposal_rows = linked_candidates[:max_records]
     output: list[dict[str, Any]] = []
     for proposal in proposal_rows[-max_records:]:
         payload = proposal.get("payload")
         if not isinstance(payload, Mapping):
             continue
         linkage = payload.get("resource_linkage")
-        if not isinstance(linkage, Mapping) or linkage.get("posture") != (
-                "invocation_receipt_bound_ledger_corroboration_not_performed"):
+        if not isinstance(linkage, Mapping):
             continue
         findings: list[str] = []
+        findings.extend(str(item) for item in linkage.get("_lineage_findings", ())
+            if isinstance(item, str))
+        if linkage.get("posture") != "invocation_receipt_bound_ledger_corroboration_not_performed":
+            findings.append("invocation_resource_linkage_posture_unrecognized")
         allocations: list[Mapping[str, Any]] = []
         ledger_receipts: list[Mapping[str, Any]] = []
         if proposal.get("digest") != record_digest(proposal):
@@ -491,6 +579,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 raw_expected_receipts, (list, tuple)) else ()
             if (invocation_row.get("request_id") != linkage.get("request_id")
                     or invocation_row.get("request_digest") != linkage.get("request_digest")
+                    or invocation_row.get("purpose") != linkage.get("purpose")
+                    or invocation_row.get("model_id") != linkage.get("model_id")
+                    or invocation_row.get("model_artifact_digest") != linkage.get("model_artifact_digest")
                     or invocation_row.get("resource_allocation_digest") != linkage.get("allocation_digest")
                     or invocation_row.get("resource_attempt_id") != linkage.get("attempt_id")
                     or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts):
@@ -595,10 +686,43 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "interpretation": "resource_use_for_strategy_inference_not_external_consequence",
                 "current_truth": False, "authority": False},
         }
+        model_candidate = model_replacement_candidates.get(str(proposal.get("source_id", "")))
+        if model_candidate is not None:
+            join["source_id"] = "model-replacement-resource-lineage:" + digest({
+                "observation_id": model_candidate.get("invocation_receipt_id"),
+                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24]
+            join["schema_version"] = "sentientos.model_replacement_invocation_resource_lineage:v1"
+            join["subject_kind"] = "model_replacement_invocation_resource_lineage"
+            join["payload"].pop("strategy_proposal_id", None)
+            join["payload"].pop("strategy_proposal_record_digest", None)
+            join["payload"].update({key: model_candidate.get(key) for key in (
+                "_model_replacement_run_id", "_model_replacement_run_digest",
+                "_model_replacement_condition", "_model_identity_digest",
+                "_model_provenance_digest", "_causal_context_id", "_causal_context_digest")})
         join["digest"] = record_digest(join)
         if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
             raise ValueError("resource_proposal_join_record_oversized")
         output.append(join)
+    if omitted_candidates:
+        retained_identity_digest = digest([(str(item.get("source_id", "")),
+            str(item.get("digest", ""))) for item in linked_candidates])
+        overflow = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": "resource-lineage-retention:" + retained_identity_digest[:24],
+            "schema_version": "sentientos.resource_invocation_lineage_retention:v1",
+            "subject_id": retained_identity_digest,
+            "subject_kind": "resource_invocation_lineage_retention",
+            "stage": "observation", "disposition": "degraded",
+            "evidence_strength": "bounded_projection_omission",
+            "effect_claimed": False, "effect_proven": False, "observed_at": None,
+            "payload": {"selected_candidate_count": len(linked_candidates),
+                "projected_candidate_count": len(proposal_rows),
+                "omitted_candidate_count": len(omitted_candidates),
+                "candidate_set_digest": retained_identity_digest,
+                "omitted_candidate_identities": [{"source_id": str(item.get("source_id", "")),
+                    "record_digest": str(item.get("digest", ""))} for item in omitted_candidates],
+                "current_truth": False, "authority": False}}
+        overflow["digest"] = record_digest(overflow)
+        output.append(overflow)
     return output
 
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:

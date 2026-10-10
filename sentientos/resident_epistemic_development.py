@@ -143,6 +143,11 @@ class ResidentEpistemicDevelopmentRuntime:
                rule: EpistemicDevelopmentRule) -> tuple[Any, EvidenceBinding]:
         observed = fact.observed_at
         historical_resource_fact = fact.source.kind == "resource_governor"
+        resource_invocation_lineage = (historical_resource_fact and fact.subject.subject_kind in {
+            "strategy_invocation_resource_lineage", "model_replacement_invocation_resource_lineage"})
+        incomplete_resource_lineage = (resource_invocation_lineage
+            and (fact.disposition != "verified" or not isinstance(fact.payload, Mapping)
+                or fact.payload.get("lineage_findings") != []))
         historical_resource_introspection = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
@@ -165,7 +170,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "avatar_independently_observed_state")
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record or historical_strategy_proposal
-            or historical_strategy_review or unverified_embodiment_observation)
+            or historical_strategy_review or unverified_embodiment_observation
+            or incomplete_resource_lineage)
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -173,6 +179,9 @@ class ResidentEpistemicDevelopmentRuntime:
         if fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
             historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
                                 if isinstance(item, Mapping) and item.get("observed_at")]
+            if resource_invocation_lineage:
+                historical_times.extend(str(item) for item in fact.payload.get("event_times", ())
+                    if isinstance(item, str))
             observed = max(historical_times) if historical_times else None
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
@@ -247,6 +256,7 @@ class ResidentEpistemicDevelopmentRuntime:
             upstream_binding_ids=(), freshness=freshness,
             reliability_posture=("proposal_source_not_world_truth" if historical_strategy_proposal
                 else "unverified_review_context_only" if historical_strategy_review
+                else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
                 else "unverified_source_context_only" if unverified_source_context
                 else rule.reliability_posture))
         return proof, binding
