@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
+from sentientos.chat_process_generation import verify_stored_chat_process_handoff
 from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass,
                                               ControlActionRequest, ControlPlaneKernel,
                                               LifecyclePhase)
@@ -29,6 +30,9 @@ INTENT_SCHEMA = "sentientos.local_model_chat_recovery_intent:v1"
 APPROVAL_SCHEMA = "sentientos.local_model_chat_recovery_approval:v1"
 REQUEST_SCHEMA = "sentientos.local_model_chat_recovery_request:v1"
 RECEIPT_SCHEMA = "sentientos.local_model_chat_recovery_receipt:v1"
+PHASE_SCHEMA = "sentientos.local_model_chat_recovery_phase:v1"
+MAX_PHASE_RECORD_BYTES = 262_144
+MAX_PHASE_RECORDS = 256
 SNAPSHOT_SCHEMA = "sentientos.local_model_chat_runtime_startup:v1"
 PRINCIPAL = "deterministic_local_model_chat_recovery_controller"
 ACTION = "restart_daemon"
@@ -339,8 +343,12 @@ class ProductionLocalModelChatRecoveryController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._requests = installation_handle.fixed_object("local-model/recovery/requests")
         self._receipts = installation_handle.fixed_object("local-model/recovery/receipts")
+        self._phases = installation_handle.fixed_object("local-model/recovery/phases")
         self._lock = installation_handle.fixed_object("local-model/recovery/locks/controller.lock")
-        for directory in (self._requests, self._receipts,
+        for directory in (self._requests, self._receipts, self._phases,
+                          installation_handle.fixed_object("local-model/recovery/phases/attempts"),
+                          installation_handle.fixed_object("local-model/recovery/phases/readiness"),
+                          installation_handle.fixed_object("local-model/recovery/phases/completed"),
                           installation_handle.fixed_object("local-model/recovery/locks")):
             installation_handle.ensure_directory(directory)
 
@@ -351,10 +359,16 @@ class ProductionLocalModelChatRecoveryController:
         return tuple(outcomes)
 
     def _existing_receipt(self, request_id: str) -> dict[str, Any] | None:
-        existing = self._handle.read_optional_regular(self._receipts.child(request_id + ".json"))
-        if existing is None:
+        name = request_id + ".json"
+        try:
+            names = self._handle.list_regular_names(self._receipts, max_entries=MAX_PHASE_RECORDS)
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_receipt_directory_invalid") from exc
+        if name not in names:
             return None
         try:
+            existing = self._handle.read_regular_bounded(
+                self._receipts.child(name), max_bytes=MAX_PHASE_RECORD_BYTES)
             loaded = json.loads(existing)
         except (ValueError, TypeError) as exc:
             raise LocalModelChatRecoveryError("recovery_receipt_malformed") from exc
@@ -365,6 +379,221 @@ class ProductionLocalModelChatRecoveryController:
                 != semantic_digest(_without(loaded, "receipt_semantic_digest"))):
             raise LocalModelChatRecoveryError("recovery_receipt_malformed")
         return loaded
+
+
+    def _phase_path(self, phase: str, request_id: str):
+        if phase not in {"attempts", "readiness", "completed"}:
+            raise LocalModelChatRecoveryError("recovery_phase_invalid")
+        directory = self._handle.fixed_object(f"local-model/recovery/phases/{phase}")
+        return directory, directory.child(request_id + ".json")
+
+    def _read_phase(self, phase: str, request_id: str) -> dict[str, Any] | None:
+        directory, target = self._phase_path(phase, request_id)
+        try:
+            names = self._handle.list_regular_names(directory, max_entries=MAX_PHASE_RECORDS)
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_directory_invalid") from exc
+        if request_id + ".json" not in names:
+            return None
+        try:
+            raw = self._handle.read_regular_bounded(target, max_bytes=MAX_PHASE_RECORD_BYTES)
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_read_failed") from exc
+        if len(raw) > MAX_PHASE_RECORD_BYTES:
+            raise LocalModelChatRecoveryError("recovery_phase_too_large")
+        try:
+            value = json.loads(raw)
+        except (ValueError, TypeError) as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_malformed") from exc
+        if (not isinstance(value, dict) or value.get("schema_version") != PHASE_SCHEMA
+                or value.get("phase") != phase or value.get("request_id") != request_id
+                or value.get("installation_identity") != self._handle.identity.value
+                or value.get("phase_semantic_digest")
+                    != semantic_digest(_without(value, "phase_semantic_digest"))
+                or raw != _canonical(value)):
+            raise LocalModelChatRecoveryError("recovery_phase_malformed")
+        return value
+
+    def _publish_phase(self, phase: str, value: Mapping[str, Any]) -> dict[str, Any]:
+        body = dict(value)
+        body["schema_version"] = PHASE_SCHEMA
+        body["phase"] = phase
+        body["installation_identity"] = self._handle.identity.value
+        body["phase_semantic_digest"] = semantic_digest(body)
+        raw = _canonical(body)
+        if len(raw) > MAX_PHASE_RECORD_BYTES:
+            raise LocalModelChatRecoveryError("recovery_phase_too_large")
+        directory, target = self._phase_path(phase, str(body.get("request_id", "")))
+        try:
+            names = self._handle.list_regular_names(directory, max_entries=MAX_PHASE_RECORDS)
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_directory_invalid") from exc
+        name = str(body["request_id"]) + ".json"
+        if name in names:
+            existing = self._read_phase(phase, str(body["request_id"]))
+            if existing is None or _canonical(existing) != raw:
+                raise LocalModelChatRecoveryError("recovery_phase_identity_conflict")
+            return existing
+        if len(names) >= MAX_PHASE_RECORDS:
+            raise LocalModelChatRecoveryError("recovery_phase_retention_limit_exceeded")
+        try:
+            self._handle.durable_create(target, raw)
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_publication_failed") from exc
+        return body
+
+    @staticmethod
+    def _phase_time() -> str:
+        return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+    def _phase_lineage(self, request_id: str) -> dict[str, Any]:
+        attempt = self._read_phase("attempts", request_id)
+        readiness = self._read_phase("readiness", request_id)
+        completed = self._read_phase("completed", request_id)
+        result: dict[str, Any] = {}
+        if attempt is not None:
+            result["attempt_phase_digest"] = attempt["phase_semantic_digest"]
+            result["attempt_started_at"] = attempt["phase_observed_at"]
+        if readiness is not None:
+            result["readiness_phase_digest"] = readiness["phase_semantic_digest"]
+            result["readiness_observed_at"] = readiness["readiness_observed_at"]
+        if completed is not None:
+            result["completion_phase_digest"] = completed["phase_semantic_digest"]
+            result["snapshot_advanced_at"] = completed["snapshot_advanced_at"]
+            result["advanced_snapshot_digest"] = completed["advanced_snapshot_digest"]
+        return result
+
+    def _verify_phase_handoff(self, value: object, *, required: bool) -> dict[str, Any] | None:
+        if value is None and not required:
+            return None
+        if not isinstance(value, Mapping):
+            raise LocalModelChatRecoveryError("recovery_phase_handoff_missing")
+        if value.get("status") != "runtime_launcher_child_launch_and_source_bound":
+            raise LocalModelChatRecoveryError("recovery_phase_handoff_status_invalid")
+        try:
+            verified = verify_stored_chat_process_handoff(
+                handle=self._handle, handoff_id=str(value.get("handoff_id", "")),
+                expected_digest=str(value.get("handoff_digest", "")))
+        except Exception as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_handoff_invalid") from exc
+        fields = ("handoff_id", "handoff_digest", "process_instance_id",
+            "software_generation_digest", "process_id", "parent_process_id",
+            "startup_timestamp", "source_generation_scope")
+        if any(value.get(key) != verified.get(key) for key in fields):
+            raise LocalModelChatRecoveryError("recovery_phase_handoff_mismatch")
+        return dict(value)
+
+    def _phase_receipt(self, request_id: str, request: Mapping[str, Any]) -> dict[str, Any] | None:
+        attempt = self._read_phase("attempts", request_id)
+        readiness = self._read_phase("readiness", request_id)
+        completed = self._read_phase("completed", request_id)
+        if attempt is None:
+            if readiness is not None or completed is not None:
+                raise LocalModelChatRecoveryError("recovery_phase_predecessor_missing")
+            return None
+        intent, approval = request.get("intent"), request.get("approval")
+        if (not isinstance(intent, Mapping) or not isinstance(approval, Mapping)
+                or intent.get("intent_semantic_digest")
+                    != semantic_digest(_without(intent, "intent_semantic_digest"))):
+            raise LocalModelChatRecoveryError("recovery_request_malformed")
+        bound = (("request_id", request_id), ("intent_id", intent.get("intent_id")),
+            ("intent_semantic_digest", intent.get("intent_semantic_digest")),
+            ("approval_id", approval.get("evidence_id")),
+            ("approval_semantic_digest", approval.get("approval_semantic_digest")),
+            ("runtime_supervisor_generation", intent.get("runtime_supervisor_generation")),
+            ("prior_serving_receipt_id", intent.get("prior_serving_receipt_id")),
+            ("prior_serving_receipt_semantic_digest", intent.get("prior_serving_receipt_semantic_digest")))
+        for phase in (attempt, readiness, completed):
+            if phase is None:
+                continue
+            if any(phase.get(key) != value for key, value in bound):
+                raise LocalModelChatRecoveryError("recovery_phase_request_binding_mismatch")
+        try:
+            attempt_time = datetime.fromisoformat(
+                str(attempt.get("phase_observed_at", "")).replace("Z", "+00:00"))
+            if attempt_time.tzinfo is None or attempt_time.utcoffset() is None:
+                raise ValueError("recovery_phase_time_invalid")
+            approval_checked_at = attempt.get("approval_checked_at")
+            if type(approval_checked_at) not in (int, float):
+                raise ValueError("recovery_phase_approval_time_missing")
+            verify_approval(approval, intent, now=float(approval_checked_at),
+                allow_synthetic_evidence_for_tests=self._allow_synthetic)
+        except Exception as exc:
+            raise LocalModelChatRecoveryError("recovery_phase_approval_invalid") from exc
+        if (attempt.get("decision_outcome") != AdmissionOutcome.ALLOW.value
+                or not isinstance(attempt.get("phase_observed_at"), str)
+                or not isinstance(attempt.get("daemon_restart_decision_ref"), str)):
+            raise LocalModelChatRecoveryError("recovery_phase_admission_mismatch")
+        if readiness is not None:
+            if (readiness.get("attempt_phase_digest") != attempt.get("phase_semantic_digest")
+                    or readiness.get("post_restart_semantic_readiness") != "serving_current"
+                    or not isinstance(readiness.get("successor_chat_process_handoff"), Mapping)):
+                raise LocalModelChatRecoveryError("recovery_readiness_phase_invalid")
+        if completed is not None:
+            if (readiness is None
+                    or completed.get("attempt_phase_digest") != attempt.get("phase_semantic_digest")
+                    or completed.get("readiness_phase_digest") != readiness.get("phase_semantic_digest")
+                    or not isinstance(completed.get("advanced_snapshot_digest"), str)):
+                raise LocalModelChatRecoveryError("recovery_completion_phase_invalid")
+        ready = readiness is not None
+        complete = completed is not None
+        intent_predecessor = intent.get("prior_chat_process_handoff")
+        if attempt.get("predecessor_chat_process_handoff") != intent_predecessor:
+            raise LocalModelChatRecoveryError("recovery_phase_predecessor_intent_mismatch")
+        predecessor = self._verify_phase_handoff(
+            attempt.get("predecessor_chat_process_handoff"), required=False)
+        successor = self._verify_phase_handoff(
+            readiness.get("successor_chat_process_handoff") if readiness is not None else None,
+            required=readiness is not None)
+        if ready and predecessor is not None and successor is not None:
+            successor_prior = successor.get("prior_snapshot_generation")
+            if (not isinstance(successor_prior, Mapping)
+                    or successor_prior.get("handoff") != predecessor):
+                raise LocalModelChatRecoveryError("recovery_phase_successor_predecessor_mismatch")
+        receipt: dict[str, Any] = {
+            "schema_version": RECEIPT_SCHEMA, "request_id": request_id,
+            "intent_id": intent.get("intent_id"),
+            "intent_semantic_digest": intent.get("intent_semantic_digest"),
+            "approval_id": approval.get("evidence_id"),
+            "approval_semantic_digest": approval.get("approval_semantic_digest"),
+            "installation_identity": self._handle.identity.value,
+            "runtime_supervisor_generation": attempt.get("runtime_supervisor_generation"),
+            "service_id": SERVICE_ID,
+            "prior_serving_operation_id": intent.get("prior_serving_operation_id"),
+            "replacement_serving_operation_id": intent.get("replacement_serving_operation_id"),
+            "expected_activation_state_digest": intent.get("activation_state_semantic_digest"),
+            "prior_serving_receipt_id": intent.get("prior_serving_receipt_id"),
+            "prior_serving_receipt_semantic_digest": intent.get("prior_serving_receipt_semantic_digest"),
+            "daemon_restart_decision_ref": attempt.get("daemon_restart_decision_ref"),
+            "daemon_restart_outcome": attempt.get("decision_outcome"),
+            "child_restart_attempted": True if ready else None,
+            "child_restart_completed": True if ready else None,
+            "post_restart_semantic_readiness": "serving_current" if ready else "not_durably_observed",
+            "predecessor_chat_process_handoff": predecessor,
+            "successor_chat_process_handoff": successor,
+            "chat_process_handoff_lineage_posture": readiness.get(
+                "chat_process_handoff_lineage_posture", "unavailable") if readiness else "unavailable",
+            "recovery_phase_lineage": self._phase_lineage(request_id),
+            "recovery_phase_reconstruction": (
+                "durable_completion_phase" if complete else
+                "readiness_observed_completion_unconfirmed" if ready else
+                "attempt_started_terminal_outcome_unobserved"),
+            "model_serving_granted_by_recovery": False,
+            "inference_performed": False, "local_model_inference_authority_granted": False,
+            "terminal_status": "recovered" if complete else "incomplete",
+            "terminal_reason": (
+                "serving_current_snapshot_advanced" if complete else
+                "readiness_observed_snapshot_completion_unconfirmed" if ready else
+                "recovery_interrupted_outcome_unobserved"),
+        }
+        receipt["receipt_semantic_digest"] = semantic_digest(receipt)
+        try:
+            self._handle.durable_create(
+                self._receipts.child(request_id + ".json"), _canonical(receipt))
+        except InstallationStateError as exc:
+            raise LocalModelChatRecoveryError("recovery_receipt_publication_failed") from exc
+        return receipt
+
 
     def process_request(self, name: str) -> dict[str, Any]:
         request_id = name[:-5] if name.endswith(".json") else name
@@ -385,8 +614,13 @@ class ProductionLocalModelChatRecoveryController:
                         or request.get("request_id") != request_id
                         or request.get("request_semantic_digest") != semantic_digest(_without(request, "request_semantic_digest"))):
                     raise LocalModelChatRecoveryError("recovery_request_malformed")
-                intent = request["intent"]; approval = verify_approval(request["approval"], intent,
-                    now=self._clock(), allow_synthetic_evidence_for_tests=self._allow_synthetic)
+                phase_receipt = self._phase_receipt(request_id, request)
+                if phase_receipt is not None:
+                    return phase_receipt
+                intent = request["intent"]
+                approval_checked_at = self._clock()
+                approval = verify_approval(request["approval"], intent,
+                    now=approval_checked_at, allow_synthetic_evidence_for_tests=self._allow_synthetic)
                 snapshot = read_startup_snapshot(self._supervisor.root)
                 _require_eligible(self._supervisor.status(), snapshot)
                 if intent.get("runtime_supervisor_generation") != self._supervisor.generation:
@@ -432,6 +666,24 @@ class ProductionLocalModelChatRecoveryController:
                         or decision.target_subsystem != SERVICE_ID
                         or decision.correlation_id != intent["recovery_correlation_id"]):
                     raise LocalModelChatRecoveryError("daemon_restart_not_allowed:" + outcome)
+                attempt_phase = self._publish_phase("attempts", {
+                    "request_id": request_id,
+                    "intent_id": intent["intent_id"],
+                    "intent_semantic_digest": intent["intent_semantic_digest"],
+                    "approval_id": approval["evidence_id"],
+                    "approval_semantic_digest": approval["approval_semantic_digest"],
+                    "runtime_supervisor_generation": self._supervisor.generation,
+                    "prior_serving_receipt_id": prior.get("receipt_id"),
+                    "prior_serving_receipt_semantic_digest": prior.get("receipt_semantic_digest"),
+                    "daemon_restart_decision_ref": str(decision_ref or ""),
+                    "decision_outcome": outcome,
+                    "approval_checked_at": approval_checked_at,
+                    "predecessor_chat_process_handoff": prior_chat_handoff,
+                    "chat_process_handoff_lineage_posture": (
+                        "predecessor_handoff_verified" if prior_chat_handoff is not None
+                        else "predecessor_handoff_unavailable"),
+                    "phase_observed_at": self._phase_time(),
+                })
                 attempted = True
                 self._adapter._restart_with_fresh_serving_operation(
                     replacement_serving_operation_id=replacement,
@@ -458,6 +710,15 @@ class ProductionLocalModelChatRecoveryController:
                     handoff_lineage_posture = "verified_predecessor_successor_process_handoffs"
                 elif successor_chat_handoff is not None:
                     handoff_lineage_posture = "successor_handoff_verified_predecessor_unavailable"
+                readiness_phase = self._publish_phase("readiness", {
+                    **{key: value for key, value in attempt_phase.items()
+                       if key not in {"schema_version", "phase", "phase_semantic_digest"}},
+                    "attempt_phase_digest": attempt_phase["phase_semantic_digest"],
+                    "successor_chat_process_handoff": successor_chat_handoff,
+                    "chat_process_handoff_lineage_posture": handoff_lineage_posture,
+                    "post_restart_semantic_readiness": readiness,
+                    "readiness_observed_at": self._phase_time(),
+                })
                 advanced = dict(snapshot); advanced["serving_operation_id"] = replacement
                 if successor_chat_handoff is not None:
                     advanced["chat_process_handoff"] = successor_chat_handoff
@@ -466,12 +727,26 @@ class ProductionLocalModelChatRecoveryController:
                 advanced["snapshot_version"] = int(snapshot.get("snapshot_version", 1)) + 1
                 advanced["snapshot_semantic_digest"] = semantic_digest(_without(advanced, "snapshot_semantic_digest"))
                 write_startup_snapshot(advanced, self._supervisor.root)
+                self._publish_phase("completed", {
+                    **{key: value for key, value in readiness_phase.items()
+                       if key not in {"schema_version", "phase", "phase_semantic_digest"}},
+                    "readiness_phase_digest": readiness_phase["phase_semantic_digest"],
+                    "advanced_snapshot_digest": advanced["snapshot_semantic_digest"],
+                    "snapshot_advanced_at": self._phase_time(),
+                })
                 status, reason = "recovered", "serving_current"
             except Exception as exc:
                 status, reason = "failed", exc.code if isinstance(exc, LocalModelChatRecoveryError) else type(exc).__name__
                 intent = locals().get("intent", {})
                 approval = locals().get("approval", {})
                 prior = locals().get("prior", {})
+            if status == "recovered":
+                request_value = locals().get("request")
+                if isinstance(request_value, Mapping):
+                    phase_receipt = self._phase_receipt(request_id, request_value)
+                    if phase_receipt is not None:
+                        return phase_receipt
+                raise LocalModelChatRecoveryError("recovery_completion_phase_missing")
             receipt: dict[str, Any] = {"schema_version": RECEIPT_SCHEMA, "request_id": request_id,
                 "intent_id": intent.get("intent_id"), "intent_semantic_digest": intent.get("intent_semantic_digest"),
                 "approval_id": approval.get("evidence_id"), "approval_semantic_digest": approval.get("approval_semantic_digest"),
@@ -487,6 +762,7 @@ class ProductionLocalModelChatRecoveryController:
                 "predecessor_chat_process_handoff": prior_chat_handoff,
                 "successor_chat_process_handoff": successor_chat_handoff,
                 "chat_process_handoff_lineage_posture": handoff_lineage_posture,
+                "recovery_phase_lineage": self._phase_lineage(request_id),
                 "model_serving_granted_by_recovery": False,
                 "inference_performed": False, "local_model_inference_authority_granted": False,
                 "terminal_status": status, "terminal_reason": reason}
