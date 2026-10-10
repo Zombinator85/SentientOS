@@ -210,26 +210,25 @@ class ResidentEpistemicDevelopmentRuntime:
                 if isinstance(claimed_observation_at, str) else None)
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
-            latest_event = next((item.get("value") for item in observations
-                if isinstance(item, Mapping) and item.get("key") == "latest_consumption_event_at"
-                and isinstance(item.get("value"), str)), None)
+            if not isinstance(observations, (list, tuple)):
+                observations = ()
+            def unique_observation_value(key: str) -> Any:
+                matches = [item.get("value") for item in observations
+                    if isinstance(item, Mapping) and item.get("key") == key]
+                return matches[0] if len(matches) == 1 else None
+
+            latest_event = unique_observation_value("latest_consumption_event_at")
             if latest_event:
-                observed = latest_event
+                observed = (_latest_historical_event_time([latest_event])
+                    if isinstance(latest_event, str) else None)
             else:
                 observed = None
-            retained = next((item.get("value") for item in observations
-                if isinstance(item, Mapping) and item.get("key") == "ledger_digest"
-                and isinstance(item.get("value"), str)), None)
-            installation = next((item.get("value") for item in observations
-                if isinstance(item, Mapping) and item.get("key") == "installation_identity"
-                and isinstance(item.get("value"), str)), None)
-            provisioning = next((item.get("value") for item in observations
-                if isinstance(item, Mapping) and item.get("key") == "provisioning_id"
-                and isinstance(item.get("value"), str)), None)
-            manifest_digest = next((item.get("value") for item in observations
-                if isinstance(item, Mapping) and item.get("key") == "manifest_digest"
-                and isinstance(item.get("value"), str)), None)
-            if retained and installation and provisioning and manifest_digest:
+            retained = unique_observation_value("ledger_digest")
+            installation = unique_observation_value("installation_identity")
+            provisioning = unique_observation_value("provisioning_id")
+            manifest_digest = unique_observation_value("manifest_digest")
+            if all(isinstance(value, str) and value for value in (
+                    retained, installation, provisioning, manifest_digest)):
                 stable_identity = {"installation_identity": installation,
                     "provisioning_id": provisioning, "manifest_digest": manifest_digest,
                     "ledger_digest": retained}
