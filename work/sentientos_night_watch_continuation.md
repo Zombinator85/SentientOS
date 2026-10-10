@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the longitudinal serving-lineage projection repair, GitHub branch inspection verified `879649947ce52f92e7bfd74bab894ddea2aeffaf` (tree `eb4899a8fc6b8b520d4a1428d6f940dd840b8633`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the bounded developmental-history runtime projection, GitHub branch inspection verified `931cb58c7b1782c9032ee713ca361bb8b7505868` (tree `35425891cd6fdcbf400c9b9e4ca4900dff183a05`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -564,3 +564,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the World-State projector and longitudinal self-model. No runtime observation, restart, evidence admission, developmental writeback, cognition, or production verification was run.
 
 **Next implementation dependency:** review current transcript/developmental-history recovery boundaries for any remaining source-level loss or ambiguous event ordering in the process-generation chain. Do not convert its bounded source digest into full interpreter/dependency identity or current truth.
+
+### New checkpoint — bound runtime lineage before developmental writeback
+
+- The existing resident developmental-history selector now recognizes the selected runtime-supervisor process observation, recovery transition, and serving-operation history rows. It projects large embedded receipts/handoff bodies into bounded identities while binding each projection to the original World-State fact ID, source-record digest, full source-payload digest, and projected-payload digest.
+- Runtime observations retain process/handoff/software-generation identity, exact serving receipt and attempt references, a bounded set of linked invocation/resource IDs, and a digest/count for omitted links. Recovery transitions preserve predecessor/successor handoff IDs/digests and all recorded phase timestamps. Any bounded truncation is explicit; malformed consumption-link shape remains unprojected and therefore cannot silently pass the smaller selection budget.
+- Projection recovery checks the projection schema, source class, fact/source identity and projection digest. The existing authorization/admission boundary is unchanged.
+- Python compilation passed for the developmental writeback module. No tests, candidate generation, admission, persistence/restart, cognition, or production verification was run.
+
+**Next implementation dependency:** check source-level continuity of these projections through durable candidate recovery and later-tick cognition; ensure projection lineage is revalidated against the original selected World-State snapshot instead of trusting only an admitted projection object.

@@ -60,11 +60,155 @@ def _identity(prefix: str, payload: Any) -> tuple[str, str]:
     return f"{prefix}-{digest.removeprefix('sha256:')[:24]}", digest
 
 
+def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Retain compact process/serving lineage while binding it to the full source row."""
+    source = fact.get("source")
+    subject = fact.get("subject")
+    original = fact.get("payload")
+    if (not isinstance(source, Mapping) or source.get("kind") != "runtime_supervisor"
+            or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
+        return None
+    kind = subject.get("subject_kind")
+    summary: dict[str, Any]
+    if kind == "chat_process_runtime_generation_observation":
+        observation = original.get("chat_process_runtime_observation")
+        links = original.get("linked_invocation_receipts", ())
+        if not isinstance(observation, Mapping) or not isinstance(links, (list, tuple)):
+            return None
+        serving_receipt = observation.get("serving_receipt")
+        serving = None
+        if isinstance(serving_receipt, Mapping):
+            serving_binding = serving_receipt.get("binding")
+            serving = {key: serving_receipt.get(key) for key in (
+                "receipt_id", "receipt_semantic_digest", "session_id")}
+            if isinstance(serving_binding, Mapping):
+                serving.update({key: serving_binding.get(key) for key in (
+                    "serving_operation_id", "activation_state_semantic_digest",
+                    "activation_generation", "model_id")})
+        selected_links: list[dict[str, Any]] = []
+        for item in links[:4]:
+            if not isinstance(item, Mapping):
+                return None
+            model_identity = item.get("active_model_identity_at_invocation")
+            selected_link = {key: item.get(key) for key in (
+                "invocation_receipt_id", "invocation_receipt_digest",
+                "invocation_request_id", "invocation_request_digest",
+                "serving_receipt_id", "serving_receipt_semantic_digest",
+                "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest",
+                "serving_operation_id", "serving_session_id",
+                "resource_allocation_digest", "resource_attempt_id",
+                "resource_effect_receipt_digest", "model_id", "model_artifact_digest",
+                "linkage_posture", "current_model_claimed")}
+            consumption_digests = item.get("resource_consumption_receipt_digests", ())
+            if isinstance(consumption_digests, (list, tuple)):
+                selected_link["resource_consumption_receipt_digests"] = list(consumption_digests[:8])
+                selected_link["resource_consumption_receipt_digests_digest"] = digest(
+                    list(consumption_digests))
+                selected_link["resource_consumption_receipt_digests_omitted"] = max(
+                    0, len(consumption_digests) - 8)
+            else:
+                return None
+            selected_links.append(selected_link)
+            if isinstance(model_identity, Mapping):
+                selected_links[-1]["active_model_identity_digest"] = digest(dict(model_identity))
+        summary = {
+            "event_time": original.get("event_time"),
+            "event_time_posture": original.get("event_time_posture"),
+            "runtime_observation": {key: observation.get(key) for key in (
+                "observation_semantic_digest", "runtime_supervisor_generation", "observed_at",
+                "runtime_status", "handoff_id", "handoff_digest", "process_instance_id",
+                "process_id", "parent_process_id", "software_generation_digest",
+                "source_generation_scope", "configured_serving_operation_id",
+                "configured_serving_receipt_posture", "independent_signature",
+                "effect_authority")},
+            "serving_receipt_at_observation": serving,
+            "invocation_linkage_posture": original.get("invocation_linkage_posture"),
+            "linked_invocation_receipts": selected_links,
+            "linked_invocation_receipts_digest": digest(list(links)),
+            "linked_invocation_receipts_total": len(links),
+            "linked_invocation_receipts_omitted": max(0, len(links) - len(selected_links)),
+            "projection_posture": "complete" if len(links) <= len(selected_links)
+                else "bounded_tail_incomplete",
+            "historical_only": True, "current_truth": False, "authority": False,
+            "effect_proven": False,
+        }
+    elif kind == "chat_process_recovery_transition":
+        transition = original.get("chat_process_recovery_transition")
+        times = original.get("phase_event_times")
+        if not isinstance(transition, Mapping):
+            return None
+        def handoff_summary(value: Any) -> dict[str, Any] | None:
+            if not isinstance(value, Mapping):
+                return None
+            return {key: value.get(key) for key in (
+                "handoff_id", "handoff_digest", "process_instance_id",
+                "software_generation_digest", "configured_serving_operation_id",
+                "source_generation_scope")}
+        summary = {
+            "transition": {key: transition.get(key) for key in (
+                "request_id", "request_semantic_digest", "intent_id", "intent_semantic_digest",
+                "approval_id", "approval_semantic_digest", "runtime_supervisor_generation",
+                "prior_serving_operation_id", "replacement_serving_operation_id",
+                "prior_serving_receipt_id", "prior_serving_receipt_semantic_digest",
+                "attempt_phase_digest", "readiness_phase_digest", "completion_phase_digest",
+                "advanced_snapshot_digest", "decision_posture", "phase_posture",
+                "phase_evidence_posture", "runtime_currentness", "terminal_receipt_digest",
+                "terminal_status", "successor_serving_receipt_id",
+                "successor_serving_receipt_semantic_digest", "successor_serving_session_id",
+                "successor_serving_receipt_posture", "predecessor_serving_operation_binding_posture",
+                "successor_serving_operation_binding_posture", "successor_configured_serving_operation_id",
+                "effect_authority", "inference_performed")},
+            "predecessor_handoff": handoff_summary(transition.get("predecessor_chat_process_handoff")),
+            "successor_handoff": handoff_summary(transition.get("successor_chat_process_handoff")),
+            "phase_event_times": dict(times) if isinstance(times, Mapping) else {},
+            "historical_only": True, "current_truth": False, "authority": False,
+            "effect_proven": False,
+        }
+    elif kind == "serving_operation_history":
+        summary = {
+            "serving_history_status": original.get("serving_history_status"),
+            "serving_operation_id": original.get("serving_operation_id"),
+            "attempt_id": original.get("attempt_id"),
+            "attempt_semantic_digest": original.get("attempt_semantic_digest"),
+            "receipt_id": original.get("receipt_id"),
+            "receipt_semantic_digest": original.get("receipt_semantic_digest"),
+            "serving_session_id": original.get("serving_session_id"),
+            "activation_state_semantic_digest": original.get("activation_state_semantic_digest"),
+            "activation_generation": original.get("activation_generation"),
+            "model_id": original.get("model_id"), "artifact_id": original.get("artifact_id"),
+            "runtime_id": original.get("runtime_id"),
+            "event_time": original.get("event_time"),
+            "event_time_posture": original.get("event_time_posture"),
+            "observed_loaded_model_identity_digest": (
+                digest(dict(original["observed_loaded_model_identity"]))
+                if isinstance(original.get("observed_loaded_model_identity"), Mapping) else None),
+            "historical_only": True, "current_truth": False, "authority": False,
+            "effect_proven": False,
+        }
+    else:
+        return None
+    projection_binding = {
+        "schema_version": "sentientos.runtime_history_projection:v1",
+        "source_fact_id": str(fact.get("fact_id", "")),
+        "source_payload_digest": digest(dict(original)),
+        "source_record_digest": str(source.get("digest", "")),
+        "projected_payload_digest": digest(summary),
+    }
+    projection_binding["projection_digest"] = digest(projection_binding)
+    summary["interpretation_projection"] = projection_binding
+    projected = dict(fact)
+    projected["payload"] = summary
+    return projected
+
+
 def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, Any]:
     """Keep resource interpretation bounded while binding it to the full source fact."""
     source = fact.get("source")
     subject = fact.get("subject")
     original = fact.get("payload")
+    runtime_projection = _runtime_history_projection(fact)
+    if runtime_projection is not None:
+        return runtime_projection
     if (not isinstance(source, Mapping) or source.get("kind") != "resource_governor"
             or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
         return dict(fact)
@@ -710,7 +854,12 @@ class ResidentDevelopmentalWritebackController:
                         if (not isinstance(projection, Mapping)
                                 or set(projection) != {"schema_version", "source_fact_id", "source_payload_digest",
                                     "source_record_digest", "projected_payload_digest", "projection_digest"}
-                                or projection.get("schema_version") != "sentientos.resource_interpretation_projection:v1"
+                                or projection.get("schema_version") not in {
+                                    "sentientos.resource_interpretation_projection:v1",
+                                    "sentientos.runtime_history_projection:v1"}
+                                or (projection.get("schema_version")
+                                    == "sentientos.runtime_history_projection:v1"
+                                    and source.get("kind") != "runtime_supervisor")
                                 or projection.get("source_fact_id") != fact.get("fact_id")
                                 or projection.get("source_record_digest") != source.get("digest")
                                 or projection.get("projected_payload_digest") != digest(payload_value)):
