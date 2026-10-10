@@ -554,6 +554,8 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
             "measurement_attribution":payload.get("shared_host_usage_attribution")}
         resource_facts.append(binding)
         if (binding["lineage_posture"]!="verified" or binding["recovery_posture"]!="reconciled_or_restored"
+                or payload.get("retention_posture")!="complete"
+                or payload.get("interpretation_projection_posture")!="complete"
                 or not binding["source_digest"] or not binding["ledger_digest"]):
             verified=False
     if not resource_facts:

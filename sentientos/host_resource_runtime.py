@@ -23,6 +23,7 @@ from sentientos.governed_local_model_resource_allocation import GovernedLocalMod
 from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
 
 SCHEMA_VERSION = "host_resource_observation_runtime.v1"
+RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA = "sentientos.resource_consumption_world_state_record:v2"
 CollectorCallable = Callable[..., HostCollectorResult]
 STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid", "unsupported", "skipped"}
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
@@ -282,6 +283,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               observed_at: str | None = None,
                                               max_receipts: int = 256,
                                               max_invocation_receipts: int = 256,
+                                              max_attempts: int = 64,
                                               source_identity: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
@@ -290,9 +292,17 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     not attributed to an invocation without an independent receipt.
     """
     snapshot = ledger.observation_snapshot()
-    if max_receipts < 1 or max_invocation_receipts < 1:
+    if (max_receipts < 1 or max_receipts > 256 or max_invocation_receipts < 1
+            or max_invocation_receipts > 256 or max_attempts < 1 or max_attempts > 128):
         raise ValueError("resource_observation_bounds_invalid")
+    selected_source_identity = dict(source_identity or {})
+    if (set(selected_source_identity) - {"installation_identity", "provisioning_id", "manifest_digest"}
+            or any(not isinstance(key, str) or not isinstance(value, str) or not value or len(value) > 512
+                   for key, value in selected_source_identity.items())):
+        raise ValueError("resource_source_identity_invalid")
     raw_receipts = tuple(snapshot["receipts"])
+    if len(invocation_receipts) > 256:
+        raise ValueError("resource_invocation_receipt_bound_exceeded")
     allocation_by_digest = {str(item.get("allocation_digest")): item for item in snapshot["allocations"] if isinstance(item, Mapping)}
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
     attempt_by_id = {str(item.get("attempt_id")): item for item in snapshot["attempts"] if isinstance(item, Mapping)}
@@ -362,10 +372,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 status == "restored" and "attempted_not_begun" not in states):
             incomplete_attempt_ids.append(attempt_id)
     receipts = []
-    for receipt in raw_receipts[-max_receipts:]:
+    for receipt in raw_receipts[-min(max_receipts, 16):]:
         item = dict(receipt)
         measurement = dict(item.get("resource_specific_measurement", {}))
-        item["measurement_posture"] = {
+        measurement_posture = {
             "call_units": "measured" if measurement.get("call_units_consumed") in (0, 1) else "unknown",
             "generated_output_size": "measured" if isinstance(measurement.get("generated_output_size_bytes"), int) else "unknown",
             "returned_output_size": "measured" if isinstance(measurement.get("returned_output_size_bytes"), int) else "unknown",
@@ -373,21 +383,49 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "token_count": "unknown",
             "shared_host_cpu_gpu": "unknown_without_independent_observation",
         }
-        receipts.append(item)
+        receipts.append({key: item.get(key) for key in (
+            "receipt_id", "receipt_digest", "allocation_digest", "principal_binding_digest", "attempt_id",
+            "state", "observed_at", "previous_receipt_digest", "effect_receipt_digest",
+            "resource_specific_measurement")})
+        receipts[-1]["measurement_posture"] = measurement_posture
+    all_allocations = tuple(snapshot["allocations"])
+    all_attempts = tuple(snapshot["attempts"])
+    selected_allocations = all_allocations[-16:]
+    selected_attempts = all_attempts[-max_attempts:]
+    selected_invocations = tuple(invocation_receipts[-min(max_invocation_receipts, 16):])
+    compact_invocations = tuple({key: invocation.get(key) for key in (
+        "receipt_id", "receipt_digest", "request_id", "request_digest", "status", "purpose",
+        "model_id", "model_artifact_digest", "observed_at", "resource_allocation_digest",
+        "resource_attempt_id", "resource_consumption_receipt_digests") if key in invocation}
+        for invocation in selected_invocations)
+    retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
+        or len(raw_receipts) > min(max_receipts, 16)
+        or len(invocation_receipts) > min(max_invocation_receipts, 16)
+        or len(incomplete_attempt_ids) > 64 or len(set(lineage_findings)) > 64)
+    bounded_lineage_findings = tuple(sorted(set(lineage_findings)))
+    bounded_incomplete_attempt_ids = tuple(sorted(incomplete_attempt_ids))
     payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
-               "source_identity": dict(source_identity or {}),
-               "allocations": snapshot["allocations"], "attempts": snapshot["attempts"],
+               "source_identity": selected_source_identity,
+               "allocations": tuple(dict(item) for item in selected_allocations),
+               "allocation_count": len(all_allocations),
+               "attempts": tuple(dict(item) for item in selected_attempts),
+               "attempt_count": len(all_attempts),
                "consumption_receipts": tuple(receipts),
-               "invocation_receipts": tuple(dict(item) for item in invocation_receipts[-max_invocation_receipts:]),
+               "consumption_receipt_count": len(raw_receipts),
+               "invocation_receipts": compact_invocations,
+               "invocation_receipt_count": len(invocation_receipts),
                "attribution_posture": "receipt_bound_only",
                "shared_host_usage_attribution": "unknown_without_independent_observation",
-               "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete",
+               "retention_posture": "bounded_tail_incomplete" if retention_incomplete else "complete",
                "recovery_posture": "incomplete_attempts_present" if incomplete_attempt_ids else "reconciled_or_restored",
-               "incomplete_attempt_ids": tuple(sorted(incomplete_attempt_ids)),
+               "incomplete_attempt_ids": bounded_incomplete_attempt_ids[:64],
+               "incomplete_attempt_count": len(bounded_incomplete_attempt_ids),
                "lineage_posture": "verified" if not lineage_findings else "degraded",
-               "lineage_findings": tuple(sorted(set(lineage_findings)))}
+               "lineage_findings": bounded_lineage_findings[:64],
+               "lineage_finding_count": len(bounded_lineage_findings)}
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
+             "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
              "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "incomplete",

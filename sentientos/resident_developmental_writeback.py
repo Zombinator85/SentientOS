@@ -49,6 +49,73 @@ def _identity(prefix: str, payload: Any) -> tuple[str, str]:
     return f"{prefix}-{digest.removeprefix('sha256:')[:24]}", digest
 
 
+def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep resource interpretation bounded while binding it to the full source fact."""
+    source = fact.get("source")
+    subject = fact.get("subject")
+    original = fact.get("payload")
+    if (not isinstance(source, Mapping) or source.get("kind") != "resource_governor"
+            or not isinstance(subject, Mapping) or subject.get("subject_kind") != "causal_resource_consumption"
+            or not isinstance(original, Mapping) or not isinstance(original.get("ledger_digest"), str)):
+        return dict(fact)
+    allocations = tuple(item for item in original.get("allocations", ()) if isinstance(item, Mapping))
+    attempts = tuple(item for item in original.get("attempts", ()) if isinstance(item, Mapping))
+    receipts = tuple(item for item in original.get("consumption_receipts", ()) if isinstance(item, Mapping))
+    invocations = tuple(item for item in original.get("invocation_receipts", ()) if isinstance(item, Mapping))
+    selected_receipts = receipts[-4:]
+    selected_invocations = invocations[-4:]
+    selected_attempts = attempts[-8:]
+    compact_allocations = tuple({key: item.get(key) for key in
+        ("allocation_id", "allocation_digest", "principal_id", "principal_binding_digest",
+         "resource_kind", "resource_specific_bounds", "policy_digest", "epoch") if key in item}
+        for item in allocations[:4])
+    compact_attempts = tuple({"attempt_id": item.get("attempt_id"),
+        "allocation_id": item.get("allocation_id"), "status": item.get("status")}
+        for item in selected_attempts)
+    compact_receipts = tuple({key: item.get(key) for key in
+        ("receipt_id", "receipt_digest", "allocation_digest", "principal_binding_digest", "attempt_id",
+         "state", "observed_at", "previous_receipt_digest", "effect_receipt_digest",
+         "resource_specific_measurement", "measurement_posture") if key in item}
+        for item in selected_receipts)
+    compact_invocations = tuple({key: item.get(key) for key in
+        ("receipt_id", "receipt_digest", "request_id", "request_digest", "status", "purpose",
+         "model_id", "model_artifact_digest", "observed_at", "resource_allocation_digest",
+         "resource_attempt_id", "resource_consumption_receipt_digests") if key in item}
+        for item in selected_invocations)
+    summary = {"ledger_schema": original.get("ledger_schema"),
+        "ledger_digest": original.get("ledger_digest"),
+        "source_identity": original.get("source_identity", {}),
+        "allocations": compact_allocations, "allocation_count": len(allocations),
+        "attempts": compact_attempts, "attempt_count": len(attempts),
+        "consumption_receipts": compact_receipts, "consumption_receipt_count": len(receipts),
+        "invocation_receipts": compact_invocations, "invocation_receipt_count": len(invocations),
+        "attribution_posture": original.get("attribution_posture"),
+        "shared_host_usage_attribution": original.get("shared_host_usage_attribution"),
+        "lineage_posture": original.get("lineage_posture"),
+        "lineage_findings": tuple(original.get("lineage_findings", ()))[:16],
+        "lineage_finding_count": int(original.get("lineage_finding_count", len(original.get("lineage_findings", ())))),
+        "recovery_posture": original.get("recovery_posture"),
+        "incomplete_attempt_ids": tuple(original.get("incomplete_attempt_ids", ()))[:16],
+        "incomplete_attempt_count": int(original.get("incomplete_attempt_count",
+            len(original.get("incomplete_attempt_ids", ())))),
+        "retention_posture": original.get("retention_posture"),
+        "interpretation_projection_posture": ("complete" if len(allocations) <= 4 and len(attempts) <= 8
+            and len(receipts) <= 4 and len(invocations) <= 4
+            and int(original.get("lineage_finding_count", len(original.get("lineage_findings", ())))) <= 16
+            and int(original.get("incomplete_attempt_count", len(original.get("incomplete_attempt_ids", ())))) <= 16
+            else "bounded_tail_incomplete")}
+    projection_binding={"schema_version":"sentientos.resource_interpretation_projection:v1",
+        "source_fact_id":str(fact.get("fact_id", "")),
+        "source_payload_digest":digest(dict(original)),
+        "source_record_digest":str(source.get("digest", "")),
+        "projected_payload_digest":digest(summary)}
+    projection_binding["projection_digest"]=digest(projection_binding)
+    summary["interpretation_projection"]=projection_binding
+    projected = dict(fact)
+    projected["payload"] = summary
+    return projected
+
+
 @dataclass(frozen=True)
 class SelectedEvidence:
     snapshot_id: str
@@ -270,7 +337,8 @@ class ResidentDevelopmentalWritebackController:
             raise DevelopmentalWritebackError("selected_fact_bounds_invalid")
         facts_by_id = {fact.fact_id: fact for fact in snapshot.facts}
         if any(fid not in facts_by_id for fid in requested): raise DevelopmentalWritebackError("selected_fact_not_in_snapshot")
-        facts = tuple(to_dict(facts_by_id[fid]) for fid in sorted(requested))
+        facts = tuple(_resource_interpretation_projection(to_dict(facts_by_id[fid]))
+                      for fid in sorted(requested))
         source_ids = {str(fact["source"]["source_id"]) for fact in facts}
         sources_by_id = {source.source_id: source for source in snapshot.sources}
         if any(sid not in sources_by_id for sid in source_ids): raise DevelopmentalWritebackError("selected_source_not_in_snapshot")
@@ -400,11 +468,30 @@ class ResidentDevelopmentalWritebackController:
                             or len(source["digest"]) != 64
                             or any(character not in "0123456789abcdef" for character in source["digest"])):
                         raise DevelopmentalWritebackError("durable_candidate_fact_source_mismatch")
-                    expected_id = "fact-" + digest((dict(subject), fact.get("stage"),
-                        fact.get("disposition"), source.get("digest"), dict(fact["payload"]),
-                        fact.get("effect_claimed"), fact.get("effect_proven")))[:16]
-                    if fact.get("fact_id") != expected_id:
-                        raise DevelopmentalWritebackError("durable_candidate_fact_identity_mismatch")
+                    payload_value = dict(fact["payload"])
+                    projection = payload_value.pop("interpretation_projection", None)
+                    if projection is None:
+                        expected_id = "fact-" + digest((dict(subject), fact.get("stage"),
+                            fact.get("disposition"), source.get("digest"), dict(fact["payload"]),
+                            fact.get("effect_claimed"), fact.get("effect_proven")))[:16]
+                        if fact.get("fact_id") != expected_id:
+                            raise DevelopmentalWritebackError("durable_candidate_fact_identity_mismatch")
+                    else:
+                        if (not isinstance(projection, Mapping)
+                                or set(projection) != {"schema_version", "source_fact_id", "source_payload_digest",
+                                    "source_record_digest", "projected_payload_digest", "projection_digest"}
+                                or projection.get("schema_version") != "sentientos.resource_interpretation_projection:v1"
+                                or projection.get("source_fact_id") != fact.get("fact_id")
+                                or projection.get("source_record_digest") != source.get("digest")
+                                or projection.get("projected_payload_digest") != digest(payload_value)):
+                            raise DevelopmentalWritebackError("durable_resource_projection_binding_invalid")
+                        projection_semantic = dict(projection); claimed_projection = projection_semantic.pop("projection_digest")
+                        if claimed_projection != digest(projection_semantic):
+                            raise DevelopmentalWritebackError("durable_resource_projection_digest_mismatch")
+                        source_payload_digest = str(projection.get("source_payload_digest", ""))
+                        if (len(source_payload_digest) != 64
+                                or any(character not in "0123456789abcdef" for character in source_payload_digest)):
+                            raise DevelopmentalWritebackError("durable_resource_source_payload_digest_invalid")
             admission = self.admission_verifier.recorded_admission(record.admission_id)
             if (admission.binding_digest != record.admission_binding_digest
                     or admission.effects != EFFECTS or record.principal != PRINCIPAL
