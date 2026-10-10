@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the serving-linkage recovery edge repair, GitHub branch inspection verified `a90aca34900addbc74c47bca397105590227a076` (tree `ad78dd1041f61e59fe3a5ebc724dec9da0fbaa4e`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the chat-runtime observation-time repair, GitHub branch inspection verified `bc3a245a458d9daab505ce0d436076b853f9cbb3` (tree `0504824ce4b0b42f1e9e40f5dd072cb61d006a2a`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -537,3 +537,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the serving owner. No behavioral test, restart, inference, or production verification was run.
 
 **Next implementation dependency:** inspect the exact chat process generation handoff through World-State, configured epistemic source selection, and durable developmental-history reconstruction. Only existing selectors/admission owners may qualify it; source hashes remain narrower than full interpreter/dependency runtime identity.
+
+
+### New checkpoint — preserve chat-runtime observation time in epistemic evidence
+
+- The World-State adapter now transfers the runtime owner's recorded chat-process observation event time into the epistemic evidence binding. It prefers the canonical projected `event_time`, falling back only to the verified runtime observation's own `observed_at`; missing time remains absent.
+- The record remains historical and non-current. World-State retrieval/reconstruction time is not substituted, and this path does not confer truth, authority, liveness, or permission.
+- Python compilation passed for the epistemic adapter. No tests, recovery replay, evidence admission, developmental writeback, cognition, or production verification was run.
+
+**Next implementation dependency:** continue the same source-bound review across runtime recovery transitions and downstream durable developmental-history selection for any other event-time or exact-identity loss; configured admission remains the only path to interpretation or state mutation.

@@ -261,6 +261,17 @@ class ResidentEpistemicDevelopmentRuntime:
             source_event_time = fact.payload.get("event_time")
             observed = (_latest_historical_event_time([source_event_time])
                 if isinstance(source_event_time, str) else None)
+        if (historical_chat_runtime_observation and isinstance(fact.payload, Mapping)):
+            # The runtime row timestamp is a historical observation event, not
+            # retrieval time. Preserve it in the evidence binding while the
+            # freshness posture below remains non-current.
+            runtime_observation = fact.payload.get("chat_process_runtime_observation")
+            source_event_time = (fact.payload.get("event_time")
+                if isinstance(fact.payload.get("event_time"), str)
+                else runtime_observation.get("observed_at")
+                    if isinstance(runtime_observation, Mapping) else None)
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
         if (historical_resource_fact and fact.subject.subject_kind == "host_resource_snapshot"
                 and isinstance(fact.payload, Mapping)):
             # The snapshot's payload timestamp belongs to the owner's
