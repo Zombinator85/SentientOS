@@ -7,7 +7,10 @@ and observes readiness without ever invoking inference.
 from __future__ import annotations
 
 import json
+import os
+import stat
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
@@ -34,6 +37,7 @@ PHASE_SCHEMA = "sentientos.local_model_chat_recovery_phase:v1"
 MAX_PHASE_RECORD_BYTES = 262_144
 MAX_PHASE_RECORDS = 256
 SNAPSHOT_SCHEMA = "sentientos.local_model_chat_runtime_startup:v1"
+MAX_STARTUP_SNAPSHOT_BYTES = 131_072
 PRINCIPAL = "deterministic_local_model_chat_recovery_controller"
 ACTION = "restart_daemon"
 ELIGIBLE_STATES = frozenset({"unhealthy", "failed"})
@@ -85,21 +89,107 @@ def startup_snapshot_path(root: Path | None = None) -> Path:
     return (root or runtime_state_root()) / "local-model-chat-startup.json"
 
 
+def _read_snapshot_bytes(path: Path) -> bytes:
+    if os.name != "posix" or not all(hasattr(os, name) for name in (
+            "O_NOFOLLOW", "O_DIRECTORY", "O_CLOEXEC")):
+        raise LocalModelChatRecoveryError("runtime_snapshot_platform_unsupported")
+    parent_fd = -1
+    descriptor = -1
+    try:
+        parent_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        descriptor = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+            dir_fd=parent_fd)
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_STARTUP_SNAPSHOT_BYTES:
+            raise LocalModelChatRecoveryError("runtime_startup_snapshot_size_or_type_invalid")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(16_384, MAX_STARTUP_SNAPSHOT_BYTES + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_STARTUP_SNAPSHOT_BYTES:
+                raise LocalModelChatRecoveryError("runtime_startup_snapshot_too_large")
+        after = os.fstat(descriptor)
+        raw = b"".join(chunks)
+        if (len(raw) != before.st_size or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise LocalModelChatRecoveryError("runtime_startup_snapshot_changed_during_read")
+        return raw
+    except LocalModelChatRecoveryError:
+        raise
+    except OSError as exc:
+        raise LocalModelChatRecoveryError("runtime_startup_snapshot_unavailable") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if parent_fd >= 0:
+            os.close(parent_fd)
+
+
 def write_startup_snapshot(snapshot: Mapping[str, Any], root: Path | None = None) -> None:
+    if (not isinstance(snapshot, Mapping)
+            or snapshot.get("snapshot_semantic_digest")
+                != semantic_digest(_without(snapshot, "snapshot_semantic_digest"))):
+        raise LocalModelChatRecoveryError("runtime_startup_snapshot_digest_invalid")
     path = startup_snapshot_path(root)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     data = _canonical(snapshot)
-    temporary = path.with_name("." + path.name + ".tmp")
-    with temporary.open("wb") as stream:
-        stream.write(data); stream.flush()
-        import os
-        os.fsync(stream.fileno())
-    temporary.replace(path)
+    if len(data) > MAX_STARTUP_SNAPSHOT_BYTES:
+        raise LocalModelChatRecoveryError("runtime_startup_snapshot_too_large")
+    if os.name != "posix" or not all(hasattr(os, name) for name in (
+            "O_NOFOLLOW", "O_DIRECTORY", "O_CLOEXEC")):
+        raise LocalModelChatRecoveryError("runtime_snapshot_platform_unsupported")
+    parent_fd = -1
+    descriptor = -1
+    temporary = "." + path.name + ".tmp-" + uuid.uuid4().hex
+    published = False
+    try:
+        parent_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        descriptor = os.open(temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600, dir_fd=parent_fd)
+        view = memoryview(data)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("snapshot_write_incomplete")
+            view = view[written:]
+        os.fsync(descriptor)
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise LocalModelChatRecoveryError("runtime_startup_snapshot_type_invalid")
+        os.close(descriptor)
+        descriptor = -1
+        os.replace(temporary, path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+        published = True
+        os.fsync(parent_fd)
+        if _read_snapshot_bytes(path) != data:
+            raise LocalModelChatRecoveryError("runtime_startup_snapshot_publication_mismatch")
+    except LocalModelChatRecoveryError:
+        raise
+    except OSError as exc:
+        raise LocalModelChatRecoveryError("runtime_startup_snapshot_publication_failed") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if parent_fd >= 0:
+            if not published:
+                try:
+                    os.unlink(temporary, dir_fd=parent_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(parent_fd)
+
 
 
 def read_startup_snapshot(root: Path | None = None) -> dict[str, Any]:
     try:
-        value = json.loads(startup_snapshot_path(root).read_bytes())
+        value = json.loads(_read_snapshot_bytes(startup_snapshot_path(root)))
+    except LocalModelChatRecoveryError:
+        raise
     except (OSError, ValueError, TypeError) as exc:
         raise LocalModelChatRecoveryError("runtime_startup_snapshot_unavailable") from exc
     if (not isinstance(value, dict) or value.get("schema_version") != SNAPSHOT_SCHEMA
