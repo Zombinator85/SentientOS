@@ -702,6 +702,7 @@ class RuntimeMaintenanceSurfaces:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
         selected_embodied_source_ids: set[str] = set()
+        selected_post_adoption_source_ids: set[str] = set()
         records.extend(self._resident_succession_world_state_records(tick_key))
         if self._causal_introspection_runtime is not None:
             # Generation, not a parsed tick string, enforces the temporal firewall.
@@ -742,8 +743,10 @@ class RuntimeMaintenanceSurfaces:
                     self._embodied_consequence_projection_status)
         if self._post_adoption_attribution_owner is not None and self._post_adoption_attribution_campaign_ids:
             try:
-                records.extend(self._post_adoption_attribution_owner.world_state_records(
-                    campaign_ids=self._post_adoption_attribution_campaign_ids))
+                projected = self._post_adoption_attribution_owner.world_state_records(
+                    campaign_ids=self._post_adoption_attribution_campaign_ids)
+                records.extend(projected)
+                selected_post_adoption_source_ids.update(str(item["source_id"]) for item in projected)
                 self._post_adoption_attribution_projection_status = {
                     **self._post_adoption_attribution_projection_status, "status": "verified",
                     "read_only": True, "effect_authority": False}
@@ -879,6 +882,17 @@ class RuntimeMaintenanceSurfaces:
             }
             self._feedback["surfaces"]["embodied_consequence_projection"] = dict(
                 self._embodied_consequence_projection_status)
+        omitted_post_adoption_sources = selected_post_adoption_source_ids - retained_source_ids
+        if omitted_post_adoption_sources:
+            self._post_adoption_attribution_projection_status = {
+                **self._post_adoption_attribution_projection_status,
+                "status": "degraded",
+                "reason_code": "world_state_source_limit_omitted_selected_projection",
+                "omitted_source_count": len(omitted_post_adoption_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback["surfaces"]["post_adoption_attribution_projection"] = dict(
+                self._post_adoption_attribution_projection_status)
         self._world_state_snapshot = snapshot
         out_dir = self._runtime_state_root / "world_state_board"
         out_dir.mkdir(parents=True, exist_ok=True)

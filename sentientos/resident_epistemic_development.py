@@ -190,6 +190,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # clock; that would manufacture currentness during recovery.
         observed = observed or ("undated" if historical_resource_fact or historical_resource_introspection
                                 or historical_undated_consequence or historical_unverified_owner_record
+                                or unverified_embodiment_observation
                                 else str(snapshot.custody.get("observed_at", "")))
         provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
@@ -221,8 +222,11 @@ class ResidentEpistemicDevelopmentRuntime:
             source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed, evidence_relation=rule.evidence_relation,
-            dependency_kind=rule.dependency_kind,
-            dependency_group=rule.independence_basis, upstream_binding_ids=(), freshness=freshness,
+            dependency_kind=("unknown_dependency" if unverified_embodiment_observation
+                or historical_unverified_owner_record else rule.dependency_kind),
+            dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
+                and not unverified_embodiment_observation and not historical_unverified_owner_record else None),
+            upstream_binding_ids=(), freshness=freshness,
             reliability_posture=rule.reliability_posture)
         return proof, binding
 
