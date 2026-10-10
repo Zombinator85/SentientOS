@@ -21,7 +21,7 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_fil
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
 SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
-BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v1"
+BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
 APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
 JOURNAL_SCHEMA = "sentientos.resident_cognitive_model_transition_journal_entry:v1"
 CAPABILITY = "resident_cognitive_model_transition_experiment"
@@ -328,6 +328,7 @@ def stage_serving_binding(*, protocol: TransitionProtocol, stage: str,
             "activation_generation": activation["generation"],
             "activation_receipt_id": activation["receipt_id"],
             "activation_receipt_digest": receipt_digest,
+            "activation_history_digest": activation["activation_history_digest"],
             "expected_model_identity": _plain(expected_identity), "serving_operation_id": operation_id,
             "resident_serving_capability_id": "resident_cognitive_model_serving",
             "grants_activation": False, "grants_model_serving": False, "grants_inference": False}
@@ -348,6 +349,7 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
             or value.get("activation_generation") != session.binding.get("activation_generation")
             or value.get("activation_receipt_id") != session.binding.get("activation_receipt_id")
             or value.get("activation_receipt_digest") != session.binding.get("activation_receipt_semantic_digest")
+            or value.get("activation_history_digest") != session.binding.get("activation_history_digest")
             or value.get("expected_model_identity") != observed
             or any(value.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
         raise TransitionError("transition_stage_serving_binding_mismatch")

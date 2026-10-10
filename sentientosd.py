@@ -1323,7 +1323,9 @@ class RuntimeMaintenanceSurfaces:
                         if (activation is not None and entry.get("status") == "completed"
                                 and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
                             identity_key = "proposed_successor_model_identity" if phase == "b_activation_committed" else "predecessor_model_identity"
-                            payload["activated_model_identity"] = successor if identity_key == "proposed_successor_model_identity" else protocol_value.get("restored_a")
+                            payload["selected_active_model_identity"] = successor if identity_key == "proposed_successor_model_identity" else protocol_value.get("restored_a")
+                            payload["model_load_posture"] = "not_loaded_by_activation"
+                            payload["activation_history_digest"] = activation.get("activation_history_digest")
                             payload["activation_receipt_id"] = activation.get("receipt_id")
                             payload["activation_receipt_digest"] = activation.get("receipt_semantic_digest")
                             payload["activation_state_digest"] = activation.get("state_semantic_digest")
@@ -1333,6 +1335,7 @@ class RuntimeMaintenanceSurfaces:
                             payload["serving_binding_digest"] = binding.get("binding_digest")
                             payload["serving_activation_receipt_id"] = binding.get("activation_receipt_id")
                             payload["serving_activation_receipt_digest"] = binding.get("activation_receipt_digest")
+                            payload["serving_activation_history_digest"] = binding.get("activation_history_digest")
                             payload["serving_expected_model_identity"] = binding.get("expected_model_identity")
                         provenance_identity = (successor_provenance.get("provenance_manifest_digest")
                             or successor_provenance.get("posture", "unknown"))

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
 from .local_model_production_activation import activate_production, verify_current_activation
+from .local_runtime_provisioning import semantic_digest
 from .resident_cognitive_model_serving import (
     ResidentCognitiveModelServingController, ResidentCognitiveServingSlot,
 )
@@ -15,10 +16,11 @@ from .resident_cognitive_model_transition_experiment import (
 )
 
 
-def _activation(result: Mapping[str, Any]) -> dict[str, Any]:
+def _activation(result: Mapping[str, Any], *, activation_history_digest: str) -> dict[str, Any]:
     state, receipt = result["active_state"], result["activation_receipt"]
     return {**dict(state), "receipt_id": receipt["receipt_id"],
-            "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+            "receipt_semantic_digest": receipt["receipt_semantic_digest"],
+            "activation_history_digest": activation_history_digest}
 
 
 class ResidentCognitiveTransitionStageOperations:
@@ -59,7 +61,19 @@ class ResidentCognitiveTransitionStageOperations:
             expected_prior_state=current["active_state"]["state_semantic_digest"],
             observation_time=self.clock(), clock=self.clock,
             allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
-        return {"activation": _activation(cast(Mapping[str, Any], result)),
+        verified = verify_current_activation(
+            self.installation_handle,
+            allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
+        if (verified["active_state"] != result["active_state"]
+                or verified["activation_receipt"].get("receipt_semantic_digest")
+                != result["activation_receipt"].get("receipt_semantic_digest")):
+            raise TransitionError("activation_postcondition_mismatch")
+        history = verified.get("activation_history")
+        if not isinstance(history, (tuple, list)) or not history:
+            raise TransitionError("activation_history_unavailable")
+        history_digest = semantic_digest({"activation_history": list(history)})
+        return {"activation": _activation(cast(Mapping[str, Any], result),
+                                          activation_history_digest=history_digest),
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"],
                 "external_activation_approval_evidence_id": approval["approval_evidence_id"],
                 "external_activation_approval_semantic_digest": approval["approval_semantic_digest"],

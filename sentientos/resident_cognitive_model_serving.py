@@ -81,9 +81,12 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
         raise ResidentCognitiveModelServingError("activation_installation_identity_mismatch")
     if activation.get("resulting_state_digest") != state.get("state_semantic_digest"):
         raise ResidentCognitiveModelServingError("activation_receipt_state_mismatch")
-    # The canonical verifier has re-read catalog, commissioning, and artifact bytes.  Bind
-    # every state field here so a later comparison cannot accidentally narrow currentness.
+    history = verified.get("activation_history")
+    if not isinstance(history, (tuple, list)) or not history:
+        raise ResidentCognitiveModelServingError("activation_history_unavailable")
+    history_digest = semantic_digest({"activation_history": list(history)})
     return {"active_state": dict(state), "activation_receipt": dict(activation),
+            "activation_history_digest": history_digest,
             "catalog_proof": dict(verified["catalog_proof"])}
 
 
@@ -156,6 +159,8 @@ class ResidentCognitiveModelServingController:
             return False
         if session.binding.get("activation_state") != state:
             return False
+        if session.binding.get("activation_history_digest") != verified.get("activation_history_digest"):
+            return False
         return True
 
     def _alive(self) -> bool:
@@ -183,20 +188,22 @@ class ResidentCognitiveModelServingController:
             return None
         return self._session
 
-    def serving_is_current(self) -> bool:
-        """Inspect currentness without invalidating, unloading, or exposing custody.
-
-        Lifecycle readiness is observation only.  The inference handoff continues to
-        use :meth:`current_session`, whose mutating invalidation remains fail closed.
-        """
+    def observed_current_session(self) -> ServingSession | None:
+        """Return a current opaque session without invalidating or unloading it."""
         session = self._session
         if session is None:
-            return False
+            return None
         try:
             verified = _verified(self._handle, self._allow_synthetic)
         except ResidentCognitiveModelServingError:
-            return False
-        return self._same_activation(verified, session) and self._alive()
+            return None
+        if not self._same_activation(verified, session) or not self._alive():
+            return None
+        return session
+
+    def serving_is_current(self) -> bool:
+        """Inspect readiness without invalidating, unloading, or exposing model custody."""
+        return self.observed_current_session() is not None
 
     def _current_inference_model(self, expected: ServingSession) -> Any:
         """Package-private handoff for the separately governed inference bridge."""
@@ -230,6 +237,7 @@ class ResidentCognitiveModelServingController:
                   "activation_state_semantic_digest": state["state_semantic_digest"],
                   "activation_generation": state["generation"], "activation_receipt_id": activation["receipt_id"],
                   "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
+                  "activation_history_digest": before["activation_history_digest"],
                   "model_id": state["model_id"], "artifact_id": state["artifact_id"],
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
         operation_intent = {**intent, "serving_operation_id": operation_id, "serving_config_digest": self._config_digest}
@@ -261,6 +269,7 @@ class ResidentCognitiveModelServingController:
                 raise ResidentCognitiveModelServingError("loaded_model_configuration_identity_mismatch")
             after = _verified(self._handle, self._allow_synthetic)
             if (after["active_state"] != state or after["activation_receipt"] != activation
+                    or after["activation_history_digest"] != before["activation_history_digest"]
                     or after["catalog_proof"] != proof):
                 raise ResidentCognitiveModelServingError("activation_changed_during_load")
             binding = {**operation_intent, "control_plane_correlation_id": correlation,
