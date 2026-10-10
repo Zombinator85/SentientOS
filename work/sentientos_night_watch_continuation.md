@@ -42,3 +42,7 @@ Construction work is **untested for production**. Continue from branch `codex/co
 ## Next executable work
 
 Compile and inspect the compatibility change, commit and push it, then inspect adjacent model-replacement and post-adoption attribution paths for recovery/causal handoffs that can be strengthened without authenticated external observers, resource-ledger ownership, or effect authority. Preserve unknown status where those owners are not composed. No runtime acceptance was performed.
+
+- Current increment (compiled, not yet committed): post-adoption attribution recovery now verifies deterministic protocol/control/trial/result identities and cross-record campaign, trial-order, control, evaluation, and reconstruction lineage; rejects duplicate identities and duplicate per-trial controls; prevents conflicting duplicate campaign finalization while returning the exact stored terminal for an idempotent same-time replay. Epistemic/developmental projections now require retrieval of the result through its durable owner, rather than accepting a caller-built digest-shaped record. Source issuer authenticity remains unknown, so projections stay contextual with unknown freshness and `production_ready` stays false.
+
+Next inspect and repair the attribution campaign's bounded/no-follow custody and interrupted publication behavior using its existing explicit-root owner. Preserve POSIX safety or fail closed where an equivalent primitive is unavailable; do not expand authority or claim source classes are authenticated.

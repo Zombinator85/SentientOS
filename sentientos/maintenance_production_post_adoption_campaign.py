@@ -280,8 +280,8 @@ class MaintenanceProductionPostAdoptionCampaign:
         except ValueError: result = None
         body: dict[str, Any] = {"schema_version": BUNDLE_SCHEMA, "custody": custody,
             "readiness": readiness, "campaign_result": asdict(result) if result else None,
-            "epistemic_binding_candidate": asdict(campaign_epistemic_binding(proposition_id=proposition_id, result=result)) if result and proposition_id else None,
-            "developmental_evidence": developmental_evidence_record(result) if result else None,
+            "epistemic_binding_candidate": asdict(campaign_epistemic_binding(proposition_id=proposition_id, result=result, owner=self.campaigns)) if result and proposition_id else None,
+            "developmental_evidence": developmental_evidence_record(result, owner=self.campaigns) if result else None,
             "improvement_signal": campaign_improvement_signal_record(result) if result else None,
             "production_evidence_collected": bool(result and result.production_ready and readiness["production_posture_derived"]),
             "effects": FALSE_EFFECTS}
