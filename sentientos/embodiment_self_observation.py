@@ -9,6 +9,7 @@ from typing import Any, Mapping, Sequence
 EVIDENCE_SCHEMA = "sentientos.embodiment_self_observation:v1"
 MANIFEST_SCHEMA = "sentientos.avatar_body_manifest:v1"
 POSTURES = frozenset({"production", "rehearsal", "synthetic_test"})
+FRESHNESS_POSTURES = frozenset({"current", "fresh", "aging", "stale", "expired", "unknown", "not_applicable"})
 CLASSES = frozenset({"body_manifest", "sensor_observation", "actuator_observation",
                      "avatar_commanded_state", "avatar_renderer_reported_state",
                      "avatar_independently_observed_state", "fulfillment_observation"})
@@ -112,6 +113,8 @@ class EmbodimentObservation:
                                                             self.provenance_class, self.freshness,
                                                             self.subject_id, self.subject_kind))):
             raise EmbodimentEvidenceError("embodiment_evidence_invalid")
+        if not isinstance(self.freshness, str) or self.freshness not in FRESHNESS_POSTURES:
+            raise EmbodimentEvidenceError("embodiment_freshness_invalid")
         if self.effect_proven and self.evidence_class != "fulfillment_observation":
             raise EmbodimentEvidenceError("effect_proof_requires_fulfillment_evidence")
         if self.posture == "synthetic_test" and self.provenance_class == "production":
@@ -153,6 +156,7 @@ class EmbodimentEvidenceOwner:
                 "effect_claimed": item.effect_claimed, "effect_proven": item.effect_proven,
                 "payload": {**dict(item.payload), "embodiment_evidence_class": item.evidence_class,
                             "evidence_posture": item.posture,
+                            "declared_source_freshness": item.freshness,
                             "observer_issuer_posture": ("unverified_caller_assertion"
                                 if caller_asserted_observation else "not_applicable"),
                             "source_semantic_digest": item.source_digest},

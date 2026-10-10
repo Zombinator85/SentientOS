@@ -514,13 +514,20 @@ class LongitudinalSelfModelOwner:
                 prior = prior_current.get(key)
                 supersedes = (prior.claim_id,) if prior and prior.value != value else ()
                 source_times = tuple(sorted({str(fact.observed_at) for fact in facts if fact.observed_at is not None}))
-                freshnesses = {fact.source.staleness for fact in facts}
-                freshness = ("stale" if freshnesses & {"stale", "expired"} else
-                             "unknown" if "undated" in freshnesses else
-                             "aging" if "aging" in freshnesses else "fresh")
-                if "not_applicable" in freshnesses and not freshnesses & {"fresh", "aging", "stale", "expired", "undated"}:
-                    freshness = "not_applicable"
                 payloads = [fact.payload for fact in facts]
+                freshnesses = {fact.source.staleness for fact in facts}
+                declared_freshnesses = {str(payload.get("declared_source_freshness", "unknown")).lower()
+                                        for payload in payloads if "declared_source_freshness" in payload}
+                unauthenticated_observation = any(payload.get("observer_issuer_posture")
+                    == "unverified_caller_assertion" for payload in payloads)
+                all_freshnesses = freshnesses | declared_freshnesses
+                freshness = ("unknown" if unauthenticated_observation else
+                             "stale" if all_freshnesses & {"stale", "expired"} else
+                             "unknown" if all_freshnesses & {"unknown", "undated"} else
+                             "aging" if "aging" in all_freshnesses else "fresh")
+                if "not_applicable" in all_freshnesses and not all_freshnesses & {
+                        "fresh", "current", "aging", "stale", "expired", "undated", "unknown"}:
+                    freshness = "not_applicable"
                 def context(names: Sequence[str]) -> str | None:
                     vals = {str(payload[name]) for payload in payloads for name in names if name in payload}
                     return next(iter(vals)) if len(vals) == 1 else None
