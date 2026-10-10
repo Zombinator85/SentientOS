@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.maintenance_post_adoption_evaluation import Evaluation, FALSE_AUTHORITY
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROTOCOL_SCHEMA = "sentientos.maintenance_post_adoption_attribution_campaign_protocol:v1"
 CONTROL_SCHEMA = "sentientos.maintenance_attribution_control_observation:v1"
@@ -208,7 +209,8 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             raise AttributionCampaignError("campaign_custody_root_invalid")
         self.root = selected
         self.read_only = read_only
-        self._require_descriptor_storage()
+        if not (os.name == "nt" and read_only):
+            self._require_descriptor_storage()
         if not read_only:
             for kind in ("protocols", "controls", "trials", "results", "signals"):
                 descriptor = self._open_kind_directory(kind, create=True)
@@ -311,7 +313,8 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         try:
             descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_ARTIFACT_BYTES:
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_ARTIFACT_BYTES
+                    or metadata.st_nlink != 1):
                 raise AttributionCampaignError("campaign_history_corrupt")
             chunks: list[bytes] = []
             remaining = metadata.st_size
@@ -321,10 +324,13 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                     raise AttributionCampaignError("campaign_history_corrupt")
                 chunks.append(chunk); remaining -= len(chunk)
             raw = b"".join(chunks)
-            if len(raw) != metadata.st_size:
+            after = os.fstat(descriptor)
+            if (len(raw) != metadata.st_size or after.st_dev != metadata.st_dev
+                    or after.st_ino != metadata.st_ino or after.st_size != metadata.st_size
+                    or after.st_mtime_ns != metadata.st_mtime_ns):
                 raise AttributionCampaignError("campaign_history_corrupt")
             value = json.loads(raw.decode("utf-8"))
-            if not isinstance(value, dict):
+            if not isinstance(value, dict) or canonical_bytes(value) + b"\n" != raw:
                 raise AttributionCampaignError("campaign_history_corrupt")
             return value
         except AttributionCampaignError:
@@ -336,6 +342,26 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                 os.close(descriptor)
 
     def _read(self, kind: str) -> list[dict[str, Any]]:
+        if os.name == "nt" and self.read_only:
+            identity_field = {"protocols":"campaign_id", "controls":"control_id", "trials":"trial_record_id",
+                "results":"result_id", "signals":"source_artifact"}[kind]
+            try:
+                entries = read_regular_files(self.root / kind, max_entries=MAX_RECORDS_PER_KIND,
+                    max_file_bytes=MAX_ARTIFACT_BYTES,
+                    max_total_bytes=MAX_RECORDS_PER_KIND * MAX_ARTIFACT_BYTES)
+                values: list[dict[str, Any]] = []
+                for name, raw in entries:
+                    value = json.loads(raw.decode("utf-8"))
+                    if (not isinstance(value, dict) or canonical_bytes(value) + b"\n" != raw
+                            or not isinstance(value.get(identity_field), str)
+                            or name != value[identity_field].replace(":", "-") + ".json"):
+                        raise AttributionCampaignError("campaign_history_corrupt")
+                    values.append(value)
+                return values
+            except AttributionCampaignError:
+                raise
+            except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError, OSError) as exc:
+                raise AttributionCampaignError("campaign_history_corrupt") from exc
         directory_fd = self._open_kind_directory(kind, create=False)
         try:
             names = sorted(name for name in os.listdir(directory_fd) if name.endswith(".json"))
