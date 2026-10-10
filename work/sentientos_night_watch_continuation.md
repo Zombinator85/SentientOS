@@ -215,3 +215,11 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verification: `codex/construct-sentientos` at `b9f87a7c84521f4d1b716629bf961440b241698b`.
 
 **Next implementation dependency:** perform another source-only composition review of normal chat startup, recovery reconstruction, and the verified-lineage context projection. In particular, ensure recovery phase receipts remain bound to the current request file and that retained session history exposes only verifier-qualified evidence while preserving the separation from canonical user memory. Continue into any concrete owner-level gap found.
+
+### New checkpoint — recovery launches bind the immediate observed predecessor
+
+- Source tracing found that the child adapter retained the daemon's original startup snapshot across authorized in-process recovery. It now rebinds to the exact current digest-checked snapshot immediately before the recovery action, after verifying its handoff through installation custody. The replacement child's immutable v2 handoff therefore references the actual snapshot used by that recovery request rather than a stale earlier snapshot.
+- This preserves exact request predecessor → launched successor linkage and makes the recovery phase's predecessor/successor verification consistent across repeated authorized restarts. No restart action is added and no effect is replayed.
+- Changed Python sources compile; no runtime or crash checks were run. Branch verified at `e5ad86d169c82e4fac332aec6ebb2dbb03c713f7`.
+
+**Next implementation dependency:** continue source-only review through model-serving activation and recovery semantics to ensure the chat software-generation chain does not imply model continuity, and that incomplete or stale serving receipts remain distinct from the process handoff lineage. Preserve both as separate evidence chains in later cognition.
