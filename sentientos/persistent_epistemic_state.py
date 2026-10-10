@@ -695,11 +695,33 @@ class PersistentEpistemicStateOwner:
 
 
 def embodied_prediction_binding(*, proposition_id: str, expectation: Any, comparison: Any, attribution: Any, observation: Any) -> EvidenceBinding:
-    """Explicit adapter; renderer output alone is never independent evidence."""
-    if observation is None or getattr(observation,"observation_source_class","") in {"renderer","renderer_report","renderer_internal"}: raise EpistemicStateError("independent_observation_required")
-    result=getattr(attribution,"attribution_result",getattr(comparison,"result",None))
-    relation="supports" if result == "expectation_satisfied" else "contradicts" if result == "expectation_contradicted" else "contextualizes"
-    return make_evidence_binding(proposition_id=proposition_id,source_artifact_id=observation.observation_id,source_digest=observation.observation_digest,source_schema=observation.schema_version,source_class=observation.observation_source_class,observation_time=observation.observed_at,evidence_relation=relation,dependency_kind="independently_sourced_observation",dependency_group=observation.observer_id,upstream_binding_ids=(),freshness="current",reliability_posture=relation)
+    """Preserve an observation without treating its self-declared issuer as verified.
+
+    The current observation contract binds content, but does not authenticate an
+    observer.  Keep the historical event time and exact content identity while
+    leaving currentness, independence, and consequence relation unresolved.
+    """
+    if observation is None:
+        raise EpistemicStateError("independent_observation_required")
+    try:
+        from .embodied_consequence import verify_independent_observation
+        verify_independent_observation(observation)
+    except Exception as exc:
+        raise EpistemicStateError("embodied_observation_identity_unverified") from exc
+    return make_evidence_binding(
+        proposition_id=proposition_id,
+        source_artifact_id=observation.observation_id,
+        source_digest=observation.observation_digest,
+        source_schema=observation.schema_version,
+        source_class=observation.observation_source_class,
+        observation_time=observation.observed_at,
+        evidence_relation="contextualizes",
+        dependency_kind="unknown_dependency",
+        dependency_group=None,
+        upstream_binding_ids=(),
+        freshness="unknown",
+        reliability_posture="observer_identity_unverified",
+    )
 
 
 __all__ = [name for name in tuple(globals()) if name.startswith("Epistemic") or name in {"PersistentEpistemicStateOwner","PropositionRelation","EvidenceBinding","make_proposition","make_evidence_binding","make_epistemic_update_candidate","evidence_posture","embodied_prediction_binding","FALSE_AUTHORITY"}]
