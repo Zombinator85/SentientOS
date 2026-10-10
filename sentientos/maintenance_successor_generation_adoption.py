@@ -59,6 +59,23 @@ def _load(path: str | Path) -> dict[str, Any]:
     return value
 
 
+def _load_optional_windows_object(path: Path) -> dict[str, Any] | None:
+    """Read one known successor artifact without path-based presence checks."""
+    try:
+        raw = read_explicit_file(path, max_bytes=65_536)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return None
+        raise ValueError("successor_adoption_input_not_regular") from exc
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise ValueError("successor_adoption_input_not_object") from exc
+    if not isinstance(value, dict):
+        raise ValueError("successor_adoption_input_not_object")
+    return value
+
+
 def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
     required = {"schema_version", "enabled", "continuity_policy_path", "continuity_policy_digest",
         "initial_generation_path", "initial_generation_digest", "initial_wake_adoption_path",
@@ -249,10 +266,24 @@ def reconstruct_current(config: Mapping[str, Any]) -> tuple[dict[str, Any], dict
 def verified_successor(config: Mapping[str, Any], current: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]] | None:
     cfg = validate_config(config); policy = continuity.validate_policy(_load(cfg["continuity_policy_path"])); ordinal = int(current["ordinal"]) + 1
     generation_path = Path(policy["generation_root"]) / f"generation-{ordinal}.json"; receipt_path = Path(policy["receipt_root"]) / f"receipt-{ordinal}.json"
-    if not generation_path.exists():
-        if (Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json").exists(): raise ValueError("successor_generation_skipped")
-        return None
-    successor = continuity.validate_generation(_load(generation_path), policy); receipt = _load(receipt_path)
+    if os.name == "nt":
+        raw_generation = _load_optional_windows_object(generation_path)
+        next_generation = _load_optional_windows_object(
+            Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json")
+        if raw_generation is None:
+            if next_generation is not None:
+                raise ValueError("successor_generation_skipped")
+            return None
+        receipt = _load_optional_windows_object(receipt_path)
+        if receipt is None:
+            raise ValueError("successor_continuity_receipt_missing")
+    else:
+        if not generation_path.exists():
+            if (Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json").exists(): raise ValueError("successor_generation_skipped")
+            return None
+        raw_generation = _load(generation_path)
+        receipt = _load(receipt_path)
+    successor = continuity.validate_generation(raw_generation, policy)
     if set(receipt) != continuity.RECEIPT_KEYS or receipt.get("schema_version") != continuity.RECEIPT_SCHEMA or receipt.get("receipt_digest") != continuity.digest(receipt, "receipt_digest"):
         raise ValueError("successor_continuity_receipt_invalid")
     if successor["ordinal"] != ordinal or successor["predecessor_generation_digest"] != current["generation_digest"] or receipt["lineage_id"] != current["lineage_id"] or receipt["ordinal"] != ordinal or receipt["successor_generation_digest"] != successor["generation_digest"] or receipt["predecessor_generation_digest"] != current["generation_digest"] or receipt["successor_sha"] != successor["base_sha"] or receipt["successor_manifest_digest"] != successor["manifest_digest"] or receipt["successor_profile_bundle_digest"] != successor["profile_bundle_digest"] or successor["prior_receipt_digest"] != receipt["receipt_digest"] or receipt["same_or_narrower"] is not True:
@@ -373,7 +404,11 @@ class MaintenanceSuccessorGenerationOwner:
 
 def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
     current, adoption = reconstruct_current(config); successor = verified_successor(config, current)
-    return {"status": "successor_adoption_ready", "lineage_id": current["lineage_id"], "current_ordinal": current["ordinal"],
+    pending = pending_handoff(config)
+    return {"status": "successor_handoff_recovery_required" if pending else "successor_adoption_ready",
+            "recovery_posture": "incomplete_handoff" if pending else "no_incomplete_handoff",
+            "pending_handoff": pending,
+            "lineage_id": current["lineage_id"], "current_ordinal": current["ordinal"],
             "current_generation_digest": current["generation_digest"], "current_wake_adoption_digest": adoption["adoption_config_digest"],
             "successor_ordinal": successor[0]["ordinal"] if successor else None, "handoff_event_count": len(_journal(validate_config(config)))}
 
