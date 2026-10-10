@@ -811,6 +811,7 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
         "condition": condition, "history": [dict(item) for item in history],
         "situation": situation_copy, "cognitive_context": cognitive_context}).decode("utf-8")
     linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
+    expected_correlation_id = _strategy_request_correlation_id(digest(dict(protocol)), condition)
     if (row_digest != digest(row) or not valid_receipt
             or row.get("condition") != condition
             or row.get("proposal_id") != proposal.strategy_id
@@ -820,6 +821,7 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
             or receipt.get("receipt_digest") != row.get("receipt_digest")
             or receipt_request.get("request_id") != row.get("request_id")
             or receipt_request.get("request_digest") != row.get("request_digest")
+            or receipt_request.get("correlation_id") != expected_correlation_id
             or receipt_request.get("prompt_digest") != digest_payload({"prompt": expected_prompt})
             or receipt_request.get("purpose") != "resident_developmental_history_intervention_experiment"
             or receipt_request.get("model_id") != protocol.get("model_id")
@@ -850,6 +852,12 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
         raise EmbodiedConsequenceError("governed_execution_evidence_binding_invalid")
     row["association_digest"] = row_digest
     return row
+
+
+def _strategy_request_correlation_id(protocol_digest: str, condition: str) -> str:
+    """Stable call identity shared by the durable checkpoint and request."""
+    return "strategy-experiment:" + digest({
+        "protocol": protocol_digest, "condition": condition})[7:]
 
 
 def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapping[str, Any], situation: Mapping[str, Any],
@@ -907,6 +915,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
     execution_contradiction=False
     for condition in conditions:
         history=() if condition=="history_withheld" else (history_record,)
+        request_correlation_id = _strategy_request_correlation_id(protocol_digest, condition)
         # Each call receives an independent canonical copy so a backend cannot
         # mutate shared context and contaminate a later control condition.
         situation_copy=json.loads(canonical_bytes(dict(situation)))
@@ -920,7 +929,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             "target_history_record_digest": record_digest})
         if store is not None:
             start, terminal = store.read_strategy_condition(protocol_id=protocol_id,
-                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest)
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                request_correlation_id=request_correlation_id)
             if terminal is not None:
                 condition_status = {"condition": condition, "status": terminal["status"],
                     "condition_result_digest": terminal["condition_result_digest"]}
@@ -967,14 +977,20 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                 # live call or a crash after backend entry; either way it cannot
                 # be retried safely.
                 condition_statuses.append({"condition": condition, "status": "incomplete",
-                    "failure_posture": "started_without_terminal_no_replay"})
+                    "failure_posture": "started_without_terminal_no_replay",
+                    "request_correlation_id": start.get("request_correlation_id"),
+                    "expected_request_correlation_id": request_correlation_id,
+                    "request_correlation_binding_posture": "bound" if start.get("request_correlation_id")
+                        == request_correlation_id else "legacy_missing"})
                 failure_posture = "started_without_terminal_no_replay"
                 break
             claimed, _ = store.begin_strategy_condition(protocol_id=protocol_id,
-                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest)
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                request_correlation_id=request_correlation_id)
             if not claimed:
                 condition_statuses.append({"condition": condition, "status": "incomplete",
-                    "failure_posture": "concurrent_or_recovered_condition_claim_no_replay"})
+                    "failure_posture": "concurrent_or_recovered_condition_claim_no_replay",
+                    "request_correlation_id": request_correlation_id})
                 failure_posture = "concurrent_or_recovered_condition_claim_no_replay"
                 break
         take_evidence = getattr(backend, "consume_execution_evidence", None)
@@ -1375,11 +1391,16 @@ class ConsequenceStore:
         return True
 
     def begin_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
-                                 condition: str, input_digest: str) -> tuple[bool, dict[str, Any]]:
+                                 condition: str, input_digest: str,
+                                 request_correlation_id: str) -> tuple[bool, dict[str, Any]]:
+        if (not isinstance(request_correlation_id, str)
+                or request_correlation_id != _strategy_request_correlation_id(protocol_digest, condition)):
+            raise EmbodiedConsequenceError("strategy_condition_correlation_missing")
         condition_id = self._strategy_condition_id(protocol_id, condition)
         semantic = {"schema_version": STRATEGY_CONDITION_START_SCHEMA, "condition_id": condition_id,
             "protocol_id": protocol_id, "protocol_digest": protocol_digest,
-            "condition": condition, "input_digest": input_digest, "authority": dict(FALSE_AUTHORITY)}
+            "condition": condition, "input_digest": input_digest,
+            "request_correlation_id": request_correlation_id, "authority": dict(FALSE_AUTHORITY)}
         record = {**semantic, "condition_start_digest": digest(semantic)}
         created = self._create_checkpoint("strategy-experiment-starts", condition_id, record,
             digest_field="condition_start_digest")
@@ -1402,9 +1423,13 @@ class ConsequenceStore:
         if (start is None or start.get("protocol_digest") != protocol_digest
                 or start.get("input_digest") != input_digest or start.get("condition") != condition):
             raise EmbodiedConsequenceError("strategy_condition_start_missing_or_conflicting")
+        if (start.get("request_correlation_id") is not None
+                and start.get("request_correlation_id") != _strategy_request_correlation_id(protocol_digest, condition)):
+            raise EmbodiedConsequenceError("strategy_condition_start_correlation_conflict")
         semantic = {"schema_version": STRATEGY_CONDITION_RESULT_SCHEMA, "condition_id": condition_id,
             "protocol_id": protocol_id, "protocol_digest": protocol_digest,
             "condition": condition, "input_digest": input_digest,
+            "request_correlation_id": start.get("request_correlation_id"),
             "condition_start_digest": start["condition_start_digest"], "status": status,
             "proposal": dict(proposal) if proposal is not None else None,
             "execution_evidence": dict(execution_evidence) if execution_evidence is not None else None,
@@ -1419,7 +1444,8 @@ class ConsequenceStore:
         return record
 
     def read_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
-                                condition: str, input_digest: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+                                condition: str, input_digest: str,
+                                request_correlation_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         condition_id = self._strategy_condition_id(protocol_id, condition)
         start = self._checkpoint("strategy-experiment-starts", condition_id,
             digest_field="condition_start_digest", expected_schema=STRATEGY_CONDITION_START_SCHEMA)
@@ -1429,7 +1455,9 @@ class ConsequenceStore:
             if value is not None and (value.get("protocol_id") != protocol_id
                     or value.get("protocol_digest") != protocol_digest
                     or value.get("condition") != condition
-                    or value.get("input_digest") != input_digest):
+                    or value.get("input_digest") != input_digest
+                    or (value.get("request_correlation_id") is not None
+                        and value.get("request_correlation_id") != request_correlation_id)):
                 raise EmbodiedConsequenceError("strategy_condition_recovery_context_conflict")
         if terminal is not None and (start is None or terminal.get("condition_start_digest") != start.get("condition_start_digest")
                 or terminal.get("status") not in {"completed", "incomplete", "contradictory"}):
