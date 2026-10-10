@@ -27,6 +27,7 @@ INTERVENTION_PURPOSE = "resident_developmental_history_intervention_experiment"
 MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment"
 SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
+INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 
 def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)
@@ -116,16 +117,23 @@ class LocalModelInvocationReceipt:
     resource_attempt_id: str | None = None
     resource_consumption_receipt_digests: tuple[str, ...] = ()
     resource_linkage_digest: str | None = None
+    schema_version: str = INVOCATION_RECEIPT_SCHEMA
 
     def semantic_payload(self) -> dict[str, Any]:
-        return {"request": dict(self.request), "status": self.status, "reason_codes": list(self.reason_codes), "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes, "generation_config": dict(self.generation_config), "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose, "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred, "effects": dict(self.effects)}
+        return {"schema_version": self.schema_version, "request": dict(self.request),
+            "status": self.status, "reason_codes": list(self.reason_codes),
+            "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes,
+            "generation_config": dict(self.generation_config),
+            "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose,
+            "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred,
+            "effects": dict(self.effects), "observed_at": self.observed_at}
 
     @property
     def receipt_digest(self) -> str: return _digest_text(self.semantic_payload())
     @property
     def receipt_id(self) -> str: return "lmrec-" + self.receipt_digest[:24]
     def to_dict(self, *, include_output: bool = False) -> dict[str, Any]:
-        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms, "observed_at": self.observed_at,
+        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms,
             "resource_allocation_digest": self.resource_allocation_digest,
             "resource_attempt_id": self.resource_attempt_id,
             "resource_consumption_receipt_digests": list(self.resource_consumption_receipt_digests)})
@@ -137,9 +145,33 @@ class LocalModelInvocationReceipt:
 
 def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     reasons: list[str] = []
-    semantic = {k: payload.get(k) for k in ["request", "status", "reason_codes", "output_digest", "output_size_bytes", "generation_config", "admission_decision_ref", "purpose", "output_truncated", "fallback_occurred", "effects"]}
-    if payload.get("receipt_digest") != digest_payload(semantic): reasons.append("receipt_digest_mismatch")
-    if payload.get("receipt_id") != "lmrec-" + digest_payload(semantic)[:24]: reasons.append("receipt_id_mismatch")
+    schema = payload.get("schema_version")
+    legacy_semantic_keys = ["request", "status", "reason_codes", "output_digest",
+        "output_size_bytes", "generation_config", "admission_decision_ref", "purpose",
+        "output_truncated", "fallback_occurred", "effects"]
+    if schema is None:
+        # Historical v1 receipts intentionally omit schema_version and bind
+        # exactly the pre-v2 field set. Do not reinterpret their identities.
+        semantic = {key: payload.get(key) for key in legacy_semantic_keys}
+    elif schema == INVOCATION_RECEIPT_SCHEMA:
+        semantic = {key: payload.get(key) for key in (
+            "schema_version", *legacy_semantic_keys, "observed_at")}
+        observed_at = payload.get("observed_at")
+        try:
+            timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            timestamp = None
+        if (not isinstance(observed_at, str) or timestamp is None
+                or timestamp.tzinfo is None or timestamp.utcoffset() is None):
+            reasons.append("receipt_event_time_invalid")
+    else:
+        semantic = {key: payload.get(key) for key in legacy_semantic_keys}
+        reasons.append("receipt_schema_version_invalid")
+    expected_digest = digest_payload(semantic)
+    if payload.get("receipt_digest") != expected_digest:
+        reasons.append("receipt_digest_mismatch")
+    if payload.get("receipt_id") != "lmrec-" + expected_digest[:24]:
+        reasons.append("receipt_id_mismatch")
     linkage = {"receipt_digest": payload.get("receipt_digest"),
         "allocation_digest": payload.get("resource_allocation_digest"),
         "attempt_id": payload.get("resource_attempt_id"),
@@ -147,9 +179,7 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     allocation = payload.get("resource_allocation_digest")
     attempt = payload.get("resource_attempt_id")
     consumption = payload.get("resource_consumption_receipt_digests")
-    # ``to_dict`` emits an empty consumption tuple/list on legacy, unlinked
-    # receipts.  Empty means absence; a nonempty tuple still requires the full
-    # allocation/attempt binding below.
+    # Empty linkage remains compatible with historical unlinked receipts.
     has_linkage = allocation is not None or attempt is not None or bool(consumption)
     if payload.get("resource_linkage_digest") is not None and not has_linkage:
         reasons.append("resource_linkage_fields_missing")
@@ -160,9 +190,11 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
                 or payload.get("resource_linkage_digest") is None):
             reasons.append("resource_linkage_incomplete")
         expected_linkage = digest_payload(linkage)
-        if payload.get("resource_linkage_digest") != expected_linkage: reasons.append("resource_linkage_digest_mismatch")
+        if payload.get("resource_linkage_digest") != expected_linkage:
+            reasons.append("resource_linkage_digest_mismatch")
     effects = payload.get("effects")
-    if not isinstance(effects, Mapping) or any(bool(effects.get(k)) for k in FORBIDDEN_EFFECTS): reasons.append("forbidden_effect_recorded")
+    if not isinstance(effects, Mapping) or any(bool(effects.get(key)) for key in FORBIDDEN_EFFECTS):
+        reasons.append("forbidden_effect_recorded")
     return not reasons, reasons
 
 

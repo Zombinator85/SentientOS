@@ -310,7 +310,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 source_event_time = fact.payload.get("event_time")
                 historical_times = (
                     [source_event_time]
-                    if event_time_posture == "invocation_receipt_semantic_digest_bound"
+                    if event_time_posture == "invocation_receipt_created_at_semantic_digest_bound"
                         and isinstance(source_event_time, str)
                     else [])
             else:

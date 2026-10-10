@@ -676,3 +676,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `resident_epistemic_development.py`. No source record was admitted or reconstructed and no temporal behavior was executed.
 
 **Next implementation dependency:** the serving and runtime observation records have digest-bound event times; invocation receipts currently do not. Continue the source review with that limit explicit, and verify the compact historical claim preserves the timestamp's unbound posture while later cognition still receives the exact invocation and software identities.
+
+### New checkpoint — version invocation receipt time without breaking legacy identities
+
+- New local-model invocation receipts now use `sentientos.local_model_invocation_receipt:v2`; their semantic digest binds the owner-recorded `observed_at` as receipt-creation time. This is not asserted to be the exact backend completion instant; measured resource receipt times remain their own separate custody.
+- The verifier keeps the old digest field set for receipts with no schema version, preserving historical receipt IDs and signatures. A v2 receipt must carry a timezone-aware `observed_at`, and the timestamp is covered by its digest. Unknown versions and malformed times fail validation.
+- Resource World-State marks v2 receipt creation time as digest-bound and old receipt time as unbound. The epistemic adapter preserves only the v2 receipt-creation time as historical observation time; it never marks resource evidence current.
+- Python compilation passed for the invocation owner, resource World-State projector, and epistemic adapter. No receipt was created, replayed, admitted, or reconciled; no tests or runtime/production verification were performed.
+
+**Next implementation dependency:** review all post-construction invocation receipt transitions and evidence-sink paths to ensure an immutable receipt's ID/digest never changes after persistence or effect-receipt linkage.

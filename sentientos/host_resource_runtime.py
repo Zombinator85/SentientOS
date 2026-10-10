@@ -656,8 +656,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
         payload["event_time"] = invocation_event_time
         payload["event_time_posture"] = (
-            "invocation_receipt_observed_at_unbound_metadata"
-            if invocation_event_time is not None else "historical_invocation_time_unknown")
+            "invocation_receipt_created_at_semantic_digest_bound"
+            if invocation_event_time is not None
+                and invocation.get("schema_version") == "sentientos.local_model_invocation_receipt:v2"
+            else "invocation_receipt_observed_at_unbound_metadata"
+                if invocation_event_time is not None
+                else "historical_invocation_time_unknown")
         payload["chat_model_serving_lineage"] = {
             "event_time": invocation_event_time,
             "event_time_posture": payload["event_time_posture"],
