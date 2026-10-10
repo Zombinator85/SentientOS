@@ -248,7 +248,7 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         if isinstance(linkage, Mapping):
             provenance = {key: linkage[key] for key in (
                 "active_model_identity_digest", "predecessor_model_identity_digest",
-                "loaded_model_identity_digest",
+                "loaded_model_identity_digest", "software_generation_attribution",
                 "model_identity_continuity_posture") if key in linkage}
         lines.append(f"{turn['role'].upper()}_DATA: " + json.dumps(
             {"text": turn["text"], "provenance": provenance}, ensure_ascii=False))

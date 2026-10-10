@@ -1,6 +1,7 @@
 # mypy: disable-error-code=untyped-decorator
 from __future__ import annotations
 
+import argparse
 import logging
 import hashlib
 import json
@@ -23,7 +24,10 @@ from .governed_local_model_invocation import LocalModelInvocationReceipt
 from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
-from .local_model_serving_inference import ProductionServingInferenceController
+from .local_model_serving_inference import (
+    ProductionServingInferenceController,
+    unavailable_chat_process_software_generation,
+)
 from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
@@ -132,6 +136,21 @@ class PersistentConversationService:
             accepted_statuses.add("admitted_simulation")
         if receipt.status not in accepted_statuses or not receipt.output_text:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
+        request_linkage = receipt.request.get("linkage", {})
+        if isinstance(self._inference, DevelopmentSimulationInference):
+            software_generation_attribution = {
+                "status": "development_simulation",
+                "reason_code": "not_a_production_process_observation",
+                "generation_identity": None,
+                "process_instance_id": None,
+            }
+        else:
+            observed_posture = (request_linkage.get("software_generation_attribution")
+                if isinstance(request_linkage, Mapping) else None)
+            expected_posture = unavailable_chat_process_software_generation()
+            if observed_posture is not None and observed_posture != expected_posture:
+                raise RuntimeError("chat_process_software_generation_posture_invalid")
+            software_generation_attribution = expected_posture
         invoked_identity = receipt.request.get("active_model_identity", {})
         upstream = receipt.request.get("upstream_evidence", {})
         serving_lifetime = (upstream.get("current_serving_lifetime")
@@ -213,6 +232,7 @@ class PersistentConversationService:
                      "active_model_identity_digest": serving_identity_digest,
                      "loaded_model_identity": dict(invoked_identity),
                      "loaded_model_identity_digest": loaded_identity_digest,
+                     "software_generation_attribution": dict(software_generation_attribution),
                      "predecessor_model_identity_digest": predecessor_identity_digest,
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
@@ -488,7 +508,25 @@ async def root_page() -> HTMLResponse:
     )
 
 
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Run explicitly composed local production chat.")
+    parser.add_argument("--installation-identity", required=True)
+    parser.add_argument("--serving-operation-id", required=True)
+    parser.add_argument("--expected-activation-state-digest")
+    parser.add_argument("--resource-provisioning-id")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=5000)
+    args = parser.parse_args(argv)
+    configure_production_chat(installation_identity=args.installation_identity,
+        serving_operation_id=args.serving_operation_id,
+        expected_activation_state_digest=args.expected_activation_state_digest,
+        resource_provisioning_id=args.resource_provisioning_id)
+    run(host=args.host, port=args.port)
+
+
 def run(host: str = "0.0.0.0", port: int = 5000) -> None:
+    if _CONVERSATION_SERVICE is None:
+        raise RuntimeError("chat_not_explicitly_configured")
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)

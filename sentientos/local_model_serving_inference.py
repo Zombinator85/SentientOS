@@ -27,6 +27,16 @@ class ProductionServingInferenceError(RuntimeError):
         super().__init__(code)
 
 
+def unavailable_chat_process_software_generation() -> dict[str, Any]:
+    """Describe the unimplemented chat-process generation issuer without inferring one."""
+    return {
+        "status": "unavailable",
+        "reason_code": "authenticated_chat_process_generation_issuer_not_composed",
+        "generation_identity": None,
+        "process_instance_id": None,
+    }
+
+
 class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
@@ -106,6 +116,9 @@ class ProductionServingInferenceController:
             "artifact_sha256": binding["artifact_sha256"],
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
+            # No authenticated issuer currently binds this chat process instance
+            # to a running software generation.
+            "software_generation_attribution": unavailable_chat_process_software_generation(),
         }
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
@@ -201,6 +214,9 @@ class ProductionServingInferenceController:
         if (not isinstance(caller_context, Mapping) or caller_context.get("session_id") != session_id
                 or caller_context.get("user_turn_id") != user_turn_id):
             raise ProductionServingInferenceError("stored_invocation_conversation_binding_invalid")
+        software_generation = linkage.get("software_generation_attribution")
+        if software_generation != unavailable_chat_process_software_generation():
+            raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
         identity_keys = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
             "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",
@@ -210,4 +226,5 @@ class ProductionServingInferenceController:
         return {"serving_identity": {key: lifetime[key] for key in identity_keys},
                 "loaded_model_identity": dict(request["active_model_identity"]),
                 "request_id": request["request_id"], "receipt_id": receipt_id,
-                "receipt_digest": receipt_digest, "status": value["status"]}
+                "receipt_digest": receipt_digest, "status": value["status"],
+                "software_generation_attribution": dict(software_generation)}
