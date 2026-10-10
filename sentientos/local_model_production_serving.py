@@ -80,6 +80,13 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
         raise ProductionServingError("activation_installation_identity_mismatch")
     if activation.get("resulting_state_digest") != state.get("state_semantic_digest"):
         raise ProductionServingError("activation_receipt_state_mismatch")
+    prior_state = activation.get("observed_prior_activation_state")
+    if (activation.get("expected_prior_activation_state") != prior_state
+            or (state.get("generation") == 1 and prior_state != "ABSENT")
+            or (state.get("generation", 0) > 1 and
+                (not isinstance(prior_state, str) or len(prior_state) != 64
+                 or any(character not in "0123456789abcdef" for character in prior_state)))):
+        raise ProductionServingError("activation_predecessor_binding_invalid")
     # The canonical verifier has re-read catalog, commissioning, and artifact bytes.  Bind
     # every state field here so a later comparison cannot accidentally narrow currentness.
     return {"active_state": dict(state), "activation_receipt": dict(activation),
@@ -226,7 +233,9 @@ class ProductionServingController:
         _reject_replayed_lifetime(self._handle, operation_id, state["state_semantic_digest"])
         intent = {"installation_identity": self._handle.identity.value,
                   "activation_state_semantic_digest": state["state_semantic_digest"],
-                  "activation_generation": state["generation"], "activation_receipt_id": activation["receipt_id"],
+                  "activation_generation": state["generation"],
+                  "activation_predecessor_state_digest": activation["observed_prior_activation_state"],
+                  "activation_receipt_id": activation["receipt_id"],
                   "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
                   "model_id": state["model_id"], "artifact_id": state["artifact_id"],
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}

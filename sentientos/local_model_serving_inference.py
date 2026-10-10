@@ -13,7 +13,7 @@ from .governed_local_model_invocation import (
     LocalModelInvocationReceipt,
     validate_receipt,
 )
-from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map
+from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .local_model_production_serving import (
     ProductionServingController,
     ProductionServingError,
@@ -46,7 +46,8 @@ class ProductionServingInferenceController:
         return {
             key: binding[key]
             for key in (
-                "activation_state_semantic_digest", "activation_generation",
+                "installation_identity", "activation_state_semantic_digest", "activation_generation",
+                "activation_predecessor_state_digest",
                 "activation_receipt_id", "activation_receipt_semantic_digest", "model_id",
                 "observed_loaded_model_identity", "artifact_id", "artifact_sha256",
                 "runtime_id", "authority_map_digest",
@@ -92,8 +93,10 @@ class ProductionServingInferenceController:
         linkage: Mapping[str, Any] = {
             "serving_session_id": session.session_id,
             "serving_operation_id": binding["serving_operation_id"],
+            "installation_identity": binding["installation_identity"],
             "activation_state_semantic_digest": binding["activation_state_semantic_digest"],
             "activation_generation": binding["activation_generation"],
+            "activation_predecessor_state_digest": binding["activation_predecessor_state_digest"],
             "activation_receipt_id": binding["activation_receipt_id"],
             "activation_receipt_semantic_digest": binding["activation_receipt_semantic_digest"],
             "model_serving_admission_ref": binding["model_serving_admission_ref"],
@@ -153,3 +156,58 @@ class ProductionServingInferenceController:
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt
+
+    def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
+                                     session_id: str, user_turn_id: str) -> Mapping[str, Any]:
+        """Reconstruct one prior chat model identity from installation custody."""
+        if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
+                or any(character not in "0123456789abcdef" for character in receipt_id[6:])):
+            raise ProductionServingInferenceError("stored_invocation_identity_invalid")
+        try:
+            raw = self._serving._handle.read_regular_bounded(
+                self._serving._handle.fixed_object(f"local-model/inference/receipts/{receipt_id}.json"),
+                max_bytes=1_048_576)
+            value = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            raise ProductionServingInferenceError("stored_invocation_unavailable_or_invalid") from exc
+        if (not isinstance(value, Mapping)
+                or json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n" != raw
+                or value.get("receipt_id") != receipt_id or value.get("receipt_digest") != receipt_digest):
+            raise ProductionServingInferenceError("stored_invocation_identity_mismatch")
+        valid, findings = validate_receipt(value)
+        request = value.get("request")
+        if not isinstance(request, Mapping):
+            raise ProductionServingInferenceError("stored_invocation_request_invalid")
+        request_semantic = {key: item for key, item in request.items()
+            if key not in {"request_id", "request_digest", "raw_prompt_stored", "ephemeral_prompt_handling"}}
+        request_digest = digest_payload(request_semantic)
+        if (not valid or value.get("status") != "admitted_completed"
+                or not isinstance(value.get("effects"), Mapping)
+                or value["effects"].get("local_model_inference") is not True
+                or not isinstance(value.get("output_digest"), str)
+                or request.get("request_digest") != request_digest
+                or request.get("request_id") != "lmreq-" + request_digest[:24]
+                or request.get("caller") != "chat_service" or request.get("purpose") != "local_user_chat"):
+            raise ProductionServingInferenceError("stored_invocation_not_completed_chat")
+        upstream = request.get("upstream_evidence")
+        linkage = request.get("linkage")
+        lifetime = upstream.get("current_serving_lifetime") if isinstance(upstream, Mapping) else None
+        if (not isinstance(lifetime, Mapping) or not isinstance(linkage, Mapping)
+                or linkage != dict(lifetime)
+                or dict(request.get("active_model_identity", {})) != dict(lifetime.get("observed_loaded_model_identity", {}))):
+            raise ProductionServingInferenceError("stored_invocation_serving_binding_invalid")
+        caller_context = lifetime.get("caller_context")
+        if (not isinstance(caller_context, Mapping) or caller_context.get("session_id") != session_id
+                or caller_context.get("user_turn_id") != user_turn_id):
+            raise ProductionServingInferenceError("stored_invocation_conversation_binding_invalid")
+        identity_keys = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
+            "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
+            "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",
+            "authority_map_digest")
+        if any(key not in lifetime for key in identity_keys):
+            raise ProductionServingInferenceError("stored_invocation_serving_identity_incomplete")
+        return {"serving_identity": {key: lifetime[key] for key in identity_keys},
+                "loaded_model_identity": dict(request["active_model_identity"]),
+                "request_id": request["request_id"], "receipt_id": receipt_id,
+                "receipt_digest": receipt_digest, "status": value["status"]}

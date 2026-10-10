@@ -157,16 +157,58 @@ class PersistentConversationService:
             separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
         loaded_identity_digest = hashlib.sha256(json.dumps(dict(invoked_identity), sort_keys=True,
             separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
-        prior_identity_digests = [str(turn.get("linkage", {}).get("active_model_identity_digest"))
-            for turn in session.get("turns", ()) if turn.get("role") == "assistant"
-            and isinstance(turn.get("linkage"), Mapping)
-            and isinstance(turn.get("linkage", {}).get("active_model_identity_digest"), str)]
-        predecessor_identity_digest = (prior_identity_digests[-1] if prior_identity_digests
-            else str(session.get("model_identity_digest", "")))
-        continuity_posture = ("same_exact_serving_identity" if predecessor_identity_digest == serving_identity_digest
-            else "model_identity_changed_predecessor_relation_unverified")
+        prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
+            if turn.get("role") == "assistant"), None)
+        predecessor_identity_digest = str(session.get("model_identity_digest", ""))
+        predecessor_identity: Mapping[str, Any] | None = None
+        predecessor_invocation_verified = False
+        if prior_assistant is not None and isinstance(prior_assistant.get("linkage"), Mapping):
+            prior_linkage = prior_assistant["linkage"]
+            predecessor_identity_digest = str(prior_linkage.get("active_model_identity_digest", ""))
+            stored_identity = prior_linkage.get("active_model_identity")
+            verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+            if (callable(verifier) and isinstance(stored_identity, Mapping)
+                    and isinstance(prior_linkage.get("invocation_receipt_id"), str)
+                    and isinstance(prior_linkage.get("invocation_receipt_digest"), str)
+                    and isinstance(prior_linkage.get("source_user_turn_id"), str)):
+                try:
+                    verified_prior = verifier(receipt_id=prior_linkage["invocation_receipt_id"],
+                        receipt_digest=prior_linkage["invocation_receipt_digest"],
+                        session_id=session["session_id"], user_turn_id=prior_linkage["source_user_turn_id"])
+                    observed_prior_identity = verified_prior.get("serving_identity")
+                    observed_loaded_identity = verified_prior.get("loaded_model_identity")
+                    stored_loaded_identity = prior_linkage.get("loaded_model_identity")
+                    if (isinstance(observed_prior_identity, Mapping)
+                            and isinstance(observed_loaded_identity, Mapping)
+                            and isinstance(stored_loaded_identity, Mapping)
+                            and dict(observed_prior_identity) == dict(stored_identity)
+                            and dict(observed_loaded_identity) == dict(stored_loaded_identity)
+                            and predecessor_identity_digest == hashlib.sha256(json.dumps(dict(stored_identity),
+                                sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()):
+                        predecessor_identity = observed_prior_identity
+                        predecessor_invocation_verified = True
+                except Exception:
+                    # Prior transcript remains usable as untrusted chat context;
+                    # it cannot establish a transition predecessor.
+                    pass
+        continuity_posture = "model_identity_changed_predecessor_relation_unverified"
+        if predecessor_identity_digest == serving_identity_digest:
+            continuity_posture = ("same_exact_serving_identity_and_prior_invocation_verified"
+                if predecessor_invocation_verified else "same_exact_serving_identity_prior_receipt_unverified")
+        elif predecessor_invocation_verified and predecessor_identity is not None:
+            prior_generation = predecessor_identity.get("activation_generation")
+            current_generation = identity_payload.get("activation_generation")
+            if (predecessor_identity.get("installation_identity") == identity_payload.get("installation_identity")
+                    and identity_payload.get("activation_predecessor_state_digest")
+                        == predecessor_identity.get("activation_state_semantic_digest")
+                    and type(prior_generation) is int and type(current_generation) is int
+                    and current_generation == prior_generation + 1):
+                continuity_posture = "activation_predecessor_bound_to_prior_observed_invocation"
         assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=receipt.output_text,
-            linkage={"request_id": receipt.request.get("request_id"), "invocation_receipt_digest": receipt.receipt_digest,
+            linkage={"request_id": receipt.request.get("request_id"),
+                     "invocation_receipt_id": receipt.receipt_id,
+                     "invocation_receipt_digest": receipt.receipt_digest,
+                     "source_user_turn_id": user_turn["turn_id"],
                      "active_model_identity": dict(identity_payload),
                      "active_model_identity_digest": serving_identity_digest,
                      "loaded_model_identity": dict(invoked_identity),
