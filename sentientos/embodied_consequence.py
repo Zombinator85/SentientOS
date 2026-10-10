@@ -554,7 +554,8 @@ def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_requir
 
 def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
         source_event_refs: Sequence[str] = (), experiment_result_id: str | None = None,
-        experiment_result_digest: str | None = None, condition: str | None = None) -> dict[str, Any]:
+        experiment_result_digest: str | None = None, condition: str | None = None,
+        execution_contexts: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """Adapt a verified strategy proposal to the existing review-only owner.
 
     The digest remains explicit so a review cannot be reused for a substituted
@@ -564,7 +565,10 @@ def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
     verify_strategy_proposal(value)
     if (len(source_event_refs) > 16
             or any(not isinstance(item, str) or not item or len(item) > 256
-                for item in source_event_refs)):
+                for item in source_event_refs)
+            or len(execution_contexts) > 3
+            or any(not isinstance(item, Mapping) or len(canonical_bytes(dict(item))) > 8192
+                   for item in execution_contexts)):
         raise EmbodiedConsequenceError("strategy_review_source_reference_bounds_invalid")
     return {
         "proposal_id": value.strategy_id,
@@ -578,6 +582,10 @@ def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
         "source_experiment_result_id": experiment_result_id,
         "source_experiment_result_digest": experiment_result_digest,
         "source_experiment_condition": condition,
+        # These are context for a review, not claims that the proposed action
+        # was authorized or performed. The source projection verifies each
+        # governed receipt and keeps unknown execution rows explicit.
+        "source_execution_contexts": [dict(item) for item in execution_contexts],
         "candidate_payload_summary": {
             "proposed_next_action_class": value.proposed_next_action_class,
             "requested_pose": value.requested_pose,
@@ -2144,6 +2152,27 @@ class ConsequenceStore:
             raise EmbodiedConsequenceError("strategy_review_selection_invalid")
         records: list[dict[str, Any]] = []
         for identity in identities:
+            projection = self.world_state_records(experiment_result_ids=(identity,))
+            projected_contexts: dict[tuple[str, str], list[dict[str, Any]]] = {}
+            for projected in projection:
+                if projected.get("subject_kind") != "embodied_strategy_proposal":
+                    continue
+                payload = projected.get("payload")
+                if not isinstance(payload, Mapping):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_projection_invalid")
+                context = {key: payload.get(key) for key in (
+                    "condition", "history_record_id", "history_record_digest",
+                    "invocation_receipt_id", "invocation_receipt_digest",
+                    "execution_evidence_digest", "execution_posture",
+                    "declared_model_id", "declared_model_artifact_digest",
+                    "active_model_identity_digest", "serving_identity_posture",
+                    "serving_identity_digest", "declared_software_generation",
+                    "software_generation_posture", "software_execution_provenance_digest")}
+                key = (str(projected.get("subject_id", "")), str(payload.get("strategy_digest", "")))
+                if not all(key) or context["condition"] not in {
+                        "history_present", "history_withheld", "history_restored"}:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_projection_invalid")
+                projected_contexts.setdefault(key, []).append(context)
             result = self.get("strategy-experiments", identity,
                 digest_field="experiment_result_digest")
             protocol = result.get("protocol")
@@ -2171,13 +2200,16 @@ class ConsequenceStore:
                 condition = matches[0].get("condition")
                 if condition not in {"history_present", "history_withheld", "history_restored"}:
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
+                execution_contexts = projected_contexts.get((proposal.strategy_id, proposal.strategy_digest), [])
+                if len(execution_contexts) != 1:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_projection_ambiguous")
                 records.append(strategy_proposal_review_record(proposal,
                     source_event_refs=(identity,
                         f"strategy-experiment-digest:{result['experiment_result_digest']}",
                         f"strategy-condition:{condition}"),
                     experiment_result_id=identity,
                     experiment_result_digest=result["experiment_result_digest"],
-                    condition=str(condition)))
+                    condition=str(condition), execution_contexts=execution_contexts))
         return records
 
     @staticmethod

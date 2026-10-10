@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import struct
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,6 +65,242 @@ MAX_COMPOSITION_STATE_BYTES = 16_777_216
 MAX_COGNITION_OBSERVATIONS = 12_288
 MAX_COGNITION_OBSERVATION_BYTES = 65_536
 MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
+def _windows_observation_entries(root: Path) -> list[tuple[str, bytes]]:
+    """Read a cognition observation directory through bound Windows handles.
+
+    Win32 path opens are not used for descendants.  The configured root is
+    walked component-by-component from the volume root with NtCreateFile,
+    OBJ_DONT_REPARSE, and FILE_OPEN_REPARSE_POINT.  Children are then opened
+    relative to the held directory handle.  Read-only sharing deliberately
+    denies concurrent write/delete opens; unsupported filesystems/APIs fail
+    closed.  This code is syntax-checked on non-Windows hosts, not runtime
+    verified there.
+    """
+    if os.name != "nt":
+        raise ResidentDevelopmentalCognitionError("windows_custody_reader_on_non_windows")
+    import ctypes
+    from ctypes import wintypes
+    from pathlib import PureWindowsPath
+
+    class UNICODE_STRING(ctypes.Structure):
+        _fields_ = [("Length", wintypes.USHORT), ("MaximumLength", wintypes.USHORT),
+                    ("Buffer", wintypes.LPWSTR)]
+
+    class OBJECT_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [("Length", wintypes.ULONG), ("RootDirectory", wintypes.HANDLE),
+                    ("ObjectName", ctypes.POINTER(UNICODE_STRING)), ("Attributes", wintypes.ULONG),
+                    ("SecurityDescriptor", ctypes.c_void_p), ("SecurityQualityOfService", ctypes.c_void_p)]
+
+    class IO_STATUS_BLOCK(ctypes.Structure):
+        _fields_ = [("Status", ctypes.c_void_p), ("Information", ctypes.c_size_t)]
+
+    class FILE_ID_INFO(ctypes.Structure):
+        _fields_ = [("VolumeSerialNumber", ctypes.c_ulonglong), ("FileId", ctypes.c_ubyte * 16)]
+
+    class FILE_STANDARD_INFO(ctypes.Structure):
+        _fields_ = [("AllocationSize", ctypes.c_longlong), ("EndOfFile", ctypes.c_longlong),
+                    ("NumberOfLinks", wintypes.ULONG), ("DeletePending", wintypes.BOOLEAN),
+                    ("Directory", wintypes.BOOLEAN)]
+
+    class FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
+        _fields_ = [("FileAttributes", wintypes.ULONG), ("ReparseTag", wintypes.ULONG)]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    ntdll = ctypes.WinDLL("ntdll")
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                            wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+    get_info = kernel32.GetFileInformationByHandleEx
+    get_info.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    get_info.restype = wintypes.BOOL
+    read_file = kernel32.ReadFile
+    read_file.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                          ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+    read_file.restype = wintypes.BOOL
+    nt_create = ntdll.NtCreateFile
+    nt_create.argtypes = [ctypes.POINTER(wintypes.HANDLE), wintypes.ULONG,
+        ctypes.POINTER(OBJECT_ATTRIBUTES), ctypes.POINTER(IO_STATUS_BLOCK), ctypes.c_void_p,
+        wintypes.ULONG, wintypes.ULONG, wintypes.ULONG, wintypes.ULONG, ctypes.c_void_p, wintypes.ULONG]
+    nt_create.restype = ctypes.c_long
+    nt_query_dir = ntdll.NtQueryDirectoryFile
+    nt_query_dir.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.c_void_p, ctypes.c_void_p,
+        ctypes.POINTER(IO_STATUS_BLOCK), ctypes.c_void_p, wintypes.ULONG, ctypes.c_int,
+        wintypes.BOOLEAN, ctypes.POINTER(UNICODE_STRING), wintypes.BOOLEAN]
+    nt_query_dir.restype = ctypes.c_long
+    nt_query_file = ntdll.NtQueryInformationFile
+    nt_query_file.argtypes = [wintypes.HANDLE, ctypes.POINTER(IO_STATUS_BLOCK), ctypes.c_void_p,
+                              wintypes.ULONG, ctypes.c_int]
+    nt_query_file.restype = ctypes.c_long
+
+    INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+    FILE_READ_ATTRIBUTES, FILE_LIST_DIRECTORY, SYNCHRONIZE = 0x80, 0x1, 0x100000
+    FILE_SHARE_READ = 0x1
+    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT = 3, 0x02000000, 0x00200000
+    FILE_OPEN, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE = 1, 0x1, 0x40
+    FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN_REPARSE_POINT = 0x20, 0x00200000
+    OBJ_CASE_INSENSITIVE, OBJ_DONT_REPARSE = 0x40, 0x1000
+    STATUS_NO_MORE_FILES = 0x80000006
+    FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+    def fail(code: str, cause: BaseException | None = None) -> None:
+        error = ResidentDevelopmentalCognitionError(code)
+        if cause is None:
+            raise error
+        raise error from cause
+
+    def nt_open(parent: int | None, name: str, *, directory: bool) -> int:
+        backing = ctypes.create_unicode_buffer(name)
+        byte_length = len(name.encode("utf-16-le"))
+        unicode_name = UNICODE_STRING(byte_length, byte_length + 2, ctypes.cast(backing, wintypes.LPWSTR))
+        attrs = OBJECT_ATTRIBUTES(ctypes.sizeof(OBJECT_ATTRIBUTES), wintypes.HANDLE(parent or 0),
+            ctypes.pointer(unicode_name), OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, None, None)
+        handle = wintypes.HANDLE()
+        iosb = IO_STATUS_BLOCK()
+        access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | (FILE_LIST_DIRECTORY if directory else 0x1)
+        options = (FILE_DIRECTORY_FILE if directory else FILE_NON_DIRECTORY_FILE) | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT
+        status = nt_create(ctypes.byref(handle), access, ctypes.byref(attrs), ctypes.byref(iosb), None,
+            0, FILE_SHARE_READ, FILE_OPEN, options, None, 0)
+        if status < 0 or not handle.value:
+            fail("cognition_observation_windows_open_failed")
+        return int(handle.value)
+
+    def file_id(handle: int) -> tuple[int, bytes]:
+        value = FILE_ID_INFO()
+        if not get_info(wintypes.HANDLE(handle), 18, ctypes.byref(value), ctypes.sizeof(value)):
+            fail("cognition_observation_windows_identity_unavailable")
+        return int(value.VolumeSerialNumber), bytes(value.FileId)
+
+    def attrs_and_standard(handle: int) -> tuple[int, FILE_STANDARD_INFO]:
+        tag = FILE_ATTRIBUTE_TAG_INFO()
+        standard = FILE_STANDARD_INFO()
+        iosb = IO_STATUS_BLOCK()
+        if (not get_info(wintypes.HANDLE(handle), 9, ctypes.byref(tag), ctypes.sizeof(tag))
+                or nt_query_file(wintypes.HANDLE(handle), ctypes.byref(iosb), ctypes.byref(standard),
+                                 ctypes.sizeof(standard), 5) < 0):
+            fail("cognition_observation_windows_metadata_unavailable")
+        if tag.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT:
+            fail("cognition_observation_windows_reparse_point")
+        return int(tag.FileAttributes), standard
+
+    def close(handle: int | None) -> None:
+        if handle is not None and not close_handle(wintypes.HANDLE(handle)):
+            fail("cognition_observation_windows_close_failed")
+
+    path = PureWindowsPath(os.path.abspath(root))
+    # Reject UNC/device paths: walking from a local volume root is required to
+    # validate every parent component without following junctions.
+    if not path.drive or path.drive.startswith("\\") or not path.is_absolute():
+        fail("cognition_observation_windows_root_form_unsupported")
+    volume_root = path.drive + "\\"
+    current: int | None = None
+    opened_handles: list[int] = []
+    try:
+        current_raw = create_file(volume_root, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+            FILE_SHARE_READ, None, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, None)
+        if current_raw == INVALID_HANDLE_VALUE:
+            fail("cognition_observation_windows_root_open_failed")
+        current = int(current_raw); opened_handles.append(current)
+        attrs, standard = attrs_and_standard(current)
+        if not standard.Directory:
+            fail("cognition_observation_windows_root_not_directory")
+        for component in path.parts[1:]:
+            if component in {"", ".", "..", "\\"}:
+                fail("cognition_observation_windows_root_component_invalid")
+            child = nt_open(current, component, directory=True)
+            opened_handles.append(child)
+            attrs, standard = attrs_and_standard(child)
+            if not standard.Directory:
+                fail("cognition_observation_windows_root_not_directory")
+            current = child
+
+        root_handle = current
+        root_identity = file_id(root_handle)
+        entries: list[tuple[str, bytes]] = []
+        directory_buffer = ctypes.create_string_buffer(65_536)
+        restart = True
+        while True:
+            iosb = IO_STATUS_BLOCK()
+            status = nt_query_dir(wintypes.HANDLE(root_handle), None, None, None, ctypes.byref(iosb),
+                directory_buffer, len(directory_buffer), 1, False, None, restart)
+            restart = False
+            unsigned_status = status & 0xFFFFFFFF
+            if unsigned_status == STATUS_NO_MORE_FILES:
+                break
+            if status < 0 or iosb.Information > len(directory_buffer):
+                fail("cognition_observation_windows_directory_read_failed")
+            if iosb.Information == 0:
+                fail("cognition_observation_windows_directory_empty_response")
+            offset = 0
+            while offset < iosb.Information:
+                if iosb.Information - offset < 64:
+                    fail("cognition_observation_windows_directory_entry_invalid")
+                next_offset, _index = struct.unpack_from("<II", directory_buffer.raw, offset)
+                attrs_value = struct.unpack_from("<I", directory_buffer.raw, offset + 56)[0]
+                name_length = struct.unpack_from("<I", directory_buffer.raw, offset + 60)[0]
+                if name_length % 2 or name_length > 1024 or offset + 64 + name_length > iosb.Information:
+                    fail("cognition_observation_windows_directory_entry_invalid")
+                name = directory_buffer.raw[offset + 64:offset + 64 + name_length].decode("utf-16-le")
+                if name not in {".", ".."} and name.endswith(".json"):
+                    if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:
+                        fail("cognition_observation_windows_reparse_point")
+                    entries.append((name, attrs_value))
+                if next_offset == 0:
+                    break
+                if next_offset < 64 or offset + next_offset > iosb.Information:
+                    fail("cognition_observation_windows_directory_entry_invalid")
+                offset += next_offset
+            if len(entries) > MAX_COGNITION_OBSERVATIONS:
+                fail("cognition_observation_retention_limit_exceeded")
+        if file_id(root_handle) != root_identity:
+            fail("cognition_observation_windows_root_identity_changed")
+        result: list[tuple[str, bytes]] = []
+        total = 0
+        for name, _directory_attrs in sorted(entries):
+            if not name or "\\" in name or "/" in name or name in {".", ".."}:
+                fail("cognition_observation_not_regular")
+            handle = nt_open(root_handle, name, directory=False)
+            try:
+                before_id = file_id(handle)
+                attrs, standard = attrs_and_standard(handle)
+                if standard.Directory or standard.EndOfFile < 0 or standard.EndOfFile > MAX_COGNITION_OBSERVATION_BYTES:
+                    fail("cognition_observation_not_regular")
+                if standard.NumberOfLinks != 1:
+                    fail("cognition_observation_windows_file_alias_rejected")
+                size = int(standard.EndOfFile)
+                data = bytearray()
+                while len(data) <= MAX_COGNITION_OBSERVATION_BYTES:
+                    amount = min(65_536, MAX_COGNITION_OBSERVATION_BYTES + 1 - len(data))
+                    if amount <= 0:
+                        break
+                    buffer = ctypes.create_string_buffer(amount)
+                    read_count = wintypes.DWORD()
+                    if not read_file(wintypes.HANDLE(handle), buffer, amount, ctypes.byref(read_count), None):
+                        fail("cognition_observation_windows_read_failed")
+                    if not read_count.value:
+                        break
+                    data.extend(buffer.raw[:read_count.value])
+                after_attrs, after_standard = attrs_and_standard(handle)
+                if (len(data) != size or int(after_standard.EndOfFile) != size
+                        or file_id(handle) != before_id or file_id(root_handle) != root_identity):
+                    fail("cognition_observation_windows_file_changed")
+                total += len(data)
+                if total > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+                    fail("cognition_observation_retention_limit_exceeded")
+                result.append((name, bytes(data)))
+            finally:
+                close(handle)
+        return result
+    except ResidentDevelopmentalCognitionError:
+        raise
+    except (OSError, UnicodeError, ValueError, TypeError) as exc:
+        fail("cognition_observation_windows_recovery_failed", exc)
+    finally:
+        for handle in reversed(opened_handles):
+            close(handle)
 
 
 class ResidentDevelopmentalCognitionError(ValueError):
@@ -349,101 +586,113 @@ class ResidentDevelopmentalCognitionOwner:
             return {}
         except OSError as exc:
             raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
-        nofollow = getattr(os, "O_NOFOLLOW", None)
-        directory_flag = getattr(os, "O_DIRECTORY", None)
-        if nofollow is None or directory_flag is None or os.open not in os.supports_dir_fd:
-            raise ResidentDevelopmentalCognitionError("cognition_observation_safe_reads_unsupported")
-        try:
-            root_fd = os.open(self.observations_root,
-                os.O_RDONLY | directory_flag | nofollow | getattr(os, "O_NONBLOCK", 0))
-        except FileNotFoundError:
-            return {}
-        except OSError as exc:
-            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
-        total_bytes = 0
+        entries: list[tuple[str, bytes]] = []
+        if os.name == "nt":
+            entries = _windows_observation_entries(self.observations_root)
+            total_bytes = sum(len(raw) for _name, raw in entries)
+            if total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+        else:
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            directory_flag = getattr(os, "O_DIRECTORY", None)
+            if nofollow is None or directory_flag is None or os.open not in os.supports_dir_fd:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_safe_reads_unsupported")
+            try:
+                root_fd = os.open(self.observations_root,
+                    os.O_RDONLY | directory_flag | nofollow | getattr(os, "O_NONBLOCK", 0))
+            except FileNotFoundError:
+                return {}
+            except OSError as exc:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
+            total_bytes = 0
+            try:
+                root_stat = os.fstat(root_fd)
+                if not stat.S_ISDIR(root_stat.st_mode):
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
+                names = sorted(name for name in os.listdir(root_fd) if name.endswith(".json"))
+                if len(names) > MAX_COGNITION_OBSERVATIONS:
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+                for name in names:
+                    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
+                    descriptor: int | None = None
+                    try:
+                        descriptor = os.open(name, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
+                                             dir_fd=root_fd)
+                        opened = os.fstat(descriptor)
+                        if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES:
+                            raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
+                        chunks: list[bytes] = []
+                        remaining = MAX_COGNITION_OBSERVATION_BYTES + 1
+                        while remaining:
+                            chunk = os.read(descriptor, min(65_536, remaining))
+                            if not chunk:
+                                break
+                            chunks.append(chunk)
+                            remaining -= len(chunk)
+                        raw = b"".join(chunks)
+                        after = os.fstat(descriptor)
+                        if (len(raw) > MAX_COGNITION_OBSERVATION_BYTES or len(raw) != opened.st_size
+                                or after.st_size != opened.st_size or after.st_mtime_ns != opened.st_mtime_ns
+                                or after.st_dev != opened.st_dev or after.st_ino != opened.st_ino):
+                            raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt")
+                        total_bytes += len(raw)
+                        if total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+                            raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+                        entries.append((name, raw))
+                    except ResidentDevelopmentalCognitionError:
+                        raise
+                    except OSError as exc:
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
+                    finally:
+                        if descriptor is not None:
+                            os.close(descriptor)
+            finally:
+                os.close(root_fd)
         by_tick: dict[str, list[str]] = {}
         contexts_by_tick: dict[str, tuple[set[str], tuple[str, str]]] = {}
-        try:
-            root_stat = os.fstat(root_fd)
-            if not stat.S_ISDIR(root_stat.st_mode):
-                raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
-            names = sorted(name for name in os.listdir(root_fd) if name.endswith(".json"))
-            if len(names) > MAX_COGNITION_OBSERVATIONS:
-                raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
-            for name in names:
-                if not name or name in {".", ".."} or "/" in name or "\\" in name:
-                    raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
-                descriptor: int | None = None
-                try:
-                    descriptor = os.open(name, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
-                                         dir_fd=root_fd)
-                    opened = os.fstat(descriptor)
-                    if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES:
-                        raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
-                    chunks: list[bytes] = []
-                    remaining = MAX_COGNITION_OBSERVATION_BYTES + 1
-                    while remaining:
-                        chunk = os.read(descriptor, min(65_536, remaining))
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                        remaining -= len(chunk)
-                    raw = b"".join(chunks)
-                    after = os.fstat(descriptor)
-                    if (len(raw) > MAX_COGNITION_OBSERVATION_BYTES or len(raw) != opened.st_size
-                            or after.st_size != opened.st_size or after.st_mtime_ns != opened.st_mtime_ns
-                            or after.st_dev != opened.st_dev or after.st_ino != opened.st_ino):
-                        raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt")
-                    total_bytes += len(raw)
-                    if total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
-                        raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
-                    value = json.loads(raw.decode("utf-8"))
-                    observation_id = value.pop("observation_id")
-                    observation_digest = value.pop("observation_digest")
-                except ResidentDevelopmentalCognitionError:
-                    raise
-                except (OSError, UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
-                    raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
-                finally:
-                    if descriptor is not None:
-                        os.close(descriptor)
-                expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
-                    "observation_id", "observation_digest"}
-                if (not isinstance(value, dict) or set(value) != expected_fields
-                        or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
-                        or observation_digest != _digest(value)
-                        or observation_id != "devcog-" + observation_digest[7:31]
-                        or name != observation_id + ".json"):
-                    raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
-                tick = value["tick_id"]
-                condition = value.get("condition_id")
-                snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
-                allowed_conditions = {"prior-context", "with-history", "history_present",
-                    "history_withheld", "history_restored"}
-                if (not isinstance(condition, str) or condition not in allowed_conditions
-                        or value.get("correlation_id") !=
-                            f"{tick}:resident_developmental_cognition:{condition}"
-                        or type(value.get("prior_tick_proven")) is not bool
-                        or type(value.get("self_model_projection_present")) is not bool
-                        or not all(isinstance(item, str) and item for item in snapshot_binding)
-                        or (value.get("prior_tick_proven") is True and (
-                            value.get("self_model_projection_present") is not True
-                            or not isinstance(value.get("self_model_source_tick"), str)
-                            or value.get("self_model_source_tick") == tick))
-                        or (value.get("self_model_projection_present") is True
-                            and value.get("prior_tick_proven") is not True)):
-                    raise ResidentDevelopmentalCognitionError("cognition_observation_lineage_invalid")
-                prior_context = contexts_by_tick.get(tick)
-                if prior_context is None:
-                    contexts_by_tick[tick] = ({str(condition)}, snapshot_binding)
-                else:
-                    conditions, prior_snapshot = prior_context
-                    if condition in conditions or snapshot_binding != prior_snapshot:
-                        raise ResidentDevelopmentalCognitionError("cognition_observation_tick_conflict")
-                    conditions.add(str(condition))
-                by_tick.setdefault(value["tick_id"], []).append(observation_id)
-        finally:
-            os.close(root_fd)
+        for name, raw in entries:
+            try:
+                value = json.loads(raw.decode("utf-8"))
+                observation_id = value.pop("observation_id")
+                observation_digest = value.pop("observation_digest")
+            except (UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
+                raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
+            expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
+                "observation_id", "observation_digest"}
+            if (not isinstance(value, dict) or set(value) != expected_fields
+                    or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
+                    or observation_digest != _digest(value)
+                    or observation_id != "devcog-" + observation_digest[7:31]
+                    or name != observation_id + ".json"):
+                raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
+            tick = value["tick_id"]
+            condition = value.get("condition_id")
+            snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
+            allowed_conditions = {"prior-context", "with-history", "history_present",
+                "history_withheld", "history_restored"}
+            if (not isinstance(condition, str) or condition not in allowed_conditions
+                    or value.get("correlation_id") !=
+                        f"{tick}:resident_developmental_cognition:{condition}"
+                    or type(value.get("prior_tick_proven")) is not bool
+                    or type(value.get("self_model_projection_present")) is not bool
+                    or not all(isinstance(item, str) and item for item in snapshot_binding)
+                    or (value.get("prior_tick_proven") is True and (
+                        value.get("self_model_projection_present") is not True
+                        or not isinstance(value.get("self_model_source_tick"), str)
+                        or value.get("self_model_source_tick") == tick))
+                    or (value.get("self_model_projection_present") is True
+                        and value.get("prior_tick_proven") is not True)):
+                raise ResidentDevelopmentalCognitionError("cognition_observation_lineage_invalid")
+            prior_context = contexts_by_tick.get(tick)
+            if prior_context is None:
+                contexts_by_tick[tick] = ({str(condition)}, snapshot_binding)
+            else:
+                conditions, prior_snapshot = prior_context
+                if condition in conditions or snapshot_binding != prior_snapshot:
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_tick_conflict")
+                conditions.add(str(condition))
+            by_tick.setdefault(value["tick_id"], []).append(observation_id)
         return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
 
     def _save_state(self, state: Mapping[str, Any]) -> None:

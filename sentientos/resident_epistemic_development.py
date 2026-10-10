@@ -144,7 +144,12 @@ class ResidentEpistemicDevelopmentRuntime:
         historical_undated_consequence = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
                                                "developmental_model_replacement_experiment",
-                                               "embodied_consequence_chain"})
+                                               "embodied_consequence_chain",
+                                               "embodied_action_expectation",
+                                               "avatar_renderer_handoff",
+                                               "avatar_renderer_report",
+                                               "embodied_consequence_attribution",
+                                               "embodied_prediction_comparison"})
         historical_strategy_proposal = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
