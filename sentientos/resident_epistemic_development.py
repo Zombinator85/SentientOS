@@ -145,6 +145,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
                                                "developmental_model_replacement_experiment",
                                                "embodied_consequence_chain"})
+        historical_strategy_proposal = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_strategy_proposal")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "avatar_independently_observed_state")
         stable_source_digest = fact.source.digest
@@ -194,6 +196,7 @@ class ResidentEpistemicDevelopmentRuntime:
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
+                or historical_strategy_proposal
                 else "source_time_unverified" if unverified_embodiment_observation
                 else "source_time_missing" if missing_source_time
                 else "source_observed"},
@@ -208,6 +211,7 @@ class ResidentEpistemicDevelopmentRuntime:
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
                 and not historical_undated_consequence and not historical_unverified_owner_record
+                and not historical_strategy_proposal
                 and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
@@ -218,13 +222,17 @@ class ResidentEpistemicDevelopmentRuntime:
         binding = make_evidence_binding(proposition_id=rule.proposition_id,
             source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
-            observation_time=observed, evidence_relation=rule.evidence_relation,
+            observation_time=observed,
+            evidence_relation="contextualizes" if historical_strategy_proposal else rule.evidence_relation,
             dependency_kind=("unknown_dependency" if unverified_embodiment_observation
+                or historical_strategy_proposal
                 or historical_unverified_owner_record else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
-                and not unverified_embodiment_observation and not historical_unverified_owner_record else None),
+                and not unverified_embodiment_observation and not historical_unverified_owner_record
+                and not historical_strategy_proposal else None),
             upstream_binding_ids=(), freshness=freshness,
-            reliability_posture=rule.reliability_posture)
+            reliability_posture="proposal_source_not_world_truth" if historical_strategy_proposal
+                else rule.reliability_posture)
         return proof, binding
 
     def _issue(self, *, admission_id: str, effects: tuple[str, ...], subject_id: str,

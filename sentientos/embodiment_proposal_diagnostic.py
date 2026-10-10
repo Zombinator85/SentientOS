@@ -4,7 +4,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from sentientos.embodiment_proposals import embodied_proposal_ref, list_recent_embodied_proposals
 from sentientos.embodiment_proposal_review import DEFAULT_REVIEW_RECEIPT_LOG, list_recent_embodied_proposal_review_receipts, summarize_embodied_proposal_review_status
@@ -188,8 +188,26 @@ def summarize_recent_embodied_proposals(proposals: list[Mapping[str, Any]], *, r
     }
 
 
-def build_embodied_proposal_review_summary(*, path: Path, review_receipt_path: Path | None = None, limit: int = 200, generated_at: float | None = None) -> dict[str, Any]:
+def build_embodied_proposal_review_summary(*, path: Path, review_receipt_path: Path | None = None,
+        limit: int = 200, generated_at: float | None = None,
+        strategy_experiment_store: Any | None = None,
+        strategy_experiment_ids: Sequence[str] = ()) -> dict[str, Any]:
     proposals = list_recent_embodied_proposals(path=path, limit=limit)
+    if strategy_experiment_ids:
+        if strategy_experiment_store is None:
+            raise ValueError("strategy_experiment_store_required_for_explicit_selection")
+        strategy_proposals = strategy_experiment_store.strategy_proposal_review_records(
+            experiment_result_ids=tuple(strategy_experiment_ids))
+        known = {str(row.get("proposal_id")): row for row in proposals}
+        for proposal in strategy_proposals:
+            identity = str(proposal.get("proposal_id") or "")
+            existing = known.get(identity)
+            if existing is not None:
+                if existing.get("proposal_digest") != proposal.get("proposal_digest"):
+                    raise ValueError("strategy_proposal_review_identity_conflict")
+                continue
+            proposals.append(proposal)
+            known[identity] = proposal
     review_rows = list_recent_embodied_proposal_review_receipts(path=review_receipt_path or DEFAULT_REVIEW_RECEIPT_LOG, limit=limit)
     return summarize_recent_embodied_proposals(proposals, review_receipts=review_rows, generated_at=generated_at)
 

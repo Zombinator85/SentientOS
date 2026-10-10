@@ -552,7 +552,9 @@ def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_requir
         raise EmbodiedConsequenceError("strategy_proposal_digest_mismatch")
 
 
-def strategy_proposal_review_record(value: EmbodiedStrategyProposal) -> dict[str, Any]:
+def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
+        source_event_refs: Sequence[str] = (), experiment_result_id: str | None = None,
+        experiment_result_digest: str | None = None, condition: str | None = None) -> dict[str, Any]:
     """Adapt a verified strategy proposal to the existing review-only owner.
 
     The digest remains explicit so a review cannot be reused for a substituted
@@ -568,7 +570,10 @@ def strategy_proposal_review_record(value: EmbodiedStrategyProposal) -> dict[str
         "blocked_effect_type": "strategy_proposal_review_only",
         "correlation_id": value.situation_binding,
         "source_event_refs": [f"strategy:{value.strategy_id}",
-            f"strategy-digest:{value.strategy_digest}"],
+            f"strategy-digest:{value.strategy_digest}", *source_event_refs],
+        "source_experiment_result_id": experiment_result_id,
+        "source_experiment_result_digest": experiment_result_digest,
+        "source_experiment_condition": condition,
         "candidate_payload_summary": {
             "proposed_next_action_class": value.proposed_next_action_class,
             "requested_pose": value.requested_pose,
@@ -578,6 +583,7 @@ def strategy_proposal_review_record(value: EmbodiedStrategyProposal) -> dict[str
         },
         "rationale": [value.rationale[:2000]],
         "risk_flags": {}, "privacy_retention_posture": "review",
+        "review_status": "pending_review",
         "consent_posture": "not_asserted", "non_authoritative": True,
         "decision_power": "none", "approval_is_not_execution": True,
     }
@@ -1937,6 +1943,151 @@ class ConsequenceStore:
             posture = result.get("experiment_completion_posture")
             if posture not in {"completed", "incomplete", "contradictory"}:
                 raise EmbodiedConsequenceError("stored_strategy_experiment_posture_invalid")
+            condition_order = result.get("condition_order")
+            condition_statuses = result.get("condition_statuses")
+            proposal_values = result.get("proposals")
+            execution_rows = result.get("execution_evidence")
+            if (condition_order != ["history_present", "history_withheld", "history_restored"]
+                    or not isinstance(condition_statuses, list) or len(condition_statuses) > len(condition_order)
+                    or not isinstance(proposal_values, list) or len(proposal_values) > len(condition_order)
+                    or not isinstance(execution_rows, list) or len(execution_rows) > len(condition_order)):
+                raise EmbodiedConsequenceError("stored_strategy_experiment_condition_lineage_invalid")
+            statuses_by_proposal: dict[str, list[Mapping[str, Any]]] = {}
+            for status in condition_statuses:
+                if not isinstance(status, Mapping):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_condition_lineage_invalid")
+                proposal_id = status.get("proposal_id")
+                if isinstance(proposal_id, str):
+                    statuses_by_proposal.setdefault(proposal_id, []).append(status)
+            execution_by_condition: dict[str, Mapping[str, Any]] = {}
+            for execution in execution_rows:
+                if not isinstance(execution, Mapping) or not isinstance(execution.get("condition"), str):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_execution_lineage_invalid")
+                if execution["condition"] in execution_by_condition:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_execution_lineage_invalid")
+                execution_by_condition[execution["condition"]] = execution
+            proposal_record_digests: list[str] = []
+            for proposal_value in proposal_values:
+                if not isinstance(proposal_value, Mapping):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_invalid")
+                proposal = _strategy_proposal_from_mapping(proposal_value)
+                proposal_statuses = statuses_by_proposal.get(proposal.strategy_id, [])
+                matching_statuses = [status for status in proposal_statuses
+                    if status.get("proposal_digest") == proposal.strategy_digest]
+                if len(matching_statuses) != 1:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
+                proposal_status = matching_statuses[0]
+                condition = str(proposal_status.get("condition", ""))
+                if (condition not in condition_order or proposal_status.get("status") not in {"completed", "contradictory"}):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
+                execution = execution_by_condition.get(condition, {})
+                execution_digest = digest(dict(execution)) if execution else None
+                execution_posture = str(execution.get("execution_posture", "unknown_no_governed_receipt"))
+                event_time = None
+                receipt_id = receipt_digest = None
+                resource_linkage = None
+                if execution:
+                    association = dict(execution)
+                    claimed_association = association.pop("association_digest", None)
+                    receipt = execution.get("invocation_receipt")
+                    receipt_valid = False
+                    if isinstance(receipt, Mapping):
+                        from .governed_local_model_invocation import validate_receipt
+                        receipt_valid, _ = validate_receipt(receipt)
+                    request = receipt.get("request") if isinstance(receipt, Mapping) else None
+                    linkage = request.get("linkage") if isinstance(request, Mapping) else None
+                    expected_experiment_protocol_id = _identity("strategy-protocol", dict(protocol))[0]
+                    if (claimed_association != digest(association) or not receipt_valid
+                            or not isinstance(receipt, Mapping)
+                            or not isinstance(request, Mapping)
+                            or execution.get("proposal_id") != proposal.strategy_id
+                            or execution.get("proposal_digest") != proposal.strategy_digest
+                            or receipt.get("receipt_id") != execution.get("receipt_id")
+                            or receipt.get("receipt_digest") != execution.get("receipt_digest")
+                            or request.get("request_id") != execution.get("request_id")
+                            or request.get("request_digest") != execution.get("request_digest")
+                            or request.get("purpose") != "resident_developmental_history_intervention_experiment"
+                            or request.get("model_id") != protocol.get("model_id")
+                            or request.get("model_artifact_digest") != protocol.get("model_artifact_digest")
+                            or digest(request.get("budget")) != protocol.get("inference_budget_digest")
+                            or request.get("active_model_identity") != execution.get("active_model_identity")
+                            or execution.get("active_model_identity_digest") != digest(execution.get("active_model_identity"))
+                            or receipt.get("status") != "admitted_completed"
+                            or receipt.get("output_truncated") is not False
+                            or receipt.get("fallback_occurred") is not False
+                            or receipt.get("output_digest") != execution.get("response_digest")
+                            or not isinstance(receipt.get("effects"), Mapping)
+                            or receipt["effects"].get("local_model_inference") is not True
+                            or request.get("correlation_id") != _strategy_request_correlation_id(
+                                str(result.get("protocol_digest")), condition)
+                            or not isinstance(linkage, Mapping)
+                            or linkage.get("experiment_condition") != condition
+                            or linkage.get("experiment_protocol_id") != expected_experiment_protocol_id
+                            or execution_posture != "verified_governed_model_identity"):
+                        execution_posture = "unverified_or_contradictory_execution_linkage"
+                    else:
+                        receipt_id = receipt.get("receipt_id")
+                        receipt_digest = receipt.get("receipt_digest")
+                        event_time = receipt.get("observed_at")
+                        resource_linkage = dict(linkage) if isinstance(linkage, Mapping) else None
+                proposal_record: dict[str, Any] = {
+                    "source_kind":"embodiment",
+                    "source_id":f"strategy-experiment-proposal:{identity}:{proposal.strategy_id}",
+                    "schema_version":STRATEGY_SCHEMA,
+                    "subject_id":proposal.strategy_id,
+                    "subject_kind":"embodied_strategy_proposal",
+                    "stage":"proposal",
+                    "disposition":"proposed",
+                    "evidence_strength":"digest_bound_proposal_in_experiment_artifact",
+                    "staleness":"unknown",
+                    "payload":{
+                        "experiment_result_id":identity,
+                        "experiment_result_digest":result["experiment_result_digest"],
+                        "experiment_protocol_id":_identity("strategy-protocol", dict(protocol))[0],
+                        "declared_protocol_id":protocol.get("protocol_id"),
+                        "experiment_protocol_digest":result.get("protocol_digest"),
+                        "history_record_id":result.get("withheld_record_id"),
+                        "history_record_digest":result.get("withheld_record_digest"),
+                        "cognitive_context_binding":result.get("cognitive_context_binding"),
+                        "condition":condition,
+                        "condition_status":proposal_status.get("status"),
+                        "strategy_id":proposal.strategy_id,
+                        "strategy_digest":proposal.strategy_digest,
+                        "proposed_next_action_class":proposal.proposed_next_action_class,
+                        "requested_pose":proposal.requested_pose,
+                        "requested_expression":proposal.requested_expression,
+                        "rationale":proposal.rationale,
+                        "uncertainty":proposal.uncertainty,
+                        "relevant_consequence_ids":list(proposal.relevant_consequence_ids),
+                        "factual_assertions":[dict(item) for item in proposal.factual_assertions],
+                        "declared_model_id":protocol.get("model_id"),
+                        "declared_model_artifact_digest":protocol.get("model_artifact_digest"),
+                        "declared_software_generation":protocol.get("software_generation"),
+                        "execution_posture":execution_posture,
+                        "execution_evidence_digest":execution_digest,
+                        "active_model_identity_digest":execution.get("active_model_identity_digest"),
+                        "serving_identity_posture":execution.get("serving_identity_posture"),
+                        "serving_identity_digest":digest(execution.get("serving_identity")) if execution.get("serving_identity") else None,
+                        "software_generation_posture":execution.get("software_generation_posture"),
+                        "software_execution_provenance_digest":digest(execution.get("software_execution_provenance")) if execution.get("software_execution_provenance") else None,
+                        "invocation_receipt_id":receipt_id,
+                        "invocation_receipt_digest":receipt_digest,
+                        "resource_linkage":resource_linkage,
+                        "event_time_posture":"invocation_receipt_time" if event_time else "undated",
+                        "effect_proven":False,
+                        "current_truth":False,
+                        "authority":dict(FALSE_AUTHORITY),
+                    },
+                    "effect_claimed":False,
+                    "effect_proven":False,
+                }
+                if event_time:
+                    proposal_record["observed_at"] = str(event_time)
+                proposal_record["digest"] = record_digest(proposal_record)
+                if len(canonical_bytes(proposal_record)) > MAX_WORLD_STATE_PROJECTION_RECORD_BYTES:
+                    raise EmbodiedConsequenceError("strategy_proposal_world_state_record_oversized")
+                proposal_record_digests.append(proposal_record["digest"])
+                records.append(proposal_record)
             record: dict[str, Any] = {
                 "source_kind": "embodiment",
                 "source_id": identity,
@@ -1961,6 +2112,9 @@ class ConsequenceStore:
                     "cognitive_context_binding": result.get("cognitive_context_binding"),
                     "execution_posture": result.get("cognitive_execution_identity_posture"),
                     "evidence_scope": result.get("evidence_scope"),
+                    "strategy_proposal_ids": [item.get("strategy_id") for item in proposal_values],
+                    "strategy_proposal_digests": [item.get("strategy_digest") for item in proposal_values],
+                    "strategy_proposal_record_digests": proposal_record_digests,
                     "effect_proven": False,
                     "current_truth": False,
                 },
@@ -1976,6 +2130,50 @@ class ConsequenceStore:
         if any(len(canonical_bytes(record)) > MAX_WORLD_STATE_PROJECTION_RECORD_BYTES
                for record in records):
             raise EmbodiedConsequenceError("world_state_projection_record_oversized")
+        return records
+
+    def strategy_proposal_review_records(self, *, experiment_result_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Expose exact durable strategy proposals to the existing review-only owner."""
+        identities = tuple(experiment_result_ids)
+        if (len(identities) > 32 or any(not isinstance(item, str) for item in identities)
+                or len(identities) != len(set(identities))):
+            raise EmbodiedConsequenceError("strategy_review_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for identity in identities:
+            result = self.get("strategy-experiments", identity,
+                digest_field="experiment_result_digest")
+            protocol = result.get("protocol")
+            if (result.get("schema_version") != EXPERIMENT_RESULT_SCHEMA
+                    or not isinstance(protocol, Mapping)
+                    or result.get("protocol_digest") != digest(dict(protocol))
+                    or result.get("authority") != dict(FALSE_AUTHORITY)
+                    or result.get("improvement_claimed") is not False
+                    or result.get("no_retries") is not True
+                    or result.get("experiment_completion_posture") not in {"completed", "incomplete", "contradictory"}):
+                raise EmbodiedConsequenceError("stored_strategy_experiment_binding_invalid")
+            statuses = result.get("condition_statuses")
+            proposals = result.get("proposals")
+            if not isinstance(statuses, list) or not isinstance(proposals, list):
+                raise EmbodiedConsequenceError("stored_strategy_experiment_condition_lineage_invalid")
+            for raw in proposals:
+                if not isinstance(raw, Mapping):
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_invalid")
+                proposal = _strategy_proposal_from_mapping(raw)
+                matches = [item for item in statuses if isinstance(item, Mapping)
+                    and item.get("proposal_id") == proposal.strategy_id
+                    and item.get("proposal_digest") == proposal.strategy_digest]
+                if len(matches) != 1 or matches[0].get("status") not in {"completed", "contradictory"}:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
+                condition = matches[0].get("condition")
+                if condition not in {"history_present", "history_withheld", "history_restored"}:
+                    raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
+                records.append(strategy_proposal_review_record(proposal,
+                    source_event_refs=(identity,
+                        f"strategy-experiment-digest:{result['experiment_result_digest']}",
+                        f"strategy-condition:{condition}"),
+                    experiment_result_id=identity,
+                    experiment_result_digest=result["experiment_result_digest"],
+                    condition=str(condition)))
         return records
 
     @staticmethod
