@@ -24,10 +24,7 @@ from .governed_local_model_invocation import LocalModelInvocationReceipt
 from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
-from .local_model_serving_inference import (
-    ProductionServingInferenceController,
-    unavailable_chat_process_software_generation,
-)
+from .local_model_serving_inference import ProductionServingInferenceController
 from .chat_process_generation import open_chat_process_handoff
 from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
@@ -216,10 +213,17 @@ class PersistentConversationService:
         history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
-        prompt = assemble_local_chat_context(history=history, memory_snapshot=memory, current_message=message)
+        prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
+            current_message=message,
+            verified_prior_runtime_lineage=predecessor_runtime_lineage)
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
+        if predecessor_runtime_lineage is not None:
+            linkage["verified_predecessor_runtime_handoff_digest"] = str(
+                predecessor_runtime_lineage.get("handoff_digest", ""))
+            linkage["verified_predecessor_runtime_software_generation_digest"] = str(
+                predecessor_runtime_lineage.get("software_generation_digest", ""))
         client_request_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
             if isinstance(user_turn.get("linkage"), Mapping) else None)
         if isinstance(client_request_digest, str):
@@ -254,12 +258,27 @@ class PersistentConversationService:
                 "process_instance_id": None,
             }
         else:
+            verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+            if not callable(verifier):
+                raise RuntimeError("chat_process_software_generation_verifier_unavailable")
+            request_client_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
+                if isinstance(user_turn.get("linkage"), Mapping) else None)
+            try:
+                verified_current = verifier(receipt_id=receipt.receipt_id,
+                    receipt_digest=receipt.receipt_digest,
+                    session_id=session["session_id"], user_turn_id=user_turn["turn_id"],
+                    assistant_text=receipt.output_text,
+                    client_request_id_digest=request_client_digest)
+            except Exception as exc:
+                raise RuntimeError("chat_process_current_invocation_verification_failed") from exc
             observed_posture = (request_linkage.get("software_generation_attribution")
                 if isinstance(request_linkage, Mapping) else None)
-            expected_posture = unavailable_chat_process_software_generation()
-            if observed_posture is not None and observed_posture != expected_posture:
+            verified_posture = verified_current.get("software_generation_attribution")
+            if (not isinstance(observed_posture, Mapping)
+                    or not isinstance(verified_posture, Mapping)
+                    or dict(observed_posture) != dict(verified_posture)):
                 raise RuntimeError("chat_process_software_generation_posture_invalid")
-            software_generation_attribution = expected_posture
+            software_generation_attribution = dict(verified_posture)
         invoked_identity = receipt.request.get("active_model_identity", {})
         upstream = receipt.request.get("upstream_evidence", {})
         serving_lifetime = (upstream.get("current_serving_lifetime")
@@ -289,6 +308,7 @@ class PersistentConversationService:
             if turn.get("role") == "assistant"), None)
         predecessor_identity_digest = str(session.get("model_identity_digest", ""))
         predecessor_identity: Mapping[str, Any] | None = None
+        predecessor_runtime_lineage: Mapping[str, Any] | None = None
         predecessor_invocation_verified = False
         if prior_assistant is not None and isinstance(prior_assistant.get("linkage"), Mapping):
             prior_linkage = prior_assistant["linkage"]
@@ -309,13 +329,22 @@ class PersistentConversationService:
                     stored_loaded_identity = prior_linkage.get("loaded_model_identity")
                     observed_output_lineage = verified_prior.get("assistant_output_lineage")
                     stored_output_lineage = prior_linkage.get("assistant_output_lineage")
+                    observed_runtime_lineage = verified_prior.get("software_generation_attribution")
+                    stored_runtime_lineage = prior_linkage.get("software_generation_attribution")
                     output_lineage_matches = (
                         stored_output_lineage is None
                         or (isinstance(observed_output_lineage, Mapping)
                             and isinstance(stored_output_lineage, Mapping)
                             and dict(observed_output_lineage) == dict(stored_output_lineage))
                     )
-                    if (output_lineage_matches and isinstance(observed_prior_identity, Mapping)
+                    runtime_lineage_matches = (
+                        stored_runtime_lineage is None
+                        or (isinstance(observed_runtime_lineage, Mapping)
+                            and isinstance(stored_runtime_lineage, Mapping)
+                            and dict(observed_runtime_lineage) == dict(stored_runtime_lineage))
+                    )
+                    if (output_lineage_matches and runtime_lineage_matches
+                            and isinstance(observed_prior_identity, Mapping)
                             and isinstance(observed_loaded_identity, Mapping)
                             and isinstance(stored_loaded_identity, Mapping)
                             and dict(observed_prior_identity) == dict(stored_identity)
@@ -323,6 +352,8 @@ class PersistentConversationService:
                             and predecessor_identity_digest == hashlib.sha256(json.dumps(dict(stored_identity),
                                 sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()):
                         predecessor_identity = observed_prior_identity
+                        if isinstance(observed_runtime_lineage, Mapping):
+                            predecessor_runtime_lineage = dict(observed_runtime_lineage)
                         predecessor_invocation_verified = True
                 except Exception:
                     # Prior transcript remains usable as untrusted chat context;
