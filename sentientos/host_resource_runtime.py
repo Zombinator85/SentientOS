@@ -675,10 +675,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "inference_performed": False,
         }
         terminal_present = isinstance(transition.get("terminal_receipt_digest"), str)
+        transition_evidence_digest = (
+            transition.get("terminal_receipt_digest")
+            or transition.get("completion_phase_digest")
+            or transition.get("readiness_phase_digest")
+            or attempt_digest)
+        if (not isinstance(transition_evidence_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", transition_evidence_digest) is None):
+            raise ValueError("chat_process_recovery_transition_evidence_identity_invalid")
         item = {
             "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
             "source_id": ("chat_process_recovery:" + str(selected_source_identity.get("installation_identity", ""))
-                + ":" + request_id + ":" + attempt_digest),
+                + ":" + request_id + ":" + transition_evidence_digest),
             "subject_kind": "chat_process_recovery_transition",
             "subject_id": request_id,
             "stage": "observation",
@@ -747,10 +755,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             })
         if len(linked_invocations) > 16:
             raise ValueError("chat_process_runtime_invocation_join_bound_exceeded")
+        runtime_projection_digest = digest({
+            "runtime_observation_semantic_digest": runtime["observation_semantic_digest"],
+            "linked_invocation_receipts": linked_invocations,
+        })
         item = {
             "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
             "source_id": ("chat_process_runtime_observation:"
-                + runtime["installation_identity"] + ":" + runtime["observation_semantic_digest"]),
+                + runtime["installation_identity"] + ":" + runtime_projection_digest),
             "subject_kind": "chat_process_runtime_generation_observation",
             "subject_id": str(runtime.get("process_instance_id", "")),
             "stage": "observation",

@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the current construction campaign, GitHub branch inspection verified `8a62b7aafd57a39d654927210993e36797046191` (tree `186546e1d397a54a577d60b76c06b044cc67aee3`). Each later source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue with the current remote branch and exact compare-and-swap ref updates.
+Before this identity-continuity increment, GitHub branch inspection verified `498b28a51e11acf0ea30580a539dfa02a9afdaa2` (tree `dcb34e35bb60baa1b00e539f82a2197cb91b565b`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -413,3 +413,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The affected projector and self-model source passed AST parsing; no runtime, inference, recovery, World-State execution, or production behavior was tested.
 
 **Next implementation dependency:** review process-observation record ordering and source-ID retention when the daemon restarts or the chat runtime changes generation. Verify source identity conflicts remain explicit and keep model succession separate when no shared serving receipt proves continuity.
+
+
+### New checkpoint — projection identities follow monotonic evidence
+
+- Recovery-transition source IDs now bind the strongest currently present phase/terminal digest. An attempt-only record, a later readiness/completion record, and a terminal-receipt record therefore have distinct immutable source identities as custody advances.
+- The process-observation projection source ID now binds both its stable observation digest and the exact retained invocation list. Newly retained invocations under the same process handoff create a new lineage fact instead of reusing the old source ID with a changed payload.
+- World-State retrieval time remains nonsemantic; identical projection inputs retain the same record digest. This keeps later evidence additions separate from recovery time and avoids false same-ID identity conflicts.
+- Python compilation passed for `host_resource_runtime.py`. No World-State execution, replay/recovery exercise, tests, or production verification was performed.
+
+**Next implementation dependency:** re-fetch the branch and compare the actual source files after publication, then review the remaining historical-vs-current serving identity boundary. The existing chat API exposes no current model identity; do not infer it from process readiness.
