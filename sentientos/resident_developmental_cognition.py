@@ -37,7 +37,7 @@ from .resident_developmental_writeback import (
 )
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, validate_snapshot
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
 SCHEMA = "sentientos.resident_developmental_cognition:v1"
@@ -65,6 +65,7 @@ MAX_COMPOSITION_STATE_BYTES = 16_777_216
 MAX_COGNITION_OBSERVATIONS = 12_288
 MAX_COGNITION_OBSERVATION_BYTES = 65_536
 MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
+MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
@@ -175,8 +176,9 @@ class ResidentDevelopmentalCycleResult:
 
 def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = json.loads(read_explicit_file(Path(path),
+            max_bytes=MAX_RESIDENT_COGNITION_CONFIG_BYTES).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, OSError, json.JSONDecodeError) as exc:
         raise ResidentDevelopmentalCognitionError("configuration_unreadable_or_invalid_json") from exc
     common = {"schema", "enabled", "history_root", "state_root", "allowed_source_kinds",
               "max_selected_facts", "max_retrieved_records", "comparison_enabled"}

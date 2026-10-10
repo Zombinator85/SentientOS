@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
-from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
@@ -141,37 +141,11 @@ class CognitiveSelfModelProjection:
 
 def load_runtime_config(path: str | Path) -> LongitudinalSelfModelRuntimeConfig:
     try:
-        source = Path(path)
-        metadata = source.lstat()
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_RUNTIME_CONFIG_BYTES:
-            raise LongitudinalSelfModelError("runtime_configuration_file_unbounded_or_not_regular")
-        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        try:
-            opened = os.fstat(descriptor)
-            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
-                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_RUNTIME_CONFIG_BYTES):
-                raise LongitudinalSelfModelError("runtime_configuration_file_changed_during_open")
-            chunks: list[bytes] = []
-            remaining = MAX_RUNTIME_CONFIG_BYTES + 1
-            while remaining:
-                chunk = os.read(descriptor, min(4096, remaining))
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            config_data = b"".join(chunks)
-            after = os.fstat(descriptor)
-            if len(config_data) > MAX_RUNTIME_CONFIG_BYTES:
-                raise LongitudinalSelfModelError("runtime_configuration_file_unbounded_or_not_regular")
-            if (len(config_data) != opened.st_size or after.st_size != opened.st_size
-                    or after.st_mtime_ns != opened.st_mtime_ns):
-                raise LongitudinalSelfModelError("runtime_configuration_file_changed_during_read")
-        finally:
-            os.close(descriptor)
+        config_data = read_explicit_file(Path(path), max_bytes=MAX_RUNTIME_CONFIG_BYTES)
         payload = json.loads(config_data.decode("utf-8"))
     except LongitudinalSelfModelError:
         raise
-    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+    except (WindowsHandleCustodyError, OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise LongitudinalSelfModelError("runtime_configuration_unreadable") from exc
     expected = {"schema", "enabled", "custody_root", "cognitive_consumption_enabled",
                 "max_projection_claims", "allowed_predicates", "installation_id"}

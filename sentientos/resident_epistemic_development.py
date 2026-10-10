@@ -26,6 +26,7 @@ from .resident_epistemic_state_mutation import (
 )
 from .runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.resident_epistemic_development_config:v1"
 RULE_SCHEMA = "sentientos.resident_epistemic_development_rule:v1"
@@ -35,6 +36,7 @@ CONFIG_ENV = "SENTIENTOS_EPISTEMIC_DEVELOPMENT_CONFIG"
 MAX_BINDINGS_PER_TICK = 64
 MAX_PROPOSITIONS_PER_TICK = 16
 MAX_ACTIVE_EVIDENCE = 256
+MAX_EPISTEMIC_DEVELOPMENT_CONFIG_BYTES = 65_536
 SELECTOR_FIELDS = frozenset({"source_kind", "source_id", "subject_kind", "subject_id", "stage", "disposition"})
 
 
@@ -71,7 +73,11 @@ class EpistemicDevelopmentFeedback:
 
 
 def load_epistemic_development_config(path: str | Path) -> EpistemicDevelopmentConfig:
-    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(read_explicit_file(Path(path),
+            max_bytes=MAX_EPISTEMIC_DEVELOPMENT_CONFIG_BYTES).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise EpistemicDevelopmentError("configuration_unreadable_or_invalid") from exc
     if set(raw) != {"schema", "enabled", "max_new_bindings_per_tick", "max_updated_propositions_per_tick", "allowed_namespaces", "rules"}:
         raise EpistemicDevelopmentError("configuration_fields_invalid")
     rules = tuple(EpistemicDevelopmentRule(**item) for item in raw["rules"])

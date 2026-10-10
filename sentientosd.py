@@ -100,7 +100,7 @@ from sentientos.maintenance_resident_runtime_adoption import MaintenanceResident
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_GATE_ENV, await_initial_commissioning_gate
-from sentientos.windows_handle_custody import read_regular_files
+from sentientos.windows_handle_custody import read_explicit_file, read_regular_files
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
@@ -233,7 +233,7 @@ def _load_epistemic_state_owner(config_path: str | None) -> tuple[PersistentEpis
     """Compose custody only from explicit configuration; never scan ambient logs."""
     if not config_path:
         return None, {"status": "disabled", "cognitive_consumption_enabled": False}
-    payload = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    payload = json.loads(read_explicit_file(Path(config_path), max_bytes=65_536).decode("utf-8"))
     expected = {"schema", "custody_root", "allowed_proposition_namespaces", "max_cognitive_projection_count", "cognitive_consumption_enabled"}
     if set(payload) != expected or payload["schema"] != "sentientos.epistemic_runtime_config:v1":
         raise ValueError("epistemic_runtime_configuration_invalid")

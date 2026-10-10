@@ -6,12 +6,61 @@ under an explicit directory. It does not publish or mutate custody.
 from __future__ import annotations
 
 import os
+import stat
 import struct
 from pathlib import Path
 
 
 class WindowsHandleCustodyError(ValueError):
     """The requested Windows custody read could not be proven safe."""
+
+
+def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
+    """Read one explicit regular file without following links or racing replacement."""
+    if type(max_bytes) is not int or max_bytes < 1:
+        raise WindowsHandleCustodyError("explicit_file_limit_invalid")
+    source = Path(path)
+    if os.name == "nt":
+        entries = read_regular_files(source.parent, max_entries=1,
+            max_file_bytes=max_bytes, max_total_bytes=max_bytes,
+            selected_names=(source.name,))
+        if len(entries) != 1 or entries[0][0] != source.name:
+            raise WindowsHandleCustodyError("explicit_file_missing_or_ambiguous")
+        return entries[0][1]
+    descriptor: int | None = None
+    try:
+        metadata = source.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
+            raise WindowsHandleCustodyError("explicit_file_unbounded_or_not_regular")
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        if nofollow is None:
+            raise WindowsHandleCustodyError("explicit_file_safe_open_unsupported")
+        descriptor = os.open(source, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0))
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
+                or before.st_dev != metadata.st_dev or before.st_ino != metadata.st_ino):
+            raise WindowsHandleCustodyError("explicit_file_changed_during_open")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk); remaining -= len(chunk)
+        data = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(data) > max_bytes or len(data) != before.st_size
+                or after.st_size != before.st_size or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise WindowsHandleCustodyError("explicit_file_changed_during_read")
+        return data
+    except WindowsHandleCustodyError:
+        raise
+    except OSError as exc:
+        raise WindowsHandleCustodyError("explicit_file_unavailable") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
