@@ -830,3 +830,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the cleaned adapter and supervisor files. No runtime or process behavior was executed.
 
 **Next implementation dependency:** continue from the genuine lifecycle receipt and resource-ledger durability changes; inspect any remaining bounded custody or post-effect uncertainty gaps without duplicating the canonical runtime observation owner.
+
+
+## New checkpoint — align invocation receipt writer with read-only custody bounds
+
+- The installation observer caps invocation receipt custody at 256 regular directory entries and 256 KiB per receipt. The serving receipt sink previously published without either matching writer-side constraint.
+- The entry-count and byte limits now come from the invocation owner. Before inference, the serving bridge serializes and bounds the receipt request envelope, then holds a process-local capacity lock while checking the exact installation receipt directory and completing the invocation/receipt publication. It rejects a full or uninspectable directory before model entry, preventing normal writes from pushing the selected source beyond the observer's entry bound. The evidence sink independently rejects any serialized receipt above 256 KiB.
+- If an unexpected oversize receipt is discovered after model entry, the existing post-effect custody error reports the phase and no retry is introduced. The reserved request-envelope headroom is intended to make this an exceptional fallback; it is not proof of runtime behavior.
+- `py_compile` passed for the invocation owner, serving inference bridge, and read-only observer. No receipt limit, concurrent call, provider, or production behavior was executed.
+
+**Next implementation dependency:** continue source review of the durable chat request/history boundary with the new preflight outcome: ensure capacity refusal creates no pending user turn that later appears as successful cognition, and preserves existing same-request no-replay semantics after genuine post-effect failures.

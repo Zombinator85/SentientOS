@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,6 +12,8 @@ from .governed_local_model_invocation import (
     GovernedLocalModelResourceInvocationContext,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
+    MAX_INVOCATION_RECEIPT_BYTES,
+    MAX_INVOCATION_RECEIPTS,
     validate_receipt,
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
@@ -46,7 +49,7 @@ def unavailable_chat_process_software_generation() -> dict[str, Any]:
 class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
-    __slots__ = ("_serving", "_runtime_handoff_id")
+    __slots__ = ("_serving", "_runtime_handoff_id", "_receipt_capacity_lock")
 
     def __init__(self, serving_controller: ProductionServingController, *,
                  runtime_handoff_id: str | None = None) -> None:
@@ -54,6 +57,7 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("production_serving_controller_required")
         self._serving = serving_controller
         self._runtime_handoff_id = runtime_handoff_id
+        self._receipt_capacity_lock = threading.Lock()
 
     def _software_generation_attribution(self) -> dict[str, Any]:
         if self._runtime_handoff_id is None:
@@ -166,6 +170,8 @@ class ProductionServingInferenceController:
             target = receipt_directory.child(receipt_id + ".json")
             payload = (json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
                                  ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+            if len(payload) > MAX_INVOCATION_RECEIPT_BYTES:
+                raise ProductionServingInferenceError("invocation_receipt_size_bound_exceeded")
             handle.durable_replace(target, payload)
 
         invoker.register_evidence_sink(publish_receipt)
@@ -173,6 +179,14 @@ class ProductionServingInferenceController:
             purpose="local_user_chat", prompt=prompt, caller=caller,
             correlation_id=correlation_id, budget=budget,
             upstream_evidence={"current_serving_lifetime": linkage}, linkage=linkage)
+        request_receipt_bytes = json.dumps(request.to_receipt_request_dict(),
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            allow_nan=False).encode("utf-8")
+        # Leave bounded room for the receipt envelope and resource linkage,
+        # which are added after backend entry.
+        if len(request_receipt_bytes) + 8192 > MAX_INVOCATION_RECEIPT_BYTES:
+            raise ProductionServingInferenceError(
+                "invocation_request_receipt_size_bound_exceeded")
 
         def current() -> None:
             # Both guards use the chat child’s own launcher handoff, never the
@@ -194,12 +208,25 @@ class ProductionServingInferenceController:
                 self._serving._invalidate_inference_session(session, "currentness_changed_during_inference")
                 raise
 
-        receipt = invoker.invoke(
-            request,
-            pre_effect_guard=current,
-            post_effect_guard=current_after,
-            resource_context=resource_context,
-        )
+        # The read-only observer refuses more than this many receipts. Hold
+        # one process-local slot across backend execution and durable receipt
+        # publication so concurrent requests cannot exceed that source bound.
+        with self._receipt_capacity_lock:
+            try:
+                receipt_names = handle.list_regular_names(
+                    receipt_directory, max_entries=MAX_INVOCATION_RECEIPTS)
+            except Exception as exc:
+                raise ProductionServingInferenceError(
+                    "invocation_receipt_capacity_observation_unavailable") from exc
+            if len(receipt_names) >= MAX_INVOCATION_RECEIPTS:
+                raise ProductionServingInferenceError(
+                    "invocation_receipt_capacity_exhausted")
+            receipt = invoker.invoke(
+                request,
+                pre_effect_guard=current,
+                post_effect_guard=current_after,
+                resource_context=resource_context,
+            )
         if receipt.admission_decision_ref == binding["model_serving_admission_ref"]:
             raise ProductionServingInferenceError("inference_admission_not_independent")
         return receipt

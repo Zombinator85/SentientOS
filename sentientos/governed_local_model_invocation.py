@@ -28,6 +28,8 @@ MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment
 SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
+MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
+MAX_INVOCATION_RECEIPTS = 256
 
 def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)

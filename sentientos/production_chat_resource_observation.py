@@ -23,7 +23,9 @@ from .causal_resource_principal_currentness import (
 )
 from .causal_resource_principal_ed25519 import CryptographyEd25519RootIssuerSignatureVerifier
 from .causal_resource_principal_trust_catalog import ReadOnlyTrustedIssuerCatalog
-from .governed_local_model_invocation import validate_receipt
+from .governed_local_model_invocation import (
+    MAX_INVOCATION_RECEIPT_BYTES, MAX_INVOCATION_RECEIPTS, validate_receipt,
+)
 from .chat_process_generation import (
     ChatProcessGenerationError,
     read_stored_chat_process_runtime_observation,
@@ -54,8 +56,6 @@ from .production_chat_resource_provisioning import (
     validate_resource_provisioning_id,
 )
 
-MAX_INVOCATION_RECEIPTS = 256
-MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 _RECEIPT_NAME = re.compile(r"lmrec-[0-9a-f]{24}\.json\Z")
 _RECEIPT_TEMP_NAME = re.compile(r"\.lmrec-[0-9a-f]{24}\.json\.[A-Za-z0-9_-]{1,64}\.tmp\Z")
 
