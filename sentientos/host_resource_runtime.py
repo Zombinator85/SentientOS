@@ -717,6 +717,36 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     != semantic_digest({key: value for key, value in runtime.items()
                         if key != "observation_semantic_digest"})):
             raise ValueError("chat_process_runtime_observation_binding_invalid")
+        linked_invocations: list[dict[str, Any]] = []
+        for attribution in selected_generation_attributions:
+            handoff = attribution.get("chat_process_handoff")
+            if (not isinstance(handoff, Mapping)
+                    or handoff.get("handoff_id") != runtime.get("handoff_id")
+                    or handoff.get("handoff_digest") != runtime.get("handoff_digest")
+                    or handoff.get("process_instance_id") != runtime.get("process_instance_id")):
+                continue
+            invocation = invocation_by_id.get(str(attribution.get("invocation_receipt_id")))
+            request = invocation.get("request") if isinstance(invocation, Mapping) else None
+            if not isinstance(invocation, Mapping) or not isinstance(request, Mapping):
+                raise ValueError("chat_process_runtime_invocation_join_missing")
+            linked_invocations.append({
+                "invocation_receipt_id": invocation.get("receipt_id"),
+                "invocation_receipt_digest": invocation.get("receipt_digest"),
+                "invocation_request_id": request.get("request_id"),
+                "invocation_request_digest": request.get("request_digest"),
+                "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+                "resource_attempt_id": invocation.get("resource_attempt_id"),
+                "resource_consumption_receipt_digests": list(
+                    invocation.get("resource_consumption_receipt_digests") or ()),
+                "resource_effect_receipt_digest": invocation.get("receipt_digest"),
+                "model_id": request.get("model_id"),
+                "model_artifact_digest": request.get("model_artifact_digest"),
+                "active_model_identity_at_invocation": request.get("active_model_identity"),
+                "linkage_posture": "exact_shared_verified_chat_process_handoff",
+                "current_model_claimed": False,
+            })
+        if len(linked_invocations) > 16:
+            raise ValueError("chat_process_runtime_invocation_join_bound_exceeded")
         item = {
             "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
             "source_id": ("chat_process_runtime_observation:"
@@ -736,6 +766,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "provisioning_id": selected_source_identity.get("provisioning_id"),
                 "manifest_digest": selected_source_identity.get("manifest_digest"),
                 "chat_process_runtime_observation": dict(runtime),
+                "linked_invocation_receipts": linked_invocations,
+                "invocation_linkage_posture": "exact_shared_chat_process_handoff"
+                    if linked_invocations else "no_matching_retained_invocation_receipts",
                 "event_time": runtime["observed_at"],
                 "event_time_posture": "runtime_owner_observation_not_current_liveness",
                 "currentness": "unknown_after_observation_time",

@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before this increment, GitHub branch inspection most recently verified `a7cc5083969af3fe804f252e64b5ba8f88f6d588` (tree `aa38d7f2b04c04dca64bca9503f1167d3f26f48e`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+Before the current construction campaign, GitHub branch inspection verified `8a62b7aafd57a39d654927210993e36797046191` (tree `186546e1d397a54a577d60b76c06b044cc67aee3`). Each later source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue with the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -402,3 +402,14 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The changed startup module passed Python AST parsing. No runtime, concurrent-owner, orphan-process, restart, or production verification was performed.
 
 **Next implementation dependency:** continue preserving the distinction between a child process observation and a current model-serving observation. No current model identity issuer is exposed by the chat API; retain invocation/serving-receipt lineage and move to another existing owner connection rather than infer it.
+
+
+### New checkpoint — join runtime observation to exact retained invocations
+
+- The bounded resource World-State projector now groups only retained invocation receipts whose verified chat-process handoff ID, digest, and process-instance ID exactly equal the selected runtime observation. Each linked row carries invocation/request identities, allocation, attempt, consumption and effect-receipt references, plus model identity as observed at that invocation.
+- The grouped link is historical lineage. It never asserts that the model is currently loaded, that host-wide resources belong to the process, or that an external effect occurred. Nonmatching or unretained invocations remain unjoined.
+- The existing later-cognition selector and longitudinal self-model preserve the grouped IDs/digests as history under their current explicit configuration. Epistemic evidence remains contextual with unknown freshness.
+- This joins process observation to actual resource-backed invocation lineage without copying prompts, outputs, or canonical user memory.
+- The affected projector and self-model source passed AST parsing; no runtime, inference, recovery, World-State execution, or production behavior was tested.
+
+**Next implementation dependency:** review process-observation record ordering and source-ID retention when the daemon restarts or the chat runtime changes generation. Verify source identity conflicts remain explicit and keep model succession separate when no shared serving receipt proves continuity.

@@ -387,7 +387,21 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.subject.subject_kind == "chat_process_runtime_generation_observation"
             and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):
         observation = fact.payload.get("chat_process_runtime_observation")
-        if isinstance(observation, Mapping):
+        linked_invocations = fact.payload.get("linked_invocation_receipts", ())
+        if isinstance(observation, Mapping) and isinstance(linked_invocations, (list, tuple)):
+            if len(linked_invocations) > 16 or any(not isinstance(item, Mapping)
+                    for item in linked_invocations):
+                linked_invocations = ()
+            else:
+                linked_invocations = [{
+                    key: item.get(key) for key in (
+                        "invocation_receipt_id", "invocation_receipt_digest",
+                        "invocation_request_id", "invocation_request_digest",
+                        "resource_allocation_digest", "resource_attempt_id",
+                        "resource_consumption_receipt_digests", "resource_effect_receipt_digest",
+                        "model_id", "model_artifact_digest", "active_model_identity_at_invocation",
+                        "linkage_posture", "current_model_claimed")
+                } for item in linked_invocations]
             lineage = {
                 "source_record_id": fact.source.source_id,
                 "source_record_digest": fact.source.digest,
@@ -400,6 +414,9 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "handoff_digest": observation.get("handoff_digest"),
                 "software_generation_digest": observation.get("software_generation_digest"),
                 "source_generation_scope": observation.get("source_generation_scope"),
+                "invocation_linkage_posture": fact.payload.get("invocation_linkage_posture"),
+                "linked_invocation_receipts": linked_invocations,
+                "current_model_claimed": False,
                 "currentness": "historical_owner_observation_only",
                 "independent_signature": False,
                 "historical_only": True, "current_truth": False,
