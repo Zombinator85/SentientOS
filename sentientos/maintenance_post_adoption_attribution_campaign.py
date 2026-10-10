@@ -245,7 +245,10 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         else: classification = next(iter(outcomes), "indeterminate")
         controls = sorted((x for x in self._read("controls") if x["campaign_id"] == protocol.campaign_id),
                           key=lambda x:(protocol.trial_ids.index(x["trial_id"]), x["observable_id"]))
-        production_ready = protocol.evidence_class == "production" and all(x["evidence_class"] == "production" for x in controls)
+        # ``evidence_class`` and collector/source identities are caller supplied;
+        # this owner has no authenticated issuer verifier and cannot certify
+        # production readiness from those declarations alone.
+        production_ready = False
         lineage = (protocol.campaign_digest,) + tuple(x.trial_digest for x in trials) + tuple(x["control_digest"] for x in controls)
         raw = CampaignResult("", "", protocol.campaign_id, protocol.campaign_digest, protocol.trial_ids,
             tuple(x.trial_record_id for x in trials), tuple(x.trial_digest for x in trials),

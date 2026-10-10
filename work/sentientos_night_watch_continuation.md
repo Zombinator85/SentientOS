@@ -18,7 +18,8 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `75c64e397e1d7cd95ae5c9d702222747c16602a8` (remote verified): post-adoption epistemic adapter verifies evaluation content identity and preserves historical `evaluated_at`; unverified collector/source issuers produce only contextual, unknown-freshness evidence. Its compatibility `observed_at` argument no longer controls event time.
 - `655288bf0beeb4d422186e97d2ba7d9414611b62` (remote verified): controlled replacement trials persist a bounded identity-only frozen-context manifest, bind validated prior self-model/epistemic projection IDs, digests, and source ticks into condition observations and World-State records, and carry the invocation's exact resource linkage fields when a governed endpoint actually supplies them. Missing sponsorship remains unknown; no allocation is created.
 - `634fb7e21ffb28501e89a7cf1aa8f325e912dde8` (remote verified): failed/incomplete governed inference now retains bounded request, invocation, and resource-linkage identities in immutable condition terminals and projected partial runs without persisting generated text or replaying a started attempt.
-- Next increment in progress: the repeated post-adoption attribution campaign’s epistemic adapter now rejects invalid result digests and keeps caller-supplied control-source claims contextual, with unknown freshness/dependency rather than independent current support.
+- `c77397483e5d72d5115d676f2e9c99bbf29c56dd` (remote verified): repeated post-adoption attribution results now require exact result identity and remain contextual with unknown freshness/dependency because control source issuers are caller-supplied.
+- Next increment in progress: fail-closed the adjacent `production_ready` field; declared source classes are not authenticated production evidence.
 
 ## Boundaries and blockers
 
@@ -30,6 +31,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile, review, commit `[untested]`, push, and verify attribution-campaign evidence qualification.
+1. Compile, review, commit `[untested]`, push, and verify the production-readiness correction.
 2. Continue tracing exact resource attribution in the controlled replacement endpoint; preserve unknown when no explicit sponsored allocation/consumption owner is injected.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
