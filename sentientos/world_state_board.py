@@ -100,7 +100,7 @@ class WorldStateBoardBuilder:
             raise ValueError("world_state_bounds_invalid")
         self.allowed_roots=tuple(str(Path(r).resolve()) for r in allowed_roots); self.max_source_count=max_source_count; self.max_artifact_size=max_artifact_size; self.clock=clock or (lambda: datetime.now(timezone.utc))
     def build(self, records:Sequence[Mapping[str,Any]]=(), *, manifest_id:str="world-state-manifest") -> WorldStateSnapshot:
-        now=self.clock(); sources=[]; facts=[]; conflicts=[]; lineage=[]; seen={}
+        now=self.clock(); sources=[]; facts=[]; conflicts=[]; lineage=[]; seen={}; seen_event_times={}; event_time_conflicts=set()
         if len(records)>self.max_source_count: records=records[:self.max_source_count]; conflicts.append(WorldStateConflict("conflict-source-count","manifest_bounds","manifest",(),"error","maximum source count exceeded"))
         for i,r in enumerate(records):
             if not isinstance(r, Mapping):
@@ -135,6 +135,16 @@ class WorldStateBoardBuilder:
             dg=str(r.get("digest") or record_digest(r)); finding="ok"
             if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
             st=_source_staleness(kind, r.get("observed_at"), r.get("staleness"), now)
+            event_token = _canon(r.get("observed_at"))
+            source_event_tokens = seen_event_times.setdefault(sid, set())
+            source_event_tokens.add(event_token)
+            if len(source_event_tokens) > 1:
+                finding="observation-time-conflict"; st="unknown"
+                if sid not in event_time_conflicts:
+                    conflicts.append(WorldStateConflict(_sid("conflict",(sid, sorted(source_event_tokens))),
+                        "source_observation_time_mismatch", sid, (), "error",
+                        "one semantic source identity has conflicting observation times"))
+                    event_time_conflicts.add(sid)
             src=WorldStateSourceRef(sid,kind,str(r.get("schema_version","v1")),dg,bool(r.get("required",False)), "redacted", st, finding)
             sources.append(src)
             if sid in seen and seen[sid]!=dg: conflicts.append(WorldStateConflict(_sid("conflict",(sid,seen[sid],dg)),"source_digest_mismatch",sid,(),"error","one semantic source id has different digests"))

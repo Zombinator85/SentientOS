@@ -189,7 +189,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "avatar_independently_observed_state")
         source_integrity_conflict = (fact.source.finding != "ok" or any(
             conflict.subject_id == fact.source.source_id
-            and conflict.conflict_type == "source_digest_mismatch"
+            and conflict.conflict_type in {"source_digest_mismatch",
+                "source_observation_time_mismatch"}
             for conflict in snapshot.conflicts))
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record or historical_strategy_proposal
@@ -240,6 +241,8 @@ class ResidentEpistemicDevelopmentRuntime:
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
                 artifact_id = "resource-introspection:" + hashlib.sha256(json.dumps(stable_identity,
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
+        observed = (_latest_historical_event_time([observed])
+            if isinstance(observed, str) else None)
         if source_integrity_conflict:
             # Keep malformed producer records visible as context, but do not
             # let a failed source binding provide an event time or support.
