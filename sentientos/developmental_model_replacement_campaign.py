@@ -19,6 +19,7 @@ from .developmental_model_replacement_experiment import (
     CONDITION_ORDER, NON_CLAIMS, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, _digest,
 )
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
@@ -158,13 +159,38 @@ class CampaignStore:
 
     def _read_json(self, path: Path, *, missing_code: str, invalid_code: str) -> dict[str, Any]:
         kind, filename = self._artifact_location(path)
+        if os.name == "nt":
+            try:
+                entries = read_regular_files(path.parent, max_entries=1,
+                    max_file_bytes=MAX_CAMPAIGN_ARTIFACT_BYTES,
+                    max_total_bytes=MAX_CAMPAIGN_ARTIFACT_BYTES,
+                    selected_names=(filename,))
+            except WindowsHandleCustodyError as exc:
+                if str(exc) == "explicit_file_missing":
+                    raise DevelopmentalModelReplacementError(missing_code) from exc
+                raise DevelopmentalModelReplacementError(invalid_code) from exc
+            if not entries:
+                raise DevelopmentalModelReplacementError(missing_code)
+            if len(entries) != 1 or entries[0][0] != filename:
+                raise DevelopmentalModelReplacementError(invalid_code)
+            try:
+                raw = entries[0][1]
+                value = json.loads(raw.decode("utf-8"))
+                canonical = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=True).encode("utf-8") if isinstance(value, dict) else b""
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise DevelopmentalModelReplacementError(invalid_code) from exc
+            if not isinstance(value, dict) or canonical != raw:
+                raise DevelopmentalModelReplacementError(invalid_code)
+            return value
         directory_fd: int | None = None
         descriptor: int | None = None
         try:
             directory_fd = self._open_kind_directory(kind, create=False)
             descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
             metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CAMPAIGN_ARTIFACT_BYTES:
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CAMPAIGN_ARTIFACT_BYTES
+                    or metadata.st_nlink != 1):
                 raise DevelopmentalModelReplacementError(invalid_code)
             remaining = metadata.st_size
             chunks: list[bytes] = []
@@ -174,8 +200,16 @@ class CampaignStore:
                     raise DevelopmentalModelReplacementError(invalid_code)
                 chunks.append(chunk)
                 remaining -= len(chunk)
-            value = json.loads(b"".join(chunks).decode("utf-8"))
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            value = json.loads(raw.decode("utf-8"))
+            canonical = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=True).encode("utf-8") if isinstance(value, dict) else b""
             if not isinstance(value, dict):
+                raise DevelopmentalModelReplacementError(invalid_code)
+            if (canonical != raw or len(raw) != metadata.st_size
+                    or after.st_dev != metadata.st_dev or after.st_ino != metadata.st_ino
+                    or after.st_size != metadata.st_size or after.st_mtime_ns != metadata.st_mtime_ns):
                 raise DevelopmentalModelReplacementError(invalid_code)
             return value
         except DevelopmentalModelReplacementError:
@@ -393,6 +427,7 @@ class DevelopmentalModelReplacementCampaign:
     def __init__(self, experiment: DevelopmentalModelReplacementExperiment,
                  protocol: CampaignProtocol, store: CampaignStore, state: Mapping[str, Any]) -> None:
         self.experiment, self.protocol, self.store, self.state = experiment, protocol, store, dict(state)
+        self.recovery_posture = "not_reconstructed"
 
     @classmethod
     def create(cls, *, experiment: DevelopmentalModelReplacementExperiment,
@@ -422,40 +457,41 @@ class DevelopmentalModelReplacementCampaign:
         if campaign.state.get("in_progress_trial_id"):
             trial_id = str(campaign.state["in_progress_trial_id"])
             if trial_id != campaign.state.get("next_trial_id"):
-                campaign._invalidate("campaign_interrupted_trial_identity_conflict",
-                    failure_evidence={"in_progress_trial_id": trial_id,
-                        "next_trial_id": campaign.state.get("next_trial_id")})
                 raise DevelopmentalModelReplacementError("campaign_interrupted_trial_identity_conflict")
-            try:
-                recovered_run = experiment.run(trial_id=trial_id)
-            except Exception as exc:
-                campaign._invalidate("campaign_interrupted_trial_recovery_failed",
-                    failure_evidence={"trial_id": trial_id,
-                        "failure_kind": type(exc).__name__})
-                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_recovery_failed") from exc
-            if recovered_run.get("experiment_completion_posture", "completed") != "completed":
-                campaign._invalidate("campaign_interrupted_trial_recovered_incomplete",
-                    failure_evidence={"trial_id": trial_id,
-                        "run_id": recovered_run.get("run_id"),
-                        "run_digest": recovered_run.get("run_digest"),
-                        "experiment_completion_posture": recovered_run.get("experiment_completion_posture"),
-                        "condition_statuses": recovered_run.get("condition_statuses")})
-                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_recovered_incomplete")
-            completed = list(campaign.state["completed_trials"])
-            if any(item.get("trial_id") == trial_id for item in completed if isinstance(item, Mapping)):
-                campaign._invalidate("campaign_interrupted_trial_already_completed",
-                    failure_evidence={"trial_id": trial_id, "run_id": recovered_run.get("run_id"),
-                        "run_digest": recovered_run.get("run_digest")})
-                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_already_completed")
-            completed.append({"trial_id": trial_id, "run_id": recovered_run["run_id"],
-                "run_digest": recovered_run["run_digest"]})
-            index = len(completed)
-            next_id = protocol.trial_ids[index] if index < len(protocol.trial_ids) else None
-            campaign.state = store.write_state(protocol, {"completed_trials": completed,
-                "next_trial_id": next_id, "in_progress_trial_id": None,
-                "validity": "valid_complete" if next_id is None else "valid_incomplete",
-                "failure_reason": None})
+            # A campaign recovery read must never call the inference endpoint or
+            # reinterpret a started condition as a completed trial. Preserve the
+            # exact durable in-progress state for explicit later review.
+            campaign.recovery_posture = "interrupted_trial_preserved_not_replayed"
+        else:
+            campaign.recovery_posture = "durable_state_reconstructed"
         return campaign
+
+    @classmethod
+    def inspect_custody(cls, *, artifact_root: Path, campaign_id: str) -> dict[str, Any]:
+        """Verify bounded campaign protocol and state without an inference endpoint."""
+        if not isinstance(campaign_id, str) or not _CAMPAIGN_ID.fullmatch(campaign_id):
+            raise DevelopmentalModelReplacementError("campaign_protocol_identity_invalid")
+        store = CampaignStore(artifact_root)
+        raw = store._read_json(store.protocol_path(campaign_id),
+            missing_code="campaign_protocol_custody_changed", invalid_code="campaign_protocol_custody_changed")
+        try:
+            raw["trial_ids"] = tuple(raw["trial_ids"])
+            raw["condition_order"] = tuple(raw["condition_order"])
+            raw["aggregation_rules"] = tuple(raw["aggregation_rules"])
+            raw["non_claims"] = tuple(raw["non_claims"])
+            protocol = CampaignProtocol(**raw)
+            protocol.verify()
+            store.verify_protocol(protocol)
+            state = store.load_state(protocol)
+        except (KeyError, TypeError, DevelopmentalModelReplacementError) as exc:
+            raise DevelopmentalModelReplacementError("campaign_protocol_or_state_custody_changed") from exc
+        interrupted = state.get("in_progress_trial_id")
+        return {"status": "campaign_interrupted_trial_preserved" if interrupted else str(state.get("validity", "unknown")),
+            "read_only": True, "effects_performed": [], "campaign_id": protocol.campaign_id,
+            "campaign_digest": protocol.campaign_digest, "state_digest": state.get("state_digest"),
+            "state_revision": state.get("state_revision"), "completed_trial_count": len(state.get("completed_trials", ())),
+            "in_progress_trial_id": interrupted, "recovery_posture":
+                "interrupted_trial_preserved_not_replayed" if interrupted else "durable_state_reconstructed"}
 
     def _verify_experiment(self) -> None:
         p, c, expected = self.experiment.protocol, self.experiment.context, self.protocol

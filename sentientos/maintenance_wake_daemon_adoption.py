@@ -34,6 +34,9 @@ CONTINUING_WAKE_STATUSES = frozenset({
 MAX_CADENCE_JOURNAL_BYTES = 16_777_216
 MAX_CADENCE_JOURNAL_ROWS = 65_536
 MAX_CADENCE_JOURNAL_LINE_BYTES = 65_536
+MAX_OWNER_JOURNAL_BYTES = 4_194_304
+MAX_OWNER_JOURNAL_ROWS = 16_384
+MAX_OWNER_JOURNAL_LINE_BYTES = 65_536
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -152,8 +155,54 @@ def _events(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
         raise ValueError("wake_daemon_journal_corrupt") from exc
     except (OSError, KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("wake_daemon_journal_corrupt") from exc
+    for index, row in enumerate(rows):
+        expected_type = "invocation_intent" if index % 2 == 0 else "invocation_completed"
+        expected_ordinal = index // 2 + 1
+        if (row.get("event_type") != expected_type
+                or type(row.get("invocation_ordinal")) is not int
+                or row.get("invocation_ordinal") != expected_ordinal):
+            raise ValueError("wake_daemon_journal_recovery_ambiguous")
+        if index % 2 == 1 and row.get("prior_event_digest") != rows[index - 1].get("event_digest"):
+            raise ValueError("wake_daemon_journal_recovery_ambiguous")
     if rows and rows[-1]["event_type"] == "invocation_intent":
         raise ValueError("wake_daemon_recovery_ambiguous")
+    return rows
+
+
+def _owner_events(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Recover the bounded daemon-owner journal without treating it as liveness proof."""
+    path = Path(str(cfg["evidence_path"]))
+    try:
+        raw = read_explicit_file(path, max_bytes=MAX_OWNER_JOURNAL_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return []
+        raise ValueError("wake_daemon_owner_evidence_corrupt") from exc
+    rows: list[dict[str, Any]] = []
+    prior = ZERO_DIGEST
+    try:
+        lines = raw.splitlines()
+        if len(lines) > MAX_OWNER_JOURNAL_ROWS or any(not line or len(line) > MAX_OWNER_JOURNAL_LINE_BYTES for line in lines):
+            raise ValueError("wake_daemon_owner_evidence_bounds_invalid")
+        for line in lines:
+            row = json.loads(line.decode("utf-8"))
+            if not isinstance(row, dict):
+                raise ValueError("wake_daemon_owner_evidence_record_invalid")
+            claimed = row.pop("event_digest")
+            if (row.get("schema_version") != OWNER_EVENT_SCHEMA
+                    or row.get("adoption_config_digest") != cfg["adoption_config_digest"]
+                    or row.get("wake_config_digest") != cfg["wake_config_digest"]
+                    or row.get("prior_event_digest") != prior or digest(row) != claimed
+                    or not isinstance(row.get("event_type"), str)
+                    or not isinstance(row.get("recorded_at_utc"), str)):
+                raise ValueError("wake_daemon_owner_evidence_chain_invalid")
+            _utc(row["recorded_at_utc"])
+            row["event_digest"] = claimed
+            if canonical_bytes(row) + b"\n" != line:
+                raise ValueError("wake_daemon_owner_evidence_noncanonical")
+            rows.append(row); prior = claimed
+    except (OSError, KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("wake_daemon_owner_evidence_corrupt") from exc
     return rows
 
 
@@ -161,9 +210,20 @@ def _append(cfg: Mapping[str, Any], event: Mapping[str, Any], prior: str) -> dic
     row = {"schema_version": EVENT_SCHEMA, "adoption_config_digest": cfg["adoption_config_digest"],
            "wake_config_digest": cfg["wake_config_digest"], "prior_event_digest": prior, **event}
     row["event_digest"] = digest(row)
+    data = canonical_bytes(row) + b"\n"
+    try:
+        existing = read_explicit_file(Path(str(cfg["journal_path"])), max_bytes=MAX_CADENCE_JOURNAL_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) != "explicit_file_missing":
+            raise ValueError("wake_daemon_journal_corrupt") from exc
+        existing = b""
+    if (len(existing.splitlines()) >= MAX_CADENCE_JOURNAL_ROWS
+            or len(existing) + len(data) > MAX_CADENCE_JOURNAL_BYTES
+            or len(data) > MAX_CADENCE_JOURNAL_LINE_BYTES + 1):
+        raise ValueError("wake_daemon_journal_retention_limit")
     fd = os.open(cfg["journal_path"], os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "ab") as handle:
-        handle.write(canonical_bytes(row) + b"\n"); handle.flush(); os.fsync(handle.fileno())
+        handle.write(data); handle.flush(); os.fsync(handle.fileno())
     return row
 
 
@@ -178,10 +238,19 @@ def _next(cfg: Mapping[str, Any], rows: list[dict[str, Any]]) -> tuple[int, date
 
 
 def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
-    cfg = validate_adoption(config); rows = _events(cfg); ordinal, due = _next(cfg, rows)
+    cfg = validate_adoption(config); rows = _events(cfg); owner_rows = _owner_events(cfg); ordinal, due = _next(cfg, rows)
+    last_owner_type = owner_rows[-1]["event_type"] if owner_rows else None
+    owner_posture = ({
+        "wake_lifetime_started": "last_record_says_started_liveness_unknown",
+        "wake_lifetime_stopped": "last_record_says_stopped",
+        "daemon_shutdown_requested": "shutdown_requested_liveness_unknown",
+    }.get(last_owner_type, "owner_liveness_unknown"))
     return {"status": "wake_daemon_state_ready", "event_count": len(rows),
             "next_invocation_ordinal": ordinal, "next_due_utc": _utc_text(due),
-            "last_event_digest": rows[-1]["event_digest"] if rows else ZERO_DIGEST}
+            "last_event_digest": rows[-1]["event_digest"] if rows else ZERO_DIGEST,
+            "owner_event_count": len(owner_rows),
+            "last_owner_event_digest": owner_rows[-1]["event_digest"] if owner_rows else ZERO_DIGEST,
+            "owner_liveness_posture": owner_posture}
 
 
 def _verified_wake(cfg: Mapping[str, Any], evaluation_time: str) -> dict[str, Any]:
@@ -277,16 +346,21 @@ class MaintenanceWakeOwner:
             "wake_config_digest": self._adoption.get("wake_config_digest")}
 
     def _record(self, event_type: str, **detail: Any) -> None:
-        path = Path(str(self._adoption["evidence_path"])); prior = ZERO_DIGEST
-        if path.exists() and path.stat().st_size:
-            try: prior = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])["event_digest"]
-            except (OSError, KeyError, json.JSONDecodeError) as exc: raise ValueError("wake_daemon_owner_evidence_corrupt") from exc
+        path = Path(str(self._adoption["evidence_path"]))
+        rows = _owner_events(self._adoption)
+        prior = rows[-1]["event_digest"] if rows else ZERO_DIGEST
         row = {"schema_version": OWNER_EVENT_SCHEMA, "event_type": event_type,
                "adoption_config_digest": self._adoption["adoption_config_digest"],
                "wake_config_digest": self._adoption["wake_config_digest"], "prior_event_digest": prior,
                "recorded_at_utc": _utc_text(self._clock()), **detail}; row["event_digest"] = digest(row)
+        data = canonical_bytes(row) + b"\n"
+        retained_bytes = sum(len(canonical_bytes(item) + b"\n") for item in rows)
+        if (len(rows) >= MAX_OWNER_JOURNAL_ROWS
+                or retained_bytes + len(data) > MAX_OWNER_JOURNAL_BYTES
+                or len(data) > MAX_OWNER_JOURNAL_LINE_BYTES + 1):
+            raise ValueError("wake_daemon_owner_evidence_retention_limit")
         fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        with os.fdopen(fd, "ab") as handle: handle.write(canonical_bytes(row) + b"\n"); handle.flush(); os.fsync(handle.fileno())
+        with os.fdopen(fd, "ab") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
 
     def start(self) -> bool:
         if not self._adoption["enabled"]: return False
