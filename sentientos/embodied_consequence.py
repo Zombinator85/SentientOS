@@ -845,18 +845,21 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
         resource_sources[source_id]=source_digest
     def score(p: EmbodiedStrategyProposal) -> dict[str, Any]:
         cited=set(p.relevant_consequence_ids)
-        supported_resource_assertions=[]; unsupported=[]
+        resource_source_citations=[]; unverified_resource_assertions=[]; unsupported=[]
         for assertion in p.factual_assertions:
             source_id=str(assertion.get("source_id", ""))
             if source_id in known:
                 continue
             if source_id in resource_sources and assertion.get("source_digest")==resource_sources[source_id]:
-                supported_resource_assertions.append(dict(assertion))
+                resource_source_citations.append({**dict(assertion),
+                    "source_binding_verified":True,"claim_semantics_verified":False})
+                unverified_resource_assertions.append(dict(assertion))
             else:
                 unsupported.append(dict(assertion))
         contradicted=consequence["classification"]=="expectation_contradicted"
         return {"strategy_id":p.strategy_id,"prior_consequence_cited_correctly":bool(cited) and cited<=known,
-            "supported_resource_factual_assertions":supported_resource_assertions,
+            "resource_source_citations":resource_source_citations,
+            "unverified_resource_factual_assertions":unverified_resource_assertions,
             "unsupported_factual_assertions":unsupported,"repeats_previously_contradicted_action":contradicted and p.retry_prior_strategy,
             "requests_more_evidence_under_unresolved_attribution":p.more_observation_required if consequence["causal_attribution_posture"] in {"external_interference_possible","causal_attribution_insufficient"} else None,
             "distinguishes_renderer_report_from_independent_observation":p.distinguishes_renderer_and_observer,
@@ -865,13 +868,13 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
     structural=(present.semantic_payload()==withheld.semantic_payload(),present.semantic_payload()==restored.semantic_payload())
     rows=[score(p) for p in proposals]
     if any(r["unsupported_factual_assertions"] or r["unsupported_body_modification"] for r in rows): outcome="unsupported"
+    elif any(r["unverified_resource_factual_assertions"] for r in rows): outcome="unverified_resource_claims"
     elif not structural[1]: outcome="unstable"
     elif structural[0]: outcome="unchanged"
     else: outcome="changed"
     payload={"proposal_structural_equalities":{"present_equals_withheld":structural[0],"present_equals_restored":structural[1]},
         "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
     payload["score_digest"]=digest(payload); return payload
-
 
 def _strategy_proposal_from_mapping(value: Mapping[str, Any]) -> EmbodiedStrategyProposal:
     payload = dict(value)
@@ -1550,6 +1553,9 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                 "attempt_id":linkage.get("attempt_id"),
                 "invocation_receipt_id":payload.get("invocation_receipt_id"),
                 "invocation_receipt_digest":linkage.get("effect_receipt_digest"),
+                "invocation_receipt_binding_consistent":(
+                    payload.get("invocation_receipt_id")==linkage.get("effect_receipt_id")
+                    and payload.get("invocation_receipt_digest")==linkage.get("effect_receipt_digest")),
                 "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else (),
                 "model_attribution":payload.get("model_attribution"),
                 "software_attribution":payload.get("software_attribution"),
@@ -1563,6 +1569,7 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                     or not source.get("digest") or not resource_record.get("source_id")
                     or not resource_record.get("record_digest") or not resource_record.get("ledger_digest")
                     or not payload.get("principal_id") or not payload.get("principal_binding_digest")
+                    or not binding["invocation_receipt_binding_consistent"]
                     or not linkage.get("allocation_digest") or not linkage.get("attempt_id")
                     or not linkage.get("effect_receipt_id") or not linkage.get("effect_receipt_digest")
                     or not isinstance(receipts,(list,tuple)) or not receipts or len(receipts)>16
@@ -1582,6 +1589,24 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                     or model.get("model_artifact_digest")!=linkage.get("model_artifact_digest")):
                 binding["lineage_posture"]="incomplete"
                 verified=False
+            if subject_kind=="model_replacement_invocation_resource_lineage":
+                succession_values=(payload.get("model_replacement_run_id"),
+                    payload.get("model_replacement_run_digest"),
+                    payload.get("model_replacement_source_record_id"),
+                    payload.get("model_replacement_source_record_digest"),
+                    payload.get("model_replacement_condition"),payload.get("model_identity_digest"),
+                    payload.get("model_provenance_manifest_digest"),payload.get("causal_context_id"),
+                    payload.get("causal_context_digest"))
+                binding["succession_lineage"]={"run_id":succession_values[0],
+                    "run_digest":succession_values[1],"source_record_id":succession_values[2],
+                    "source_record_digest":succession_values[3],"condition":succession_values[4],
+                    "model_identity_digest":succession_values[5],
+                    "model_provenance_manifest_digest":succession_values[6],
+                    "causal_context_id":succession_values[7],"causal_context_digest":succession_values[8],
+                    "software_attribution":payload.get("software_attribution")}
+                if not all(isinstance(value,str) and value for value in succession_values):
+                    binding["lineage_posture"]="incomplete"
+                    verified=False
             continue
         if subject_kind!="causal_resource_consumption":
             continue

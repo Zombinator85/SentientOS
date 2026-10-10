@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `afa56dbc838d5a52c2f9b38936df43462ee087c8` (tree `c1229d38168cc602bd8b578d7b1cae447baa6175`, parent `b024deddfc873e9a10f31e3ff74d9eef072deff6`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `0783224bf01faa337c2e1b214a2c278b9bf05d77` (tree `23e49a3c6e63370e373c2a59df78f466757ffa03`, parent `afa56dbc838d5a52c2f9b38936df43462ee087c8`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -18,6 +18,7 @@ GitHub branch inspection most recently verified `afa56dbc838d5a52c2f9b38936df434
 - Developmental writeback now applies a digest-bound compact projection to joined resource invocation lineage. Long experiment-history context and consumption-receipt lists cannot exceed the writeback's smaller evidence budget silently; omissions are marked and the complete source payload remains bound by its digest.
 - Model-replacement resource facts preserve both the run artifact identity and the exact World-State source record identity/digest. Developmental writeback carries these values through its compact projection, including the separate model identity/provenance and causal-context bindings.
 - The strategy experiment's retained-history scope now verifies receipt-bound invocation lineage as well as whole-ledger records, and supports factual proposal assertions only when they cite the exact verified resource source ID and digest. Consequence citations, external-effect claims and body-modification authority remain separate.
+- A resource-source digest match establishes citation provenance only; claim semantics remain unverified and produce an explicit `unverified_resource_claims` outcome. Model-replacement history scope additionally requires exact run/source-record, model-provenance and causal-context identities. Unknown software-generation identity stays separate.
 - Windows adoption inspection now verifies the original configured cadence directory through the existing reparse-safe held-handle reader before normalization. Wake configuration files use the existing explicit-file custody read as the security decision; Windows mutation/effect paths remain blocked.
 - Successor-generation recovery now uses handle-bound known-path reads for Windows presence checks instead of `Path.exists()` on generation and receipt artifacts. Read-only `inspect()` exposes an incomplete handoff with its bounded pending phase; start and mutation remain blocked without POSIX flock support.
 - Earlier local construction continues to harden epistemic state, developmental history, resource evidence, admission, and invocation recovery. Writes stay fail-closed where equivalent atomic Windows publication and custody are unavailable.
