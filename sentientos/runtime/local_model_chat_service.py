@@ -22,7 +22,9 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
-from sentientos.chat_process_generation import publish_chat_process_handoff
+from sentientos.chat_process_generation import (
+    publish_chat_process_handoff, verify_current_chat_process_handoff,
+)
 
 from .services import ChildProcessServiceAdapter, HealthResult
 from .supervisor import RuntimeServiceDescriptor, ServiceRegistry
@@ -153,6 +155,15 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         except Exception:
             self.force_stop()
             raise
+
+    def current_runtime_handoff(self) -> dict[str, object] | None:
+        if self._installation_handle is None or self._handoff_id is None:
+            return None
+        try:
+            return verify_current_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id)
+        except Exception as exc:
+            raise RuntimeError("chat_process_runtime_handoff_invalid") from exc
 
     @property
     def startup_configuration(self) -> LocalModelChatStartup:

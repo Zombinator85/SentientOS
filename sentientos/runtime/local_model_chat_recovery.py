@@ -58,7 +58,8 @@ def startup_configuration_digest(config: LocalModelChatStartup) -> str:
                             "restart_policy": "never"}))
 
 
-def build_startup_snapshot(config: LocalModelChatStartup, supervisor_generation: str) -> dict[str, Any]:
+def build_startup_snapshot(config: LocalModelChatStartup, supervisor_generation: str, *,
+                           runtime_handoff: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if not config.enabled or not config.installation_identity or not config.serving_operation_id:
         raise LocalModelChatRecoveryError("enabled_startup_required")
     body: dict[str, Any] = {"schema_version": SNAPSHOT_SCHEMA, "snapshot_version": 1,
@@ -68,6 +69,10 @@ def build_startup_snapshot(config: LocalModelChatStartup, supervisor_generation:
         "host": config.host, "port": config.port,
         "startup_configuration_digest": startup_configuration_digest(config),
         "restart_policy": "never"}
+    if runtime_handoff is not None:
+        if not isinstance(runtime_handoff, Mapping):
+            raise LocalModelChatRecoveryError("runtime_handoff_snapshot_invalid")
+        body["chat_process_handoff"] = dict(runtime_handoff)
     body["snapshot_semantic_digest"] = semantic_digest(body)
     return body
 
@@ -190,6 +195,11 @@ def build_recovery_intent(*, snapshot: Mapping[str, Any], prior_receipt: Mapping
         **provenance, "replacement_serving_operation_id": replacement,
         "recovery_correlation_id": recovery_correlation_id,
         "intended_restart_target": SERVICE_ID, "recovery_inference": False}
+    prior_handoff = snapshot.get("chat_process_handoff")
+    if prior_handoff is not None:
+        if not isinstance(prior_handoff, Mapping):
+            raise LocalModelChatRecoveryError("startup_process_handoff_invalid")
+        body["prior_chat_process_handoff"] = dict(prior_handoff)
     body["intent_id"] = "local-model-chat-recovery-intent-" + semantic_digest(body)[:24]
     body["intent_semantic_digest"] = semantic_digest(body)
     return body
@@ -366,6 +376,9 @@ class ProductionLocalModelChatRecoveryController:
             if loaded is not None:
                 return loaded
             attempted = completed = False; readiness = "not_observed"; decision_ref = None; outcome = "not_requested"
+            prior_chat_handoff: dict[str, Any] | None = None
+            successor_chat_handoff: dict[str, Any] | None = None
+            handoff_lineage_posture = "unavailable"
             try:
                 request = _read_json(self._handle, f"local-model/recovery/requests/{name}", "recovery_request_malformed")
                 if (request.get("schema_version") != REQUEST_SCHEMA
@@ -383,6 +396,17 @@ class ProductionLocalModelChatRecoveryController:
                 if intent.get("prior_serving_operation_id") != snapshot.get("serving_operation_id"):
                     raise LocalModelChatRecoveryError("recovery_request_stale")
                 prior = exact_prior_serving_receipt(self._handle, str(snapshot["serving_operation_id"]))
+                snapshot_handoff = snapshot.get("chat_process_handoff")
+                observed_handoff = self._adapter.current_runtime_handoff()
+                if snapshot_handoff is not None:
+                    if (not isinstance(snapshot_handoff, Mapping)
+                            or not isinstance(observed_handoff, Mapping)
+                            or dict(snapshot_handoff) != dict(observed_handoff)
+                            or intent.get("prior_chat_process_handoff") != dict(snapshot_handoff)):
+                        raise LocalModelChatRecoveryError("chat_process_predecessor_handoff_mismatch")
+                    prior_chat_handoff = dict(observed_handoff)
+                elif observed_handoff is not None or "prior_chat_process_handoff" in intent:
+                    raise LocalModelChatRecoveryError("chat_process_predecessor_handoff_unbound")
                 replacement = require_fresh_operation(self._handle, str(intent["replacement_serving_operation_id"]),
                                                       str(snapshot["serving_operation_id"]))
                 current = _current_activation(self._handle); provenance = _activation_provenance(current)
@@ -422,7 +446,23 @@ class ProductionLocalModelChatRecoveryController:
                 if readiness != "serving_current":
                     self._adapter.force_stop()
                     raise LocalModelChatRecoveryError("post_restart_semantic_readiness_timeout")
+                observed_successor_handoff = self._adapter.current_runtime_handoff()
+                if observed_successor_handoff is not None:
+                    successor_chat_handoff = dict(observed_successor_handoff)
+                if prior_chat_handoff is not None and successor_chat_handoff is not None:
+                    if (prior_chat_handoff.get("handoff_id") == successor_chat_handoff.get("handoff_id")
+                            or prior_chat_handoff.get("process_instance_id")
+                                == successor_chat_handoff.get("process_instance_id")):
+                        self._adapter.force_stop()
+                        raise LocalModelChatRecoveryError("chat_process_successor_handoff_not_fresh")
+                    handoff_lineage_posture = "verified_predecessor_successor_process_handoffs"
+                elif successor_chat_handoff is not None:
+                    handoff_lineage_posture = "successor_handoff_verified_predecessor_unavailable"
                 advanced = dict(snapshot); advanced["serving_operation_id"] = replacement
+                if successor_chat_handoff is not None:
+                    advanced["chat_process_handoff"] = successor_chat_handoff
+                else:
+                    advanced.pop("chat_process_handoff", None)
                 advanced["snapshot_version"] = int(snapshot.get("snapshot_version", 1)) + 1
                 advanced["snapshot_semantic_digest"] = semantic_digest(_without(advanced, "snapshot_semantic_digest"))
                 write_startup_snapshot(advanced, self._supervisor.root)
@@ -443,7 +483,11 @@ class ProductionLocalModelChatRecoveryController:
                 "prior_serving_receipt_semantic_digest": prior.get("receipt_semantic_digest"),
                 "daemon_restart_decision_ref": decision_ref, "daemon_restart_outcome": outcome,
                 "child_restart_attempted": attempted, "child_restart_completed": completed,
-                "post_restart_semantic_readiness": readiness, "model_serving_granted_by_recovery": False,
+                "post_restart_semantic_readiness": readiness,
+                "predecessor_chat_process_handoff": prior_chat_handoff,
+                "successor_chat_process_handoff": successor_chat_handoff,
+                "chat_process_handoff_lineage_posture": handoff_lineage_posture,
+                "model_serving_granted_by_recovery": False,
                 "inference_performed": False, "local_model_inference_authority_granted": False,
                 "terminal_status": status, "terminal_reason": reason}
             receipt["receipt_semantic_digest"] = semantic_digest(receipt)

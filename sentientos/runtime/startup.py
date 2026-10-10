@@ -55,7 +55,9 @@ def run_canonical_runtime(
         if config.enabled:
             adapter = registry.adapter(SERVICE_ID)
             assert isinstance(adapter, LocalModelChatServiceAdapter)
-            write_startup_snapshot(build_startup_snapshot(config, supervisor.generation), supervisor.root)
+            handoff = adapter.current_runtime_handoff()
+            write_startup_snapshot(build_startup_snapshot(
+                config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
             assert handle is not None
             recovery = ProductionLocalModelChatRecoveryController(
                 supervisor, adapter, ControlPlaneKernel(), handle)
