@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `1206aa182e7e59ee5d01224196432df68191303c` (tree `8a993201935bb24228635589fc86d898957e329c`, parent `6dfdbfb91cd3690e09c604cc24405616098a4427`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `72cf4ae88d7bd71d79c23674e49ac545b9b6cc28` (tree `ce13a096e093b6be27e75d7584c1d28593b37223`, parent `4b5f88a53fc157148b0a7d1cde5f7e8108a63fe6`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -241,3 +241,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verified at `da56d4b2ebd9c7c2bd98ecdf7139135b7873ce44`.
 
 **Next implementation dependency:** inspect the model-serving and succession owner interfaces for any remaining state where a software handoff could be mistaken for an active model, or where recovered model-transition receipts are not cross-bound to their own predecessor/successor evidence. Keep the two lineages separate.
+
+### New checkpoint — model activation and serving history stay separately attributable
+
+- Read-only current-activation verification now reconstructs the exact committed selection chain from installation transactions, checking bounded custody, each generation and predecessor digest, intent and projection identity, stored admission and approval bindings, canonical activation receipt, and the finalization's matching transaction/state/receipt references. Missing, ambiguous, malformed, substituted, or interrupted lineage fails closed. It does not load a model or replay activation.
+- The serving owner binds the reconstructed history digest into its serving admission/session receipt and rechecks it for currentness alongside the selected state and loaded-model identity. A new non-mutating `observed_current_session()` gives World-State a read-only opaque session observation; stale sessions are omitted instead of being invalidated by the observation path.
+- The daemon emits a source record for an observed running model even when the optional A/B transition protocol is absent. It carries the actual session's loaded identity and exact activation receipt, predecessor and chain digest references. Session event time and model-development provenance remain unknown without their respective owners. This is serving-owner evidence, not independent hardware observation, truth, or authority.
+- Changed modules passed Python AST compilation. No tests, runtime, crash, concurrency, platform, model-load, inference, or production verification was run.
+- Remote branch verification: `72cf4ae88d7bd71d79c23674e49ac545b9b6cc28`.
+
+**Next implementation dependency:** verify that the new running-model record reaches only configured World-State and epistemic/self-model selectors, then carry activation-history linkage through the resident model-transition stage binding and recovered later cognition without conflating selected, loaded, serving, or observed identities.
