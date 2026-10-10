@@ -977,7 +977,9 @@ class RuntimeMaintenanceSurfaces:
                         "installation_identity": observation.installation_identity,
                         "provisioning_id": observation.provisioning_id,
                         "manifest_digest": observation.manifest_digest,
-                    })
+                    },
+                    verified_chat_process_generation_attributions=(
+                        observation.chat_process_generation_attributions))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records))
@@ -987,6 +989,9 @@ class RuntimeMaintenanceSurfaces:
                     "provisioning_id": observation.provisioning_id,
                     "ledger_digest": observation.ledger.observation_snapshot()["ledger_digest"],
                     "invocation_receipt_posture": observation.invocation_receipt_posture,
+                    "chat_process_generation_posture": observation.chat_process_generation_posture,
+                    "verified_chat_process_generation_attribution_count": len(
+                        observation.chat_process_generation_attributions),
                     "read_only": True, "effect_authority": False,
                 }
                 records.append({
@@ -2225,10 +2230,14 @@ def _compose_causal_introspection(
                 invocation_receipts=observation.invocation_receipts,
                 source_identity={"installation_identity": observation.installation_identity,
                     "provisioning_id": observation.provisioning_id,
-                    "manifest_digest": observation.manifest_digest})
-            if len(records) != 1 or not isinstance(records[0].get("payload"), Mapping):
+                    "manifest_digest": observation.manifest_digest},
+                verified_chat_process_generation_attributions=(
+                    observation.chat_process_generation_attributions))
+            resource_record = next((item for item in records
+                if item.get("subject_kind") == "causal_resource_consumption"), None)
+            if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):
                 raise ValueError("causal_resource_projection_shape_invalid")
-            payload = records[0]["payload"]
+            payload = resource_record["payload"]
             receipt_values = payload.get("consumption_receipts", ())
             latest_consumption_event_at = next((item.get("observed_at")
                 for item in reversed(tuple(receipt_values))
@@ -2257,6 +2266,9 @@ def _compose_causal_introspection(
                 "lineage_posture": str(payload.get("lineage_posture", "unknown")),
                 "recovery_posture": str(payload.get("recovery_posture", "unknown")),
                 "invocation_receipt_posture": observation.invocation_receipt_posture,
+                "chat_process_generation_posture": observation.chat_process_generation_posture,
+                "verified_chat_process_generation_attribution_count": len(
+                    observation.chat_process_generation_attributions),
                 "identity_retention_posture": ("complete" if len(ledger_snapshot["attempts"]) <= 64
                     and len(receipt_values) <= 64 and len(observation.invocation_receipts) <= 64
                     else "bounded_tail_incomplete"),

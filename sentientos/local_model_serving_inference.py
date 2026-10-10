@@ -116,6 +116,7 @@ class ProductionServingInferenceController:
         record = authority.record_for_active_identity(model.active_identity, "local_user_chat")
         if record is None or model.active_identity.to_dict() != identity:
             raise ProductionServingInferenceError("exact_loaded_model_authority_record_required")
+        software_generation_attribution = self._software_generation_attribution()
         linkage: Mapping[str, Any] = {
             "serving_session_id": session.session_id,
             "serving_operation_id": binding["serving_operation_id"],
@@ -132,7 +133,7 @@ class ProductionServingInferenceController:
             "artifact_sha256": binding["artifact_sha256"],
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
-            "software_generation_attribution": self._software_generation_attribution(),
+            "software_generation_attribution": software_generation_attribution,
         }
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
@@ -162,10 +163,17 @@ class ProductionServingInferenceController:
             upstream_evidence={"current_serving_lifetime": linkage}, linkage=linkage)
 
         def current() -> None:
+            # Both guards use the chat child’s own launcher handoff, never the
+            # maintenance daemon’s independently running software identity.
+            # The post-effect guard ensures a completed receipt cannot span a
+            # detected source-generation change during inference.
             try:
                 self._serving._current_inference_model(session)
             except ProductionServingError as exc:
                 raise ProductionServingInferenceError("serving_lifetime_not_current") from exc
+            current_generation = self._software_generation_attribution()
+            if current_generation != software_generation_attribution:
+                raise ProductionServingInferenceError("chat_process_generation_changed_during_inference")
 
         def current_after() -> None:
             try:

@@ -23,6 +23,10 @@ from .causal_resource_principal_currentness import (
 from .causal_resource_principal_ed25519 import CryptographyEd25519RootIssuerSignatureVerifier
 from .causal_resource_principal_trust_catalog import ReadOnlyTrustedIssuerCatalog
 from .governed_local_model_invocation import validate_receipt
+from .chat_process_generation import (
+    ChatProcessGenerationError,
+    verify_stored_chat_process_handoff,
+)
 from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceAllocation,
     GovernedLocalModelResourceLedger,
@@ -61,6 +65,8 @@ class ProductionChatResourceObservation:
     ledger: GovernedLocalModelResourceLedgerObservation
     invocation_receipts: tuple[Mapping[str, Any], ...]
     invocation_receipt_posture: str
+    chat_process_generation_attributions: tuple[Mapping[str, Any], ...] = ()
+    chat_process_generation_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -149,20 +155,36 @@ class ProductionChatResourceObservationOwner:
                 current_time=allocation.validity.principal_currentness_checked_at)
         except (TypeError, ValueError) as exc:
             raise ProductionChatResourceObservationError("historical_principal_binding_invalid") from exc
-        invocation_receipts, receipt_posture = self._invocation_receipts(allocation.allocation_digest)
+        invocation_receipts, receipt_posture, generation_attributions = self._invocation_receipts(
+            allocation.allocation_digest)
+        completed_invocations = tuple(item for item in invocation_receipts
+            if item.get("status") == "admitted_completed"
+            and isinstance(item.get("effects"), Mapping)
+            and item["effects"].get("local_model_inference") is True)
+        if not completed_invocations:
+            generation_posture = "unknown_no_completed_invocations"
+        elif len(generation_attributions) == len(completed_invocations):
+            generation_posture = "verified"
+        elif generation_attributions:
+            generation_posture = "partial_legacy_or_unavailable"
+        else:
+            generation_posture = "unknown_legacy_or_unavailable"
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
-            str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture)
+            str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
+            generation_attributions, generation_posture)
 
-    def _invocation_receipts(self, allocation_digest: str) -> tuple[tuple[Mapping[str, Any], ...], str]:
+    def _invocation_receipts(self, allocation_digest: str
+            ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...]]:
         try:
             names = self._handle.list_regular_names(
                 "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
-                return (), "degraded_missing_receipt_directory"
+                return (), "degraded_missing_receipt_directory", ()
             raise ProductionChatResourceObservationError("invocation_receipt_directory_invalid") from exc
         receipts: list[Mapping[str, Any]] = []
+        generation_attributions: list[Mapping[str, Any]] = []
         for name in names:
             if _RECEIPT_TEMP_NAME.fullmatch(name) is not None:
                 continue  # Incomplete atomic-write staging is never receipt evidence.
@@ -182,10 +204,62 @@ class ProductionChatResourceObservationOwner:
             valid, findings = validate_receipt(value)
             if not valid:
                 raise ProductionChatResourceObservationError("invocation_receipt_invalid:" + findings[0])
+            request = value.get("request")
+            linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            software = linkage.get("software_generation_attribution") if isinstance(linkage, Mapping) else None
+            verified_software = None
+            if software is not None:
+                legacy_unavailable = {
+                    "status": "unavailable",
+                    "reason_code": "authenticated_chat_process_generation_issuer_not_composed",
+                    "generation_identity": None,
+                    "process_instance_id": None,
+                }
+                if software == legacy_unavailable:
+                    verified_software = None
+                elif (not isinstance(software, Mapping)
+                        or software.get("status") != "runtime_launcher_process_and_source_bound"
+                        or not isinstance(software.get("handoff_id"), str)
+                        or not isinstance(software.get("handoff_digest"), str)):
+                    raise ProductionChatResourceObservationError(
+                        "invocation_software_generation_attribution_invalid")
+                else:
+                    try:
+                        historical = verify_stored_chat_process_handoff(
+                            handle=self._handle,
+                            handoff_id=str(software["handoff_id"]),
+                            expected_digest=str(software["handoff_digest"]))
+                    except ChatProcessGenerationError as exc:
+                        raise ProductionChatResourceObservationError(
+                            "invocation_software_generation_handoff_invalid") from exc
+                    if dict(software) != dict(historical):
+                        raise ProductionChatResourceObservationError(
+                            "invocation_software_generation_handoff_mismatch")
+                    verified_software = dict(historical)
             if value.get("resource_allocation_digest") == allocation_digest:
                 receipts.append(dict(value))
+                request = value.get("request")
+                if (verified_software is not None
+                        and isinstance(request, Mapping)
+                        and value.get("status") == "admitted_completed"
+                        and isinstance(value.get("effects"), Mapping)
+                        and value["effects"].get("local_model_inference") is True
+                        and isinstance(value.get("output_digest"), str)):
+                    generation_attributions.append({
+                        "invocation_receipt_id": value["receipt_id"],
+                        "invocation_receipt_digest": value["receipt_digest"],
+                        "invocation_request_id": request.get("request_id"),
+                        "invocation_request_digest": request.get("request_digest"),
+                        "chat_process_handoff": dict(verified_software),
+                        "attribution_posture": "invocation_receipt_and_historical_chat_handoff_verified",
+                        "currentness_posture": "historical_process_identity_not_reobserved_during_recovery",
+                    })
         receipts.sort(key=lambda item: (str(item.get("observed_at", "")), str(item.get("receipt_id", ""))))
-        return tuple(receipts), "verified" if receipts else "degraded_no_resource_invocation_receipts"
+        generation_attributions.sort(key=lambda item: (
+            str(item.get("invocation_receipt_id", "")), str(item.get("invocation_receipt_digest", ""))))
+        return (tuple(receipts),
+            "verified" if receipts else "degraded_no_resource_invocation_receipts",
+            tuple(generation_attributions))
 
 
 __all__ = [

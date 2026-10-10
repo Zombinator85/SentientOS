@@ -747,6 +747,15 @@ class ResidentDevelopmentalCognitionOwner:
             and bool(payload.get("principal_binding_digest"))
             and payload.get("lineage_findings") == []
         )
+        chat_process_generation_verified = (
+            source_kind == "resource_governor"
+            and subject_kind == "chat_process_software_generation_invocation"
+            and fact.disposition == "recorded"
+            and payload.get("attribution_posture")
+                == "invocation_receipt_and_historical_chat_handoff_verified"
+            and isinstance(payload.get("chat_process_handoff"), Mapping)
+            and isinstance(payload.get("invocation_receipt_digest"), str)
+        )
         if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
@@ -756,7 +765,7 @@ class ResidentDevelopmentalCognitionOwner:
             priority = 2
         elif resource_lineage_verified:
             priority = 3
-        elif strategy_resource_lineage_verified:
+        elif strategy_resource_lineage_verified or chat_process_generation_verified:
             priority = 3
         elif (source_kind == "runtime_supervisor"
                 and subject_kind in {"resident_model_transition", "software_generation_transition"}

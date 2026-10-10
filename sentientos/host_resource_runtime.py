@@ -284,7 +284,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               max_receipts: int = 256,
                                               max_invocation_receipts: int = 256,
                                               max_attempts: int = 64,
-                                              source_identity: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
+                                              source_identity: Mapping[str, str] | None = None,
+                                              verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -303,6 +304,57 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     raw_receipts = tuple(snapshot["receipts"])
     if len(invocation_receipts) > 256:
         raise ValueError("resource_invocation_receipt_bound_exceeded")
+    if len(verified_chat_process_generation_attributions) > 256:
+        raise ValueError("chat_process_generation_attribution_bound_exceeded")
+    invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    for invocation in invocation_receipts:
+        if not isinstance(invocation, Mapping):
+            raise ValueError("resource_invocation_receipt_invalid")
+        receipt_id = invocation.get("receipt_id")
+        receipt_digest = invocation.get("receipt_digest")
+        if not isinstance(receipt_id, str) or not receipt_id or not isinstance(receipt_digest, str) or not receipt_digest:
+            raise ValueError("resource_invocation_receipt_identity_invalid")
+        if receipt_id in invocation_by_id:
+            if dict(invocation_by_id[receipt_id]) != dict(invocation):
+                raise ValueError("resource_invocation_receipt_identity_conflict")
+            raise ValueError("resource_invocation_receipt_duplicate")
+        invocation_by_id[receipt_id] = invocation
+    generation_attribution_by_receipt: dict[str, Mapping[str, Any]] = {}
+    attribution_fields = {"invocation_receipt_id", "invocation_receipt_digest",
+        "invocation_request_id", "invocation_request_digest", "chat_process_handoff",
+        "attribution_posture", "currentness_posture"}
+    for attribution in verified_chat_process_generation_attributions:
+        if not isinstance(attribution, Mapping) or set(attribution) != attribution_fields:
+            raise ValueError("chat_process_generation_attribution_invalid")
+        receipt_id, receipt_digest = (attribution.get("invocation_receipt_id"),
+                                      attribution.get("invocation_receipt_digest"))
+        invocation = invocation_by_id.get(str(receipt_id))
+        request = invocation.get("request") if isinstance(invocation, Mapping) else None
+        handoff = attribution.get("chat_process_handoff")
+        if (not isinstance(receipt_id, str) or not isinstance(receipt_digest, str)
+                or not isinstance(attribution.get("invocation_request_id"), str)
+                or not isinstance(attribution.get("invocation_request_digest"), str)
+                or not isinstance(handoff, Mapping)
+                or handoff.get("status") != "runtime_launcher_process_and_source_bound"
+                or not isinstance(handoff.get("process_instance_id"), str)
+                or not isinstance(handoff.get("software_generation_digest"), str)
+                or attribution.get("attribution_posture")
+                    != "invocation_receipt_and_historical_chat_handoff_verified"
+                or attribution.get("currentness_posture")
+                    != "historical_process_identity_not_reobserved_during_recovery"
+                or not isinstance(request, Mapping)
+                or invocation.get("receipt_digest") != receipt_digest
+                or invocation.get("status") != "admitted_completed"
+                or not isinstance(invocation.get("effects"), Mapping)
+                or invocation["effects"].get("local_model_inference") is not True
+                or not isinstance(invocation.get("output_digest"), str)
+                or request.get("request_id") != attribution.get("invocation_request_id")
+                or request.get("request_digest") != attribution.get("invocation_request_digest")):
+            raise ValueError("chat_process_generation_attribution_binding_invalid")
+        prior = generation_attribution_by_receipt.get(receipt_id)
+        if prior is not None and dict(prior) != dict(attribution):
+            raise ValueError("chat_process_generation_attribution_identity_conflict")
+        generation_attribution_by_receipt[receipt_id] = attribution
     allocation_by_digest = {str(item.get("allocation_digest")): item for item in snapshot["allocations"] if isinstance(item, Mapping)}
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
     attempt_by_id = {str(item.get("attempt_id")): item for item in snapshot["attempts"] if isinstance(item, Mapping)}
@@ -409,7 +461,16 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
+        "chat_process_handoff_digest": (
+            generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
+                .get("chat_process_handoff", {}).get("handoff_digest")
+            if isinstance(generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {}).get(
+                "chat_process_handoff"), Mapping) else None),
     } for invocation in selected_invocations)
+    selected_generation_attributions = tuple(
+        dict(generation_attribution_by_receipt[str(invocation.get("receipt_id"))])
+        for invocation in selected_invocations
+        if str(invocation.get("receipt_id")) in generation_attribution_by_receipt)
     retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
         or len(raw_receipts) > min(max_receipts, 16)
         or len(invocation_receipts) > min(max_invocation_receipts, 16)
@@ -426,6 +487,20 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "consumption_receipt_count": len(raw_receipts),
                "invocation_receipts": compact_invocations,
                "invocation_receipt_count": len(invocation_receipts),
+               "verified_chat_process_generation_attributions": selected_generation_attributions,
+               "chat_process_generation_posture": (
+                   "unknown_no_completed_invocations" if not any(
+                       item.get("status") == "admitted_completed"
+                       and isinstance(item.get("effects"), Mapping)
+                       and item["effects"].get("local_model_inference") is True
+                       for item in invocation_receipts)
+                   else "verified" if len(generation_attribution_by_receipt) == sum(
+                       1 for item in invocation_receipts
+                       if item.get("status") == "admitted_completed"
+                       and isinstance(item.get("effects"), Mapping)
+                       and item["effects"].get("local_model_inference") is True)
+                   else "partial_legacy_or_unavailable" if generation_attribution_by_receipt
+                   else "unknown_legacy_or_unavailable"),
                "attribution_posture": "receipt_bound_only",
                "shared_host_usage_attribution": "unknown_without_independent_observation",
                "retention_posture": "bounded_tail_incomplete" if retention_incomplete else "complete",
@@ -446,7 +521,57 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
              # let a restart/reprojection timestamp make old consumption
              # appear to be a fresh observation to epistemic consumers.
              "observed_at": None, "retrieved_at": observed_at, "payload": payload}
-    return [{**record, "digest": record_digest(record)}]
+    output = [{**record, "digest": record_digest(record)}]
+    for attribution in selected_generation_attributions:
+        handoff = attribution["chat_process_handoff"]
+        invocation = invocation_by_id[str(attribution["invocation_receipt_id"])]
+        request = invocation.get("request") if isinstance(invocation, Mapping) else {}
+        payload = {
+            "invocation_receipt_id": attribution["invocation_receipt_id"],
+            "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+            "invocation_request_id": attribution["invocation_request_id"],
+            "invocation_request_digest": attribution["invocation_request_digest"],
+            "chat_process_handoff": dict(handoff),
+            "verified_chat_process_generation_attributions": [dict(attribution)],
+            "software_generation_digest": handoff.get("software_generation_digest"),
+            "process_instance_id": handoff.get("process_instance_id"),
+            "process_startup_timestamp": handoff.get("startup_timestamp"),
+            "invocation_observed_at": invocation.get("observed_at"),
+            "invocation_time_posture": "receipt_custody_metadata_not_in_semantic_digest",
+            "attribution_posture": attribution["attribution_posture"],
+            "process_currentness": attribution["currentness_posture"],
+            "invocation_status": invocation.get("status"),
+            "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+            "resource_attempt_id": invocation.get("resource_attempt_id"),
+            "resource_consumption_receipt_digests": list(
+                invocation.get("resource_consumption_receipt_digests") or ()),
+            "resource_effect_receipt_digest": invocation.get("receipt_digest"),
+            "resource_lineage_posture": "invocation_bound_ledger_reconciliation_is_sibling_evidence",
+            "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
+            "model_artifact_digest": request.get("model_artifact_digest") if isinstance(request, Mapping) else None,
+            "active_model_identity": request.get("active_model_identity") if isinstance(request, Mapping) else None,
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "historical_only": True,
+            "effect_authority": False,
+        }
+        source_id = ("chat_process_invocation:" + str(attribution["invocation_receipt_id"])
+            + ":" + str(attribution["invocation_receipt_digest"])
+            + ":" + str(handoff.get("handoff_digest", "")))
+        item = {
+            "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": source_id,
+            "subject_kind": "chat_process_software_generation_invocation",
+            "subject_id": str(handoff.get("process_instance_id")),
+            "stage": "observation", "disposition": "recorded",
+            "evidence_strength": "child_handoff_bound_completed_invocation_receipt",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    return output
 
 
 def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, Any]],

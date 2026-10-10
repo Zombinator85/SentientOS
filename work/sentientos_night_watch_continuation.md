@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `6b68666c78df3c9be42d995aee07d3b3218537f7` (tree `a7c458b294ed4e006723126c94c7d7bcb2cc5320`, parent `7874a28876c2ef3ce8a744bc0984ded528f9eb3e`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+Before this increment, GitHub branch inspection most recently verified `0bbc01ba5acb3b25949f2b5f65454c99696bda30` (tree `a49079c81c8c516e1e9c70c3a9c6d592df530a22`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -328,3 +328,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Three modified Python files passed `py_compile`; no runtime integration or tests were executed. Construction remains unverified for production.
 
 **Next implementation dependency:** inspect and compose the existing software-generation and chat-recovery lineage with model succession. Preserve their distinct event owners and process-generation evidence, and create only source-bound historical context where a real shared binding exists. If no owner can prove a cross-lineage relation, keep the chains separate and identify the missing issuer/binding.
+
+
+### New construction checkpoint — chat process generation follows the invocation receipt
+
+- The hardened chat child already verifies its own installation-scoped launcher handoff before inference. `ProductionServingInferenceController.generate()` now captures that exact child handoff once in request linkage and rechecks it under both the pre-effect and post-effect guards. A detected process/source-generation change makes the invocation non-completed through the existing receipt path; no maintenance-daemon commit or model identity is substituted for the chat child.
+- The read-only production chat resource observer now validates any present invocation software-generation linkage against the exact stored chat-process handoff. Historical receipts with no linkage and the explicit unavailable posture remain unknown; malformed, substituted, or missing stored handoffs degrade the selected source. Successful resource-linked invocation rows carry exact receipt, request, model, allocation, attempt, consumption, installation/provisioning, chat process-instance, handoff, and source-generation identities into World-State.
+- Each independently verified completed chat invocation also emits a bounded World-State source record that keeps process and model identities separate. It preserves the handoff-bound startup time but sets the World-State event time to unknown because invocation-receipt observed_at is custody metadata outside the receipt digest. Recovery time is kept as retrieval metadata and cannot make the historical call fresh. No effects or authority are claimed.
+- Existing resident cognition selection can prioritize this exact resource-governor source kind, and the longitudinal self-model retains the attribution as lineage. This remains subject to the existing explicitly configured source selector and development rules; it does not add a learning rule or authority.
+- The model-transition daemon and separately operating chat process remain distinct owners. The captured chat handoff binds only chat invocations; no daemon software identity is used as chat evidence, and no relation between an unrelated resident-model transition and chat process is inferred.
+- Construction work is untested and unverified for production. Syntax compilation and source/diff review are the only checks in this pass.
+
+**Next implementation dependency:** inspect the authenticated chat generation predecessor handoff chain and resident model/software succession projection for a common installation-level history owner. Preserve the chat handoff’s explicit direct_predecessorship=not_proven, overlap_status=unknown, and unknown intervening generations; do not join those process handoffs to model transitions without an exact shared transition binding.
