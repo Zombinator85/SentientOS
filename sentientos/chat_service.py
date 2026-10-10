@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Mapping, Protocol, cast
@@ -113,10 +115,6 @@ class PersistentConversationService:
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False) -> ChatResponse:
         identity_payload = self._inference.current_conversation_model_identity()
         session = self.sessions.create(model_identity=identity_payload) if session_id is None else self.sessions.load(session_id)
-        if session["model_identity_digest"] != __import__("hashlib").sha256(
-            __import__("json").dumps(identity_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-        ).hexdigest():
-            raise ValueError("session_model_identity_mismatch")
         user_turn = self.sessions.append_turn(session["session_id"], role="user", text=message,
                                               retention_state="requested" if retain else "not_requested")
         history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
@@ -134,9 +132,48 @@ class PersistentConversationService:
             accepted_statuses.add("admitted_simulation")
         if receipt.status not in accepted_statuses or not receipt.output_text:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
+        invoked_identity = receipt.request.get("active_model_identity", {})
+        upstream = receipt.request.get("upstream_evidence", {})
+        serving_lifetime = (upstream.get("current_serving_lifetime")
+            if isinstance(upstream, Mapping) else None)
+        if not isinstance(invoked_identity, Mapping) or not isinstance(identity_payload, Mapping):
+            raise RuntimeError("invocation_model_identity_mismatch")
+        if "observed_loaded_model_identity" in identity_payload:
+            observed_loaded_identity = identity_payload.get("observed_loaded_model_identity")
+            if (not isinstance(serving_lifetime, Mapping)
+                    or not isinstance(observed_loaded_identity, Mapping)
+                    or any(serving_lifetime.get(key) != value
+                        for key, value in identity_payload.items())
+                    or dict(invoked_identity) != dict(observed_loaded_identity)):
+                raise RuntimeError("invocation_model_identity_mismatch")
+            caller_context = serving_lifetime.get("caller_context")
+            if (not isinstance(caller_context, Mapping)
+                    or caller_context.get("session_id") != session["session_id"]
+                    or caller_context.get("user_turn_id") != user_turn["turn_id"]):
+                raise RuntimeError("invocation_conversation_context_mismatch")
+        elif dict(invoked_identity) != dict(identity_payload):
+            raise RuntimeError("invocation_model_identity_mismatch")
+        serving_identity_digest = hashlib.sha256(json.dumps(dict(identity_payload), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        loaded_identity_digest = hashlib.sha256(json.dumps(dict(invoked_identity), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        prior_identity_digests = [str(turn.get("linkage", {}).get("active_model_identity_digest"))
+            for turn in session.get("turns", ()) if turn.get("role") == "assistant"
+            and isinstance(turn.get("linkage"), Mapping)
+            and isinstance(turn.get("linkage", {}).get("active_model_identity_digest"), str)]
+        predecessor_identity_digest = (prior_identity_digests[-1] if prior_identity_digests
+            else str(session.get("model_identity_digest", "")))
+        continuity_posture = ("same_exact_serving_identity" if predecessor_identity_digest == serving_identity_digest
+            else "model_identity_changed_predecessor_relation_unverified")
         assistant = self.sessions.append_turn(session["session_id"], role="assistant", text=receipt.output_text,
             linkage={"request_id": receipt.request.get("request_id"), "invocation_receipt_digest": receipt.receipt_digest,
-                     "active_model_identity_digest": session["model_identity_digest"], "context_snapshot_digest": history.snapshot_digest,
+                     "active_model_identity": dict(identity_payload),
+                     "active_model_identity_digest": serving_identity_digest,
+                     "loaded_model_identity": dict(invoked_identity),
+                     "loaded_model_identity_digest": loaded_identity_digest,
+                     "predecessor_model_identity_digest": predecessor_identity_digest,
+                     "model_identity_continuity_posture": continuity_posture,
+                     "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"]})
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
@@ -157,6 +194,9 @@ class PersistentConversationService:
         return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
+                                     "active_model_identity_digest": serving_identity_digest,
+                                     "loaded_model_identity_digest": loaded_identity_digest,
+                                     "model_identity_continuity_posture": continuity_posture,
                                      "selected_turn_count": len(history.turns), "selected_memory_count": len(memory["memories"])},
                             retention=retention_result)
 
