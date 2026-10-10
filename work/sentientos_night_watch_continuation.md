@@ -7,10 +7,12 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `b40fd789c22162d2faac85ecadaaa3f287246912` (remote verified): `sentientos/embodied_consequence.py` imports without POSIX `fcntl`; consequence file custody keeps its descriptor-relative POSIX guarantees and fails closed when unavailable. Read-only lookups do not create storage.
 - `c4dbce7ca8a1eea89e7de77a46ae8543278b93f0` (remote verified): exact opt-in selectors project digest-verified strategy experiment and controlled model-replacement artifacts into World-State. Their absent event times remain undated through epistemic adaptation.
 - Third increment compiled: durable immutable consequence-chain bundle; exact chain projection; model-comparison linkage validation; stable undated chain summary; explicit source/record byte and projection-count budgets; daemon reports degraded if World-State’s 128-source cap omits selected projected records. `evaluate_consequence` never upgrades descriptive fulfillment to effect proof. `py_compile` and `git diff --check` passed; no runtime behavior was exercised.
-- Fourth increment in progress: the existing observation digest proves content identity, not observer authority. Consequence attribution now labels that source as `unverified_caller_assertion`; the epistemic adapter keeps its freshness unknown even when the timestamp parses as recent.
-- Fifth increment compiled: `ConsequenceStore` opens the configured root and artifact directories by no-follow descriptors; artifact/checkpoint reads are relative to the opened kind directory. Missing checkpoints remain non-mutating and publication retains existing immutable locking.
-- Sixth increment in progress: strategy proposals have a typed adapter to the existing review-only receipt owner; new review receipts bind proposal digests and mark reviewer identity `declared_unverified`. Review resolution matches both ID and digest, while the legacy handoff table continues to block unsupported strategy kinds.
-- Seventh increment compiled: model-replacement experiment artifacts now use no-follow directory-descriptor traversal for reads and immutable `linkat`-style publication, with explicit fail-closed behavior if those POSIX primitives are unavailable.
+- `07b0653cb87b8420a530989a5f1eced29cbd0b94` (remote verified): immutable consequence-chain registration/projection, exact chain selectors, stable undated summary, bounded World-State projection, and source-limit degradation reporting.
+- `4088dbe748d5da9321f1efc2aec57f799f2d3394` (remote verified): digest-bound observations remain explicitly unverified caller assertions; epistemic freshness is unknown absent an authenticated observer issuer.
+- `6fd32f7064a8d60dadac7c2316f82a08950b38a9` (remote verified): consequence artifact reads now use no-follow descriptor traversal.
+- `1ec6d5b5e7436fde62ad49012e27b3de8f98adb9` (remote verified): strategy proposal review adapter and digest-aware review receipts; strategy kinds remain blocked from legacy handoff.
+- `7ca153d9516069bf78b951f6bce579f9e70b9f73` (remote verified): controlled model-replacement artifacts use no-follow descriptor reads and immutable descriptor-relative publication.
+- Eighth increment in progress: durable per-condition start/terminal custody for A/B comparisons; completed observations are reused after restart, a started nonterminal condition is never replayed, partial runs are content-addressed and projected as incomplete/contradictory, and campaign recovery reconciles an in-progress trial without marking partial output complete.
 
 ## Boundaries and blockers
 
@@ -22,6 +24,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Commit `[untested]`, push, and verify remote SHA.
-2. Review other adjacent portability/custody owners for the same read-vs-write asymmetry; do not broaden beyond directly connected code.
+1. Compile the per-condition recovery changes, commit `[untested]`, push, and verify remote SHA.
+2. Review the campaign state store’s adjacent path-based custody, then check for any other directly connected restart gap.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.

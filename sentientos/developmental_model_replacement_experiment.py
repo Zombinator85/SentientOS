@@ -20,10 +20,13 @@ CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
 PROVENANCE_SCHEMA = "sentientos.model_development_provenance:v1"
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_protocol:v1"
 RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v1"
+CONDITION_START_SCHEMA = "sentientos.developmental_model_replacement_condition_start:v1"
+CONDITION_RESULT_SCHEMA = "sentientos.developmental_model_replacement_condition_result:v1"
 MAX_PROVENANCE_ARTIFACT_BYTES = 262_144
 MAX_PROVENANCE_CLAIMS = 128
 MAX_PROTOCOL_ARTIFACT_BYTES = 1_048_576
 MAX_RUN_ARTIFACT_BYTES = 4_194_304
+MAX_CONDITION_ARTIFACT_BYTES = 1_048_576
 MAX_WORLD_STATE_PROJECTION_RECORDS = 48
 CONDITION_ORDER = (
     "model_a_history_present", "model_a_history_withheld",
@@ -301,6 +304,8 @@ class ModelReplacementArtifactStore:
         self.protocols = self.root / "protocols"
         self.provenance = self.root / "provenance"
         self.runs = self.root / "runs"
+        self.condition_starts = self.root / "condition-starts"
+        self.condition_results = self.root / "condition-results"
         self.read_only = read_only
 
     @staticmethod
@@ -311,7 +316,7 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("artifact_store_unsupported_platform")
 
     def _open_kind_directory(self, kind: str, *, create: bool) -> int:
-        if kind not in {"provenance", "protocols", "runs"}:
+        if kind not in {"provenance", "protocols", "runs", "condition-starts", "condition-results"}:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
         self._require_descriptor_storage()
         flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
@@ -349,18 +354,21 @@ class ModelReplacementArtifactStore:
             relative = path.relative_to(self.root)
         except ValueError as exc:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid") from exc
-        if len(relative.parts) != 2 or relative.parts[0] not in {"provenance", "protocols", "runs"}:
+        if len(relative.parts) != 2 or relative.parts[0] not in {"provenance", "protocols", "runs",
+                "condition-starts", "condition-results"}:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
         if not relative.parts[1] or relative.parts[1] in {".", ".."}:
             raise DevelopmentalModelReplacementError("artifact_store_path_invalid")
         return relative.parts[0], relative.parts[1]
 
-    def _write(self, path: Path, payload: Mapping[str, Any]) -> None:
+    def _write(self, path: Path, payload: Mapping[str, Any]) -> bool:
         if self.read_only:
             raise DevelopmentalModelReplacementError("artifact_store_read_only")
         normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
         limits = {"provenance": MAX_PROVENANCE_ARTIFACT_BYTES,
-            "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "runs": MAX_RUN_ARTIFACT_BYTES}
+            "protocols": MAX_PROTOCOL_ARTIFACT_BYTES, "runs": MAX_RUN_ARTIFACT_BYTES,
+            "condition-starts": MAX_CONDITION_ARTIFACT_BYTES,
+            "condition-results": MAX_CONDITION_ARTIFACT_BYTES}
         kind, filename = self._artifact_location(path)
         maximum = limits[kind]
         encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":"),
@@ -385,7 +393,7 @@ class ModelReplacementArtifactStore:
             if prior is not None:
                 if prior != normalized:
                     raise DevelopmentalModelReplacementError("artifact_identity_collision")
-                return
+                return False
             temporary_name = ".model-replacement-" + secrets.token_hex(16) + ".tmp"
             descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
                 0o600, dir_fd=directory_fd)
@@ -401,8 +409,9 @@ class ModelReplacementArtifactStore:
                     missing_code="artifact_missing", invalid_code="artifact_tampered")
                 if prior != normalized:
                     raise DevelopmentalModelReplacementError("artifact_identity_collision")
-                return
+                return False
             os.fsync(directory_fd)
+            return True
         except OSError as exc:
             raise DevelopmentalModelReplacementError("artifact_publication_failed") from exc
         finally:
@@ -564,6 +573,106 @@ class ModelReplacementArtifactStore:
         self.verify_protocol_bytes(protocol)
         return protocol
 
+    @staticmethod
+    def condition_artifact_id(*, protocol_id: str, trial_id: str,
+                              condition: str) -> str:
+        if (condition not in CONDITION_ORDER or not isinstance(protocol_id, str)
+                or not protocol_id or not isinstance(trial_id, str) or not trial_id):
+            raise DevelopmentalModelReplacementError("condition_artifact_selector_invalid")
+        material = {"protocol_id": protocol_id, "trial_id": trial_id,
+            "condition": condition}
+        return "model-replacement-condition-" + _digest(material)[7:31]
+
+    def begin_condition(self, *, protocol_id: str, protocol_digest: str,
+                        trial_id: str, condition: str, input_digest: str,
+                        correlation_id: str) -> tuple[bool, dict[str, Any]]:
+        condition_id = self.condition_artifact_id(protocol_id=protocol_id,
+            trial_id=trial_id, condition=condition)
+        semantic = {"schema_version": CONDITION_START_SCHEMA,
+            "condition_id": condition_id, "protocol_id": protocol_id,
+            "protocol_digest": protocol_digest, "trial_id": trial_id,
+            "condition": condition, "input_digest": input_digest,
+            "correlation_id": correlation_id, "authority": False}
+        record = {**semantic, "condition_start_digest": _digest(semantic)}
+        created = self._write(self.condition_starts / f"{condition_id}.json", record)
+        return created, record
+
+    def finish_condition(self, *, start: Mapping[str, Any], status: str,
+                         observation: Mapping[str, Any] | None,
+                         failure_posture: str | None = None) -> dict[str, Any]:
+        if status not in {"completed", "incomplete", "contradictory"}:
+            raise DevelopmentalModelReplacementError("condition_terminal_status_invalid")
+        condition_id = str(start.get("condition_id") or "")
+        verified_start, existing = self.read_condition(condition_id=condition_id,
+            expected_input_digest=str(start.get("input_digest") or ""))
+        if verified_start != dict(start):
+            raise DevelopmentalModelReplacementError("condition_start_binding_conflict")
+        if existing is not None:
+            expected = {"status": status,
+                "observation": dict(observation) if observation is not None else None,
+                "failure_posture": failure_posture}
+            if any(existing.get(key) != value for key, value in expected.items()):
+                raise DevelopmentalModelReplacementError("condition_terminal_conflict")
+            return existing
+        semantic = {"schema_version": CONDITION_RESULT_SCHEMA,
+            "condition_id": condition_id, "protocol_id": start["protocol_id"],
+            "protocol_digest": start["protocol_digest"], "trial_id": start["trial_id"],
+            "condition": start["condition"], "input_digest": start["input_digest"],
+            "correlation_id": start["correlation_id"],
+            "condition_start_digest": start["condition_start_digest"],
+            "status": status,
+            "observation": dict(observation) if observation is not None else None,
+            "failure_posture": failure_posture, "authority": False}
+        record = {**semantic, "condition_result_digest": _digest(semantic)}
+        self._write(self.condition_results / f"{condition_id}.json", record)
+        return record
+
+    def read_condition(self, *, condition_id: str,
+                       expected_input_digest: str) -> tuple[dict[str, Any] | None,
+                                                           dict[str, Any] | None]:
+        start_path = self.condition_starts / f"{condition_id}.json"
+        try:
+            start = self._read_artifact_json(start_path, maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
+                missing_code="condition_start_missing", invalid_code="condition_start_invalid")
+        except DevelopmentalModelReplacementError as exc:
+            if str(exc) == "condition_start_missing":
+                return None, None
+            raise
+        start_semantic = {key: item for key, item in start.items() if key != "condition_start_digest"}
+        expected_id = self.condition_artifact_id(protocol_id=str(start.get("protocol_id") or ""),
+            trial_id=str(start.get("trial_id") or ""), condition=str(start.get("condition") or ""))
+        if (start.get("schema_version") != CONDITION_START_SCHEMA
+                or start.get("condition_id") != condition_id or expected_id != condition_id
+                or start.get("input_digest") != expected_input_digest or start.get("authority") is not False
+                or start.get("condition_start_digest") != _digest(start_semantic)
+                or start.get("correlation_id") != f"{start['protocol_id']}:{start['trial_id']}:{start['condition']}" ):
+            raise DevelopmentalModelReplacementError("condition_start_digest_or_context_invalid")
+        result_path = self.condition_results / f"{condition_id}.json"
+        try:
+            result = self._read_artifact_json(result_path, maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
+                missing_code="condition_result_missing", invalid_code="condition_result_invalid")
+        except DevelopmentalModelReplacementError as exc:
+            if str(exc) == "condition_result_missing":
+                return start, None
+            raise
+        result_semantic = {key: item for key, item in result.items() if key != "condition_result_digest"}
+        if (result.get("schema_version") != CONDITION_RESULT_SCHEMA
+                or result.get("condition_id") != condition_id
+                or result.get("protocol_id") != start.get("protocol_id")
+                or result.get("protocol_digest") != start.get("protocol_digest")
+                or result.get("trial_id") != start.get("trial_id")
+                or result.get("condition") != start.get("condition")
+                or result.get("input_digest") != start.get("input_digest")
+                or result.get("correlation_id") != start.get("correlation_id")
+                or result.get("condition_start_digest") != start.get("condition_start_digest")
+                or result.get("authority") is not False
+                or result.get("condition_result_digest") != _digest(result_semantic)
+                or result.get("status") not in {"completed", "incomplete", "contradictory"}
+                or (result.get("status") == "completed" and not isinstance(result.get("observation"), Mapping))
+                or (result.get("status") == "incomplete" and result.get("observation") is not None)):
+            raise DevelopmentalModelReplacementError("condition_terminal_lineage_invalid")
+        return start, result
+
     def persist_run(self, semantic: Mapping[str, Any]) -> tuple[str, str]:
         payload = {**semantic, "schema_version": RUN_SCHEMA}
         digest = _digest(payload); run_id = "model-replacement-run-" + digest[7:31]
@@ -595,6 +704,65 @@ class ModelReplacementArtifactStore:
                 or _digest(semantic) != run_digest
                 or run_id != "model-replacement-run-" + run_digest[7:31]):
             raise DevelopmentalModelReplacementError("trial_run_artifact_tampered")
+        condition_statuses = value.get("condition_statuses")
+        if condition_statuses is not None:
+            protocol = value.get("protocol")
+            trial_id = value.get("trial_id")
+            observations = value.get("observations")
+            completion = value.get("experiment_completion_posture")
+            if (not isinstance(protocol, Mapping) or not isinstance(trial_id, str)
+                    or not isinstance(condition_statuses, list) or not 1 <= len(condition_statuses) <= len(CONDITION_ORDER)
+                    or not isinstance(observations, list) or len(observations) > len(CONDITION_ORDER)
+                    or completion not in {"completed", "incomplete", "contradictory"}):
+                raise DevelopmentalModelReplacementError("trial_condition_lineage_incomplete")
+            protocol_id = str(protocol.get("protocol_id") or "")
+            completed_observations: list[Mapping[str, Any]] = []
+            saw_terminal_status = False
+            for index, (condition, status) in enumerate(zip(CONDITION_ORDER, condition_statuses)):
+                if not isinstance(status, Mapping):
+                    raise DevelopmentalModelReplacementError("trial_condition_lineage_invalid")
+                condition_id = self.condition_artifact_id(protocol_id=protocol_id,
+                    trial_id=trial_id, condition=condition)
+                status_value = status.get("status")
+                if (saw_terminal_status or status.get("condition") != condition
+                        or status.get("condition_id") != condition_id
+                        or status_value not in {"completed", "incomplete", "contradictory"}
+                        or not isinstance(status.get("condition_input_digest"), str)):
+                    raise DevelopmentalModelReplacementError("trial_condition_lineage_invalid")
+                start, terminal = self.read_condition(condition_id=condition_id,
+                    expected_input_digest=status["condition_input_digest"])
+                if (start is None or status.get("condition_start_digest") != start.get("condition_start_digest")):
+                    raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
+                if status_value == "completed":
+                    if (terminal is None or terminal.get("status") != "completed"
+                            or status.get("condition_result_digest") != terminal.get("condition_result_digest")
+                            or len(completed_observations) >= len(observations)
+                            or terminal.get("observation") != observations[len(completed_observations)]):
+                        raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
+                    completed_observations.append(cast(Mapping[str, Any], terminal["observation"]))
+                else:
+                    saw_terminal_status = True
+                    if (status_value == "incomplete" and terminal is not None
+                            and terminal.get("status") != "incomplete"
+                            or status_value == "contradictory" and (terminal is None
+                                or terminal.get("status") != "contradictory")
+                            or status.get("condition_result_digest") != (terminal.get("condition_result_digest")
+                                if terminal is not None else None)
+                            or status_value == "contradictory"
+                                and status.get("contradictory_observation_digest") != (
+                                    terminal.get("observation", {}).get("observation_digest")
+                                    if terminal is not None and isinstance(terminal.get("observation"), Mapping)
+                                    else None)
+                            or status_value == "incomplete" and status.get("contradictory_observation_digest") is not None):
+                        raise DevelopmentalModelReplacementError("trial_condition_terminal_conflict")
+            if (len(completed_observations) != len(observations)
+                    or (completion == "completed" and (saw_terminal_status
+                        or len(condition_statuses) != len(CONDITION_ORDER)
+                        or len(observations) != len(CONDITION_ORDER)))
+                    or (completion in {"incomplete", "contradictory"}
+                        and (not saw_terminal_status
+                            or condition_statuses[-1].get("status") != completion))):
+                raise DevelopmentalModelReplacementError("trial_condition_completion_posture_conflict")
         return cast(dict[str, Any], value)
 
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -624,7 +792,11 @@ class ModelReplacementArtifactStore:
             provenance_b = self.load_verified_provenance(protocol.model_b_provenance_digest,
                 protocol.model_b_identity)
             raw_observations = run.get("observations")
-            if not isinstance(raw_observations, list) or len(raw_observations) != len(CONDITION_ORDER):
+            completion = run.get("experiment_completion_posture", "completed")
+            if (not isinstance(raw_observations, list)
+                    or completion not in {"completed", "incomplete", "contradictory"}
+                    or (completion == "completed" and len(raw_observations) != len(CONDITION_ORDER))
+                    or (completion != "completed" and len(raw_observations) >= len(CONDITION_ORDER))):
                 raise DevelopmentalModelReplacementError("run_projection_observation_count_invalid")
             observations: list[dict[str, Any]] = []
             expected_models = (protocol.model_a_identity, protocol.model_a_identity,
@@ -674,25 +846,29 @@ class ModelReplacementArtifactStore:
                     "current_projection_id", "current_projection_digest", "history_withheld",
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
                     "inference_receipt_digest", "output_digest")})
-            outputs = [str(item.get("output_digest") or "") for item in observations]
-            if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
-                    or observations[0].get("history_record_digests") != observations[2].get("history_record_digests")
-                    or observations[0].get("history_record_ids") != observations[4].get("history_record_ids")
-                    or observations[0].get("history_record_digests") != observations[4].get("history_record_digests")
-                    or len({(item.get("current_projection_id"), item.get("current_projection_digest"))
-                            for item in observations}) != 1):
-                raise DevelopmentalModelReplacementError("run_projection_frozen_context_conflict")
-            differences = {"history_effect_model_a": outputs[0] != outputs[1],
-                "history_effect_model_b": outputs[2] != outputs[3],
-                "model_difference_with_history": outputs[0] != outputs[2],
-                "model_difference_without_history": outputs[1] != outputs[3],
-                "model_a_restoration": outputs[0] == outputs[4]}
-            classification = ("model_a_restoration_unstable" if not differences["model_a_restoration"] else
-                "history_association_observed_under_both_cognitive_models"
-                if differences["history_effect_model_a"] and differences["history_effect_model_b"] else
-                "history_association_observed_model_a_only" if differences["history_effect_model_a"] else
-                "history_association_observed_model_b_only" if differences["history_effect_model_b"] else
-                "no_observable_history_effect_either_model")
+            if completion == "completed":
+                if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
+                        or observations[0].get("history_record_digests") != observations[2].get("history_record_digests")
+                        or observations[0].get("history_record_ids") != observations[4].get("history_record_ids")
+                        or observations[0].get("history_record_digests") != observations[4].get("history_record_digests")
+                        or len({(item.get("current_projection_id"), item.get("current_projection_digest"))
+                                for item in observations}) != 1):
+                    raise DevelopmentalModelReplacementError("run_projection_frozen_context_conflict")
+                outputs = [str(item.get("output_digest") or "") for item in observations]
+                differences = {"history_effect_model_a": outputs[0] != outputs[1],
+                    "history_effect_model_b": outputs[2] != outputs[3],
+                    "model_difference_with_history": outputs[0] != outputs[2],
+                    "model_difference_without_history": outputs[1] != outputs[3],
+                    "model_a_restoration": outputs[0] == outputs[4]}
+                classification = ("model_a_restoration_unstable" if not differences["model_a_restoration"] else
+                    "history_association_observed_under_both_cognitive_models"
+                    if differences["history_effect_model_a"] and differences["history_effect_model_b"] else
+                    "history_association_observed_model_a_only" if differences["history_effect_model_a"] else
+                    "history_association_observed_model_b_only" if differences["history_effect_model_b"] else
+                    "no_observable_history_effect_either_model")
+            else:
+                differences = None
+                classification = "experiment_contradictory" if completion == "contradictory" else "experiment_incomplete"
             if run.get("differences") != differences or run.get("classification") != classification:
                 raise DevelopmentalModelReplacementError("run_projection_comparison_binding_invalid")
             payload = {
@@ -714,6 +890,10 @@ class ModelReplacementArtifactStore:
                 "model_b_provenance_claim_count": len(provenance_b.claims),
                 "observations": observations, "differences": differences,
                 "classification": classification,
+                "experiment_completion_posture": run.get("experiment_completion_posture", "completed"),
+                "condition_statuses": run.get("condition_statuses"),
+                "condition_lineage_posture": ("verified_durable_condition_journal"
+                    if run.get("condition_statuses") is not None else "legacy_run_without_condition_journal"),
                 "claims_posture": run.get("claims_posture"),
                 "non_claims": run.get("non_claims"), "current_truth": False,
                 "authority": False,
@@ -817,6 +997,60 @@ class DevelopmentalModelReplacementExperiment:
         return {**semantic, "observation_id": "model-replacement-observation-" + digest[7:31],
                 "observation_digest": digest}
 
+    def _verify_observation(self, value: Mapping[str, Any], *, condition: str,
+                            provenance_digest: str, with_history: bool,
+                            trial_id: str) -> dict[str, Any]:
+        semantic = {key: item for key, item in value.items()
+            if key not in {"observation_id", "observation_digest"}}
+        calculated = _digest(semantic)
+        expected = self.protocol.model_a_identity if condition.startswith("model_a") else self.protocol.model_b_identity
+        prompt_digest = _digest({"prompt": self._prompt(with_history)})
+        history_ids = list(self.context.history_record_ids) if with_history else []
+        history_digests = list(self.context.history_record_digests) if with_history else []
+        correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
+        generation = value.get("actual_generation_parameters")
+        if (value.get("observation_digest") != calculated
+                or value.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
+                or value.get("condition_id") != condition or value.get("trial_id") != trial_id
+                or value.get("protocol_id") != self.protocol.protocol_id
+                or value.get("protocol_digest") != self.protocol.protocol_digest
+                or value.get("causal_context_id") != self.context.context_id
+                or value.get("causal_context_digest") != self.context.context_digest
+                or value.get("model_identity_digest") != expected.identity_digest
+                or value.get("model_provenance_manifest_digest") != provenance_digest
+                or value.get("current_projection_id") != self.context.current_projection_id
+                or value.get("current_projection_digest") != self.context.current_projection_digest
+                or value.get("history_record_ids") != history_ids
+                or value.get("history_record_digests") != history_digests
+                or value.get("history_withheld") is not (not with_history)
+                or value.get("prompt_digest") != prompt_digest
+                or value.get("correlation_id") != correlation
+                or not all(isinstance(value.get(key), str) and value.get(key) for key in (
+                    "request_id", "request_digest", "inference_receipt_id",
+                    "inference_receipt_digest", "output_digest"))
+                or not isinstance(generation, Mapping) or generation.get("temperature") != 0):
+            raise DevelopmentalModelReplacementError("condition_observation_binding_invalid")
+        return dict(value)
+
+    def _persist_partial_run(self, *, trial_id: str,
+                             observations: Sequence[Mapping[str, Any]],
+                             condition_statuses: Sequence[Mapping[str, Any]],
+                             failure_posture: str) -> dict[str, Any]:
+        completion = next((str(row.get("status")) for row in condition_statuses
+            if row.get("status") in {"incomplete", "contradictory"}), "incomplete")
+        semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol),
+            "observations": [dict(item) for item in observations],
+            "condition_statuses": [dict(item) for item in condition_statuses],
+            "experiment_completion_posture": completion,
+            "differences": None,
+            "classification": "experiment_contradictory" if completion == "contradictory"
+                else "experiment_incomplete",
+            "claims_posture": "bounded_digest_level_observed_association_only",
+            "non_claims": list(NON_CLAIMS), "validity": "execution_incomplete",
+            "failure_posture": failure_posture, "authority": False}
+        run_id, run_digest = self.store.persist_run(semantic)
+        return {**semantic, "run_id": run_id, "run_digest": run_digest}
+
     def run(self, *, trial_id: str = DEFAULT_TRIAL_ID) -> dict[str, Any]:
         if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
                 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in trial_id)):
@@ -835,7 +1069,113 @@ class DevelopmentalModelReplacementExperiment:
                  self.provenance_b.manifest_digest, False),
                 (CONDITION_ORDER[4], self.model_a, self.protocol.model_a_identity,
                  self.provenance_a.manifest_digest, True))
-        observations = [self._observe(*item, trial_id) for item in plan]
+        observations: list[dict[str, Any]] = []
+        condition_statuses: list[dict[str, Any]] = []
+        for condition, endpoint, expected, provenance_digest, with_history in plan:
+            correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
+            input_digest = _digest({"protocol_id": self.protocol.protocol_id,
+                "protocol_digest": self.protocol.protocol_digest, "trial_id": trial_id,
+                "condition": condition, "causal_context_id": self.context.context_id,
+                "causal_context_digest": self.context.context_digest,
+                "model_identity_digest": expected.identity_digest,
+                "model_provenance_digest": provenance_digest,
+                "current_projection_id": self.context.current_projection_id,
+                "current_projection_digest": self.context.current_projection_digest,
+                "history_record_ids": list(self.context.history_record_ids) if with_history else [],
+                "history_record_digests": list(self.context.history_record_digests) if with_history else [],
+                "prompt_digest": _digest({"prompt": self._prompt(with_history)}),
+                "correlation_id": correlation})
+            condition_id = self.store.condition_artifact_id(protocol_id=self.protocol.protocol_id,
+                trial_id=trial_id, condition=condition)
+            start, terminal = self.store.read_condition(condition_id=condition_id,
+                expected_input_digest=input_digest)
+            if terminal is not None:
+                status = str(terminal["status"])
+                row = {"condition": condition, "condition_id": condition_id,
+                    "condition_input_digest": terminal["input_digest"],
+                    "status": status, "condition_start_digest": terminal["condition_start_digest"],
+                    "condition_result_digest": terminal["condition_result_digest"]}
+                condition_statuses.append(row)
+                if status != "completed":
+                    return self._persist_partial_run(trial_id=trial_id, observations=observations,
+                        condition_statuses=condition_statuses,
+                        failure_posture=str(terminal.get("failure_posture") or status))
+                observation = self._verify_observation(terminal["observation"],
+                    condition=condition, provenance_digest=provenance_digest,
+                    with_history=with_history, trial_id=trial_id)
+                observations.append(observation)
+                continue
+            if start is not None:
+                condition_statuses.append({"condition": condition, "condition_id": condition_id,
+                    "condition_input_digest": start["input_digest"],
+                    "status": "incomplete", "condition_start_digest": start["condition_start_digest"],
+                    "condition_result_digest": None,
+                    "failure_posture": "started_without_terminal_no_replay"})
+                return self._persist_partial_run(trial_id=trial_id, observations=observations,
+                    condition_statuses=condition_statuses,
+                    failure_posture="started_without_terminal_no_replay")
+            created, start = self.store.begin_condition(protocol_id=self.protocol.protocol_id,
+                protocol_digest=self.protocol.protocol_digest, trial_id=trial_id,
+                condition=condition, input_digest=input_digest, correlation_id=correlation)
+            if not created:
+                # Another process claimed the unique condition first. Never
+                # infer from our read that it is safe to make the same call.
+                _, raced_terminal = self.store.read_condition(condition_id=condition_id,
+                    expected_input_digest=input_digest)
+                if raced_terminal is not None and raced_terminal.get("status") == "completed":
+                    observation = self._verify_observation(raced_terminal["observation"],
+                        condition=condition, provenance_digest=provenance_digest,
+                        with_history=with_history, trial_id=trial_id)
+                    observations.append(observation)
+                    condition_statuses.append({"condition": condition,
+                        "condition_id": condition_id,
+                        "condition_input_digest": raced_terminal["input_digest"],
+                        "status": "completed",
+                        "condition_start_digest": raced_terminal["condition_start_digest"],
+                        "condition_result_digest": raced_terminal["condition_result_digest"]})
+                    continue
+                condition_statuses.append({"condition": condition, "condition_id": condition_id,
+                    "condition_input_digest": start["input_digest"],
+                    "status": "incomplete", "condition_start_digest": start["condition_start_digest"],
+                    "condition_result_digest": None,
+                    "failure_posture": "concurrent_condition_claim_no_replay"})
+                return self._persist_partial_run(trial_id=trial_id, observations=observations,
+                    condition_statuses=condition_statuses,
+                    failure_posture="concurrent_condition_claim_no_replay")
+            raw_observation: dict[str, Any] | None = None
+            try:
+                raw_observation = self._observe(condition, endpoint, expected,
+                    provenance_digest, with_history, trial_id)
+                observation = self._verify_observation(raw_observation, condition=condition,
+                    provenance_digest=provenance_digest, with_history=with_history,
+                    trial_id=trial_id)
+            except Exception as exc:
+                reason = str(exc).lower()
+                contradictory = any(marker in reason for marker in (
+                    "mismatch", "invalid", "contradictory", "binding", "digest", "drift"))
+                failure_posture = ("contradictory_execution_evidence" if contradictory
+                    else "inference_interrupted_or_failed")
+                terminal = self.store.finish_condition(start=start,
+                    status="contradictory" if contradictory else "incomplete",
+                    observation=raw_observation if contradictory else None,
+                    failure_posture=failure_posture)
+                condition_statuses.append({"condition": condition, "condition_id": condition_id,
+                    "condition_input_digest": terminal["input_digest"],
+                    "status": terminal["status"],
+                    "condition_start_digest": terminal["condition_start_digest"],
+                    "condition_result_digest": terminal["condition_result_digest"],
+                    "contradictory_observation_digest": (raw_observation.get("observation_digest")
+                        if contradictory and isinstance(raw_observation, Mapping) else None),
+                    "failure_posture": failure_posture})
+                return self._persist_partial_run(trial_id=trial_id, observations=observations,
+                    condition_statuses=condition_statuses, failure_posture=failure_posture)
+            terminal = self.store.finish_condition(start=start, status="completed",
+                observation=observation)
+            observations.append(observation)
+            condition_statuses.append({"condition": condition, "condition_id": condition_id,
+                "condition_input_digest": terminal["input_digest"],
+                "status": "completed", "condition_start_digest": terminal["condition_start_digest"],
+                "condition_result_digest": terminal["condition_result_digest"]})
         outputs = [str(item["output_digest"]) for item in observations]
         differences = {"history_effect_model_a": outputs[0] != outputs[1],
                        "history_effect_model_b": outputs[2] != outputs[3],
@@ -853,6 +1193,8 @@ class DevelopmentalModelReplacementExperiment:
         else:
             classification = "no_observable_history_effect_either_model"
         semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol), "observations": observations,
+                    "condition_statuses": condition_statuses,
+                    "experiment_completion_posture": "completed",
                     "differences": differences, "classification": classification,
                     "claims_posture": "bounded_digest_level_observed_association_only",
                     "non_claims": list(NON_CLAIMS), "validity": "valid_controlled_observation"}

@@ -153,8 +153,41 @@ class DevelopmentalModelReplacementCampaign:
         campaign = cls(experiment, protocol, store, store.load_state(protocol))
         campaign._verify_experiment()
         if campaign.state.get("in_progress_trial_id"):
-            campaign._invalidate("campaign_interrupted_during_trial")
-            raise DevelopmentalModelReplacementError("campaign_interrupted_during_trial")
+            trial_id = str(campaign.state["in_progress_trial_id"])
+            if trial_id != campaign.state.get("next_trial_id"):
+                campaign._invalidate("campaign_interrupted_trial_identity_conflict",
+                    failure_evidence={"in_progress_trial_id": trial_id,
+                        "next_trial_id": campaign.state.get("next_trial_id")})
+                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_identity_conflict")
+            try:
+                recovered_run = experiment.run(trial_id=trial_id)
+            except Exception as exc:
+                campaign._invalidate("campaign_interrupted_trial_recovery_failed",
+                    failure_evidence={"trial_id": trial_id,
+                        "failure_kind": type(exc).__name__})
+                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_recovery_failed") from exc
+            if recovered_run.get("experiment_completion_posture", "completed") != "completed":
+                campaign._invalidate("campaign_interrupted_trial_recovered_incomplete",
+                    failure_evidence={"trial_id": trial_id,
+                        "run_id": recovered_run.get("run_id"),
+                        "run_digest": recovered_run.get("run_digest"),
+                        "experiment_completion_posture": recovered_run.get("experiment_completion_posture"),
+                        "condition_statuses": recovered_run.get("condition_statuses")})
+                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_recovered_incomplete")
+            completed = list(campaign.state["completed_trials"])
+            if any(item.get("trial_id") == trial_id for item in completed if isinstance(item, Mapping)):
+                campaign._invalidate("campaign_interrupted_trial_already_completed",
+                    failure_evidence={"trial_id": trial_id, "run_id": recovered_run.get("run_id"),
+                        "run_digest": recovered_run.get("run_digest")})
+                raise DevelopmentalModelReplacementError("campaign_interrupted_trial_already_completed")
+            completed.append({"trial_id": trial_id, "run_id": recovered_run["run_id"],
+                "run_digest": recovered_run["run_digest"]})
+            index = len(completed)
+            next_id = protocol.trial_ids[index] if index < len(protocol.trial_ids) else None
+            campaign.state = store.write_state(protocol, {"completed_trials": completed,
+                "next_trial_id": next_id, "in_progress_trial_id": None,
+                "validity": "valid_complete" if next_id is None else "valid_incomplete",
+                "failure_reason": None})
         return campaign
 
     def _verify_experiment(self) -> None:
@@ -172,10 +205,13 @@ class DevelopmentalModelReplacementCampaign:
                       dict(expected.inference_budget), dict(expected.generation_posture), expected.condition_order)
         if bindings != registered: self._invalidate("campaign_control_drift"); raise DevelopmentalModelReplacementError("campaign_control_drift")
 
-    def _invalidate(self, reason: str) -> None:
+    def _invalidate(self, reason: str, *, failure_evidence: Mapping[str, Any] | None = None) -> None:
         self.state = self.store.write_state(self.protocol, {**self.state, "validity": "invalid_incomplete", "failure_reason": reason})
+        failure = {"campaign_id": self.protocol.campaign_id, "reason": reason}
+        if failure_evidence is not None:
+            failure["failure_evidence"] = dict(failure_evidence)
         self.store.immutable(self.store.failures / f"{self.protocol.campaign_id}-{reason}.json",
-                             {"campaign_id": self.protocol.campaign_id, "reason": reason})
+                             failure)
 
     def run_next_trial(self) -> dict[str, Any]:
         self.state = self.store.load_state(self.protocol); self._verify_experiment()
@@ -189,6 +225,14 @@ class DevelopmentalModelReplacementCampaign:
         except Exception:
             self._invalidate("campaign_trial_failed_no_retry")
             raise
+        if run.get("experiment_completion_posture", "completed") != "completed":
+            self._invalidate("campaign_trial_incomplete_no_retry", failure_evidence={
+                "trial_id": trial_id, "run_id": run.get("run_id"),
+                "run_digest": run.get("run_digest"),
+                "experiment_completion_posture": run.get("experiment_completion_posture"),
+                "condition_statuses": run.get("condition_statuses"),
+            })
+            raise DevelopmentalModelReplacementError("campaign_trial_incomplete_no_retry")
         completed = list(self.state["completed_trials"])
         completed.append({"trial_id": trial_id, "run_id": run["run_id"], "run_digest": run["run_digest"]})
         index = len(completed); next_id = self.protocol.trial_ids[index] if index < len(self.protocol.trial_ids) else None
