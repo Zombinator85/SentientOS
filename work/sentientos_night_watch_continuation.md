@@ -821,3 +821,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the supervisor module. No child process, failure path, or lifecycle operation was run.
 
 **Next implementation dependency:** verify from source that the new runtime observation writer and lifecycle journal sequence recovery preserve source identities through the daemon's exact restart configuration, then inspect any remaining owner composition gap. Any actual process identity beyond parent-owned `Popen`/launch custody remains externally unverifiable without a stronger OS issuer; preserve that limitation.
+
+
+## Correction — canonical chat runtime-observation composition was already present
+
+- A later complete read of `sentientos/runtime/startup.py` showed that the canonical owner already calls `LocalModelChatServiceAdapter.current_runtime_handoff()` and publishes the full runtime observation, including the selected configured serving receipt, after startup, on each cadence, when current handoff verification fails, and during shutdown. The resource observer and World-State projection already consume that record.
+- The generic `RuntimeSupervisor._observe()` hook and duplicate adapter method added in the preceding checkpoint were redundant and could overwrite a richer serving-bound observation between canonical publications. They have been removed. The runtime observation path remains the pre-existing explicit startup owner path; this pass does not claim a new connection there.
+- `py_compile` passed for the cleaned adapter and supervisor files. No runtime or process behavior was executed.
+
+**Next implementation dependency:** continue from the genuine lifecycle receipt and resource-ledger durability changes; inspect any remaining bounded custody or post-effect uncertainty gaps without duplicating the canonical runtime observation owner.
