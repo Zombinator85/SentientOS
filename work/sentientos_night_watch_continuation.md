@@ -45,6 +45,7 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 - The actual experimental serving endpoint now returns the invocation owner's original `observed_at`; it is captured in the digest-bound condition observation with posture `invocation_receipt_metadata_unverified` because the historical invocation receipt digest intentionally excludes that custody metadata.
 - The durable five-condition model-replacement World-State fact now has a compact longitudinal self-model interpretation with exact run/protocol/context identities, A/B model and provenance identities, each bounded condition's observation/receipt IDs and resource-link digest, preserved event-time text/posture, completion and classification. It explicitly records unknown software-generation identity and no current truth/effect/authority.
 - Historical observations missing the optional timestamp remain compatible and undated. The new interpretation is emitted only as a predicate consumed when the existing explicit predicate allowlist selects it; no default epistemic rule or self-model predicate selection was activated.
+- Resident developmental cognition now selects verified model-replacement run evidence ahead of generic World-State facts and selects consequence chains/comparisons before strategy proposals, after active running identities and resource/transition evidence. It requires the `embodiment` source kind for these priorities, preserving source-kind distinctions.
 
 ## Next executable task
 
