@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
@@ -75,7 +76,8 @@ class EmbodiedConsequenceError(ValueError):
 
 
 def canonical_bytes(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                      allow_nan=False).encode()
 
 
 def digest(value: Any) -> str:
@@ -149,8 +151,15 @@ def verify_expectation(value: EmbodiedActionExpectation, *, identity_required: b
     for field, policy in value.comparison_policy.items():
         if set(policy) - {"kind", "tolerance"} or policy.get("kind") not in {"exact", "numeric_tolerance"}:
             raise EmbodiedConsequenceError("comparison_policy_invalid")
-        if policy["kind"] == "numeric_tolerance" and (type(policy.get("tolerance")) not in (int, float) or policy["tolerance"] < 0):
-            raise EmbodiedConsequenceError("comparison_tolerance_invalid")
+        if policy["kind"] == "numeric_tolerance":
+            tolerance = policy.get("tolerance")
+            try:
+                tolerance_float = float(tolerance)
+            except (OverflowError, TypeError, ValueError):
+                tolerance_float = math.inf
+            if (type(tolerance) not in (int, float) or tolerance < 0
+                    or not math.isfinite(tolerance_float)):
+                raise EmbodiedConsequenceError("comparison_tolerance_invalid")
     if identity_required and (value.expectation_id, value.expectation_digest) != _identity("expectation", value.semantic_payload()):
         raise EmbodiedConsequenceError("expectation_digest_mismatch")
 
@@ -345,9 +354,21 @@ def _compare(expectation: EmbodiedActionExpectation, observation: IndependentCon
             row["categorical_mismatch"] = None if result == "satisfied" else {"expected":expected,"observed":observed}
             row["missing_observation"] = False
         elif isinstance(expected, (int, float)) and not isinstance(expected, bool) and isinstance(observed, (int, float)) and not isinstance(observed, bool):
-            signed = float(observed) - float(expected); absolute = abs(signed)
-            row.update({"signed_delta":signed,"absolute_delta":absolute,"missing_observation":False})
-            result = "satisfied" if absolute <= float(cast(float, policy["tolerance"])) else "contradicted"
+            try:
+                signed = float(observed) - float(expected)
+                absolute = abs(signed)
+                tolerance = float(cast(float, policy["tolerance"]))
+            except (OverflowError, TypeError, ValueError):
+                signed = absolute = None
+                result = "indeterminate"
+                row["numeric_range_posture"] = "not_representable_as_finite_float"
+            else:
+                if not math.isfinite(absolute):
+                    result = "indeterminate"
+                    row["numeric_range_posture"] = "non_finite_delta"
+                else:
+                    row.update({"signed_delta":signed,"absolute_delta":absolute,"missing_observation":False})
+                    result = "satisfied" if absolute <= tolerance else "contradicted"
         else:
             result = "indeterminate"; row["missing_observation"] = False
         row["result"] = result; counts[result] += 1; rows.append(row)
