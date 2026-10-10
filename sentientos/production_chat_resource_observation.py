@@ -27,6 +27,7 @@ from .chat_process_generation import (
     ChatProcessGenerationError,
     verify_stored_chat_process_handoff,
 )
+from .conversation_session import compact_runtime_generation_attribution
 from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceAllocation,
     GovernedLocalModelResourceLedger,
@@ -245,25 +246,7 @@ class ProductionChatResourceObservationOwner:
                         and isinstance(value.get("effects"), Mapping)
                         and value["effects"].get("local_model_inference") is True
                         and isinstance(value.get("output_digest"), str)):
-                    prior_generation = verified_software.get("prior_snapshot_generation")
-                    prior_handoff = (prior_generation.get("handoff")
-                        if isinstance(prior_generation, Mapping) else None)
-                    compact_handoff = {key: verified_software[key] for key in (
-                        "status", "handoff_id", "handoff_digest", "process_instance_id",
-                        "software_generation_digest", "process_id", "parent_process_id",
-                        "startup_timestamp", "source_generation_scope") if key in verified_software}
-                    compact_handoff["prior_generation_reference"] = ({
-                        key: prior_handoff.get(key) for key in (
-                            "handoff_id", "handoff_digest", "process_instance_id",
-                            "software_generation_digest", "startup_timestamp")
-                        if key in prior_handoff
-                    } | {
-                        key: prior_generation.get(key) for key in (
-                            "startup_snapshot_digest", "supervisor_generation", "relation",
-                            "overlap_status", "direct_predecessorship", "intervening_runtime_generations")
-                        if key in prior_generation
-                    } if isinstance(prior_handoff, Mapping) and isinstance(prior_generation, Mapping)
-                    else None)
+                    compact_handoff = compact_runtime_generation_attribution(verified_software)
                     generation_attributions.append({
                         "invocation_receipt_id": value["receipt_id"],
                         "invocation_receipt_digest": value["receipt_digest"],

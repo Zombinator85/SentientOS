@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before this increment, GitHub branch inspection most recently verified `a9d758d10d2082c810ebc0ddcc52584b610eb111` (tree `d1a7f506f20fdaff0f15976a95939d1b5f718f43`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+Before this increment, GitHub branch inspection most recently verified `a7cc5083969af3fe804f252e64b5ba8f88f6d588` (tree `aa38d7f2b04c04dca64bca9503f1167d3f26f48e`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -349,3 +349,11 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Changed Python files compiled successfully. Source whitespace review passed. No tests or runtime execution were performed; work remains unverified for production.
 
 **Next implementation dependency:** inspect the chat recovery phase predecessor/successor receipts against these invocation-bound serving identities. Reconstruct the strongest historical relation the existing owners prove, and retain unknown status if a serving lifetime or transition stage cannot be linked to the exact chat process handoff.
+
+### New construction checkpoint — reuse canonical compact chat-generation lineage
+
+- The read-only resource observer now uses the existing conversation-session compact runtime-generation projection after independently verifying the full stored handoff. The resident World-State and durable transcript therefore preserve the same bounded handoff/predecessor identity vocabulary, while the immutable full handoff remains available for source verification.
+- This avoids a parallel lineage shape and preserves the explicit unknown direct predecessor/overlap posture from the launcher record.
+- The observer module compiled successfully; no runtime or production behavior was exercised.
+
+**Next implementation dependency:** inspect authenticated chat recovery phase receipts and determine whether their interrupted operation identity can be connected to the exact predecessor/successor handoffs already retained in invocation and launcher lineage.
