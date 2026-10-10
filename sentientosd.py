@@ -1098,8 +1098,12 @@ class RuntimeMaintenanceSurfaces:
         retained_source_ids = {source.source_id for source in snapshot.sources}
         omitted_resource_lineage_sources = (selected_resource_lineage_source_ids
             - retained_source_ids)
+        conflicting_resource_lineage_sources = {
+            conflict.subject_id for conflict in snapshot.conflicts
+            if conflict.conflict_type == "source_digest_mismatch"
+        } & selected_resource_lineage_source_ids
         degraded_resource_lineage_sources = any(item.get("disposition") != "verified"
-            for item in resource_lineage_records)
+            for item in resource_lineage_records) or bool(conflicting_resource_lineage_sources)
         self._feedback.setdefault("surfaces", {})["resource_invocation_lineage_projection"] = {
             "status": "degraded" if omitted_resource_lineage_sources
                 or degraded_resource_lineage_sources else
