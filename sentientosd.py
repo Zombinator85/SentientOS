@@ -2267,7 +2267,11 @@ def _compose_causal_introspection(
                 verified_chat_process_recovery_transitions=(
                     observation.chat_process_recovery_transitions),
                 verified_chat_process_runtime_observation=(
-                    observation.chat_process_runtime_observation))
+                    observation.chat_process_runtime_observation),
+                verified_serving_operation_attempts=(
+                    observation.serving_operation_attempts),
+                verified_serving_operation_history=(
+                    observation.serving_operation_history))
             resource_record = next((item for item in records
                 if item.get("subject_kind") == "causal_resource_consumption"), None)
             if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):

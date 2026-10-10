@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the cross-platform intent-root absence check, GitHub branch inspection verified `8ca4beda86b6e18f3b532bc70f2346989609fe4a` (tree `dcfd0c8e8d419d65861a0d08d1b4f200ac95eec8`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before joining runtime invocations to serving receipts in World-State, GitHub branch inspection verified `a4108dfba089a3a92c2aebaa8660140f7a674a2f` (tree `aa7177dae8727eec90436638cf08f25ee76cef0d`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -610,3 +610,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the mutation controller. Windows behavior was source-reviewed but not run.
 
 **Next implementation dependency:** verify current durable-history admission and tick sequencing for the recovered process-lineage projections; continue only where the existing owners expose a concrete repair.
+
+
+### New checkpoint — reconcile serving lineage before runtime World-State publication
+
+- The chat-process invocation projection now joins each complete serving-receipt/reservation reference against the exact bounded serving-history entry, checking its history digest, receipt ID/digest, attempt ID/digest, operation and session. Partial references or missing/ambiguous/conflicting joins fail closed; invocations from historical schemas with no reservation linkage remain explicitly unbound.
+- The canonical World-State builder and causal-introspection read path now both pass the read-only serving history required for this reconciliation.
+- The resulting runtime observation and longitudinal interpretation retain the verified join posture alongside exact IDs; developmental writeback carries it in its bounded projection.
+- Python compilation passed for the World-State projector, daemon composition, longitudinal self-model, and developmental writeback owner. No tests, live observation, cognition, recovery, or production verification was run.
+
+**Next implementation dependency:** continue cross-owner recovery review for any remaining serving/invocation substitution path; keep identity joins exact before either World-State or durable history publication.

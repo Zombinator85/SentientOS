@@ -570,6 +570,42 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         source_id = ("chat_process_invocation:" + str(attribution["invocation_receipt_id"])
             + ":" + str(attribution["invocation_receipt_digest"])
             + ":" + str(handoff.get("handoff_digest", "")))
+        request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
+        serving_reference_fields = ("serving_receipt_id", "serving_receipt_semantic_digest",
+            "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+        serving_reference_values = [request_linkage.get(key) for key in serving_reference_fields]
+        serving_lineage_posture = "historically_unbound"
+        if any(value is not None for value in serving_reference_values):
+            if any(not isinstance(value, str) or not value for value in serving_reference_values):
+                raise ValueError("chat_process_invocation_serving_lineage_incomplete")
+            receipt_id, receipt_digest, attempt_id, attempt_digest = serving_reference_values
+            history_matches = []
+            for history in verified_serving_operation_history:
+                if (not isinstance(history, Mapping)
+                        or history.get("history_semantic_digest") != semantic_digest({
+                            key: value for key, value in history.items()
+                            if key != "history_semantic_digest"})):
+                    raise ValueError("chat_process_invocation_serving_history_invalid")
+                receipt = history.get("receipt")
+                if (isinstance(receipt, Mapping)
+                        and receipt.get("receipt_id") == receipt_id
+                        and receipt.get("receipt_semantic_digest") == receipt_digest):
+                    history_matches.append(history)
+            if len(history_matches) != 1:
+                raise ValueError("chat_process_invocation_serving_history_missing_or_ambiguous")
+            history = history_matches[0]
+            receipt = history.get("receipt")
+            attempt = history.get("attempt")
+            binding = receipt.get("binding") if isinstance(receipt, Mapping) else None
+            if (history.get("status") != "serving_receipt_verified"
+                    or history.get("attempt_semantic_digest") != attempt_digest
+                    or not isinstance(attempt, Mapping) or attempt.get("attempt_id") != attempt_id
+                    or not isinstance(binding, Mapping)
+                    or binding.get("serving_operation_id") != request_linkage.get("serving_operation_id")
+                    or receipt.get("session_id") != request_linkage.get("serving_session_id")):
+                raise ValueError("chat_process_invocation_serving_lineage_mismatch")
+            serving_lineage_posture = "verified_receipt_and_reservation"
         upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
         serving = (upstream.get("current_serving_lifetime")
             if isinstance(upstream, Mapping) else None)
@@ -608,6 +644,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "software_generation_digest": handoff.get("software_generation_digest"),
             "software_generation_startup_timestamp": handoff.get("startup_timestamp"),
             "serving_identity": serving_binding,
+            "serving_receipt_lineage_posture": serving_lineage_posture,
             "active_model_identity": (request.get("active_model_identity")
                 if isinstance(request, Mapping) else None),
             "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
@@ -849,7 +886,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "serving_operation_id": request_linkage.get("serving_operation_id"),
                 "serving_session_id": request_linkage.get("serving_session_id"),
                 "serving_receipt_lineage_posture": (
-                    "reservation_and_receipt_references_present" if serving_references_complete
+                    "history_join_verified_by_projector" if serving_references_complete
                     else "historically_unbound"),
                 "resource_allocation_digest": invocation.get("resource_allocation_digest"),
                 "resource_attempt_id": invocation.get("resource_attempt_id"),
