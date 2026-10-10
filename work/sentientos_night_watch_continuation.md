@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `45f13e15c63348199773cac91e4a6223b3d5e7a7` (tree `2e4c160be3d0710e4bf574b29c9efb65320a39ad`, parent `ac2cedf28cb2b24e3fb31c3db8ac041f01b91e81`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `58856ef32438188b04be37091f48c951ae2f5735` (tree `804d232d667dc004841e235697a9ee256e1c5913`, parent `9c846665218b6783866bad4472bbaa670a880a78`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -275,3 +275,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verification: `45f13e15c63348199773cac91e4a6223b3d5e7a7`.
 
 **Next implementation dependency:** review the now-qualified running-model and transition facts through their exact source-kind selectors and persistence/recovery owners. Keep current session evidence undated, preserve configured opt-in, and ensure later cognition receives only the verified model lineage while any historical v1 stage remains explicitly incomplete.
+
+
+### New checkpoint — stage recovery verifies durable serving custody
+
+- Resident transition serving now verifies the exact canonical serving receipt and privilege witness after establishment, records their receipt identities in the completed stage, and reopens both during recovery. This binds the durable serving owner receipt to the stage’s activation-history/session evidence without implying that the process remains alive after restart.
+- The live transition-status observer now uses the non-mutating serving-session API and carries exact activation state, receipt, predecessor, and history-digest references into the daemon projection. Stale model sessions are omitted without causing a status read to unload them.
+- World-State now identifies raw stage rows as digest-valid journal entries, records the controller's semantic recovery posture separately, and carries serving receipt identities. Completion of a journal row remains distinct from effect proof or current runtime status.
+- The modified serving, transition, and daemon sources passed AST compilation; remote branch verified at `58856ef32438188b04be37091f48c951ae2f5735`. No runtime or crash recovery was exercised.
+
+**Next implementation dependency:** qualify the model-transition `b_epoch_observed` and `post_restoration_observed` stages. Their generic `advance(evidence=...)` input must not become an authenticated observation or a `supports`/`contradicts` epistemic binding unless a real existing observer owner verifies its source.
