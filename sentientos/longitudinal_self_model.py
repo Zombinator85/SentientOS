@@ -536,7 +536,8 @@ class LongitudinalSelfModelOwner:
                     predicate, value, "historical_and_current", category, facts[0].stage,
                     "contradicted" if contradicted else ("historical" if freshness in {"stale", "unknown", "not_applicable"} else "current"),
                     freshness, "contradicted" if contradicted else "consistent",
-                    min((fact.evidence_strength for fact in facts), default="unknown"),
+                    ("unverified_caller_assertion" if unauthenticated_observation else
+                     min((fact.evidence_strength for fact in facts), default="unknown")),
                     tuple(sorted({fact.source.source_id for fact in facts})),
                     tuple(sorted({fact.source.digest for fact in facts})),
                     tuple(sorted(fact.fact_id for fact in facts)), snapshot.snapshot_id, snapshot.digest,

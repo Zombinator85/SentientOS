@@ -72,6 +72,22 @@ def staleness_for(kind:str, observed_at:str|None, now:datetime)->str:
     if age < 7*86400: return "stale"
     return "expired"
 
+def _source_staleness(kind:str, observed_at:str|None, declared:Any, now:datetime)->str:
+    """Combine event age with producer posture without allowing freshness upgrades."""
+    calculated=staleness_for(kind,observed_at,now)
+    if declared is None: return calculated
+    value=str(declared).lower()
+    aliases={"current":"fresh"}
+    value=aliases.get(value,value)
+    rank={"not_applicable":0,"fresh":0,"aging":1,"stale":2,"expired":3,
+          "undated":4,"unknown":4}
+    if value not in rank: return "unknown"
+    if value in {"unknown","undated"}: return value
+    if calculated in {"unknown","undated"}: return calculated
+    if calculated == "not_applicable": return value if value in {"stale","expired"} else calculated
+    if value == "not_applicable": return calculated
+    return value if rank[value]>rank[calculated] else calculated
+
 class WorldStateBoardBuilder:
     def __init__(self, *, allowed_roots:Sequence[Path|str]=(), max_source_count:int=64, max_artifact_size:int=1048576, clock:Callable[[],datetime]|None=None):
         self.allowed_roots=tuple(str(Path(r).resolve()) for r in allowed_roots); self.max_source_count=max_source_count; self.max_artifact_size=max_artifact_size; self.clock=clock or (lambda: datetime.now(timezone.utc))
@@ -84,7 +100,7 @@ class WorldStateBoardBuilder:
             sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
             dg=str(r.get("digest") or record_digest(r)); finding="ok"
             if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
-            st=staleness_for(kind, r.get("observed_at"), now)
+            st=_source_staleness(kind, r.get("observed_at"), r.get("staleness"), now)
             src=WorldStateSourceRef(sid,kind,str(r.get("schema_version","v1")),dg,bool(r.get("required",False)), "redacted", st, finding)
             sources.append(src)
             if sid in seen and seen[sid]!=dg: conflicts.append(WorldStateConflict(_sid("conflict",(sid,seen[sid],dg)),"source_digest_mismatch",sid,(),"error","one semantic source id has different digests"))
