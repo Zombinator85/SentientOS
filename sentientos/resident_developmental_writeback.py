@@ -96,6 +96,7 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
                     "software_generation_startup_timestamp", "model_id",
                     "model_artifact_digest", "relation_posture", "currentness",
                     "serving_receipt_lineage_posture",
+                    "software_serving_operation_binding_posture",
                     "effect_authority", "event_time", "event_time_posture")},
             "serving_identity": {key: serving_identity.get(key) for key in (
                 "serving_session_id", "serving_operation_id", "serving_receipt_id",

@@ -360,6 +360,16 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 or request.get("request_id") != attribution.get("invocation_request_id")
                 or request.get("request_digest") != attribution.get("invocation_request_digest")):
             raise ValueError("chat_process_generation_attribution_binding_invalid")
+        request_linkage = request.get("linkage")
+        request_software = (request_linkage.get("software_generation_attribution")
+            if isinstance(request_linkage, Mapping) else None)
+        if not isinstance(request_software, Mapping):
+            raise ValueError("chat_process_generation_request_linkage_missing")
+        for key in ("handoff_id", "handoff_digest", "process_instance_id",
+                "software_generation_digest", "startup_timestamp",
+                "source_generation_scope", "configured_serving_operation_id"):
+            if key in handoff and request_software.get(key) != handoff.get(key):
+                raise ValueError("chat_process_generation_request_handoff_substitution")
         prior = generation_attribution_by_receipt.get(receipt_id)
         if prior is not None:
             if dict(prior) != dict(attribution):
@@ -629,6 +639,19 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
         serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
             if isinstance(serving, Mapping) else {})
+        software_serving_operation_binding_posture = "serving_receipt_lineage_unavailable"
+        if serving_lineage_posture == "verified_receipt_and_reservation":
+            handoff_operation_id = handoff.get("configured_serving_operation_id")
+            receipt_operation_id = (
+                binding.get("serving_operation_id") if isinstance(binding, Mapping) else None)
+            if isinstance(handoff_operation_id, str) and handoff_operation_id:
+                if handoff_operation_id != receipt_operation_id:
+                    raise ValueError("chat_process_handoff_serving_operation_substitution")
+                software_serving_operation_binding_posture = "exact_handoff_serving_receipt_operation_match"
+            else:
+                # Historical handoff schemas can lack an operation reference;
+                # retain the invocation, but do not claim the process served it.
+                software_serving_operation_binding_posture = "legacy_handoff_serving_operation_unknown"
         invocation_event_time = invocation.get("observed_at")
         invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
         payload["event_time"] = invocation_event_time
@@ -656,6 +679,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "software_generation_startup_timestamp": handoff.get("startup_timestamp"),
             "serving_identity": serving_binding,
             "serving_receipt_lineage_posture": serving_lineage_posture,
+            "software_serving_operation_binding_posture":
+                software_serving_operation_binding_posture,
             "active_model_identity": (request.get("active_model_identity")
                 if isinstance(request, Mapping) else None),
             "model_id": request.get("model_id") if isinstance(request, Mapping) else None,

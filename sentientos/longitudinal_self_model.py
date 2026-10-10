@@ -302,13 +302,63 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
         "historical_interpretation" if historical_transition_event else "current_state")]
+    compact_chat_invocation = (
+        fact.source.kind == "resource_governor"
+        and fact.subject.subject_kind == "chat_process_software_generation_invocation"
+        and fact.source.finding == "ok")
     for predicate, keys in PAYLOAD_PREDICATES.items():
+        if compact_chat_invocation and predicate == "chat_model_serving_lineage":
+            # Preserve exact invocation lineage below without allowing an
+            # unbounded receipt list to discard the whole self-model claim.
+            continue
         for key in keys:
             if key in fact.payload:
                 out.append((predicate, _bounded(fact.payload[key]), "lineage"
                     if any(token in predicate for token in ("generation", "model", "resource", "transition"))
                     else "configuration"))
                 break
+    if compact_chat_invocation:
+        source_lineage = fact.payload.get("chat_model_serving_lineage")
+        if isinstance(source_lineage, Mapping):
+            consumption = source_lineage.get("resource_consumption_receipt_digests", ())
+            if isinstance(consumption, (list, tuple)) and all(
+                    isinstance(value, str) and value for value in consumption):
+                selected = {key: source_lineage.get(key) for key in (
+                    "invocation_receipt_id", "invocation_receipt_digest",
+                    "invocation_request_id", "invocation_request_digest",
+                    "installation_identity", "provisioning_id", "resource_allocation_digest",
+                    "resource_attempt_id", "resource_linkage_digest",
+                    "software_handoff_id", "software_handoff_digest",
+                    "software_process_instance_id", "software_generation_digest",
+                    "software_generation_startup_timestamp", "model_id",
+                    "model_artifact_digest", "relation_posture", "currentness",
+                    "serving_receipt_lineage_posture",
+                    "software_serving_operation_binding_posture",
+                    "effect_authority", "event_time", "event_time_posture")}
+                selected.update({
+                    "source_record_id": fact.source.source_id,
+                    "source_record_digest": fact.source.digest,
+                    "source_payload_digest": digest_payload(dict(fact.payload)),
+                    "resource_consumption_receipt_digests": list(consumption[:4]),
+                    "resource_consumption_receipt_digests_digest": digest_payload(list(consumption)),
+                    "resource_consumption_receipt_digests_total": len(consumption),
+                    "resource_consumption_receipt_digests_omitted": max(0, len(consumption) - 4),
+                    "historical_only": True, "current_truth": False,
+                    "effect_proven": False, "authority": False})
+                serving_identity = source_lineage.get("serving_identity")
+                if isinstance(serving_identity, Mapping):
+                    selected["serving_identity"] = {key: serving_identity.get(key) for key in (
+                        "serving_session_id", "serving_operation_id", "serving_receipt_id",
+                        "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+                        "serving_operation_attempt_semantic_digest",
+                        "activation_state_semantic_digest", "activation_generation",
+                        "activation_receipt_id", "activation_receipt_semantic_digest",
+                        "model_serving_admission_ref", "model_id", "artifact_id",
+                        "artifact_sha256", "runtime_id")}
+                selected["resource_consumption_receipt_retention_posture"] = (
+                    "bounded_subset_with_source_digest" if len(consumption) > 4 else "complete")
+                if len(json.dumps(selected, sort_keys=True, separators=(",", ":")).encode("utf-8")) <= MAX_VALUE_BYTES:
+                    out.append(("chat_model_serving_lineage", _bounded(selected), "lineage"))
     if fact.effect_proven and "observed_consequence" in fact.payload:
         out.append(("observed_consequence", _bounded(fact.payload["observed_consequence"]), "observed_consequence"))
     # Preserve the verified model-transition observation/history join as one

@@ -638,3 +638,15 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the longitudinal self-model. No World-State reconciliation, persistence/restart, cognition, or production verification was run.
 
 **Next implementation dependency:** verify the final remote branch and continue bounded review of source-linked records for any remaining whole-claim drops; preserve explicit omission evidence.
+
+
+### New checkpoint — bind chat process generation to the serving receipt
+
+- Fresh branch inspection verified remote HEAD `1c50b532e4a20c95fc9e82dcf59ad5da27e12495`, tree `2ae07b730159bfed124c1471e6ee9ba8448997b5`.
+- The earlier epistemic recovery publication loop is already stage-specific in current source: evidence-binding receipts publish under `evidence`, state-update receipts under `state`. The requested defect was not present.
+- The resource World-State projector now compares the exact persisted request software-generation reference against the process handoff attribution for handoff ID/digest, process instance, source-generation digest, startup timestamp, scope, and configured serving operation. A substituted handoff cannot inherit an unrelated completed invocation.
+- Where a linked serving receipt and reservation are present, the projector additionally requires the handoff's configured serving operation to equal the operation in that exact canonical serving receipt. Mismatch rejects the lineage; historical handoffs that predate this operation field remain explicitly unknown instead of being upgraded to a verified serving association.
+- The compact developmental writeback retains the new binding posture. Longitudinal self-model now emits a bounded invocation-lineage claim with exact invocation/request, allocation/attempt, process/handoff, model and serving identities, up to four consumption receipt digests, whole-list digest/count/omissions, source record and payload digests, and historical/non-authorizing status. A long receipt list no longer causes the entire invocation lineage claim to be dropped by the 4 KiB self-model claim bound.
+- Python compilation passed for `host_resource_runtime.py`, `resident_developmental_writeback.py`, and `longitudinal_self_model.py`. No tests, execution, restart, model serving, cognition, platform, or production verification was performed.
+
+**Next implementation dependency:** continue checking the remaining invocation/runtime attribution joins for any path that still accepts a verified process identity without reconciling it to that invocation's exact serving operation and receipt; then inspect durable later-cognition consumption of the compact invocation claim.
